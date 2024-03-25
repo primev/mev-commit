@@ -1,0 +1,9 @@
+# Set default behaviour, in which all text files in repository are normalized.
+* text=auto
+
+# The following text files will always be normalized
+# and converted to the native line endings on checkout.
+*.yml text
+*.md text
+*.sh text
+*.go text
