@@ -1,0 +1,242 @@
+syntax = "proto3";
+
+package providerapi.v1;
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Provider API";
+    version: "1.0.0-alpha";
+    license: {
+      name: "Business Source License 1.1";
+      url: "https://github.com/primevprotocol/mev-commit/blob/main/LICENSE";
+    };
+  };
+};
+
+service Provider {
+  // ReceiveBids
+  //
+  // ReceiveBids is called by the provider to receive bids from the mev-commit node.
+  // The mev-commit node will stream bids to the provider as the response.
+  rpc ReceiveBids(EmptyMessage) returns (stream Bid) {
+    option (google.api.http) = {get: "/v1/provider/receive_bids"};
+  }
+  // SendProcessedBids
+  //
+  // SendProcessedBids is called by the provider to send processed bids to the mev-commit node.
+  // The provider will stream processed bids to the mev-commit node.
+  rpc SendProcessedBids(stream BidResponse) returns (EmptyMessage) {
+    option (google.api.http) = {
+      post: "/v1/provider/send_processed_bids"
+      body: "*"
+    };
+  }
+  // RegisterStake
+  //
+  // RegisterStake is called by the provider to register its stake in the provider registry.
+  rpc RegisterStake(StakeRequest) returns (StakeResponse) {
+    option (google.api.http) = {post: "/v1/provider/register_stake/{amount}"};
+  }
+  // GetStake
+  //
+  // GetStake is called by the provider to get its stake in the provider registry.
+  rpc GetStake(EmptyMessage) returns (StakeResponse) {
+    option (google.api.http) = {get: "/v1/provider/get_stake"};
+  }
+  // GetMinStake
+  //
+  // GetMinStake is called by the provider to get the minimum stake required to be in the provider registry.
+  rpc GetMinStake(EmptyMessage) returns (StakeResponse) {
+    option (google.api.http) = {get: "/v1/provider/get_min_stake"};
+  }
+  // GetPendingTxns
+  //
+  // GetPendingTxns is called by the provider to get the pending transactions for the wallet.
+  rpc GetPendingTxns(EmptyMessage) returns (PendingTxnsResponse) {
+    option (google.api.http) = {get: "/v1/provider/get_pending_txns"};
+  }
+  // CancelTransaction
+  //
+  // CancelTransaction is called by the provider to cancel a transaction sent from this wallet.
+  rpc CancelTransaction(CancelReq) returns (CancelResponse) {
+    option (google.api.http) = {post: "/v1/provider/cancel_transaction/{tx_hash}"};
+  }
+}
+
+message StakeRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Stake request"
+      description: "Stake provider in the provider provider_registry."
+      required: ["stake"]
+    }
+    example: "{\"amount\": \"1000000000000000000\" }"
+  };
+  string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Amount of ETH to stake in the provider provider_registry."
+    pattern: "[0-9]+"
+  }, (buf.validate.field).cel = {
+      id: "amount",
+      message: "amount must be a valid integer.",
+      expression: "this.matches('^[0-9]+$') && uint(this) > 0"
+  }];
+};
+
+message StakeResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Stake response"
+      description: "Get staked amount for provider in the provider provider_registry."
+    }
+    example: "{\"amount\": \"1000000000000000000\" }"
+  };
+  string amount = 1;
+};
+
+message EmptyMessage {};
+
+message Bid {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Bid message"
+      description: "Signed bid message from bidders to the provider."
+      required: ["txHashes", "bidAmount", "blockNumber", "bidDigest"]
+    }
+    example: "{\"txHashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"blockNumber\": 123456, \"bidDigest\": \"9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==\"}"
+  };
+  repeated string tx_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hashes of the transactions that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }, (buf.validate.field).cel = {
+      id: "tx_hashes",
+      message: "tx_hashes must be a valid array of transaction hashes.",
+      expression: "this.all(r, r.matches('^[a-fA-F0-9]{64}$')) && size(this) > 0"
+  }];
+  string bid_amount = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block."
+    pattern: "[0-9]+"
+  }, (buf.validate.field).cel = {
+      id: "bid_amount",
+      message: "bid_amount must be a valid integer.",
+      expression: "this.matches('^[0-9]+$') && uint(this) > 0"
+  }];
+  int64 block_number = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Max block number that the bidder wants to include the transaction in."
+  }, (buf.validate.field).int64.gt = 0];
+  bytes bid_digest = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Digest of the bid message signed by the bidder."
+  }, (buf.validate.field).bytes = {
+      min_len: 1,
+      max_len: 64
+  }];
+  int64 decay_start_timestamp = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Timestamp at which the bid starts decaying."
+  }, (buf.validate.field).cel = {
+      id: "decay_start_timestamp",
+      message: "decay_start_timestamp must be a valid integer.",
+      expression: "uint(this) > 0"
+  }];
+  int64 decay_end_timestamp = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Timestamp at which the bid ends decaying."
+  }, (buf.validate.field).cel = {
+      id: "decay_end_timestamp",
+      message: "decay_end_timestamp must be a valid integer.",
+      expression: "uint(this) > 0"
+  }];
+};
+
+message BidResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Bid response"
+      description: "Response sent by the provider with the decision on the bid received."
+      required: ["bidDigest", "status"]
+    }
+    example: "{\"bidDigest\": \"9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==\", \"status\": \"STATUS_ACCEPTED\"}"
+  };
+  bytes bid_digest = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Digest of the bid message signed by the bidder."
+  }];
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_ACCEPTED = 1;
+    STATUS_REJECTED = 2;
+  }
+  Status status = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Status of the bid."
+  }, (buf.validate.field).enum = {
+      defined_only: true,
+      in: [
+        1,
+        2
+      ]
+  }];
+};
+
+message PendingTxnsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Pending transactions list"
+      description: "Transaction info returned by the provider."
+      required: ["pendingTxns"]
+    }
+  };
+  repeated TransactionInfo pending_txns = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "List of pending transactions in the provider provider_registry."
+  }];
+};
+
+message TransactionInfo {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Transaction info"
+      description: "Transaction info returned by the provider."
+      required: ["txHash", "nonce", "created"]
+    }
+    example: "{\"txHash\": \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\", \"nonce\": 1234, \"created\": \"2009-11-10 23:00:00 +0000 UTC m=+0.000000001\"}"
+  };
+  string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hash of the transaction that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
+  int64 nonce = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Nonce used for the transaction."
+  }];
+  string created = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Time when the transaction was created."
+  }];
+};
+
+message CancelReq {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Cancel request"
+      description: "Cancel transaction request message from bidders to the provider."
+      required: ["txHash"]
+    }
+    example: "{\"txHash\": \"91a89B633194c0D86C539A1A5B14DCCacfD47094\"}"
+  };
+  string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hash of the transaction that the bidder wants to cancel."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
+};
+
+message CancelResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Cancel response"
+      description: "Hash of the cancellation transaction request."
+      required: ["txHash"]
+    }
+    example: "{\"txHash\": \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"}"
+  };
+  string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hash of the transaction that the bidder wants to cancel."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
+};

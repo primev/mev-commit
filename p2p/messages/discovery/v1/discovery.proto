@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package discovery.v1;
+
+message PeerList {
+  repeated PeerInfo peers = 1;
+};
+
+message PeerInfo {
+  bytes eth_address = 1;
+  bytes underlay = 2;
+};

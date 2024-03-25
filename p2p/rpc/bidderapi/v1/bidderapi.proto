@@ -1,0 +1,162 @@
+syntax = "proto3";
+
+package bidderapi.v1;
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Bidder API";
+    version: "1.0.0-alpha";
+    license: {
+      name: "Business Source License 1.1";
+      url: "https://github.com/primevprotocol/mev-commit/blob/main/LICENSE";
+    };
+  };
+};
+
+service Bidder {
+  // SendBid
+  //
+  // Send a bid to the bidder mev-commit node.
+  rpc SendBid(Bid) returns (stream Commitment) {
+    option (google.api.http) = {
+      post: "/v1/bidder/bid"
+      body: "*"
+    };
+  }
+  // PrepayAllowance
+  //
+  // PrepayAllowance is called by the bidder node to add prepaid allowance in the bidder registry.
+  rpc PrepayAllowance(PrepayRequest) returns (PrepayResponse) {
+    option (google.api.http) = {post: "/v1/bidder/prepay/{amount}"};
+  }
+  // GetAllowance
+  //
+  // GetAllowance is called by the bidder to get its allowance in the bidder registry.
+  rpc GetAllowance(EmptyMessage) returns (PrepayResponse) {
+    option (google.api.http) = {get: "/v1/bidder/get_allowance"};
+  }
+  // GetMinAllowance
+  //
+  // GetMinAllowance is called by the bidder to get the minimum allowance required in the bidder registry to make bids.
+  rpc GetMinAllowance(EmptyMessage) returns (PrepayResponse) {
+    option (google.api.http) = {get: "/v1/bidder/get_min_allowance"};
+  }
+}
+
+message PrepayRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Prepay request"
+      description: "Prepayment for bids to be issued by the bidder in wei."
+      required: ["amount"]
+    }
+    example: "{\"amount\": \"1000000000000000000\" }"
+  };
+  string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Amount of ETH to be prepaid in wei."
+    pattern: "[0-9]+"
+  }, (buf.validate.field).cel = {
+      id: "amount",
+      message: "amount must be a valid integer.",
+      expression: "this.matches('^[0-9]+$') && uint(this) > 0"
+  }];
+};
+
+message PrepayResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Prepay response"
+      description: "Get prepaid allowance for bidder in the bidder registry."
+    }
+    example: "{\"amount\": \"1000000000000000000\" }"
+  };
+  string amount = 1;
+};
+
+message EmptyMessage {};
+
+message Bid {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Bid message"
+      description: "Unsigned bid message from bidders to the bidder mev-commit node."
+      required: ["txHashes", "amount", "blockNumber"]
+    }
+    example: "{\"txHashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"blockNumber\": 123456}"
+  };
+  repeated string tx_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hashes of the transactions that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }, (buf.validate.field).cel = {
+        id: "tx_hashes",
+        message: "tx_hashes must be a valid array of transaction hashes.",
+        expression: "this.all(r, r.matches('^[a-fA-F0-9]{64}$')) && size(this) > 0"
+  }];
+  string amount = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block."
+    pattern: "[0-9]+"
+  }, (buf.validate.field).cel = {
+      id: "amount",
+      message: "amount must be a valid integer.",
+      expression: "this.matches('^[0-9]+$') && uint(this) > 0"
+  }];
+  int64 block_number = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Max block number that the bidder wants to include the transaction in."
+  }, (buf.validate.field).cel = {
+      id: "block_number",
+      message: "block_number must be a valid integer.",
+      expression: "uint(this) > 0"
+  }];
+  int64 decay_start_timestamp = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Timestamp at which the bid starts decaying."
+  }, (buf.validate.field).cel = {
+      id: "decay_start_timestamp",
+      message: "decay_start_timestamp must be a valid integer.",
+      expression: "uint(this) > 0"
+  }];
+  int64 decay_end_timestamp = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Timestamp at which the bid ends decaying."
+  }, (buf.validate.field).cel = {
+      id: "decay_end_timestamp",
+      message: "decay_end_timestamp must be a valid integer.",
+      expression: "uint(this) > 0"
+  }];
+};
+
+message Commitment {
+  repeated string tx_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hash of the transaction that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
+  string bid_amount = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Amount of ETH that the bidder has agreed to pay to the provider for including the transaction in the block."
+  }];
+  int64 block_number = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Max block number that the bidder wants to include the transaction in."
+  }];
+  string received_bid_digest = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of digest of the bid message signed by the bidder."
+  }];
+  string received_bid_signature = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of signature of the bidder that sent this bid."
+  }];
+  string commitment_digest = 6 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of digest of the commitment."
+  }];
+  string commitment_signature = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of signature of the commitment signed by the provider confirming this transaction."
+  }];
+  string provider_address = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the address of the provider that signed the commitment signature."
+  }];
+  int64 decay_start_timestamp = 9 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Timestamp at which the bid starts decaying."
+  }];
+  int64 decay_end_timestamp = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Timestamp at which the bid ends decaying."
+  }];
+};

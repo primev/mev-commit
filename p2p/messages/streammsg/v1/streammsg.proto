@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package streammsg.v1;
+
+import "google/protobuf/struct.proto";
+import "google/rpc/status.proto";
+
+message Header {
+  map<string, google.protobuf.Value> header = 1;
+};
+
+message StreamMsg {
+  oneof body {
+    bytes data = 1;
+    google.rpc.Status error = 2;
+  }
+};

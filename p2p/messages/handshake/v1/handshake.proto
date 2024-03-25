@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package handshake.v1;
+
+message HandshakeReq {
+  string peer_type = 1;
+  string token = 2;
+  bytes sig = 3;
+};
+
+message HandshakeResp {
+  bytes observed_address = 1;
+  string peer_type = 2;
+};
+

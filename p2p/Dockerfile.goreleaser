@@ -1,0 +1,9 @@
+FROM alpine:latest
+
+COPY mev-commit /usr/local/bin/mev-commit
+
+EXPOSE 13522 13523 13524
+
+LABEL org.opencontainers.image.source https://github.com/primevprotocol/mev-commit
+
+ENTRYPOINT ["mev-commit"]

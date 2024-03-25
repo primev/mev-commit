@@ -1,0 +1,286 @@
+swagger: "2.0"
+info:
+  title: Provider API
+  version: 1.0.0-alpha
+  license:
+    name: Business Source License 1.1
+    url: https://github.com/primevprotocol/mev-commit/blob/main/LICENSE
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /v1/provider/cancel_transaction/{txHash}:
+    post:
+      summary: CancelTransaction
+      description: CancelTransaction is called by the provider to cancel a transaction sent from this wallet.
+      operationId: Provider_CancelTransaction
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1CancelResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: txHash
+          description: Hex string encoding of the hash of the transaction that the bidder wants to cancel.
+          in: path
+          required: true
+          type: string
+  /v1/provider/get_min_stake:
+    get:
+      summary: GetMinStake
+      description: GetMinStake is called by the provider to get the minimum stake required to be in the provider registry.
+      operationId: Provider_GetMinStake
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1StakeResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/provider/get_pending_txns:
+    get:
+      summary: GetPendingTxns
+      description: GetPendingTxns is called by the provider to get the pending transactions for the wallet.
+      operationId: Provider_GetPendingTxns
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1PendingTxnsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/provider/get_stake:
+    get:
+      summary: GetStake
+      description: GetStake is called by the provider to get its stake in the provider registry.
+      operationId: Provider_GetStake
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1StakeResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/provider/receive_bids:
+    get:
+      summary: ReceiveBids
+      description: |-
+        ReceiveBids is called by the provider to receive bids from the mev-commit node.
+        The mev-commit node will stream bids to the provider as the response.
+      operationId: Provider_ReceiveBids
+      responses:
+        "200":
+          description: A successful response.(streaming responses)
+          schema:
+            type: object
+            properties:
+              result:
+                $ref: '#/definitions/providerapiv1Bid'
+              error:
+                $ref: '#/definitions/googlerpcStatus'
+            title: Stream result of providerapiv1Bid
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/provider/register_stake/{amount}:
+    post:
+      summary: RegisterStake
+      description: RegisterStake is called by the provider to register its stake in the provider registry.
+      operationId: Provider_RegisterStake
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1StakeResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: amount
+          description: Amount of ETH to stake in the provider provider_registry.
+          in: path
+          required: true
+          type: string
+  /v1/provider/send_processed_bids:
+    post:
+      summary: SendProcessedBids
+      description: |-
+        SendProcessedBids is called by the provider to send processed bids to the mev-commit node.
+        The provider will stream processed bids to the mev-commit node.
+      operationId: Provider_SendProcessedBids
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/providerapiv1EmptyMessage'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: body
+          description: Response sent by the provider with the decision on the bid received. (streaming inputs)
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1BidResponse'
+definitions:
+  googlerpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  providerapiv1Bid:
+    type: object
+    example:
+      amount: "1000000000000000000"
+      bidDigest: 9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==
+      blockNumber: 123456
+      txHashes:
+        - fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7
+        - 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
+    properties:
+      txHashes:
+        type: array
+        items:
+          type: string
+          pattern: '[a-fA-F0-9]{64}'
+        description: Hex string encoding of the hashes of the transactions that the bidder wants to include in the block.
+      bidAmount:
+        type: string
+        description: Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block.
+        pattern: '[0-9]+'
+      blockNumber:
+        type: string
+        format: int64
+        description: Max block number that the bidder wants to include the transaction in.
+      bidDigest:
+        type: string
+        format: byte
+        description: Digest of the bid message signed by the bidder.
+      decayStartTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid starts decaying.
+      decayEndTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the bid ends decaying.
+    description: Signed bid message from bidders to the provider.
+    title: Bid message
+    required:
+      - txHashes
+      - bidAmount
+      - blockNumber
+      - bidDigest
+  providerapiv1EmptyMessage:
+    type: object
+  v1BidResponse:
+    type: object
+    example:
+      bidDigest: 9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==
+      status: STATUS_ACCEPTED
+    properties:
+      bidDigest:
+        type: string
+        format: byte
+        description: Digest of the bid message signed by the bidder.
+      status:
+        $ref: '#/definitions/v1BidResponseStatus'
+        description: Status of the bid.
+    description: Response sent by the provider with the decision on the bid received.
+    title: Bid response
+    required:
+      - bidDigest
+      - status
+  v1BidResponseStatus:
+    type: string
+    enum:
+      - STATUS_ACCEPTED
+      - STATUS_REJECTED
+  v1CancelResponse:
+    type: object
+    example:
+      txHash: 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
+    properties:
+      txHash:
+        type: string
+        description: Hex string encoding of the hash of the transaction that the bidder wants to cancel.
+        pattern: '[a-fA-F0-9]{64}'
+    description: Hash of the cancellation transaction request.
+    title: Cancel response
+    required:
+      - txHash
+  v1PendingTxnsResponse:
+    type: object
+    properties:
+      pendingTxns:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1TransactionInfo'
+        description: List of pending transactions in the provider provider_registry.
+    description: Transaction info returned by the provider.
+    title: Pending transactions list
+    required:
+      - pendingTxns
+  v1StakeResponse:
+    type: object
+    example:
+      amount: "1000000000000000000"
+    properties:
+      amount:
+        type: string
+    description: Get staked amount for provider in the provider provider_registry.
+    title: Stake response
+  v1TransactionInfo:
+    type: object
+    example:
+      created: 2009-11-10 23:00:00 +0000 UTC m=+0.000000001
+      nonce: 1234
+      txHash: 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
+    properties:
+      txHash:
+        type: string
+        description: Hex string encoding of the hash of the transaction that the bidder wants to include in the block.
+        pattern: '[a-fA-F0-9]{64}'
+      nonce:
+        type: string
+        format: int64
+        description: Nonce used for the transaction.
+      created:
+        type: string
+        description: Time when the transaction was created.
+    description: Transaction info returned by the provider.
+    title: Transaction info
+    required:
+      - txHash
+      - nonce
+      - created
