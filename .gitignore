@@ -6,3 +6,5 @@
 # MAC OS X generated files.
 .DS_Store*
 
+# Ignore build artifacts.
+**/bin/
