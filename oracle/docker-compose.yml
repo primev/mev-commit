@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  oracle:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: always
+    environment:
+      - L1_URL=${L1_URL}
+      - ORACLE_USER=${ORACLE_USER}
+      - ORACLE_PASS=${ORACLE_PASS}
+    labels:
+      com.datadoghq.ad.check_names: '["openmetrics"]'
+      com.datadoghq.ad.init_configs: '[{}]'
+      com.datadoghq.ad.instances: |
+        [
+          {
+            "openmetrics_endpoint": "http://%%host%%:8080/metrics",
+            "namespace": "production",
+            "metrics": [
+              "mev_commit_oracle*",
+              "go*"
+            ]
+          }
+        ]
+    depends_on:
+      - oracle-db
+    networks:
+      - primev_net
+
+  oracle-db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_DB: oracle_db
+      POSTGRES_USER: ${ORACLE_USER}
+      POSTGRES_PASSWORD: ${ORACLE_PASS}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:latest
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    environment:
+      - DD_API_KEY=${DD_KEY}
+      - DD_TAGS=env:production
+      - DD_SITE=datadoghq.com
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE="name:datadog-agent"
+    networks:
+      - primev_net
+
+networks:
+  primev_net:
+    external: true
+
+
+volumes:
+  postgres_data:
