@@ -1,0 +1,14 @@
+FROM golang:1.21.4 AS builder
+
+WORKDIR /app
+COPY . .
+
+RUN CGO_ENABLED=0 make relayer
+
+FROM alpine:latest
+
+COPY --from=builder /app/bin/relayer /usr/local/bin/relayer
+COPY --from=builder /app/example_config/relayer_config.yml /example_config/relayer_config.yml
+COPY --from=builder /app/example_config/relayer_key /example_config/relayer_key
+
+ENTRYPOINT ["relayer", "start", "--config=example_config/relayer_config.yml"]

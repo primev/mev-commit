@@ -1,0 +1,62 @@
+version: 1
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: relayer
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    main: ./cmd/relayer
+    binary: relayer-{{.Os}}-{{.Arch}}
+  - id: user_cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    main: ./cmd/user_cli
+    binary: user-cli-{{.Os}}-{{.Arch}}
+
+archives:
+  - id: relayer
+    builds:
+      - relayer
+    format: tar.gz
+    name_template: '{{ .ProjectName }}-{{ .Binary }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: user_cli
+    builds:
+      - user_cli
+    format: tar.gz
+    name_template: '{{ .ProjectName }}-{{ .Binary }}'
+    format_overrides:
+      - goos: windows
+        format: zip
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

@@ -1,0 +1,12 @@
+FROM golang:1.21.4 AS builder
+
+WORKDIR /app
+COPY . .
+
+RUN CGO_ENABLED=0 make user-emulator
+
+FROM alpine:latest
+
+COPY --from=builder /app/bin/user_emulator /usr/local/bin/user_emulator
+
+ENTRYPOINT ["user_emulator"]
