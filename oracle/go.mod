@@ -6,7 +6,7 @@ require (
 	github.com/ethereum/go-ethereum v1.13.5
 	github.com/google/go-cmp v0.6.0
 	github.com/lib/pq v1.10.9
-	github.com/primevprotocol/contracts-abi v0.2.3
+	github.com/primevprotocol/mev-commit/contracts-abi v0.0.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/testcontainers/testcontainers-go v0.27.0
 	github.com/urfave/cli/v2 v2.27.1
@@ -94,3 +94,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+replace github.com/primevprotocol/mev-commit/contracts-abi => ../contracts-abi

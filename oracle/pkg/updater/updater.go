@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	preconf "github.com/primevprotocol/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/settler"
 	"github.com/prometheus/client_golang/prometheus"
 )

@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/DataDog/datadog-api-client-go v1.16.0
 	github.com/ethereum/go-ethereum v1.13.5
-	github.com/primevprotocol/contracts-abi v0.0.0-20240204013900-514e33ba7098
+	github.com/primevprotocol/mev-commit/contracts-abi v0.0.1
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/crypto v0.21.0
 )
@@ -60,3 +60,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+replace github.com/primevprotocol/mev-commit/contracts-abi => ../../../contracts-abi

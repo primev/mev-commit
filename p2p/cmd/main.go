@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	contracts "github.com/primevprotocol/contracts-abi/config"
+	contracts "github.com/primevprotocol/mev-commit/contracts-abi/config"
 	mevcommit "github.com/primevprotocol/mev-commit/p2p"
 	ks "github.com/primevprotocol/mev-commit/p2p/pkg/keysigner"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/node"

@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	preconf "github.com/primevprotocol/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/settler"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/updater"
 	"golang.org/x/crypto/sha3"

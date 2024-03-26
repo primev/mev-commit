@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/primevprotocol/contracts-abi/clients/ProviderRegistry"
+	"github.com/primevprotocol/mev-commit/contracts-abi/clients/ProviderRegistry"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 )
 

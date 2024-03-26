@@ -14,9 +14,9 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	l1g "github.com/primevprotocol/contracts-abi/clients/L1Gateway"
-	sg "github.com/primevprotocol/contracts-abi/clients/SettlementGateway"
 	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/shared"
+	l1g "github.com/primevprotocol/mev-commit/contracts-abi/clients/L1Gateway"
+	sg "github.com/primevprotocol/mev-commit/contracts-abi/clients/SettlementGateway"
 	"golang.org/x/crypto/sha3"
 )
 

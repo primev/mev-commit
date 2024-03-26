@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	sg "github.com/primevprotocol/contracts-abi/clients/SettlementGateway"
+	sg "github.com/primevprotocol/mev-commit/contracts-abi/clients/SettlementGateway"
 )
 
 type SettlementFilterer struct {

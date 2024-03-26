@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	preconfcommitmentstore "github.com/primevprotocol/contracts-abi/clients/PreConfCommitmentStore"
+	preconfcommitmentstore "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 )
 
