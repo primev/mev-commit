@@ -1,12 +1,12 @@
-FROM golang:1.21.4 AS builder
+FROM golang:1.22.1 AS builder
 
 WORKDIR /app
 COPY . .
-
+WORKDIR ./bridge/standard/bridge-v1
 RUN CGO_ENABLED=0 make user-emulator
 
 FROM alpine:latest
 
-COPY --from=builder /app/bin/user_emulator /usr/local/bin/user_emulator
+COPY --from=builder /app/bridge/standard/bridge-v1/bin/user_emulator /usr/local/bin/user_emulator
 
 ENTRYPOINT ["user_emulator"]

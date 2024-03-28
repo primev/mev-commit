@@ -10,3 +10,6 @@
 
 # Ignore build artifacts.
 **/bin/
+
+# Ignore environment files.
+**/.env
