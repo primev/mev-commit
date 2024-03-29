@@ -1,0 +1,59 @@
+name: Go CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.22
+
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Cache Modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+          **/go.work.sum  # Add this line to include go.work.sum in the cache path
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
+        restore-keys: ${{ runner.os }}-go-
+
+    - name: Workspace Modules
+      run: |
+        echo $(go list -f '{{.Dir}}' -m)
+        echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | tr '\n' ' ')" >> $GITHUB_ENV
+
+    - name: Tidy
+      run: go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
+
+    - name: Sync
+      run: go work sync
+
+    - name: Lint
+      uses: golangci/golangci-lint-action@v4
+      with:
+        version: v1.57.2
+        args: --verbose ${{ env.GO_LINT_DIRS }}
+
+    - name: Build
+      run: go list -f '{{.Dir}}/...' -m | xargs go build
+
+    - name: Test
+      run: go list -f '{{.Dir}}/...' -m | xargs go test
+
