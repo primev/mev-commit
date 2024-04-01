@@ -1,0 +1,57 @@
+version: 1
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    dir: ./oracle
+    main: ./cmd
+    binary: mev-commit-oracle
+    flags:
+      - -v
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      mev-commit-oracle_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: mev-commit-oracle_{{ .Version }}_checksums.txt
+
+# TODO(mrekucci): Re-enable when the repo is finalized.
+#dockers:
+#  - image_templates:
+#    - ghcr.io/primevprotocol/mev-commit-oracle:v{{ .Major }}.{{ .Minor }}
+#    - ghcr.io/primevprotocol/mev-commit-oracle:latest
+#    dockerfile: Dockerfile.goreleaser
+#    use: buildx
+#    goarch: amd64
+#    build_flag_templates:
+#      - "--pull"
+#      - "--label=org.opencontainers.image.created={{.Date}}"
+#      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#      - "--label=org.opencontainers.image.version={{.Version}}"
+#      - "--platform=linux/amd64"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

@@ -14,18 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.22
-
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-
-    - name: Cache Modules
-      uses: actions/cache@v3
+    - name: Setup Cache
+      uses: actions/cache@v4
       with:
         path: |
           ~/go/pkg/mod
@@ -33,6 +23,17 @@ jobs:
           **/go.work.sum  # Add this line to include go.work.sum in the cache path
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
         restore-keys: ${{ runner.os }}-go-
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.22
+        cache: true
+
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Workspace Modules
       run: |
