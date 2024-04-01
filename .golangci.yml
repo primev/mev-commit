@@ -22,7 +22,7 @@ linters:
     - complexity
     - performance
   disable:
-    - musttag # TODO: re-enable when external/geth is bumped to go1.21
+    - musttag # TODO(mrekucci): re-enable when external/geth is bumped to go1.21
 
 run:
   timeout: 15m

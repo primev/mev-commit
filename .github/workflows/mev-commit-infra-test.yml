@@ -1,0 +1,66 @@
+name: Deploy and Test mev-commit infra
+
+on:
+  workflow_run:
+    workflows: ["mev-commit-ci"]
+    types: 
+      - completed
+
+jobs:
+  deploy_and_test:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+      
+    - name: Install jq
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Setup Docker Compose
+      run: |
+        sudo rm /usr/local/bin/docker-compose
+        curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+
+    - name: Build and Start Services
+      run: cd p2p && set -x && ./mev-commit-cli.sh start mev-commit --datadog-key "${{ secrets.DATADOG_API_KEY }}"
+
+    - name: Check Service Endpoints
+      run: |
+        ips=("172.29.9.100" "172.29.9.101" "172.29.9.102") # Example IP addresses, adjust as needed
+        
+        for ip in "${ips[@]}"; do
+          echo "Checking service at $ip"
+          success=false
+          attempts=0
+          while [ $attempts -lt 3 ]; do
+            response=$(curl -s "$ip:13523/topology")
+            buildersCount=$(echo "$response" | jq '.connected_peers.builders | length')
+            searchersCount=$(echo "$response" | jq '.connected_peers.searchers | length')
+            if [[ -n "$response" && "$buildersCount" -gt 0 || "$searchersCount" -gt 0 ]]; then
+              echo "Service at $ip is OK"
+              success=true
+              break
+            else
+              echo "Service check failed for $ip. Retrying in 30 seconds..."
+              attempts=$(( $attempts + 1 ))
+              sleep 30
+            fi
+          done
+
+          if [ "$success" == "false" ]; then
+            echo "Service check failed for $ip after 3 attempts, failing"
+            exit 1
+          fi
+        done
+
+    - name: Stop Services
+      run: cd p2p && ./mev-commit-cli.sh stop mev-commit
