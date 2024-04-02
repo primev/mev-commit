@@ -19,7 +19,7 @@ builds:
 archives:
   - format: tar.gz
     name_template: >-
-      mev-commit-oracle_
+      {{- .Binary }}_
       {{- .Version }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64

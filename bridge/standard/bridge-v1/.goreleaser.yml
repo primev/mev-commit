@@ -1,9 +1,5 @@
 version: 1
 
-before:
-  hooks:
-    - go mod tidy
-
 builds:
   - id: relayer
     env:
@@ -18,8 +14,9 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    dir: ./bridge/standard/bridge-v1
     main: ./cmd/relayer
-    binary: relayer-{{.Os}}-{{.Arch}}
+    binary: relayer
   - id: user_cli
     env:
       - CGO_ENABLED=0
@@ -33,15 +30,24 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    dir: ./bridge/standard/bridge-v1
     main: ./cmd/user_cli
-    binary: user-cli-{{.Os}}-{{.Arch}}
+    binary: user-cli
 
 archives:
   - id: relayer
     builds:
       - relayer
     format: tar.gz
-    name_template: '{{ .ProjectName }}-{{ .Binary }}'
+    name_template: >-
+      mev-commit-bridge-
+      {{- .Binary }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
         format: zip
@@ -49,10 +55,21 @@ archives:
     builds:
       - user_cli
     format: tar.gz
-    name_template: '{{ .ProjectName }}-{{ .Binary }}'
+    name_template: >-
+      mev-commit-bridge-
+      {{- .Binary }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
         format: zip
+
+checksum:
+  name_template: mev-commit-bridge_{{ .Version }}_checksums.txt
 
 changelog:
   sort: asc

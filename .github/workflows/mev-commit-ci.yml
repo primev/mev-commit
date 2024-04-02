@@ -20,7 +20,7 @@ jobs:
         path: |
           ~/go/pkg/mod
           ~/.cache/go-build
-          **/go.work.sum  # Add this line to include go.work.sum in the cache path
+          **/go.work.sum
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
         restore-keys: ${{ runner.os }}-go-
 
