@@ -59,9 +59,9 @@ jobs:
     - name: Run Build
       run: go list -f '{{.Dir}}/...' -m | xargs go build
 
-# TODO(mrekucci): Re-enable when tests are passing.
-#    - name: Run Test
-#      run: go list -f '{{.Dir}}/...' -m | xargs go test
+      # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
+    - name: Run Test
+      run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test
 
   foundry:
     name: Foundry Checks and Reports
@@ -89,7 +89,7 @@ jobs:
         run: forge coverage --ir-minimum
 
   contracts:
-    name: Test and Build Scripts
+    name: Test and Build Contracts Scripts
     runs-on: ubuntu-latest
     defaults:
       run:
