@@ -9,8 +9,8 @@ on:
       - main
 
 jobs:
-  build-and-test-go-modules:
-    name: Build and Test Go Modules
+  go-modules:
+    name: Test and Build Go Modules
     runs-on: ubuntu-latest
 
     steps:
@@ -63,3 +63,61 @@ jobs:
 #    - name: Run Test
 #      run: go list -f '{{.Dir}}/...' -m | xargs go test
 
+  foundry:
+    name: Foundry Checks and Reports
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Run Tests
+        run: forge test -vvv --via-ir
+
+      - name: Run Snapshot
+        run: forge snapshot --via-ir
+
+      - name: Run Coverage
+        run: forge coverage --ir-minimum
+
+  contracts:
+    name: Test and Build Scripts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
+
+    strategy:
+      matrix:
+        node-version: [ 18.x, 20.x ] # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache-dependency-path: ./contracts/package-lock.json
+          cache: npm
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Hardhat
+        run: npm install -g hardhat
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build --if-present
