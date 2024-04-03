@@ -1,10 +1,9 @@
 FROM golang:1.22.1 AS builder
 
 WORKDIR /app
-COPY . .
-WORKDIR ./p2p
-RUN cd integrationtest/provider && \
-    CGO_ENABLED=0 GOOS=linux go build -o provider-emulator main.go client.go
+COPY ./p2p ./p2p
+WORKDIR ./p2p/integrationtest/provider
+RUN CGO_ENABLED=0 GOOS=linux go build -o provider-emulator main.go client.go
 
 FROM alpine:latest
 

@@ -13,7 +13,8 @@ RUN /gen-certificates.sh "/C=US/O=${SERVICE_NAME} CA" "/C=US/O=${SERVICE_NAME}"
 
 FROM golang:1.22.1 AS mev_commit_builder
 WORKDIR /
-COPY . .
+COPY ./p2p ./p2p
+COPY ./contracts-abi ./contracts-abi
 WORKDIR ./p2p
 RUN CGO_ENABLED=0 GOOS=linux make build
 

@@ -1,7 +1,8 @@
 FROM golang:1.22.1 AS builder
 
 WORKDIR /app
-COPY . .
+COPY ./oracle ./oracle
+COPY ./contracts-abi ./contracts-abi
 WORKDIR ./oracle
 RUN CGO_ENABLED=0 GOOS=linux go build -o mev-commit-oracle ./cmd/main.go
 

@@ -1,10 +1,9 @@
 FROM golang:1.22.1 AS builder
 
 WORKDIR /app
-COPY . .
-WORKDIR ./p2p
-RUN cd integrationtest/real-bidder && \
-    go mod tidy && \
+COPY ./p2p ./p2p
+WORKDIR ./p2p/integrationtest/provider
+RUN go mod tidy && \
     go mod vendor && \
     CGO_ENABLED=0 GOOS=linux go build -o bidder-emulator main.go
 

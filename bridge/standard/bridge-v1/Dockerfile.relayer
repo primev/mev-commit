@@ -1,7 +1,8 @@
 FROM golang:1.22.1 AS builder
 
 WORKDIR /app
-COPY . .
+COPY ./bridge ./bridge
+COPY ./contracts-abi ./contracts-abi
 WORKDIR ./bridge/standard/bridge-v1
 RUN CGO_ENABLED=0 make relayer
 
