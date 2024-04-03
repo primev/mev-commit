@@ -9,8 +9,8 @@ on:
       - main
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  build-and-test-go-modules:
+    name: Build and Test Go Modules
     runs-on: ubuntu-latest
 
     steps:
@@ -40,23 +40,26 @@ jobs:
         echo $(go list -f '{{.Dir}}' -m)
         echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | tr '\n' ' ')" >> $GITHUB_ENV
 
-    - name: Tidy
+    - name: Run Gofmt
+      run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l
+
+    - name: Run Tidy
       run: go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
 
-    - name: Sync
+    - name: Run Sync
       run: go work sync
 
 # TODO(mrekucci): Re-enable when the repo is finalized.
-#    - name: Lint
+#    - name: Run Lint
 #      uses: golangci/golangci-lint-action@v4
 #      with:
 #        version: v1.57.2
 #        args: --verbose ${{ env.GO_LINT_DIRS }}
 
-    - name: Build
+    - name: Run Build
       run: go list -f '{{.Dir}}/...' -m | xargs go build
 
 # TODO(mrekucci): Re-enable when tests are passing.
-#    - name: Test
+#    - name: Run Test
 #      run: go list -f '{{.Dir}}/...' -m | xargs go test
 
