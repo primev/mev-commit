@@ -61,7 +61,7 @@ jobs:
 
       # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
     - name: Run Test
-      run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test
+      run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test -short -race
 
   foundry:
     name: Foundry Checks and Reports

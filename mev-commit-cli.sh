@@ -32,7 +32,7 @@ create_docker_network() {
 start_settlement_layer() {
     local datadog_key=$1
 
-    cat > "../external/geth/geth-poa/.env" <<EOF
+    cat > "external/geth/geth-poa/.env" <<EOF
     HYPERLANE_DEPLOYER_PRIVATE_KEY=0xc065f4c9a6dda0785e2224f5af8e473614de1c029acf094f03d5830e2dd5b0ea
     NODE1_PRIVATE_KEY=0xe82a054e06f89598485134b4f2ce8a612ce7f7f7e14e650f9f20b30efddd0e57
     NODE2_PRIVATE_KEY=0xb17b77fe56797c1a6c236f628d25ede823496af371b3fec858a7a6beff07696b
@@ -44,7 +44,7 @@ EOF
     export AGENT_BASE_IMAGE=nil
     export L2_NODE_URL=nil
 
-    DD_KEY=nil docker compose --profile settlement -f "../external/geth/geth-poa/docker-compose.yml" up -d --build
+    DD_KEY=nil docker compose --profile settlement -f "external/geth/geth-poa/docker-compose.yml" up -d --build
 
     # Wait for settlement layer to be up before deploying create2
     sleep 10
@@ -53,12 +53,12 @@ EOF
 }
 
 stop_settlement_layer() {
-    DD_KEY=nil docker compose --profile settlement -f "../external/geth/geth-poa/docker-compose.yml" down
+    DD_KEY=nil docker compose --profile settlement -f "external/geth/geth-poa/docker-compose.yml" down
 }
 
 start_mev_commit_minimal() {
     echo "Starting MEV-Commit..."
-    docker compose --profile minimal-setup -f "./integration-compose.yml" up --build -d
+    docker compose --profile minimal-setup -f "p2p/integration-compose.yml" up --build -d
 }
 
 start_mev_commit_e2e() {
@@ -86,7 +86,7 @@ start_mev_commit_e2e() {
     echo "Setting .env file ..."
 
         # Create or overwrite the .env file
-    cat > "./integrationtest/.env" <<EOF
+    cat > "p2p/integrationtest/.env" <<EOF
     BIDDER_REGISTRY=0x02CcEcB19c6D7EFe583C8b97022cB4b4C0B65608
     PROVIDER_REGISTRY=0x070cE6161AD79a3BC7aEa222FdfC6AD171Ca83F3
     PRECONF_CONTRACT=0x4DfF34f74aE5C48a5050eb54e7cEDAb9DEF03715
@@ -101,10 +101,10 @@ EOF
     if [ -z "$datadog_key" ]; then
         echo "DD_KEY is empty, so no agents will be started."
         # Run Docker Compose without --profile agent
-        docker compose --profile e2etest -f "./e2e-compose.yml" up --build -d
+        docker compose --profile e2etest -f "p2p/e2e-compose.yml" up --build -d
     else
         # Run Docker Compose with --profile agent
-        DD_KEY="$datadog_key" docker compose --profile e2etest --profile agent -f "./e2e-compose.yml" up --build -d
+        DD_KEY="$datadog_key" docker compose --profile e2etest --profile agent -f "p2p/e2e-compose.yml" up --build -d
     fi
 }
 
@@ -117,26 +117,26 @@ start_mev_commit() {
     if [ -z "$datadog_key" ]; then
         echo "DD_KEY is empty, so no agents will be started."
         # Run Docker Compose without --profile agent
-        docker compose --profile integration-test -f "./integration-compose.yml" up --build -d
+        docker compose --profile integration-test -f "p2p/integration-compose.yml" up --build -d
     else
         # Run Docker Compose with --profile agent
-        DD_KEY="$datadog_key" docker compose --profile integration-test --profile agent -f "./integration-compose.yml" up --build -d
+        DD_KEY="$datadog_key" docker compose --profile integration-test --profile agent -f "p2p/integration-compose.yml" up --build -d
     fi
 }
 
 # Builds contract-deployer image only if it doesn't already exist
 build_contract_deployer() {
-    docker build -t contract-deployer "../contracts"
+    docker build -t contract-deployer "contracts"
 }
 
 deploy_create2() {
     local rpc_url=${1:-$DEFAULT_RPC_URL}
     local network_name=${2:-"$DOCKER_NETWORK_NAME"}
-    chmod +x "../external/geth/geth-poa/util/deploy_create2.sh"
+    chmod +x "external/geth/geth-poa/util/deploy_create2.sh"
     docker run \
         --rm \
         --network "$network_name" \
-        -v "../external/geth/geth-poa/util/deploy_create2.sh:/deploy_create2.sh" \
+        -v "$(pwd)/external/geth/geth-poa/util/deploy_create2.sh:/deploy_create2.sh" \
         alpine /bin/sh -c \
         "apk add --no-cache curl jq \
         && /deploy_create2.sh ${rpc_url}"
@@ -166,12 +166,12 @@ start_oracle(){
     local l1_url=${L1_RPC_BASE_URL}/$1
     local datadog_key=$2
     # Run Docker Compose
-    L1_URL="$l1_url" DD_KEY="$datadog_key" docker compose -f "../oracle/integration-compose.yml" up -d --build
+    L1_URL="$l1_url" DD_KEY="$datadog_key" docker compose -f "oracle/integration-compose.yml" up -d --build
 }
 
 stop_oracle(){
     # Run Docker Compose
-    docker compose -f "../oracle/integration-compose.yml" down
+    docker compose -f "oracle/integration-compose.yml" down
 }
 
 start_hyperlane(){
@@ -182,7 +182,7 @@ start_hyperlane(){
     AGENT_BASE_IMAGE=gcr.io/abacus-labs-dev/hyperlane-agent@sha256:854f92966eac6b49e5132e152cc58168ecdddc76c2d390e657b81bdaf1396af0 \
         PUBLIC_SETTLEMENT_RPC_URL="$public_rpc_url" \
         SETTLEMENT_RPC_URL="$rpc_url" \
-        docker compose -f "../bridge/hyperlane/docker-compose.yml" --profile bridge up -d --build
+        docker compose -f "bridge/hyperlane/docker-compose.yml" --profile bridge up -d --build
 
     # Run Alpine container which:
     # 1. Install jq
@@ -205,18 +205,18 @@ start_hyperlane(){
 }
 
 stop_hyperlane(){
-    AGENT_BASE_IMAGE=gcr.io/abacus-labs-dev/hyperlane-agent@sha256:854f92966eac6b49e5132e152cc58168ecdddc76c2d390e657b81bdaf1396af0 PUBLIC_SETTLEMENT_RPC_URL="$public_rpc_url" SETTLEMENT_RPC_URL="$rpc_url" docker compose -f "../bridge/hyperlane/docker-compose.yml" --profile bridge down
+    AGENT_BASE_IMAGE=gcr.io/abacus-labs-dev/hyperlane-agent@sha256:854f92966eac6b49e5132e152cc58168ecdddc76c2d390e657b81bdaf1396af0 PUBLIC_SETTLEMENT_RPC_URL="$public_rpc_url" SETTLEMENT_RPC_URL="$rpc_url" docker compose -f "bridge/hyperlane/docker-compose.yml" --profile bridge down
 }
 
 start_local_l1() {
-    DD_KEY=nil docker compose --profile local_l1 -f "../external/geth/geth-poa/docker-compose.yml" up -d --build
+    DD_KEY=nil docker compose --profile local_l1 -f "external/geth/geth-poa/docker-compose.yml" up -d --build
     # wait for l1 to be up before deploying create2
     sleep 10
     deploy_create2 "http://l1-bootnode:8545" "geth-poa_l1_net"
 }
 
 stop_local_l1() {
-    DD_KEY=nil docker compose --profile local_l1 -f "../external/geth/geth-poa/docker-compose.yml" down
+    DD_KEY=nil docker compose --profile local_l1 -f "external/geth/geth-poa/docker-compose.yml" down
 }
 
 deploy_standard_bridge_contracts() {
@@ -257,12 +257,12 @@ deploy_standard_bridge_contracts() {
 
 start_standard_bridge() {
     echo "Starting standard bridge..."
-    docker compose -f "../bridge/standard/bridge-v1/docker-compose.yml" up --build -d
+    docker compose -f "bridge/standard/bridge-v1/docker-compose.yml" up --build -d
 }
 
 stop_standard_bridge() {
     echo "Stopping standard bridge..."
-    docker compose -f "../bridge/standard/bridge-v1/docker-compose.yml" down
+    docker compose -f "bridge/standard/bridge-v1/docker-compose.yml" down
 }
 
 clean() {
@@ -304,7 +304,7 @@ stop_services() {
             stop_hyperlane
             ;;
         "mev-commit")
-            docker compose -f "./integration-compose.yml" down
+            docker compose -f "p2p/integration-compose.yml" down
             ;;
         "local_l1")
             stop_local_l1
@@ -318,7 +318,7 @@ stop_services() {
             stop_hyperlane
             stop_local_l1
             stop_standard_bridge
-            docker compose -f "./integration-compose.yml" down
+            docker compose -f "p2p/integration-compose.yml" down
             ;;
         *)
             echo "Invalid service: $service"
@@ -350,6 +350,7 @@ start_service() {
             start_hyperlane "$public_rpc_url"
             ;;
         "mev-commit")
+            initialize_environment
             start_mev_commit "$datadog_key"
             ;;
         "oracle")
