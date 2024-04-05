@@ -3,8 +3,8 @@ version: '3'
 services:
   bootnode:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: bootnode
     restart: always
@@ -39,8 +39,8 @@ services:
 
   provider-1:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: provider
     restart: always
@@ -75,8 +75,8 @@ services:
 
   provider-emulator-1:
     build:
-      context: .
-      dockerfile: ./integrationtest/provider/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/provider/Dockerfile
     restart: always
     depends_on:
       - provider-1
@@ -105,8 +105,8 @@ services:
 
   provider-2:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: provider
     restart: always
@@ -140,8 +140,8 @@ services:
 
   provider-emulator-2:
     build:
-      context: .
-      dockerfile: ./integrationtest/provider/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/provider/Dockerfile
     restart: always
     depends_on:
       - provider-2
@@ -169,8 +169,8 @@ services:
 
   provider-3:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: provider
     restart: always
@@ -204,8 +204,8 @@ services:
 
   provider-emulator-3:
     build:
-      context: .
-      dockerfile: ./integrationtest/provider/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/provider/Dockerfile
     restart: always
     depends_on:
       - provider-3
@@ -233,8 +233,8 @@ services:
   
   bidder-1:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: bidder
     restart: always
@@ -269,8 +269,8 @@ services:
 
   bidder-emulator-1:
     build:
-      context: .
-      dockerfile: integrationtest/real-bidder/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/real-bidder/Dockerfile
     restart: always
     depends_on:
       - bidder-1
@@ -301,8 +301,8 @@ services:
 
   bidder-2:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: bidder
     restart: always
@@ -336,8 +336,8 @@ services:
 
   bidder-emulator-2:
     build:
-      context: .
-      dockerfile: integrationtest/real-bidder/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/real-bidder/Dockerfile
     restart: always
     depends_on:
       - bidder-2
@@ -367,8 +367,8 @@ services:
 
   bidder-3:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: bidder
     restart: always
@@ -402,8 +402,8 @@ services:
 
   bidder-emulator-3:
     build:
-      context: .
-      dockerfile: integrationtest/real-bidder/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/real-bidder/Dockerfile
     restart: always
     depends_on:
       - bidder-3
@@ -433,8 +433,8 @@ services:
 
   bidder-4:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: bidder
     restart: always
@@ -468,8 +468,8 @@ services:
 
   bidder-emulator-4:
     build:
-      context: .
-      dockerfile: integrationtest/real-bidder/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/real-bidder/Dockerfile
     restart: always
     depends_on:
       - bidder-4
@@ -499,8 +499,8 @@ services:
 
   bidder-5:
     build:
-      context: .
-      dockerfile: ./integrationtest/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/Dockerfile
       args:
         node_type: bidder
     restart: always
@@ -534,8 +534,8 @@ services:
 
   bidder-emulator-5:
     build:
-      context: .
-      dockerfile: integrationtest/real-bidder/Dockerfile
+      context: ../
+      dockerfile: ./p2p/integrationtest/real-bidder/Dockerfile
     restart: always
     depends_on:
       - bidder-5

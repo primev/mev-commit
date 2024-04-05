@@ -180,9 +180,10 @@ start_hyperlane(){
     local chain_id=${3:-$DEFAULT_CHAIN_ID}
     local private_key=${4:-"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"}
     AGENT_BASE_IMAGE=gcr.io/abacus-labs-dev/hyperlane-agent@sha256:854f92966eac6b49e5132e152cc58168ecdddc76c2d390e657b81bdaf1396af0 \
-        PUBLIC_SETTLEMENT_RPC_URL="$public_rpc_url" \
-        SETTLEMENT_RPC_URL="$rpc_url" \
-        docker compose -f "bridge/hyperlane/docker-compose.yml" --profile bridge up -d --build
+    PUBLIC_SETTLEMENT_RPC_URL="$public_rpc_url" \
+    SETTLEMENT_RPC_URL="$rpc_url" \
+    HYPERLANE_DEPLOYER_PRIVATE_KEY="$private_key" \
+    docker compose -f "bridge/hyperlane/docker-compose.yml" --profile bridge up -d --build
 
     # Run Alpine container which:
     # 1. Install jq
@@ -350,7 +351,6 @@ start_service() {
             start_hyperlane "$public_rpc_url"
             ;;
         "mev-commit")
-            initialize_environment
             start_mev_commit "$datadog_key"
             ;;
         "oracle")

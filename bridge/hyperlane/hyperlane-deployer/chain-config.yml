@@ -35,7 +35,7 @@ mevcommitsettlement:
     reorgPeriod: 100 # Number: Blocks before a transaction has a near-zero chance of reverting
     estimateBlockTime: 1 
 
-# Partial override sepolia config for custom rpc
-sepolia:
-  rpcUrls:
-    - http: https://ethereum-sepolia.publicnode.com 
+  # Partial override sepolia config for custom rpc
+  sepolia:
+    rpcUrls:
+      - http: https://ethereum-sepolia.publicnode.com
