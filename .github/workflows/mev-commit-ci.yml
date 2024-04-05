@@ -49,12 +49,13 @@ jobs:
     - name: Run Sync
       run: go work sync
 
-# TODO(mrekucci): Re-enable when the repo is finalized.
-#    - name: Run Lint
-#      uses: golangci/golangci-lint-action@v4
-#      with:
-#        version: v1.57.2
-#        args: --verbose ${{ env.GO_LINT_DIRS }}
+    - name: Run Lint
+      uses: golangci/golangci-lint-action@v4
+      with:
+        version: v1.57.2
+        args: --verbose ${{ env.GO_LINT_DIRS }}
+        only-new-issues: true
+        skip-cache: true
 
     - name: Run Build
       run: go list -f '{{.Dir}}/...' -m | xargs go build
