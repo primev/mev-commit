@@ -22,6 +22,8 @@ linters:
     - complexity
     - performance
   disable:
+    - gomoddirectives
+    - paralleltest
     - musttag # TODO(mrekucci): re-enable when external/geth is bumped to go1.21
 
 run:
