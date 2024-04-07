@@ -14,56 +14,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Setup Cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/go/pkg/mod
-          ~/.cache/go-build
-          **/go.work.sum
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
-        restore-keys: ${{ runner.os }}-go-
+      - name: Setup Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            **/go.work.sum
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
+          restore-keys: ${{ runner.os }}-go-
 
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: 1.22
-        check-latest: true
-        cache-dependency-path: go.work.sum
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+          check-latest: true
+          cache-dependency-path: go.work.sum
 
-    - name: Workspace Modules
-      run: |
-        echo $(go list -f '{{.Dir}}' -m)
-        echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> $GITHUB_ENV
+      - name: Workspace Modules
+        run: |
+          echo $(go list -f '{{.Dir}}' -m)
+          echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> $GITHUB_ENV
 
-    - name: Run Gofmt
-      run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l
+      - name: Run Gofmt
+        run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l
 
-    - name: Run Tidy
-      run: go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
+      - name: Run Tidy
+        run: go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
 
-    - name: Run Sync
-      run: go work sync
+      - name: Run Sync
+        run: go work sync
 
-    - name: Run Lint
-      uses: golangci/golangci-lint-action@v4
-      with:
-        version: v1.57.2
-        args: --verbose ${{ env.GO_LINT_DIRS }}
-        only-new-issues: true
-        skip-cache: true
+      - name: Run Lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: v1.57.2
+          args: --timeout 15m --verbose ${{ env.GO_LINT_DIRS }}
+          skip-cache: true # TODO(mrekucci): remove when the following issue is solved https://github.com/golangci/golangci-lint-action/issues/135#issuecomment-2039548548
 
-    - name: Run Build
-      run: go list -f '{{.Dir}}/...' -m | xargs go build
+      - name: Run Build
+        run: go list -f '{{.Dir}}/...' -m | xargs go build
 
-      # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
-    - name: Run Test
-      run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test -short -race
+        # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
+      - name: Run Test
+        run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test -short -race
 
   foundry:
     name: Foundry Checks and Reports
