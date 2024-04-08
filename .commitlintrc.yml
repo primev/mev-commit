@@ -1,0 +1,37 @@
+extends:
+  - '@commitlint/config-conventional'
+rules:
+  header-max-length: [1, 'always', 72]
+  body-leading-blank: [2, 'always']
+  subject-empty: [2, 'never']
+  subject-full-stop: [2, 'never', '.']
+  subject-case:
+    - 2
+    - never
+    - - sentence-case
+      - start-case
+      - pascal-case
+  type-empty: [2, 'never']
+  type-enum:
+    - 2
+    - always
+    - - fix
+      - feat
+      - refactor
+      - revert
+      - test
+      - perf
+      - style
+      - chore
+      - docs
+help: |
+  **Possible types**:
+  `fix`:      Solves a bug.
+  `feat`:     Adds a new feature.
+  `refactor`: Rewrites code without feature, performance or bug changes.
+  `revert`:   Changes that reverting other changes.
+  `test`:     Adds missing or correcting existing tests.
+  `perf`:     A code change that improves performance.
+  `style`:    Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc).
+  `chore`:    Changes to the build process or auxiliary tools and libraries such as documentation generation.
+  `docs`:     Documentation only changes.

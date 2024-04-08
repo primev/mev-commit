@@ -9,6 +9,44 @@ on:
       - main
 
 jobs:
+  commitlint:
+    name: Check Commit Message
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install required dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git curl
+          curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+
+      - name: Print versions
+        run: |
+          git --version
+          node --version
+          npm --version
+          npx commitlint --version
+
+      - name: Install commitlint
+        run: |
+          npm install conventional-changelog-conventionalcommits
+          npm install --save-dev @commitlint/config-conventional
+          npm install commitlint@latest
+
+      - name: Validate current commit (last commit) message
+        if: github.event_name == 'push'
+        run: npx commitlint --last --verbose
+
+      - name: Validate PR commit messages
+        if: github.event_name == 'pull_request'
+        run: npx commitlint --from ${{ github.event.pull_request.head.sha }}~${{ github.event.pull_request.commits }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
   go-modules:
     name: Test and Build Go Modules
     runs-on: ubuntu-latest
