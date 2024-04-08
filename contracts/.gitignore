@@ -1,0 +1,20 @@
+# This file lists artifacts of this project build that shouldn't be checked in.
+# For other files created by specific development environment, use alternative
+# ways to exclude those files from git. For example, set up .git/info/exclude
+# or use a global .gitignore.
+
+# Ignore build artifacts.
+**/broadcast
+cache_forge
+cache_hardhat
+node_modules
+coverage
+coverage.json
+typechain
+typechain-types
+cache
+artifacts
+out
+
+# Ignore local environment files.
+.env

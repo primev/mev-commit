@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package preconfirmation.v1;
+
+message Bid {
+  string tx_hash = 1;
+  string bid_amount = 2;
+  int64 block_number = 3;
+  bytes digest = 4;
+  bytes signature = 5;
+  int64 decay_start_timestamp = 6;
+  int64 decay_end_timestamp = 7;
+};
+
+message PreConfirmation {
+  Bid bid = 1;
+  bytes digest = 2;
+  bytes signature = 3;
+  bytes provider_address = 4;
+};

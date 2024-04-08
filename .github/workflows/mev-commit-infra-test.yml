@@ -1,0 +1,68 @@
+name: mev-commit-infra-test
+
+on:
+  workflow_run:
+    workflows: ["mev-commit-ci"]
+    types: 
+      - completed
+
+jobs:
+  deploy_and_test:
+    name: Deploy and Test mev-commit infra
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+      
+    - name: Install jq
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Setup Docker Compose
+      run: |
+        sudo rm $(which docker-compose)
+        curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+
+    - name: Build and Start Services
+      run: ./mev-commit-cli.sh start minimal
+
+    - name: Check Service Endpoints
+      run: |
+        ips=("172.29.18.2" "172.29.0.3" "172.29.0.4")
+        
+        for ip in "${ips[@]}"; do
+          echo "Checking service at $ip"
+        
+          attempts=0
+          success=false
+          while [ $attempts -lt 6 ]; do
+            response=$(curl -k -s "https://$ip:13523/topology")
+            bidders=$(echo "$response" | jq '.connected_peers.bidders | length')
+            providers=$(echo "$response" | jq '.connected_peers.providers | length')
+            if [[ -n "$response" && "$bidders" -gt 0 || "$providers" -gt 0 ]]; then
+              echo "Service at $ip is OK"
+              success=true
+              break
+            else
+              echo "Service check failed for $ip. Retrying in 30 seconds..."
+              attempts=$(( $attempts + 1 ))
+              sleep 30
+            fi
+          done
+
+          if [ "$success" == "false" ]; then
+            echo "Service check failed for $ip after 3 attempts, failing"
+            exit 1
+          fi
+        done
+
+    - name: Stop Services
+      run: ./mev-commit-cli.sh stop minimal

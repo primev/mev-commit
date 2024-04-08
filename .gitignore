@@ -1,0 +1,15 @@
+# This file lists artifacts of this project build that shouldn't be checked in.
+# For other files created by specific development environment, use alternative
+# ways to exclude those files from git. For example, set up .git/info/exclude
+# or use a global .gitignore. A .gitingore file for a particular branch is
+# only allowed if it excludes files that are specific to that branch and
+# should not be excluded globally.
+
+# MAC OS X generated files.
+.DS_Store*
+
+# Ignore build artifacts.
+**/bin/
+
+# Ignore environment files.
+**/.env

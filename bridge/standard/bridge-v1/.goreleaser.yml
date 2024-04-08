@@ -1,0 +1,79 @@
+version: 1
+
+builds:
+  - id: relayer
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    dir: ./bridge/standard/bridge-v1
+    main: ./cmd/relayer
+    binary: relayer
+  - id: user_cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    dir: ./bridge/standard/bridge-v1
+    main: ./cmd/user_cli
+    binary: user-cli
+
+archives:
+  - id: relayer
+    builds:
+      - relayer
+    format: tar.gz
+    name_template: >-
+      mev-commit-bridge-
+      {{- .Binary }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: user_cli
+    builds:
+      - user_cli
+    format: tar.gz
+    name_template: >-
+      mev-commit-bridge-
+      {{- .Binary }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: mev-commit-bridge_{{ .Version }}_checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

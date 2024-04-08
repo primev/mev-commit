@@ -1,0 +1,15 @@
+FROM golang:1.22.1 AS builder
+
+WORKDIR /app
+COPY ./bridge ./bridge
+COPY ./contracts-abi ./contracts-abi
+WORKDIR ./bridge/standard/bridge-v1
+RUN CGO_ENABLED=0 make relayer
+
+FROM alpine:latest
+
+COPY --from=builder /app/bridge/standard/bridge-v1/bin/relayer /usr/local/bin/relayer
+COPY --from=builder /app/bridge/standard/bridge-v1/example_config/relayer_config.yml /example_config/relayer_config.yml
+COPY --from=builder /app/bridge/standard/bridge-v1/example_config/relayer_key /example_config/relayer_key
+
+ENTRYPOINT ["relayer", "start", "--config=example_config/relayer_config.yml"]

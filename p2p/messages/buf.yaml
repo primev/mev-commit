@@ -1,0 +1,11 @@
+version: v1
+name: buf.build/mev-commit/messages
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/bufbuild/protovalidate
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT
