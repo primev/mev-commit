@@ -1,14 +1,17 @@
-name: mev-commit-infra-test
+name: mev-commit-infra
 
 on:
   workflow_run:
     workflows: ["mev-commit-ci"]
     types: 
       - completed
+  pull_request:
+    branches:
+      - "**"
 
 jobs:
   deploy_and_test:
-    name: Deploy and Test mev-commit infra
+    name: Deploy and Test mev-commit Minimal Infrastructure
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -37,7 +40,7 @@ jobs:
     - name: Check Service Endpoints
       run: |
         ips=("172.29.18.2" "172.29.0.3" "172.29.0.4")
-        
+
         for ip in "${ips[@]}"; do
           echo "Checking service at $ip"
         

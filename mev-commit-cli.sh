@@ -58,6 +58,19 @@ stop_settlement_layer() {
 
 start_mev_commit_minimal() {
     echo "Starting MEV-Commit..."
+
+    # Create or overwrite the .env file
+    echo "Setting .env file..."
+    cat > "p2p/integrationtest/.env" <<-EOF
+    BIDDER_REGISTRY=0x02CcEcB19c6D7EFe583C8b97022cB4b4C0B65608
+    PROVIDER_REGISTRY=0x070cE6161AD79a3BC7aEa222FdfC6AD171Ca83F3
+    PRECONF_CONTRACT=0x4DfF34f74aE5C48a5050eb54e7cEDAb9DEF03715
+
+    RPC_URL=${rpc_url}
+    PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    L1_RPC_URL="${L1_RPC_BASE_URL}/${sepolia_key}"
+EOF
+
     docker compose --profile minimal-setup -f "p2p/integration-compose.yml" up --build -d
 }
 
@@ -83,10 +96,10 @@ start_mev_commit_e2e() {
             ;;
         esac
     done
-    echo "Setting .env file ..."
+    echo "Setting .env file..."
 
-        # Create or overwrite the .env file
-    cat > "p2p/integrationtest/.env" <<EOF
+    # Create or overwrite the .env file
+    cat > "p2p/integrationtest/.env" <<-EOF
     BIDDER_REGISTRY=0x02CcEcB19c6D7EFe583C8b97022cB4b4C0B65608
     PROVIDER_REGISTRY=0x070cE6161AD79a3BC7aEa222FdfC6AD171Ca83F3
     PRECONF_CONTRACT=0x4DfF34f74aE5C48a5050eb54e7cEDAb9DEF03715
