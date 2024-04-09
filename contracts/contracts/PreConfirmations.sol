@@ -77,7 +77,7 @@ contract PreConfCommitmentStore is Ownable {
         bytes32 commitmentHash;
         bytes bidSignature;
         bytes commitmentSignature;
-        uint64 blockCommitedAt;
+        uint64 dispatchTimestamp;
     }
 
     /// @dev Event to log successful verifications
