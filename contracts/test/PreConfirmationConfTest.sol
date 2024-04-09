@@ -20,6 +20,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes32 commitmentDigest;
         bytes bidSignature;
         bytes commitmentSignature;
+        uint64 dispatchTimestamp;
     }
 
     TestCommitment internal _testCommitmentAliceBob;
@@ -42,7 +43,8 @@ contract TestPreConfCommitmentStore is Test {
             0xa0327970258c49b922969af74d60299a648c50f69a2d98d6ab43f32f64ac2100,
             0x54c118e537dd7cf63b5388a5fc8322f0286a978265d0338b108a8ca9d155dccc,
             hex"876c1216c232828be9fabb14981c8788cebdf6ed66e563c4a2ccc82a577d052543207aeeb158a32d8977736797ae250c63ef69a82cd85b727da21e20d030fb311b",
-            hex"ec0f11f77a9e96bb9c2345f031a5d12dca8d01de8a2e957cf635be14802f9ad01c6183688f0c2672639e90cc2dce0662d9bea3337306ca7d4b56dd80326aaa231b"
+            hex"ec0f11f77a9e96bb9c2345f031a5d12dca8d01de8a2e957cf635be14802f9ad01c6183688f0c2672639e90cc2dce0662d9bea3337306ca7d4b56dd80326aaa231b",
+            1000
         );
 
         feePercent = 10;
@@ -61,10 +63,14 @@ contract TestPreConfCommitmentStore is Test {
             address(providerRegistry), // Provider Registry
             address(bidderRegistry), // User Registry
             feeRecipient, // Oracle
-            address(this) // Owner
+            address(this),
+            500
         );
 
         bidderRegistry.setPreconfirmationsContract(address(preConfCommitmentStore));
+
+        // Sets fake block timestamp
+        vm.warp(1000);
     }
 
     function test_Initialize() public {
@@ -115,7 +121,98 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
             signature,
-            _testCommitmentAliceBob.commitmentSignature
+            _testCommitmentAliceBob.commitmentSignature,
+            _testCommitmentAliceBob.dispatchTimestamp
+        );
+    }
+
+
+    function test_StoreCommitmentFailureDueToTimestampValidation() public {
+        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+            _testCommitmentAliceBob.txnHash,
+            _testCommitmentAliceBob.bid,
+            _testCommitmentAliceBob.blockNumber,
+            _testCommitmentAliceBob.decayStartTimestamp,
+            _testCommitmentAliceBob.decayEndTimestamp
+        );
+        (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
+        // Wallet memory kartik = vm.createWallet('test wallet');
+        (uint8 v,bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        vm.deal(bidder, 200000 ether);
+        vm.prank(bidder);
+        bidderRegistry.prepay{value: 1e18 wei}();
+
+        (bytes32 digest, address recoveredAddress, uint256 stake) =  preConfCommitmentStore.verifyBid(
+            _testCommitmentAliceBob.bid, 
+            _testCommitmentAliceBob.blockNumber, 
+            _testCommitmentAliceBob.decayStartTimestamp, 
+            _testCommitmentAliceBob.decayEndTimestamp, 
+            _testCommitmentAliceBob.txnHash, 
+            signature);
+        
+        assertEq(stake, 1e18 wei);
+        assertEq(bidder, recoveredAddress);
+        assertEq(digest, bidHash);
+
+        vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
+        preConfCommitmentStore.storeCommitment(
+            _testCommitmentAliceBob.bid,
+            _testCommitmentAliceBob.blockNumber,
+            _testCommitmentAliceBob.txnHash,
+            _testCommitmentAliceBob.decayStartTimestamp,
+            _testCommitmentAliceBob.decayEndTimestamp,
+            signature,
+            _testCommitmentAliceBob.commitmentSignature,
+            _testCommitmentAliceBob.dispatchTimestamp - 500
+        );
+
+    }
+
+
+    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow() public {
+        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+            _testCommitmentAliceBob.txnHash,
+            _testCommitmentAliceBob.bid,
+            _testCommitmentAliceBob.blockNumber,
+            _testCommitmentAliceBob.decayStartTimestamp,
+            _testCommitmentAliceBob.decayEndTimestamp
+        );
+        (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
+        // Wallet memory kartik = vm.createWallet('test wallet');
+        (uint8 v,bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        vm.deal(bidder, 200000 ether);
+        vm.prank(bidder);
+        bidderRegistry.prepay{value: 1e18 wei}();
+
+        (bytes32 digest, address recoveredAddress, uint256 stake) =  preConfCommitmentStore.verifyBid(
+            _testCommitmentAliceBob.bid, 
+            _testCommitmentAliceBob.blockNumber, 
+            _testCommitmentAliceBob.decayStartTimestamp, 
+            _testCommitmentAliceBob.decayEndTimestamp, 
+            _testCommitmentAliceBob.txnHash, 
+            signature);
+        
+        assertEq(stake, 1e18 wei);
+        assertEq(bidder, recoveredAddress);
+        assertEq(digest, bidHash);
+
+        vm.prank(preConfCommitmentStore.owner());
+        preConfCommitmentStore.updateCommitmentDispatchWindow(200);
+
+        vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
+        preConfCommitmentStore.storeCommitment(
+            _testCommitmentAliceBob.bid,
+            _testCommitmentAliceBob.blockNumber,
+            _testCommitmentAliceBob.txnHash,
+            _testCommitmentAliceBob.decayStartTimestamp,
+            _testCommitmentAliceBob.decayEndTimestamp,
+            signature,
+            _testCommitmentAliceBob.commitmentSignature,
+            _testCommitmentAliceBob.dispatchTimestamp - 200
         );
 
     }
@@ -219,7 +316,8 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.bidSignature,
-            _testCommitmentAliceBob.commitmentSignature
+            _testCommitmentAliceBob.commitmentSignature,
+            _testCommitmentAliceBob.dispatchTimestamp
         );
 
         // Step 3: Verify the stored commitment
@@ -277,7 +375,8 @@ contract TestPreConfCommitmentStore is Test {
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         bytes memory bidSignature,
-        bytes memory commitmentSignature
+        bytes memory commitmentSignature,
+        uint64 dispatchTimestamp
     ) internal returns (bytes32) {
         bytes32 commitmentIndex = preConfCommitmentStore.storeCommitment(
             bid,
@@ -286,7 +385,8 @@ contract TestPreConfCommitmentStore is Test {
             decayStartTimestamp,
             decayEndTimestamp,
             bidSignature,
-            commitmentSignature
+            commitmentSignature,
+            dispatchTimestamp
         );
 
         return commitmentIndex;
@@ -372,7 +472,8 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.bidSignature,
-            _testCommitmentAliceBob.commitmentSignature
+            _testCommitmentAliceBob.commitmentSignature,
+            _testCommitmentAliceBob.dispatchTimestamp
         );
         PreConfCommitmentStore.PreConfCommitment
             memory storedCommitment = preConfCommitmentStore.getCommitment(
@@ -427,7 +528,8 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.commitmentSignature
+                _testCommitmentAliceBob.commitmentSignature,
+               _testCommitmentAliceBob.dispatchTimestamp
             );
             providerRegistry.setPreconfirmationsContract(
                 address(preConfCommitmentStore)
@@ -485,7 +587,8 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.commitmentSignature
+                _testCommitmentAliceBob.commitmentSignature,
+                _testCommitmentAliceBob.dispatchTimestamp
             );
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
@@ -541,7 +644,8 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.commitmentSignature
+                _testCommitmentAliceBob.commitmentSignature,
+                _testCommitmentAliceBob.dispatchTimestamp
             );
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
@@ -573,3 +677,6 @@ contract TestPreConfCommitmentStore is Test {
         return string(_string);
     }
 }
+
+
+
