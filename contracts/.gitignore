@@ -1,20 +1,15 @@
-# This file lists artifacts of this project build that shouldn't be checked in.
-# For other files created by specific development environment, use alternative
-# ways to exclude those files from git. For example, set up .git/info/exclude
-# or use a global .gitignore.
-
-# Ignore build artifacts.
 **/broadcast
 cache_forge
 cache_hardhat
 node_modules
+.env
 coverage
 coverage.json
 typechain
 typechain-types
+
+# Hardhat files
 cache
 artifacts
-out
 
-# Ignore local environment files.
-.env
+out

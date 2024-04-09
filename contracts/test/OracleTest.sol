@@ -32,6 +32,7 @@ contract OracleTest is Test {
         bytes32 commitmentDigest;
         bytes bidSignature;
         bytes commitmentSignature;
+        uint64 dispatchTimestamp;
     }
 
     // Events to match against
@@ -53,7 +54,8 @@ contract OracleTest is Test {
             0xa0327970258c49b922969af74d60299a648c50f69a2d98d6ab43f32f64ac2100,
             0x54c118e537dd7cf63b5388a5fc8322f0286a978265d0338b108a8ca9d155dccc,
             hex"876c1216c232828be9fabb14981c8788cebdf6ed66e563c4a2ccc82a577d052543207aeeb158a32d8977736797ae250c63ef69a82cd85b727da21e20d030fb311b",
-            hex"ec0f11f77a9e96bb9c2345f031a5d12dca8d01de8a2e957cf635be14802f9ad01c6183688f0c2672639e90cc2dce0662d9bea3337306ca7d4b56dd80326aaa231b"
+            hex"ec0f11f77a9e96bb9c2345f031a5d12dca8d01de8a2e957cf635be14802f9ad01c6183688f0c2672639e90cc2dce0662d9bea3337306ca7d4b56dd80326aaa231b",
+            1000
         );
 
         feePercent = 10;
@@ -71,7 +73,8 @@ contract OracleTest is Test {
             address(providerRegistry), // Provider Registry
             address(bidderRegistry), // User Registry
             feeRecipient, // Oracle
-            address(this) // Owner
+            address(this),
+            500
         );
 
         address ownerInstance = 0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3;
@@ -86,6 +89,7 @@ contract OracleTest is Test {
         preConfCommitmentStore.updateOracle(address(oracle));
         bidderRegistry.setPreconfirmationsContract(address(preConfCommitmentStore));
         providerRegistry.setPreconfirmationsContract(address(preConfCommitmentStore));
+        vm.warp(1010);
 
     }
 
@@ -142,7 +146,8 @@ contract OracleTest is Test {
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
             bidderPk,
-            providerPk
+            providerPk,
+            _testCommitmentAliceBob.dispatchTimestamp
         );
 
         string[] memory txnList = new string[](1);
@@ -172,7 +177,7 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk);
+        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk, 1000);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
         oracle.addBuilderAddress(blockBuilderName, provider);
@@ -202,7 +207,7 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk);
+        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk, 1000);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
         oracle.addBuilderAddress(blockBuilderName, provider);
@@ -236,8 +241,8 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk);
-        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk);
+        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk,1000);
+        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk,1000);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
         oracle.addBuilderAddress(blockBuilderName, provider);
@@ -276,10 +281,10 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk);
-        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk);
-        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, 10, 20, bidderPk, providerPk);
-        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, 10, 20, bidderPk, providerPk);
+        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk,1000);
+        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk,1000);
+        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, 10, 20, bidderPk, providerPk,1000);
+        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, 10, 20, bidderPk, providerPk,1000);
 
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
@@ -323,13 +328,13 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk);
+        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk ,1000);
         assertEq(bidderRegistry.bidderPrepaidBalances(bidder), 250 ether - bid);
-        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk);
+        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk ,1000);
         assertEq(bidderRegistry.bidderPrepaidBalances(bidder), 250 ether - 2*bid);
-        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, 10, 20, bidderPk, providerPk);
+        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, 10, 20, bidderPk, providerPk, 1000);
         assertEq(bidderRegistry.bidderPrepaidBalances(bidder), 250 ether - 3*bid);
-        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, 10, 20, bidderPk, providerPk);
+        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, 10, 20, bidderPk, providerPk, 1000);
         assertEq(bidderRegistry.bidderPrepaidBalances(bidder), 250 ether - 4*bid);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
@@ -370,7 +375,7 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk);
+        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk, 1000);
         PreConfCommitmentStore.PreConfCommitment memory commitment = preConfCommitmentStore.getCommitment(index);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
@@ -397,7 +402,8 @@ contract OracleTest is Test {
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         uint256 bidderPk,
-        uint256 signerPk
+        uint256 signerPk,
+        uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             txnHash,
@@ -431,7 +437,8 @@ contract OracleTest is Test {
             decayStartTimestamp,
             decayEndTimestamp,
             bidSignature,
-            commitmentSignature
+            commitmentSignature,
+            dispatchTimestamp
         );
 
         return commitmentIndex;
