@@ -332,7 +332,6 @@ contract PreConfCommitmentStore is Ownable {
             bidSignature
         );
 
-        require(block.timestamp >= dispatchTimestamp, "Invalid dispatch timestamp, block.timestamp < dispatchTimestamp");
         require(block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW, "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
         
         // This helps in avoiding stack too deep
