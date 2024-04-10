@@ -13,3 +13,5 @@
 
 # Ignore environment files.
 **/.env
+
+.vscode
