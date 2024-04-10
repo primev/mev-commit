@@ -90,7 +90,7 @@ func TestUpdater(t *testing.T) {
 				Commiter:            builderAddr,
 				TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 				CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-				BlockCommitedAt:     big.NewInt(0),
+				DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
 				DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 				DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			}
@@ -99,7 +99,7 @@ func TestUpdater(t *testing.T) {
 				Commiter:            otherBuilderAddr,
 				TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 				CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-				BlockCommitedAt:     big.NewInt(0),
+				DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
 				DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 				DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			}
@@ -119,7 +119,7 @@ func TestUpdater(t *testing.T) {
 			Commiter:            builderAddr,
 			TxnHash:             bundle,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			BlockCommitedAt:     big.NewInt(0),
+			DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 		}
@@ -247,9 +247,9 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		}
 
 		commitments[string(idxBytes[:])] = preconf.PreConfCommitmentStorePreConfCommitment{
-			Commiter:        builderAddr,
-			TxnHash:         bundle,
-			BlockCommitedAt: big.NewInt(0),
+			Commiter:          builderAddr,
+			TxnHash:           bundle,
+			DispatchTimestamp: 0,
 		}
 	}
 
