@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.15;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract ValidatorRegistry is Ownable {
+contract ValidatorRegistry is OwnableUpgradeable {
 
     uint256 public minStake;
     uint256 public unstakePeriodBlocks;
