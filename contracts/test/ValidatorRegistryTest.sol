@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.15;
 
 import "forge-std/Test.sol";
 import "../contracts/ValidatorRegistry.sol";
+
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract ValidatorRegistryTest is Test {
     ValidatorRegistry public validatorRegistry;
@@ -22,20 +24,12 @@ contract ValidatorRegistryTest is Test {
         owner = address(this);
         user1 = address(0x123);
         user2 = address(0x456);
-
-        // Deploy the implementation contract.
-        ValidatorRegistry implementation = new ValidatorRegistry();
         
-        // Deploy the Proxy with the implementation address, and the call data for the initialize function.
-        bytes memory initData = abi.encodeWithSelector(ValidatorRegistry.initialize.selector, MIN_STAKE, UNSTAKE_PERIOD, owner);
-        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
-            address(implementation),
-            address(proxyAdmin), // This should be the proxy admin address; often this is the deployer initially.
-            initData
+        address proxy = Upgrades.deployUUPSProxy(
+            "ValidatorRegistry.sol",
+            abi.encodeCall(ValidatorRegistry.initialize, (MIN_STAKE, UNSTAKE_PERIOD_BLOCKS, owner))
         );
-
-        // Cast the proxy to the interface of your contract to interact with it.
-        validatorRegistry = ValidatorRegistry(address(proxy));
+        validatorRegistry = ValidatorRegistry(proxy);
     }
 
     function testSelfStake() public {
