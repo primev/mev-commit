@@ -32,6 +32,13 @@ contract ValidatorRegistryTest is Test {
         validatorRegistry = ValidatorRegistry(proxy);
     }
 
+    function testSecondInitialize() public {
+        vm.prank(owner);
+        vm.expectRevert();
+        validatorRegistry.initialize(MIN_STAKE, UNSTAKE_PERIOD, owner);
+        vm.stopPrank();
+    }
+
     function testSelfStake() public {
         vm.deal(user1, 10 ether);
 
@@ -72,7 +79,7 @@ contract ValidatorRegistryTest is Test {
         vm.stopPrank();
     }
 
-    function testFailUnauthorizedUnstake() public {
+    function testUnauthorizedUnstake() public {
         uint256 stakeAmount = 1 ether;
         vm.deal(user1, stakeAmount);
 
@@ -84,8 +91,8 @@ contract ValidatorRegistryTest is Test {
         vm.startPrank(user2);
         address[] memory fromAddrs = new address[](1);
         fromAddrs[0] = user1;
-        validatorRegistry.unstake(fromAddrs);
         vm.expectRevert("Not authorized to unstake. Must be stake originator or EOA whos staked");
+        validatorRegistry.unstake(fromAddrs);
         vm.stopPrank();
     }
 
@@ -105,8 +112,8 @@ contract ValidatorRegistryTest is Test {
         assertEq(validatorRegistry.stakedBalances(user1), MIN_STAKE);
         assertTrue(validatorRegistry.isStaked(user1));
 
-        uint256 BLOCK_WAIT_PERIOD = 11;
-        vm.roll(block.number + BLOCK_WAIT_PERIOD);
+        uint256 blockWaitPeriod = 11;
+        vm.roll(block.number + blockWaitPeriod);
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
