@@ -70,11 +70,12 @@ contract ValidatorRegistryTest is Test {
         assertTrue(validatorRegistry.isStaked(user2));
     }
 
-    function testFailUnstakeInsufficientFunds() public {
+    function testUnstakeInsufficientFunds() public {
         vm.startPrank(user2);
         address[] memory fromAddrs = new address[](1);
         fromAddrs[0] = user2;
 
+        vm.expectRevert();
         validatorRegistry.unstake(fromAddrs);
         vm.stopPrank();
     }
