@@ -27,6 +27,7 @@ func TestPreconfContract(t *testing.T) {
 		commitment := []byte("abcdef")
 		decayStart := uint64(1710095453035)
 		decayEnd := uint64(1710095454035)
+		dispatchTimestamp := decayStart + (decayEnd-decayStart)/2
 
 		expCallData, err := preconfcontract.PreConfABI().Pack(
 			"storeCommitment",
@@ -37,6 +38,7 @@ func TestPreconfContract(t *testing.T) {
 			decayEnd,
 			bidSig,
 			commitment,
+			dispatchTimestamp,
 		)
 
 		if err != nil {
@@ -85,6 +87,7 @@ func TestPreconfContract(t *testing.T) {
 			decayEnd,
 			bidSig,
 			commitment,
+			dispatchTimestamp,
 		)
 		if err != nil {
 			t.Fatal(err)

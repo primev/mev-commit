@@ -33,6 +33,7 @@ type Interface interface {
 		decayEndTimeStamp uint64,
 		bidSignature []byte,
 		commitmentSignature []byte,
+		decayDispatchTimestamp uint64,
 	) error
 }
 
@@ -65,6 +66,7 @@ func (p *preconfContract) StoreCommitment(
 	decayEndTimeStamp uint64,
 	bidSignature []byte,
 	commitmentSignature []byte,
+	decayDispatchTimestamp uint64,
 ) error {
 
 	callData, err := p.preconfABI.Pack(
@@ -76,6 +78,7 @@ func (p *preconfContract) StoreCommitment(
 		decayEndTimeStamp,
 		bidSignature,
 		commitmentSignature,
+		decayDispatchTimestamp,
 	)
 	if err != nil {
 		p.logger.Error("preconf contract storeCommitment pack error", "err", err)

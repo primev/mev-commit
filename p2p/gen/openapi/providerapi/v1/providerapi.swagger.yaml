@@ -216,7 +216,7 @@ definitions:
       status:
         $ref: '#/definitions/v1BidResponseStatus'
         description: Status of the bid.
-      decayDispatchTimestamp:
+      dispatchTimestamp:
         type: string
         format: int64
         description: Timestamp at which the commitment is accepted by provider and is used to compute the expected revenue from the preconfirmation

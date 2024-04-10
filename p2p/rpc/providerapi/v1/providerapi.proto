@@ -174,9 +174,9 @@ message BidResponse {
         2
       ]
   }];
-  int64 decay_dispatch_timestamp = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+  int64 dispatch_timestamp = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Timestamp at which the commitment is accepted by provider and is used to compute the expected revenue from the preconfirmation"
-  }, (buf.validate.field).int64.gt = 0];
+  }];
 };
 
 message PendingTxnsResponse {
