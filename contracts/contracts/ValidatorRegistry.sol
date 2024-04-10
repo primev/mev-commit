@@ -20,7 +20,7 @@ contract ValidatorRegistry is OwnableUpgradeable {
         require(_unstakePeriodBlocks > 0, "Unstake period must be greater than 0");
         minStake = _minStake;
         unstakePeriodBlocks = _unstakePeriodBlocks;
-        transferOwnership(_owner);
+        __Ownable_init(_owner);
     }
 
     mapping(address => uint256) public stakedBalances;
