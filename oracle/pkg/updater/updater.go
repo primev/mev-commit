@@ -154,11 +154,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 							return fmt.Errorf("failed to get commitment: %w", err)
 						}
 
-						l2Block, err := u.l2Client.BlockByNumber(ctx, commitment.BlockCommitedAt)
-						if err != nil {
-							return fmt.Errorf("failed to get L2 Block: %w", err)
-						}
-						decayPercentage := computeDecayPercentage(commitment.DecayStartTimeStamp, commitment.DecayEndTimeStamp, l2Block.Header().Time)
+						decayPercentage := computeDecayPercentage(commitment.DecayStartTimeStamp, commitment.DecayEndTimeStamp, commitment.DispatchTimestamp)
 
 						settlementType := settler.SettlementTypeReturn
 
