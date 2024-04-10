@@ -23,7 +23,19 @@ contract ValidatorRegistryTest is Test {
         user1 = address(0x123);
         user2 = address(0x456);
 
-        validatorRegistry = new ValidatorRegistry(MIN_STAKE, UNSTAKE_PERIOD);
+        // Deploy the implementation contract.
+        ValidatorRegistry implementation = new ValidatorRegistry();
+        
+        // Deploy the Proxy with the implementation address, and the call data for the initialize function.
+        bytes memory initData = abi.encodeWithSelector(ValidatorRegistry.initialize.selector, MIN_STAKE, UNSTAKE_PERIOD, owner);
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
+            address(implementation),
+            address(proxyAdmin), // This should be the proxy admin address; often this is the deployer initially.
+            initData
+        );
+
+        // Cast the proxy to the interface of your contract to interact with it.
+        validatorRegistry = ValidatorRegistry(address(proxy));
     }
 
     function testSelfStake() public {

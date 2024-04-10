@@ -3,16 +3,24 @@ pragma solidity ^0.8.15;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+/// @title Validator Registry
+/// @notice Enables L1 validator opt-in to mev-commit via staking. 
+/// @dev Slashing is not yet implemented for this contract, hence it is upgradable to incorporate slashing in the future.
 contract ValidatorRegistry is OwnableUpgradeable {
 
     uint256 public minStake;
     uint256 public unstakePeriodBlocks;
 
-    constructor(uint256 _minStake, uint256 _unstakePeriodBlocks) {
+    function initialize(
+        uint256 _minStake, 
+        uint256 _unstakePeriodBlocks, 
+        address _owner
+    ) external initializer {
         require(_minStake > 0, "Minimum stake must be greater than 0");
         require(_unstakePeriodBlocks > 0, "Unstake period must be greater than 0");
         minStake = _minStake;
         unstakePeriodBlocks = _unstakePeriodBlocks;
+        transferOwnership(_owner);
     }
 
     mapping(address => uint256) public stakedBalances;
