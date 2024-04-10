@@ -27,7 +27,7 @@ contract ValidatorRegistryTest is Test {
         
         address proxy = Upgrades.deployUUPSProxy(
             "ValidatorRegistry.sol",
-            abi.encodeCall(ValidatorRegistry.initialize, (MIN_STAKE, UNSTAKE_PERIOD_BLOCKS, owner))
+            abi.encodeCall(ValidatorRegistry.initialize, (MIN_STAKE, UNSTAKE_PERIOD, owner))
         );
         validatorRegistry = ValidatorRegistry(proxy);
     }
