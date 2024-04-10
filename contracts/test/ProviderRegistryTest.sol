@@ -91,7 +91,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(provider);
         vm.expectRevert(bytes(""));
         (bool success, ) = address(providerRegistry).call{value: 1 wei}("");
-        require(success, "Couldn't transfer to provider");
+        require(success, "Could not transfer to provider");
     }
 
     function testFail_fallback() public {
@@ -99,7 +99,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(provider);
         vm.expectRevert(bytes(""));
         (bool success, ) = address(providerRegistry).call{value: 1 wei}("");
-        require(success, "Couldn't transfer to provider");
+        require(success, "Could not transfer to provider");
     }
 
     function test_SetNewFeeRecipient() public {
@@ -252,12 +252,12 @@ contract ProviderRegistryTest is Test {
         assertEq(
             providerRegistry.providerStakes(newProvider),
             0,
-            "Provider's staked amount should be zero after withdrawal"
+            "Providers staked amount should be zero after withdrawal"
         );
         assertEq(
             newProvider.balance,
             2e18 wei,
-            "Provider's balance should increase by staked amount"
+            "Providers balance should increase by staked amount"
         );
     }
 
@@ -302,12 +302,12 @@ contract ProviderRegistryTest is Test {
         assertEq(
             providerRegistry.providerStakes(newProvider),
             0,
-            "Provider's staked amount should be zero after withdrawal"
+            "Providers staked amount should be zero after withdrawal"
         );
         assertEq(
             newProvider.balance,
             2e18 wei,
-            "Provider's balance should increase by staked amount"
+            "Providers balance should increase by staked amount"
         );
     }
 

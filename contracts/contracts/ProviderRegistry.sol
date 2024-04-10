@@ -191,7 +191,7 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
     function withdrawFeeRecipientAmount() external nonReentrant {
         feeRecipientAmount = 0;
         (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
-        require(successFee, "Couldn't transfer to fee Recipient");
+        require(successFee, "Could not transfer to fee Recipient");
     }
 
     function withdrawBidderAmount(address bidder) external nonReentrant {
@@ -200,7 +200,7 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
         bidderAmount[bidder] = 0;
 
         (bool success, ) = bidder.call{value: bidderAmount[bidder]}("");
-        require(success, "Couldn't transfer to bidder");
+        require(success, "Could not transfer to bidder");
     }
 
     function withdrawStakedAmount(
@@ -225,6 +225,6 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
         );
 
         (bool success, ) = provider.call{value: stake}("");
-        require(success, "Couldn't transfer stake to provider");
+        require(success, "Could not transfer stake to provider");
     }
 }

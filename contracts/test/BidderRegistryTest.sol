@@ -78,14 +78,14 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         vm.expectRevert(bytes(""));
         (bool success, ) = address(bidderRegistry).call{value: 1 wei}("");
-        require(success, "couldn't transfer to bidder");
+        require(success, "could not transfer to bidder");
     }
 
     function testFail_fallback() public {
         vm.prank(bidder);
         vm.expectRevert(bytes(""));
         (bool success, ) = address(bidderRegistry).call{value: 1 wei}("");
-        require(success, "couldn't transfer to bidder");
+        require(success, "could not transfer to bidder");
     }
 
     function test_SetNewFeeRecipient() public {

@@ -232,7 +232,7 @@ contract BidderRegistry is IBidderRegistry, Ownable, ReentrancyGuard {
         feeRecipientAmount = 0;
         require(amount > 0, "fee recipient amount Amount is zero");
         (bool successFee, ) = feeRecipient.call{value: amount}("");
-        require(successFee, "couldn't transfer to fee Recipient");
+        require(successFee, "could not transfer to fee Recipient");
     }
 
     function withdrawProviderAmount(
@@ -243,7 +243,7 @@ contract BidderRegistry is IBidderRegistry, Ownable, ReentrancyGuard {
 
         require(amount > 0, "provider Amount is zero");
         (bool success, ) = provider.call{value: amount}("");
-        require(success, "couldn't transfer to provider");
+        require(success, "could not transfer to provider");
     }
 
     function withdrawPrepaidAmount(address payable bidder) external nonReentrant {
@@ -253,7 +253,7 @@ contract BidderRegistry is IBidderRegistry, Ownable, ReentrancyGuard {
         require(prepaidAmount > 0, "bidder prepaid Amount is zero");
 
         (bool success, ) = bidder.call{value: prepaidAmount}("");
-        require(success, "couldn't transfer prepay to bidder");
+        require(success, "could not transfer prepay to bidder");
     }
 
     function withdrawProtocolFee(
@@ -264,6 +264,6 @@ contract BidderRegistry is IBidderRegistry, Ownable, ReentrancyGuard {
         require(_protocolFeeAmount > 0, "insufficient protocol fee amount");
 
         (bool success, ) = bidder.call{value: _protocolFeeAmount}("");
-        require(success, "couldn't transfer prepay to bidder");
+        require(success, "could not transfer prepay to bidder");
     }
 }
