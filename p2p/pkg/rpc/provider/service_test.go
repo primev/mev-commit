@@ -180,11 +180,12 @@ func TestBidHandling(t *testing.T) {
 	t.Parallel()
 
 	type testCase struct {
-		name       string
-		bid        *preconfpb.Bid
-		status     providerapiv1.BidResponse_Status
-		noStatus   bool
-		processErr string
+		name                   string
+		bid                    *preconfpb.Bid
+		status                 providerapiv1.BidResponse_Status
+		noStatus               bool
+		processErr             string
+		decayDispatchTimestamp int64
 	}
 
 	for _, tc := range []testCase{
@@ -204,7 +205,8 @@ func TestBidHandling(t *testing.T) {
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
 			},
-			status: providerapiv1.BidResponse_STATUS_ACCEPTED,
+			status:                 providerapiv1.BidResponse_STATUS_ACCEPTED,
+			decayDispatchTimestamp: 10,
 		},
 		{
 			name: "rejected bid",
@@ -217,7 +219,8 @@ func TestBidHandling(t *testing.T) {
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
 			},
-			status: providerapiv1.BidResponse_STATUS_REJECTED,
+			status:                 providerapiv1.BidResponse_STATUS_REJECTED,
+			decayDispatchTimestamp: 10,
 		},
 		{
 			name: "invalid bid status",
@@ -230,8 +233,9 @@ func TestBidHandling(t *testing.T) {
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
 			},
-			status:   providerapiv1.BidResponse_STATUS_UNSPECIFIED,
-			noStatus: true,
+			status:                 providerapiv1.BidResponse_STATUS_UNSPECIFIED,
+			noStatus:               true,
+			decayDispatchTimestamp: 10,
 		},
 		{
 			name: "invalid bid txHash",
@@ -244,7 +248,8 @@ func TestBidHandling(t *testing.T) {
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
 			},
-			processErr: "tx_hashes: tx_hashes must be a valid array of transaction hashes",
+			processErr:             "tx_hashes: tx_hashes must be a valid array of transaction hashes",
+			decayDispatchTimestamp: 10,
 		},
 		{
 			name: "invalid bid amount",
@@ -257,7 +262,8 @@ func TestBidHandling(t *testing.T) {
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
 			},
-			processErr: "bid_amount: bid_amount must be a valid integer",
+			processErr:             "bid_amount: bid_amount must be a valid integer",
+			decayDispatchTimestamp: 10,
 		},
 		{
 			name: "invalid bid block number",
@@ -270,7 +276,8 @@ func TestBidHandling(t *testing.T) {
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
 			},
-			processErr: "block_number: value must be greater than 0",
+			processErr:             "block_number: value must be greater than 0",
+			decayDispatchTimestamp: 10,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -320,8 +327,9 @@ func TestBidHandling(t *testing.T) {
 						break
 					}
 					err := sndr.Send(&providerapiv1.BidResponse{
-						BidDigest: bid.BidDigest,
-						Status:    tc.status,
+						BidDigest:         bid.BidDigest,
+						Status:            tc.status,
+						DispatchTimestamp: tc.decayDispatchTimestamp,
 					})
 					if err != nil {
 						break
@@ -342,8 +350,8 @@ func TestBidHandling(t *testing.T) {
 
 			select {
 			case resp := <-respC:
-				if resp != tc.status {
-					t.Fatalf("expected status to be %v, got %v", tc.status, resp)
+				if resp.Status != tc.status {
+					t.Fatalf("expected status to be %v, got %v", tc.status, resp.Status)
 				}
 				if tc.noStatus {
 					t.Fatalf("expected no status, got %v", resp)

@@ -358,9 +358,9 @@ type noOpBidProcessor struct{}
 func (noOpBidProcessor) ProcessBid(
 	_ context.Context,
 	_ *preconfpb.Bid,
-) (chan providerapiv1.BidResponse_Status, error) {
-	statusC := make(chan providerapiv1.BidResponse_Status, 5)
-	statusC <- providerapiv1.BidResponse_STATUS_ACCEPTED
+) (chan providerapi.ProcessedBidResponse, error) {
+	statusC := make(chan providerapi.ProcessedBidResponse, 5)
+	statusC <- providerapi.ProcessedBidResponse{Status: providerapiv1.BidResponse_STATUS_ACCEPTED, DispatchTimestamp: time.Now().UnixMilli()}
 	close(statusC)
 
 	return statusC, nil
@@ -377,6 +377,7 @@ func (noOpCommitmentDA) StoreCommitment(
 	_ uint64,
 	_ []byte,
 	_ []byte,
+	_ uint64,
 ) error {
 	return nil
 }
