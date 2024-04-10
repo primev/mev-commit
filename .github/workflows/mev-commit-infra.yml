@@ -5,9 +5,6 @@ on:
     workflows: ["mev-commit-ci"]
     types: 
       - completed
-  pull_request:
-    branches:
-      - "**"
 
 jobs:
   deploy_and_test:
