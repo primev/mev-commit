@@ -181,6 +181,10 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the bid ends decaying.
+      dispatchTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the commitment is published.
   v1PrepayResponse:
     type: object
     example:
