@@ -159,4 +159,7 @@ message Commitment {
   int64 decay_end_timestamp = 10 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Timestamp at which the bid ends decaying."
   }];
+  int64 dispatch_timestamp = 11 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Timestamp at which the commitment is published."
+  }];
 };

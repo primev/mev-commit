@@ -206,6 +206,7 @@ definitions:
     type: object
     example:
       bidDigest: 9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==
+      decayDispatchTimestamp: 1.23456789e+09
       status: STATUS_ACCEPTED
     properties:
       bidDigest:
@@ -215,11 +216,16 @@ definitions:
       status:
         $ref: '#/definitions/v1BidResponseStatus'
         description: Status of the bid.
+      decayDispatchTimestamp:
+        type: string
+        format: int64
+        description: Timestamp at which the commitment is accepted by provider and is used to compute the expected revenue from the preconfirmation
     description: Response sent by the provider with the decision on the bid received.
     title: Bid response
     required:
       - bidDigest
       - status
+      - decayDispatchTimestamp
   v1BidResponseStatus:
     type: string
     enum:
