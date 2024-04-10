@@ -195,6 +195,7 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
     }
 
     function withdrawBidderAmount(address bidder) external nonReentrant {
+        require(msg.sender == bidder, "Only bidder can withdraw");
         require(bidderAmount[bidder] > 0, "Bidder Amount is zero");
 
         bidderAmount[bidder] = 0;
