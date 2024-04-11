@@ -348,6 +348,7 @@ start_service() {
     local service_name=$1
     case $service_name in
         "all")
+            create_docker_network
             start_settlement_layer "$datadog_key"
             deploy_contracts "$rpc_url"
             start_mev_commit "$datadog_key"
