@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.15;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
 
 // Contract that allows an admin to add/remove addresses from the whitelist,
 // and allows whitelisted addresses to mint native tokens.
