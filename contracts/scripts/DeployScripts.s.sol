@@ -8,18 +8,19 @@ import "../contracts/Oracle.sol";
 import "../contracts/Whitelist.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "../contracts/ValidatorRegistry.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 // Deploy scripts should inherit this contract if they deploy using create2 deterministic addrs.
 contract Create2Deployer {
     address constant _CREATE2_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address constant _EXPECTED_DEPLOYER = 0xf39Fd6e51aad888F6F4ce6aB8827279cffFb92266;
+    address constant _EXPECTED_DEPLOYER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     function _checkCreate2Deployed() internal view {
-        require(isContractDeployed(create2Proxy), "Create2 proxy needs to be deployed. See https://github.com/primevprotocol/deterministic-deployment-proxy");
+        require(isContractDeployed(_CREATE2_PROXY), "Create2 proxy needs to be deployed. See https://github.com/primevprotocol/deterministic-deployment-proxy");
     }
 
     function _checkDeployer() internal view {
-        if (msg.sender != expectedDeployer) {
+        if (msg.sender != _EXPECTED_DEPLOYER) {
             console.log("Warning: deployer is not expected address of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266. Contracts addresses will not match documentation");
         }
     }
@@ -38,8 +39,8 @@ contract DeployScript is Script, Create2Deployer {
     function run() external {
         vm.startBroadcast();
 
-        checkCreate2Deployed();
-        checkDeployer();
+        _checkCreate2Deployed();
+        _checkDeployer();
 
         // Replace these with your contract's constructor parameters
         uint256 minStake = 1 ether;
@@ -89,8 +90,8 @@ contract DeployWhitelist is Script, Create2Deployer {
 
         vm.startBroadcast();
 
-        checkCreate2Deployed();
-        checkDeployer();
+        _checkCreate2Deployed();
+        _checkDeployer();
 
         address hypERC20Addr = vm.envAddress("HYP_ERC20_ADDR");
         require(hypERC20Addr != address(0), "Address to whitelist not provided");
