@@ -54,7 +54,6 @@ type Preconf interface {
 type Updater struct {
 	logger               *slog.Logger
 	l1Client             EVMClient
-	l2Client             EVMClient
 	winnerRegister       WinnerRegister
 	preconfClient        Preconf
 	rollupClient         Oracle
@@ -65,7 +64,6 @@ type Updater struct {
 func NewUpdater(
 	logger *slog.Logger,
 	l1Client EVMClient,
-	l2Client EVMClient,
 	winnerRegister WinnerRegister,
 	rollupClient Oracle,
 	preconfClient Preconf,
@@ -73,7 +71,6 @@ func NewUpdater(
 	return &Updater{
 		logger:               logger,
 		l1Client:             l1Client,
-		l2Client:             l2Client,
 		winnerRegister:       winnerRegister,
 		preconfClient:        preconfClient,
 		rollupClient:         rollupClient,
