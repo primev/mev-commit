@@ -92,7 +92,7 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function isStaked(address staker) external view returns (bool) {
-        return stakedBalances[staker] >= minStake;
+        return stakedBalances[staker] >= minStake && unstakeBlockNums[staker] == 0;
     }
 
     function getStakedAmount(address staker) external view returns (uint256) {

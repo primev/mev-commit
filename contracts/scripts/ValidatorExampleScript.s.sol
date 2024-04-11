@@ -26,6 +26,9 @@ contract StakeAndUnstakeExample is Script {
         addrs[1] = address(0x7802BF57d9f5a449A879E3cF89280157846651c3);
         addrs[2] = address(0x8662a945619e31182894C641fC5bf74E7Cd75A7D);
         unstake(addrs);
+        checkIsStaked(address(0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317));
+        checkIsStaked(address(0x7802BF57d9f5a449A879E3cF89280157846651c3));
+        checkIsStaked(address(0x8662a945619e31182894C641fC5bf74E7Cd75A7D));
 
         vm.stopBroadcast();
     }
@@ -66,7 +69,13 @@ contract WithdrawExample is Script {
         checkIsStaked(address(0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317));
         checkIsStaked(address(0x7802BF57d9f5a449A879E3cF89280157846651c3));
         checkIsStaked(address(0x8662a945619e31182894C641fC5bf74E7Cd75A7D));
-        
+        uint256 initialStakedAmount = _getStakedAmount(address(0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317));
+        console.log("Initial staked amount for 0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317:", initialStakedAmount);
+        initialStakedAmount = _getStakedAmount(address(0x7802BF57d9f5a449A879E3cF89280157846651c3));
+        console.log("Initial staked amount for 0x7802BF57d9f5a449A879E3cF89280157846651c3:", initialStakedAmount);
+        initialStakedAmount = _getStakedAmount(address(0x8662a945619e31182894C641fC5bf74E7Cd75A7D));
+        console.log("Initial staked amount for 0x8662a945619e31182894C641fC5bf74E7Cd75A7D:", initialStakedAmount);
+
         address[] memory addrs = new address[](3);
         addrs[0] = address(0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317);
         addrs[1] = address(0x7802BF57d9f5a449A879E3cF89280157846651c3);
@@ -76,6 +85,12 @@ contract WithdrawExample is Script {
         checkIsStaked(address(0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317));
         checkIsStaked(address(0x7802BF57d9f5a449A879E3cF89280157846651c3));
         checkIsStaked(address(0x8662a945619e31182894C641fC5bf74E7Cd75A7D));
+        uint256 finalStakedAmount = _getStakedAmount(address(0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317));
+        console.log("Final staked amount for 0x3d77fE0CeB523FAa006Cd2408F6Cb34A234C4317:", finalStakedAmount);
+        finalStakedAmount = _getStakedAmount(address(0x7802BF57d9f5a449A879E3cF89280157846651c3));
+        console.log("Final staked amount for 0x7802BF57d9f5a449A879E3cF89280157846651c3:", finalStakedAmount);
+        finalStakedAmount = _getStakedAmount(address(0x8662a945619e31182894C641fC5bf74E7Cd75A7D));
+        console.log("Final staked amount for 0x8662a945619e31182894C641fC5bf74E7Cd75A7D:", finalStakedAmount);
 
         vm.stopBroadcast();
     }
@@ -88,5 +103,9 @@ contract WithdrawExample is Script {
     function withdraw(address[] memory addrs) public {
         _validatorRegistry.withdraw(addrs);
         console.log("Initiated withdraw process for addresses.");
+    }
+
+    function _getStakedAmount(address staker) internal view returns (uint256) {
+        return _validatorRegistry.getStakedAmount(staker);
     }
 }

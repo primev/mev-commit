@@ -109,9 +109,9 @@ contract ValidatorRegistryTest is Test {
         validatorRegistry.unstake(fromAddrs);
         vm.stopPrank();
 
-        // still has stake until withdrawal
+        // still has staked balance until withdrawal, but not considered "staked"
         assertEq(validatorRegistry.stakedBalances(user1), MIN_STAKE);
-        assertTrue(validatorRegistry.isStaked(user1));
+        assertFalse(validatorRegistry.isStaked(user1));
 
         uint256 blockWaitPeriod = 11;
         vm.roll(block.number + blockWaitPeriod);
