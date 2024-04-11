@@ -9,6 +9,8 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 /// @dev This contract is meant to be deployed via a proxy contract.
 contract ValidatorRegistry is OwnableUpgradeable {
 
+    // TODO: add reentrancy gaurd
+
     uint256 public minStake;
     uint256 public unstakePeriodBlocks;
 
@@ -34,10 +36,10 @@ contract ValidatorRegistry is OwnableUpgradeable {
     mapping(address => address) public stakeOriginators;
     mapping(address => uint256) public unstakeBlockNums;
 
-    event SelfStaked(address indexed staker, uint256 amount);
-    event SplitStaked(address indexed staker, address[] recipients, uint256 totalAmount);
-    event Unstaked(address indexed staker, uint256 amount);
-    event StakeWithdrawn(address indexed staker, uint256 amount);
+    event SelfStaked(address indexed txOriginator, uint256 amount);
+    event SplitStaked(address indexed txOriginator, address[] recipients, uint256 totalAmount);
+    event Unstaked(address indexed txOriginator, uint256 amount);
+    event StakeWithdrawn(address indexed txOriginator, uint256 amount);
 
     function selfStake() external payable {
         require(msg.value >= minStake, "Stake amount must meet the minimum requirement");
@@ -92,5 +94,9 @@ contract ValidatorRegistry is OwnableUpgradeable {
 
     function isStaked(address staker) external view returns (bool) {
         return stakedBalances[staker] >= minStake;
+    }
+
+    function getStakedAmount(address staker) external view returns (uint256) {
+        return stakedBalances[staker];
     }
 }
