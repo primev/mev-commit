@@ -41,6 +41,7 @@ contract ValidatorRegistryTest is Test {
 
     function testSelfStake() public {
         vm.deal(user1, 10 ether);
+        assertEq(address(user1).balance, 10 ether);
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
@@ -48,6 +49,7 @@ contract ValidatorRegistryTest is Test {
         validatorRegistry.selfStake{value: MIN_STAKE}();
         vm.stopPrank();
 
+        assertEq(address(user1).balance, 9 ether);
         assertEq(validatorRegistry.stakedBalances(user1), MIN_STAKE);
         assertTrue(validatorRegistry.isStaked(user1));
     }
@@ -58,12 +60,14 @@ contract ValidatorRegistryTest is Test {
         recipients[1] = user2;
 
         uint256 totalAmount = 2 ether;
-        vm.deal(address(this), totalAmount);
+        vm.deal(address(this), 3 ether);
+        assertEq(address(this).balance, 3 ether);
 
         vm.expectEmit(true, true, true, true);
         emit SplitStaked(address(this), recipients, totalAmount);
         validatorRegistry.splitStake{value: totalAmount}(recipients);
 
+        assertEq(address(this).balance, 1 ether);
         assertEq(validatorRegistry.stakedBalances(user1), 1 ether);
         assertEq(validatorRegistry.stakedBalances(user2), 1 ether);
         assertTrue(validatorRegistry.isStaked(user1));
@@ -103,6 +107,8 @@ contract ValidatorRegistryTest is Test {
         address[] memory fromAddrs = new address[](1);
         fromAddrs[0] = user1;
 
+        assertEq(address(user1).balance, 9 ether);
+
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
         emit Unstaked(user1, MIN_STAKE);
@@ -112,6 +118,7 @@ contract ValidatorRegistryTest is Test {
         // still has staked balance until withdrawal, but not considered "staked"
         assertEq(validatorRegistry.stakedBalances(user1), MIN_STAKE);
         assertFalse(validatorRegistry.isStaked(user1));
+        assertEq(address(user1).balance, 9 ether);
 
         uint256 blockWaitPeriod = 11;
         vm.roll(block.number + blockWaitPeriod);
@@ -124,5 +131,6 @@ contract ValidatorRegistryTest is Test {
 
         assertEq(validatorRegistry.stakedBalances(user1), 0, "User1's staked balance should be 0 after withdrawal");
         assertFalse(validatorRegistry.isStaked(user1), "User1 should not be considered staked after withdrawal");
+        assertEq(address(user1).balance, 10 ether);
     }
 }
