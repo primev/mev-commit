@@ -83,12 +83,6 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
-	l2Client, err := ethclient.Dial(opts.SettlementRPCUrl)
-	if err != nil {
-		nd.logger.Error("Failed to connect to the L2 Ethereum client", "error", err)
-		return nil, err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var listenerL1Client l1Listener.EthClient
@@ -150,7 +144,7 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 	oc := &rollupclient.OracleSession{Contract: oracleContract, CallOpts: callOpts}
 
-	updtr := updater.NewUpdater(nd.logger.With("component", "updater"), l1Client, l2Client, st, oc, pc)
+	updtr := updater.NewUpdater(nd.logger.With("component", "updater"), l1Client, st, oc, pc)
 	updtrClosed := updtr.Start(ctx)
 
 	settlr := settler.NewSettler(

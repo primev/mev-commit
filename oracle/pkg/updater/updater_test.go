@@ -136,11 +136,6 @@ func TestUpdater(t *testing.T) {
 		block:    types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 	}
 
-	l2Client := &testL1Client{
-		blockNum: 0,
-		block:    types.NewBlock(&types.Header{Time: uint64(midTimestamp.UnixMilli())}, txns, nil, nil, NewHasher()),
-	}
-
 	testOracle := &testOracle{
 		builder:     "test",
 		builderAddr: builderAddr,
@@ -154,7 +149,6 @@ func TestUpdater(t *testing.T) {
 	updtr := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		l2Client,
 		testWinnerRegister,
 		testOracle,
 		testPreconf,
@@ -264,10 +258,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		block:    types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 	}
 
-	l2Client := &testL1Client{
-		blockNum: 0,
-		block:    types.NewBlock(&types.Header{Time: uint64(time.Now().UnixMilli())}, txns, nil, nil, NewHasher()),
-	}
 	testOracle := &testOracle{
 		builder:     "test",
 		builderAddr: builderAddr,
@@ -281,7 +271,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 	updtr := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		l2Client,
 		testWinnerRegister,
 		testOracle,
 		testPreconf,
