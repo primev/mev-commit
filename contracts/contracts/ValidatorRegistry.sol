@@ -2,14 +2,13 @@
 pragma solidity ^0.8.15;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /// @title Validator Registry
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit via staking. 
 /// @dev Slashing is not yet implemented for this contract, hence it is upgradable to incorporate slashing in the future.
 /// @dev This contract is meant to be deployed via a proxy contract.
-contract ValidatorRegistry is OwnableUpgradeable {
-
-    // TODO: add reentrancy gaurd
+contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     uint256 public minStake;
     uint256 public unstakePeriodBlocks;
@@ -76,7 +75,7 @@ contract ValidatorRegistry is OwnableUpgradeable {
         }
     }
 
-    function withdraw(address[] calldata fromAddrs) external {
+    function withdraw(address[] calldata fromAddrs) external nonReentrant {
         for (uint256 i = 0; i < fromAddrs.length; i++) {
             require(stakedBalances[fromAddrs[i]] > 0, "No staked balance to withdraw");
             require(stakeOriginators[fromAddrs[i]] == msg.sender || fromAddrs[i] == msg.sender, "Not authorized to withdraw. Must be stake originator or EOA whos staked");
