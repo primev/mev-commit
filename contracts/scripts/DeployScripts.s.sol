@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.15;
 import "forge-std/Script.sol";
-import "contracts/BidderRegistry.sol";
-import "contracts/ProviderRegistry.sol";
-import "contracts/PreConfirmations.sol";
-import "contracts/Oracle.sol";
-import "contracts/Whitelist.sol";
+import "../contracts/BidderRegistry.sol";
+import "../contracts/ProviderRegistry.sol";
+import "../contracts/PreConfirmations.sol";
+import "../contracts/Oracle.sol";
+import "../contracts/Whitelist.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "../contracts/ValidatorRegistry.sol";
 
 // Deploy scripts should inherit this contract if they deploy using create2 deterministic addrs.
 contract Create2Deployer {
-    address constant create2Proxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address constant expectedDeployer = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address constant _CREATE2_PROXY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address constant _EXPECTED_DEPLOYER = 0xf39Fd6e51aad888F6F4ce6aB8827279cffFb92266;
 
-    function checkCreate2Deployed() internal view {
+    function _checkCreate2Deployed() internal view {
         require(isContractDeployed(create2Proxy), "Create2 proxy needs to be deployed. See https://github.com/primevprotocol/deterministic-deployment-proxy");
     }
 
-    function checkDeployer() internal view {
+    function _checkDeployer() internal view {
         if (msg.sender != expectedDeployer) {
             console.log("Warning: deployer is not expected address of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266. Contracts addresses will not match documentation");
         }
@@ -101,6 +103,25 @@ contract DeployWhitelist is Script, Create2Deployer {
 
         whitelist.addToWhitelist(address(hypERC20Addr));
         console.log("Whitelist updated with hypERC20 address:", address(hypERC20Addr));
+
+        vm.stopBroadcast();
+    }
+}
+
+// Deploys ValidatorRegistry contract via UUPS proxy
+contract DeployValidatorRegistry is Script {
+    function run() external {
+        vm.startBroadcast();
+
+        // Can later be upgraded with https://docs.openzeppelin.com/upgrades-plugins/1.x/api-foundry-upgrades#Upgrades-upgradeProxy-address-string-bytes-
+        address proxy = Upgrades.deployUUPSProxy(
+            "ValidatorRegistry.sol",
+            abi.encodeCall(ValidatorRegistry.initialize, (3 ether, 64, msg.sender))
+        );
+        console.log("ValidatorRegistry UUPS proxy deployed to:", address(proxy));
+
+        ValidatorRegistry validatorRegistry = ValidatorRegistry(proxy);
+        console.log("ValidatorRegistry owner:", validatorRegistry.owner());
 
         vm.stopBroadcast();
     }
