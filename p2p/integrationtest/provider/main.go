@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"time"
 
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primevprotocol/mev-commit/x/util"
@@ -149,8 +150,9 @@ func main() {
 			}
 		}
 		err = providerClient.SendBidResponse(context.Background(), &providerapiv1.BidResponse{
-			BidDigest: bid.BidDigest,
-			Status:    status,
+			BidDigest:         bid.BidDigest,
+			Status:            status,
+			DispatchTimestamp: time.Now().UnixMilli(),
 		})
 		if err != nil {
 			logger.Error("failed to send bid response", "error", err)
