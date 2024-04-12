@@ -23,8 +23,8 @@ import (
 const (
 	settlementRPCUrl             = "http://sl-bootnode:8545"
 	l1RPCUrl                     = "http://l1-bootnode:8545"
-	l1ContractAddrString         = "0x1a18dfEc4f2B66207b1Ad30aB5c7A0d62Ef4A40b"
-	settlementContractAddrString = "0xc1f93bE11D7472c9B9a4d87B41dD0a491F1fbc75"
+	l1ContractAddrString         = "0xe7B3D66A143Bfb85Cd980d1577Ba52f68F8f5809"
+	settlementContractAddrString = "0xC157631f4aaaaabAB864544d743c5726a68C85a4"
 )
 
 func main() {

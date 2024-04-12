@@ -18,7 +18,7 @@ contract DeploySettlementGateway is Script, Create2Deployer {
         // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
 
-        address expectedWhitelistAddr = 0x57508f0B0f3426758F1f3D63ad4935a7c9383620;
+        address expectedWhitelistAddr = 0xcf59aDa3C5FBa545Cc50FB9AEAe83D37b46F6E1B;
         if (isContractDeployed(expectedWhitelistAddr)) {
             console.log("Whitelist must not be deployed to execute DeploySettlementGateway script. Exiting...");
             return;
