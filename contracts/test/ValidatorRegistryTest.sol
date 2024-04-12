@@ -79,9 +79,11 @@ contract ValidatorRegistryTest is Test {
         address[] memory fromAddrs = new address[](1);
         fromAddrs[0] = user2;
 
-        vm.expectRevert();
+        assertEq(validatorRegistry.stakedBalances(user2), 0);
+        vm.expectRevert("No balance to unstake");
         validatorRegistry.unstake(fromAddrs);
         vm.stopPrank();
+        assertEq(validatorRegistry.stakedBalances(user2), 0);
     }
 
     function testUnauthorizedUnstake() public {
@@ -92,6 +94,7 @@ contract ValidatorRegistryTest is Test {
         validatorRegistry.selfStake{value: stakeAmount}();
         vm.stopPrank();
         assertTrue(validatorRegistry.isStaked(user1));
+        assertEq(validatorRegistry.stakedBalances(user1), stakeAmount);
 
         vm.startPrank(user2);
         address[] memory fromAddrs = new address[](1);
@@ -99,6 +102,83 @@ contract ValidatorRegistryTest is Test {
         vm.expectRevert("Not authorized to unstake. Must be stake originator or EOA whos staked");
         validatorRegistry.unstake(fromAddrs);
         vm.stopPrank();
+    }
+
+    function testWithdrawBeforeUnstake() public {
+        testSelfStake();
+        vm.roll(500);
+
+        address[] memory fromAddrs = new address[](1);
+        fromAddrs[0] = user1;
+
+        vm.startPrank(user1);
+        vm.expectRevert("Unstake must be initiated before withdrawal");
+        validatorRegistry.withdraw(fromAddrs);
+        vm.stopPrank();
+    }
+
+    function testAlreadyUnstaked() public {
+        testSelfStake();
+
+        address[] memory fromAddrs = new address[](1);
+        fromAddrs[0] = user1;
+
+        vm.startPrank(user1);
+        emit Unstaked(user1, MIN_STAKE);
+        validatorRegistry.unstake(fromAddrs);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        vm.expectRevert("Unstake already initiated");
+        validatorRegistry.unstake(fromAddrs);
+        vm.stopPrank();
+
+        vm.roll(500);
+
+        vm.startPrank(user1);
+        vm.expectRevert("Unstake already initiated");
+        validatorRegistry.unstake(fromAddrs);
+        vm.stopPrank();
+    }
+
+    function testStakeWhenAlreadyUnstaking() public {
+        testSelfStake();
+
+        address[] memory fromAddrs = new address[](1);
+        fromAddrs[0] = user1;
+
+        vm.startPrank(user1);
+        emit Unstaked(user1, MIN_STAKE);
+        validatorRegistry.unstake(fromAddrs);
+        vm.stopPrank();
+
+        assertFalse(validatorRegistry.isStaked(user1));
+        assertTrue(validatorRegistry.unstakeBlockNums(user1) > 0);
+        assertTrue(validatorRegistry.stakedBalances(user1) == MIN_STAKE);
+
+        vm.startPrank(user1);
+        vm.expectRevert("Address cannot be staked with in-progress unstake process");
+        validatorRegistry.selfStake{value: MIN_STAKE}();
+        vm.stopPrank();
+
+        vm.roll(500);
+
+        vm.startPrank(user1);
+        vm.expectRevert("Address cannot be staked with in-progress unstake process");
+        validatorRegistry.selfStake{value: MIN_STAKE}();
+        vm.stopPrank();
+
+        // Withdraw then try again
+        vm.startPrank(user1);
+        emit StakeWithdrawn(user1, MIN_STAKE);
+        validatorRegistry.withdraw(fromAddrs);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        emit SelfStaked(user1, MIN_STAKE);
+        validatorRegistry.selfStake{value: MIN_STAKE}();
+        vm.stopPrank();
+        assertTrue(validatorRegistry.isStaked(user1));
     }
 
     function testUnstakeWaitThenWithdraw() public {
@@ -129,8 +209,23 @@ contract ValidatorRegistryTest is Test {
         validatorRegistry.withdraw(fromAddrs);
         vm.stopPrank();
 
-        assertEq(validatorRegistry.stakedBalances(user1), 0, "User1's staked balance should be 0 after withdrawal");
         assertFalse(validatorRegistry.isStaked(user1), "User1 should not be considered staked after withdrawal");
-        assertEq(address(user1).balance, 10 ether);
+        assertEq(address(user1).balance, 10 ether, "User1 should have all 10 ether after withdrawal");
+
+        assertEq(validatorRegistry.stakedBalances(user1), 0, "User1's staked balance should be 0 after withdrawal");
+        assertTrue(validatorRegistry.stakeOriginators(user1) == address(0), "User1's stake originator should be reset after withdrawal");
+        assertTrue(validatorRegistry.unstakeBlockNums(user1) == 0, "User1's unstake block number should be reset after withdrawal");
+    }
+
+    // To sanity check that relevant state for an account is reset s.t. they could stake again in future
+    function testStakingCycle() public {
+        testUnstakeWaitThenWithdraw();
+
+        // Reset user1 balance for next cycle
+        vm.prank(user1);
+        (bool sent, ) = user2.call{value: 10 ether}("");
+        require(sent, "Failed to send Ether");
+
+        testUnstakeWaitThenWithdraw();
     }
 }

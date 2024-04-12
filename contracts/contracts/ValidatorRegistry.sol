@@ -42,11 +42,7 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     function selfStake() external payable {
         require(msg.value >= minStake, "Stake amount must meet the minimum requirement");
-        require(stakedBalances[msg.sender] == 0, "Already staked");
-
-        stakedBalances[msg.sender] += msg.value;
-        stakeOriginators[msg.sender] = msg.sender;
-
+        _stake(msg.sender, msg.value);
         emit SelfStaked(msg.sender, msg.value);
     }
 
@@ -57,18 +53,24 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(splitAmount >= minStake, "Split amount must meet the minimum requirement");
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            require(stakedBalances[recipients[i]] == 0, "Recipient already staked");
-            stakedBalances[recipients[i]] += splitAmount;
-            stakeOriginators[recipients[i]] = msg.sender;
+            _stake(recipients[i], splitAmount);
         }
 
         emit SplitStaked(msg.sender, recipients, msg.value);
+    }
+
+    function _stake(address staker, uint256 amount) internal {
+        require(unstakeBlockNums[staker] == 0, "Address cannot be staked with in-progress unstake process");
+        require(stakedBalances[staker] == 0, "Already staked");
+        stakedBalances[staker] += amount;
+        stakeOriginators[staker] = msg.sender;
     }
 
     function unstake(address[] calldata fromAddrs) external {
         for (uint256 i = 0; i < fromAddrs.length; i++) {
             require(stakedBalances[fromAddrs[i]] > 0, "No balance to unstake");
             require(stakeOriginators[fromAddrs[i]] == msg.sender || fromAddrs[i] == msg.sender, "Not authorized to unstake. Must be stake originator or EOA whos staked");
+            require(unstakeBlockNums[fromAddrs[i]] == 0, "Unstake already initiated");
 
             unstakeBlockNums[fromAddrs[i]] = block.number;
             emit Unstaked(msg.sender, stakedBalances[fromAddrs[i]]);
@@ -79,13 +81,16 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         for (uint256 i = 0; i < fromAddrs.length; i++) {
             require(stakedBalances[fromAddrs[i]] > 0, "No staked balance to withdraw");
             require(stakeOriginators[fromAddrs[i]] == msg.sender || fromAddrs[i] == msg.sender, "Not authorized to withdraw. Must be stake originator or EOA whos staked");
+            require(unstakeBlockNums[fromAddrs[i]] > 0, "Unstake must be initiated before withdrawal");
             require(block.number >= unstakeBlockNums[fromAddrs[i]] + unstakePeriodBlocks, "withdrawal not allowed yet. Blocks requirement not met.");
 
             uint256 amount = stakedBalances[fromAddrs[i]];
             stakedBalances[fromAddrs[i]] -= amount;
             (bool sent, ) = msg.sender.call{value: amount}("");
             require(sent, "Failed to withdraw stake");
+
             stakeOriginators[fromAddrs[i]] = address(0);
+            unstakeBlockNums[fromAddrs[i]] = 0;
 
             emit StakeWithdrawn(msg.sender, amount);
         }
