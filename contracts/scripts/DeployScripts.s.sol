@@ -79,7 +79,7 @@ contract DeployWhitelist is Script, Create2Deployer {
 
         console.log("Warning: DeployWhitelist is deprecated and only for backwards compatibility with hyperlane");
 
-        address expectedWhiteListAddr = 0x57508f0B0f3426758F1f3D63ad4935a7c9383620;
+        address expectedWhiteListAddr = 0xcf59aDa3C5FBa545Cc50FB9AEAe83D37b46F6E1B;
         if (isContractDeployed(expectedWhiteListAddr)) {
             console.log("Whitelist already deployed to:", expectedWhiteListAddr);
             return;

@@ -249,15 +249,6 @@ deploy_standard_bridge_contracts() {
         -e RELAYER_ADDR="0x0DCaa27B9E4Db92F820189345792f8eC5Ef148F6" \
         contract-deployer 
 
-    local settlement_gateway_addr="0xc1f93bE11D7472c9B9a4d87B41dD0a491F1fbc75"
-    docker run --rm --network "$DOCKER_NETWORK_NAME" \
-        -e RPC_URL="$rpc_url" \
-        -e CHAIN_ID="$chain_id" \
-        -e PRIVATE_KEY="$private_key" \
-        -e DEPLOY_TYPE="whitelist" \
-        -e HYP_ERC20_ADDR="$settlement_gateway_addr" \
-        contract-deployer
-
     docker run --rm --network "geth-poa_l1_net" \
         -e RPC_URL="http://l1-bootnode:8545" \
         -e CHAIN_ID="39999" \
