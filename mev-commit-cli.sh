@@ -348,12 +348,12 @@ start_service() {
     local service_name=$1
     case $service_name in
         "all")
+            initialize_environment
             create_docker_network
             start_settlement_layer "$datadog_key"
             deploy_contracts "$rpc_url"
             start_mev_commit "$datadog_key"
             start_oracle "$sepolia_key" "$datadog_key"
-            start_hyperlane "$public_rpc_url"
             ;;
         "e2e")
             initialize_environment
@@ -371,6 +371,7 @@ start_service() {
             start_oracle "$sepolia_key" "$datadog_key"
             ;;
         "sl")
+            initialize_environment
             start_settlement_layer "$datadog_key"
             ;;
         "hyperlane")
