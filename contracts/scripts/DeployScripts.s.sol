@@ -6,6 +6,8 @@ import "contracts/ProviderRegistry.sol";
 import "contracts/PreConfirmations.sol";
 import "contracts/Oracle.sol";
 import "contracts/Whitelist.sol";
+import "contracts/Timestamp.sol";
+
 
 // Deploy scripts should inherit this contract if they deploy using create2 deterministic addrs.
 contract Create2Deployer {
@@ -69,6 +71,9 @@ contract DeployScript is Script, Create2Deployer {
 
         preConfCommitmentStore.updateOracle(address(oracle));
         console.log("PreConfCommitmentStore updated with Oracle address:", address(oracle));
+
+        Timestamp timestamp = new Timestamp{salt: salt}();
+        console.log("Timestamp deployed to:", address(timestamp));
 
         vm.stopBroadcast();
     }
