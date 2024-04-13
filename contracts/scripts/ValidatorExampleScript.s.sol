@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../contracts/ValidatorRegistry.sol";
 
 contract StakeAndUnstakeExample is Script {
-    ValidatorRegistry private _validatorRegistry = ValidatorRegistry(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512);
+    ValidatorRegistry private _validatorRegistry = ValidatorRegistry(0x9938f7EfB83dd3150cF3B784CEa473D29fe7cBF0);
 
     function run() external {
         vm.startBroadcast();
@@ -33,7 +33,7 @@ contract StakeAndUnstakeExample is Script {
         vm.stopBroadcast();
     }
 
-    function checkIsStaked(address addr) public {
+    function checkIsStaked(address addr) public view {
         bool isStaked = _validatorRegistry.isStaked(addr);
         console.log("Address", addr, "isStaked:", isStaked);
     }
@@ -61,7 +61,7 @@ contract StakeAndUnstakeExample is Script {
 }
 
 contract WithdrawExample is Script {
-    ValidatorRegistry private _validatorRegistry = ValidatorRegistry(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512);
+    ValidatorRegistry private _validatorRegistry = ValidatorRegistry(0x9938f7EfB83dd3150cF3B784CEa473D29fe7cBF0);
 
     function run() external {
         vm.startBroadcast();
@@ -95,7 +95,7 @@ contract WithdrawExample is Script {
         vm.stopBroadcast();
     }
 
-    function checkIsStaked(address addr) public {
+    function checkIsStaked(address addr) public view {
         bool isStaked = _validatorRegistry.isStaked(addr);
         console.log("Address", addr, "isStaked:", isStaked);
     }
@@ -107,5 +107,91 @@ contract WithdrawExample is Script {
 
     function _getStakedAmount(address staker) internal view returns (uint256) {
         return _validatorRegistry.getStakedAmount(staker);
+    }
+}
+
+contract SelfStake is Script {
+    ValidatorRegistry private _validatorRegistry = ValidatorRegistry(0x9938f7EfB83dd3150cF3B784CEa473D29fe7cBF0);
+
+    function run() external {
+        vm.startBroadcast();
+        checkIsStaked(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        stakedBalance(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        selfStake(3.1 ether);
+        checkIsStaked(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        vm.stopBroadcast();
+    }
+
+    function checkIsStaked(address addr) public view {
+        bool isStaked = _validatorRegistry.isStaked(addr);
+        console.log("Address", addr, "isStaked:", isStaked);
+    }
+
+    function stakedBalance(address addr) public view {
+        uint256 balance = _validatorRegistry.getStakedAmount(addr);
+        console.log("Staked balance for address", addr, "is:", balance);
+    }
+
+    function selfStake(uint256 amount) public {
+        _validatorRegistry.selfStake{value: amount}();
+        console.log("Performed selfStake with amount:", amount);
+    }
+}
+
+contract Unstake is Script {
+    ValidatorRegistry private _validatorRegistry = ValidatorRegistry(0x9938f7EfB83dd3150cF3B784CEa473D29fe7cBF0);
+
+    function run() external {
+        vm.startBroadcast();
+        checkIsStaked(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        unstake(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        checkIsStaked(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        vm.stopBroadcast();
+    }
+
+    function checkIsStaked(address addr) public view {
+        bool isStaked = _validatorRegistry.isStaked(addr);
+        console.log("Address", addr, "isStaked:", isStaked);
+    }
+
+    function unstake(address addr) public {
+        address[] memory addrs = new address[](1);
+        addrs[0] = addr;
+        _validatorRegistry.unstake(addrs);
+        console.log("Initiated unstake process for address.");
+    }
+}
+
+contract Withdraw is Script {
+    ValidatorRegistry private _validatorRegistry = ValidatorRegistry(0x9938f7EfB83dd3150cF3B784CEa473D29fe7cBF0);
+
+    function run() external {
+        
+        console.log("Balance of msg.sender:", msg.sender.balance);
+
+        uint256 beforeBalance = msg.sender.balance;
+
+        vm.startBroadcast();
+        checkIsStaked(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        withdraw(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        checkIsStaked(address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266));
+        vm.stopBroadcast();
+
+        console.log("Balance of msg.sender:", msg.sender.balance);
+
+        uint256 afterBalance = msg.sender.balance;
+        console.log("Difference in balance:", afterBalance - beforeBalance);
+    }
+
+    function checkIsStaked(address addr) public view {
+        bool isStaked = _validatorRegistry.isStaked(addr);
+        console.log("Address", addr, "isStaked:", isStaked);
+    }
+
+    function withdraw(address addr) public {
+        address[] memory addrs = new address[](1);
+        addrs[0] = addr;
+        _validatorRegistry.withdraw(addrs);
+        console.log("Initiated withdraw process for address.");
     }
 }
