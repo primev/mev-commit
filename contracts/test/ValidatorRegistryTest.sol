@@ -217,6 +217,47 @@ contract ValidatorRegistryTest is Test {
         assertTrue(validatorRegistry.unstakeBlockNums(user1) == 0, "User1's unstake block number should be reset after withdrawal");
     }
 
+    function testWithdrawFromAnotherAccount() public {
+        // First stake from user1 on behalf of user2, using splitStake
+        address[] memory recipients = new address[](1);
+        recipients[0] = user2;
+
+        uint256 totalAmount = 1.5 ether;
+        vm.deal(user1, 2 ether);
+
+        vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit SplitStaked(user1, recipients, totalAmount);
+        validatorRegistry.splitStake{value: totalAmount}(recipients);
+        vm.stopPrank();
+
+        assertEq(validatorRegistry.stakedBalances(user2), 1.5 ether);
+        assertTrue(validatorRegistry.isStaked(user2));
+        assertEq(address(user1).balance, 0.5 ether);
+        assertEq(address(user2).balance, 0 ether);
+        
+        // Now user2 can unstake and withdraw
+        address[] memory fromAddrs = new address[](1);
+        fromAddrs[0] = user2;
+        vm.startPrank(user2);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user2, 1.5 ether);
+        validatorRegistry.unstake(fromAddrs);
+        vm.stopPrank();
+
+        vm.roll(500);
+
+        assertEq(address(user2).balance, 0 ether);
+
+        vm.startPrank(user2);
+        vm.expectEmit(true, true, true, true);
+        emit StakeWithdrawn(user2, 1.5 ether);
+        validatorRegistry.withdraw(fromAddrs);
+        vm.stopPrank();
+
+        assertEq(address(user2).balance, 1.5 ether);
+    }
+
     // To sanity check that relevant state for an account is reset s.t. they could stake again in future
     function testStakingCycle() public {
         testUnstakeWaitThenWithdraw();

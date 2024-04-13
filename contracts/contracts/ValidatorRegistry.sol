@@ -86,8 +86,7 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
             uint256 amount = stakedBalances[fromAddrs[i]];
             stakedBalances[fromAddrs[i]] -= amount;
-            (bool sent, ) = msg.sender.call{value: amount}("");
-            require(sent, "Failed to withdraw stake");
+            payable(msg.sender).transfer(amount);
 
             stakeOriginators[fromAddrs[i]] = address(0);
             unstakeBlockNums[fromAddrs[i]] = 0;
