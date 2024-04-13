@@ -373,6 +373,7 @@ start_service() {
         "sl")
             initialize_environment
             start_settlement_layer "$datadog_key"
+            deploy_contracts "$rpc_url"
             ;;
         "hyperlane")
             start_hyperlane "$public_rpc_url"
