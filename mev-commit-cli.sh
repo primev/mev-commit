@@ -44,7 +44,7 @@ EOF
     export AGENT_BASE_IMAGE=nil
     export L2_NODE_URL=nil
 
-    DD_KEY=nil docker compose --profile settlement -f "external/geth/geth-poa/docker-compose.yml" up -d --build --no-cache 
+    DD_KEY=nil docker compose --profile settlement -f "external/geth/geth-poa/docker-compose.yml" up -d --build
 
     # Wait for settlement layer to be up before deploying create2
     sleep 10
