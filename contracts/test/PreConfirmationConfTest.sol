@@ -44,7 +44,7 @@ contract TestPreConfCommitmentStore is Test {
             0x54c118e537dd7cf63b5388a5fc8322f0286a978265d0338b108a8ca9d155dccc,
             hex"876c1216c232828be9fabb14981c8788cebdf6ed66e563c4a2ccc82a577d052543207aeeb158a32d8977736797ae250c63ef69a82cd85b727da21e20d030fb311b",
             hex"ec0f11f77a9e96bb9c2345f031a5d12dca8d01de8a2e957cf635be14802f9ad01c6183688f0c2672639e90cc2dce0662d9bea3337306ca7d4b56dd80326aaa231b",
-            1000
+            15
         );
 
         feePercent = 10;
@@ -70,7 +70,7 @@ contract TestPreConfCommitmentStore is Test {
         bidderRegistry.setPreconfirmationsContract(address(preConfCommitmentStore));
 
         // Sets fake block timestamp
-        vm.warp(1000);
+        vm.warp(16);
     }
 
     function test_Initialize() public {
@@ -155,7 +155,7 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(stake, 1e18 wei);
         assertEq(bidder, recoveredAddress);
         assertEq(digest, bidHash);
-
+        vm.warp(1000);
         vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
         preConfCommitmentStore.storeCommitment(
             _testCommitmentAliceBob.bid,
@@ -165,7 +165,7 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.decayEndTimestamp,
             signature,
             _testCommitmentAliceBob.commitmentSignature,
-            _testCommitmentAliceBob.dispatchTimestamp - 500
+            _testCommitmentAliceBob.dispatchTimestamp
         );
 
     }
@@ -202,7 +202,7 @@ contract TestPreConfCommitmentStore is Test {
 
         vm.prank(preConfCommitmentStore.owner());
         preConfCommitmentStore.updateCommitmentDispatchWindow(200);
-
+        vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
         vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
         preConfCommitmentStore.storeCommitment(
             _testCommitmentAliceBob.bid,
@@ -212,7 +212,7 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.decayEndTimestamp,
             signature,
             _testCommitmentAliceBob.commitmentSignature,
-            _testCommitmentAliceBob.dispatchTimestamp - 200
+            _testCommitmentAliceBob.dispatchTimestamp
         );
 
     }
