@@ -9,7 +9,7 @@ type Contracts struct {
 
 var TestnetContracts = Contracts{
 	BidderRegistry:         "0x02CcEcB19c6D7EFe583C8b97022cB4b4C0B65608",
-	ProviderRegistry:       "0x48D4521ac3537256042568Bc5BCD77be10c094cc",
-	PreconfCommitmentStore: "0x5dBbe982640B3029A8A3422efe9dDD3faAc8A591",
-	Oracle:                 "0xD4821CBFAeC31BE139cC2D5B0874460f684B237B",
+	ProviderRegistry:       "0xF69451b49598F11c63956bAD5E27f55114200753",
+	PreconfCommitmentStore: "0x86281283DA6D9e3987A55Aa702140fAB4dC71B27",
+	Oracle:                 "0x6a9C99178af0c99D0d99510f5643A34C622d5d94",
 }
