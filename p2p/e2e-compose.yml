@@ -573,26 +573,6 @@ services:
     profiles:
       - e2etest
 
-  datadog-agent:
-    image: gcr.io/datadoghq/agent:latest
-    restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc/:/host/proc/:ro
-      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
-    environment:
-      - DD_API_KEY=${DD_KEY}
-      - DD_TAGS=env:e2e
-      - DD_SITE=datadoghq.com
-      - DD_LOGS_ENABLED=true
-      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
-      - DD_CONTAINER_EXCLUDE="name:datadog-agent"
-    networks:
-      primev_net:
-        ipv4_address: 172.29.58.3
-    profiles:
-      - agent
-
 networks:
   primev_net:
     external: true
