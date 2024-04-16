@@ -147,7 +147,7 @@ func main() {
 				throtle := time.Duration(12000*time.Millisecond) / time.Duration(len(block))
 				logger.Info("thortling set", "throtle", throtle.String())
 				bundle := 1
-				for j := 0; j < len(block)+10; j += bundle {
+				for j := 0; j+10 < len(block); j += bundle {
 					bundle := rand.Intn(10)
 					err = sendBid(bidderClient, logger, rpcClient, block[j:j+bundle], int64(blkNum), (time.Now().UnixMilli())-500, (time.Now().UnixMilli() + 500))
 					if err != nil {
