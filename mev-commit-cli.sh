@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Default RPC URL and Paths
-L1_RPC_BASE_URL=https://sepolia.infura.io/v3
+L1_RPC_BASE_URL=https://ethereum-holesky-rpc.publicnode.com
 DEFAULT_RPC_URL="http://sl-bootnode:8545"
 PRIMEV_DIR="$HOME/.primev"
 DEFAULT_CHAIN_ID="17864"
@@ -78,7 +78,6 @@ start_mev_commit_e2e() {
     local datadog_key=""
     local sepolia_key=""
     echo "Starting MEV-Commit..."
-
     # Loop through arguments and process them
     for arg in "$@"
     do
@@ -96,8 +95,8 @@ start_mev_commit_e2e() {
             ;;
         esac
     done
+    
     echo "Setting .env file..."
-
     # Create or overwrite the .env file
     cat > "p2p/integrationtest/.env" <<-EOF
     BIDDER_REGISTRY=0x02CcEcB19c6D7EFe583C8b97022cB4b4C0B65608
