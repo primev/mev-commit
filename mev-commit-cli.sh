@@ -120,6 +120,52 @@ EOF
     fi
 }
 
+start_mev_commit_demo() {
+    local datadog_key=""
+    local sepolia_key=""
+    echo "Starting MEV-Commit in demo mode..."
+    # Loop through arguments and process them
+    for arg in "$@"
+    do
+        case $arg in
+            --datadog-key=*)
+            datadog_key="${arg#*=}"
+            shift # Remove --datadog-key= from processing
+            ;;
+            --sepolia-key=*)
+            sepolia_key="${arg#*=}"
+            shift # Remove --sepolia-key= from processing
+            ;;
+            *)
+            # Unknown option
+            ;;
+        esac
+    done
+    
+    echo "Setting .env file..."
+    # Create or overwrite the .env file
+    cat > "p2p/integrationtest/.env" <<-EOF
+    BIDDER_REGISTRY=0x02CcEcB19c6D7EFe583C8b97022cB4b4C0B65608
+    PROVIDER_REGISTRY=0xF69451b49598F11c63956bAD5E27f55114200753
+    PRECONF_CONTRACT=0x86281283DA6D9e3987A55Aa702140fAB4dC71B27
+
+    RPC_URL=${rpc_url}
+    PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    L1_RPC_URL="${L1_RPC_BASE_URL}/${sepolia_key}"
+EOF
+
+
+    # Check if datadog_key is empty
+    if [ -z "$datadog_key" ]; then
+        echo "DD_KEY is empty, so no agents will be started."
+        # Run Docker Compose without --profile agent
+        docker compose --profile demo -f "p2p/e2e-compose.yml" up --build -d
+    else
+        # Run Docker Compose with --profile agent
+        DD_KEY="$datadog_key" docker compose --profile demo --profile agent -f "p2p/e2e-compose.yml" up --build -d
+    fi
+}
+
 start_mev_commit() {
     local datadog_key=$1
 
@@ -363,6 +409,14 @@ start_service() {
             start_oracle "$sepolia_key" "$datadog_key"
             start_hyperlane "$public_rpc_url"
             ;;
+        "demo")
+            initialize_environment
+            start_settlement_layer "$datadog_key"
+            deploy_contracts "$rpc_url"
+            start_mev_commit_demo "--sepolia-key=$sepolia_key" "--datadog-key=$datadog_key"
+            sleep 12
+            start_oracle "$sepolia_key" "$datadog_key"
+            ;;
         "mev-commit")
             start_mev_commit "$datadog_key"
             ;;
@@ -393,7 +447,7 @@ start_service() {
             ;;
         *)
             echo "Invalid service name: $service_name"
-            echo "Valid services: all, e2e, oracle, sl, hyperlane, minimal, local_l1, standard_bridge"
+            echo "Valid services: all, e2e, demo, oracle, sl, hyperlane, minimal, local_l1, standard_bridge"
             return 1
             ;;
     esac

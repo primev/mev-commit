@@ -36,6 +36,7 @@ services:
         ]
     profiles:
       - e2etest
+      - demo
 
   provider-1:
     build:
@@ -57,6 +58,7 @@ services:
     profiles:
       - minimal-setup
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -89,6 +91,7 @@ services:
     profiles:
       - minimal-setup
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -122,6 +125,7 @@ services:
       - integrationtest/.env
     profiles:
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -153,6 +157,7 @@ services:
       - "8084:8080"
     profiles:
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -186,6 +191,7 @@ services:
       - integrationtest/.env
     profiles:
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -217,6 +223,7 @@ services:
       - "8086:8080"
     profiles:
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -251,6 +258,7 @@ services:
     profiles:
       - minimal-setup
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -285,6 +293,7 @@ services:
     profiles:
       - minimal-setup
       - e2etest
+      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
@@ -572,6 +581,7 @@ services:
       - primev_net
     profiles:
       - e2etest
+      - demo
 
 networks:
   primev_net:
