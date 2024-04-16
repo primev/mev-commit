@@ -149,7 +149,7 @@ func main() {
 				bundle := 1
 				for j := 0; j < len(block); j += bundle {
 					bundle := rand.Intn(10)
-					err = sendBid(bidderClient, logger, rpcClient, block[j:j+bundle], int64(blkNum), (time.Now().UnixMilli())-5000, (time.Now().UnixMilli() + 5000))
+					err = sendBid(bidderClient, logger, rpcClient, block[j:j+bundle], int64(blkNum), (time.Now().UnixMilli())-500, (time.Now().UnixMilli() + 500))
 					if err != nil {
 						logger.Error("failed to send bid", "err", err)
 					}
