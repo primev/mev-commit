@@ -6,4 +6,5 @@ use (
 	./external/geth
 	./oracle
 	./p2p
+	./util/batchstaking
 )
