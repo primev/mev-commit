@@ -21,13 +21,11 @@ import (
 
 func main() {
 
-	// privateKeyString := os.Getenv("PRIVATE_KEY")
-	// if privateKeyString == "" {
-	// 	fmt.Println("PRIVATE_KEY env var is required")
-	// 	os.Exit(1)
-	// }
-
-	privateKeyString := "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	privateKeyString := os.Getenv("PRIVATE_KEY")
+	if privateKeyString == "" {
+		privateKeyString = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+		fmt.Println("PRIVATE_KEY env var not supplied. Using default account")
+	}
 
 	if privateKeyString[:2] == "0x" {
 		privateKeyString = privateKeyString[2:]
@@ -49,31 +47,34 @@ func main() {
 	}
 	fmt.Println("Chain ID: ", chainID)
 
+	fromAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
+	balance, err := client.BalanceAt(context.Background(), fromAddress, nil)
+	if err != nil {
+		log.Fatalf("Failed to get account balance: %v", err)
+	}
+	if balance.Cmp(big.NewInt(3100000000000000000)) == -1 {
+		log.Fatalf("Insufficient balance. Please fund %v with at least 3.1 ETH", fromAddress.Hex())
+	}
+
+	// TODO: make this configurable
 	contractAddress := common.HexToAddress("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512")
 
 	vrt, err := vr.NewValidatorregistryTransactor(contractAddress, client)
-
 	if err != nil {
-		log.Fatalf("Failed to create Validator Registry filterer: %v", err)
+		log.Fatalf("Failed to create Validator Registry transactor: %v", err)
 	}
 
-	fmt.Println("Validator Registry Transactor is created: ", vrt)
-
 	vrc, err := vr.NewValidatorregistryCaller(contractAddress, client)
-
 	if err != nil {
 		log.Fatalf("Failed to create Validator Registry caller: %v", err)
 	}
 
-	fmt.Println("Validator Registry caller is created: ", vrc)
-
-	amount, err := vrc.GetStakedAmount(nil, common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"))
-
+	amount, err := vrc.GetStakedAmount(nil, fromAddress)
 	if err != nil {
 		log.Fatalf("Failed to get staked amount: %v", err)
 	}
 
-	fmt.Println("Staked amount: ", amount)
+	fmt.Println("Self staked amount: ", amount)
 
 	ec := NewETHClient(nil, client)
 	opts, err := ec.CreateTransactOpts(context.Background(), privateKey, chainID)
@@ -81,7 +82,6 @@ func main() {
 		log.Fatalf("Failed to create transact opts: %v", err)
 	}
 	opts.Value = big.NewInt(3100000000000000000) // 3.1 ETH in wei
-	fmt.Println("Transaction opts: ", opts)
 
 	submitTx := func(
 		ctx context.Context,
@@ -91,7 +91,7 @@ func main() {
 		if err != nil {
 			return nil, fmt.Errorf("failed to self stake: %w", err)
 		}
-		fmt.Println("Transaction hash: ", tx.Hash().Hex())
+		fmt.Println("Self stake sent. Transaction hash: ", tx.Hash().Hex())
 		return tx, nil
 	}
 
@@ -100,7 +100,7 @@ func main() {
 		log.Fatalf("Failed to wait for self stake tx to be mined: %v", err)
 	}
 
-	fmt.Println("Receipt block num: ", receipt.BlockNumber)
+	fmt.Println("Self stake included in block: ", receipt.BlockNumber)
 
 	amount, err = vrc.GetStakedAmount(nil, common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"))
 
@@ -110,59 +110,67 @@ func main() {
 
 	fmt.Println("Staked amount after selfStake: ", amount)
 
-	// Now try splitStake over 50 addrs
-	addrs := make([]common.Address, 50)
-	for i := 0; i < 50; i++ {
-		key, err := crypto.GenerateKey()
-		if err != nil {
-			log.Fatalf("Failed to generate key: %v", err)
+	// Split stake between 50 addrs, 200 times
+	for i := 0; i < 200; i++ {
+
+		addrs := make([]common.Address, 50)
+		for i := 0; i < 50; i++ {
+			key, err := crypto.GenerateKey()
+			if err != nil {
+				log.Fatalf("Failed to generate key: %v", err)
+			}
+			addrs[i] = crypto.PubkeyToAddress(key.PublicKey)
 		}
-		addrs[i] = crypto.PubkeyToAddress(key.PublicKey)
-	}
 
-	for _, addr := range addrs {
-		amount, err = vrc.GetStakedAmount(nil, addr)
-		if err != nil {
-			log.Fatalf("Failed to get staked amount: %v", err)
+		for _, addr := range addrs {
+			amount, err = vrc.GetStakedAmount(nil, addr)
+			if err != nil {
+				log.Fatalf("Failed to get staked amount: %v", err)
+			}
+			fmt.Println("Initial staked amount for ", addr.Hex(), " is: ", amount)
 		}
-		fmt.Println("Staked amount for ", addr.Hex(), " is: ", amount)
-	}
 
-	opts, err = ec.CreateTransactOpts(context.Background(), privateKey, chainID)
-	if err != nil {
-		log.Fatalf("Failed to create transact opts: %v", err)
-	}
-
-	totalAmount := new(big.Int)
-	totalAmount.SetString("10000000000000000000000", 10) // 10000 ETH
-	opts.Value = totalAmount
-
-	submitTx = func(
-		ctx context.Context,
-		opts *bind.TransactOpts,
-	) (*types.Transaction, error) {
-		tx, err := vrt.SplitStake(opts, addrs)
+		opts, err = ec.CreateTransactOpts(context.Background(), privateKey, chainID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to self stake: %w", err)
+			log.Fatalf("Failed to create transact opts: %v", err)
 		}
-		fmt.Println("Transaction hash: ", tx.Hash().Hex())
-		return tx, nil
-	}
 
-	receipt, err = ec.WaitMinedWithRetry(context.Background(), opts, submitTx)
-	if err != nil {
-		log.Fatalf("Failed to wait for split stake tx to be mined: %v", err)
-	}
+		// 3.1 ETH * 50 = 155 ETH
+		totalAmount := new(big.Int)
+		totalAmount.SetString("155000000000000000000", 10)
+		opts.Value = totalAmount
 
-	fmt.Println("Receipt block num for split stake: ", receipt.BlockNumber)
+		submitTx = func(
+			ctx context.Context,
+			opts *bind.TransactOpts,
+		) (*types.Transaction, error) {
+			tx, err := vrt.SplitStake(opts, addrs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to self stake: %w", err)
+			}
+			fmt.Println("Split stake sent. Transaction hash: ", tx.Hash().Hex())
+			return tx, nil
+		}
 
-	for _, addr := range addrs {
-		amount, err = vrc.GetStakedAmount(nil, addr)
+		receipt, err = ec.WaitMinedWithRetry(context.Background(), opts, submitTx)
 		if err != nil {
-			log.Fatalf("Failed to get staked amount: %v", err)
+			log.Fatalf("Failed to wait for split stake tx to be mined: %v", err)
 		}
-		fmt.Println("Staked amount for ", addr.Hex(), " is: ", amount)
+		fmt.Println("Split stake included in block: ", receipt.BlockNumber)
+
+		for _, addr := range addrs {
+			amount, err = vrc.GetStakedAmount(nil, addr)
+			if err != nil {
+				log.Fatalf("Failed to get staked amount: %v", err)
+			}
+			fmt.Println("Final staked amount for ", addr.Hex(), " is: ", amount)
+		}
+		fmt.Println("-------------------")
+		fmt.Println("Batch iteration completed. Idx: ", i)
+		fmt.Println("-------------------")
 	}
+
+	fmt.Println("All batches completed!")
 }
 
 //
