@@ -23,8 +23,8 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/primevprotocol/mev-commit/p2p.version={{.Version}}
-      - -X github.com/primevprotocol/mev-commit/p2p.revision={{ .ShortCommit }}
+      - -X github.com/primevprotocol/mev-commit/p2p/integrationtest/real-bidder.version={{.Version}}
+      - -X github.com/primevprotocol/mev-commit/p2p/integrationtest/real-bidder.revision={{ .ShortCommit }}
 
 archives:
   - format: tar.gz

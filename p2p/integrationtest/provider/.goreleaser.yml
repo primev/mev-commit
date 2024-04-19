@@ -16,15 +16,15 @@ builds:
       - goos: windows
         goarch: arm64
     dir: ./p2p/integrationtest
-    main: ./bidder
-    binary: mev-commit-bidder
+    main: ./provider
+    binary: mev-commit-provider
     flags:
       - -v
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/primevprotocol/mev-commit/p2p/bidder.version={{.Version}}
-      - -X github.com/primevprotocol/mev-commit/p2p/bidder.revision={{ .ShortCommit }}
+      - -X github.com/primevprotocol/mev-commit/p2p/integrationtest/provider.version={{.Version}}
+      - -X github.com/primevprotocol/mev-commit/p2p/integrationtest/provider.revision={{ .ShortCommit }}
 
 archives:
   - format: tar.gz
