@@ -31,75 +31,75 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         _disableInitializers();
     }
 
-    mapping(address => uint256) public stakedBalances;
-    mapping(address => address) public stakeOriginators;
-    mapping(address => uint256) public unstakeBlockNums;
+    /// @dev Mapping of validator bls public key to staked balance. 
+    mapping(bytes => uint256) public stakedBalances;
 
-    event SelfStaked(address indexed txOriginator, uint256 amount);
-    event SplitStaked(address indexed txOriginator, address[] recipients, uint256 totalAmount);
-    event Unstaked(address indexed txOriginator, uint256 amount);
-    event StakeWithdrawn(address indexed txOriginator, uint256 amount);
+    /// @dev Mapping of validator bls public key to EOA stake originator. 
+    mapping(bytes => address) public stakeOriginators;
 
-    function selfStake() external payable {
-        require(msg.value >= minStake, "Stake amount must meet the minimum requirement");
-        _stake(msg.sender, msg.value);
-        emit SelfStaked(msg.sender, msg.value);
-    }
+    /// @dev Mapping of bls public key to block number of unstake initiation block.
+    mapping(bytes => uint256) public unstakeBlockNums;
 
-    function splitStake(address[] calldata recipients) external payable {
-        require(recipients.length > 0, "There must be at least one recipient");
+    event Staked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount);
+    event Unstaked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount);
+    event StakeWithdrawn(address indexed txOriginator, bytes valBLSPubKey, uint256 amount);
 
-        uint256 splitAmount = msg.value / recipients.length;
+    function stake(bytes[] calldata valBLSPubKeys) external payable {
+
+        require(valBLSPubKeys.length > 0, "There must be at least one recipient");
+        uint256 splitAmount = msg.value / valBLSPubKeys.length;
         require(splitAmount >= minStake, "Split amount must meet the minimum requirement");
 
-        for (uint256 i = 0; i < recipients.length; i++) {
-            _stake(recipients[i], splitAmount);
-        }
-
-        emit SplitStaked(msg.sender, recipients, msg.value);
-    }
-
-    function _stake(address staker, uint256 amount) internal {
-        require(unstakeBlockNums[staker] == 0, "Address cannot be staked with in-progress unstake process");
-        require(stakedBalances[staker] == 0, "Already staked");
-        stakedBalances[staker] += amount;
-        stakeOriginators[staker] = msg.sender;
-    }
-
-    function unstake(address[] calldata fromAddrs) external {
-        for (uint256 i = 0; i < fromAddrs.length; i++) {
-            require(stakedBalances[fromAddrs[i]] > 0, "No balance to unstake");
-            require(stakeOriginators[fromAddrs[i]] == msg.sender || fromAddrs[i] == msg.sender, "Not authorized to unstake. Must be stake originator or EOA whos staked");
-            require(unstakeBlockNums[fromAddrs[i]] == 0, "Unstake already initiated");
-
-            unstakeBlockNums[fromAddrs[i]] = block.number;
-            emit Unstaked(msg.sender, stakedBalances[fromAddrs[i]]);
+        for (uint256 i = 0; i < valBLSPubKeys.length; i++) {
+            _validateBLSPubKey(valBLSPubKeys[i]);
+            require(unstakeBlockNums[valBLSPubKeys[i]] == 0, "validator cannot be staked with in-progress unstake process");
+            require(stakedBalances[valBLSPubKeys[i]] == 0, "validator already staked");
+            stakedBalances[valBLSPubKeys[i]] += splitAmount;
+            stakeOriginators[valBLSPubKeys[i]] = msg.sender;
+            emit Staked(msg.sender, valBLSPubKeys[i], splitAmount);
         }
     }
 
-    function withdraw(address[] calldata fromAddrs) external nonReentrant {
-        for (uint256 i = 0; i < fromAddrs.length; i++) {
-            require(stakedBalances[fromAddrs[i]] > 0, "No staked balance to withdraw");
-            require(stakeOriginators[fromAddrs[i]] == msg.sender || fromAddrs[i] == msg.sender, "Not authorized to withdraw. Must be stake originator or EOA whos staked");
-            require(unstakeBlockNums[fromAddrs[i]] > 0, "Unstake must be initiated before withdrawal");
-            require(block.number >= unstakeBlockNums[fromAddrs[i]] + unstakePeriodBlocks, "withdrawal not allowed yet. Blocks requirement not met.");
+    function unstake(bytes[] calldata blsPubKeys) external {
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            _validateBLSPubKey(blsPubKeys[i]);
+            require(stakedBalances[blsPubKeys[i]] > 0, "No balance to unstake");
+            require(stakeOriginators[blsPubKeys[i]] == msg.sender, "Not authorized to unstake validator. Must be stake originator"); 
+            require(unstakeBlockNums[blsPubKeys[i]] == 0, "Unstake already initiated for validator");
 
-            uint256 amount = stakedBalances[fromAddrs[i]];
-            stakedBalances[fromAddrs[i]] -= amount;
+            unstakeBlockNums[blsPubKeys[i]] = block.number;
+            emit Unstaked(msg.sender, blsPubKeys[i], stakedBalances[blsPubKeys[i]]);
+        }
+    }
+
+    function withdraw(bytes[] calldata blsPubKeys) external nonReentrant {
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            _validateBLSPubKey(blsPubKeys[i]);
+            require(stakedBalances[blsPubKeys[i]] > 0, "No staked balance to withdraw");
+            require(stakeOriginators[blsPubKeys[i]] == msg.sender , "Not authorized to withdraw stake. Must be stake originator");
+            require(unstakeBlockNums[blsPubKeys[i]] > 0, "Unstake must be initiated before withdrawal");
+            require(block.number >= unstakeBlockNums[blsPubKeys[i]] + unstakePeriodBlocks, "withdrawal not allowed yet. Blocks requirement not met.");
+
+            uint256 amount = stakedBalances[blsPubKeys[i]];
+            stakedBalances[blsPubKeys[i]] -= amount;
             payable(msg.sender).transfer(amount);
 
-            stakeOriginators[fromAddrs[i]] = address(0);
-            unstakeBlockNums[fromAddrs[i]] = 0;
+            stakeOriginators[blsPubKeys[i]] = address(0);
+            unstakeBlockNums[blsPubKeys[i]] = 0;
 
-            emit StakeWithdrawn(msg.sender, amount);
+            emit StakeWithdrawn(msg.sender, blsPubKeys[i], amount);
         }
     }
 
-    function isStaked(address staker) external view returns (bool) {
-        return stakedBalances[staker] >= minStake && unstakeBlockNums[staker] == 0;
+    function _validateBLSPubKey(bytes calldata valBLSPubKey) internal pure {
+        require(valBLSPubKey.length == 48, "Invalid BLS public key length. Must be 48 bytes");
     }
 
-    function getStakedAmount(address staker) external view returns (uint256) {
-        return stakedBalances[staker];
+    function isStaked(bytes calldata valBLSPubKey) external view returns (bool) {
+        return stakedBalances[valBLSPubKey] >= minStake && unstakeBlockNums[valBLSPubKey] == 0;
+    }
+
+    function getStakedAmount(bytes calldata valBLSPubKey) external view returns (uint256) {
+        return stakedBalances[valBLSPubKey];
     }
 }

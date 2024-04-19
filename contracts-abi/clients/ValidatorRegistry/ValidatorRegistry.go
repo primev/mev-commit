@@ -31,7 +31,7 @@ var (
 
 // ValidatorregistryMetaData contains all meta data concerning the Validatorregistry contract.
 var ValidatorregistryMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getStakedAmount\",\"inputs\":[{\"name\":\"staker\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_minStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_unstakePeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isStaked\",\"inputs\":[{\"name\":\"staker\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minStake\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"selfStake\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"splitStake\",\"inputs\":[{\"name\":\"recipients\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"stakeOriginators\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"stakedBalances\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstake\",\"inputs\":[{\"name\":\"fromAddrs\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstakeBlockNums\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unstakePeriodBlocks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"fromAddrs\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SelfStaked\",\"inputs\":[{\"name\":\"txOriginator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SplitStaked\",\"inputs\":[{\"name\":\"txOriginator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"recipients\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"totalAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeWithdrawn\",\"inputs\":[{\"name\":\"txOriginator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unstaked\",\"inputs\":[{\"name\":\"txOriginator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getStakedAmount\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_minStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_unstakePeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isStaked\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minStake\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"stake\",\"inputs\":[{\"name\":\"valBLSPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"stakeOriginators\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"stakedBalances\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstakeBlockNums\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unstakePeriodBlocks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeWithdrawn\",\"inputs\":[{\"name\":\"txOriginator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Staked\",\"inputs\":[{\"name\":\"txOriginator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unstaked\",\"inputs\":[{\"name\":\"txOriginator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]}]",
 }
 
 // ValidatorregistryABI is the input ABI used to generate the binding from.
@@ -180,12 +180,12 @@ func (_Validatorregistry *ValidatorregistryTransactorRaw) Transact(opts *bind.Tr
 	return _Validatorregistry.Contract.contract.Transact(opts, method, params...)
 }
 
-// GetStakedAmount is a free data retrieval call binding the contract method 0x4da6a556.
+// GetStakedAmount is a free data retrieval call binding the contract method 0xb2a453e6.
 //
-// Solidity: function getStakedAmount(address staker) view returns(uint256)
-func (_Validatorregistry *ValidatorregistryCaller) GetStakedAmount(opts *bind.CallOpts, staker common.Address) (*big.Int, error) {
+// Solidity: function getStakedAmount(bytes valBLSPubKey) view returns(uint256)
+func (_Validatorregistry *ValidatorregistryCaller) GetStakedAmount(opts *bind.CallOpts, valBLSPubKey []byte) (*big.Int, error) {
 	var out []interface{}
-	err := _Validatorregistry.contract.Call(opts, &out, "getStakedAmount", staker)
+	err := _Validatorregistry.contract.Call(opts, &out, "getStakedAmount", valBLSPubKey)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -197,26 +197,26 @@ func (_Validatorregistry *ValidatorregistryCaller) GetStakedAmount(opts *bind.Ca
 
 }
 
-// GetStakedAmount is a free data retrieval call binding the contract method 0x4da6a556.
+// GetStakedAmount is a free data retrieval call binding the contract method 0xb2a453e6.
 //
-// Solidity: function getStakedAmount(address staker) view returns(uint256)
-func (_Validatorregistry *ValidatorregistrySession) GetStakedAmount(staker common.Address) (*big.Int, error) {
-	return _Validatorregistry.Contract.GetStakedAmount(&_Validatorregistry.CallOpts, staker)
+// Solidity: function getStakedAmount(bytes valBLSPubKey) view returns(uint256)
+func (_Validatorregistry *ValidatorregistrySession) GetStakedAmount(valBLSPubKey []byte) (*big.Int, error) {
+	return _Validatorregistry.Contract.GetStakedAmount(&_Validatorregistry.CallOpts, valBLSPubKey)
 }
 
-// GetStakedAmount is a free data retrieval call binding the contract method 0x4da6a556.
+// GetStakedAmount is a free data retrieval call binding the contract method 0xb2a453e6.
 //
-// Solidity: function getStakedAmount(address staker) view returns(uint256)
-func (_Validatorregistry *ValidatorregistryCallerSession) GetStakedAmount(staker common.Address) (*big.Int, error) {
-	return _Validatorregistry.Contract.GetStakedAmount(&_Validatorregistry.CallOpts, staker)
+// Solidity: function getStakedAmount(bytes valBLSPubKey) view returns(uint256)
+func (_Validatorregistry *ValidatorregistryCallerSession) GetStakedAmount(valBLSPubKey []byte) (*big.Int, error) {
+	return _Validatorregistry.Contract.GetStakedAmount(&_Validatorregistry.CallOpts, valBLSPubKey)
 }
 
-// IsStaked is a free data retrieval call binding the contract method 0x6177fd18.
+// IsStaked is a free data retrieval call binding the contract method 0xcdb513b4.
 //
-// Solidity: function isStaked(address staker) view returns(bool)
-func (_Validatorregistry *ValidatorregistryCaller) IsStaked(opts *bind.CallOpts, staker common.Address) (bool, error) {
+// Solidity: function isStaked(bytes valBLSPubKey) view returns(bool)
+func (_Validatorregistry *ValidatorregistryCaller) IsStaked(opts *bind.CallOpts, valBLSPubKey []byte) (bool, error) {
 	var out []interface{}
-	err := _Validatorregistry.contract.Call(opts, &out, "isStaked", staker)
+	err := _Validatorregistry.contract.Call(opts, &out, "isStaked", valBLSPubKey)
 
 	if err != nil {
 		return *new(bool), err
@@ -228,18 +228,18 @@ func (_Validatorregistry *ValidatorregistryCaller) IsStaked(opts *bind.CallOpts,
 
 }
 
-// IsStaked is a free data retrieval call binding the contract method 0x6177fd18.
+// IsStaked is a free data retrieval call binding the contract method 0xcdb513b4.
 //
-// Solidity: function isStaked(address staker) view returns(bool)
-func (_Validatorregistry *ValidatorregistrySession) IsStaked(staker common.Address) (bool, error) {
-	return _Validatorregistry.Contract.IsStaked(&_Validatorregistry.CallOpts, staker)
+// Solidity: function isStaked(bytes valBLSPubKey) view returns(bool)
+func (_Validatorregistry *ValidatorregistrySession) IsStaked(valBLSPubKey []byte) (bool, error) {
+	return _Validatorregistry.Contract.IsStaked(&_Validatorregistry.CallOpts, valBLSPubKey)
 }
 
-// IsStaked is a free data retrieval call binding the contract method 0x6177fd18.
+// IsStaked is a free data retrieval call binding the contract method 0xcdb513b4.
 //
-// Solidity: function isStaked(address staker) view returns(bool)
-func (_Validatorregistry *ValidatorregistryCallerSession) IsStaked(staker common.Address) (bool, error) {
-	return _Validatorregistry.Contract.IsStaked(&_Validatorregistry.CallOpts, staker)
+// Solidity: function isStaked(bytes valBLSPubKey) view returns(bool)
+func (_Validatorregistry *ValidatorregistryCallerSession) IsStaked(valBLSPubKey []byte) (bool, error) {
+	return _Validatorregistry.Contract.IsStaked(&_Validatorregistry.CallOpts, valBLSPubKey)
 }
 
 // MinStake is a free data retrieval call binding the contract method 0x375b3c0a.
@@ -304,10 +304,10 @@ func (_Validatorregistry *ValidatorregistryCallerSession) Owner() (common.Addres
 	return _Validatorregistry.Contract.Owner(&_Validatorregistry.CallOpts)
 }
 
-// StakeOriginators is a free data retrieval call binding the contract method 0xd63d1217.
+// StakeOriginators is a free data retrieval call binding the contract method 0x2e5b5fd7.
 //
-// Solidity: function stakeOriginators(address ) view returns(address)
-func (_Validatorregistry *ValidatorregistryCaller) StakeOriginators(opts *bind.CallOpts, arg0 common.Address) (common.Address, error) {
+// Solidity: function stakeOriginators(bytes ) view returns(address)
+func (_Validatorregistry *ValidatorregistryCaller) StakeOriginators(opts *bind.CallOpts, arg0 []byte) (common.Address, error) {
 	var out []interface{}
 	err := _Validatorregistry.contract.Call(opts, &out, "stakeOriginators", arg0)
 
@@ -321,24 +321,24 @@ func (_Validatorregistry *ValidatorregistryCaller) StakeOriginators(opts *bind.C
 
 }
 
-// StakeOriginators is a free data retrieval call binding the contract method 0xd63d1217.
+// StakeOriginators is a free data retrieval call binding the contract method 0x2e5b5fd7.
 //
-// Solidity: function stakeOriginators(address ) view returns(address)
-func (_Validatorregistry *ValidatorregistrySession) StakeOriginators(arg0 common.Address) (common.Address, error) {
+// Solidity: function stakeOriginators(bytes ) view returns(address)
+func (_Validatorregistry *ValidatorregistrySession) StakeOriginators(arg0 []byte) (common.Address, error) {
 	return _Validatorregistry.Contract.StakeOriginators(&_Validatorregistry.CallOpts, arg0)
 }
 
-// StakeOriginators is a free data retrieval call binding the contract method 0xd63d1217.
+// StakeOriginators is a free data retrieval call binding the contract method 0x2e5b5fd7.
 //
-// Solidity: function stakeOriginators(address ) view returns(address)
-func (_Validatorregistry *ValidatorregistryCallerSession) StakeOriginators(arg0 common.Address) (common.Address, error) {
+// Solidity: function stakeOriginators(bytes ) view returns(address)
+func (_Validatorregistry *ValidatorregistryCallerSession) StakeOriginators(arg0 []byte) (common.Address, error) {
 	return _Validatorregistry.Contract.StakeOriginators(&_Validatorregistry.CallOpts, arg0)
 }
 
-// StakedBalances is a free data retrieval call binding the contract method 0x1460fa87.
+// StakedBalances is a free data retrieval call binding the contract method 0x75c23949.
 //
-// Solidity: function stakedBalances(address ) view returns(uint256)
-func (_Validatorregistry *ValidatorregistryCaller) StakedBalances(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
+// Solidity: function stakedBalances(bytes ) view returns(uint256)
+func (_Validatorregistry *ValidatorregistryCaller) StakedBalances(opts *bind.CallOpts, arg0 []byte) (*big.Int, error) {
 	var out []interface{}
 	err := _Validatorregistry.contract.Call(opts, &out, "stakedBalances", arg0)
 
@@ -352,24 +352,24 @@ func (_Validatorregistry *ValidatorregistryCaller) StakedBalances(opts *bind.Cal
 
 }
 
-// StakedBalances is a free data retrieval call binding the contract method 0x1460fa87.
+// StakedBalances is a free data retrieval call binding the contract method 0x75c23949.
 //
-// Solidity: function stakedBalances(address ) view returns(uint256)
-func (_Validatorregistry *ValidatorregistrySession) StakedBalances(arg0 common.Address) (*big.Int, error) {
+// Solidity: function stakedBalances(bytes ) view returns(uint256)
+func (_Validatorregistry *ValidatorregistrySession) StakedBalances(arg0 []byte) (*big.Int, error) {
 	return _Validatorregistry.Contract.StakedBalances(&_Validatorregistry.CallOpts, arg0)
 }
 
-// StakedBalances is a free data retrieval call binding the contract method 0x1460fa87.
+// StakedBalances is a free data retrieval call binding the contract method 0x75c23949.
 //
-// Solidity: function stakedBalances(address ) view returns(uint256)
-func (_Validatorregistry *ValidatorregistryCallerSession) StakedBalances(arg0 common.Address) (*big.Int, error) {
+// Solidity: function stakedBalances(bytes ) view returns(uint256)
+func (_Validatorregistry *ValidatorregistryCallerSession) StakedBalances(arg0 []byte) (*big.Int, error) {
 	return _Validatorregistry.Contract.StakedBalances(&_Validatorregistry.CallOpts, arg0)
 }
 
-// UnstakeBlockNums is a free data retrieval call binding the contract method 0xb6c63bb9.
+// UnstakeBlockNums is a free data retrieval call binding the contract method 0x2f8836a5.
 //
-// Solidity: function unstakeBlockNums(address ) view returns(uint256)
-func (_Validatorregistry *ValidatorregistryCaller) UnstakeBlockNums(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
+// Solidity: function unstakeBlockNums(bytes ) view returns(uint256)
+func (_Validatorregistry *ValidatorregistryCaller) UnstakeBlockNums(opts *bind.CallOpts, arg0 []byte) (*big.Int, error) {
 	var out []interface{}
 	err := _Validatorregistry.contract.Call(opts, &out, "unstakeBlockNums", arg0)
 
@@ -383,17 +383,17 @@ func (_Validatorregistry *ValidatorregistryCaller) UnstakeBlockNums(opts *bind.C
 
 }
 
-// UnstakeBlockNums is a free data retrieval call binding the contract method 0xb6c63bb9.
+// UnstakeBlockNums is a free data retrieval call binding the contract method 0x2f8836a5.
 //
-// Solidity: function unstakeBlockNums(address ) view returns(uint256)
-func (_Validatorregistry *ValidatorregistrySession) UnstakeBlockNums(arg0 common.Address) (*big.Int, error) {
+// Solidity: function unstakeBlockNums(bytes ) view returns(uint256)
+func (_Validatorregistry *ValidatorregistrySession) UnstakeBlockNums(arg0 []byte) (*big.Int, error) {
 	return _Validatorregistry.Contract.UnstakeBlockNums(&_Validatorregistry.CallOpts, arg0)
 }
 
-// UnstakeBlockNums is a free data retrieval call binding the contract method 0xb6c63bb9.
+// UnstakeBlockNums is a free data retrieval call binding the contract method 0x2f8836a5.
 //
-// Solidity: function unstakeBlockNums(address ) view returns(uint256)
-func (_Validatorregistry *ValidatorregistryCallerSession) UnstakeBlockNums(arg0 common.Address) (*big.Int, error) {
+// Solidity: function unstakeBlockNums(bytes ) view returns(uint256)
+func (_Validatorregistry *ValidatorregistryCallerSession) UnstakeBlockNums(arg0 []byte) (*big.Int, error) {
 	return _Validatorregistry.Contract.UnstakeBlockNums(&_Validatorregistry.CallOpts, arg0)
 }
 
@@ -470,46 +470,25 @@ func (_Validatorregistry *ValidatorregistryTransactorSession) RenounceOwnership(
 	return _Validatorregistry.Contract.RenounceOwnership(&_Validatorregistry.TransactOpts)
 }
 
-// SelfStake is a paid mutator transaction binding the contract method 0x9bdd9480.
+// Stake is a paid mutator transaction binding the contract method 0x7299e0e6.
 //
-// Solidity: function selfStake() payable returns()
-func (_Validatorregistry *ValidatorregistryTransactor) SelfStake(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Validatorregistry.contract.Transact(opts, "selfStake")
+// Solidity: function stake(bytes[] valBLSPubKeys) payable returns()
+func (_Validatorregistry *ValidatorregistryTransactor) Stake(opts *bind.TransactOpts, valBLSPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.contract.Transact(opts, "stake", valBLSPubKeys)
 }
 
-// SelfStake is a paid mutator transaction binding the contract method 0x9bdd9480.
+// Stake is a paid mutator transaction binding the contract method 0x7299e0e6.
 //
-// Solidity: function selfStake() payable returns()
-func (_Validatorregistry *ValidatorregistrySession) SelfStake() (*types.Transaction, error) {
-	return _Validatorregistry.Contract.SelfStake(&_Validatorregistry.TransactOpts)
+// Solidity: function stake(bytes[] valBLSPubKeys) payable returns()
+func (_Validatorregistry *ValidatorregistrySession) Stake(valBLSPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.Contract.Stake(&_Validatorregistry.TransactOpts, valBLSPubKeys)
 }
 
-// SelfStake is a paid mutator transaction binding the contract method 0x9bdd9480.
+// Stake is a paid mutator transaction binding the contract method 0x7299e0e6.
 //
-// Solidity: function selfStake() payable returns()
-func (_Validatorregistry *ValidatorregistryTransactorSession) SelfStake() (*types.Transaction, error) {
-	return _Validatorregistry.Contract.SelfStake(&_Validatorregistry.TransactOpts)
-}
-
-// SplitStake is a paid mutator transaction binding the contract method 0xfadb2c6e.
-//
-// Solidity: function splitStake(address[] recipients) payable returns()
-func (_Validatorregistry *ValidatorregistryTransactor) SplitStake(opts *bind.TransactOpts, recipients []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.contract.Transact(opts, "splitStake", recipients)
-}
-
-// SplitStake is a paid mutator transaction binding the contract method 0xfadb2c6e.
-//
-// Solidity: function splitStake(address[] recipients) payable returns()
-func (_Validatorregistry *ValidatorregistrySession) SplitStake(recipients []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.Contract.SplitStake(&_Validatorregistry.TransactOpts, recipients)
-}
-
-// SplitStake is a paid mutator transaction binding the contract method 0xfadb2c6e.
-//
-// Solidity: function splitStake(address[] recipients) payable returns()
-func (_Validatorregistry *ValidatorregistryTransactorSession) SplitStake(recipients []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.Contract.SplitStake(&_Validatorregistry.TransactOpts, recipients)
+// Solidity: function stake(bytes[] valBLSPubKeys) payable returns()
+func (_Validatorregistry *ValidatorregistryTransactorSession) Stake(valBLSPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.Contract.Stake(&_Validatorregistry.TransactOpts, valBLSPubKeys)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -533,46 +512,46 @@ func (_Validatorregistry *ValidatorregistryTransactorSession) TransferOwnership(
 	return _Validatorregistry.Contract.TransferOwnership(&_Validatorregistry.TransactOpts, newOwner)
 }
 
-// Unstake is a paid mutator transaction binding the contract method 0x3c22d7a9.
+// Unstake is a paid mutator transaction binding the contract method 0xc08a2081.
 //
-// Solidity: function unstake(address[] fromAddrs) returns()
-func (_Validatorregistry *ValidatorregistryTransactor) Unstake(opts *bind.TransactOpts, fromAddrs []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.contract.Transact(opts, "unstake", fromAddrs)
+// Solidity: function unstake(bytes[] blsPubKeys) returns()
+func (_Validatorregistry *ValidatorregistryTransactor) Unstake(opts *bind.TransactOpts, blsPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.contract.Transact(opts, "unstake", blsPubKeys)
 }
 
-// Unstake is a paid mutator transaction binding the contract method 0x3c22d7a9.
+// Unstake is a paid mutator transaction binding the contract method 0xc08a2081.
 //
-// Solidity: function unstake(address[] fromAddrs) returns()
-func (_Validatorregistry *ValidatorregistrySession) Unstake(fromAddrs []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.Contract.Unstake(&_Validatorregistry.TransactOpts, fromAddrs)
+// Solidity: function unstake(bytes[] blsPubKeys) returns()
+func (_Validatorregistry *ValidatorregistrySession) Unstake(blsPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.Contract.Unstake(&_Validatorregistry.TransactOpts, blsPubKeys)
 }
 
-// Unstake is a paid mutator transaction binding the contract method 0x3c22d7a9.
+// Unstake is a paid mutator transaction binding the contract method 0xc08a2081.
 //
-// Solidity: function unstake(address[] fromAddrs) returns()
-func (_Validatorregistry *ValidatorregistryTransactorSession) Unstake(fromAddrs []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.Contract.Unstake(&_Validatorregistry.TransactOpts, fromAddrs)
+// Solidity: function unstake(bytes[] blsPubKeys) returns()
+func (_Validatorregistry *ValidatorregistryTransactorSession) Unstake(blsPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.Contract.Unstake(&_Validatorregistry.TransactOpts, blsPubKeys)
 }
 
-// Withdraw is a paid mutator transaction binding the contract method 0xbd5dec98.
+// Withdraw is a paid mutator transaction binding the contract method 0xdcb1edcb.
 //
-// Solidity: function withdraw(address[] fromAddrs) returns()
-func (_Validatorregistry *ValidatorregistryTransactor) Withdraw(opts *bind.TransactOpts, fromAddrs []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.contract.Transact(opts, "withdraw", fromAddrs)
+// Solidity: function withdraw(bytes[] blsPubKeys) returns()
+func (_Validatorregistry *ValidatorregistryTransactor) Withdraw(opts *bind.TransactOpts, blsPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.contract.Transact(opts, "withdraw", blsPubKeys)
 }
 
-// Withdraw is a paid mutator transaction binding the contract method 0xbd5dec98.
+// Withdraw is a paid mutator transaction binding the contract method 0xdcb1edcb.
 //
-// Solidity: function withdraw(address[] fromAddrs) returns()
-func (_Validatorregistry *ValidatorregistrySession) Withdraw(fromAddrs []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.Contract.Withdraw(&_Validatorregistry.TransactOpts, fromAddrs)
+// Solidity: function withdraw(bytes[] blsPubKeys) returns()
+func (_Validatorregistry *ValidatorregistrySession) Withdraw(blsPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.Contract.Withdraw(&_Validatorregistry.TransactOpts, blsPubKeys)
 }
 
-// Withdraw is a paid mutator transaction binding the contract method 0xbd5dec98.
+// Withdraw is a paid mutator transaction binding the contract method 0xdcb1edcb.
 //
-// Solidity: function withdraw(address[] fromAddrs) returns()
-func (_Validatorregistry *ValidatorregistryTransactorSession) Withdraw(fromAddrs []common.Address) (*types.Transaction, error) {
-	return _Validatorregistry.Contract.Withdraw(&_Validatorregistry.TransactOpts, fromAddrs)
+// Solidity: function withdraw(bytes[] blsPubKeys) returns()
+func (_Validatorregistry *ValidatorregistryTransactorSession) Withdraw(blsPubKeys [][]byte) (*types.Transaction, error) {
+	return _Validatorregistry.Contract.Withdraw(&_Validatorregistry.TransactOpts, blsPubKeys)
 }
 
 // ValidatorregistryInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the Validatorregistry contract.
@@ -862,297 +841,6 @@ func (_Validatorregistry *ValidatorregistryFilterer) ParseOwnershipTransferred(l
 	return event, nil
 }
 
-// ValidatorregistrySelfStakedIterator is returned from FilterSelfStaked and is used to iterate over the raw logs and unpacked data for SelfStaked events raised by the Validatorregistry contract.
-type ValidatorregistrySelfStakedIterator struct {
-	Event *ValidatorregistrySelfStaked // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ValidatorregistrySelfStakedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ValidatorregistrySelfStaked)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ValidatorregistrySelfStaked)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ValidatorregistrySelfStakedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ValidatorregistrySelfStakedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ValidatorregistrySelfStaked represents a SelfStaked event raised by the Validatorregistry contract.
-type ValidatorregistrySelfStaked struct {
-	TxOriginator common.Address
-	Amount       *big.Int
-	Raw          types.Log // Blockchain specific contextual infos
-}
-
-// FilterSelfStaked is a free log retrieval operation binding the contract event 0x8d413953974047bf2acf82843dcb42b902604eba958fd1d2a7b4815886e89c0c.
-//
-// Solidity: event SelfStaked(address indexed txOriginator, uint256 amount)
-func (_Validatorregistry *ValidatorregistryFilterer) FilterSelfStaked(opts *bind.FilterOpts, txOriginator []common.Address) (*ValidatorregistrySelfStakedIterator, error) {
-
-	var txOriginatorRule []interface{}
-	for _, txOriginatorItem := range txOriginator {
-		txOriginatorRule = append(txOriginatorRule, txOriginatorItem)
-	}
-
-	logs, sub, err := _Validatorregistry.contract.FilterLogs(opts, "SelfStaked", txOriginatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ValidatorregistrySelfStakedIterator{contract: _Validatorregistry.contract, event: "SelfStaked", logs: logs, sub: sub}, nil
-}
-
-// WatchSelfStaked is a free log subscription operation binding the contract event 0x8d413953974047bf2acf82843dcb42b902604eba958fd1d2a7b4815886e89c0c.
-//
-// Solidity: event SelfStaked(address indexed txOriginator, uint256 amount)
-func (_Validatorregistry *ValidatorregistryFilterer) WatchSelfStaked(opts *bind.WatchOpts, sink chan<- *ValidatorregistrySelfStaked, txOriginator []common.Address) (event.Subscription, error) {
-
-	var txOriginatorRule []interface{}
-	for _, txOriginatorItem := range txOriginator {
-		txOriginatorRule = append(txOriginatorRule, txOriginatorItem)
-	}
-
-	logs, sub, err := _Validatorregistry.contract.WatchLogs(opts, "SelfStaked", txOriginatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ValidatorregistrySelfStaked)
-				if err := _Validatorregistry.contract.UnpackLog(event, "SelfStaked", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseSelfStaked is a log parse operation binding the contract event 0x8d413953974047bf2acf82843dcb42b902604eba958fd1d2a7b4815886e89c0c.
-//
-// Solidity: event SelfStaked(address indexed txOriginator, uint256 amount)
-func (_Validatorregistry *ValidatorregistryFilterer) ParseSelfStaked(log types.Log) (*ValidatorregistrySelfStaked, error) {
-	event := new(ValidatorregistrySelfStaked)
-	if err := _Validatorregistry.contract.UnpackLog(event, "SelfStaked", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// ValidatorregistrySplitStakedIterator is returned from FilterSplitStaked and is used to iterate over the raw logs and unpacked data for SplitStaked events raised by the Validatorregistry contract.
-type ValidatorregistrySplitStakedIterator struct {
-	Event *ValidatorregistrySplitStaked // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *ValidatorregistrySplitStakedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(ValidatorregistrySplitStaked)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(ValidatorregistrySplitStaked)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *ValidatorregistrySplitStakedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *ValidatorregistrySplitStakedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// ValidatorregistrySplitStaked represents a SplitStaked event raised by the Validatorregistry contract.
-type ValidatorregistrySplitStaked struct {
-	TxOriginator common.Address
-	Recipients   []common.Address
-	TotalAmount  *big.Int
-	Raw          types.Log // Blockchain specific contextual infos
-}
-
-// FilterSplitStaked is a free log retrieval operation binding the contract event 0xea0052ec330e7b29ff95aab8408237786e5a76c40b743161c325bc67c4662210.
-//
-// Solidity: event SplitStaked(address indexed txOriginator, address[] recipients, uint256 totalAmount)
-func (_Validatorregistry *ValidatorregistryFilterer) FilterSplitStaked(opts *bind.FilterOpts, txOriginator []common.Address) (*ValidatorregistrySplitStakedIterator, error) {
-
-	var txOriginatorRule []interface{}
-	for _, txOriginatorItem := range txOriginator {
-		txOriginatorRule = append(txOriginatorRule, txOriginatorItem)
-	}
-
-	logs, sub, err := _Validatorregistry.contract.FilterLogs(opts, "SplitStaked", txOriginatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return &ValidatorregistrySplitStakedIterator{contract: _Validatorregistry.contract, event: "SplitStaked", logs: logs, sub: sub}, nil
-}
-
-// WatchSplitStaked is a free log subscription operation binding the contract event 0xea0052ec330e7b29ff95aab8408237786e5a76c40b743161c325bc67c4662210.
-//
-// Solidity: event SplitStaked(address indexed txOriginator, address[] recipients, uint256 totalAmount)
-func (_Validatorregistry *ValidatorregistryFilterer) WatchSplitStaked(opts *bind.WatchOpts, sink chan<- *ValidatorregistrySplitStaked, txOriginator []common.Address) (event.Subscription, error) {
-
-	var txOriginatorRule []interface{}
-	for _, txOriginatorItem := range txOriginator {
-		txOriginatorRule = append(txOriginatorRule, txOriginatorItem)
-	}
-
-	logs, sub, err := _Validatorregistry.contract.WatchLogs(opts, "SplitStaked", txOriginatorRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(ValidatorregistrySplitStaked)
-				if err := _Validatorregistry.contract.UnpackLog(event, "SplitStaked", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseSplitStaked is a log parse operation binding the contract event 0xea0052ec330e7b29ff95aab8408237786e5a76c40b743161c325bc67c4662210.
-//
-// Solidity: event SplitStaked(address indexed txOriginator, address[] recipients, uint256 totalAmount)
-func (_Validatorregistry *ValidatorregistryFilterer) ParseSplitStaked(log types.Log) (*ValidatorregistrySplitStaked, error) {
-	event := new(ValidatorregistrySplitStaked)
-	if err := _Validatorregistry.contract.UnpackLog(event, "SplitStaked", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // ValidatorregistryStakeWithdrawnIterator is returned from FilterStakeWithdrawn and is used to iterate over the raw logs and unpacked data for StakeWithdrawn events raised by the Validatorregistry contract.
 type ValidatorregistryStakeWithdrawnIterator struct {
 	Event *ValidatorregistryStakeWithdrawn // Event containing the contract specifics and raw log
@@ -1223,13 +911,14 @@ func (it *ValidatorregistryStakeWithdrawnIterator) Close() error {
 // ValidatorregistryStakeWithdrawn represents a StakeWithdrawn event raised by the Validatorregistry contract.
 type ValidatorregistryStakeWithdrawn struct {
 	TxOriginator common.Address
+	ValBLSPubKey []byte
 	Amount       *big.Int
 	Raw          types.Log // Blockchain specific contextual infos
 }
 
-// FilterStakeWithdrawn is a free log retrieval operation binding the contract event 0x8108595eb6bad3acefa9da467d90cc2217686d5c5ac85460f8b7849c840645fc.
+// FilterStakeWithdrawn is a free log retrieval operation binding the contract event 0x60e5b516955702ed9d33ecfc7eaaf6b2f5cea6bd67820e5e4f0096eed587c29b.
 //
-// Solidity: event StakeWithdrawn(address indexed txOriginator, uint256 amount)
+// Solidity: event StakeWithdrawn(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
 func (_Validatorregistry *ValidatorregistryFilterer) FilterStakeWithdrawn(opts *bind.FilterOpts, txOriginator []common.Address) (*ValidatorregistryStakeWithdrawnIterator, error) {
 
 	var txOriginatorRule []interface{}
@@ -1244,9 +933,9 @@ func (_Validatorregistry *ValidatorregistryFilterer) FilterStakeWithdrawn(opts *
 	return &ValidatorregistryStakeWithdrawnIterator{contract: _Validatorregistry.contract, event: "StakeWithdrawn", logs: logs, sub: sub}, nil
 }
 
-// WatchStakeWithdrawn is a free log subscription operation binding the contract event 0x8108595eb6bad3acefa9da467d90cc2217686d5c5ac85460f8b7849c840645fc.
+// WatchStakeWithdrawn is a free log subscription operation binding the contract event 0x60e5b516955702ed9d33ecfc7eaaf6b2f5cea6bd67820e5e4f0096eed587c29b.
 //
-// Solidity: event StakeWithdrawn(address indexed txOriginator, uint256 amount)
+// Solidity: event StakeWithdrawn(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
 func (_Validatorregistry *ValidatorregistryFilterer) WatchStakeWithdrawn(opts *bind.WatchOpts, sink chan<- *ValidatorregistryStakeWithdrawn, txOriginator []common.Address) (event.Subscription, error) {
 
 	var txOriginatorRule []interface{}
@@ -1286,12 +975,158 @@ func (_Validatorregistry *ValidatorregistryFilterer) WatchStakeWithdrawn(opts *b
 	}), nil
 }
 
-// ParseStakeWithdrawn is a log parse operation binding the contract event 0x8108595eb6bad3acefa9da467d90cc2217686d5c5ac85460f8b7849c840645fc.
+// ParseStakeWithdrawn is a log parse operation binding the contract event 0x60e5b516955702ed9d33ecfc7eaaf6b2f5cea6bd67820e5e4f0096eed587c29b.
 //
-// Solidity: event StakeWithdrawn(address indexed txOriginator, uint256 amount)
+// Solidity: event StakeWithdrawn(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
 func (_Validatorregistry *ValidatorregistryFilterer) ParseStakeWithdrawn(log types.Log) (*ValidatorregistryStakeWithdrawn, error) {
 	event := new(ValidatorregistryStakeWithdrawn)
 	if err := _Validatorregistry.contract.UnpackLog(event, "StakeWithdrawn", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ValidatorregistryStakedIterator is returned from FilterStaked and is used to iterate over the raw logs and unpacked data for Staked events raised by the Validatorregistry contract.
+type ValidatorregistryStakedIterator struct {
+	Event *ValidatorregistryStaked // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ValidatorregistryStakedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ValidatorregistryStaked)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ValidatorregistryStaked)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ValidatorregistryStakedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ValidatorregistryStakedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ValidatorregistryStaked represents a Staked event raised by the Validatorregistry contract.
+type ValidatorregistryStaked struct {
+	TxOriginator common.Address
+	ValBLSPubKey []byte
+	Amount       *big.Int
+	Raw          types.Log // Blockchain specific contextual infos
+}
+
+// FilterStaked is a free log retrieval operation binding the contract event 0xf4679d394f1f97f1a3df1d73e193866ec5a813168ad5fa6958f9be21b10a594e.
+//
+// Solidity: event Staked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
+func (_Validatorregistry *ValidatorregistryFilterer) FilterStaked(opts *bind.FilterOpts, txOriginator []common.Address) (*ValidatorregistryStakedIterator, error) {
+
+	var txOriginatorRule []interface{}
+	for _, txOriginatorItem := range txOriginator {
+		txOriginatorRule = append(txOriginatorRule, txOriginatorItem)
+	}
+
+	logs, sub, err := _Validatorregistry.contract.FilterLogs(opts, "Staked", txOriginatorRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ValidatorregistryStakedIterator{contract: _Validatorregistry.contract, event: "Staked", logs: logs, sub: sub}, nil
+}
+
+// WatchStaked is a free log subscription operation binding the contract event 0xf4679d394f1f97f1a3df1d73e193866ec5a813168ad5fa6958f9be21b10a594e.
+//
+// Solidity: event Staked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
+func (_Validatorregistry *ValidatorregistryFilterer) WatchStaked(opts *bind.WatchOpts, sink chan<- *ValidatorregistryStaked, txOriginator []common.Address) (event.Subscription, error) {
+
+	var txOriginatorRule []interface{}
+	for _, txOriginatorItem := range txOriginator {
+		txOriginatorRule = append(txOriginatorRule, txOriginatorItem)
+	}
+
+	logs, sub, err := _Validatorregistry.contract.WatchLogs(opts, "Staked", txOriginatorRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ValidatorregistryStaked)
+				if err := _Validatorregistry.contract.UnpackLog(event, "Staked", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseStaked is a log parse operation binding the contract event 0xf4679d394f1f97f1a3df1d73e193866ec5a813168ad5fa6958f9be21b10a594e.
+//
+// Solidity: event Staked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
+func (_Validatorregistry *ValidatorregistryFilterer) ParseStaked(log types.Log) (*ValidatorregistryStaked, error) {
+	event := new(ValidatorregistryStaked)
+	if err := _Validatorregistry.contract.UnpackLog(event, "Staked", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1368,13 +1203,14 @@ func (it *ValidatorregistryUnstakedIterator) Close() error {
 // ValidatorregistryUnstaked represents a Unstaked event raised by the Validatorregistry contract.
 type ValidatorregistryUnstaked struct {
 	TxOriginator common.Address
+	ValBLSPubKey []byte
 	Amount       *big.Int
 	Raw          types.Log // Blockchain specific contextual infos
 }
 
-// FilterUnstaked is a free log retrieval operation binding the contract event 0x0f5bb82176feb1b5e747e28471aa92156a04d9f3ab9f45f28e2d704232b93f75.
+// FilterUnstaked is a free log retrieval operation binding the contract event 0x34f6c826286e3bec36208d054dcb1ad3c49725237a7644e1a6d157a92ae7a3e1.
 //
-// Solidity: event Unstaked(address indexed txOriginator, uint256 amount)
+// Solidity: event Unstaked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
 func (_Validatorregistry *ValidatorregistryFilterer) FilterUnstaked(opts *bind.FilterOpts, txOriginator []common.Address) (*ValidatorregistryUnstakedIterator, error) {
 
 	var txOriginatorRule []interface{}
@@ -1389,9 +1225,9 @@ func (_Validatorregistry *ValidatorregistryFilterer) FilterUnstaked(opts *bind.F
 	return &ValidatorregistryUnstakedIterator{contract: _Validatorregistry.contract, event: "Unstaked", logs: logs, sub: sub}, nil
 }
 
-// WatchUnstaked is a free log subscription operation binding the contract event 0x0f5bb82176feb1b5e747e28471aa92156a04d9f3ab9f45f28e2d704232b93f75.
+// WatchUnstaked is a free log subscription operation binding the contract event 0x34f6c826286e3bec36208d054dcb1ad3c49725237a7644e1a6d157a92ae7a3e1.
 //
-// Solidity: event Unstaked(address indexed txOriginator, uint256 amount)
+// Solidity: event Unstaked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
 func (_Validatorregistry *ValidatorregistryFilterer) WatchUnstaked(opts *bind.WatchOpts, sink chan<- *ValidatorregistryUnstaked, txOriginator []common.Address) (event.Subscription, error) {
 
 	var txOriginatorRule []interface{}
@@ -1431,9 +1267,9 @@ func (_Validatorregistry *ValidatorregistryFilterer) WatchUnstaked(opts *bind.Wa
 	}), nil
 }
 
-// ParseUnstaked is a log parse operation binding the contract event 0x0f5bb82176feb1b5e747e28471aa92156a04d9f3ab9f45f28e2d704232b93f75.
+// ParseUnstaked is a log parse operation binding the contract event 0x34f6c826286e3bec36208d054dcb1ad3c49725237a7644e1a6d157a92ae7a3e1.
 //
-// Solidity: event Unstaked(address indexed txOriginator, uint256 amount)
+// Solidity: event Unstaked(address indexed txOriginator, bytes valBLSPubKey, uint256 amount)
 func (_Validatorregistry *ValidatorregistryFilterer) ParseUnstaked(log types.Log) (*ValidatorregistryUnstaked, error) {
 	event := new(ValidatorregistryUnstaked)
 	if err := _Validatorregistry.contract.UnpackLog(event, "Unstaked", log); err != nil {
