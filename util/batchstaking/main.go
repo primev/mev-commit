@@ -24,8 +24,8 @@ func main() {
 
 	privateKeyString := os.Getenv("PRIVATE_KEY")
 	if privateKeyString == "" {
-		privateKeyString = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-		fmt.Println("PRIVATE_KEY env var not supplied. Using default account")
+		fmt.Println("PRIVATE_KEY env var not supplied")
+		os.Exit(1)
 	}
 
 	if privateKeyString[:2] == "0x" {
@@ -37,7 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	client, err := ethclient.Dial("http://localhost:8545")
+	client, err := ethclient.Dial("https://chainrpc.testnet.mev-commit.xyz")
 	if err != nil {
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
 	}
@@ -57,8 +57,7 @@ func main() {
 		log.Fatalf("Insufficient balance. Please fund %v with at least 3.1 ETH", fromAddress.Hex())
 	}
 
-	// TODO: make this configurable
-	contractAddress := common.HexToAddress("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512")
+	contractAddress := common.HexToAddress("0xAd291fcfDBA7c9c5545af35Ca52edDe6cBdF92e5") // Accurate as of 4-19-2024
 
 	vrt, err := vr.NewValidatorregistryTransactor(contractAddress, client)
 	if err != nil {
