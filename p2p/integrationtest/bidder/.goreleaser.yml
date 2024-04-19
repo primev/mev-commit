@@ -1,0 +1,81 @@
+version: 1
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    goarm:
+      - 7
+    ignore:
+      - goos: windows
+        goarch: arm64
+    dir: ./p2p/integrationtest
+    main: ./bidder
+    binary: mev-commit-bidder
+    flags:
+      - -v
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/primevprotocol/mev-commit/p2p.version={{.Version}}
+      - -X github.com/primevprotocol/mev-commit/p2p.revision={{ .ShortCommit }}
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{- .Binary }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: mev-commit_{{ .Version }}_checksums.txt
+
+# TODO(mrekucci): Re-enable when the repo is finalized.
+#dockers:
+#  - image_templates:
+#    - ghcr.io/primevprotocol/mev-commit:v{{ .Major }}.{{ .Minor }}
+#    - ghcr.io/primevprotocol/mev-commit:latest
+#    dockerfile: Dockerfile.goreleaser
+#    use: buildx
+#    goarch: amd64
+#    build_flag_templates:
+#      - "--pull"
+#      - "--label=org.opencontainers.image.created={{.Date}}"
+#      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#      - "--label=org.opencontainers.image.version={{.Version}}"
+#      - "--platform=linux/amd64"
+#  - image_templates:
+#    - ghcr.io/primevprotocol/mev-commit:v{{ .Major }}.{{ .Minor }}
+#    - ghcr.io/primevprotocol/mev-commit:latest
+#    dockerfile: Dockerfile.goreleaser
+#    use: buildx
+#    goarch: arm64
+#    goarm: 7
+#    build_flag_templates:
+#      - "--pull"
+#      - "--label=org.opencontainers.image.created={{.Date}}"
+#      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#      - "--label=org.opencontainers.image.version={{.Version}}"
+#      - "--platform=linux/arm64"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
