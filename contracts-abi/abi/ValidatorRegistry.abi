@@ -9,9 +9,9 @@
     "name": "getStakedAmount",
     "inputs": [
       {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -51,9 +51,9 @@
     "name": "isStaked",
     "inputs": [
       {
-        "name": "staker",
-        "type": "address",
-        "internalType": "address"
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -100,19 +100,12 @@
   },
   {
     "type": "function",
-    "name": "selfStake",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "splitStake",
+    "name": "stake",
     "inputs": [
       {
-        "name": "recipients",
-        "type": "address[]",
-        "internalType": "address[]"
+        "name": "valBLSPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -124,8 +117,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -143,8 +136,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -174,9 +167,9 @@
     "name": "unstake",
     "inputs": [
       {
-        "name": "fromAddrs",
-        "type": "address[]",
-        "internalType": "address[]"
+        "name": "blsPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -188,8 +181,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -219,9 +212,9 @@
     "name": "withdraw",
     "inputs": [
       {
-        "name": "fromAddrs",
-        "type": "address[]",
-        "internalType": "address[]"
+        "name": "blsPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -261,13 +254,19 @@
   },
   {
     "type": "event",
-    "name": "SelfStaked",
+    "name": "StakeWithdrawn",
     "inputs": [
       {
         "name": "txOriginator",
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       },
       {
         "name": "amount",
@@ -280,7 +279,7 @@
   },
   {
     "type": "event",
-    "name": "SplitStaked",
+    "name": "Staked",
     "inputs": [
       {
         "name": "txOriginator",
@@ -289,29 +288,10 @@
         "internalType": "address"
       },
       {
-        "name": "recipients",
-        "type": "address[]",
+        "name": "valBLSPubKey",
+        "type": "bytes",
         "indexed": false,
-        "internalType": "address[]"
-      },
-      {
-        "name": "totalAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "StakeWithdrawn",
-    "inputs": [
-      {
-        "name": "txOriginator",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
+        "internalType": "bytes"
       },
       {
         "name": "amount",
@@ -331,6 +311,12 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       },
       {
         "name": "amount",
