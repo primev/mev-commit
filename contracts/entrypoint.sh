@@ -42,4 +42,21 @@ elif [ "$DEPLOY_TYPE" = "l1-gateway" ]; then
     fi
     echo "Deploying gateway contract on L1"
     RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script ${SCRIPT_PATH_PREFIX}DeployStandardBridge.s.sol:DeployL1Gateway --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.23 $ROOT_OPTION
-fi
+
+elif [ "$DEPLOY_TYPE" = "validator-registry" ]; then
+    echo "Deploying validator registry contract"
+    # Setting gas params manually ensures inclusion to mev-commit chain, recent bug in forge sets priority fee to 0.
+    $FORGE_BIN_PATH script \
+        --priority-gas-price 2000000000 \
+        --with-gas-price 5000000000 \
+        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployValidatorRegistry \
+        --rpc-url "$RPC_URL" \
+        --private-key "$PRIVATE_KEY" \
+        --broadcast \
+        --chain-id "$CHAIN_ID" \
+        -vvvv \
+        --use 0.8.23 \
+        "$ROOT_OPTION" \
+        --via-ir
+
+fi 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
 import {PreConfCommitmentStore} from "./PreConfirmations.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IPreConfCommitmentStore} from './interfaces/IPreConfirmations.sol';

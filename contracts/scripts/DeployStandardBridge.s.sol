@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.15;
 import "forge-std/Script.sol";
-import {Create2Deployer} from "scripts/DeployScripts.s.sol";
-import {SettlementGateway} from "contracts/standard-bridge/SettlementGateway.sol";
-import {L1Gateway} from "contracts/standard-bridge/L1Gateway.sol";
-import {Whitelist} from "contracts/Whitelist.sol";
+import {Create2Deployer} from "../scripts/DeployScripts.s.sol";
+import {SettlementGateway} from "../contracts/standard-bridge/SettlementGateway.sol";
+import {L1Gateway} from "../contracts/standard-bridge/L1Gateway.sol";
+import {Whitelist} from "../contracts/Whitelist.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract DeploySettlementGateway is Script, Create2Deployer {
@@ -12,8 +12,8 @@ contract DeploySettlementGateway is Script, Create2Deployer {
 
         vm.startBroadcast();
 
-        checkCreate2Deployed();
-        checkDeployer();
+        _checkCreate2Deployed();
+        _checkDeployer();
 
         // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
@@ -62,8 +62,8 @@ contract DeployL1Gateway is Script, Create2Deployer {
 
         vm.startBroadcast();
 
-        checkCreate2Deployed();
-        checkDeployer();
+        _checkCreate2Deployed();
+        _checkDeployer();
 
         // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
