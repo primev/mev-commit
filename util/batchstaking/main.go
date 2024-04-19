@@ -69,68 +69,69 @@ func main() {
 		log.Fatalf("Failed to create Validator Registry caller: %v", err)
 	}
 
-	amount, err := vrc.GetStakedAmount(nil, fromAddress)
-	if err != nil {
-		log.Fatalf("Failed to get staked amount: %v", err)
-	}
-
-	fmt.Println("Self staked amount: ", amount)
-
 	ec := NewETHClient(nil, client)
-	opts, err := ec.CreateTransactOpts(context.Background(), privateKey, chainID)
-	if err != nil {
-		log.Fatalf("Failed to create transact opts: %v", err)
-	}
-	opts.Value = big.NewInt(3100000000000000000) // 3.1 ETH in wei
 
-	submitTx := func(
-		ctx context.Context,
-		opts *bind.TransactOpts,
-	) (*types.Transaction, error) {
-		tx, err := vrt.SelfStake(opts)
-		if err != nil {
-			return nil, fmt.Errorf("failed to self stake: %w", err)
+	pks := []string{
+		"0x894082d1fa8c0fa1ad258f0f03fb1dfe6f2bc0a28355e2f8f55608ebc93016474f877551451cd44b3726c1e6dd7f9fec",
+		"0xa30e2aee808f5a141f036a853aaf6c6457c1d15a900e7bbc511608bf54b918b2284cc578c5074781f899c23028472a11",
+		"0xa97c84a4a076e26680f33c39fc018428f7a2ab0e14b4cae776ed4d5050464fe67ea1423242c18e089b23f0d51b6c6f33",
+		"0x8456186dc2c9d6f78425bed99eb35d1aa0a6ffb21eabe062e3651779ec671e52f447e506d5f492a976cd3a6e17816a31",
+		"0x948e7ebb44a6b54655e5ddc893bc60880f1019737c679b90f4324bdadb2d3a0de146624d331ea41adcb8e429e98a6587",
+		"0x99346362fbd4665f91df5aaf4a57a0376b9405cb35ff2a80598cb62e8ba115c1396753fa5e6b22a9d74747e43e5aee5a",
+		"0xac33f519e217d18a1c86dbc06682400c806a99494329428acb8fb7b8cc8ccb56b64f02b977d973e70cb16415c448e17d",
+		"0xa1aff153fbe7e3e2629ed557cc08f1c20c277708c9180704b8ea9526d5e561e3deb39d18491efb90fb3cd83eb91003b3",
+		"0xb6d1fd1a5dbe7bb04328dc43c2dc3427200ce447d9391a881b8be94a50f6b42003b13a0efc1566c171eccdf1e14b2bdc",
+		"0x93bb30895fa8afacab9a0d7d790db2356c729ebeb21045cd05cd7da5113f481f7be77b2908bd64b979e2500a2757ca96",
+		"0xa933d0c54a5974f1c84e4ea47d4c537220f90be42fd67f244dd358daf90f3fc1b841c60ba1af04aa0b4a661a6b99822a",
+		"0x99e833803f1757e8f7823c55da4dc35ed7f38bb9bed429dbba86d95bf81dd8cb82f698517e7b019b0ea4f6b1b06accc7",
+		"0xb59a6109f25c4270aa3e61482bed3b6db0cbc49fb6ed72f7d55de242ab20a4b5c0b1cc5893d81576213a796463698725",
+		"0xa81cdefcfb33f785eec7f5fe3465338c42043fafb7f4a6b2d603c133d7fb48d8186225caad9b59739c88508cc2d5345d",
+		"0x8fcfe4e7b8334d9cef44b1cea2449b5fa881bee7fe977843dd6752a00b1e58315c3290e75084dc5e2243ea50d962db6d",
+		"0xaa3b6da9757fc309b6473a95ba043b0254b352bacb7ff788f5353def4d8143ed5d4acd3b1a698121efea06d41a8a0296",
+		"0xb54a37216fb48544a161b7a24e389ef3937beb207539f39960b622193a74288095974f42a995dc7f3f6e379e8b16a5e4",
+		"0x934525116f3a700bb7a9834b0fd8bed942db7f7176a4921ab17ef665b9ae3fddaf5aad297dac9f6c7b1816eb8115c1f5",
+		"0x8546b3c1421fdf8321273de417d86d63658250cb653b70f554a4a3dd6c3fbf6a768d62c61047b032daa4765fd714ef43",
+		"0xa5642eb0ad86722a953710e0afc49cd9de5c7dd0ea305a8e147aebc03e1f62ee8e72ac65111853c3ac0cdf0a72042900",
+		"0x97ffdf67b0fb9310eec15bfcdc7fc96b7c0713346d5f95cd3696a1ce690158b88c28dc830476da238511f3e3011aea96",
+		"0xa9948f2bffe58516e2d04ff5dd2ec7f13e393fdaf43ef900c7bc6fad8fcb202a7958770bd3f5557690a4bc7a9f66f00c",
+		"0x857e5abf12bd3d5b2da03387afb8d1cda21d64f98a069f5fd891e10693385174b45f58b65dafb3d9c096a947697dbb02",
+		"0x8c010c1bc0f160340ef60c1e59bce549e87bba79f675590778d058525ccb29e044c515a4c7bd4684e0eb2115aafa0db6",
+		"0x9268e508d6945661c49d8c7a7ad2d719e32336a8e8989ac59808954bfd9b958f68193a4a83ecc6125c00b9728798b508",
+		"0xa4ea44cef4f6212d644d4859a3d8fa79112685b68c2e02fe6ef345f5e39f60425d34a5590ba3ff22bbcfaf2aecc9d05c",
+	}
+
+	pksAsBytes := make([][]byte, len(pks))
+	for i, pk := range pks {
+		if pk[:2] == "0x" {
+			pk = pk[2:]
 		}
-		fmt.Println("Self stake sent. Transaction hash: ", tx.Hash().Hex())
-		return tx, nil
+		pksAsBytes[i] = common.Hex2Bytes(pk)
 	}
 
-	receipt, err := ec.WaitMinedWithRetry(context.Background(), opts, submitTx)
-	if err != nil {
-		log.Fatalf("Failed to wait for self stake tx to be mined: %v", err)
+	// Split into batches of 50
+	type Batch struct {
+		pubKeys [][]byte
 	}
-
-	fmt.Println("Self stake included in block: ", receipt.BlockNumber)
-
-	amount, err = vrc.GetStakedAmount(nil, common.HexToAddress("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"))
-
-	if err != nil {
-		log.Fatalf("Failed to get staked amount: %v", err)
-	}
-
-	fmt.Println("Staked amount after selfStake: ", amount)
-
-	// Split stake between 50 addrs, 200 times
-	for i := 0; i < 200; i++ {
-
-		addrs := make([]common.Address, 50)
-		for i := 0; i < 50; i++ {
-			key, err := crypto.GenerateKey()
-			if err != nil {
-				log.Fatalf("Failed to generate key: %v", err)
-			}
-			addrs[i] = crypto.PubkeyToAddress(key.PublicKey)
+	batches := make([]Batch, 0)
+	for i := 0; i < len(pksAsBytes); i += 50 {
+		end := i + 50
+		if end > len(pksAsBytes) {
+			end = len(pksAsBytes)
 		}
+		batches = append(batches, Batch{pubKeys: pksAsBytes[i:end]})
+	}
 
-		for _, addr := range addrs {
-			amount, err = vrc.GetStakedAmount(nil, addr)
+	for idx, batch := range batches {
+
+		for _, pk := range batch.pubKeys {
+			amount, err := vrc.GetStakedAmount(nil, pk)
 			if err != nil {
 				log.Fatalf("Failed to get staked amount: %v", err)
 			}
-			fmt.Println("Initial staked amount for ", addr.Hex(), " is: ", amount)
+			fmt.Println("Initial staked amount for ", common.Bytes2Hex(pk), " is: ", amount)
 		}
 
-		opts, err = ec.CreateTransactOpts(context.Background(), privateKey, chainID)
+		opts, err := ec.CreateTransactOpts(context.Background(), privateKey, chainID)
 		if err != nil {
 			log.Fatalf("Failed to create transact opts: %v", err)
 		}
@@ -140,11 +141,11 @@ func main() {
 		totalAmount.SetString("155000000000000000000", 10)
 		opts.Value = totalAmount
 
-		submitTx = func(
+		submitTx := func(
 			ctx context.Context,
 			opts *bind.TransactOpts,
 		) (*types.Transaction, error) {
-			tx, err := vrt.SplitStake(opts, addrs)
+			tx, err := vrt.Stake(opts, batch.pubKeys)
 			if err != nil {
 				return nil, fmt.Errorf("failed to self stake: %w", err)
 			}
@@ -152,21 +153,21 @@ func main() {
 			return tx, nil
 		}
 
-		receipt, err = ec.WaitMinedWithRetry(context.Background(), opts, submitTx)
+		receipt, err := ec.WaitMinedWithRetry(context.Background(), opts, submitTx)
 		if err != nil {
 			log.Fatalf("Failed to wait for split stake tx to be mined: %v", err)
 		}
 		fmt.Println("Split stake included in block: ", receipt.BlockNumber)
 
-		for _, addr := range addrs {
-			amount, err = vrc.GetStakedAmount(nil, addr)
+		for _, pk := range batch.pubKeys {
+			amount, err := vrc.GetStakedAmount(nil, pk)
 			if err != nil {
 				log.Fatalf("Failed to get staked amount: %v", err)
 			}
-			fmt.Println("Final staked amount for ", addr.Hex(), " is: ", amount)
+			fmt.Println("Final staked amount for ", common.Bytes2Hex(pk), " is: ", amount)
 		}
 		fmt.Println("-------------------")
-		fmt.Println("Batch iteration completed. Idx: ", i)
+		fmt.Println("Batch iteration completed. Idx: ", idx)
 		fmt.Println("-------------------")
 	}
 
