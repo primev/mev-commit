@@ -12,6 +12,7 @@
 **/bin/
 
 # Ignore environment files.
-**/.env
+*.env
 
-.vscode
+# Ignore configuration files.
+*.ini

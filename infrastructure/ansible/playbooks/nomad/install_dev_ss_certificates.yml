@@ -1,0 +1,68 @@
+---
+- name: Install OpenSSL and Generate Self-Signed Certificates
+  hosts: all
+  become: yes
+  vars:
+    openssl_dir: /etc/ssl
+    ca_certificates_dir: /usr/local/share/ca-certificates
+    server_common_name: mev-commit_devnet.mev-commit.primev.xyz
+    ca_certificate_subject: "/C=US/ST=Delaware/L=Delaware City/O=Primev Inc/OU=Certificate Authority/CN={{ ansible_default_ipv4['address'] }}"
+    server_csr_subject_alt_name: "DNS:localhost,IP:127.0.0.1,IP:{{ ansible_default_ipv4['address'] }}"
+
+  tasks:
+    - name: Check | Verify the operating system
+      assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: "This playbook only supports Debian systems."
+        success_msg: "Operating system is supported."
+
+    - name: Dependency | Install OpenSSL
+      ansible.builtin.apt:
+        name: openssl
+        state: present
+        update_cache: yes
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Configuration | Create directory for OpenSSL
+      ansible.builtin.file:
+        path: "{{ openssl_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Configuration | Generate Private Key for CA
+      ansible.builtin.openssl_privatekey:
+        path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
+        size: 4096
+
+    - name: Configuration | Generate Self-Signed CA Certificate
+      ansible.builtin.shell:
+        cmd: "openssl req -x509 -new -nodes -key {{ ca_certificates_dir }}/ca-{{ server_common_name }}.key -days 3650 -out {{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt -subj '{{ ca_certificate_subject }}'"
+      notify: update ca-certificates
+
+    - name: Configuration | Generate Private Key for Server
+      ansible.builtin.openssl_privatekey:
+        path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        size: 4096
+
+    - name: Configuration | Generate CSR for Server
+      ansible.builtin.openssl_csr:
+        path: "/tmp/{{ server_common_name }}.csr"
+        privatekey_path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        common_name: "{{ ansible_default_ipv4['address'] }}"
+        subject_alt_name: "{{ server_csr_subject_alt_name }}"
+
+    - name: Configuration | Generate Server Certificate signed by Self-Signed CA
+      ansible.builtin.openssl_certificate:
+        path: "{{ openssl_dir }}/certs/{{ server_common_name }}.crt"
+        privatekey_path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        csr_path: "/tmp/{{ server_common_name }}.csr"
+        provider: ownca
+        ownca_path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
+        ownca_privatekey_path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
+        ownca_not_before: "-1d"
+        ownca_not_after: "+365d"
+
+  handlers:
+    - name: update ca-certificates
+      ansible.builtin.shell: update-ca-certificates
