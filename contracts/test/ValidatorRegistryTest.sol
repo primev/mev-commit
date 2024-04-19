@@ -224,9 +224,9 @@ contract ValidatorRegistryTest is Test {
         assertFalse(validatorRegistry.isStaked(user1BLSKey), "User1 should not be considered staked after withdrawal");
         assertEq(address(user1).balance, 9 ether, "User1 should have all 9 ether after withdrawal");
 
-        assertEq(validatorRegistry.stakedBalances(user1BLSKey), 0, "User1's staked balance should be 0 after withdrawal");
-        assertTrue(validatorRegistry.stakeOriginators(user1BLSKey) == address(0), "User1's stake originator should be reset after withdrawal");
-        assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) == 0, "User1's unstake block number should be reset after withdrawal");
+        assertEq(validatorRegistry.stakedBalances(user1BLSKey), 0, "User1s staked balance should be 0 after withdrawal");
+        assertTrue(validatorRegistry.stakeOriginators(user1BLSKey) == address(0), "User1s stake originator should be reset after withdrawal");
+        assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) == 0, "User1s unstake block number should be reset after withdrawal");
     }
 
     // To sanity check that relevant state for an account is reset s.t. they could stake again in future
