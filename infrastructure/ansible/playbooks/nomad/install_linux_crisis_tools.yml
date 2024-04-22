@@ -1,0 +1,110 @@
+---
+- name: Install Linux Crisis Management Tools
+  hosts: all
+  become: yes
+  remote_user: ubuntu
+  gather_facts: yes
+
+  tasks:
+    - name: Check | Verify the operating system
+      assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: "This playbook only supports Debian systems."
+        success_msg: "Operating system is supported."
+
+    - name: Dependency | Install basic stats tools (procps)
+      ansible.builtin.apt:
+        name: procps
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install system log and device info tools (util-linux)
+      ansible.builtin.apt:
+        name: util-linux
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install device stats tools (sysstat)
+      ansible.builtin.apt:
+        name: sysstat
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install preferred network tools (iproute2)
+      ansible.builtin.apt:
+        name: iproute2
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install NUMA stats tools (numactl)
+      ansible.builtin.apt:
+        name: numactl
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install network sniffer (tcpdump)
+      ansible.builtin.apt:
+        name: tcpdump
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install Linux tools common for profiler and PMU stats
+      ansible.builtin.apt:
+        name: linux-tools-common
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install Linux tools specific to running kernel
+      ansible.builtin.apt:
+        name: "linux-tools-{{ ansible_kernel }}"
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install eBPF tracing tools (bpfcc-tools aka bcc)
+      ansible.builtin.apt:
+        name: bpfcc-tools
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install eBPF scripting tools (bpftrace)
+      ansible.builtin.apt:
+        name: bpftrace
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install Ftrace CLI tool (trace-cmd)
+      ansible.builtin.apt:
+        name: trace-cmd
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install network device stats tool (nicstat)
+      ansible.builtin.apt:
+        name: nicstat
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install network device info tool (ethtool)
+      ansible.builtin.apt:
+        name: ethtool
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install PMU/PMC top (tiptop)
+      ansible.builtin.apt:
+        name: tiptop
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install CPU details tool (cpuid)
+      ansible.builtin.apt:
+        name: cpuid
+        state: present
+      ignore_errors: yes
+
+    - name: Dependency | Install CPU digging tools (msr-tools)
+      ansible.builtin.apt:
+        name: msr-tools
+        state: present
+      ignore_errors: yes

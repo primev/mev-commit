@@ -1,0 +1,51 @@
+data_dir  = "/opt/nomad/data"
+bind_addr = "0.0.0.0"
+
+{% if nomad_servers_defined -%}
+server {
+  enabled          = true
+  bootstrap_expect = 1
+  raft_protocol    = 3
+}
+{% endif %}
+
+{% if nomad_clients_defined -%}
+client {
+  enabled = true
+  servers = ["{{ nomad_server_ip }}:4647"]
+  chroot_env {
+    "/bin" = "/bin"
+    "/etc" = "/etc"
+    "/lib" = "/lib"
+    "/lib32" = "/lib32"
+    "/lib64" = "/lib64"
+    "/run/resolvconf" = "/run/resolvconf"
+    "/sbin" = "/sbin"
+    "/usr" = "/usr"
+    "/opt" = "/opt"
+  }
+}
+{% endif %}
+
+vault {
+  enabled = true
+  address = "{{ vault_address }}"
+  tls_skip_verify = true
+}
+
+log_level = "DEBUG"
+enable_syslog = true
+syslog_facility = "LOCAL0"
+
+{% if nomad_servers_defined -%}
+advertise {
+  http = "{{ ansible_host }}:4646"
+  rpc  = "{{ ansible_host }}:4647"
+  serf = "{{ ansible_host }}:4648"
+}
+
+telemetry {
+  prometheus_metrics = true
+  disable_hostname   = true
+}
+{% endif %}
