@@ -16,6 +16,8 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        ref: ${{ github.event.workflow_run.head_branch }}
+
       
     - name: Install jq
       run: |
