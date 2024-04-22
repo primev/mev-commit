@@ -36,7 +36,7 @@ jobs:
 
     - name: Check Service Endpoints
       run: |
-        ips=("172.29.18.2" "172.29.0.3" "172.29.0.4")
+        ips=("172.29.18.2" "172.29.18.3" "172.29.18.4")
 
         for ip in "${ips[@]}"; do
           echo "Checking service at $ip"
