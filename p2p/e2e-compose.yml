@@ -293,7 +293,6 @@ services:
     profiles:
       - minimal-setup
       - e2etest
-      - demo
     labels:
       com.datadoghq.ad.check_names: '["openmetrics"]'
       com.datadoghq.ad.init_configs: '[{}]'
