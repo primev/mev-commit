@@ -177,5 +177,24 @@ library EnumerableSet {
         return result;
     }
 
-    // TODO: Need a way to obtain batches
+    /**
+     * @dev Returns a subset of the values in the set. O(end - start).
+     *
+     * Requirements:
+     *
+     * - `start` must be less than `end`.
+     * - `end` must be less than or equal to the length of the set.
+     */
+    function values(BytesSet storage set, uint256 start, uint256 end) internal view returns (bytes[] memory) {
+        require(start < end, "Start must be less than end");
+        require(end <= set._values.length, "End must be less than or equal to the length of the set");
+
+        bytes[] memory result = new bytes[](end - start);
+
+        for (uint256 i = start; i < end; i++) {
+            result[i - start] = set._values[i];
+        }
+
+        return result;
+    }
 }
