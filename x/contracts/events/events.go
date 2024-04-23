@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-// EventHandler is a stand-in for the generic event handlers that are used to subscribe
-// to events. It is useful to describe the generic event handlers using this interface
-// so that they can be referenced in the EventManager. Currently the only use of this
-// is in the package which is why the methods are unexported.
+// EventManager is an interface for subscribing to events. This interface is a stand-in for
+// the generic event handlers that are used to subscribe to events. Currently the only
+// implementation of this interface is in this package which is why the methods are
+// unexported.
 type EventHandler interface {
 	eventName() string
 	handle(types.Log) error
@@ -85,17 +85,15 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 	return nil
 }
 
-// EventManager is an interface for subscribing to contract events. The EventHandler callback
+// EventManager is an interface for subscribing to events. The EventHandler callback
 // is called when an event is received. The Subscription returned by the Subscribe
-// method can be used to unsubscribe from the event and also to receive any errors
-// that occur while parsing the event. The PublishLogEvent method is used to publish
-// the log events to the subscribers.
+// method can be used to unsubscribe from the event.
 type EventManager interface {
 	Subscribe(event EventHandler) (Subscription, error)
 	PublishLogEvent(ctx context.Context, log types.Log)
 }
 
-// Subscription is a reference to the active event subscription. The Unsubscribe method
+// Subscription is an interface for unsubscribing from an event. The Unsubscribe method
 // should be called to stop receiving events. The Err method returns a channel that
 // will receive an error if there was any error in parsing the event. This would only
 // happen if the event handler was created with an incorrect ABI. If the error channel
