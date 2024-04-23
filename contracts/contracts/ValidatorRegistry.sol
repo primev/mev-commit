@@ -11,8 +11,8 @@ import {EnumerableMap} from "./utils/EnumerableMap.sol";
 /// @dev This contract is meant to be deployed via a proxy contract.
 contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
-    uint256 internal minStake;
-    uint256 internal unstakePeriodBlocks;
+    uint256 public minStake;
+    uint256 public unstakePeriodBlocks;
 
     function initialize(
         uint256 _minStake, 
