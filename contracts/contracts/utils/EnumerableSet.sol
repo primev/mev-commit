@@ -17,7 +17,7 @@ library EnumerableSet {
      * Returns true if the value was added to the set, that is if it was not
      * already present.
      */
-    function _add(BytesSet storage set, bytes storage value) private returns (bool) {
+    function _add(BytesSet storage set, bytes memory value) private returns (bool) {
         if (!_contains(set, value)) {
             set._values.push(value);
             // The value is stored at length-1, but we add 1 to all indexes
@@ -35,7 +35,7 @@ library EnumerableSet {
      * Returns true if the value was removed from the set, that is if it was
      * present.
      */
-    function _remove(BytesSet storage set, bytes storage value) private returns (bool) {
+    function _remove(BytesSet storage set, bytes memory value) private returns (bool) {
         // We cache the value's position to prevent multiple reads from the same storage slot
         uint256 position = set._positions[value];
 
@@ -72,7 +72,7 @@ library EnumerableSet {
     /**
      * @dev Returns true if the value is in the set. O(1).
      */
-    function _contains(BytesSet storage set, bytes storage value) private view returns (bool) {
+    function _contains(BytesSet storage set, bytes memory value) private view returns (bool) {
         return set._positions[value] != 0;
     }
 
@@ -109,15 +109,13 @@ library EnumerableSet {
         return set._values;
     }
 
-
-
     /**
      * @dev Add a value to a set. O(1).
      *
      * Returns true if the value was added to the set, that is if it was not
      * already present.
      */
-    function add(BytesSet storage set, bytes storage value) internal returns (bool) {
+    function add(BytesSet storage set, bytes memory value) internal returns (bool) {
         return _add(set, value);
     }
 
@@ -127,14 +125,14 @@ library EnumerableSet {
      * Returns true if the value was removed from the set, that is if it was
      * present.
      */
-    function remove(BytesSet storage set, bytes storage value) internal returns (bool) {
+    function remove(BytesSet storage set, bytes memory value) internal returns (bool) {
         return _remove(set, value);
     }
 
     /**
      * @dev Returns true if the value is in the set. O(1).
      */
-    function contains(BytesSet storage set, bytes storage value) internal view returns (bool) {
+    function contains(BytesSet storage set, bytes memory value) internal view returns (bool) {
         return _contains(set, value);
     }
 
@@ -178,4 +176,6 @@ library EnumerableSet {
 
         return result;
     }
+
+    // TODO: Need a way to obtain batches
 }
