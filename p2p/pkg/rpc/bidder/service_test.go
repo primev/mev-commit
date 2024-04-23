@@ -16,7 +16,7 @@ import (
 	bidderapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	bidderapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/bidder"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/util"
+	"github.com/primevprotocol/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"

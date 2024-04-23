@@ -12,7 +12,7 @@ import (
 	registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/provider_registry"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 	mockevmclient "github.com/primevprotocol/mev-commit/p2p/pkg/evmclient/mock"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/util"
+	"github.com/primevprotocol/mev-commit/x/util"
 )
 
 func TestRegistryContract(t *testing.T) {
