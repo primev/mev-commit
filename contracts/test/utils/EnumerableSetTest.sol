@@ -9,7 +9,13 @@ contract EnumerableSetTest is Test {
     using EnumerableSet for EnumerableSet.BytesSet;
     EnumerableSet.BytesSet private set;
 
-    function setUp() public { }
+    function setUp() public { 
+        for (uint256 i = 0; i < set.length(); i++) {
+            set.remove(set.at(i));
+        }
+        require(set.length() == 0, "Set should be empty.");
+        require(set.values().length == 0, "Set should have no values.");
+    }
 
     function testAddElement() public {
         bytes memory tempData = "data";
@@ -20,14 +26,16 @@ contract EnumerableSetTest is Test {
 
     function testAddDuplicateElement() public {
         bytes memory tempData = "data";
-        set.add(tempData);
+        bool added = set.add(tempData);
+        assertTrue(added, "Element should be added.");
         bool addedAgain = set.add(tempData);
         assertFalse(addedAgain, "Duplicate element should not be added again.");
     }
 
     function testRemoveElement() public {
         bytes memory tempData = "data";
-        set.add(tempData);
+        bool added = set.add(tempData);
+        assertTrue(added, "Element should be added.");
         assertTrue(set.contains(tempData), "Element should be in the set before removal.");
 
         bool removed = set.remove(tempData);
