@@ -44,6 +44,60 @@ contract EnumerableSetTest is Test {
         bool removed = set.remove(tempData);  // Try to remove a non-existent element
         assertFalse(removed, "Nonexistent element should not be removed.");
     }
+    
+    // TODO: mas CRUD tests
 
-    // Other test methods would similarly convert storage to memory for calldata compatibility...
+    function testGetAllValues() public {
+        bytes[] memory values = new bytes[](3);
+        values[0] = "data1";
+        values[1] = "data2";
+        values[2] = "data3";
+
+        for (uint256 i = 0; i < values.length; i++) {
+            set.add(values[i]);
+        }
+
+        assertTrue(set.contains(values[0]), "Element 1 should be in the set.");
+        assertTrue(set.contains(values[1]), "Element 2 should be in the set.");
+        assertTrue(set.contains(values[2]), "Element 3 should be in the set.");
+
+        set.remove(values[0]);
+        assertFalse(set.contains(values[0]), "Element 1 should not be in the set after removal.");
+        assertTrue(set.contains(values[1]), "Element 2 should still be in the set.");
+        assertTrue(set.contains(values[2]), "Element 3 should still be in the set.");
+
+        bytes[] memory setValues = set.values();
+        assertEq(setValues.length, 2, "There should be 2 elements in the set.");
+        assertTrue(set.contains(setValues[0]), "Element 2 should be in the set.");
+        assertTrue(set.contains(setValues[1]), "Element 3 should be in the set.");
+    }
+
+    function testGetValueBatch() public {
+        bytes[] memory values = new bytes[](3);
+        values[0] = "data1";
+        values[1] = "data2";
+        values[2] = "data3";
+
+        for (uint256 i = 0; i < values.length; i++) {
+            set.add(values[i]);
+        }
+
+        assertTrue(set.contains(values[0]), "Element 1 should be in the set.");
+        assertTrue(set.contains(values[1]), "Element 2 should be in the set.");
+        assertTrue(set.contains(values[2]), "Element 3 should be in the set.");
+
+        set.remove(values[0]);
+        assertFalse(set.contains(values[0]), "Element 1 should not be in the set after removal.");
+        assertTrue(set.contains(values[1]), "Element 2 should still be in the set.");
+        assertTrue(set.contains(values[2]), "Element 3 should still be in the set.");
+
+        bytes[] memory setValues = set.values(0, 1);
+        assertEq(setValues.length, 1, "There should be 1 element in the set.");
+        assertTrue(set.contains(setValues[0]), "Element 2 should be in the set.");
+
+        setValues = set.values(1, 2);
+        assertEq(setValues.length, 1, "There should be 1 element in the set.");
+        assertTrue(set.contains(setValues[0]), "Element 3 should be in the set.");
+    }
+
 }
