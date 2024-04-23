@@ -61,7 +61,8 @@ contract ValidatorRegistryTest is Test {
         vm.stopPrank();
 
         assertEq(address(user1).balance, 8 ether);
-        assertEq(validatorRegistry.stakedBalances(user1BLSKey), MIN_STAKE);
+        
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
     }
 
@@ -80,8 +81,8 @@ contract ValidatorRegistryTest is Test {
         validatorRegistry.stake{value: totalAmount}(validators);
 
         assertEq(address(this).balance, 1 ether);
-        assertEq(validatorRegistry.stakedBalances(user1BLSKey), 1 ether);
-        assertEq(validatorRegistry.stakedBalances(user2BLSKey), 1 ether);
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 1 ether);
+        assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 1 ether);
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
     }
@@ -91,11 +92,11 @@ contract ValidatorRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user2BLSKey;
 
-        assertEq(validatorRegistry.stakedBalances(user2BLSKey), 0);
-        vm.expectRevert("No balance to unstake");
+        assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
+        vm.expectRevert("Validator not staked");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
-        assertEq(validatorRegistry.stakedBalances(user2BLSKey), 0);
+        assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
     }
 
     function testUnauthorizedUnstake() public {
@@ -158,7 +159,7 @@ contract ValidatorRegistryTest is Test {
 
         assertFalse(validatorRegistry.isStaked(user1BLSKey));
         assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) > 0);
-        assertTrue(validatorRegistry.stakedBalances(user1BLSKey) == MIN_STAKE);
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
 
         vm.startPrank(user1);
         vm.expectRevert("validator cannot be staked with in-progress unstake process");
@@ -208,7 +209,7 @@ contract ValidatorRegistryTest is Test {
         vm.stopPrank();
 
         // still has staked balance until withdrawal, but not considered "staked"
-        assertEq(validatorRegistry.stakedBalances(user1BLSKey), MIN_STAKE);
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
         assertFalse(validatorRegistry.isStaked(user1BLSKey));
         assertEq(address(user1).balance, 8 ether);
 
@@ -224,7 +225,7 @@ contract ValidatorRegistryTest is Test {
         assertFalse(validatorRegistry.isStaked(user1BLSKey), "User1 should not be considered staked after withdrawal");
         assertEq(address(user1).balance, 9 ether, "User1 should have all 9 ether after withdrawal");
 
-        assertEq(validatorRegistry.stakedBalances(user1BLSKey), 0, "User1s staked balance should be 0 after withdrawal");
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 0, "User1s staked balance should be 0 after withdrawal");
         assertTrue(validatorRegistry.stakeOriginators(user1BLSKey) == address(0), "User1s stake originator should be reset after withdrawal");
         assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) == 0, "User1s unstake block number should be reset after withdrawal");
     }
