@@ -22,7 +22,7 @@ library EnumerableMap {
      * Returns true if the key was added to the map, that is if it was not
      * already present.
      */
-    function set(BytesToUint256Map storage map, bytes storage key, uint256 value) internal returns (bool) {
+    function set(BytesToUint256Map storage map, bytes memory key, uint256 value) internal returns (bool) {
         map._values[key] = value;
         return map._keys.add(key);
     }
@@ -32,7 +32,7 @@ library EnumerableMap {
      *
      * Returns true if the key was removed from the map, that is if it was present.
      */
-    function remove(BytesToUint256Map storage map, bytes storage key) internal returns (bool) {
+    function remove(BytesToUint256Map storage map, bytes memory key) internal returns (bool) {
         delete map._values[key];
         return map._keys.remove(key);
     }
@@ -40,7 +40,7 @@ library EnumerableMap {
     /**
      * @dev Returns true if the key is in the map. O(1).
      */
-    function contains(BytesToUint256Map storage map, bytes storage key) internal view returns (bool) {
+    function contains(BytesToUint256Map storage map, bytes memory key) internal view returns (bool) {
         return map._keys.contains(key);
     }
 
@@ -61,7 +61,7 @@ library EnumerableMap {
      *
      * - `index` must be strictly less than {length}.
      */
-    function at(BytesToUint256Map storage map, uint256 index) internal view returns (bytes storage, uint256) {
+    function at(BytesToUint256Map storage map, uint256 index) internal view returns (bytes memory, uint256) {
         bytes storage key = map._keys.at(index);
         return (key, map._values[key]);
     }
@@ -70,7 +70,7 @@ library EnumerableMap {
      * @dev Tries to returns the value associated with `key`. O(1).
      * Does not revert if `key` is not in the map.
      */
-    function tryGet(BytesToUint256Map storage map, bytes storage key) internal view returns (bool, uint256) {
+    function tryGet(BytesToUint256Map storage map, bytes memory key) internal view returns (bool, uint256) {
         uint256 value = map._values[key];
         if (value == uint256(0)) {
             return (contains(map, key), uint256(0));
@@ -86,7 +86,7 @@ library EnumerableMap {
      *
      * - `key` must be in the map.
      */
-    function get(BytesToUint256Map storage map, bytes storage key) internal view returns (uint256) {
+    function get(BytesToUint256Map storage map, bytes memory key) internal view returns (uint256) {
         uint256 value = map._values[key];
         if (value == 0 && !contains(map, key)) {
             revert EnumerableMapNonexistentKey(key);
