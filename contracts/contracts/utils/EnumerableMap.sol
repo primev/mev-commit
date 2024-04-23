@@ -105,4 +105,11 @@ library EnumerableMap {
     function keys(BytesToUint256Map storage map) internal view returns (bytes[] memory) {
         return map._keys.values();
     }
+
+    /**
+    * @dev Return a subset of keys
+     */
+    function keySubset(BytesToUint256Map storage map, uint256 start, uint256 end) internal view returns (bytes[] memory) {
+        return map._keys.valueSubset(start, end);
+    }
 }
