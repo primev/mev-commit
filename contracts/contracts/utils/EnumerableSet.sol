@@ -5,7 +5,8 @@ pragma solidity ^0.8.15;
 
 library EnumerableSet {
 
-    struct Set {
+    // Represents a set of byte array values
+    struct BytesSet {
         bytes[] _values;
         mapping(bytes value => uint256) _positions;
     }
@@ -16,7 +17,7 @@ library EnumerableSet {
      * Returns true if the value was added to the set, that is if it was not
      * already present.
      */
-    function _add(Set storage set, bytes storage value) private returns (bool) {
+    function _add(BytesSet storage set, bytes storage value) private returns (bool) {
         if (!_contains(set, value)) {
             set._values.push(value);
             // The value is stored at length-1, but we add 1 to all indexes
@@ -34,7 +35,7 @@ library EnumerableSet {
      * Returns true if the value was removed from the set, that is if it was
      * present.
      */
-    function _remove(Set storage set, bytes storage value) private returns (bool) {
+    function _remove(BytesSet storage set, bytes storage value) private returns (bool) {
         // We cache the value's position to prevent multiple reads from the same storage slot
         uint256 position = set._positions[value];
 
@@ -71,14 +72,14 @@ library EnumerableSet {
     /**
      * @dev Returns true if the value is in the set. O(1).
      */
-    function _contains(Set storage set, bytes storage value) private view returns (bool) {
+    function _contains(BytesSet storage set, bytes storage value) private view returns (bool) {
         return set._positions[value] != 0;
     }
 
     /**
      * @dev Returns the number of values on the set. O(1).
      */
-    function _length(Set storage set) private view returns (uint256) {
+    function _length(BytesSet storage set) private view returns (uint256) {
         return set._values.length;
     }
 
@@ -92,7 +93,7 @@ library EnumerableSet {
      *
      * - `index` must be strictly less than {length}.
      */
-    function _at(Set storage set, uint256 index) private view returns (bytes storage) {
+    function _at(BytesSet storage set, uint256 index) private view returns (bytes storage) {
         return set._values[index];
     }
 
@@ -104,13 +105,11 @@ library EnumerableSet {
      * this function has an unbounded cost, and using it as part of a state-changing function may render the function
      * uncallable if the set grows to a point where copying to memory consumes too much gas to fit in a block.
      */
-    function _values(Set storage set) private view returns (bytes[] memory) {
+    function _values(BytesSet storage set) private view returns (bytes[] memory) {
         return set._values;
     }
 
-    struct BytesSet {
-        Set _inner;
-    }
+
 
     /**
      * @dev Add a value to a set. O(1).
@@ -119,7 +118,7 @@ library EnumerableSet {
      * already present.
      */
     function add(BytesSet storage set, bytes storage value) internal returns (bool) {
-        return _add(set._inner, value);
+        return _add(set, value);
     }
 
     /**
@@ -129,21 +128,21 @@ library EnumerableSet {
      * present.
      */
     function remove(BytesSet storage set, bytes storage value) internal returns (bool) {
-        return _remove(set._inner, value);
+        return _remove(set, value);
     }
 
     /**
      * @dev Returns true if the value is in the set. O(1).
      */
     function contains(BytesSet storage set, bytes storage value) internal view returns (bool) {
-        return _contains(set._inner, value);
+        return _contains(set, value);
     }
 
     /**
      * @dev Returns the number of values in the set. O(1).
      */
     function length(BytesSet storage set) internal view returns (uint256) {
-        return _length(set._inner);
+        return _length(set);
     }
 
     /**
@@ -157,7 +156,7 @@ library EnumerableSet {
      * - `index` must be strictly less than {length}.
      */
     function at(BytesSet storage set, uint256 index) internal view returns (bytes storage) {
-        return _at(set._inner, index);
+        return _at(set, index);
     }
 
     /**
@@ -169,7 +168,7 @@ library EnumerableSet {
      * uncallable if the set grows to a point where copying to memory consumes too much gas to fit in a block.
      */
     function values(BytesSet storage set) internal view returns (bytes[] memory) {
-        bytes[] memory store = _values(set._inner);
+        bytes[] memory store = _values(set);
         bytes[] memory result;
 
         /// @solidity memory-safe-assembly
