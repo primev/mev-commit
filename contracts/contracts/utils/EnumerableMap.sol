@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.15;
 
-// TODO: talk about open zep and lack of generic types
-
 import {EnumerableSet} from "./EnumerableSet.sol";
 
+/// @title Implements an enumerable variant of Solidity's mapping type.
+/// @notice Adapted from OpenZeppelin's EnumerableMap.sol implementation. However this version is streamlined to only support
+/// a mapping from bytes to uint256, since solidity does not support generics.
 library EnumerableMap {
     using EnumerableSet for EnumerableSet.BytesSet;
 
