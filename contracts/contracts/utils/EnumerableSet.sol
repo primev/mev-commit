@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.15;
 
-// TODO: talk about open zep and lack of generic types
-
+/// @title Implements an enumerable set of bytes arrays.
+/// @notice Adapted from OpenZeppelin's EnumerableSet.sol implementation. However this version is streamlined to only support
+/// bytes type, since solidity does not support generics.
 library EnumerableSet {
 
     // Represents a set of byte array values
