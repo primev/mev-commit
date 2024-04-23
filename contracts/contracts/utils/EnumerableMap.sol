@@ -8,18 +8,9 @@ import {EnumerableSet} from "./EnumerableSet.sol";
 library EnumerableMap {
     using EnumerableSet for EnumerableSet.BytesSet;
 
-    // To implement this library for multiple types with as little code repetition as possible, we write it in
-    // terms of a generic Map type with bytes32 keys and values. The Map implementation uses private functions,
-    // and user-facing implementations such as `UintToAddressMap` are just wrappers around the underlying Map.
-    // This means that we can only create new EnumerableMaps for types that fit in bytes32.
-
-    /**
-     * @dev Query for a nonexistent map key.
-     */
     error EnumerableMapNonexistentKey(bytes key);
 
     struct BytesToUint256Map {
-        // Storage of keys
         EnumerableSet.BytesSet _keys;
         mapping(bytes key => uint256) _values;
     }
