@@ -1,9 +1,9 @@
-name: mev-commit-infra
+name: mev-commit-infrastructure
 
 on:
   workflow_run:
     workflows: ["mev-commit-ci"]
-    types: 
+    types:
       - completed
 
 jobs:
@@ -18,7 +18,6 @@ jobs:
         submodules: recursive
         ref: ${{ github.event.workflow_run.head_branch }}
 
-      
     - name: Install jq
       run: |
         sudo apt-get update
@@ -42,7 +41,7 @@ jobs:
 
         for ip in "${ips[@]}"; do
           echo "Checking service at $ip"
-        
+
           attempts=0
           success=false
           while [ $attempts -lt 6 ]; do
