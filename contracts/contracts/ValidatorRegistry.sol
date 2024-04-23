@@ -129,4 +129,27 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         (exists, balance) = stakedBalances.tryGet(valBLSPubKey);
         return exists ? balance : 0;
     }
+
+    function getNumberOfStakedValidators() external view returns (uint256) {
+        return stakedBalances.length();
+    }
+
+    /// @dev Returns an array of staked validator BLS pubkeys within the specified range.
+    /// For now we leave out a function for obtaining all validator pubkeys at once, to prevent possible DOS scenarios.
+    /// Insead we require users to query in batches, with knowledge from getNumberOfStakedValidators().
+    ///
+    /// TODO: Practical race conditions between user and chain, caused by state transitions during batch queries, 
+    /// need to be explored further.
+    function getStakedValidators(uint256 start, uint256 end) external view returns (bytes[] memory) {
+        require(start < end, "Invalid range");
+        require(end <= stakedBalances.length(), "Range exceeds staked balances length");
+        require(end - start <= 1000, "Range must be less than or equal to 1000");
+
+        bytes[] memory keys = new bytes[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            (bytes memory key,) = stakedBalances.at(i);
+            keys[i - start] = key;
+        }
+        return keys;
+    }
 }

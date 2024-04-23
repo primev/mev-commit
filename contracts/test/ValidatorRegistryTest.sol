@@ -229,6 +229,44 @@ contract ValidatorRegistryTest is Test {
         assertTrue(validatorRegistry.stakeOriginators(user1BLSKey) == address(0), "User1s stake originator should be reset after withdrawal");
         assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) == 0, "User1s unstake block number should be reset after withdrawal");
     }
+    
+    function testGetStakedValidators() public {
+        testMultiStake();
+
+        bytes[] memory validators = validatorRegistry.getStakedValidators(0, 2);
+        assertEq(validators.length, 2);
+        assertEq(validatorRegistry.getNumberOfStakedValidators(), 2);
+        assertEq(validators[0], user1BLSKey);
+        assertEq(validators[1], user2BLSKey);
+
+        vm.deal(user1, 1000 ether);
+
+        for (uint256 i = 0; i < 100; i++) {
+            bytes memory key = new bytes(48);
+            for (uint256 j = 0; j < 48; j++) {
+                key[j] = bytes1(uint8(i));
+            }
+            bytes[] memory keys = new bytes[](1);
+            keys[0] = key;
+            vm.prank(user1);
+            validatorRegistry.stake{value: MIN_STAKE}(keys);
+            vm.stopPrank();
+        }
+        
+        validators = validatorRegistry.getStakedValidators(0, 102);
+        assertEq(validators.length, 102);
+        assertEq(validatorRegistry.getNumberOfStakedValidators(), 102);
+
+        assertEq(validators[0], user1BLSKey);
+        assertEq(validators[1], user2BLSKey);
+
+        validators = validatorRegistry.getStakedValidators(40, 60);
+        assertEq(validators.length, 20);
+
+        for (uint256 i = 0; i < 20; i++) {
+            assertEq(validators[i].length, 48);
+        }
+    } 
 
     // To sanity check that relevant state for an account is reset s.t. they could stake again in future
     function testStakingCycle() public {
