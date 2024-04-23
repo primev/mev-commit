@@ -30,7 +30,6 @@ type Subscriber interface {
 type httpPublisher struct {
 	progressStore ProgressStore
 	logger        *slog.Logger
-	contracts     map[common.Address]struct{}
 	evmClient     EVMClient
 	subscriber    Subscriber
 }
