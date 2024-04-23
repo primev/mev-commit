@@ -19,41 +19,33 @@ contract EnumerableMapTest is Test {
     }
 
     function testSetAndGet() public {
-        bytes memory key = bytes("key1");
-        uint256 value = 123;
-
-        // Test setting a new key
-        bool added = map.set(key, value);
+        bool added = map.set("key1", 123);
         assertTrue(added, "Key should be added.");
-        assertTrue(map.contains(key), "Key should exist in the map.");
+        assertTrue(map.contains("key1"), "Key should exist in the map.");
 
-        // Test retrieving a value
-        uint256 retrievedValue = map.get(key);
-        assertEq(retrievedValue, value, "Retrieved value should match the set value.");
+        uint256 retrievedValue = map.get("key1");
+        assertEq(retrievedValue, 123, "Retrieved value should match the set value.");
     }
 
     function testUpdateValue() public {
-        bytes memory key = bytes("key1");
-        uint256 initialValue = 123;
-        uint256 updatedValue = 456;
+        bool added = map.set("key1", 123);
+        assertTrue(added, "Key should be added.");
+        assertEq(map.get("key1"), 123, "Initial value should be set.");
 
-        map.set(key, initialValue);
-        bool updated = map.set(key, updatedValue);
+        bool updated = map.set("key1", 456);
         assertFalse(updated, "Key should not be added again, should be updated.");
 
-        uint256 retrievedValue = map.get(key);
-        assertEq(retrievedValue, updatedValue, "Retrieved value should match the updated value.");
+        uint256 retrievedValue = map.get("key1");
+        assertEq(retrievedValue, 456, "Retrieved value should match the updated value.");
     }
 
     function testRemoveKey() public {
-        bytes memory key = bytes("key1");
-        map.set(key, 123);
+        map.set("key1", 123);
+        assertTrue(map.contains("key1"), "Key should exist before removal.");
 
-        assertTrue(map.contains(key), "Key should exist before removal.");
-
-        bool removed = map.remove(key);
+        bool removed = map.remove("key1");
         assertTrue(removed, "Key should be removed.");
-        assertFalse(map.contains(key), "Key should no longer exist in the map.");
+        assertFalse(map.contains("key1"), "Key should no longer exist in the map.");
     }
 
     function testNonexistentKey() public {
@@ -68,29 +60,80 @@ contract EnumerableMapTest is Test {
         assertFalse(removed, "Key should not be removed.");
     }
 
-    function testIteration() public {
-        bytes memory key1 = bytes("key1");
-        bytes memory key2 = bytes("key2");
-        map.set(key1, 100);
-        map.set(key2, 200);
-
-        assertEq(map.length(), 2, "Map should contain two entries.");
-
-        (bytes memory iterKey1, uint256 iterValue1) = map.at(0);
-        assertTrue(iterKey1.length > 0, "First key should be non-empty.");
-        assertTrue(iterValue1 > 0, "First value should be non-zero.");
-
-        (bytes memory iterKey2, uint256 iterValue2) = map.at(1);
-        assertTrue(iterKey2.length > 0, "Second key should be non-empty.");
-        assertTrue(iterValue2 > 0, "Second value should be non-zero.");
-    }
-
-    function testKeyArray() public {
-        map.set(bytes("key1"), 100);
-        map.set(bytes("key2"), 200);
-        map.set(bytes("key3"), 300);
+    function testGetAllKeys() public {
+        map.set("key1", 123);
+        map.set("key2", 456);
+        map.set("key3", 789);
+        map.set("key4", 101112);
+        map.set("key5", 131415);
 
         bytes[] memory keys = map.keys();
-        assertEq(keys.length, 3, "There should be three keys in the map.");
+
+        bytes[] memory expected = new bytes[](5);
+        expected[0] = "key5";
+        expected[1] = "key4";
+        expected[2] = "key3";
+        expected[3] = "key2";
+        expected[4] = "key1";
+        assertContainsAll(keys, expected);
+
+        map.remove("key1");
+        map.remove("key3");
+
+        keys = map.keys();
+
+        expected = new bytes[](3);
+        expected[0] = "key5";
+        expected[1] = "key4";
+        expected[2] = "key2"; 
+        assertContainsAll(keys, expected);
+    }
+
+    function testGetKeySubset() public {
+        map.set("key1", 123);
+        map.set("key2", 456);
+        map.set("key3", 789);
+        map.set("key4", 101);
+
+        bytes[] memory keys = map.keys();
+        assertEq(keys.length, 4, "Map should have 4 keys.");
+        
+        bytes[] memory firstThree = map.keySubset(0, 3);
+        assertEq(firstThree.length, 3, "Subset should have 3 keys.");
+
+        bytes[] memory lastOne = map.keySubset(3, 4);
+        assertEq(lastOne.length, 1, "Subset should have 1 key.");
+
+        bytes[] memory combo = new bytes[](4);
+        combo[0] = lastOne[0];
+        combo[1] = firstThree[0];
+        combo[2] = firstThree[1];
+        combo[3] = firstThree[2];
+
+        bytes[] memory expectedCombo = new bytes[](4);
+        expectedCombo[0] = "key4";
+        expectedCombo[1] = "key1";
+        expectedCombo[2] = "key2";
+        expectedCombo[3] = "key3";
+
+        assertContainsAll(combo, expectedCombo);
+    }
+
+    // Asserts an array contains all expected elements without asserting order
+    function assertContainsAll(bytes[] memory actual, bytes[] memory expected) internal pure {
+        require(actual.length == expected.length, "Arrays have different lengths");
+
+        uint foundCount = 0;
+        
+        for (uint i = 0; i < expected.length; i++) {
+            for (uint j = 0; j < actual.length; j++) {
+                if (keccak256(abi.encodePacked(actual[j])) == keccak256(abi.encodePacked(expected[i]))) {
+                    foundCount++;
+                    break;
+                }
+            }
+        }
+        
+        require(foundCount == expected.length, "Not all expected elements found");
     }
 }
