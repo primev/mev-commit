@@ -10,29 +10,41 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	bidderregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/BidderRegistry"
+	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
 	bidderapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/apiserver"
 	bidder_registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/bidder_registry"
+	blocktrackercontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/block_tracker"
 	preconfcontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/preconf"
 	provider_registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/provider_registry"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/debugapi"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/discovery"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/events"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keysigner"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/keyexchange"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/preconfirmation"
 	bidderapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/bidder"
 	providerapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/provider"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfsigner"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -56,16 +68,19 @@ type Options struct {
 	RPCAddr                  string
 	Bootnodes                []string
 	PreconfContract          string
+	BlockTrackerContract     string
 	ProviderRegistryContract string
 	BidderRegistryContract   string
 	RPCEndpoint              string
+	WSRPCEndpoint            string
 	NatAddr                  string
 	TLSCertificateFile       string
 	TLSPrivateKeyFile        string
 }
 
 type Node struct {
-	closers []io.Closer
+	waitClose func()
+	closers   []io.Closer
 }
 
 func NewNode(opts *Options) (*Node, error) {
@@ -78,6 +93,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	contractRPC, err := ethclient.Dial(opts.RPCEndpoint)
 	if err != nil {
+		opts.Logger.Error("failed to connect to rpc", "error", err)
 		return nil, err
 	}
 	evmClient, err := evmclient.New(
@@ -86,15 +102,32 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.Logger.With("component", "evmclient"),
 	)
 	if err != nil {
+		opts.Logger.Error("failed to create evm client", "error", err)
 		return nil, err
 	}
 	nd.closers = append(nd.closers, evmClient)
-
 	srv.MetricsRegistry().MustRegister(evmClient.Metrics()...)
+
+	wsRPC, err := ethclient.Dial(opts.WSRPCEndpoint)
+	if err != nil {
+		opts.Logger.Error("failed to connect to ws rpc", "error", err)
+		return nil, err
+	}
+	wsEvmClient, err := evmclient.New(
+		opts.KeySigner,
+		evmclient.WrapEthClient(wsRPC),
+		opts.Logger.With("component", "wsevmclient"),
+	)
+	if err != nil {
+		opts.Logger.Error("failed to create ws evm client", "error", err)
+		return nil, err
+	}
+	nd.closers = append(nd.closers, wsEvmClient)
 
 	bidderRegistryContractAddr := common.HexToAddress(opts.BidderRegistryContract)
 
 	bidderRegistry := bidder_registrycontract.New(
+		opts.KeySigner.GetAddress(),
 		bidderRegistryContractAddr,
 		evmClient,
 		opts.Logger.With("component", "bidderregistry"),
@@ -108,8 +141,25 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.Logger.With("component", "providerregistry"),
 	)
 
+	var keyKeeper keykeeper.KeyKeeper
+	switch opts.PeerType {
+	case p2p.PeerTypeProvider.String():
+		keyKeeper, err = keykeeper.NewProviderKeyKeeper(opts.KeySigner)
+		if err != nil {
+			opts.Logger.Error("failed to create provider key keeper", "error", err)
+			return nil, errors.Join(err, nd.Close())
+		}
+	case p2p.PeerTypeBidder.String():
+		keyKeeper, err = keykeeper.NewBidderKeyKeeper(opts.KeySigner)
+		if err != nil {
+			opts.Logger.Error("failed to create bidder key keeper", "error", err)
+			return nil, errors.Join(err, nd.Close())
+		}
+	default:
+		keyKeeper = keykeeper.NewBaseKeyKeeper(opts.KeySigner)
+	}
 	p2pSvc, err := libp2p.New(&libp2p.Options{
-		KeySigner:      opts.KeySigner,
+		KeyKeeper:      keyKeeper,
 		Secret:         opts.Secret,
 		PeerType:       peerType,
 		Register:       providerRegistry,
@@ -121,6 +171,7 @@ func NewNode(opts *Options) (*Node, error) {
 		NatAddr:        opts.NatAddr,
 	})
 	if err != nil {
+		opts.Logger.Error("failed to create p2p service", "error", err)
 		return nil, err
 	}
 	nd.closers = append(nd.closers, p2pSvc)
@@ -141,9 +192,37 @@ func NewNode(opts *Options) (*Node, error) {
 
 	debugapi.RegisterAPI(srv, topo, p2pSvc, opts.Logger.With("component", "debugapi"))
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var preconfProtoClosed <-chan struct{}
+	st, err := store.NewStore()
+	if err != nil {
+		opts.Logger.Error("failed to create store", "error", err)
+		cancel()
+		return nil, err
+	}
+
+	contracts, err := getContractABIs(opts)
+	if err != nil {
+		opts.Logger.Error("failed to get contract ABIs", "error", err)
+		cancel()
+		return nil, err
+	}
+
+	evtMgr := events.NewListener(
+		opts.Logger.With("component", "events"),
+		evmClient,
+		st,
+		contracts,
+	)
+
+	evtMgrDone := evtMgr.Start(ctx)
+
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
 		lis, err := net.Listen("tcp", opts.RPCAddr)
 		if err != nil {
+			opts.Logger.Error("failed to listen", "error", err)
+			cancel()
 			return nil, errors.Join(err, nd.Close())
 		}
 
@@ -154,21 +233,49 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.TLSPrivateKeyFile,
 			)
 			if err != nil {
+				opts.Logger.Error("failed to load TLS credentials", "error", err)
+				cancel()
 				return nil, fmt.Errorf("unable to load TLS credentials: %w", err)
 			}
 		}
 
 		grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
-		preconfSigner := preconfsigner.NewSigner(opts.KeySigner)
+		preconfEncryptor := preconfencryptor.NewEncryptor(keyKeeper)
 		validator, err := protovalidate.New()
 		if err != nil {
+			opts.Logger.Error("failed to create proto validator", "error", err)
+			cancel()
 			return nil, errors.Join(err, nd.Close())
 		}
 
 		var (
-			bidProcessor preconfirmation.BidProcessor = noOpBidProcessor{}
-			commitmentDA preconfcontract.Interface    = noOpCommitmentDA{}
+			bidProcessor preconfirmation.BidProcessor   = noOpBidProcessor{}
+			depositMgr   preconfirmation.DepositManager = noOpDepositManager{}
 		)
+
+		blockTrackerAddr := common.HexToAddress(opts.BlockTrackerContract)
+
+		blockTracker := blocktrackercontract.New(
+			blockTrackerAddr,
+			evmClient,
+			wsEvmClient,
+			opts.Logger.With("component", "blocktrackercontract"),
+		)
+
+		preconfContractAddr := common.HexToAddress(opts.PreconfContract)
+		commitmentDA := preconfcontract.New(
+			preconfContractAddr,
+			evmClient,
+			opts.Logger.With("component", "preconfcontract"),
+		)
+		opts.Logger.Info("registered preconf contract")
+
+		store, err := store.NewStore()
+		if err != nil {
+			opts.Logger.Error("failed to create store", "error", err)
+			cancel()
+			return nil, err
+		}
 
 		switch opts.PeerType {
 		case p2p.PeerTypeProvider.String():
@@ -182,48 +289,87 @@ func NewNode(opts *Options) (*Node, error) {
 			providerapiv1.RegisterProviderServer(grpcServer, providerAPI)
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
-
-			preconfContractAddr := common.HexToAddress(opts.PreconfContract)
-
-			commitmentDA = preconfcontract.New(
-				preconfContractAddr,
-				evmClient,
-				opts.Logger.With("component", "preconfcontract"),
+			depositMgr = depositmanager.NewDepositManager(bidderRegistry,
+				blockTracker,
+				commitmentDA,
+				store,
+				evtMgr,
+				opts.Logger.With("component", "depositmanager"),
 			)
-
+			depositMgr.Start(ctx)
 			preconfProto := preconfirmation.New(
+				keyKeeper.GetAddress(),
 				topo,
 				p2pSvc,
-				preconfSigner,
-				bidderRegistry,
+				preconfEncryptor,
+				depositMgr,
 				bidProcessor,
 				commitmentDA,
+				blockTracker,
+				evtMgr,
+				store,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
+
+			preconfProtoClosed = preconfProto.Start(ctx)
+
 			// Only register handler for provider
 			p2pSvc.AddStreamHandlers(preconfProto.Streams()...)
+			keyexchange := keyexchange.New(
+				topo,
+				p2pSvc,
+				keyKeeper,
+				opts.Logger.With("component", "keyexchange_protocol"),
+				signer.New(),
+			)
+			p2pSvc.AddStreamHandlers(keyexchange.Streams()...)
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
 		case p2p.PeerTypeBidder.String():
 			preconfProto := preconfirmation.New(
+				keyKeeper.GetAddress(),
 				topo,
 				p2pSvc,
-				preconfSigner,
-				bidderRegistry,
+				preconfEncryptor,
+				depositMgr,
 				bidProcessor,
 				commitmentDA,
+				blockTracker,
+				evtMgr,
+				store,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
+
+			preconfProtoClosed = preconfProto.Start(ctx)
+
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
 			bidderAPI := bidderapi.NewService(
 				preconfProto,
 				opts.KeySigner.GetAddress(),
 				bidderRegistry,
+				blockTracker,
 				validator,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
+
+			keyexchange := keyexchange.New(
+				topo,
+				p2pSvc,
+				keyKeeper,
+				opts.Logger.With("component", "keyexchange_protocol"),
+				signer.New(),
+			)
+			topo.SubscribePeer(func(p p2p.Peer) {
+				if p.Type == p2p.PeerTypeProvider {
+					err = keyexchange.SendTimestampMessage()
+					if err != nil {
+						opts.Logger.Error("failed to send timestamp message", "error", err)
+					}
+				}
+			})
+
 			srv.RegisterMetricsCollectors(bidderAPI.Metrics()...)
 		}
 
@@ -278,23 +424,27 @@ func NewNode(opts *Options) (*Node, error) {
 			break
 		}
 		if grpcConn == nil {
+			cancel()
 			return nil, errors.New("dialing of grpc server failed")
 		}
 
+		handlerCtx, handlerCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer handlerCancel()
+
 		gatewayMux := runtime.NewServeMux()
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
 		switch opts.PeerType {
 		case p2p.PeerTypeProvider.String():
-			err := providerapiv1.RegisterProviderHandler(ctx, gatewayMux, grpcConn)
+			err := providerapiv1.RegisterProviderHandler(handlerCtx, gatewayMux, grpcConn)
 			if err != nil {
 				opts.Logger.Error("failed to register provider handler", "err", err)
+				cancel()
 				return nil, errors.Join(err, nd.Close())
 			}
 		case p2p.PeerTypeBidder.String():
-			err := bidderapiv1.RegisterBidderHandler(ctx, gatewayMux, grpcConn)
+			err := bidderapiv1.RegisterBidderHandler(handlerCtx, gatewayMux, grpcConn)
 			if err != nil {
 				opts.Logger.Error("failed to register bidder handler", "err", err)
+				cancel()
 				return nil, errors.Join(err, nd.Close())
 			}
 		}
@@ -340,10 +490,57 @@ func NewNode(opts *Options) (*Node, error) {
 	}()
 	nd.closers = append(nd.closers, server)
 
+	nd.waitClose = func() {
+		cancel()
+
+		closeChan := make(chan struct{})
+		go func() {
+			defer close(closeChan)
+
+			<-evtMgrDone
+			<-preconfProtoClosed
+		}()
+
+		<-closeChan
+	}
+
 	return nd, nil
 }
 
+func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
+	abis := make(map[common.Address]*abi.ABI)
+
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[common.HexToAddress(opts.BlockTrackerContract)] = &btABI
+
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[common.HexToAddress(opts.PreconfContract)] = &pcABI
+
+	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[common.HexToAddress(opts.BidderRegistryContract)] = &brABI
+
+	return abis, nil
+}
+
 func (n *Node) Close() error {
+	workersClosed := make(chan struct{})
+	go func() {
+		defer close(workersClosed)
+
+		if n.waitClose != nil {
+			n.waitClose()
+		}
+	}()
+
 	var err error
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
@@ -366,22 +563,16 @@ func (noOpBidProcessor) ProcessBid(
 	return statusC, nil
 }
 
-type noOpCommitmentDA struct{}
+type noOpDepositManager struct{}
 
-func (noOpCommitmentDA) StoreCommitment(
-	_ context.Context,
-	_ *big.Int,
-	_ uint64,
-	_ string,
-	_ uint64,
-	_ uint64,
-	_ []byte,
-	_ []byte,
-	_ uint64,
-) error {
+func (noOpDepositManager) Start(_ context.Context) <-chan struct{} {
 	return nil
 }
 
-func (noOpCommitmentDA) Close() error {
+func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string, _ int64) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (noOpDepositManager) RefundDeposit(_ common.Address, _ *big.Int, _ int64) error {
 	return nil
 }

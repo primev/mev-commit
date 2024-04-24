@@ -82,7 +82,7 @@ func main() {
 	))
 
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(receivedPreconfs, sentBids)
+	registry.MustRegister(receivedPreconfs, sentBids, sendBidDuration)
 
 	router := http.NewServeMux()
 	router.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
@@ -124,11 +124,11 @@ func main() {
 
 	wg.Add(1)
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
+		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 
 		for {
-			err = checkOrPrepay(bidderClient, logger)
+			err = checkOrDeposit(bidderClient, logger)
 			if err != nil {
 				logger.Error("failed to check or stake", "err", err)
 			}
@@ -136,25 +136,71 @@ func main() {
 		}
 	}()
 
+	type blockWithTxns struct {
+		blockNum int64
+		txns     []string
+	}
+
+	newBlockChan := make(chan blockWithTxns, 1)
+
 	wg.Add(1)
 	go func(logger *slog.Logger) {
 		defer wg.Done()
+
+		currentBlkNum := int64(0)
 		for {
 			block, blkNum, err := RetreivedBlock(rpcClient)
 			if err != nil || len(block) == 0 {
 				logger.Error("failed to get block", "err", err)
-			} else {
-				throtle := time.Duration(12000*time.Millisecond) / time.Duration(len(block))
-				logger.Info("thortling set", "throtle", throtle.String())
-				bundle := 1
-				for j := 0; j+10 < len(block); j += bundle {
-					bundle := rand.Intn(10)
-					err = sendBid(bidderClient, logger, rpcClient, block[j:j+bundle], int64(blkNum), (time.Now().UnixMilli())-500, (time.Now().UnixMilli() + 500))
-					if err != nil {
-						logger.Error("failed to send bid", "err", err)
-					}
-					time.Sleep(throtle)
-				}
+			}
+
+			if currentBlkNum == blkNum {
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			currentBlkNum = blkNum
+			newBlockChan <- blockWithTxns{
+				blockNum: blkNum,
+				txns:     block,
+			}
+		}
+	}(logger)
+
+	wg.Add(1)
+	go func(logger *slog.Logger) {
+		defer wg.Done()
+		ticker := time.NewTicker(200 * time.Millisecond)
+		currentBlock := blockWithTxns{}
+		for {
+			select {
+			case block := <-newBlockChan:
+				currentBlock = block
+			case <-ticker.C:
+			}
+
+			if len(currentBlock.txns) == 0 {
+				continue
+			}
+
+			bundleLen := rand.Intn(10)
+			bundleStart := rand.Intn(len(currentBlock.txns))
+			bundleEnd := bundleStart + bundleLen
+			if bundleEnd > len(currentBlock.txns) {
+				bundleEnd = len(currentBlock.txns) - 1
+			}
+
+			err = sendBid(
+				bidderClient,
+				logger,
+				rpcClient,
+				currentBlock.txns[bundleStart:bundleEnd],
+				currentBlock.blockNum,
+				(time.Now().UnixMilli())-10000,
+				(time.Now().UnixMilli())+10000,
+			)
+			if err != nil {
+				logger.Error("failed to send bid", "err", err)
 			}
 		}
 	}(logger)
@@ -181,52 +227,52 @@ func RetreivedBlock(rpcClient *ethclient.Client) ([]string, int64, error) {
 	return blockTxns, int64(blkNum), nil
 }
 
-func checkOrPrepay(
+func checkOrDeposit(
 	bidderClient pb.BidderClient,
 	logger *slog.Logger,
 ) error {
-	allowance, err := bidderClient.GetAllowance(context.Background(), &pb.EmptyMessage{})
+	deposit, err := bidderClient.GetDeposit(context.Background(), &pb.GetDepositRequest{})
 	if err != nil {
-		logger.Error("failed to get allowance", "err", err)
+		logger.Error("failed to get deposit", "err", err)
 		return err
 	}
 
-	logger.Info("prepaid allowance", "amount", allowance.Amount)
+	logger.Info("deposit", "amount", deposit.Amount)
 
-	minAllowance, err := bidderClient.GetMinAllowance(context.Background(), &pb.EmptyMessage{})
+	minDeposit, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
 	if err != nil {
-		logger.Error("failed to get min allowance", "err", err)
+		logger.Error("failed to get min deposit", "err", err)
 		return err
 	}
 
-	allowanceAmt, set := big.NewInt(0).SetString(allowance.Amount, 10)
+	depositAmt, set := big.NewInt(0).SetString(deposit.Amount, 10)
 	if !set {
-		logger.Error("failed to parse allowance amount")
-		return errors.New("failed to parse allowance amount")
+		logger.Error("failed to parse deposit amount")
+		return errors.New("failed to parse deposit amount")
 	}
 
-	minAllowanceAmt, set := big.NewInt(0).SetString(minAllowance.Amount, 10)
+	minDepositAmt, set := big.NewInt(0).SetString(minDeposit.Amount, 10)
 	if !set {
-		logger.Error("failed to parse min allowance amount")
-		return errors.New("failed to parse min allowance amount")
+		logger.Error("failed to parse min deposit amount")
+		return errors.New("failed to parse min deposit amount")
 	}
 
-	if allowanceAmt.Cmp(minAllowanceAmt) > 0 {
+	if depositAmt.Cmp(minDepositAmt) > 0 {
 		logger.Error("bidder already has balance")
 		return nil
 	}
 
-	topup := big.NewInt(0).Mul(minAllowanceAmt, big.NewInt(10))
+	topup := big.NewInt(0).Mul(minDepositAmt, big.NewInt(10))
 
-	_, err = bidderClient.PrepayAllowance(context.Background(), &pb.PrepayRequest{
+	_, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{
 		Amount: topup.String(),
 	})
 	if err != nil {
-		logger.Error("failed to prepay allowance", "err", err)
+		logger.Error("failed to deposit", "err", err)
 		return err
 	}
 
-	logger.Info("prepaid allowance", "amount", topup.String())
+	logger.Info("deposit", "amount", topup.String())
 
 	return nil
 }

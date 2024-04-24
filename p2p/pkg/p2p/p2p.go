@@ -2,10 +2,15 @@ package p2p
 
 import (
 	"context"
+	"crypto/ecdh"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -54,9 +59,64 @@ var (
 	ErrNoAddresses  = errors.New("no addresses")
 )
 
+type Keys struct {
+	PKEPublicKey  *ecies.PublicKey
+	NIKEPublicKey *ecdh.PublicKey
+}
+
+type jsonKeys struct {
+	PKEPublicKey  string `json:"pkePublicKey"`
+	NIKEPublicKey string `json:"nikePublicKey"`
+}
+
+func (k *Keys) MarshalJSON() ([]byte, error) {
+	ppk := keykeeper.SerializePublicKey(k.PKEPublicKey)
+	pkePublicKeyB64 := base64.StdEncoding.EncodeToString(ppk)
+
+	npk := k.NIKEPublicKey.Bytes()
+	nikePublicKeyB64 := base64.StdEncoding.EncodeToString(npk)
+
+	return json.Marshal(jsonKeys{
+		PKEPublicKey:  pkePublicKeyB64,
+		NIKEPublicKey: nikePublicKeyB64,
+	})
+}
+
+func (k *Keys) UnmarshalJSON(data []byte) error {
+	var jk jsonKeys
+	if err := json.Unmarshal(data, &jk); err != nil {
+		return err
+	}
+
+	pkePublicKeyBytes, err := base64.StdEncoding.DecodeString(jk.PKEPublicKey)
+	if err != nil {
+		return err
+	}
+
+	pkePublicKey, err := keykeeper.DeserializePublicKey(pkePublicKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	nikePublicKeyBytes, err := base64.StdEncoding.DecodeString(jk.NIKEPublicKey)
+	if err != nil {
+		return err
+	}
+	nikePublicKey, err := ecdh.P256().NewPublicKey(nikePublicKeyBytes)
+	if err != nil {
+		return err
+	}
+
+	k.PKEPublicKey = pkePublicKey
+	k.NIKEPublicKey = nikePublicKey
+
+	return nil
+}
+
 type Peer struct {
 	EthAddress common.Address
 	Type       PeerType
+	Keys       *Keys
 }
 
 type PeerInfo struct {

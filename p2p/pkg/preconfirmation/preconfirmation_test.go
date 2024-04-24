@@ -2,20 +2,29 @@ package preconfirmation_test
 
 import (
 	"context"
+	"crypto/ecdh"
+	"crypto/elliptic"
+	"crypto/rand"
+	"errors"
 	"io"
 	"log/slog"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
+	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/events"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primevprotocol/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/preconfirmation"
-	providerapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/provider"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
 )
 
@@ -27,33 +36,39 @@ func (t *testTopo) GetPeers(q topology.Query) []p2p.Peer {
 	return []p2p.Peer{t.peer}
 }
 
-type testBidderStore struct{}
-
-func (t *testBidderStore) CheckBidderAllowance(_ context.Context, _ common.Address) bool {
-	return true
+type testEncryptor struct {
+	bidHash                  []byte
+	encryptedBid             *preconfpb.EncryptedBid
+	bid                      *preconfpb.Bid
+	encryptedPreConfirmation *preconfpb.EncryptedPreConfirmation
+	preConfirmation          *preconfpb.PreConfirmation
+	sharedSecretKey          []byte
+	bidSigner                common.Address
+	preConfirmationSigner    common.Address
 }
 
-type testSigner struct {
-	bid                   *preconfpb.Bid
-	preConfirmation       *preconfpb.PreConfirmation
-	bidSigner             common.Address
-	preConfirmationSigner common.Address
+func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64) (*preconfpb.Bid, *preconfpb.EncryptedBid, error) {
+	return t.bid, t.encryptedBid, nil
 }
 
-func (t *testSigner) ConstructSignedBid(_ string, _ string, _ int64, _ int64, _ int64) (*preconfpb.Bid, error) {
-	return t.bid, nil
+func (t *testEncryptor) ConstructEncryptedPreConfirmation(_ *preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
+	return t.preConfirmation, t.encryptedPreConfirmation, nil
 }
 
-func (t *testSigner) ConstructPreConfirmation(_ *preconfpb.Bid) (*preconfpb.PreConfirmation, error) {
-	return t.preConfirmation, nil
-}
-
-func (t *testSigner) VerifyBid(_ *preconfpb.Bid) (*common.Address, error) {
+func (t *testEncryptor) VerifyBid(_ *preconfpb.Bid) (*common.Address, error) {
 	return &t.bidSigner, nil
 }
 
-func (t *testSigner) VerifyPreConfirmation(_ *preconfpb.PreConfirmation) (*common.Address, error) {
+func (t *testEncryptor) VerifyPreConfirmation(_ *preconfpb.PreConfirmation) (*common.Address, error) {
 	return &t.preConfirmationSigner, nil
+}
+
+func (t *testEncryptor) DecryptBidData(_ common.Address, _ *preconfpb.EncryptedBid) (*preconfpb.Bid, error) {
+	return t.bid, nil
+}
+
+func (t *testEncryptor) VerifyEncryptedPreConfirmation(*ecdh.PublicKey, []byte, *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
+	return t.sharedSecretKey, &t.preConfirmationSigner, nil
 }
 
 type testProcessor struct {
@@ -71,22 +86,75 @@ func (t *testProcessor) ProcessBid(
 
 type testCommitmentDA struct{}
 
-func (t *testCommitmentDA) StoreCommitment(
+func (t *testCommitmentDA) StoreEncryptedCommitment(
 	_ context.Context,
-	_ *big.Int,
-	_ uint64,
+	_ []byte,
+	_ []byte,
+) (common.Hash, error) {
+	return common.Hash{}, nil
+}
+
+func (t *testCommitmentDA) OpenCommitment(
+	_ context.Context,
+	_ []byte,
 	_ string,
-	_ uint64,
-	_ uint64,
+	_ int64,
+	_ string,
+	_ int64,
+	_ int64,
 	_ []byte,
 	_ []byte,
-	_ uint64,
-) error {
-	return nil
+	_ []byte,
+) (common.Hash, error) {
+	return common.Hash{}, nil
 }
 
 func (t *testCommitmentDA) Close() error {
 	return nil
+}
+
+type testBlockTrackerContract struct {
+	blockNumberToWinner map[uint64]common.Address
+	lastBlockNumber     uint64
+	blocksPerWindow     uint64
+}
+
+// GetCurrentWindow returns the current window number.
+func (btc *testBlockTrackerContract) GetCurrentWindow(ctx context.Context) (uint64, error) {
+	return btc.lastBlockNumber / btc.blocksPerWindow, nil
+}
+
+// GetBlocksPerWindow returns the number of blocks per window.
+func (btc *testBlockTrackerContract) GetBlocksPerWindow(ctx context.Context) (uint64, error) {
+	return btc.blocksPerWindow, nil
+}
+
+type testEventManager struct {
+	btABI      *abi.ABI
+	handler    events.EventHandler
+	handlerSub chan struct{}
+	sub        *testSub
+}
+
+type testSub struct {
+	errC chan error
+}
+
+func (t *testSub) Unsubscribe() {}
+
+func (t *testSub) Err() <-chan error {
+	return t.errC
+}
+
+func (t *testEventManager) Subscribe(evt events.EventHandler) (events.Subscription, error) {
+	if evt.EventName() != "NewL1Block" {
+		return nil, errors.New("invalid event")
+	}
+	evt.SetTopicAndContract(t.btABI.Events["NewL1Block"].ID, t.btABI)
+	t.handler = evt
+	close(t.handlerSub)
+
+	return t.sub, nil
 }
 
 func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
@@ -98,6 +166,20 @@ func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
 	return slog.New(testLogger)
 }
 
+type testDepositManager struct{}
+
+func (t *testDepositManager) Start(ctx context.Context) <-chan struct{} {
+	return nil
+}
+
+func (t *testDepositManager) CheckAndDeductDeposit(ctx context.Context, address common.Address, bidAmountStr string, blockNumber int64) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+
+func (t *testDepositManager) RefundDeposit(address common.Address, deductedAmount *big.Int, blockNumber int64) error {
+	return nil
+}
+
 func TestPreconfBidSubmission(t *testing.T) {
 	t.Parallel()
 
@@ -106,9 +188,24 @@ func TestPreconfBidSubmission(t *testing.T) {
 			EthAddress: common.HexToAddress("0x1"),
 			Type:       p2p.PeerTypeBidder,
 		}
+
+		encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		server := p2p.Peer{
 			EthAddress: common.HexToAddress("0x2"),
 			Type:       p2p.PeerTypeProvider,
+			Keys: &p2p.Keys{
+				PKEPublicKey:  &encryptionPrivateKey.PublicKey,
+				NIKEPublicKey: nikePrivateKey.PublicKey(),
+			},
 		}
 
 		bid := &preconfpb.Bid{
@@ -121,38 +218,66 @@ func TestPreconfBidSubmission(t *testing.T) {
 			Signature:           []byte("test"),
 		}
 
+		encryptedBid := &preconfpb.EncryptedBid{
+			Ciphertext: []byte("test"),
+		}
+
 		preConfirmation := &preconfpb.PreConfirmation{
 			Bid:       bid,
 			Digest:    []byte("test"),
 			Signature: []byte("test"),
 		}
 
+		encryptedPreConfirmation := &preconfpb.EncryptedPreConfirmation{
+			Commitment: []byte("test"),
+			Signature:  []byte("test"),
+		}
 		svc := p2ptest.New(
 			&client,
 		)
 
 		topo := &testTopo{server}
-		us := &testBidderStore{}
 		proc := &testProcessor{
 			BidResponse: providerapi.ProcessedBidResponse{
 				Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
 				DispatchTimestamp: 10,
 			},
 		}
-		signer := &testSigner{
-			bid:                   bid,
-			preConfirmation:       preConfirmation,
-			bidSigner:             common.HexToAddress("0x1"),
-			preConfirmationSigner: common.HexToAddress("0x2"),
+		signer := &testEncryptor{
+			bidHash:                  bid.Digest,
+			encryptedBid:             encryptedBid,
+			bid:                      bid,
+			preConfirmation:          preConfirmation,
+			encryptedPreConfirmation: encryptedPreConfirmation,
+			bidSigner:                common.HexToAddress("0x1"),
+			preConfirmationSigner:    common.HexToAddress("0x2"),
 		}
 
+		btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+		if err != nil {
+			t.Fatal(err)
+		}
+		eventManager := &testEventManager{
+			btABI:      &btABI,
+			sub:        &testSub{errC: make(chan error)},
+			handlerSub: make(chan struct{}),
+		}
+		store, err := store.NewStore()
+		if err != nil {
+			t.Fatal(err)
+		}
+		depositMgr := &testDepositManager{}
 		p := preconfirmation.New(
+			client.EthAddress,
 			topo,
 			svc,
 			signer,
-			us,
+			depositMgr,
 			proc,
 			&testCommitmentDA{},
+			&testBlockTrackerContract{blockNumberToWinner: make(map[uint64]common.Address), blocksPerWindow: 64},
+			eventManager,
+			store,
 			newTestLogger(t, os.Stdout),
 		)
 
