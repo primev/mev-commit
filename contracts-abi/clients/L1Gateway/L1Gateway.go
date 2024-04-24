@@ -26,7 +26,6 @@ var (
 	_ = common.Big1
 	_ = types.BloomLookup
 	_ = event.NewSubscription
-	_ = abi.ConvertType
 )
 
 // L1gatewayMetaData contains all meta data concerning the L1gateway contract.
@@ -135,11 +134,11 @@ func NewL1gatewayFilterer(address common.Address, filterer bind.ContractFilterer
 
 // bindL1gateway binds a generic wrapper to an already deployed contract.
 func bindL1gateway(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := L1gatewayMetaData.GetAbi()
+	parsed, err := abi.JSON(strings.NewReader(L1gatewayABI))
 	if err != nil {
 		return nil, err
 	}
-	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
+	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
 // Call invokes the (constant) contract method with params as input values and
