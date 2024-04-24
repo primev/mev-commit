@@ -8,9 +8,9 @@
         "internalType": "address"
       },
       {
-        "name": "_nextRequestedBlockNumber",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "_blockTrackerContract",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "_owner",
@@ -30,24 +30,6 @@
   },
   {
     "type": "function",
-    "name": "addBuilderAddress",
-    "inputs": [
-      {
-        "name": "builderName",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "builderAddress",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "blockBuilderNameToAddress",
     "inputs": [
       {
@@ -61,58 +43,6 @@
         "name": "",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getBuilder",
-    "inputs": [
-      {
-        "name": "builderNameGrafiti",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getNextRequestedBlockNumber",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "moveToNextBlock",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "nextRequestedBlockNumber",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -145,9 +75,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "blockBuilderName",
-        "type": "string",
-        "internalType": "string"
+        "name": "builder",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "isSlash",
@@ -172,38 +102,12 @@
   },
   {
     "type": "function",
-    "name": "setNextBlock",
-    "inputs": [
-      {
-        "name": "newBlockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
         "name": "newOwner",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "unlockFunds",
-    "inputs": [
-      {
-        "name": "bidIDs",
-        "type": "bytes32[]",
-        "internalType": "bytes32[]"
       }
     ],
     "outputs": [],
