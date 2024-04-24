@@ -3,6 +3,7 @@ package handshake
 import (
 	"bytes"
 	"context"
+	"crypto/ecdh"
 	"errors"
 	"fmt"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p/core"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	handshakepb "github.com/primevprotocol/mev-commit/p2p/gen/go/handshake/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keysigner"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
 )
@@ -34,7 +35,7 @@ type ProviderRegistry interface {
 
 // Handshake is the handshake protocol
 type Service struct {
-	ks            keysigner.KeySigner
+	kk            keykeeper.KeyKeeper
 	peerType      p2p.PeerType
 	passcode      string
 	signer        signer.Signer
@@ -44,7 +45,7 @@ type Service struct {
 }
 
 func New(
-	ks keysigner.KeySigner,
+	kk keykeeper.KeyKeeper,
 	peerType p2p.PeerType,
 	passcode string,
 	signer signer.Signer,
@@ -52,7 +53,7 @@ func New(
 	getEthAddress func(core.PeerID) (common.Address, error),
 ) (*Service, error) {
 	s := &Service{
-		ks:            ks,
+		kk:            kk,
 		peerType:      peerType,
 		passcode:      passcode,
 		signer:        signer,
@@ -70,17 +71,6 @@ func New(
 
 func ProtocolID() protocol.ID {
 	return protocol.ID(fmt.Sprintf("/%s/%s", ProtocolName, ProtocolVersion))
-}
-
-type HandshakeReq struct {
-	PeerType string
-	Token    string
-	Sig      []byte
-}
-
-type HandshakeResp struct {
-	ObservedAddress common.Address
-	PeerType        string
 }
 
 func (h *Service) verifyReq(
@@ -119,7 +109,7 @@ func (h *Service) verifyReq(
 func (h *Service) createSignature() ([]byte, error) {
 	unsignedData := []byte(h.peerType.String() + h.passcode)
 	hash := crypto.Keccak256Hash(unsignedData)
-	sig, err := h.ks.SignHash(hash.Bytes())
+	sig, err := h.kk.SignHash(hash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -139,12 +129,22 @@ func (h *Service) setHandshakeReq() error {
 		Sig:      sig,
 	}
 
+	if h.peerType == p2p.PeerTypeProvider {
+		providerKK := h.kk.(*keykeeper.ProviderKeyKeeper)
+		ppk := keykeeper.SerializePublicKey(providerKK.GetECIESPublicKey())
+		npk := providerKK.GetNIKEPublicKey().Bytes()
+		req.Keys = &handshakepb.SerializedKeys{
+			PKEPublicKey:  ppk,
+			NIKEPublicKey: npk,
+		}
+	}
+
 	h.handshakeReq = req
 	return nil
 }
 
 func (h *Service) verifyResp(resp *handshakepb.HandshakeResp) error {
-	if !bytes.Equal(resp.ObservedAddress, h.ks.GetAddress().Bytes()) {
+	if !bytes.Equal(resp.ObservedAddress, h.kk.GetAddress().Bytes()) {
 		return errors.New("observed address mismatch")
 	}
 
@@ -160,7 +160,6 @@ func (h *Service) Handle(
 	stream p2p.Stream,
 	peerID core.PeerID,
 ) (*p2p.Peer, error) {
-
 	req := new(handshakepb.HandshakeReq)
 	err := stream.ReadMsg(ctx, req)
 	if err != nil {
@@ -196,10 +195,26 @@ func (h *Service) Handle(
 		return nil, err
 	}
 
-	return &p2p.Peer{
+	p := &p2p.Peer{
 		EthAddress: ethAddress,
 		Type:       p2p.FromString(req.PeerType),
-	}, nil
+	}
+
+	if req.PeerType == p2p.PeerTypeProvider.String() {
+		ppk, err := keykeeper.DeserializePublicKey(req.Keys.PKEPublicKey)
+		if err != nil {
+			return &p2p.Peer{}, err
+		}
+		npk, err := ecdh.P256().NewPublicKey(req.Keys.NIKEPublicKey)
+		if err != nil {
+			return &p2p.Peer{}, err
+		}
+		p.Keys = &p2p.Keys{
+			PKEPublicKey:  ppk,
+			NIKEPublicKey: npk,
+		}
+	}
+	return p, nil
 }
 
 func (h *Service) Handshake(
@@ -207,7 +222,6 @@ func (h *Service) Handshake(
 	peerID core.PeerID,
 	stream p2p.Stream,
 ) (*p2p.Peer, error) {
-
 	if err := stream.WriteMsg(ctx, h.handshakeReq); err != nil {
 		return nil, err
 	}
@@ -241,8 +255,25 @@ func (h *Service) Handshake(
 		return nil, err
 	}
 
-	return &p2p.Peer{
+	p := &p2p.Peer{
 		EthAddress: ethAddress,
 		Type:       p2p.FromString(ack.PeerType),
-	}, nil
+	}
+
+	if ack.PeerType == p2p.PeerTypeProvider.String() {
+		ppk, err := keykeeper.DeserializePublicKey(ack.Keys.PKEPublicKey)
+		if err != nil {
+			return &p2p.Peer{}, err
+		}
+		npk, err := ecdh.P256().NewPublicKey(ack.Keys.NIKEPublicKey)
+		if err != nil {
+			return &p2p.Peer{}, err
+		}
+		p.Keys = &p2p.Keys{
+			PKEPublicKey:  ppk,
+			NIKEPublicKey: npk,
+		}
+	}
+
+	return p, nil
 }
