@@ -11,7 +11,14 @@ import {EnumerableMap} from "./utils/EnumerableMap.sol";
 /// @dev This contract is meant to be deployed via a proxy contract.
 contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
+    /// @dev Index tracking changes in the set of staked (opted-in) validators.
+    /// This enables optimistic locking for batch queries.
+    uint256 public stakedValsetVersion;
+
+    /// @dev Minimum stake required for validators. 
     uint256 public minStake;
+
+    /// @dev Number of blocks required between unstake initiation and withdrawal.
     uint256 public unstakePeriodBlocks;
 
     function initialize(
@@ -68,6 +75,7 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             stakeOriginators[valBLSPubKeys[i]] = msg.sender;
             emit Staked(msg.sender, valBLSPubKeys[i], splitAmount);
         }
+        ++stakedValsetVersion;
     }
 
     function unstake(bytes[] calldata blsPubKeys) external nonReentrant {
@@ -91,6 +99,7 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
             emit Unstaked(msg.sender, blsPubKeys[i], balance);
         }
+        ++stakedValsetVersion;
     }
 
     function withdraw(bytes[] calldata blsPubKeys) external nonReentrant {
@@ -112,6 +121,7 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
             emit StakeWithdrawn(msg.sender, blsPubKeys[i], balance);
         }
+        // No need to increment stakedValsetVersion here, as stakedBalances map is not modified.
     }
 
     function _validateBLSPubKey(bytes calldata valBLSPubKey) internal pure {
@@ -139,13 +149,14 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         return stakedBalances.length();
     }
 
-    /// @dev Returns an array of staked validator BLS pubkeys within the specified range.
-    /// For now we leave out a function for obtaining all validator pubkeys at once, to prevent possible DOS scenarios.
-    /// Insead we require users to query in batches, with knowledge from getNumberOfStakedValidators().
+    /// @dev Returns an array of staked validator BLS pubkeys within the specified range. Ordering is unspecified.
+    /// We require users to query in batches, with knowledge from getNumberOfStakedValidators().
     ///
-    /// TODO: Practical race conditions between user and chain, caused by state transitions during batch queries, 
-    /// need to be explored further.
-    function getStakedValidators(uint256 start, uint256 end) external view returns (bytes[] memory) {
+    /// @return set of staked validator BLS pubkeys.
+    /// @return stakedValsetVersion uint version of the staked valset at the time of query.
+    /// This enables optimistic locking during batch queries. If all queries in a batch return the same stakedValsetVersion,
+    /// the aggregate staked valset is valid. Otherwise handling is left to the user.
+    function getStakedValidators(uint256 start, uint256 end) external view returns (bytes[] memory, uint256) {
         require(start < end, "Invalid range");
         require(end <= stakedBalances.length(), "Range exceeds staked balances length");
         require(end - start <= 1000, "Range must be less than or equal to 1000");
@@ -155,6 +166,6 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             (bytes memory key,) = stakedBalances.at(i);
             keys[i - start] = key;
         }
-        return keys;
+        return (keys, stakedValsetVersion);
     }
 }
