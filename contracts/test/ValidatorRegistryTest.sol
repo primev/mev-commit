@@ -237,7 +237,8 @@ contract ValidatorRegistryTest is Test {
     function testGetStakedValidators() public {
         testMultiStake();
 
-        bytes[] memory validators = validatorRegistry.getStakedValidators(0, 2);
+        (bytes[] memory validators, uint256 stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 2);
+        assertEq(stakedValsetVersion, 1);
         assertEq(validators.length, 2);
         assertEq(validatorRegistry.getNumberOfStakedValidators(), 2);
         assertEq(validators[0], user1BLSKey);
@@ -257,14 +258,16 @@ contract ValidatorRegistryTest is Test {
             vm.stopPrank();
         }
         
-        validators = validatorRegistry.getStakedValidators(0, 102);
+        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 102);
+        assertEq(stakedValsetVersion, 1 + 100);
         assertEq(validators.length, 102);
         assertEq(validatorRegistry.getNumberOfStakedValidators(), 102);
 
         assertEq(validators[0], user1BLSKey);
         assertEq(validators[1], user2BLSKey);
 
-        validators = validatorRegistry.getStakedValidators(40, 60);
+        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 20);
+        assertEq(stakedValsetVersion, 1 + 100);
         assertEq(validators.length, 20);
 
         for (uint256 i = 0; i < 20; i++) {
@@ -277,8 +280,9 @@ contract ValidatorRegistryTest is Test {
 
         uint256 numStakedValidators = validatorRegistry.getNumberOfStakedValidators();
         assertEq(numStakedValidators, 2);
-        bytes[] memory validators = validatorRegistry.getStakedValidators(0, numStakedValidators);
+        (bytes[] memory validators, uint256 stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
         assertEq(validators.length, 2);
+        assertEq(stakedValsetVersion, 1);
 
         bytes[] memory keys = new bytes[](1);
         keys[0] = user1BLSKey;
@@ -292,8 +296,9 @@ contract ValidatorRegistryTest is Test {
 
         numStakedValidators = validatorRegistry.getNumberOfStakedValidators();
         assertEq(numStakedValidators, 1);
-        validators = validatorRegistry.getStakedValidators(0, numStakedValidators);
+        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
         assertEq(validators.length, 1);
+        assertEq(stakedValsetVersion, 2);
 
         vm.roll(500);
 
@@ -306,6 +311,9 @@ contract ValidatorRegistryTest is Test {
         vm.stopPrank();
         numStakedValidators = validatorRegistry.getNumberOfStakedValidators();
         assertEq(numStakedValidators, 1);
+        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
+        assertEq(validators.length, 1);
+        assertEq(stakedValsetVersion, 2); 
     }
 
     // To sanity check that relevant state for an account is reset s.t. they could stake again in future
