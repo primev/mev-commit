@@ -52,7 +52,8 @@ services:
     volumes:
       - ./integrationtest/keys/provider1:/key
     networks:
-      - primev_net
+      primev_net:
+        ipv4_address: 172.29.18.3
     ports:
       - "8081:13523"
     env_file:
@@ -249,7 +250,8 @@ services:
     volumes:
       - ./integrationtest/keys/bidder1:/key
     networks:
-      - primev_net
+      primev_net:
+        ipv4_address: 172.29.18.4
     ports:
       - "8087:13523"
     env_file:

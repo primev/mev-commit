@@ -1,0 +1,354 @@
+---
+- name: Initialize and Configure Cluster
+  hosts: all
+  become: yes
+  remote_user: ubuntu
+  gather_facts: yes
+
+  vars:
+    env: "{{ hostvars[groups['local'][0]].environment | default('undefined') }}"
+    nomad_server_ip: "{{ (hostvars[groups['nomad_servers'][0]]['ansible_default_ipv4']['address'] if groups['nomad_servers'] | default([]) | length > 0 else '127.0.0.1') }}"
+    nomad_clients_defined: "{{ groups['nomad_clients'] | length > 0 }}"
+    nomad_servers_defined: "{{ groups['nomad_servers'] | length > 0 }}"
+    vault_init_file: "~/.vault_init.json"
+    vault_address: "https://127.0.0.1:8200"
+    vault_kv_engine_path: "secret"
+    vault_secret_path: "mev-commit"
+
+  vars_prompt:
+    - name: aws_access_key
+      prompt: "Enter your AWS Access Key ID"
+      private: no
+
+    - name: aws_secret_key
+      prompt: "Enter your AWS Secret Access Key"
+      private: yes
+
+    - name: aws_region
+      prompt: "Enter your Default region name"
+      private: no
+
+  tasks:
+    - name: Check | Environment variable is set
+      fail:
+        msg: "The 'environment' variable is not set for the host in the 'local' group."
+      when: >
+        env == 'undefined' or
+        env == ''
+
+    - name: Check | AWS credentials
+      fail:
+        msg: "All fields are required - AWS Access Key ID, AWS Secret Access Key, and AWS Region name cannot be empty."
+      when:
+        - env in ['mainnet', 'testnet']
+        - (aws_access_key | default('') | trim == '') or
+          (aws_secret_key | default('') | trim == '') or
+          (aws_region | default('') | trim == '')
+
+    - name: Check | Verify the operating system
+      assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: "This playbook only supports Debian systems."
+        success_msg: "Operating system is supported."
+
+    - name: Configuration | Determine the architecture of the target system
+      ansible.builtin.set_fact:
+        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+    - name: Dependency | Install common utility packages and dependencies
+      ansible.builtin.apt:
+        name:
+          - tree
+          - unzip
+          - apt-transport-https
+          - curl
+          - gnupg
+          - iptables
+          - jq
+          - git
+          - python3
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Dependency | Install Python dependencies for Ansible collections
+      ansible.builtin.pip:
+        name:
+          - hvac
+          - boto3
+          - botocore
+        state: present
+      become: yes
+      remote_user: ubuntu
+
+    - name: Dependency | Add DataDog repository key
+      ansible.builtin.apt_key:
+        url: "https://keys.datadoghq.com/DATADOG_APT_KEY_CURRENT.public"
+        state: present
+        keyring: /usr/share/keyrings/datadog-archive-keyring.gpg
+
+    - name: Dependency | Add DataDog repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/datadog-archive-keyring.gpg] https://apt.datadoghq.com/ stable 7"
+        state: present
+        filename: datadog.list
+
+    - name: Dependency | Install DataDog Agent
+      ansible.builtin.apt:
+        name:
+          - datadog-agent
+          - datadog-signing-keys
+        state: present
+        update_cache: yes
+
+    - name: Dependency | Import the PostgreSQL repository key
+      ansible.builtin.apt_key:
+        url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+        state: present
+
+    - name: Dependency | Add PostgreSQL repository
+      ansible.builtin.apt_repository:
+        repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+        state: present
+        filename: pgdg.list
+
+    - name: Dependency | Install PostgreSQL
+      ansible.builtin.apt:
+        name: postgresql-15
+        state: present
+        update_cache: yes
+
+    - name: System | Stop and disable PostgreSQL service
+      ansible.builtin.systemd:
+        name: postgresql
+        state: stopped
+        enabled: no
+
+    - name: Dependency | Add HashiCorp GPG key
+      ansible.builtin.apt_key:
+        url: https://apt.releases.hashicorp.com/gpg
+        keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+    - name: Dependency | Add HashiCorp repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+        filename: hashicorp
+        state: present
+        update_cache: yes
+
+    - name: Dependency | Install Vault
+      ansible.builtin.apt:
+        name: vault
+        state: present
+
+    - name: Configuration | Deploy Vault configuration file
+      ansible.builtin.template:
+        src: "vault.hcl.j2"
+        dest: "/etc/vault.d/vault.hcl"
+        owner: vault
+        group: vault
+        mode: '0644'
+
+    - name: Configuration | Deploy Vault env file
+      ansible.builtin.template:
+        src: "vault.env.j2"
+        dest: "/etc/vault.d/vault.env"
+        owner: vault
+        group: vault
+        mode: '0644'
+
+    - name: System | Restart and enable Vault service
+      ansible.builtin.systemd:
+        name: vault
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
+
+    - name: Configuration | Retrieve Vault status
+      ansible.builtin.uri:
+        url: "{{ vault_address }}/v1/sys/init"
+        method: GET
+        return_content: yes
+        validate_certs: no
+      register: vault_status
+
+    - name: Configuration | Initialize Vault if not already initialized
+      ansible.builtin.uri:
+        url: "{{ vault_address }}/v1/sys/init"
+        method: PUT
+        body_format: json
+        body: >
+          {
+            "secret_shares": 1,
+            "secret_threshold": 1
+          }
+        headers:
+          Content-Type: "application/json"
+        status_code: 200
+        return_content: yes
+        validate_certs: no
+      register: vault_init
+      when: vault_status.json.initialized == false
+      no_log: true
+
+    - name: Configuration | Store Vault unseal key and root token
+      ansible.builtin.copy:
+        content: "{{ vault_init.json }}"
+        dest: "{{ vault_init_file }}"
+        mode: '0400'
+      when: vault_status.json.initialized == false
+      become: true
+      become_user: ubuntu
+      no_log: true
+
+    - name: Configuration | Retrieve Vault seal status
+      ansible.builtin.uri:
+        url: "{{ vault_address }}/v1/sys/seal-status"
+        method: GET
+        return_content: yes
+        validate_certs: no
+      register: vault_seal_status
+
+    - name: Configuration | Load vault initialization file
+      ansible.builtin.set_fact:
+        vault_init: "{{ vault_init | combine({'json': (lookup('file', vault_init_file) | from_json)}) }}"
+      when:
+        - vault_status.json.initialized == true
+        - vault_seal_status.json.sealed == true
+
+    - name: Configuration | Unseal Vault
+      ansible.builtin.uri:
+        url: "{{ vault_address }}/v1/sys/unseal"
+        method: PUT
+        body_format: json
+        body: >
+          {
+            "key": "{{ vault_init.json.keys_base64[0] }}"
+          }
+        headers:
+          Content-Type: "application/json"
+          X-Vault-Token: "{{ vault_init.json.root_token }}"
+        status_code: 200
+        return_content: yes
+        validate_certs: no
+      register: unseal_result
+      until: unseal_result.json.sealed == false
+      retries: 5
+      delay: 10
+      when: vault_seal_status.json.sealed == true
+      no_log: true
+
+    - name: Configuration | Retrieve secrets
+      ansible.builtin.set_fact:
+        mev_commit_secrets: >-
+          {{
+          lookup(
+          'amazon.aws.aws_secret',
+          env ~ '/' ~ vault_secret_path,
+          region=aws_region,
+          access_key=aws_access_key,
+          secret_key=aws_secret_key
+          ) if env in ['mainnet', 'testnet']
+          else lookup('file', 'mev-commit-secrets.json') | from_json
+          }}
+      when: unseal_result.json.sealed == false
+      no_log: true
+
+    - name: Configuration | Enable KV secrets engine
+      ansible.builtin.uri:
+        url: "{{ vault_address }}/v1/sys/mounts/{{ vault_kv_engine_path }}"
+        method: POST
+        body_format: json
+        body: >
+          {
+            "type": "kv",
+            "options": {
+              "version": "2"
+            }
+          }
+        headers:
+          X-Vault-Token: "{{ vault_init.json.root_token }}"
+        status_code: 204
+        validate_certs: no
+      when:
+        - vault_status.json.initialized == false
+        - unseal_result.json.sealed == false
+
+    - name: Configuration | Write the retrieved secret into HashiCorp Vault
+      ansible.builtin.uri:
+        url: "{{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}"
+        method: POST
+        body_format: json
+        headers:
+          X-Vault-Token: "{{ vault_init.json.root_token }}"
+          Content-Type: "application/json"
+        body: "{{ {'data': mev_commit_secrets} | to_json }}"
+        status_code: [200, 204]
+        validate_certs: no
+      when: unseal_result.json.sealed == false
+      no_log: true
+
+    - name: Dependency | Install Nomad
+      ansible.builtin.apt:
+        name: nomad
+        state: present
+
+    - name: Dependency | Download CNI plugins package
+      ansible.builtin.get_url:
+        url: "https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-{{ system_arch }}-v1.4.0.tgz"
+        dest: "/tmp/cni-plugins.tgz"
+
+    - name: Dependency | Ensure /opt/cni/bin directory exists
+      ansible.builtin.file:
+        path: "/opt/cni/bin"
+        state: directory
+
+    - name: Dependency | Extract the CNI plugins package
+      ansible.builtin.unarchive:
+        src: "/tmp/cni-plugins.tgz"
+        dest: "/opt/cni/bin"
+        remote_src: yes
+        extra_opts: [--strip-components=1]
+
+    - name: Configuration | Configure bridge network settings
+      ansible.builtin.copy:
+        dest: "/etc/sysctl.d/bridge.conf"
+        content: |
+          net.bridge.bridge-nf-call-arptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.bridge.bridge-nf-call-iptables = 1
+        mode: '0644'
+      notify:
+        - reload sysctl
+
+    - name: Configuration | Deploy Nomad configuration file
+      ansible.builtin.template:
+        src: "nomad.hcl.j2"
+        dest: "/etc/nomad.d/nomad.hcl"
+        owner: nomad
+        group: nomad
+        mode: '0644'
+
+    - name: Configuration | Deploy Nomad env file
+      ansible.builtin.template:
+        src: "nomad.env.j2"
+        dest: "/etc/nomad.d/nomad.env"
+        owner: nomad
+        group: nomad
+        mode: '0644'
+      vars:
+        vault_token: "{{ vault_init.json.root_token }}"
+      no_log: true
+
+    - name: System | Restart and enable Nomad service
+      ansible.builtin.systemd:
+        name: nomad
+        state: restarted
+        enabled: yes
+        daemon_reload: yes
+
+  handlers:
+    - name: reload sysctl
+      ansible.builtin.command:
+        cmd: sysctl --system

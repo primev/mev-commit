@@ -1,0 +1,13 @@
+path = "nomad/jobs"
+namespace = "default"
+items {
+  ENVIRONMENT = "devnet"
+  DATA_DOG_API_KEY = "<insert-dd-key>"
+  DATA_DOG_ENV_TAG = "devnet"
+  DATA_DOG_VERSION_TAG = "<your-unique-tag>"
+  MEV_COMMIT_SERVER_TLS_CERTIFICATE_FILE = "/etc/ssl/certs/mev-commit_devnet.mev-commit.primev.xyz.crt"
+  MEV_COMMIT_SERVER_TLS_PRIVATE_KEY_FILE = "/etc/ssl/private/mev-commit_devnet.mev-commit.primev.xyz.key"
+  MEV_COMMIT_CA_TLS_CERTIFICATE_FILE = "/usr/local/share/ca-certificates/ca-mev-commit_devnet.mev-commit.primev.xyz.crt"
+  MEV_COMMIT_GETH_MEMBER_NODE_IP_ADDRESS_POOL = "<insert-server-ip-addresses>"
+  MEV_COMMIT_PROVIDER_NODE1_NAT_ADDR = "<insert-server-ip-address>"
+}

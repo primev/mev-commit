@@ -1,4 +1,4 @@
-name: goreleaser
+name: mev-commit-releaser
 
 on:
   push:
@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [ p2p, oracle, bridge/standard/bridge-v1, external/geth ]
+        module: [ bridge/standard/bridge-v1, external/geth, oracle, p2p ]
     steps:
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        run: echo "flags=--snapshot" >> $GITHUB_ENV
+        run: echo "FLAGS=--snapshot" >> $GITHUB_ENV
 
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -51,9 +51,8 @@ jobs:
       - name: Release
         uses: goreleaser/goreleaser-action@v5
         with:
-          distribution: goreleaser
           version: latest
-          args: release --clean ${{ env.flags }} --config=./${{ matrix.module }}/.goreleaser.yml
+          args: release --config=./${{ matrix.module }}/.goreleaser.yml --clean ${{ env.FLAGS }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

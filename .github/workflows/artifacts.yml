@@ -1,0 +1,110 @@
+name: mev-commit-artifacts
+
+on:
+  workflow_dispatch
+
+jobs:
+  upload_contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Create Artifact
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION_TAG="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION_TAG=$(echo "${GITHUB_SHA:0:7}")
+          fi
+          ARTIFACT_NAME="contracts_${VERSION_TAG}.tar.gz"
+          echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
+          tar -czvf ${ARTIFACT_NAME} ./contracts
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: 'us-east-2'
+
+      - name: Upload Artifact to AWS S3
+        run: |
+          aws s3 cp ${{ env.ARTIFACT_NAME }} s3://primev-infrastructure-artifacts
+
+      - name: Set Artifact Retention
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          aws s3api put-object-tagging \
+            --bucket primev-infrastructure-artifacts \
+            --key "${{ env.ARTIFACT_NAME }}" \
+            --tagging 'TagSet=[{Key=AutoDelete,Value=true}]'
+
+  upload_binaries:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [ infrastructure/tools/keystore-generator,  p2p/integrationtest/bidder, p2p/integrationtest/provider, bridge/standard/bridge-v1, external/geth, oracle, p2p]
+    steps:
+      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: echo "FLAGS=--snapshot" >> $GITHUB_ENV
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Setup Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            **/go.work.sum
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+          check-latest: true
+          cache-dependency-path: go.work.sum
+
+      - name: Build Artifacts
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: release --config=./${{ matrix.module }}/.goreleaser.yml --clean ${{ env.FLAGS }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: 'us-east-2'
+
+      - name: Upload Artifacts to AWS S3
+        run: |
+          aws s3 cp ./dist/ s3://primev-infrastructure-artifacts \
+            --recursive \
+            --exclude "*" \
+            --include "*.gz" \
+            --include "*.txt" \
+
+      - name: Set Artifacts Retention
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          ls -1 ./dist | grep '\.gz\|\.txt$' | while read -r file; do
+            echo "Tagging uploaded file $file for auto delete"
+            aws s3api put-object-tagging \
+              --bucket primev-infrastructure-artifacts \
+              --key "$file" \
+              --tagging 'TagSet=[{Key=AutoDelete,Value=true}]'
+          done

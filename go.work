@@ -1,6 +1,7 @@
 go 1.22
 
 use (
+	./infrastructure/tools/keystore-generator
 	./bridge/standard/bridge-v1
 	./contracts-abi
 	./external/geth
