@@ -1,0 +1,114 @@
+---
+- name: Deploy Nomad Jobs
+  hosts: nomad_clients
+  vars:
+    env: "devnet"
+    version: "cb442cb"
+    datacenter: "dc1"
+    destination: "{{ ansible_env.HOME }}/{{ env }}"
+    jobs:
+      - name: mev-commit-geth-bootnode1
+        template: mev-commit-geth.nomad.j2
+        count: 1
+        ports:
+          - metrics:
+              to: 6060
+            http:
+              static: 8545
+              to: 8545
+            p2p:
+              to: 30301
+        env:
+          ip: 0.0.0.0
+          public-ip: 0.0.0.0
+          net-restrict: 0.0.0.0/0
+          type: bootnode
+
+      - name: mev-commit-geth-signer-node1
+        template: mev-commit-geth.nomad.j2
+        count: 1
+        ports:
+          - metrics:
+              to: 6060
+            p2p:
+              to: 30311
+        env:
+          ip: 0.0.0.0
+          net-restrict: 0.0.0.0/0
+          type: signer
+          sync-mode: snap
+          block-address: "0xd9cd8E5DE6d55f796D980B818D350C0746C25b97"
+
+      - name: mev-commit-geth-signer-node2
+        template: mev-commit-geth.nomad.j2
+        count: 1
+        ports:
+          - metrics:
+              to: 6060
+            p2p:
+              to: 30311
+        env:
+          ip: 0.0.0.0
+          net-restrict: 0.0.0.0/0
+          type: signer
+          sync-mode: snap
+          block-address: "0x788EBABe5c3dD422Ef92Ca6714A69e2eabcE1Ee4"
+
+      - name: mev-commit-geth-member-node
+        template: mev-commit-geth.nomad.j2
+        count: 1
+        ports:
+          - metrics:
+              to: 6060
+            http:
+              static: 8555
+              to: 8545
+            ws:
+              static: 8556
+              to: 8546
+            p2p:
+              to: 30311
+        env:
+          ip: 0.0.0.0
+          public-ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+          net-restrict: 0.0.0.0/0
+          type: member
+          sync-mode: snap
+
+  tasks:
+    - name: Check | Ensure destination directory exists
+      ansible.builtin.file:
+        path: "{{ destination }}"
+        state: directory
+        mode: '0744'
+        recurse: yes
+
+    - name: Generate | Nomad scripts
+      ansible.builtin.template:
+        src: "templates/nomad/{{ item.template }}"
+        dest: "{{ destination }}/{{ item.name }}.nomad"
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        job: "{{ item }}"
+
+    - name: Load | Nomad scripts
+      ansible.builtin.slurp:
+        src: "{{ destination }}/{{ item.name }}.nomad"
+      register: files
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Deploy | Nomad scripts
+      community.general.nomad_job:
+        host: "{{ ansible_host }}"
+        state: present
+        content: "{{ item.content | b64decode }}"
+        validate_certs: no
+        use_ssl: no
+        timeout: 120
+      loop: "{{ files.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
