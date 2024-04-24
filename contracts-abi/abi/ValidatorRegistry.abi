@@ -6,6 +6,25 @@
   },
   {
     "type": "function",
+    "name": "getBlocksTillWithdrawAllowed",
+    "inputs": [
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getNumberOfStakedValidators",
     "inputs": [],
     "outputs": [

@@ -114,10 +114,14 @@ contract DeployValidatorRegistry is Script {
     function run() external {
         vm.startBroadcast();
 
+        // 7000 blocks @ 200ms per block = 23.3 min. This allows two L1 epochs (finalization time) + settlement buffer, 
+        // to pass between validator unstake initiation and withdrawal.
+        uint256 unstakePeriodBlocks = 7000;
+
         // Can later be upgraded with https://docs.openzeppelin.com/upgrades-plugins/1.x/api-foundry-upgrades#Upgrades-upgradeProxy-address-string-bytes-
         address proxy = Upgrades.deployUUPSProxy(
             "ValidatorRegistry.sol",
-            abi.encodeCall(ValidatorRegistry.initialize, (3 ether, 64, msg.sender))
+            abi.encodeCall(ValidatorRegistry.initialize, (3 ether, unstakePeriodBlocks, msg.sender))
         );
         console.log("ValidatorRegistry UUPS proxy deployed to:", address(proxy));
 

@@ -29,15 +29,32 @@ abstract contract ExampleScript is Script {
             console.log("--------------------");
         }
 
-        uint256 numStakedValidators = _validatorRegistry.getNumberOfStakedValidators();
+        (uint256 numStakedValidators, uint256 stakedValsetVersion) = _validatorRegistry.getNumberOfStakedValidators();
         console.log("Num Staked Validators:", numStakedValidators);
+        console.log("Staked Valset Version from len query:", stakedValsetVersion);
         if (numStakedValidators == 0) {
             return;
         }
-        bytes[] memory vals = _validatorRegistry.getStakedValidators(0, numStakedValidators);
+        bytes[] memory vals;
+        (vals, stakedValsetVersion) = _validatorRegistry.getStakedValidators(0, numStakedValidators);
         for (uint i = 0; i < vals.length; i++) {
             console.log("Staked validator from batch query: ");
             console.logBytes(vals[i]);
+        }
+        console.log("Staked Valset Version from getStakedValidators query:", stakedValsetVersion);
+    }
+
+    function checkWithdrawal(bytes[] memory blsKeys) public view {
+        console.log("--------------------");
+        console.log("Checking Withdrawal related state...");
+        console.log("--------------------");
+        for (uint i = 0; i < blsKeys.length; i++) {
+            uint256 blocksTillWithdrawAllowed = _validatorRegistry.getBlocksTillWithdrawAllowed(blsKeys[i]);
+            console.log("--------------------");
+            console.log("BLS Key: ");
+            console.logBytes(blsKeys[i]);
+            console.log("Blocks till Withdraw Allowed:", blocksTillWithdrawAllowed);
+            console.log("--------------------");
         }
     }
 }
@@ -87,6 +104,9 @@ contract UnstakeExample is ExampleScript {
         checkStaking(validators);
 
         console.log("Balance of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266:", defaultEOA.balance);
+
+        checkWithdrawal(validators);
+
         vm.stopBroadcast();
     }
 }
@@ -104,6 +124,8 @@ contract WithdrawExample is ExampleScript {
         validators[2] = hex"a840634f574c20e9a35ff80be19309dfd3ace623a093f114e7f44555e3035725b4d1d59b3ce0b2f169871fbe7abc448a";
 
         checkStaking(validators);
+
+        checkWithdrawal(validators);
 
         _validatorRegistry.withdraw(validators);
         console.log("Withdraw initiated");

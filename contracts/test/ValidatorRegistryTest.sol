@@ -325,6 +325,58 @@ contract ValidatorRegistryTest is Test {
         assertEq(stakedValsetVersion, 2); 
     }
 
+    function testGetBlocksTillWithdrawAllowed() public {
+        testSelfStake();
+
+        vm.expectRevert("Unstake must be initiated to check withdrawal eligibility");
+        validatorRegistry.getBlocksTillWithdrawAllowed(user2BLSKey);
+
+        assertEq(block.number, 1);
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.startPrank(user1);
+        emit Unstaked(user1, user1BLSKey, MIN_STAKE);
+        validatorRegistry.unstake(validators);
+        vm.stopPrank();
+
+        uint256 blocksTillWithdraw = uint256(validatorRegistry.getBlocksTillWithdrawAllowed(user1BLSKey));
+        assertEq(blocksTillWithdraw, 10);
+
+        vm.roll(6);
+        assertEq(block.number, 6);
+
+        blocksTillWithdraw = uint256(validatorRegistry.getBlocksTillWithdrawAllowed(user1BLSKey));
+        assertEq(blocksTillWithdraw, 5);
+
+        vm.roll(10);
+        assertEq(block.number, 10);
+
+        blocksTillWithdraw = uint256(validatorRegistry.getBlocksTillWithdrawAllowed(user1BLSKey));
+        assertEq(blocksTillWithdraw, 1);
+
+        vm.startPrank(user1);
+        vm.expectRevert("withdrawal not allowed yet. Blocks requirement not met.");
+        validatorRegistry.withdraw(validators);
+        vm.stopPrank();
+
+        vm.roll(11);
+        assertEq(block.number, 11);
+
+        blocksTillWithdraw = uint256(validatorRegistry.getBlocksTillWithdrawAllowed(user1BLSKey));
+        assertEq(blocksTillWithdraw, 0);
+
+        vm.roll(17);
+        blocksTillWithdraw = uint256(validatorRegistry.getBlocksTillWithdrawAllowed(user1BLSKey));
+        assertEq(blocksTillWithdraw, 0);
+
+        vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        validatorRegistry.withdraw(validators);
+        vm.stopPrank();
+    }
+
     // To sanity check that relevant state for an account is reset s.t. they could stake again in future
     function testStakingCycle() public {
         testUnstakeWaitThenWithdraw();
