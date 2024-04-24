@@ -77,13 +77,14 @@ func main() {
 		log.Fatalf("Failed to read public keys from file: %v", err)
 	}
 
-	// Split into batches of 50
+	// Batch sizes of 20 are heuristically near the max size given gas contraints
+	batchSize := 20
 	type Batch struct {
 		pubKeys [][]byte
 	}
 	batches := make([]Batch, 0)
-	for i := 0; i < len(pksAsBytes); i += 50 {
-		end := i + 50
+	for i := 0; i < len(pksAsBytes); i += batchSize {
+		end := i + batchSize
 		if end > len(pksAsBytes) {
 			end = len(pksAsBytes)
 		}
@@ -91,13 +92,16 @@ func main() {
 	}
 
 	for idx, batch := range batches {
-
 		for _, pk := range batch.pubKeys {
 			amount, err := vrc.GetStakedAmount(nil, pk)
 			if err != nil {
 				log.Fatalf("Failed to get staked amount: %v", err)
 			}
-			fmt.Println("Initial staked amount for ", common.Bytes2Hex(pk), " is: ", amount)
+			unstakingAmount, err := vrc.GetUnstakingAmount(nil, pk)
+			if err != nil {
+				log.Fatalf("Failed to get unstaking amount: %v", err)
+			}
+			fmt.Println(common.Bytes2Hex(pk), " initially has staked amount: ", amount, " and unstaking amount: ", unstakingAmount)
 		}
 
 		opts, err := ec.CreateTransactOpts(context.Background(), privateKey, chainID)
@@ -105,42 +109,85 @@ func main() {
 			log.Fatalf("Failed to create transact opts: %v", err)
 		}
 
-		// 3.1 ETH * 50 = 155 ETH
-		totalAmount := new(big.Int)
-		totalAmount.SetString("155000000000000000000", 10)
+		amountPerValidator := new(big.Int)
+		amountPerValidator.SetString("3100000000000000000", 10)
+		totalAmount := new(big.Int).Mul(amountPerValidator, big.NewInt(int64(batchSize)))
 		opts.Value = totalAmount
 
 		submitTx := func(
 			ctx context.Context,
 			opts *bind.TransactOpts,
 		) (*types.Transaction, error) {
+
 			tx, err := vrt.Stake(opts, batch.pubKeys)
 			if err != nil {
-				return nil, fmt.Errorf("failed to self stake: %w", err)
+				return nil, fmt.Errorf("failed to stake: %w", err)
 			}
-			fmt.Println("Split stake sent. Transaction hash: ", tx.Hash().Hex())
+			fmt.Println("Stake tx sent. Transaction hash: ", tx.Hash().Hex())
 			return tx, nil
 		}
 
 		receipt, err := ec.WaitMinedWithRetry(context.Background(), opts, submitTx)
 		if err != nil {
-			log.Fatalf("Failed to wait for split stake tx to be mined: %v", err)
+			log.Fatalf("Failed to wait for stake tx to be mined: %v", err)
 		}
-		fmt.Println("Split stake included in block: ", receipt.BlockNumber)
+		fmt.Println("Stake tx included in block: ", receipt.BlockNumber)
+
+		if receipt.Status == 0 {
+			fmt.Println("Stake tx included, but failed. Exiting...")
+			os.Exit(1)
+		}
 
 		for _, pk := range batch.pubKeys {
 			amount, err := vrc.GetStakedAmount(nil, pk)
 			if err != nil {
 				log.Fatalf("Failed to get staked amount: %v", err)
 			}
-			fmt.Println("Final staked amount for ", common.Bytes2Hex(pk), " is: ", amount)
+			unstakingAmount, err := vrc.GetUnstakingAmount(nil, pk)
+			if err != nil {
+				log.Fatalf("Failed to get unstaking amount: %v", err)
+			}
+			fmt.Println(common.Bytes2Hex(pk), " now has staked amount: ", amount, " and unstaking amount: ", unstakingAmount)
 		}
 		fmt.Println("-------------------")
 		fmt.Printf("Batch %d completed\n", idx+1)
 		fmt.Println("-------------------")
 	}
 
-	fmt.Println("All batches completed!")
+	fmt.Println("All staking batches completed!")
+
+	fmt.Println("-------------------")
+	fmt.Println("Querying staked validators")
+	fmt.Println("-------------------")
+
+	numStakedVals, valsetVersion, err := vrc.GetNumberOfStakedValidators(nil)
+	if err != nil {
+		log.Fatalf("Failed to get number of staked validators: %v", err)
+	}
+	fmt.Println("Number of staked validators: ", numStakedVals)
+	fmt.Println("Valset version: ", valsetVersion)
+
+	aggregatedValset := make([][]byte, 0)
+	numStakedValsInt := int(numStakedVals.Int64())
+	for i := 0; i < numStakedValsInt; i += 10 {
+		end := i + 10
+		if end > numStakedValsInt {
+			end = numStakedValsInt
+		}
+		vals, valsetVer, err := vrc.GetStakedValidators(nil, big.NewInt(int64(i)), big.NewInt(int64(end)))
+		if err != nil {
+			log.Fatalf("Failed to get staked validators: %v", err)
+		}
+		if valsetVer.Cmp(valsetVersion) != 0 {
+			log.Fatalf("Valset version mismatch from len query: %v != %v", valsetVer, valsetVersion)
+		}
+		aggregatedValset = append(aggregatedValset, vals...)
+	}
+	fmt.Println("Aggregated valset length: ", len(aggregatedValset))
+	fmt.Println("Aggregated valset: ")
+	for _, pk := range aggregatedValset {
+		fmt.Println(common.Bytes2Hex(pk))
+	}
 }
 
 func readBLSPublicKeysFromFile(filePath string) ([][]byte, error) {
