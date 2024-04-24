@@ -240,7 +240,10 @@ contract ValidatorRegistryTest is Test {
         (bytes[] memory validators, uint256 stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 2);
         assertEq(stakedValsetVersion, 1);
         assertEq(validators.length, 2);
-        assertEq(validatorRegistry.getNumberOfStakedValidators(), 2);
+        uint256 numStakedValidators;
+        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
+        assertEq(stakedValsetVersion, 1);
+        assertEq(numStakedValidators, 2);
         assertEq(validators[0], user1BLSKey);
         assertEq(validators[1], user2BLSKey);
 
@@ -261,7 +264,9 @@ contract ValidatorRegistryTest is Test {
         (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 102);
         assertEq(stakedValsetVersion, 1 + 100);
         assertEq(validators.length, 102);
-        assertEq(validatorRegistry.getNumberOfStakedValidators(), 102);
+        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
+        assertEq(stakedValsetVersion, 1 + 100);
+        assertEq(numStakedValidators, 102);
 
         assertEq(validators[0], user1BLSKey);
         assertEq(validators[1], user2BLSKey);
@@ -278,9 +283,11 @@ contract ValidatorRegistryTest is Test {
     function testGetStakedValidatorsWithUnstakingInProgress() public {
         testMultiStake();
 
-        uint256 numStakedValidators = validatorRegistry.getNumberOfStakedValidators();
+        (uint256 numStakedValidators, uint256 stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
         assertEq(numStakedValidators, 2);
-        (bytes[] memory validators, uint256 stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
+        assertEq(stakedValsetVersion, 1);
+        bytes[] memory validators;
+        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
         assertEq(validators.length, 2);
         assertEq(stakedValsetVersion, 1);
 
@@ -294,8 +301,9 @@ contract ValidatorRegistryTest is Test {
         assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) > 0);
         vm.stopPrank();
 
-        numStakedValidators = validatorRegistry.getNumberOfStakedValidators();
+        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
         assertEq(numStakedValidators, 1);
+        assertEq(stakedValsetVersion, 2);
         (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
         assertEq(validators.length, 1);
         assertEq(stakedValsetVersion, 2);
@@ -309,8 +317,9 @@ contract ValidatorRegistryTest is Test {
         keys[0] = user1BLSKey;
         validatorRegistry.withdraw(keys);
         vm.stopPrank();
-        numStakedValidators = validatorRegistry.getNumberOfStakedValidators();
+        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
         assertEq(numStakedValidators, 1);
+        assertEq(stakedValsetVersion, 2);
         (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
         assertEq(validators.length, 1);
         assertEq(stakedValsetVersion, 2); 
