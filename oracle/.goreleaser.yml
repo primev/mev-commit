@@ -1,5 +1,7 @@
 version: 1
 
+project_name: mev-commit-oracle
+
 builds:
   - env:
       - CGO_ENABLED=0
@@ -9,7 +11,7 @@ builds:
       - amd64
     dir: ./oracle
     main: ./cmd
-    binary: mev-commit-oracle
+    binary: "{{ .ProjectName }}"
     flags:
       - -v
       - -trimpath
@@ -27,7 +29,7 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}
-      {{ end }}
+      {{- end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
@@ -35,7 +37,7 @@ archives:
 
 checksum:
   name_template: >-
-    mev-commit-oracle_
+    {{ .ProjectName }}_
     {{- if .IsSnapshot }}{{ .ShortCommit }}
     {{- else }}{{ .Version }}
     {{- end -}}

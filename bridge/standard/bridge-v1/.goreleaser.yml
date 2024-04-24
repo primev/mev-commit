@@ -1,5 +1,7 @@
 version: 1
 
+project_name: mev-commit-bridge
+
 builds:
   - id: relayer
     env:
@@ -40,7 +42,7 @@ archives:
       - relayer
     format: tar.gz
     name_template: >-
-      mev-commit-bridge-
+      {{ .ProjectName }}-
       {{- .Binary }}_
       {{- if .IsSnapshot }}{{ .ShortCommit }}_
       {{- else }}{{ .Version }}_
@@ -49,7 +51,7 @@ archives:
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}
-      {{ end }}
+      {{- end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
       - goos: windows
@@ -59,7 +61,7 @@ archives:
       - user_cli
     format: tar.gz
     name_template: >-
-      mev-commit-bridge-
+      {{ .ProjectName }}-
       {{- .Binary }}_
       {{- if .IsSnapshot }}{{ .ShortCommit }}_
       {{- else }}{{ .Version }}_
@@ -76,7 +78,7 @@ archives:
 
 checksum:
   name_template: >-
-    mev-commit-bridge_
+    {{ .ProjectName }}_
     {{- if .IsSnapshot }}{{ .ShortCommit }}
     {{- else }}{{ .Version }}
     {{- end -}}
