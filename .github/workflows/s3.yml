@@ -1,0 +1,68 @@
+name: mev-commit-s3
+
+on:
+  workflow_dispatch
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [ p2p, oracle, bridge/standard/bridge-v1, external/geth ]
+    steps:
+      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: echo "flags=--snapshot" >> $GITHUB_ENV
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Setup Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            **/go.work.sum
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+          check-latest: true
+          cache-dependency-path: go.work.sum
+
+      - name: Build Artifacts
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: release --snapshot --clean --config=./${{ matrix.module }}/.goreleaser.yml ${{ env.flags }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: 'us-east-2'
+
+      - name: Upload Artifacts to AWS S3
+        run: |
+          aws s3 cp ./dist/ s3://primev-infrastructure-artifacts \
+            --recursive \
+            --exclude "*" \
+            --include "*.gz" \
+            --include "*.txt" \
+
+          ls -1 ./dist | grep '\.gz\|\.txt$' | while read -r file; do
+            echo "Tagging uploaded file $file for auto delete"
+            aws s3api put-object-tagging \
+              --bucket primev-infrastructure-artifacts \
+              --key "$file" \
+              --tagging 'TagSet=[{Key=AutoDelete,Value=true}]'
+          done
