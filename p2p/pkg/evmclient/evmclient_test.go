@@ -17,8 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient/mockevm"
-	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keysigner/mock"
 	"github.com/primevprotocol/mev-commit/x/util"
+	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 )
 
 func TestSendCall(t *testing.T) {

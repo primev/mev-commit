@@ -2,10 +2,16 @@ syntax = "proto3";
 
 package handshake.v1;
 
+message SerializedKeys {
+  bytes PKEPublicKey = 1;
+  bytes NIKEPublicKey = 2;
+}
+
 message HandshakeReq {
   string peer_type = 1;
   string token = 2;
   bytes sig = 3;
+  SerializedKeys keys = 4;
 };
 
 message HandshakeResp {
