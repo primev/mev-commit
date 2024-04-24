@@ -145,6 +145,12 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         return unstakingBalances[valBLSPubKey];
     }
 
+    function getBlocksTillWithdrawAllowed(bytes calldata valBLSPubKey) external view returns (uint256) {
+        require(unstakeBlockNums[valBLSPubKey] > 0, "Unstake must be initiated to check withdrawal eligibility");
+        uint256 blocksSinceUnstakeInitiated = block.number - unstakeBlockNums[valBLSPubKey];
+        return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
+    }
+
     /// @return numStakedValidators uint number of currently staked validators. 
     /// @return stakedValsetVersion uint version of the staked valset at the time of query.
     function getNumberOfStakedValidators() external view returns (uint256, uint256) {
