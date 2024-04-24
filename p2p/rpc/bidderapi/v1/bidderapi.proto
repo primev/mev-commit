@@ -5,6 +5,7 @@ package bidderapi.v1;
 import "protoc-gen-openapiv2/options/annotations.proto";
 import "google/api/annotations.proto";
 import "buf/validate/validate.proto";
+import "google/protobuf/wrappers.proto";
 
 option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
   info: {
@@ -27,57 +28,87 @@ service Bidder {
       body: "*"
     };
   }
-  // PrepayAllowance
+  // Deposit
   //
-  // PrepayAllowance is called by the bidder node to add prepaid allowance in the bidder registry.
-  rpc PrepayAllowance(PrepayRequest) returns (PrepayResponse) {
-    option (google.api.http) = {post: "/v1/bidder/prepay/{amount}"};
+  // Deposit is called by the bidder node to add deposit in the bidder registry.
+  rpc Deposit(DepositRequest) returns (DepositResponse) {
+    option (google.api.http) = {post: "/v1/bidder/deposit/{amount}"};
   }
-  // GetAllowance
+  // GetDeposit
   //
-  // GetAllowance is called by the bidder to get its allowance in the bidder registry.
-  rpc GetAllowance(EmptyMessage) returns (PrepayResponse) {
-    option (google.api.http) = {get: "/v1/bidder/get_allowance"};
+  // GetDeposit is called by the bidder to get its deposit in the bidder registry.
+  rpc GetDeposit(GetDepositRequest) returns (DepositResponse) {
+    option (google.api.http) = {
+      get: "/v1/bidder/get_deposit"
+    };
   }
-  // GetMinAllowance
+  // GetMinDeposit
   //
-  // GetMinAllowance is called by the bidder to get the minimum allowance required in the bidder registry to make bids.
-  rpc GetMinAllowance(EmptyMessage) returns (PrepayResponse) {
-    option (google.api.http) = {get: "/v1/bidder/get_min_allowance"};
+  // GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
+  rpc GetMinDeposit(EmptyMessage) returns (DepositResponse) {
+    option (google.api.http) = {get: "/v1/bidder/get_min_deposit"};
   }
 }
 
-message PrepayRequest {
+message DepositRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "Prepay request"
-      description: "Prepayment for bids to be issued by the bidder in wei."
+      title: "Deposit request"
+      description: "Deposit for bids to be issued by the bidder in wei."
       required: ["amount"]
     }
-    example: "{\"amount\": \"1000000000000000000\" }"
+    example: "{\"amount\": \"1000000000000000000\", \"windowNumber\": 1 }"
   };
   string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Amount of ETH to be prepaid in wei."
+    description: "Amount of ETH to be deposited in wei."
     pattern: "[0-9]+"
   }, (buf.validate.field).cel = {
       id: "amount",
       message: "amount must be a valid integer.",
-      expression: "this.matches('^[0-9]+$') && uint(this) > 0"
+      expression: "this.matches('^[0-9]+$')"
   }];
+  google.protobuf.UInt64Value windowNumber = 2 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Optional window number for querying deposit. If not specified, the current block number is used."
+    }, (buf.validate.field).cel = {
+      id: "windowNumber",
+      message: "windowNumber must be a positive integer if specified.",
+      expression: "this == null || (this > 0)"
+    }];
+  google.protobuf.UInt64Value blockNumber = 3 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Optional block number for querying deposit. If specified, calculate window based on this block number."
+    }, (buf.validate.field).cel = {
+      id: "blockNumber",
+      message: "blockNumber must be a positive integer if specified.",
+      expression: "this == null || (this > 0)"
+    }];
 };
 
-message PrepayResponse {
+message DepositResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "Prepay response"
-      description: "Get prepaid allowance for bidder in the bidder registry."
+      title: "Deposit response"
+      description: "Get deposit for bidder in the bidder registry."
     }
-    example: "{\"amount\": \"1000000000000000000\" }"
+    example: "{\"amount\": \"1000000000000000000\", \"windowNumber\": 1 }"
   };
   string amount = 1;
+  google.protobuf.UInt64Value windowNumber = 2;
 };
 
 message EmptyMessage {};
+
+message GetDepositRequest {
+  google.protobuf.UInt64Value windowNumber = 1 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Optional window number for querying deposits. If not specified, the current block number is used."
+    }, (buf.validate.field).cel = {
+      id: "windowNumber",
+      message: "windowNumber must be a positive integer if specified.",
+      expression: "this == null || (this > 0)"
+    }];
+}
 
 message Bid {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {

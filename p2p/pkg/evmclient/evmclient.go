@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keysigner"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -43,6 +43,10 @@ type Interface interface {
 	WaitForReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	Call(ctx context.Context, tx *TxRequest) ([]byte, error)
 	CancelTx(ctx context.Context, txHash common.Hash) (common.Hash, error)
+	SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error)
+	BlockNumber(ctx context.Context) (uint64, error)
+	FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)
 }
 
 type EvmClient struct {
@@ -381,6 +385,22 @@ func (c *EvmClient) CancelTx(ctx context.Context, txnHash common.Hash) (common.H
 	c.waitForTxn(signedTx.Hash(), txn.Nonce())
 
 	return signedTx.Hash(), nil
+}
+
+func (c *EvmClient) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, logsCh chan<- types.Log) (ethereum.Subscription, error) {
+    return c.ethClient.SubscribeFilterLogs(ctx, query, logsCh)
+}
+
+func (c *EvmClient) BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error) {
+	return c.ethClient.BlockByNumber(ctx, blockNumber)
+}
+
+func (c *EvmClient) BlockNumber(ctx context.Context) (uint64, error) {
+	return c.ethClient.BlockNumber(ctx)
+}
+
+func (c *EvmClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	return c.ethClient.FilterLogs(ctx, query)
 }
 
 type TxnInfo struct {

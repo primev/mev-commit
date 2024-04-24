@@ -72,6 +72,8 @@ type EVM interface {
 	NetworkID(ctx context.Context) (*big.Int, error)
 	// BlockNumber returns the most recent block number
 	BlockNumber(ctx context.Context) (uint64, error)
+	// BlockByNumber returns the block identified by number.
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	// PendingNonceAt retrieves the current pending nonce associated with an account.
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	// NonceAt retrieves the current nonce associated with an account.
@@ -101,6 +103,10 @@ type EVM interface {
 	// mined yet. Note that the transaction may not be part of the canonical chain even if
 	// it's not pending.
 	TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, isPending bool, err error)
+	// SubscribeFilterLogs creates a new subscription to filter logs. It returns a subscription
+	SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	// FilterLogs executes a filter query to return the logs that satisfy the specified
+	FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)
 }
 
 type Batcher interface {
