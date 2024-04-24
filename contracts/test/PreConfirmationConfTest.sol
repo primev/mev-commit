@@ -266,8 +266,6 @@ contract TestPreConfCommitmentStore is Test {
 
         string memory commitmentTxnHash = preConfCommitmentStore
             .getTxnHashFromCommitment(index);
-        console.log(commitmentTxnHash);
-        console.log(_testCommitmentAliceBob.txnHash);
         assertEq(commitmentTxnHash, _testCommitmentAliceBob.txnHash);
     }
 

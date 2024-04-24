@@ -36,6 +36,8 @@ extract_and_save_abi "$BASE_DIR/out/L1Gateway.sol/L1Gateway.json" "$ABI_DIR/L1Ga
 
 extract_and_save_abi "$BASE_DIR/out/ValidatorRegistry.sol/ValidatorRegistry.json" "$ABI_DIR/ValidatorRegistry.abi"
 
+extract_and_save_abi "$BASE_DIR/out/BlockTracker.sol/BlockTracker.json" "$ABI_DIR/BlockTracker.abi"
+
 echo "ABI files extracted successfully."
 
 
@@ -78,6 +80,8 @@ generate_go_code "$ABI_DIR/SettlementGateway.abi" "SettlementGateway" "settlemen
 generate_go_code "$ABI_DIR/L1Gateway.abi" "L1Gateway" "l1gateway"
 
 generate_go_code "$ABI_DIR/ValidatorRegistry.abi" "ValidatorRegistry" "validatorregistry"
+
+generate_go_code "$ABI_DIR/BlockTracker.abi" "BlockTracker" "blocktracker"
 
 echo "Go code generated successfully in separate folders."
 

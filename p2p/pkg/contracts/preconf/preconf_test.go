@@ -3,7 +3,6 @@ package preconfcontract_test
 import (
 	"bytes"
 	"context"
-	"math/big"
 	"os"
 	"testing"
 
@@ -18,25 +17,16 @@ import (
 func TestPreconfContract(t *testing.T) {
 	t.Parallel()
 
-	t.Run("StoreCommitment", func(t *testing.T) {
+	t.Run("StoreEncryptedCommitment", func(t *testing.T) {
 		preConfContract := common.HexToAddress("abcd")
 		txHash := common.HexToHash("abcdef")
-		bid := big.NewInt(1000000000000000000)
-		blockNum := uint64(100)
-		bidSig := []byte("abcdef")
-		commitment := []byte("abcdef")
-		decayStart := uint64(1710095453035)
-		decayEnd := uint64(1710095454035)
+		commitment := [32]byte([]byte("abcdefabcdefabcdefabcdefabcdefaa"))
+		commitmentSignature := []byte("abcdef")
 
 		expCallData, err := preconfcontract.PreConfABI().Pack(
-			"storeCommitment",
-			uint64(bid.Int64()),
-			blockNum,
-			txHash.String(),
-			decayStart,
-			decayEnd,
-			bidSig,
+			"storeEncryptedCommitment",
 			commitment,
+			commitmentSignature,
 		)
 
 		if err != nil {
@@ -76,15 +66,10 @@ func TestPreconfContract(t *testing.T) {
 			util.NewTestLogger(os.Stdout),
 		)
 
-		err = preConfContractClient.StoreCommitment(
+		_, err = preConfContractClient.StoreEncryptedCommitment(
 			context.Background(),
-			bid,
-			blockNum,
-			txHash.String(),
-			decayStart,
-			decayEnd,
-			bidSig,
-			commitment,
+			commitment[:],
+			commitmentSignature,
 		)
 		if err != nil {
 			t.Fatal(err)
