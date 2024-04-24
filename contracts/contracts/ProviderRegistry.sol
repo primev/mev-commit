@@ -47,8 +47,6 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
     /// @dev Event for slashing funds
     event FundsSlashed(address indexed provider, uint256 amount);
 
-    /// @dev Event for rewarding funds
-    event FundsRewarded(address indexed provider, uint256 amount);
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
@@ -115,7 +113,6 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
     function registerAndStake() public payable {
         require(!providerRegistered[msg.sender], "Provider already registered");
         require(msg.value >= minStake, "Insufficient stake");
-
         providerStakes[msg.sender] = msg.value;
         providerRegistered[msg.sender] = true;
 
@@ -147,6 +144,7 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
      * @param amt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function slash(
         uint256 amt,
@@ -188,12 +186,19 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
         feePercent = newFeePercent;
     }
 
+    /**
+     * @dev Reward funds to the fee receipt.
+     */
     function withdrawFeeRecipientAmount() external nonReentrant {
         feeRecipientAmount = 0;
         (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
         require(successFee, "Couldn't transfer to fee Recipient");
     }
 
+    /**
+     * @dev Withdraw funds to the bidder.
+     * @param bidder The address of the bidder.
+     */
     function withdrawBidderAmount(address bidder) external nonReentrant {
         require(bidderAmount[bidder] > 0, "Bidder Amount is zero");
 
@@ -203,6 +208,10 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
         require(success, "Couldn't transfer to bidder");
     }
 
+    /**
+     * @dev Withdraw staked amount for the provider.
+     * @param provider The address of the provider.
+     */
     function withdrawStakedAmount(
         address payable provider
     ) external nonReentrant {

@@ -25,8 +25,6 @@ interface IPreConfCommitmentStore {
         uint256 blockCommitedAt;
     }
 
-
-
     event SignatureVerified(
         address indexed signer,
         string txnHash,
@@ -71,7 +69,6 @@ interface IPreConfCommitmentStore {
     ) external returns (uint256);
 
     function getCommitmentsByBlockNumber(uint256 blockNumber) external view returns (bytes32[] memory);
-
 
     function getCommitment(bytes32 commitmentIndex) external view returns (PreConfCommitment memory);
 
