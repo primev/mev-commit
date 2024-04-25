@@ -12,7 +12,7 @@ import (
 	mevcommit "github.com/primevprotocol/mev-commit/p2p"
 	ks "github.com/primevprotocol/mev-commit/p2p/pkg/keysigner"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/node"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/util"
+	"github.com/primevprotocol/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )

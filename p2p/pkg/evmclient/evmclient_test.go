@@ -18,7 +18,7 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient/mockevm"
 	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keysigner/mock"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/util"
+	"github.com/primevprotocol/mev-commit/x/util"
 )
 
 func TestSendCall(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	pb "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/util"
+	"github.com/primevprotocol/mev-commit/x/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"

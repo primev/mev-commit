@@ -11,7 +11,7 @@ import (
 	"os"
 
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/util"
+	"github.com/primevprotocol/mev-commit/x/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

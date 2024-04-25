@@ -12,7 +12,7 @@ import (
 	bidder_registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/bidder_registry"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 	mockevmclient "github.com/primevprotocol/mev-commit/p2p/pkg/evmclient/mock"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/util"
+	"github.com/primevprotocol/mev-commit/x/util"
 )
 
 func TestBidderRegistryContract(t *testing.T) {
