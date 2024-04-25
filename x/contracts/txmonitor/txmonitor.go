@@ -44,6 +44,11 @@ type waitCheck struct {
 	block uint64
 }
 
+// Monitor is a transaction monitor that keeps track of the transactions sent by the owner
+// and waits for the receipt to be available to query them in batches. The monitor also
+// ensures rate-limiting by waiting for the nonce to be confirmed by the client before
+// allowing the transaction to be sent. The alternative is that each client keeps
+// polling the backend for receipts which is inefficient.
 type Monitor struct {
 	owner              common.Address
 	mtx                sync.Mutex
@@ -174,6 +179,8 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
+// Allow waits until a sufficiently high nonce is confirmed by the client. If
+// the context is cancelled, the function returns false.
 func (m *Monitor) Allow(ctx context.Context, nonce uint64) bool {
 	for {
 		if nonce <= m.lastConfirmedNonce.Load()+m.maxPendingTxs {
@@ -187,6 +194,8 @@ func (m *Monitor) Allow(ctx context.Context, nonce uint64) bool {
 	}
 }
 
+// Sent saves the transaction and starts monitoring it for the receipt. The Saver
+// is used to save the transaction details in the storage backend of choice.
 func (m *Monitor) Sent(ctx context.Context, tx *types.Transaction) {
 	if err := m.saver.Save(ctx, tx.Hash(), tx.Nonce()); err != nil {
 		m.logger.Error("failed to save transaction", "err", err)
@@ -235,6 +244,9 @@ func (m *Monitor) triggerNonceUpdate() {
 	}
 }
 
+// waitMap holds the transactions that are waiting for the receipt with the nonce as the key.
+// The passed nonce is the last nonce that was confirmed by the client, so any transactions
+// with a nonce less than this value are supposed to be confirmed and waiting for the receipt.
 func (m *Monitor) getOlderTxns(nonce uint64) map[uint64][]common.Hash {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
@@ -273,6 +285,8 @@ func (m *Monitor) notify(
 	}
 }
 
+// check retrieves the receipts for the transactions with nonce less than the lastNonce
+// and notifies the waiting clients.
 func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) {
 	checkTxns := m.getOlderTxns(lastNonce)
 	nonceMap := make(map[common.Hash]uint64)
