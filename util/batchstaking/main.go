@@ -160,6 +160,8 @@ func main() {
 	fmt.Println("Querying staked validators")
 	fmt.Println("-------------------")
 
+	startBeforeLen := time.Now()
+
 	numStakedVals, valsetVersion, err := vrc.GetNumberOfStakedValidators(nil)
 	if err != nil {
 		log.Fatalf("Failed to get number of staked validators: %v", err)
@@ -167,10 +169,15 @@ func main() {
 	fmt.Println("Number of staked validators: ", numStakedVals)
 	fmt.Println("Valset version: ", valsetVersion)
 
+	elapsedToObtainLen := time.Since(startBeforeLen)
+
+	start := time.Now()
+
+	queryBatchSize := 1000
 	aggregatedValset := make([][]byte, 0)
 	numStakedValsInt := int(numStakedVals.Int64())
-	for i := 0; i < numStakedValsInt; i += 10 {
-		end := i + 10
+	for i := 0; i < numStakedValsInt; i += queryBatchSize {
+		end := i + queryBatchSize
 		if end > numStakedValsInt {
 			end = numStakedValsInt
 		}
@@ -184,10 +191,13 @@ func main() {
 		aggregatedValset = append(aggregatedValset, vals...)
 	}
 	fmt.Println("Aggregated valset length: ", len(aggregatedValset))
-	fmt.Println("Aggregated valset: ")
-	for _, pk := range aggregatedValset {
-		fmt.Println(common.Bytes2Hex(pk))
+	fmt.Println("Last 100 vals of aggregated valset: ")
+	for i := len(aggregatedValset) - 100; i < len(aggregatedValset); i++ {
+		fmt.Println(common.Bytes2Hex(aggregatedValset[i]))
 	}
+	elapsed := time.Since(start)
+	fmt.Printf("Time to query number of staked validators: %s\n", elapsedToObtainLen)
+	fmt.Printf("Time to query all staked validator BLS pubkeys: %s\n", elapsed)
 }
 
 func readBLSPublicKeysFromFile(filePath string) ([][]byte, error) {
