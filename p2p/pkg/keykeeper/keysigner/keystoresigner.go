@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -68,4 +69,12 @@ func (kss *KeystoreSigner) ZeroPrivateKey(key *ecdsa.PrivateKey) {
 
 func (kss *KeystoreSigner) String() string {
 	return kss.account.URL.String()
+}
+
+func (kss *KeystoreSigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
+	if err := kss.keystore.Unlock(kss.account, kss.password); err != nil {
+		return nil, err
+	}
+
+	return bind.NewKeyStoreTransactorWithChainID(kss.keystore, kss.account, chainID)
 }
