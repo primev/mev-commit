@@ -122,6 +122,27 @@ var (
 		Value:   contracts.TestnetContracts.PreconfCommitmentStore,
 	})
 
+	optionBlockTrackerContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "blocktracker-contract-addr",
+		Usage:   "address of the block tracker contract",
+		EnvVars: []string{"MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.BlockTracker,
+	})
+
+	optionBidderRegistryContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "bidder-registry-contract-addr",
+		Usage:   "address of the bidder registry contract",
+		EnvVars: []string{"MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.BidderRegistry,
+	})
+
+	optionProviderRegistryContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "provider-registry-contract-addr",
+		Usage:   "address of the provider registry contract",
+		EnvVars: []string{"MEV_ORACLE_PROVIDERREGISTRY_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.ProviderRegistry,
+	})
+
 	optionPgHost = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "pg-host",
 		Usage:   "PostgreSQL host",
@@ -161,7 +182,7 @@ var (
 		Name:    "laggerd-mode",
 		Usage:   "No of blocks to lag behind for L1 chain",
 		EnvVars: []string{"MEV_ORACLE_LAGGERD_MODE"},
-		Value:   0,
+		Value:   64,
 	})
 
 	optionOverrideWinners = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
@@ -196,6 +217,9 @@ func main() {
 		optionSettlementRPCUrl,
 		optionOracleContractAddr,
 		optionPreconfContractAddr,
+		optionBlockTrackerContractAddr,
+		optionBidderRegistryContractAddr,
+		optionProviderRegistryContractAddr,
 		optionPgHost,
 		optionPgPort,
 		optionPgUser,
@@ -264,20 +288,23 @@ func launchOracleWithConfig(c *cli.Context) error {
 	logger.Info("key signer account", "address", keySigner.GetAddress().Hex(), "url", keySigner.String())
 
 	nd, err := node.NewNode(&node.Options{
-		Logger:              logger,
-		KeySigner:           keySigner,
-		HTTPPort:            c.Int(optionHTTPPort.Name),
-		L1RPCUrl:            c.String(optionL1RPCUrl.Name),
-		SettlementRPCUrl:    c.String(optionSettlementRPCUrl.Name),
-		OracleContractAddr:  common.HexToAddress(c.String(optionOracleContractAddr.Name)),
-		PreconfContractAddr: common.HexToAddress(c.String(optionPreconfContractAddr.Name)),
-		PgHost:              c.String(optionPgHost.Name),
-		PgPort:              c.Int(optionPgPort.Name),
-		PgUser:              c.String(optionPgUser.Name),
-		PgPassword:          c.String(optionPgPassword.Name),
-		PgDbname:            c.String(optionPgDbname.Name),
-		LaggerdMode:         c.Int(optionLaggerdMode.Name),
-		OverrideWinners:     c.StringSlice(optionOverrideWinners.Name),
+		Logger:                       logger,
+		KeySigner:                    keySigner,
+		HTTPPort:                     c.Int(optionHTTPPort.Name),
+		L1RPCUrl:                     c.String(optionL1RPCUrl.Name),
+		SettlementRPCUrl:             c.String(optionSettlementRPCUrl.Name),
+		OracleContractAddr:           common.HexToAddress(c.String(optionOracleContractAddr.Name)),
+		PreconfContractAddr:          common.HexToAddress(c.String(optionPreconfContractAddr.Name)),
+		BlockTrackerContractAddr:     common.HexToAddress(c.String(optionBlockTrackerContractAddr.Name)),
+		ProviderRegistryContractAddr: common.HexToAddress(c.String(optionProviderRegistryContractAddr.Name)),
+		BidderRegistryContractAddr:   common.HexToAddress(c.String(optionBidderRegistryContractAddr.Name)),
+		PgHost:                       c.String(optionPgHost.Name),
+		PgPort:                       c.Int(optionPgPort.Name),
+		PgUser:                       c.String(optionPgUser.Name),
+		PgPassword:                   c.String(optionPgPassword.Name),
+		PgDbname:                     c.String(optionPgDbname.Name),
+		LaggerdMode:                  c.Int(optionLaggerdMode.Name),
+		OverrideWinners:              c.StringSlice(optionOverrideWinners.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
