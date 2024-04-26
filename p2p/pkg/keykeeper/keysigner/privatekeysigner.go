@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -54,6 +55,10 @@ func (pks *PrivateKeySigner) GetAddress() common.Address {
 
 func (pks *PrivateKeySigner) GetPrivateKey() (*ecdsa.PrivateKey, error) {
 	return pks.privKey, nil
+}
+
+func (pks *PrivateKeySigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
+	return bind.NewKeyedTransactorWithChainID(pks.privKey, chainID)
 }
 
 // ZeroPrivateKey does nothing because the private key for PKS persists in memory

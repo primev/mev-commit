@@ -15,24 +15,24 @@ import (
 
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	bidderregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
+	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	bidderapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/apiserver"
 	bidder_registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/bidder_registry"
-	blocktrackercontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/block_tracker"
 	preconfcontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/preconf"
 	provider_registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/provider_registry"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/debugapi"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/discovery"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/events"
+	"github.com/primevprotocol/mev-commit/x/contracts/events"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keyexchange"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
@@ -46,6 +46,7 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -195,12 +196,6 @@ func NewNode(opts *Options) (*Node, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var preconfProtoClosed <-chan struct{}
-	st, err := store.NewStore()
-	if err != nil {
-		opts.Logger.Error("failed to create store", "error", err)
-		cancel()
-		return nil, err
-	}
 
 	contracts, err := getContractABIs(opts)
 	if err != nil {
@@ -209,14 +204,29 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
+	abis := make([]*abi.ABI, 0, len(contracts))
+	contractAddrs := make([]common.Address, 0, len(contracts))
+
+	for addr, abi := range contracts {
+		abis = append(abis, abi)
+		contractAddrs = append(contractAddrs, addr)
+	}
+
 	evtMgr := events.NewListener(
 		opts.Logger.With("component", "events"),
-		evmClient,
-		st,
-		contracts,
+		abis...,
 	)
 
-	evtMgrDone := evtMgr.Start(ctx)
+	monitor := txmonitor.New(
+		opts.KeySigner.GetAddress(),
+		contractRPC,
+		txmonitor.NewEVMHelper(contractRPC.Client()),
+		nil,
+		opts.Logger.With("component", "tx_monitor"),
+		128,
+	)
+
+	monitorClosed := monitor.Start(ctx)
 
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
 		lis, err := net.Listen("tcp", opts.RPCAddr)
@@ -255,12 +265,22 @@ func NewNode(opts *Options) (*Node, error) {
 
 		blockTrackerAddr := common.HexToAddress(opts.BlockTrackerContract)
 
-		blockTracker := blocktrackercontract.New(
+		blockTrackerCaller, err := blocktracker.NewBlocktrackerCaller(
 			blockTrackerAddr,
-			evmClient,
-			wsEvmClient,
-			opts.Logger.With("component", "blocktrackercontract"),
+			contractRPC,
 		)
+		if err != nil {
+			opts.Logger.Error("failed to instantiate block tracker contract", "error", err)
+			cancel()
+			return nil, err
+		}
+
+		blockTrackerSession := &blocktracker.BlocktrackerCallerSession{
+			Contract: blockTrackerCaller,
+			CallOpts: bind.CallOpts{
+				From: opts.KeySigner.GetAddress(),
+			},
+		}
 
 		preconfContractAddr := common.HexToAddress(opts.PreconfContract)
 		commitmentDA := preconfcontract.New(
@@ -290,7 +310,7 @@ func NewNode(opts *Options) (*Node, error) {
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(bidderRegistry,
-				blockTracker,
+				blockTrackerSession,
 				commitmentDA,
 				store,
 				evtMgr,
@@ -305,7 +325,6 @@ func NewNode(opts *Options) (*Node, error) {
 				depositMgr,
 				bidProcessor,
 				commitmentDA,
-				blockTracker,
 				evtMgr,
 				store,
 				opts.Logger.With("component", "preconfirmation_protocol"),
@@ -334,7 +353,6 @@ func NewNode(opts *Options) (*Node, error) {
 				depositMgr,
 				bidProcessor,
 				commitmentDA,
-				blockTracker,
 				evtMgr,
 				store,
 				opts.Logger.With("component", "preconfirmation_protocol"),
@@ -348,7 +366,7 @@ func NewNode(opts *Options) (*Node, error) {
 				preconfProto,
 				opts.KeySigner.GetAddress(),
 				bidderRegistry,
-				blockTracker,
+				blockTrackerSession,
 				validator,
 				opts.Logger.With("component", "bidderapi"),
 			)
@@ -497,8 +515,8 @@ func NewNode(opts *Options) (*Node, error) {
 		go func() {
 			defer close(closeChan)
 
-			<-evtMgrDone
 			<-preconfProtoClosed
+			<-monitorClosed
 		}()
 
 		<-closeChan

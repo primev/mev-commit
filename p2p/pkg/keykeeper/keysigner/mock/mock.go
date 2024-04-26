@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -38,4 +39,8 @@ func (m *MockKeySigner) ZeroPrivateKey(key *ecdsa.PrivateKey) {}
 
 func (m *MockKeySigner) String() string {
 	return "mock"
+}
+
+func (m *MockKeySigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
+	return nil, nil
 }
