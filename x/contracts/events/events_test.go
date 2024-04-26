@@ -20,8 +20,8 @@ func TestEventHandler(t *testing.T) {
 	t.Parallel()
 
 	b := bidderregistry.BidderregistryBidderRegistered{
-		Bidder:        common.HexToAddress("0xabcd"),
-		PrepaidAmount: big.NewInt(1000),
+		Bidder:          common.HexToAddress("0xabcd"),
+		DepositedAmount: big.NewInt(1000),
 	}
 
 	errC := make(chan error, 1)
@@ -33,8 +33,8 @@ func TestEventHandler(t *testing.T) {
 				errC <- fmt.Errorf("expected bidder %s, got %s", b.Bidder.Hex(), ev.Bidder.Hex())
 				return
 			}
-			if ev.PrepaidAmount.Cmp(b.PrepaidAmount) != 0 {
-				errC <- fmt.Errorf("expected prepaid amount %d, got %d", b.PrepaidAmount, ev.PrepaidAmount)
+			if ev.DepositedAmount.Cmp(b.DepositedAmount) != 0 {
+				errC <- fmt.Errorf("expected prepaid amount %d, got %d", b.DepositedAmount, ev.DepositedAmount)
 				return
 			}
 			close(errC)
@@ -51,7 +51,7 @@ func TestEventHandler(t *testing.T) {
 	evtHdlr.setTopicAndContract(event.ID, &bidderABI)
 
 	buf, err := event.Inputs.NonIndexed().Pack(
-		b.PrepaidAmount,
+		b.DepositedAmount,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -88,12 +88,12 @@ func TestEventManager(t *testing.T) {
 
 	bidders := []bidderregistry.BidderregistryBidderRegistered{
 		{
-			Bidder:        common.HexToAddress("0xabcd"),
-			PrepaidAmount: big.NewInt(1000),
+			Bidder:          common.HexToAddress("0xabcd"),
+			DepositedAmount: big.NewInt(1000),
 		},
 		{
-			Bidder:        common.HexToAddress("0xcdef"),
-			PrepaidAmount: big.NewInt(2000),
+			Bidder:          common.HexToAddress("0xcdef"),
+			DepositedAmount: big.NewInt(2000),
 		},
 	}
 
@@ -114,8 +114,8 @@ func TestEventManager(t *testing.T) {
 				errC <- fmt.Errorf("expected bidder %s, got %s", bidders[count].Bidder.Hex(), ev.Bidder.Hex())
 				return
 			}
-			if ev.PrepaidAmount.Cmp(bidders[count].PrepaidAmount) != 0 {
-				errC <- fmt.Errorf("expected prepaid amount %d, got %d", bidders[count].PrepaidAmount, ev.PrepaidAmount)
+			if ev.DepositedAmount.Cmp(bidders[count].DepositedAmount) != 0 {
+				errC <- fmt.Errorf("expected prepaid amount %d, got %d", bidders[count].DepositedAmount, ev.DepositedAmount)
 				return
 			}
 			count++
@@ -129,14 +129,14 @@ func TestEventManager(t *testing.T) {
 	}
 
 	data1, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack(
-		bidders[0].PrepaidAmount,
+		bidders[0].DepositedAmount,
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	data2, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack(
-		bidders[1].PrepaidAmount,
+		bidders[1].DepositedAmount,
 	)
 	if err != nil {
 		t.Fatal(err)

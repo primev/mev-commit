@@ -5,7 +5,6 @@ import (
 	"crypto/ecdh"
 	"crypto/elliptic"
 	"crypto/rand"
-	"errors"
 	"io"
 	"log/slog"
 	"math/big"
@@ -20,12 +19,13 @@ import (
 	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/events"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primevprotocol/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/preconfirmation"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	"github.com/primevprotocol/mev-commit/x/util"
 )
 
 type testTopo struct {
@@ -129,34 +129,6 @@ func (btc *testBlockTrackerContract) GetBlocksPerWindow(ctx context.Context) (ui
 	return btc.blocksPerWindow, nil
 }
 
-type testEventManager struct {
-	btABI      *abi.ABI
-	handler    events.EventHandler
-	handlerSub chan struct{}
-	sub        *testSub
-}
-
-type testSub struct {
-	errC chan error
-}
-
-func (t *testSub) Unsubscribe() {}
-
-func (t *testSub) Err() <-chan error {
-	return t.errC
-}
-
-func (t *testEventManager) Subscribe(evt events.EventHandler) (events.Subscription, error) {
-	if evt.EventName() != "NewL1Block" {
-		return nil, errors.New("invalid event")
-	}
-	evt.SetTopicAndContract(t.btABI.Events["NewL1Block"].ID, t.btABI)
-	t.handler = evt
-	close(t.handlerSub)
-
-	return t.sub, nil
-}
-
 func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
 	t.Helper()
 
@@ -257,11 +229,12 @@ func TestPreconfBidSubmission(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		eventManager := &testEventManager{
-			btABI:      &btABI,
-			sub:        &testSub{errC: make(chan error)},
-			handlerSub: make(chan struct{}),
-		}
+
+		evtMgr := events.NewListener(
+			util.NewTestLogger(io.Discard),
+			&btABI,
+		)
+
 		store, err := store.NewStore()
 		if err != nil {
 			t.Fatal(err)
@@ -275,8 +248,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 			depositMgr,
 			proc,
 			&testCommitmentDA{},
-			&testBlockTrackerContract{blockNumberToWinner: make(map[uint64]common.Address), blocksPerWindow: 64},
-			eventManager,
+			evtMgr,
 			store,
 			newTestLogger(t, os.Stdout),
 		)
