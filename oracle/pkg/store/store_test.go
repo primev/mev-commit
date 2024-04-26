@@ -254,14 +254,14 @@ func TestStore(t *testing.T) {
 		}
 	})
 
-	t.Run("SentTxn", func(t *testing.T) {
+	t.Run("Save", func(t *testing.T) {
 		st, err := store.NewStore(db)
 		if err != nil {
 			t.Fatalf("Failed to create store: %s", err)
 		}
 
 		for _, s := range settlements {
-			err = st.SentTxn(s.Nonce, common.Hash(s.ChainHash))
+			err = st.Save(context.Background(), common.Hash(s.ChainHash), s.Nonce)
 			if err != nil {
 				t.Fatalf("Failed to mark txn sent: %s", err)
 			}
@@ -311,29 +311,6 @@ func TestStore(t *testing.T) {
 		}
 	})
 
-	t.Run("LastNonce and PendingTxnCount", func(t *testing.T) {
-		st, err := store.NewStore(db)
-		if err != nil {
-			t.Fatalf("Failed to create store: %s", err)
-		}
-
-		lastNonce, err := st.LastNonce()
-		if err != nil {
-			t.Fatalf("Failed to get last nonce: %s", err)
-		}
-		if lastNonce != 6 {
-			t.Fatalf("Expected last nonce 6, got %d", lastNonce)
-		}
-
-		pendingTxnCount, err := st.PendingTxnCount()
-		if err != nil {
-			t.Fatalf("Failed to get pending txn count: %s", err)
-		}
-		if pendingTxnCount != 6 {
-			t.Fatalf("Expected pending txn count 6, got %d", pendingTxnCount)
-		}
-	})
-
 	t.Run("LastBlock and SetBlockNo", func(t *testing.T) {
 		st, err := store.NewStore(db)
 		if err != nil {
@@ -362,18 +339,17 @@ func TestStore(t *testing.T) {
 		}
 	})
 
-	t.Run("MarkSettlementComplete", func(t *testing.T) {
+	t.Run("Update", func(t *testing.T) {
 		st, err := store.NewStore(db)
 		if err != nil {
 			t.Fatalf("Failed to create store: %s", err)
 		}
 
-		count, err := st.MarkSettlementComplete(context.Background(), 7)
-		if err != nil {
-			t.Fatalf("Failed to mark settlement complete: %s", err)
-		}
-		if count != 6 {
-			t.Fatalf("Expected count 6, got %d", count)
+		for _, s := range settlements {
+			err = st.Update(context.Background(), common.Hash(s.ChainHash), "success")
+			if err != nil {
+				t.Fatalf("Failed to mark txn sent: %s", err)
+			}
 		}
 
 		pendingTxnCount, err := st.PendingTxnCount()

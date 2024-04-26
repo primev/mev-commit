@@ -20,27 +20,27 @@ END $$;`
 
 var settlementsTable = `
 CREATE TABLE IF NOT EXISTS settlements (
-    commitment_index BYTEA PRIMARY KEY,
-    transaction TEXT,
-    block_number BIGINT,
-    builder_address BYTEA,
-    type settlement_type,
-    amount NUMERIC(24, 0),
-    bid_id BYTEA,
-    chainhash BYTEA,
-    nonce BIGINT,
-    settled BOOLEAN,
-    decay_percentage BIGINT,
-    settlement_window BIGINT
+	commitment_index BYTEA PRIMARY KEY,
+	transaction TEXT,
+	block_number BIGINT,
+	builder_address BYTEA,
+	type settlement_type,
+	amount NUMERIC(24, 0),
+	bid_id BYTEA,
+	chainhash BYTEA,
+	nonce BIGINT,
+	settled BOOLEAN,
+	decay_percentage BIGINT,
+	settlement_window BIGINT
 );`
 
 var encryptedCommitmentsTable = `
 CREATE TABLE IF NOT EXISTS encrypted_commitments (
-    commitment_index BYTEA PRIMARY KEY,
-    committer BYTEA,
-    commitment_hash BYTEA,
-    commitment_signature BYTEA,
-    block_number BIGINT
+	commitment_index BYTEA PRIMARY KEY,
+	committer BYTEA,
+	commitment_hash BYTEA,
+	commitment_signature BYTEA,
+	block_number BIGINT
 );`
 
 var winnersTable = `
@@ -52,9 +52,10 @@ CREATE TABLE IF NOT EXISTS winners (
 
 var transactionsTable = `
 CREATE TABLE IF NOT EXISTS sent_transactions (
-    hash BYTEA PRIMARY KEY,
-    nonce BIGINT,
-    settled BOOLEAN
+	hash BYTEA PRIMARY KEY,
+	nonce BIGINT,
+	settled BOOLEAN,
+	status TEXT
 );`
 
 var integerTable = `
@@ -264,60 +265,9 @@ func (s *Store) Settlement(
 	return st, nil
 }
 
-func (s *Store) MarkSettlementComplete(ctx context.Context, nonce uint64) (int, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-
-	_, err = tx.ExecContext(
+func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) error {
+	_, err := s.db.ExecContext(
 		ctx,
-		"UPDATE settlements SET settled = true WHERE settled = false AND nonce < $1 AND chainhash IS NOT NULL",
-		nonce,
-	)
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
-	}
-
-	result, err := tx.ExecContext(
-		ctx,
-		"UPDATE sent_transactions SET settled = true WHERE settled = false AND nonce < $1",
-		nonce,
-	)
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
-	}
-
-	count, err := result.RowsAffected()
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return 0, err
-	}
-
-	return int(count), nil
-}
-
-func (s *Store) LastNonce() (int64, error) {
-	var lastNonce sql.NullInt64
-	err := s.db.QueryRow("SELECT MAX(nonce) FROM sent_transactions").Scan(&lastNonce)
-	if err != nil {
-		return 0, err
-	}
-	if !lastNonce.Valid {
-		return 0, nil
-	}
-	return lastNonce.Int64, nil
-}
-
-func (s *Store) SentTxn(nonce uint64, txHash common.Hash) error {
-	_, err := s.db.Exec(
 		"INSERT INTO sent_transactions (hash, nonce, settled) VALUES ($1, $2, false)",
 		txHash.Bytes(),
 		nonce,
@@ -325,6 +275,41 @@ func (s *Store) SentTxn(nonce uint64, txHash common.Hash) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (s *Store) Update(ctx context.Context, txHash common.Hash, status string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
+		"UPDATE sent_transactions SET status = $1, settled = true WHERE hash = $2",
+		status,
+		txHash.Bytes(),
+	)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	_, err = tx.ExecContext(
+		ctx,
+		"UPDATE settlements SET settled = true WHERE chainhash = $1",
+		txHash.Bytes(),
+	)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

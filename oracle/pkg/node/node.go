@@ -100,7 +100,7 @@ func NewNode(opts *Options) (*Node, error) {
 		owner,
 		settlementClient,
 		txmonitor.NewEVMHelper(settlementClient.Client()),
-		nil,
+		st,
 		nd.logger.With("component", "tx_monitor"),
 		128,
 	)
@@ -232,7 +232,7 @@ func NewNode(opts *Options) (*Node, error) {
 		st,
 	)
 
-	httpPubDone := httpPub.Start(ctx)
+	httpPubDone := httpPub.Start(ctx, contractAddrs...)
 
 	srv.RegisterMetricsCollectors(l1Lis.Metrics()...)
 	srv.RegisterMetricsCollectors(updtr.Metrics()...)
