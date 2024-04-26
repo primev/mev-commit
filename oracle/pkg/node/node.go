@@ -8,37 +8,48 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	bidderregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/BidderRegistry"
+	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
 	rollupclient "github.com/primevprotocol/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	providerregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/ProviderRegistry"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/apiserver"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/keysigner"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/l1Listener"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/settler"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/store"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/updater"
+	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	"github.com/primevprotocol/mev-commit/x/contracts/events/publisher"
+	"github.com/primevprotocol/mev-commit/x/contracts/transactor"
+	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
 )
 
 type Options struct {
-	Logger              *slog.Logger
-	KeySigner           keysigner.KeySigner
-	HTTPPort            int
-	SettlementRPCUrl    string
-	L1RPCUrl            string
-	OracleContractAddr  common.Address
-	PreconfContractAddr common.Address
-	PgHost              string
-	PgPort              int
-	PgUser              string
-	PgPassword          string
-	PgDbname            string
-	LaggerdMode         int
-	OverrideWinners     []string
+	Logger                       *slog.Logger
+	KeySigner                    keysigner.KeySigner
+	HTTPPort                     int
+	SettlementRPCUrl             string
+	L1RPCUrl                     string
+	OracleContractAddr           common.Address
+	PreconfContractAddr          common.Address
+	BlockTrackerContractAddr     common.Address
+	ProviderRegistryContractAddr common.Address
+	BidderRegistryContractAddr   common.Address
+	PgHost                       string
+	PgPort                       int
+	PgUser                       string
+	PgPassword                   string
+	PgDbname                     string
+	LaggerdMode                  int
+	OverrideWinners              []string
 }
 
 type Node struct {
@@ -85,6 +96,49 @@ func NewNode(opts *Options) (*Node, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	monitor := txmonitor.New(
+		owner,
+		settlementClient,
+		txmonitor.NewEVMHelper(settlementClient.Client()),
+		st,
+		nd.logger.With("component", "tx_monitor"),
+		128,
+	)
+
+	monitorClosed := monitor.Start(ctx)
+
+	txnMgr := transactor.NewTransactor(
+		settlementClient,
+		monitor,
+	)
+
+	contracts, err := getContractABIs(opts)
+	if err != nil {
+		nd.logger.Error("failed to get contract ABIs", "error", err)
+		cancel()
+		return nil, err
+	}
+
+	abis := make([]*abi.ABI, 0, len(contracts))
+	contractAddrs := make([]common.Address, 0, len(contracts))
+
+	for addr, abi := range contracts {
+		abis = append(abis, abi)
+		contractAddrs = append(contractAddrs, addr)
+	}
+
+	evtMgr := events.NewListener(
+		nd.logger.With("component", "events"),
+		abis...,
+	)
+
+	httpPub := publisher.NewHTTPPublisher(
+		st,
+		nd.logger.With("component", "http_publisher"),
+		settlementClient,
+		evtMgr,
+	)
+
 	var listenerL1Client l1Listener.EthClient
 
 	listenerL1Client = l1Client
@@ -92,21 +146,41 @@ func NewNode(opts *Options) (*Node, error) {
 		listenerL1Client = &laggerdL1Client{EthClient: listenerL1Client, amount: opts.LaggerdMode}
 	}
 
-	preconfContract, err := preconf.NewPreconfcommitmentstoreCaller(
-		opts.PreconfContractAddr,
-		settlementClient,
+	blockTracker, err := blocktracker.NewBlocktrackerTransactor(
+		opts.BlockTrackerContractAddr,
+		txnMgr,
 	)
 	if err != nil {
-		nd.logger.Error("failed to instantiate preconf contract", "error", err)
+		nd.logger.Error("failed to instantiate block tracker contract", "error", err)
 		cancel()
 		return nil, err
 	}
 
-	oracleContract, err := rollupclient.NewOracle(opts.OracleContractAddr, settlementClient)
+	oracleTransactor, err := rollupclient.NewOracleTransactor(
+		opts.OracleContractAddr,
+		txnMgr,
+	)
 	if err != nil {
-		nd.logger.Error("failed to instantiate oracle contract", "error", err)
+		nd.logger.Error("failed to instantiate oracle transactor", "error", err)
 		cancel()
 		return nil, err
+	}
+
+	tOpts, err := opts.KeySigner.GetAuth(chainID)
+	if err != nil {
+		nd.logger.Error("failed to get auth", "error", err)
+		cancel()
+		return nil, err
+	}
+
+	blockTrackerTransactor := &blocktracker.BlocktrackerTransactorSession{
+		Contract:     blockTracker,
+		TransactOpts: *tOpts,
+	}
+
+	oracleTransactorSession := &rollupclient.OracleTransactorSession{
+		Contract:     oracleTransactor,
+		TransactOpts: *tOpts,
 	}
 
 	if opts.OverrideWinners != nil && len(opts.OverrideWinners) > 0 {
@@ -114,10 +188,8 @@ func NewNode(opts *Options) (*Node, error) {
 		for _, winner := range opts.OverrideWinners {
 			err := setBuilderMapping(
 				ctx,
-				opts.KeySigner,
-				chainID,
+				blockTrackerTransactor,
 				settlementClient,
-				oracleContract,
 				winner,
 				winner,
 			)
@@ -129,39 +201,41 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}
 
-	l1Lis := l1Listener.NewL1Listener(nd.logger.With("component", "l1_listener"), listenerL1Client, st)
+	l1Lis := l1Listener.NewL1Listener(
+		nd.logger.With("component", "l1_listener"),
+		listenerL1Client,
+		st,
+		evtMgr,
+		blockTrackerTransactor,
+	)
 	l1LisClosed := l1Lis.Start(ctx)
 
-	callOpts := bind.CallOpts{
-		Pending: false,
-		From:    owner,
-		Context: ctx,
+	updtr, err := updater.NewUpdater(
+		nd.logger.With("component", "updater"),
+		l1Client,
+		settlementClient,
+		st,
+		evtMgr,
+		oracleTransactorSession,
+	)
+	if err != nil {
+		nd.logger.Error("failed to instantiate updater", "error", err)
+		cancel()
+		return nil, err
 	}
 
-	pc := &preconf.PreconfcommitmentstoreCallerSession{
-		Contract: preconfContract,
-		CallOpts: callOpts,
-	}
-	oc := &rollupclient.OracleSession{Contract: oracleContract, CallOpts: callOpts}
-
-	updtr := updater.NewUpdater(nd.logger.With("component", "updater"), l1Client, st, oc, pc)
 	updtrClosed := updtr.Start(ctx)
 
-	settlr := settler.NewSettler(
-		nd.logger.With("component", "settler"),
-		opts.KeySigner,
-		chainID,
-		owner,
-		oracleContract,
+	srv := apiserver.New(
+		nd.logger.With("component", "apiserver"),
+		evtMgr,
 		st,
-		settlementClient,
 	)
-	settlrClosed := settlr.Start(ctx)
 
-	srv := apiserver.New(nd.logger.With("component", "apiserver"), st)
+	httpPubDone := httpPub.Start(ctx, contractAddrs...)
+
 	srv.RegisterMetricsCollectors(l1Lis.Metrics()...)
 	srv.RegisterMetricsCollectors(updtr.Metrics()...)
-	srv.RegisterMetricsCollectors(settlr.Metrics()...)
 
 	srvClosed := srv.Start(fmt.Sprintf(":%d", opts.HTTPPort))
 
@@ -176,8 +250,9 @@ func NewNode(opts *Options) (*Node, error) {
 
 			<-l1LisClosed
 			<-updtrClosed
-			<-settlrClosed
 			<-srvClosed
+			<-httpPubDone
+			<-monitorClosed
 		}()
 
 		<-closeChan
@@ -235,6 +310,42 @@ func initDB(opts *Options) (db *sql.DB, err error) {
 	return db, err
 }
 
+func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
+	abis := make(map[common.Address]*abi.ABI)
+
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.BlockTrackerContractAddr] = &btABI
+
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.PreconfContractAddr] = &pcABI
+
+	bidderRegistry, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.BidderRegistryContractAddr] = &bidderRegistry
+
+	providerRegistry, err := abi.JSON(strings.NewReader(providerregistry.ProviderregistryABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.ProviderRegistryContractAddr] = &providerRegistry
+
+	orABI, err := abi.JSON(strings.NewReader(rollupclient.OracleABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.OracleContractAddr] = &orABI
+
+	return abis, nil
+}
+
 type laggerdL1Client struct {
 	l1Listener.EthClient
 	amount int
@@ -268,39 +379,13 @@ func (w *winnerOverrideL1Client) HeaderByNumber(ctx context.Context, number *big
 
 func setBuilderMapping(
 	ctx context.Context,
-	keySigner keysigner.KeySigner,
-	chainID *big.Int,
+	bt *blocktracker.BlocktrackerTransactorSession,
 	client *ethclient.Client,
-	rc *rollupclient.Oracle,
 	builderName string,
 	builderAddress string,
 ) error {
-	auth, err := keySigner.GetAuth(chainID)
-	if err != nil {
-		return err
-	}
-	nonce, err := client.PendingNonceAt(ctx, auth.From)
-	if err != nil {
-		return err
-	}
-	auth.Nonce = big.NewInt(int64(nonce))
-
-	// Returns priority fee per gas
-	gasTip, err := client.SuggestGasTipCap(ctx)
-	if err != nil {
-		return err
-	}
-
-	// Returns priority fee per gas + base fee per gas
-	gasPrice, err := client.SuggestGasPrice(ctx)
-	if err != nil {
-		return err
-	}
-
-	auth.GasFeeCap = gasPrice
-	auth.GasTipCap = gasTip
-
-	txn, err := rc.AddBuilderAddress(auth, builderName, common.HexToAddress(builderAddress))
+	fmt.Println("Setting builder mapping", builderName, builderAddress)
+	txn, err := bt.AddBuilderAddress(builderName, common.HexToAddress(builderAddress))
 	if err != nil {
 		return err
 	}
@@ -309,6 +394,7 @@ func setBuilderMapping(
 	if err != nil {
 		return err
 	}
+	fmt.Println("Builder mapping set", builderName, builderAddress)
 
 	return nil
 }
