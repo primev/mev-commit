@@ -8,29 +8,53 @@ const (
 )
 
 type metrics struct {
-	UpdaterTriggerCount   prometheus.Counter
-	CommitmentsCount      prometheus.Counter
-	RewardsCount          prometheus.Counter
-	SlashesCount          prometheus.Counter
-	BlockCommitmentsCount prometheus.Counter
+	CommitmentsReceivedCount  prometheus.Counter
+	CommitmentsProcessedCount prometheus.Counter
+	CommitmentsTooOldCount    prometheus.Counter
+	DuplicateCommitmentsCount prometheus.Counter
+	RewardsCount              prometheus.Counter
+	SlashesCount              prometheus.Counter
+	EncryptedCommitmentsCount prometheus.Counter
+	NoWinnerCount             prometheus.Counter
+	BlockTxnCacheHits         prometheus.Counter
+	BlockTxnCacheMisses       prometheus.Counter
+	BlockTimeCacheHits        prometheus.Counter
+	BlockTimeCacheMisses      prometheus.Counter
+	LastSentNonce             prometheus.Gauge
 }
 
 func newMetrics() *metrics {
 	m := &metrics{}
-	m.UpdaterTriggerCount = prometheus.NewCounter(
+	m.CommitmentsReceivedCount = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: defaultNamespace,
 			Subsystem: subsystem,
-			Name:      "updater_trigger_count",
-			Help:      "Number of times the updater was triggered",
+			Name:      "commitments_received_count",
+			Help:      "Number of commitments received",
 		},
 	)
-	m.CommitmentsCount = prometheus.NewCounter(
+	m.CommitmentsProcessedCount = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: defaultNamespace,
 			Subsystem: subsystem,
-			Name:      "commitments_count",
+			Name:      "commitments_processed_count",
 			Help:      "Number of commitments processed",
+		},
+	)
+	m.CommitmentsTooOldCount = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "commitments_too_old_count",
+			Help:      "Number of commitments that are too old",
+		},
+	)
+	m.DuplicateCommitmentsCount = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "duplicate_commitments_count",
+			Help:      "Number of duplicate commitments",
 		},
 	)
 	m.RewardsCount = prometheus.NewCounter(
@@ -49,12 +73,60 @@ func newMetrics() *metrics {
 			Help:      "Number of slashes",
 		},
 	)
-	m.BlockCommitmentsCount = prometheus.NewCounter(
+	m.EncryptedCommitmentsCount = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: defaultNamespace,
 			Subsystem: subsystem,
-			Name:      "block_commitments_count",
-			Help:      "Number of blocks for which commitments were processed",
+			Name:      "encrypted_commitments_count",
+			Help:      "Number of encrypted commitments",
+		},
+	)
+	m.NoWinnerCount = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "no_winner_count",
+			Help:      "Number of times no winner was found",
+		},
+	)
+	m.BlockTxnCacheHits = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "block_txn_cache_hits",
+			Help:      "Number of block txn cache hits",
+		},
+	)
+	m.BlockTxnCacheMisses = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "block_txn_cache_misses",
+			Help:      "Number of block txn cache misses",
+		},
+	)
+	m.BlockTimeCacheHits = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "block_time_cache_hits",
+			Help:      "Number of block time cache hits",
+		},
+	)
+	m.BlockTimeCacheMisses = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "block_time_cache_misses",
+			Help:      "Number of block time cache misses",
+		},
+	)
+	m.LastSentNonce = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "last_sent_nonce",
+			Help:      "Last nonce sent to for settlement",
 		},
 	)
 	return m
@@ -62,10 +134,18 @@ func newMetrics() *metrics {
 
 func (m *metrics) Collectors() []prometheus.Collector {
 	return []prometheus.Collector{
-		m.UpdaterTriggerCount,
-		m.CommitmentsCount,
+		m.CommitmentsReceivedCount,
+		m.CommitmentsProcessedCount,
+		m.CommitmentsTooOldCount,
+		m.DuplicateCommitmentsCount,
 		m.RewardsCount,
 		m.SlashesCount,
-		m.BlockCommitmentsCount,
+		m.EncryptedCommitmentsCount,
+		m.NoWinnerCount,
+		m.BlockTxnCacheHits,
+		m.BlockTxnCacheMisses,
+		m.BlockTimeCacheHits,
+		m.BlockTimeCacheMisses,
+		m.LastSentNonce,
 	}
 }
