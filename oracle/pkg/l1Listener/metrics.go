@@ -8,12 +8,22 @@ const (
 )
 
 type metrics struct {
-	WinnerRoundCount *prometheus.CounterVec
-	WinnerCount      prometheus.Counter
+	WinnerPostedCount prometheus.Counter
+	WinnerRoundCount  *prometheus.CounterVec
+	WinnerCount       prometheus.Counter
+	LastSentNonce     prometheus.Gauge
 }
 
 func newMetrics() *metrics {
 	m := &metrics{}
+	m.WinnerPostedCount = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "winner_posted_count",
+			Help:      "Number of winners posted",
+		},
+	)
 	m.WinnerRoundCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: defaultNamespace,
@@ -31,12 +41,22 @@ func newMetrics() *metrics {
 			Help:      "Number of times a provider won",
 		},
 	)
+	m.LastSentNonce = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "last_sent_nonce",
+			Help:      "Last sent nonce",
+		},
+	)
 	return m
 }
 
 func (m *metrics) Collectors() []prometheus.Collector {
 	return []prometheus.Collector{
+		m.WinnerPostedCount,
 		m.WinnerRoundCount,
 		m.WinnerCount,
+		m.LastSentNonce,
 	}
 }
