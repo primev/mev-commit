@@ -107,14 +107,12 @@ type testBlockTrackerContract struct {
 	blocksPerWindow     uint64
 }
 
-// GetCurrentWindow returns the current window number.
-func (btc *testBlockTrackerContract) GetCurrentWindow(ctx context.Context) (uint64, error) {
-	return btc.lastBlockNumber / btc.blocksPerWindow, nil
+func (btc *testBlockTrackerContract) GetCurrentWindow() (*big.Int, error) {
+	return big.NewInt(int64(btc.lastBlockNumber / btc.blocksPerWindow)), nil
 }
 
-// GetBlocksPerWindow returns the number of blocks per window.
-func (btc *testBlockTrackerContract) GetBlocksPerWindow(ctx context.Context) (uint64, error) {
-	return btc.blocksPerWindow, nil
+func (btx *testBlockTrackerContract) GetBlocksPerWindow() (*big.Int, error) {
+	return big.NewInt(int64(btx.blocksPerWindow)), nil
 }
 
 func startServer(t *testing.T) bidderapiv1.BidderClient {

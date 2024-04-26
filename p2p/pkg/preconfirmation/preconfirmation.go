@@ -14,9 +14,8 @@ import (
 	preconfcommstore "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
-	blocktrackercontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/block_tracker"
 	preconfcontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/preconf"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/events"
+	"github.com/primevprotocol/mev-commit/x/contracts/events"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	encryptor "github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
@@ -39,9 +38,8 @@ type Preconfirmation struct {
 	depositMgr   DepositManager
 	processer    BidProcessor
 	commitmentDA preconfcontract.Interface
-	blockTracker blocktrackercontract.Interface
 	evtMgr       events.EventManager
-	ecds         EncrDecrCommitmentStore
+	ecds         CommitmentStore
 	newL1Blocks  chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	logger       *slog.Logger
@@ -56,7 +54,7 @@ type BidProcessor interface {
 	ProcessBid(context.Context, *preconfpb.Bid) (chan providerapiv1.BidResponse_Status, error)
 }
 
-type EncrDecrCommitmentStore interface {
+type CommitmentStore interface {
 	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
 	GetCommitmentByHash(commitmentHash string) (*store.EncryptedPreConfirmationWithDecrypted, error)
 	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
@@ -78,9 +76,8 @@ func New(
 	depositMgr DepositManager,
 	processor BidProcessor,
 	commitmentDA preconfcontract.Interface,
-	blockTracker blocktrackercontract.Interface,
 	evtMgr events.EventManager,
-	edcs EncrDecrCommitmentStore,
+	edcs CommitmentStore,
 	logger *slog.Logger,
 ) *Preconfirmation {
 	return &Preconfirmation{
@@ -91,7 +88,6 @@ func New(
 		depositMgr:   depositMgr,
 		processer:    processor,
 		commitmentDA: commitmentDA,
-		blockTracker: blockTracker,
 		evtMgr:       evtMgr,
 		ecds:         edcs,
 		newL1Blocks:  make(chan *blocktracker.BlocktrackerNewL1Block),
@@ -118,15 +114,16 @@ func (p *Preconfirmation) Start(ctx context.Context) <-chan struct{} {
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
+	startWg := sync.WaitGroup{}
+	startWg.Add(2)
+
 	eg.Go(func() error {
 		ev1 := events.NewEventHandler(
 			"NewL1Block",
-			func(newL1Block *blocktracker.BlocktrackerNewL1Block) error {
+			func(newL1Block *blocktracker.BlocktrackerNewL1Block) {
 				select {
 				case <-egCtx.Done():
-					return nil
 				case p.newL1Blocks <- newL1Block:
-					return nil
 				}
 			},
 		)
@@ -139,12 +136,10 @@ func (p *Preconfirmation) Start(ctx context.Context) <-chan struct{} {
 
 		ev2 := events.NewEventHandler(
 			"EncryptedCommitmentStored",
-			func(ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored) error {
+			func(ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored) {
 				select {
 				case <-egCtx.Done():
-					return nil
 				case p.enryptedCmts <- ec:
-					return nil
 				}
 			},
 		)
@@ -153,6 +148,8 @@ func (p *Preconfirmation) Start(ctx context.Context) <-chan struct{} {
 			return fmt.Errorf("failed to subscribe to EncryptedCommitmentStored event: %w", err)
 		}
 		defer sub2.Unsubscribe()
+
+		startWg.Done()
 
 		select {
 		case <-egCtx.Done():
@@ -165,6 +162,8 @@ func (p *Preconfirmation) Start(ctx context.Context) <-chan struct{} {
 	})
 
 	eg.Go(func() error {
+		startWg.Done()
+
 		for {
 			select {
 			case <-egCtx.Done():
@@ -187,6 +186,8 @@ func (p *Preconfirmation) Start(ctx context.Context) <-chan struct{} {
 			p.logger.Error("failed to start preconfirmation", "error", err)
 		}
 	}()
+
+	startWg.Wait()
 
 	return doneChan
 }

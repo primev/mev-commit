@@ -14,7 +14,6 @@ import (
 	bidderapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/bidder_registry"
-	blocktrackercontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/block_tracker"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -25,7 +24,7 @@ type Service struct {
 	sender               PreconfSender
 	owner                common.Address
 	registryContract     registrycontract.Interface
-	blockTrackerContract blocktrackercontract.Interface
+	blockTrackerContract BlockTrackerContract
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
@@ -36,7 +35,7 @@ func NewService(
 	sender PreconfSender,
 	owner common.Address,
 	registryContract registrycontract.Interface,
-	blockTrackerContract blocktrackercontract.Interface,
+	blockTrackerContract BlockTrackerContract,
 	validator *protovalidate.Validator,
 	logger *slog.Logger,
 ) *Service {
@@ -54,6 +53,11 @@ func NewService(
 
 type PreconfSender interface {
 	SendBid(context.Context, string, string, int64, int64, int64) (chan *preconfirmationv1.PreConfirmation, error)
+}
+
+type BlockTrackerContract interface {
+	GetCurrentWindow() (*big.Int, error)
+	GetBlocksPerWindow() (*big.Int, error)
 }
 
 func (s *Service) SendBid(
@@ -120,12 +124,12 @@ func (s *Service) Deposit(
 		return nil, status.Errorf(codes.InvalidArgument, "validating deposit request: %v", err)
 	}
 
-	currentWindow, err := s.blockTrackerContract.GetCurrentWindow(ctx)
+	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 	}
 
-	windowToDeposit, err := s.calculateWindowToDeposit(ctx, r, currentWindow)
+	windowToDeposit, err := s.calculateWindowToDeposit(ctx, r, currentWindow.Uint64())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "calculating window to deposit: %v", err)
 	}
@@ -134,7 +138,7 @@ func (s *Service) Deposit(
 	}
 
 	for window := range s.depositedWindows {
-		if window.Cmp(new(big.Int).SetUint64(currentWindow)) < 0 {
+		if window.Cmp(currentWindow) < 0 {
 			err := s.registryContract.WithdrawDeposit(ctx, window)
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
@@ -171,11 +175,11 @@ func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.D
 		return new(big.Int).SetUint64(r.WindowNumber.Value), nil
 	} else if r.BlockNumber != nil {
 		// Calculate the window based on the block number.
-		blocksPerWindow, err := s.blockTrackerContract.GetBlocksPerWindow(ctx)
+		blocksPerWindow, err := s.blockTrackerContract.GetBlocksPerWindow()
 		if err != nil {
 			return nil, fmt.Errorf("getting window for block: %w", err)
 		}
-		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/blocksPerWindow + 1), nil
+		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/blocksPerWindow.Uint64() + 1), nil
 	}
 	// Default to two windows ahead of the current window if no specific block or window is given.
 	// This is for the case where the oracle works 2 windows behind the current window.
@@ -187,20 +191,20 @@ func (s *Service) GetDeposit(
 	r *bidderapiv1.GetDepositRequest,
 ) (*bidderapiv1.DepositResponse, error) {
 	var (
-		window uint64
+		window *big.Int
 		err    error
 	)
 	if r.WindowNumber == nil {
-		window, err = s.blockTrackerContract.GetCurrentWindow(ctx)
+		window, err = s.blockTrackerContract.GetCurrentWindow()
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 		}
 		// as oracle working 2 windows behind the current window, we add + 2 here
-		window += 2
+		window = new(big.Int).Add(window, big.NewInt(2))
 	} else {
-		window = r.WindowNumber.Value
+		window = new(big.Int).SetUint64(r.WindowNumber.Value)
 	}
-	stakeAmount, err := s.registryContract.GetDeposit(ctx, s.owner, new(big.Int).SetUint64(window))
+	stakeAmount, err := s.registryContract.GetDeposit(ctx, s.owner, window)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 	}
