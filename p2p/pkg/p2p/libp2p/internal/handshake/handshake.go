@@ -19,7 +19,7 @@ import (
 
 const (
 	ProtocolName    = "handshake"
-	ProtocolVersion = "2.0.0"
+	ProtocolVersion = "3.0.0"
 	StreamName      = "handshake"
 )
 
