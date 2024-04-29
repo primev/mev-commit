@@ -2,8 +2,12 @@
 pragma solidity ^0.8.15;
 
 /// @title Implements an enumerable set of bytes arrays.
-/// @notice Adapted from OpenZeppelin's EnumerableSet.sol implementation. However this version is streamlined to only support
-/// bytes type, since solidity does not support generics.
+/// @notice Adapted from OpenZeppelin's EnumerableSet.sol implementation. 
+/// See https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/utils/structs/EnumerableSet.sol
+///
+/// The openzeppelin EnumerableSet implementations are only compatible with values that are 32 bytes.
+/// Hence we were required to alter their source code to enable 48 byte BLS pubkey storage.
+/// This implementation is streamlined to only support a set of "bytes" type.
 library EnumerableSet {
 
     // Represents a set of byte array values

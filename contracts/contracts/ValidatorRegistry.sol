@@ -160,6 +160,10 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @dev Returns an array of staked validator BLS pubkeys within the specified range. Ordering is unspecified.
     /// We require users to query in batches, with knowledge from getNumberOfStakedValidators().
     ///
+    /// Note Only 1000 validator pubkeys can be queried per batch, as an application-level rate limiting 
+    /// mechanism preventing a user from overwhelming a node with a large query.
+    /// TODO: Research if this neccessary rate limiting can be, or is, enforced at a node level.
+    ///
     /// @return set of staked validator BLS pubkeys.
     /// @return stakedValsetVersion uint version of the staked valset at the time of query.
     function getStakedValidators(uint256 start, uint256 end) external view returns (bytes[] memory, uint256) {

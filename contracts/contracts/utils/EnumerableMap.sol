@@ -4,8 +4,12 @@ pragma solidity ^0.8.15;
 import {EnumerableSet} from "./EnumerableSet.sol";
 
 /// @title Implements an enumerable variant of Solidity's mapping type.
-/// @notice Adapted from OpenZeppelin's EnumerableMap.sol implementation. However this version is streamlined to only support
-/// a mapping from bytes to uint256, since solidity does not support generics.
+/// @notice Adapted from OpenZeppelin's EnumerableMap.sol implementation.
+/// See https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contracts/utils/structs/EnumerableMap.sol
+///
+/// The openzeppelin EnumerableMap implementations are only compatible with keys/values that are 32 bytes.
+/// Hence we were required to alter their source code to enable 48 byte BLS pubkey storage.
+/// This implementation is streamlined to only support a mapping from "bytes" type, to uint256.
 library EnumerableMap {
     using EnumerableSet for EnumerableSet.BytesSet;
 
