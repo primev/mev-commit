@@ -26,7 +26,8 @@ type BidderRegistry interface {
 type Store interface {
 	GetBalance(bidder common.Address, windowNumber *big.Int) (*big.Int, error)
 	SetBalance(bidder common.Address, windowNumber *big.Int, balance *big.Int) error
-	DeductAndCheckBalanceForBlock(bidder common.Address, defaultAmount, bidAmount *big.Int, blockNumber int64) (*big.Int, error)
+	GetBalanceForBlock(bidder common.Address, blockNumber int64) (*big.Int, error)
+	SetBalanceForBlock(bidder common.Address, balance *big.Int, blockNumber int64) error
 	RefundBalanceForBlock(bidder common.Address, amount *big.Int, blockNumber int64) error
 }
 
@@ -125,7 +126,8 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				return nil
 			case bidderReg := <-dm.bidderRegs:
-				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, bidderReg.DepositedAmount); err != nil {
+				effectiveStake := new(big.Int).Div(new(big.Int).Set(bidderReg.DepositedAmount), new(big.Int).SetUint64(dm.blocksPerWindow.Load()))
+				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, effectiveStake); err != nil {
 					return err
 				}
 			}
@@ -154,6 +156,8 @@ func (dm *DepositManager) CheckAndDeductDeposit(ctx context.Context, address com
 		dm.blocksPerWindow.Store(blocksPerWindow.Uint64())
 	}
 
+	blocksPerWindow := dm.blocksPerWindow.Load()
+
 	bidAmount, ok := new(big.Int).SetString(bidAmountStr, 10)
 	if !ok {
 		dm.logger.Error("parsing bid amount", "amount", bidAmountStr)
@@ -161,39 +165,60 @@ func (dm *DepositManager) CheckAndDeductDeposit(ctx context.Context, address com
 	}
 
 	// adding 2 to the current window, bcs oracle is 2 windows behind
-	windowToCheck := big.NewInt(dm.currentWindow.Load() + 2)
+	possibleWindow := big.NewInt(dm.currentWindow.Load() + 2)
 
-	balance, err := dm.store.GetBalance(address, windowToCheck)
+	windowToCheck := new(big.Int).SetUint64((uint64(blockNumber)-1)/blocksPerWindow + 1)
+	if windowToCheck.Cmp(possibleWindow) < 0 {
+		dm.logger.Error("window is too old", "window", windowToCheck.Uint64(), "possibleWindow", possibleWindow.Uint64())
+		return nil, status.Errorf(codes.FailedPrecondition, "window is too old")
+	}
+
+	defaultBalance, err := dm.store.GetBalance(address, windowToCheck)
 	if err != nil {
 		dm.logger.Error("getting balance", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
 	}
 
-	if balance == nil {
+	if defaultBalance == nil {
 		dm.logger.Error("bidder balance not found", "address", address.Hex(), "window", windowToCheck)
 		return nil, status.Errorf(codes.FailedPrecondition, "balance not found")
 	}
 
 	dm.logger.Info("checking bidder deposit",
-		"stake", balance.Uint64(),
+		"stake", defaultBalance.Uint64(),
 		"blocksPerWindow", dm.blocksPerWindow.Load(),
 		"minStake", dm.minDeposit.Load(),
 		"window", windowToCheck.Uint64(),
 		"address", address.Hex(),
 	)
 
-	blocksPerWindow := new(big.Int).SetUint64(dm.blocksPerWindow.Load())
-
-	// todo: make sense to do division only once, when bidder deposit funds,
-	// not everytime, when checking deposit
-	effectiveStake := new(big.Int).Div(new(big.Int).Set(balance), blocksPerWindow)
-
-	deductedBalance, err := dm.store.DeductAndCheckBalanceForBlock(address, effectiveStake, bidAmount, blockNumber)
+	balanceForBlock, err := dm.store.GetBalanceForBlock(address, blockNumber)
 	if err != nil {
-		dm.logger.Error("deducting balance", "error", err)
-		return nil, status.Errorf(codes.FailedPrecondition, "failed to deduct balance: %v", err)
+		dm.logger.Error("getting balance for block", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to get balance for block: %v", err)
 	}
-	return deductedBalance, nil
+
+	if balanceForBlock == nil {
+		if defaultBalance.Cmp(bidAmount) >= 0 {
+			newBalance := new(big.Int).Sub(defaultBalance, bidAmount)
+			if err := dm.store.SetBalance(address, windowToCheck, newBalance); err != nil {
+				dm.logger.Error("setting balance", "error", err)
+				return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
+			}
+			return newBalance, nil
+		}
+	}
+
+	if balanceForBlock.Cmp(bidAmount) >= 0 {
+		newBalance := new(big.Int).Sub(balanceForBlock, bidAmount)
+		if err := dm.store.SetBalanceForBlock(address, newBalance, blockNumber); err != nil {
+			dm.logger.Error("setting balance for block", "error", err)
+			return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
+		}
+		return newBalance, nil
+	}
+
+	return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
 }
 
 func (dm *DepositManager) RefundDeposit(address common.Address, deductedAmount *big.Int, blockNumber int64) error {

@@ -175,26 +175,19 @@ func getBBSKey(bidder common.Address, windowNumber *big.Int) string {
 	return bidder.String() + windowNumber.String()
 }
 
-func (bbs *BidderBalancesStore) DeductAndCheckBalanceForBlock(bidder common.Address, defaultAmount, bidAmount *big.Int, blockNumber int64) (*big.Int, error) {
+func (bbs *BidderBalancesStore) GetBalanceForBlock(bidder common.Address, blockNumber int64) (*big.Int, error) {
 	key := getBBSforBlockKey(bidder, blockNumber)
-	if currentBalance, ok := bbs.balancesByBlock.Get(key); ok {
-		if currentBalance.Cmp(bidAmount) >= 0 {
-			newBalance := new(big.Int).Sub(currentBalance, bidAmount)
-			bbs.balancesByBlock.Add(key, newBalance)
-			return newBalance, nil
-		}
-		return nil, fmt.Errorf("insufficient funds")
+	if balance, ok := bbs.balancesByBlock.Get(key); ok {
+		return balance, nil
 	}
-
-	// If no balance found, set balance to defaultAmount - bidAmount
-	if defaultAmount.Cmp(bidAmount) >= 0 {
-		newBalance := new(big.Int).Sub(defaultAmount, bidAmount)
-		bbs.balancesByBlock.Add(key, newBalance)
-		return newBalance, nil
-	}
-	return nil, fmt.Errorf("default amount is less than bid amount, cannot deduct")
+	return nil, nil
 }
 
+func (bbs *BidderBalancesStore) SetBalanceForBlock(bidder common.Address, amount *big.Int, blockNumber int64) error {
+	key := getBBSforBlockKey(bidder, blockNumber)
+	bbs.balancesByBlock.Add(key, amount)
+	return nil
+}
 
 func (bbs *BidderBalancesStore) RefundBalanceForBlock(bidder common.Address, amount *big.Int, blockNumber int64) error {
     key := getBBSforBlockKey(bidder, blockNumber)
