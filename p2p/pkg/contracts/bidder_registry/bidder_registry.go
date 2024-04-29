@@ -87,26 +87,6 @@ func (r *bidderRegistryContract) DepositForSpecificWindow(ctx context.Context, a
 		return err
 	}
 
-	var bidderRegistered struct {
-		Bidder          common.Address
-		DepositedAmount *big.Int
-		WindowNumber    *big.Int
-	}
-	for _, log := range receipt.Logs {
-		if len(log.Topics) > 1 {
-			bidderRegistered.Bidder = common.HexToAddress(log.Topics[1].Hex())
-		}
-
-		err := r.bidderRegistryABI.UnpackIntoInterface(&bidderRegistered, "BidderRegistered", log.Data)
-		if err != nil {
-			r.logger.Debug("failed to unpack event", "err", err)
-			continue
-		}
-		r.logger.Info("bidder registered", "address", bidderRegistered.Bidder, "depositedAmount", bidderRegistered.DepositedAmount.String(), "windowNumber", bidderRegistered.WindowNumber.Int64())
-	}
-
-	r.logger.Info("deposit successful for bidder registry", "txnHash", txnHash, "bidder", bidderRegistered.Bidder)
-
 	return nil
 }
 
@@ -190,27 +170,6 @@ func (r *bidderRegistryContract) WithdrawDeposit(ctx context.Context, window *bi
 		)
 		return err
 	}
-
-	var bidderWithdrawn struct {
-		Bidder common.Address
-		Amount *big.Int
-		Window *big.Int
-	}
-
-	for _, log := range receipt.Logs {
-		if len(log.Topics) > 1 {
-			bidderWithdrawn.Bidder = common.HexToAddress(log.Topics[1].Hex())
-		}
-
-		err := r.bidderRegistryABI.UnpackIntoInterface(&bidderWithdrawn, "BidderWithdrawn", log.Data)
-		if err != nil {
-			r.logger.Debug("Failed to unpack event", "err", err)
-			continue
-		}
-		r.logger.Info("bidder withdrawn", "address", bidderWithdrawn.Bidder, "withdrawn", bidderWithdrawn.Amount.Uint64(), "windowNumber", bidderWithdrawn.Window.Int64())
-	}
-
-	r.logger.Info("withdraw successful for bidder registry", "txnHash", txnHash, "bidder", bidderWithdrawn.Bidder)
 
 	return nil
 }
