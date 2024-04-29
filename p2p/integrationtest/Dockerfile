@@ -15,6 +15,7 @@ FROM golang:1.22.1 AS mev_commit_builder
 WORKDIR /
 COPY ./p2p ./p2p
 COPY ./contracts-abi ./contracts-abi
+COPY ./x ./x
 WORKDIR ./p2p
 RUN CGO_ENABLED=0 GOOS=linux make build
 

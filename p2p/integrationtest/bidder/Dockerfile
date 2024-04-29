@@ -2,6 +2,7 @@ FROM golang:1.22.1 AS builder
 
 WORKDIR /app
 COPY ./p2p ./p2p
+COPY ./x ./x
 WORKDIR ./p2p/integrationtest/bidder
 RUN CGO_ENABLED=0 GOOS=linux go build -o bidder-emulator main.go
 
