@@ -32,7 +32,6 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/debugapi"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/discovery"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keyexchange"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
@@ -46,6 +45,8 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	"github.com/primevprotocol/mev-commit/x/contracts/events/publisher"
 	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -215,6 +216,13 @@ func NewNode(opts *Options) (*Node, error) {
 	evtMgr := events.NewListener(
 		opts.Logger.With("component", "events"),
 		abis...,
+	)
+
+	wsPub := publisher.NewWSPublisher(
+		testStore{},
+		opts.Logger.With("component", "ws_publisher"),
+		wsRPC,
+		evtMgr,
 	)
 
 	monitor := txmonitor.New(
@@ -508,6 +516,8 @@ func NewNode(opts *Options) (*Node, error) {
 	}()
 	nd.closers = append(nd.closers, server)
 
+	pubDone := wsPub.Start(ctx, contractAddrs...)
+
 	nd.waitClose = func() {
 		cancel()
 
@@ -517,6 +527,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 			<-preconfProtoClosed
 			<-monitorClosed
+			<-pubDone
 		}()
 
 		<-closeChan
@@ -592,5 +603,15 @@ func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Addr
 }
 
 func (noOpDepositManager) RefundDeposit(_ common.Address, _ *big.Int, _ int64) error {
+	return nil
+}
+
+type testStore struct{}
+
+func (t testStore) LastBlock() (uint64, error) {
+	return 0, nil
+}
+
+func (t testStore) SetLastBlock(_ uint64) error {
 	return nil
 }
