@@ -248,6 +248,13 @@ func checkOrDeposit(
 		return nil
 	}
 
+	resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{})
+	if err != nil {
+		logger.Error("failed to withdraw", "error", err)
+		return err
+	}
+	logger.Info("withdraw", "amount", resp.Amount, "window", resp.WindowNumber)
+
 	topup := big.NewInt(0).Mul(minDepositAmt, big.NewInt(10))
 
 	_, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{

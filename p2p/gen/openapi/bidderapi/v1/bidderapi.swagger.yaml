@@ -104,13 +104,34 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/withdraw:
+    post:
+      summary: Withdraw
+      description: Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+      operationId: Bidder_Withdraw
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1WithdrawResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: windowNumber
+          description: Optional window number for withdrawing deposits. If not specified, the last window number is used.
+          in: query
+          required: false
+          type: string
+          format: uint64
 definitions:
   bidderapiv1Bid:
     type: object
     example:
       amount: "1000000000000000000"
-      blockNumber: 123456
-      txHashes:
+      block_number: 123456
+      tx_hashes:
         - fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7
         - 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
     properties:
@@ -204,7 +225,7 @@ definitions:
     type: object
     example:
       amount: "1000000000000000000"
-      windowNumber: 1
+      window_number: 1
     properties:
       amount:
         type: string
@@ -213,3 +234,16 @@ definitions:
         format: uint64
     description: Get deposit for bidder in the bidder registry.
     title: Deposit response
+  v1WithdrawResponse:
+    type: object
+    example:
+      amount: "1000000000000000000"
+      window_number: 1
+    properties:
+      amount:
+        type: string
+      windowNumber:
+        type: string
+        format: uint64
+    description: Withdraw deposit from the bidder registry.
+    title: Withdraw response
