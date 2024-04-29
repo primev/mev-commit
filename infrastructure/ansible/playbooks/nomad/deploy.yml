@@ -3,7 +3,7 @@
   hosts: nomad_clients
   vars:
     env: "devnet"
-    version: "cb442cb"
+    version: "68894a3"
     datacenter: "dc1"
     destination: "{{ ansible_env.HOME }}/{{ env }}"
     jobs:
@@ -74,6 +74,11 @@
           net-restrict: 0.0.0.0/0
           type: member
           sync-mode: snap
+
+      - name: deploy-contracts
+        template: deploy-contracts.nomad.j2
+        count: 1
+        chain-id: 17864
 
   tasks:
     - name: Check | Ensure destination directory exists
