@@ -112,22 +112,6 @@ func (t *testCommitmentDA) Close() error {
 	return nil
 }
 
-type testBlockTrackerContract struct {
-	blockNumberToWinner map[uint64]common.Address
-	lastBlockNumber     uint64
-	blocksPerWindow     uint64
-}
-
-// GetCurrentWindow returns the current window number.
-func (btc *testBlockTrackerContract) GetCurrentWindow(ctx context.Context) (uint64, error) {
-	return btc.lastBlockNumber / btc.blocksPerWindow, nil
-}
-
-// GetBlocksPerWindow returns the number of blocks per window.
-func (btc *testBlockTrackerContract) GetBlocksPerWindow(ctx context.Context) (uint64, error) {
-	return btc.blocksPerWindow, nil
-}
-
 func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
 	t.Helper()
 
