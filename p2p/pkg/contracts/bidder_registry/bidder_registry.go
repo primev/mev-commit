@@ -31,7 +31,7 @@ type Interface interface {
 	// CheckBidderRegistred returns true if bidder is registered
 	CheckBidderDeposit(ctx context.Context, address common.Address, window, blocksPerWindow *big.Int) bool
 	// WithdrawDeposit withdraws the stake of a bidder.
-	WithdrawDeposit(ctx context.Context, window *big.Int) error
+	WithdrawDeposit(ctx context.Context, window *big.Int) (*big.Int, error)
 }
 
 type bidderRegistryContract struct {
@@ -162,11 +162,11 @@ func (r *bidderRegistryContract) GetMinDeposit(ctx context.Context) (*big.Int, e
 	return abi.ConvertType(results[0], new(big.Int)).(*big.Int), nil
 }
 
-func (r *bidderRegistryContract) WithdrawDeposit(ctx context.Context, window *big.Int) error {
+func (r *bidderRegistryContract) WithdrawDeposit(ctx context.Context, window *big.Int) (*big.Int, error) {
 	callData, err := r.bidderRegistryABI.Pack("withdrawBidderAmountFromWindow", r.owner, window)
 	if err != nil {
 		r.logger.Error("error packing call data", "error", err)
-		return err
+		return nil, err
 	}
 
 	txnHash, err := r.client.Send(ctx, &evmclient.TxRequest{
@@ -174,12 +174,12 @@ func (r *bidderRegistryContract) WithdrawDeposit(ctx context.Context, window *bi
 		CallData: callData,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	receipt, err := r.client.WaitForReceipt(ctx, txnHash)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
@@ -188,7 +188,7 @@ func (r *bidderRegistryContract) WithdrawDeposit(ctx context.Context, window *bi
 			"txnHash", txnHash,
 			"receipt", receipt,
 		)
-		return err
+		return nil, err
 	}
 
 	var bidderWithdrawn struct {
@@ -212,7 +212,7 @@ func (r *bidderRegistryContract) WithdrawDeposit(ctx context.Context, window *bi
 
 	r.logger.Info("withdraw successful for bidder registry", "txnHash", txnHash, "bidder", bidderWithdrawn.Bidder)
 
-	return nil
+	return bidderWithdrawn.Amount, nil
 }
 
 func (r *bidderRegistryContract) CheckBidderDeposit(
