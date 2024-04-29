@@ -198,27 +198,26 @@ func (dm *DepositManager) CheckAndDeductDeposit(ctx context.Context, address com
 		return nil, status.Errorf(codes.Internal, "failed to get balance for block: %v", err)
 	}
 
-	if balanceForBlock == nil {
-		if defaultBalance.Cmp(bidAmount) >= 0 {
-			newBalance := new(big.Int).Sub(defaultBalance, bidAmount)
-			if err := dm.store.SetBalance(address, windowToCheck, newBalance); err != nil {
-				dm.logger.Error("setting balance", "error", err)
-				return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
-			}
-			return newBalance, nil
-		}
-	}
+	var newBalance *big.Int
 
-	if balanceForBlock.Cmp(bidAmount) >= 0 {
-		newBalance := new(big.Int).Sub(balanceForBlock, bidAmount)
-		if err := dm.store.SetBalanceForBlock(address, newBalance, blockNumber); err != nil {
-			dm.logger.Error("setting balance for block", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to set balance for block: %v", err)
-		}
-		return newBalance, nil
+	balanceToCheck := balanceForBlock
+	if balanceToCheck == nil {
+		balanceToCheck = defaultBalance
 	}
-
-	return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
+	
+	// Check if the balance is sufficient to cover the bid amount
+	if balanceToCheck != nil && balanceToCheck.Cmp(bidAmount) >= 0 {
+		newBalance = new(big.Int).Sub(balanceToCheck, bidAmount)
+	} else {
+		return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
+	}
+	
+	if err := dm.store.SetBalanceForBlock(address, newBalance, blockNumber); err != nil {
+		dm.logger.Error("setting balance", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
+	}
+		
+	return newBalance, nil
 }
 
 func (dm *DepositManager) RefundDeposit(address common.Address, deductedAmount *big.Int, blockNumber int64) error {
