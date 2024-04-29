@@ -23,6 +23,7 @@ const (
 	Bidder_Deposit_FullMethodName       = "/bidderapi.v1.Bidder/Deposit"
 	Bidder_GetDeposit_FullMethodName    = "/bidderapi.v1.Bidder/GetDeposit"
 	Bidder_GetMinDeposit_FullMethodName = "/bidderapi.v1.Bidder/GetMinDeposit"
+	Bidder_Withdraw_FullMethodName      = "/bidderapi.v1.Bidder/Withdraw"
 )
 
 // BidderClient is the client API for Bidder service.
@@ -45,6 +46,10 @@ type BidderClient interface {
 	//
 	// GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
 	GetMinDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*DepositResponse, error)
+	// Withdraw
+	//
+	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+	Withdraw(ctx context.Context, in *WithdrawRequest, opts ...grpc.CallOption) (*WithdrawResponse, error)
 }
 
 type bidderClient struct {
@@ -114,6 +119,15 @@ func (c *bidderClient) GetMinDeposit(ctx context.Context, in *EmptyMessage, opts
 	return out, nil
 }
 
+func (c *bidderClient) Withdraw(ctx context.Context, in *WithdrawRequest, opts ...grpc.CallOption) (*WithdrawResponse, error) {
+	out := new(WithdrawResponse)
+	err := c.cc.Invoke(ctx, Bidder_Withdraw_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BidderServer is the server API for Bidder service.
 // All implementations must embed UnimplementedBidderServer
 // for forward compatibility
@@ -134,6 +148,10 @@ type BidderServer interface {
 	//
 	// GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
 	GetMinDeposit(context.Context, *EmptyMessage) (*DepositResponse, error)
+	// Withdraw
+	//
+	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+	Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error)
 	mustEmbedUnimplementedBidderServer()
 }
 
@@ -152,6 +170,9 @@ func (UnimplementedBidderServer) GetDeposit(context.Context, *GetDepositRequest)
 }
 func (UnimplementedBidderServer) GetMinDeposit(context.Context, *EmptyMessage) (*DepositResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMinDeposit not implemented")
+}
+func (UnimplementedBidderServer) Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Withdraw not implemented")
 }
 func (UnimplementedBidderServer) mustEmbedUnimplementedBidderServer() {}
 
@@ -241,6 +262,24 @@ func _Bidder_GetMinDeposit_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Bidder_Withdraw_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WithdrawRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).Withdraw(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_Withdraw_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).Withdraw(ctx, req.(*WithdrawRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Bidder_ServiceDesc is the grpc.ServiceDesc for Bidder service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -259,6 +298,10 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMinDeposit",
 			Handler:    _Bidder_GetMinDeposit_Handler,
+		},
+		{
+			MethodName: "Withdraw",
+			Handler:    _Bidder_Withdraw_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

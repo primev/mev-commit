@@ -97,8 +97,8 @@ func (t *testRegistryContract) CheckBidderDeposit(ctx context.Context, address c
 	return t.deposit.Cmp(t.minDeposit) > 0
 }
 
-func (t *testRegistryContract) WithdrawDeposit(ctx context.Context, window *big.Int) error {
-	return nil
+func (t *testRegistryContract) WithdrawDeposit(ctx context.Context, window *big.Int) (*big.Int, error) {
+	return t.deposit, nil
 }
 
 type testBlockTrackerContract struct {
@@ -178,18 +178,18 @@ func TestDepositHandling(t *testing.T) {
 		}
 
 		for _, tc := range []testCase{
-			// {
-			// 	amount: "",
-			// 	err:    "amount must be a valid integer",
-			// },
-			// {
-			// 	amount: "0000000000000000000",
-			// 	err:    "amount must be a valid integer",
-			// },
-			// {
-			// 	amount: "asdf",
-			// 	err:    "amount must be a valid integer",
-			// },
+			{
+				amount: "",
+				err:    "amount must be a valid integer",
+			},
+			{
+				amount: "0000000000000000000",
+				err:    "amount must be a valid integer",
+			},
+			{
+				amount: "asdf",
+				err:    "amount must be a valid integer",
+			},
 			{
 				amount: "1000000000000000000",
 				err:    "",
@@ -228,6 +228,21 @@ func TestDepositHandling(t *testing.T) {
 		}
 		if deposit.Amount != "100000000000000000" {
 			t.Fatalf("expected amount to be 100000000000000000, got %v", deposit.Amount)
+		}
+	})
+
+	t.Run("withdraw", func(t *testing.T) {
+		resp, err := client.Withdraw(context.Background(), &bidderapiv1.WithdrawRequest{WindowNumber: wrapperspb.UInt64(1)})
+		if err != nil {
+			t.Fatalf("error withdrawing: %v", err)
+		}
+
+		if resp.Amount != "1000000000000000000" {
+			t.Fatalf("expected amount to be 1000000000000000000, got %v", resp.Amount)
+		}
+
+		if resp.WindowNumber.Value != 1 {
+			t.Fatalf("expected window number to be 1, got %v", resp.WindowNumber)
 		}
 	})
 }

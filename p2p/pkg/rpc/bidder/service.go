@@ -28,7 +28,6 @@ type Service struct {
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
-	depositedWindows     map[*big.Int]struct{}
 }
 
 func NewService(
@@ -47,7 +46,6 @@ func NewService(
 		logger:               logger,
 		metrics:              newMetrics(),
 		validator:            validator,
-		depositedWindows:     make(map[*big.Int]struct{}),
 	}
 }
 
@@ -133,20 +131,6 @@ func (s *Service) Deposit(
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "calculating window to deposit: %v", err)
 	}
-	if _, ok := s.depositedWindows[windowToDeposit]; ok {
-		return nil, status.Errorf(codes.FailedPrecondition, "deposited already for window %d", windowToDeposit.Int64())
-	}
-
-	for window := range s.depositedWindows {
-		if window.Cmp(currentWindow) < 0 {
-			err := s.registryContract.WithdrawDeposit(ctx, window)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
-			}
-			s.logger.Info("withdrew deposit", "window", window)
-			delete(s.depositedWindows, window)
-		}
-	}
 
 	amount, success := big.NewInt(0).SetString(r.Amount, 10)
 	if !success {
@@ -164,9 +148,11 @@ func (s *Service) Deposit(
 	}
 
 	s.logger.Info("deposit successful", "amount", stakeAmount.String(), "window", windowToDeposit)
-	s.depositedWindows[windowToDeposit] = struct{}{}
 
-	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String(), WindowNumber: wrapperspb.UInt64(windowToDeposit.Uint64())}, nil
+	return &bidderapiv1.DepositResponse{
+		Amount:       stakeAmount.String(),
+		WindowNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
+	}, nil
 }
 
 func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.DepositRequest, currentWindow uint64) (*big.Int, error) {
@@ -222,4 +208,37 @@ func (s *Service) GetMinDeposit(
 	}
 
 	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String()}, nil
+}
+
+func (s *Service) Withdraw(
+	ctx context.Context,
+	r *bidderapiv1.WithdrawRequest,
+) (*bidderapiv1.WithdrawResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw request: %v", err)
+	}
+
+	var window *big.Int
+	if r.WindowNumber == nil {
+		window, err = s.blockTrackerContract.GetCurrentWindow()
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
+		}
+		window = new(big.Int).Sub(window, big.NewInt(1))
+	} else {
+		window = new(big.Int).SetUint64(r.WindowNumber.Value)
+	}
+
+	amount, err := s.registryContract.WithdrawDeposit(ctx, window)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
+	}
+
+	s.logger.Info("withdraw successful", "amount", amount.String(), "window", window)
+
+	return &bidderapiv1.WithdrawResponse{
+		Amount:       amount.String(),
+		WindowNumber: wrapperspb.UInt64(window.Uint64()),
+	}, nil
 }
