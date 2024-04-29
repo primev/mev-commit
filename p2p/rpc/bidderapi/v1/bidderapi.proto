@@ -48,6 +48,12 @@ service Bidder {
   rpc GetMinDeposit(EmptyMessage) returns (DepositResponse) {
     option (google.api.http) = {get: "/v1/bidder/get_min_deposit"};
   }
+  // Withdraw
+  //
+  // Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+  rpc Withdraw(WithdrawRequest) returns (WithdrawResponse) {
+    option (google.api.http) = {post: "/v1/bidder/withdraw"};
+  }
 }
 
 message DepositRequest {
@@ -57,7 +63,7 @@ message DepositRequest {
       description: "Deposit for bids to be issued by the bidder in wei."
       required: ["amount"]
     }
-    example: "{\"amount\": \"1000000000000000000\", \"windowNumber\": 1 }"
+    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1 }"
   };
   string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Amount of ETH to be deposited in wei."
@@ -65,22 +71,22 @@ message DepositRequest {
   }, (buf.validate.field).cel = {
       id: "amount",
       message: "amount must be a valid integer.",
-      expression: "this.matches('^[0-9]+$')"
+      expression: "this.matches('^[1-9][0-9]*$')"
   }];
-  google.protobuf.UInt64Value windowNumber = 2 [
+  google.protobuf.UInt64Value window_number = 2 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Optional window number for querying deposit. If not specified, the current block number is used."
     }, (buf.validate.field).cel = {
-      id: "windowNumber",
-      message: "windowNumber must be a positive integer if specified.",
+      id: "window_number",
+      message: "window_number must be a positive integer if specified.",
       expression: "this == null || (this > 0)"
     }];
-  google.protobuf.UInt64Value blockNumber = 3 [
+  google.protobuf.UInt64Value block_number = 3 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Optional block number for querying deposit. If specified, calculate window based on this block number."
     }, (buf.validate.field).cel = {
-      id: "blockNumber",
-      message: "blockNumber must be a positive integer if specified.",
+      id: "block_number",
+      message: "block_number must be a positive integer if specified.",
       expression: "this == null || (this > 0)"
     }];
 };
@@ -91,33 +97,64 @@ message DepositResponse {
       title: "Deposit response"
       description: "Get deposit for bidder in the bidder registry."
     }
-    example: "{\"amount\": \"1000000000000000000\", \"windowNumber\": 1 }"
+    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1 }"
   };
   string amount = 1;
-  google.protobuf.UInt64Value windowNumber = 2;
+  google.protobuf.UInt64Value window_number = 2;
 };
 
 message EmptyMessage {};
 
 message GetDepositRequest {
-  google.protobuf.UInt64Value windowNumber = 1 [
+  google.protobuf.UInt64Value window_number = 1 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
       description: "Optional window number for querying deposits. If not specified, the current block number is used."
     }, (buf.validate.field).cel = {
-      id: "windowNumber",
-      message: "windowNumber must be a positive integer if specified.",
+      id: "window_number",
+      message: "window_number must be a positive integer if specified.",
       expression: "this == null || (this > 0)"
     }];
 }
+
+message WithdrawRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Withdraw request"
+      description: "Withdraw deposit from the bidder registry."
+      required: ["amount"]
+    }
+    example: "{\"window_number\": 1 }"
+  };
+  google.protobuf.UInt64Value window_number = 1 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Optional window number for withdrawing deposits. If not specified, the last window number is used."
+    }, (buf.validate.field).cel = {
+      id: "window_number",
+      message: "window_number must be a positive integer if specified.",
+      expression: "this == null || (this > 0)"
+    }];
+};
+
+message WithdrawResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Withdraw response"
+      description: "Withdraw deposit from the bidder registry."
+    }
+    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1 }"
+  };
+  string amount = 1;
+  google.protobuf.UInt64Value window_number = 2;
+};
 
 message Bid {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Bid message"
       description: "Unsigned bid message from bidders to the bidder mev-commit node."
-      required: ["txHashes", "amount", "blockNumber"]
+      required: ["tx_hashes", "amount", "block_number"]
     }
-    example: "{\"txHashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"blockNumber\": 123456}"
+    example: "{\"tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"block_number\": 123456}"
   };
   repeated string tx_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Hex string encoding of the hashes of the transactions that the bidder wants to include in the block."
