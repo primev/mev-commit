@@ -85,16 +85,6 @@ contract BlockTracker is Ownable {
     }
 
     /**
-     * @dev Sets the number of blocks per window.
-     * @param _blocksPerWindow The new number of blocks per window.
-     */
-    function setBlocksPerWindow(uint256 _blocksPerWindow) external onlyOwner {
-        blocksPerWindow = _blocksPerWindow;
-
-        emit NewBlocksPerWindow(blocksPerWindow);
-    }
-
-    /**
      * @dev Records a new L1 block and its winner.
      * @param _blockNumber The number of the new L1 block.
      * @param _winnerGraffiti The graffiti of the winner of the new L1 block.
