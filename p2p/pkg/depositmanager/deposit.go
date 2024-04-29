@@ -204,19 +204,19 @@ func (dm *DepositManager) CheckAndDeductDeposit(ctx context.Context, address com
 	if balanceToCheck == nil {
 		balanceToCheck = defaultBalance
 	}
-	
+
 	// Check if the balance is sufficient to cover the bid amount
 	if balanceToCheck != nil && balanceToCheck.Cmp(bidAmount) >= 0 {
 		newBalance = new(big.Int).Sub(balanceToCheck, bidAmount)
 	} else {
 		return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
 	}
-	
+
 	if err := dm.store.SetBalanceForBlock(address, newBalance, blockNumber); err != nil {
 		dm.logger.Error("setting balance", "error", err)
 		return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
 	}
-		
+
 	return newBalance, nil
 }
 
