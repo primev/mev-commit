@@ -38,6 +38,10 @@ func NewStore() (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create balancesByBlockCache: %w", err)
 	}
+	balancesCache, err := lru.New[string, *big.Int](1024)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create balancesCache: %w", err)
+	}
 	return &Store{
 		BlockStore: &BlockStore{
 			data: make(map[string]uint64),
@@ -47,7 +51,7 @@ func NewStore() (*Store, error) {
 			commitmentsByCommitmentHash: make(map[string]*EncryptedPreConfirmationWithDecrypted),
 		},
 		BidderBalancesStore: &BidderBalancesStore{
-			balances:        make(map[string]*big.Int),
+			balances:        balancesCache,
 			balancesByBlock: balancesByBlockCache,
 		},
 	}, nil
@@ -148,24 +152,19 @@ func (cs *CommitmentsStore) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex
 }
 
 type BidderBalancesStore struct {
-	balances        map[string]*big.Int
+	balances        *lru.Cache[string, *big.Int]
 	balancesByBlock *lru.Cache[string, *big.Int]
-	mu              sync.RWMutex
 }
 
 func (bbs *BidderBalancesStore) SetBalance(bidder common.Address, windowNumber, depositedAmount *big.Int) error {
-	bbs.mu.Lock()
-	defer bbs.mu.Unlock()
 	bssKey := getBBSKey(bidder, windowNumber)
-	bbs.balances[bssKey] = depositedAmount
+	bbs.balances.Add(bssKey, depositedAmount)
 	return nil
 }
 
 func (bbs *BidderBalancesStore) GetBalance(bidder common.Address, windowNumber *big.Int) (*big.Int, error) {
-	bbs.mu.RLock()
-	defer bbs.mu.RUnlock()
 	bssKey := getBBSKey(bidder, windowNumber)
-	if balance, exists := bbs.balances[bssKey]; exists {
+	if balance, exists := bbs.balances.Get(bssKey); exists {
 		return balance, nil
 	}
 	return nil, nil
@@ -190,17 +189,17 @@ func (bbs *BidderBalancesStore) SetBalanceForBlock(bidder common.Address, amount
 }
 
 func (bbs *BidderBalancesStore) RefundBalanceForBlock(bidder common.Address, amount *big.Int, blockNumber int64) error {
-    key := getBBSforBlockKey(bidder, blockNumber)
-    if currentBalance, ok := bbs.balancesByBlock.Get(key); ok {
-        // If a balance exists, simply add the amount back
-        updatedBalance := new(big.Int).Add(currentBalance, amount)
-        bbs.balancesByBlock.Add(key, updatedBalance)
-        return nil
-    }
+	key := getBBSforBlockKey(bidder, blockNumber)
+	if currentBalance, ok := bbs.balancesByBlock.Get(key); ok {
+		// If a balance exists, simply add the amount back
+		updatedBalance := new(big.Int).Add(currentBalance, amount)
+		bbs.balancesByBlock.Add(key, updatedBalance)
+		return nil
+	}
 
-    // If no balance found (which should be unusual for a refund), initialize to the refund amount
-    bbs.balancesByBlock.Add(key, amount)
-    return nil
+	// If no balance found (which should be unusual for a refund), initialize to the refund amount
+	bbs.balancesByBlock.Add(key, amount)
+	return nil
 }
 
 func getBBSforBlockKey(bidder common.Address, blockNumber int64) string {
