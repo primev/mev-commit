@@ -126,7 +126,13 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				return nil
 			case bidderReg := <-dm.bidderRegs:
-				effectiveStake := new(big.Int).Div(new(big.Int).Set(bidderReg.DepositedAmount), new(big.Int).SetUint64(dm.blocksPerWindow.Load()))
+				blocksPerWindow, err := dm.checkAndSetBlocksPerWindow()
+				if err != nil {
+					dm.logger.Error("failed to get blocks per window", "error", err)
+					return err
+				}
+			
+				effectiveStake := new(big.Int).Div(new(big.Int).Set(bidderReg.DepositedAmount), new(big.Int).SetUint64(blocksPerWindow))
 				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, effectiveStake); err != nil {
 					return err
 				}
@@ -147,16 +153,11 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (dm *DepositManager) CheckAndDeductDeposit(ctx context.Context, address common.Address, bidAmountStr string, blockNumber int64) (*big.Int, error) {
-	if dm.blocksPerWindow.Load() == 0 {
-		blocksPerWindow, err := dm.blockTracker.GetBlocksPerWindow()
-		if err != nil {
-			dm.logger.Error("getting blocks per window", "error", err)
-			return nil, status.Errorf(codes.Internal, "failed to get blocks per window: %v", err)
-		}
-		dm.blocksPerWindow.Store(blocksPerWindow.Uint64())
+	blocksPerWindow, err := dm.checkAndSetBlocksPerWindow()
+	if err != nil {
+		dm.logger.Error("failed to get blocks per window", "error", err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-
-	blocksPerWindow := dm.blocksPerWindow.Load()
 
 	bidAmount, ok := new(big.Int).SetString(bidAmountStr, 10)
 	if !ok {
@@ -222,4 +223,22 @@ func (dm *DepositManager) CheckAndDeductDeposit(ctx context.Context, address com
 
 func (dm *DepositManager) RefundDeposit(address common.Address, deductedAmount *big.Int, blockNumber int64) error {
 	return dm.store.RefundBalanceForBlock(address, deductedAmount, blockNumber)
+}
+
+func (dm *DepositManager) checkAndSetBlocksPerWindow() (uint64, error) {
+	bpwCache := dm.blocksPerWindow.Load()
+
+	if bpwCache != 0 {
+		return bpwCache, nil
+	}
+
+	blocksPerWindow, err := dm.blockTracker.GetBlocksPerWindow()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get blocks per window: %w", err)
+	}
+
+	blocksPerWindowUint64 := blocksPerWindow.Uint64()
+	dm.blocksPerWindow.Store(blocksPerWindowUint64)
+
+	return blocksPerWindowUint64, nil
 }
