@@ -21,7 +21,7 @@ contract BlockTracker is Ownable {
     event NewBlocksPerWindow(uint256 blocksPerWindow);
 
     uint256 public currentWindow = 1;
-    uint256 public blocksPerWindow = 64;
+    uint256 public blocksPerWindow = 10;
 
     // Mapping from block number to the winner's address
     mapping(uint256 => address) public blockWinners;
