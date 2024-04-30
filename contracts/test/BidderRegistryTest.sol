@@ -145,7 +145,8 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForSpecificWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint64 blockNumber = 66;
+        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
@@ -175,7 +176,8 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForSpecificWindow{value: 64 ether}(nextWindow);
 
         address provider = vm.addr(4);
-        uint64 blockNumber = 66;
+        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         bytes32 bidID = keccak256("1234");
@@ -231,7 +233,8 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 bidID = keccak256("1234");
-        uint64 blockNumber = 66;
+        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
@@ -258,7 +261,8 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         uint256 balanceBefore = address(provider).balance;
         bytes32 bidID = keccak256("1234");
-        uint64 blockNumber = 66;
+        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
@@ -291,7 +295,8 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForSpecificWindow{value: 128 ether}(nextWindow);
         uint256 balanceBefore = address(bidder).balance;
         bytes32 bidID = keccak256("1234");
-        uint64 blockNumber = 66;
+        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
