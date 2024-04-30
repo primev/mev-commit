@@ -104,7 +104,8 @@ contract OracleTest is Test {
 
     function test_process_commitment_payment_payout() public {
         string memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
-        uint64 blockNumber = 66;
+        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 2;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
@@ -164,7 +165,8 @@ contract OracleTest is Test {
     function test_process_commitment_slash_and_reward() public {
         string memory txn1 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string memory txn2 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d09";
-        uint64 blockNumber = 66;
+        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 100;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
