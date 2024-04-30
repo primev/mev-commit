@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var (
@@ -93,6 +94,8 @@ var (
 		Help:      "Duration of failed SendBid operation in ms.",
 	})
 )
+
+var deposits = map[uint64]struct{}{}
 
 func main() {
 	flag.Parse()
@@ -257,7 +260,7 @@ func checkOrDeposit(
 
 	topup := big.NewInt(0).Mul(minDepositAmt, big.NewInt(10))
 
-	_, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{
+	deposit, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{
 		Amount: topup.String(),
 	})
 	if err != nil {
@@ -266,6 +269,22 @@ func checkOrDeposit(
 	}
 
 	logger.Info("deposit", "amount", topup.String())
+
+	deposits[deposit.WindowNumber.Value] = struct{}{}
+
+	for window := range deposits {
+		if window < deposit.WindowNumber.Value-2 {
+			resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{
+				WindowNumber: wrapperspb.UInt64(window),
+			})
+			if err != nil {
+				logger.Error("failed to withdraw", "error", err)
+				return err
+			}
+			logger.Info("withdraw", "amount", resp.Amount, "window", resp.WindowNumber)
+			delete(deposits, window)
+		}
+	}
 
 	return nil
 }

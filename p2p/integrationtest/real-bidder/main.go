@@ -22,6 +22,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var (
@@ -62,6 +63,8 @@ var (
 		[]string{"status", "no_of_preconfs"},
 	)
 )
+
+var deposits = map[uint64]struct{}{}
 
 func main() {
 	flag.Parse()
@@ -262,16 +265,9 @@ func checkOrDeposit(
 		return nil
 	}
 
-	resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{})
-	if err != nil {
-		logger.Error("failed to withdraw", "err", err)
-		return err
-	}
-	logger.Info("withdraw", "amount", resp.Amount, "window", resp.WindowNumber)
-
 	topup := big.NewInt(0).Mul(minDepositAmt, big.NewInt(10))
 
-	_, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{
+	deposit, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{
 		Amount: topup.String(),
 	})
 	if err != nil {
@@ -280,6 +276,22 @@ func checkOrDeposit(
 	}
 
 	logger.Info("deposit", "amount", topup.String())
+
+	deposits[deposit.WindowNumber.Value] = struct{}{}
+
+	for window := range deposits {
+		if window < deposit.WindowNumber.Value-2 {
+			resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{
+				WindowNumber: wrapperspb.UInt64(window),
+			})
+			if err != nil {
+				logger.Error("failed to withdraw", "err", err)
+				return err
+			}
+			logger.Info("withdraw", "amount", resp.Amount, "window", resp.WindowNumber)
+			delete(deposits, window)
+		}
+	}
 
 	return nil
 }
