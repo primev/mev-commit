@@ -1,4 +1,3 @@
----
 - name: Deploy Nomad Jobs
   hosts: nomad_clients
   vars:
@@ -8,155 +7,41 @@
     destination: "{{ ansible_env.HOME }}/{{ env }}"
     tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
     tls_key_file: "/etc/ssl/private/mev-commit_{{ env }}.mev-commit.primev.xyz.key"
-    jobs:
-      - name: mev-commit-geth-bootnode1
-        template: mev-commit-geth.nomad.j2
-        count: 1
-        ports:
-          - metrics:
-              to: 6060
-            http:
-              static: 8545
-              to: 8545
-            p2p:
-              to: 30301
-        env:
-          ip: 0.0.0.0
-          public-ip: 0.0.0.0
-          net-restrict: 0.0.0.0/0
-          type: bootnode
+    profiles:
+      devnet:
+        job_names:
+          - 'mev-commit-geth-bootnode1'
+          - 'mev-commit-geth-signer-node1'
+          - 'mev-commit-geth-signer-node2'
+          - 'mev-commit-geth-member-node'
+          - 'deploy-contracts'
+          - 'mev-commit-bootnode1'
+          - 'mev-commit-provider-node1'
+          - 'mev-commit-provider-node1-funder'
+          - 'mev-commit-bidder-node1'
+          - 'mev-commit-bidder-node1-funder'
+      testnet:
+        job_names:
+          - 'mev-commit-geth-bootnode1'
+          - 'mev-commit-geth-signer-node1'
+          - 'mev-commit-geth-signer-node2'
+          - 'mev-commit-geth-member-node'
+          - 'deploy-contracts'
+          - 'mev-commit-bootnode1'
+          - 'mev-commit-provider-node1'
+          - 'mev-commit-provider-node1-funder'
 
-      - name: mev-commit-geth-signer-node1
-        template: mev-commit-geth.nomad.j2
-        count: 1
-        ports:
-          - metrics:
-              to: 6060
-            p2p:
-              to: 30311
-        env:
-          ip: 0.0.0.0
-          net-restrict: 0.0.0.0/0
-          type: signer
-          sync-mode: snap
-          block-address: "0xd9cd8E5DE6d55f796D980B818D350C0746C25b97"
+  pre_tasks:
+    - name: Configuration | Include job definitions
+      include_vars:
+        file: jobs.yml
 
-      - name: mev-commit-geth-signer-node2
-        template: mev-commit-geth.nomad.j2
-        count: 1
-        ports:
-          - metrics:
-              to: 6060
-            p2p:
-              to: 30311
-        env:
-          ip: 0.0.0.0
-          net-restrict: 0.0.0.0/0
-          type: signer
-          sync-mode: snap
-          block-address: "0x788EBABe5c3dD422Ef92Ca6714A69e2eabcE1Ee4"
-
-      - name: mev-commit-geth-member-node
-        template: mev-commit-geth.nomad.j2
-        count: 1
-        ports:
-          - metrics:
-              to: 6060
-            http:
-              static: 8555
-              to: 8545
-            ws:
-              static: 8556
-              to: 8546
-            p2p:
-              to: 30311
-        env:
-          ip: 0.0.0.0
-          public-ip: "{{ ansible_facts['default_ipv4']['address'] }}"
-          net-restrict: 0.0.0.0/0
-          type: member
-          sync-mode: snap
-
-      - name: deploy-contracts
-        template: deploy-contracts.nomad.j2
-        count: 1
-        chain-id: 17864
-
-      - name: mev-commit-bootnode1
-        template: mev-commit.nomad.j2
-        count: 1
-        secrets:
-          keystore: bootnode1
-        ports:
-          - metrics:
-              to: 13523
-            http:
-              static: 13523
-              to: 13523
-            p2p:
-              static: 13522
-              to: 13522
-        env:
-          type: bootnode
-          tls-crt-file: "{{ tls_crt_file }}"
-          tls-key-file: "{{ tls_key_file }}"
-
-      - name: mev-commit-provider-node1
-        template: mev-commit.nomad.j2
-        count: 1
-        secrets:
-          keystore: provider1
-        ports:
-          - metrics:
-              to: 13523
-            http:
-              static: 13533
-              to: 13523
-            p2p:
-              to: 13522
-            rpc:
-              static: 13534
-              to: 13524
-        env:
-          type: provider
-          tls-crt-file: "{{ tls_crt_file }}"
-          tls-key-file: "{{ tls_key_file }}"
-
-      - name: mev-commit-provider-node1-funder
-        template: mev-commit-funder.nomad.j2
-        count: 1
-        target_type: provider
-        target_name: mev-commit-provider-node1
-
-      - name: mev-commit-bidder-node1
-        template: mev-commit.nomad.j2
-        count: 1
-        secrets:
-          keystore: bidder1
-        ports:
-          - metrics:
-              to: 13523
-            http:
-              static: 13532
-              to: 13523
-            p2p:
-              to: 13522
-            rpc:
-              static: 13544
-              to: 13524
-        env:
-          type: bidder
-          tls-crt-file: "{{ tls_crt_file }}"
-          tls-key-file: "{{ tls_key_file }}"
-
-      - name: mev-commit-bidder-node1-funder
-        template: mev-commit-funder.nomad.j2
-        count: 1
-        target_type: bidder
-        target_name: mev-commit-bidder-node1
+    - name: Configuration | Using "{{ env }}" profile
+      set_fact:
+        jobs: "{{ lookup('vars', 'jobs') | selectattr('name', 'in', profiles[env].job_names) | list }}"
 
   tasks:
-    - name: Check | Ensure destination directory exists
+    - name: Check | "{{ destination }}" exists
       ansible.builtin.file:
         path: "{{ destination }}"
         state: directory
@@ -173,22 +58,14 @@
       vars:
         job: "{{ item }}"
 
-    - name: Load | Nomad scripts
-      ansible.builtin.slurp:
-        src: "{{ destination }}/{{ item.name }}.nomad"
-      register: files
+    - name: Deploy | Nomad jobs
+      ansible.builtin.shell: |
+        nomad run {{ destination }}/{{ job.name }}.nomad
+        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 150 || true
+      args:
+        executable: bash
       loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
-
-    - name: Deploy | Nomad scripts
-      community.general.nomad_job:
-        host: "{{ ansible_host }}"
-        state: present
-        content: "{{ item.content | b64decode }}"
-        validate_certs: no
-        use_ssl: no
-        timeout: 120
-      loop: "{{ files.results }}"
-      loop_control:
-        label: "{{ item.item.name }}"
+      vars:
+        job: "{{ item }}"

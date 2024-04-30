@@ -1,4 +1,3 @@
----
 - name: Initialize and Configure Cluster
   hosts: all
   become: yes
