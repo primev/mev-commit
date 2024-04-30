@@ -122,6 +122,12 @@
           tls-crt-file: "{{ tls_crt_file }}"
           tls-key-file: "{{ tls_key_file }}"
 
+      - name: mev-commit-provider-node1-funder
+        template: mev-commit-funder.nomad.j2
+        count: 1
+        target_type: provider
+        target_name: mev-commit-provider-node1
+
       - name: mev-commit-bidder-node1
         template: mev-commit.nomad.j2
         count: 1
@@ -142,6 +148,12 @@
           type: bidder
           tls-crt-file: "{{ tls_crt_file }}"
           tls-key-file: "{{ tls_key_file }}"
+
+      - name: mev-commit-bidder-node1-funder
+        template: mev-commit-funder.nomad.j2
+        count: 1
+        target_type: bidder
+        target_name: mev-commit-bidder-node1
 
   tasks:
     - name: Check | Ensure destination directory exists
