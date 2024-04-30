@@ -98,7 +98,10 @@ job "{{ job.name }}" {
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
             {{ end }}
           {{- end }}
+          {% endraw %}
 
+          {% if job.env['type'] != 'bootnode' %}
+          {%- raw %}
           {{- range nomadService "mev-commit-bootnode1" }}
             {{- if contains "http" .Tags }}
 
@@ -116,6 +119,7 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
+          {% endif %}
 
           if [ ! -d "${MEV_COMMIT_KEYSTORE_PATH}" ]; then
             mkdir -p "${MEV_COMMIT_KEYSTORE_PATH}" > /dev/null 2>&1
