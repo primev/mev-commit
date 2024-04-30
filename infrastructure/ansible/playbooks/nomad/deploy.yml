@@ -6,6 +6,8 @@
     version: "68894a3"
     datacenter: "dc1"
     destination: "{{ ansible_env.HOME }}/{{ env }}"
+    tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
+    tls_key_file: "/etc/ssl/private/mev-commit_{{ env }}.mev-commit.primev.xyz.key"
     jobs:
       - name: mev-commit-geth-bootnode1
         template: mev-commit-geth.nomad.j2
@@ -79,6 +81,67 @@
         template: deploy-contracts.nomad.j2
         count: 1
         chain-id: 17864
+
+      - name: mev-commit-bootnode1
+        template: mev-commit.nomad.j2
+        count: 1
+        secrets:
+          keystore: bootnode1
+        ports:
+          - metrics:
+              to: 13523
+            http:
+              static: 13523
+              to: 13523
+            p2p:
+              static: 13522
+              to: 13522
+        env:
+          type: bootnode
+          tls-crt-file: "{{ tls_crt_file }}"
+          tls-key-file: "{{ tls_key_file }}"
+
+      - name: mev-commit-provider-node1
+        template: mev-commit.nomad.j2
+        count: 1
+        secrets:
+          keystore: provider1
+        ports:
+          - metrics:
+              to: 13523
+            http:
+              static: 13533
+              to: 13523
+            p2p:
+              to: 13522
+            rpc:
+              static: 13534
+              to: 13524
+        env:
+          type: provider
+          tls-crt-file: "{{ tls_crt_file }}"
+          tls-key-file: "{{ tls_key_file }}"
+
+      - name: mev-commit-bidder-node1
+        template: mev-commit.nomad.j2
+        count: 1
+        secrets:
+          keystore: bidder1
+        ports:
+          - metrics:
+              to: 13523
+            http:
+              static: 13532
+              to: 13523
+            p2p:
+              to: 13522
+            rpc:
+              static: 13544
+              to: 13524
+        env:
+          type: bidder
+          tls-crt-file: "{{ tls_crt_file }}"
+          tls-key-file: "{{ tls_key_file }}"
 
   tasks:
     - name: Check | Ensure destination directory exists
