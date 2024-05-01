@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {PreConfCommitmentStore} from "./PreConfirmations.sol";
+import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
-import {IPreConfCommitmentStore} from './interfaces/IPreConfirmations.sol';
+import {IPreConfCommitmentStore} from './interfaces/IPreConfCommitmentStore.sol';
 import {IBidderRegistry} from './interfaces/IBidderRegistry.sol';
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 

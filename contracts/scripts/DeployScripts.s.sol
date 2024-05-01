@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 import "forge-std/Script.sol";
 import "../contracts/BidderRegistry.sol";
 import "../contracts/ProviderRegistry.sol";
-import "../contracts/PreConfirmations.sol";
+import "../contracts/PreConfCommitmentStore.sol";
 import "../contracts/Oracle.sol";
 import "../contracts/Whitelist.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";

@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/Oracle.sol";
-import "../contracts/PreConfirmations.sol";
-import "../contracts/interfaces/IPreConfirmations.sol";
+import "../contracts/PreConfCommitmentStore.sol";
+import "../contracts/interfaces/IPreConfCommitmentStore.sol";
 import "../contracts/ProviderRegistry.sol";
 import "../contracts/BidderRegistry.sol";
 import "../contracts/BlockTracker.sol";
@@ -91,7 +91,7 @@ contract OracleTest is Test {
         bidderRegistry = BidderRegistry(payable(proxy3));
 
         address proxy4 = Upgrades.deployUUPSProxy(
-            "PreConfirmations.sol",
+            "PreConfCommitmentStore.sol",
             abi.encodeCall(PreConfCommitmentStore.initialize, 
             (address(providerRegistry), 
             address(bidderRegistry), 

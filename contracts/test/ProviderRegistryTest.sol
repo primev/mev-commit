@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
 import {BidderRegistry} from "../contracts/BidderRegistry.sol";
-import {PreConfCommitmentStore} from "../contracts/PreConfirmations.sol";
+import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
 import {BlockTracker} from "../contracts/BlockTracker.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
@@ -56,7 +56,7 @@ contract ProviderRegistryTest is Test {
         bidderRegistry = BidderRegistry(payable(proxy3));
         
         address proxy4 = Upgrades.deployUUPSProxy(
-            "PreConfirmations.sol",
+            "PreConfCommitmentStore.sol",
             abi.encodeCall(PreConfCommitmentStore.initialize, 
             (address(providerRegistry), 
             address(bidderRegistry), 
