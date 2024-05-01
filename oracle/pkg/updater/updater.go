@@ -351,7 +351,7 @@ func (u *Updater) handleOpenedCommitment(
 		return err
 	}
 
-	decayPercentage := computeDecayPercentage(
+	decayPercentage := u.computeDecayPercentage(
 		update.DecayStartTimeStamp,
 		update.DecayEndTimeStamp,
 		l2BlockTime,
@@ -529,17 +529,23 @@ func (u *Updater) getL2BlockTime(ctx context.Context, blockNum uint64) (uint64, 
 // computeDecayPercentage takes startTimestamp, endTimestamp, commitTimestamp and computes a linear decay percentage
 // The computation does not care what format the timestamps are in, as long as they are consistent
 // (e.g they could be unix or unixMili timestamps)
-func computeDecayPercentage(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
+func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
 	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp {
+		u.logger.Info("invalid timestamps", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
 		return 0
 	}
 
 	// Calculate the total time in seconds
 	totalTime := endTimestamp - startTimestamp
+	u.logger.Info("totalTime", "totalTime", totalTime)
 	// Calculate the time passed in seconds
 	timePassed := commitTimestamp - startTimestamp
+	u.logger.Info("timePassed", "timePassed", timePassed)
 	// Calculate the decay percentage
 	decayPercentage := float64(timePassed) / float64(totalTime)
+	u.logger.Info("decayPercentage", "decayPercentage", decayPercentage)
 
-	return int64(math.Round(decayPercentage * 100))
+	decayPercentageRound := int64(math.Round(decayPercentage * 100))
+	u.logger.Info("decayPercentageRound", "decayPercentageRound", decayPercentageRound)
+	return decayPercentageRound
 }
