@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-// TODO: update the above 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";

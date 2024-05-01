@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import {Create2Deployer} from "../scripts/DeployScripts.s.sol";
 import {SettlementGateway} from "../contracts/standard-bridge/SettlementGateway.sol";
