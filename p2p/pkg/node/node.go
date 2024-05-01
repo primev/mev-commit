@@ -214,6 +214,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	var evtPublisher Starter
 	if opts.WSRPCEndpoint != "" {
+		// Use WS publisher if WSRPCEndpoint is set
 		evtPublisher = publisher.NewWSPublisher(
 			testStore{},
 			opts.Logger.With("component", "ws_publisher"),
