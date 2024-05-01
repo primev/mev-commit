@@ -163,3 +163,15 @@ jobs:
     ports:
       - metrics:
           to: 8080
+
+  - name: mev-commit-oracle
+    template: mev-commit-oracle.nomad.j2
+    count: 1
+    ports:
+      - db:
+          static: 5432
+          to: 5432
+        http:
+          to: 8080
+    env:
+      l1-rpc-url: https://rpc.sepolia.org

@@ -2,7 +2,7 @@
   hosts: nomad_clients
   vars:
     env: "devnet"
-    version: "68894a3"
+    version: "f28e345"
     datacenter: "dc1"
     destination: "{{ ansible_env.HOME }}/{{ env }}"
     tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
@@ -22,6 +22,7 @@
           - 'mev-commit-bidder-node1-funder'
           - 'mev-commit-provider-emulator-node1'
           - 'mev-commit-bidder-emulator-node1'
+          - 'mev-commit-oracle'
       testnet:
         job_names:
           - 'mev-commit-geth-bootnode1'
@@ -33,6 +34,7 @@
           - 'mev-commit-provider-node1'
           - 'mev-commit-provider-node1-funder'
           - 'mev-commit-provider-emulator-node1'
+          - 'mev-commit-oracle'
 
   pre_tasks:
     - name: Configuration | Include job definitions
@@ -64,7 +66,7 @@
     - name: Deploy | Nomad jobs
       ansible.builtin.shell: |
         nomad run {{ destination }}/{{ job.name }}.nomad
-        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 150 || true
+        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 180 || true
       args:
         executable: bash
       loop: "{{ jobs }}"
