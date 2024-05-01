@@ -19,8 +19,13 @@ contract SettlementGateway is Gateway {
         uint256 _finalizationFee,
         uint256 _counterpartyFee
     ) external initializer {
-        Gateway(this).initialize(_owner, _relayer, _finalizationFee, _counterpartyFee);
         whitelistAddr = _whitelistAddr;
+        relayer = _relayer;
+        finalizationFee = _finalizationFee;
+        counterpartyFee = _counterpartyFee;
+        transferInitiatedIdx = 0;
+        transferFinalizedIdx = 1; // First expected transfer index is 1
+        __Ownable_init(_owner);
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract

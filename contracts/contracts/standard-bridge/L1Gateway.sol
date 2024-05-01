@@ -10,8 +10,13 @@ contract L1Gateway is Gateway {
         address _relayer, 
         uint256 _finalizationFee,
         uint256 _counterpartyFee
-    ) external initializer override {
-        Gateway(this).initialize(_owner, _relayer, _finalizationFee, _counterpartyFee);
+    ) external initializer {
+        relayer = _relayer;
+        finalizationFee = _finalizationFee;
+        counterpartyFee = _counterpartyFee;
+        transferInitiatedIdx = 0;
+        transferFinalizedIdx = 1; // First expected transfer index is 1
+        __Ownable_init(_owner);
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract

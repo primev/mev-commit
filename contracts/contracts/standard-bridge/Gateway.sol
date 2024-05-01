@@ -26,20 +26,6 @@ abstract contract Gateway is OwnableUpgradeable {
     // The counterparty's finalization fee (wei), included for UX purposes
     uint256 public counterpartyFee;
 
-    function initialize(
-        address _owner, 
-        address _relayer, 
-        uint256 _finalizationFee,
-        uint256 _counterpartyFee
-    ) external virtual initializer {
-        relayer = _relayer;
-        finalizationFee = _finalizationFee;
-        counterpartyFee = _counterpartyFee;
-        transferInitiatedIdx = 0;
-        transferFinalizedIdx = 1; // First expected transfer index is 1
-        __Ownable_init(_owner);
-    }
-
     function initiateTransfer(address _recipient, uint256 _amount
     ) external payable returns (uint256 returnIdx) {
         require(_amount >= counterpartyFee, "Amount must cover counterpartys finalization fee");
