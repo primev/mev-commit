@@ -56,6 +56,10 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+    files:
+      - src: ./bridge/standard/bridge-v1/deploy_contracts.sh
+        dst: ./
+        strip_parent: true
   - id: user_cli
     builds:
       - user_cli
