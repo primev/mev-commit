@@ -9,6 +9,8 @@ import "../contracts/BidderRegistry.sol";
 import "../contracts/BlockTracker.sol";
 import "forge-std/console.sol";
 
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
 contract TestPreConfCommitmentStore is Test {
     struct TestCommitment {
         uint64 bid;
@@ -51,35 +53,52 @@ contract TestPreConfCommitmentStore is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        providerRegistry = new ProviderRegistry(
-            minStake,
-            feeRecipient,
-            feePercent,
-            address(this)
-        );
-        blockTracker = new BlockTracker(address(this));
-        bidderRegistry = new BidderRegistry(
-            minStake,
-            feeRecipient,
-            feePercent,
-            address(this),
-            address(blockTracker)
-        );
 
-        preConfCommitmentStore = new PreConfCommitmentStore(
-            address(providerRegistry), // Provider Registry
-            address(bidderRegistry), // User Registry
-            address(blockTracker), // Block Tracker
+        address proxy = Upgrades.deployUUPSProxy(
+            "ProviderRegistry.sol",
+            abi.encodeCall(ProviderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this))) 
+        );
+        providerRegistry = ProviderRegistry(payable(proxy));
+
+        address proxy2 = Upgrades.deployUUPSProxy(
+            "BlockTracker.sol",
+            abi.encodeCall(BlockTracker.initialize, 
+            (address(this)))
+        );
+        blockTracker = BlockTracker(payable(proxy2));
+
+        address proxy3 = Upgrades.deployUUPSProxy(
+            "BidderRegistry.sol",
+            abi.encodeCall(BidderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this), 
+            address(blockTracker)))
+        );
+        bidderRegistry = BidderRegistry(payable(proxy3));
+        
+        address proxy4 = Upgrades.deployUUPSProxy(
+            "PreConfirmations.sol",
+            abi.encodeCall(PreConfCommitmentStore.initialize, 
+            (address(providerRegistry), 
+            address(bidderRegistry), 
+            address(blockTracker), 
             feeRecipient, // Oracle
-            address(this) // Owner
+            address(this))) // Owner
         );
-
+        preConfCommitmentStore = PreConfCommitmentStore(payable(proxy4));
+        
         bidderRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
     }
 
-    function test_Initialize() public {
+    function test_Initialize() public view {
         assertEq(preConfCommitmentStore.oracle(), feeRecipient);
         assertEq(
             address(preConfCommitmentStore.providerRegistry()),
@@ -149,7 +168,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_GetBidHash() public {
+    function test_GetBidHash() public view {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.bid,
@@ -269,14 +288,14 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(commitmentTxnHash, _testCommitmentAliceBob.txnHash);
     }
 
-    function verifyCommitmentNotUsed(
+    function verifyCommitmentNotUsed (
         string memory txnHash,
         uint64 bid,
         uint64 blockNumber,
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         bytes memory bidSignature
-    ) public returns (bytes32) {
+    ) public view returns (bytes32) {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             txnHash,
             bid,
@@ -376,7 +395,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
-    ) public {
+    ) public view {
         PreConfCommitmentStore.PreConfCommitment
             memory commitment = preConfCommitmentStore.getCommitment(index);
 

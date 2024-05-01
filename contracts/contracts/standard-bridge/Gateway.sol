@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @dev Gateway contract for standard bridge. 
  */
-abstract contract Gateway is Ownable {   
+abstract contract Gateway is OwnableUpgradeable {   
     
     // @dev index for tracking transfer initiations.
     // Also total number of transfers initiated from this gateway.
@@ -17,23 +17,27 @@ abstract contract Gateway is Ownable {
     uint256 public transferFinalizedIdx;
 
     // @dev Address of relayer account. 
-    address public immutable relayer;
+    address public relayer;
 
     // @dev Flat fee (wei) paid to relayer on destination chain upon transfer finalization.
     // This must be greater than what relayer will pay per tx.
-    uint256 public immutable finalizationFee;
+    uint256 public finalizationFee;
 
     // The counterparty's finalization fee (wei), included for UX purposes
-    uint256 public immutable counterpartyFee;
+    uint256 public counterpartyFee;
 
-    constructor(address _owner, address _relayer, 
-        uint256 _finalizationFee, uint256 _counterpartyFee) Ownable() {
+    function initialize(
+        address _owner, 
+        address _relayer, 
+        uint256 _finalizationFee,
+        uint256 _counterpartyFee
+    ) external virtual initializer {
         relayer = _relayer;
         finalizationFee = _finalizationFee;
         counterpartyFee = _counterpartyFee;
         transferInitiatedIdx = 0;
         transferFinalizedIdx = 1; // First expected transfer index is 1
-        _transferOwnership(_owner);
+        __Ownable_init(_owner);
     }
 
     function initiateTransfer(address _recipient, uint256 _amount

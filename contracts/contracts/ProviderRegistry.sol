@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {PreConfCommitmentStore} from "./PreConfirmations.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 
 /// @title Provider Registry
 /// @author Kartik Chopra
 /// @notice This contract is for provider registry and staking.
-contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
+contract ProviderRegistry is IProviderRegistry, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @dev For improved precision
     uint256 constant PRECISION = 10 ** 25;
     uint256 constant PERCENT = 100 * PRECISION;
@@ -64,22 +64,28 @@ contract ProviderRegistry is IProviderRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Constructor to initialize the contract with a minimum stake requirement.
+     * @dev Initializes the contract with a minimum stake requirement.
      * @param _minStake The minimum stake required for provider registration.
      * @param _feeRecipient The address that receives fee
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      */
-    constructor(
+    function initialize(
         uint256 _minStake,
         address _feeRecipient,
         uint16 _feePercent,
         address _owner
-    ) {
+    ) external initializer {
         minStake = _minStake;
         feeRecipient = _feeRecipient;
         feePercent = _feePercent;
-        _transferOwnership(_owner);
+        __Ownable_init(_owner);
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /**

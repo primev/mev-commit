@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
 /// @title Bidder Registry
 /// @author Kartik Chopra
 /// @notice This contract is for bidder registry and staking.
-contract BidderRegistry is IBidderRegistry, Ownable, ReentrancyGuard {
+contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// @dev For improved precision
     uint256 constant PRECISION = 10 ** 25;
     uint256 constant PERCENT = 100 * PRECISION;
@@ -94,24 +95,30 @@ contract BidderRegistry is IBidderRegistry, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Constructor to initialize the contract with a minimum deposit requirement.
+     * @dev Initializes the contract with a minimum deposit requirement.
      * @param _minDeposit The minimum deposit required for bidder registration.
      * @param _feeRecipient The address that receives fee
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      */
-    constructor(
+    function initialize(
         uint256 _minDeposit,
         address _feeRecipient,
         uint16 _feePercent,
         address _owner,
         address _blockTracker
-    ) {
+    ) external initializer {
         minDeposit = _minDeposit;
         feeRecipient = _feeRecipient;
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
-        _transferOwnership(_owner);
+        __Ownable_init(_owner);
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /**

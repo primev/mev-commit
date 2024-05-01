@@ -1,12 +1,24 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
 import {Gateway} from "./Gateway.sol";
 
 contract L1Gateway is Gateway {
 
-    constructor(address _owner, address _relayer, uint256 _finalizationFee, uint256 _counterpartyFee
-        ) Gateway(_owner, _relayer, _finalizationFee, _counterpartyFee) {}
+    function initialize(
+        address _owner, 
+        address _relayer, 
+        uint256 _finalizationFee,
+        uint256 _counterpartyFee
+    ) external initializer override {
+        Gateway(this).initialize(_owner, _relayer, _finalizationFee, _counterpartyFee);
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function _decrementMsgSender(uint256 _amount) internal override {
         require(msg.value == _amount, "Incorrect Ether value sent");

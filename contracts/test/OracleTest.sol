@@ -9,6 +9,8 @@ import "../contracts/ProviderRegistry.sol";
 import "../contracts/BidderRegistry.sol";
 import "../contracts/BlockTracker.sol";
 
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
 contract OracleTest is Test {
     address internal owner;
     using ECDSA for bytes32;
@@ -63,29 +65,56 @@ contract OracleTest is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
 
-        providerRegistry = new ProviderRegistry(
-            minStake,
-            feeRecipient,
-            feePercent,
-            address(this)
+        address proxy = Upgrades.deployUUPSProxy(
+            "ProviderRegistry.sol",
+            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, address(this))) 
         );
-        address ownerInstance = 0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3;
-        blockTracker = new BlockTracker(ownerInstance);
-        bidderRegistry = new BidderRegistry(minStake, feeRecipient, feePercent, address(this), address(blockTracker));
-        preConfCommitmentStore = new PreConfCommitmentStore(
-            address(providerRegistry), // Provider Registry
-            address(bidderRegistry), // User Registry
-            address(blockTracker), // Block Tracker
-            feeRecipient, // Oracle
-            address(this) // Owner
-        );
+        providerRegistry = ProviderRegistry(payable(proxy));
 
+        address ownerInstance = 0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3;
+
+        address proxy2 = Upgrades.deployUUPSProxy(
+            "BlockTracker.sol",
+            abi.encodeCall(BlockTracker.initialize, (ownerInstance))
+        );
+        blockTracker = BlockTracker(payable(proxy2));
+
+        address proxy3 = Upgrades.deployUUPSProxy(
+            "BidderRegistry.sol",
+            abi.encodeCall(BidderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this), 
+            address(blockTracker)))
+        );    
+        bidderRegistry = BidderRegistry(payable(proxy3));
+
+        address proxy4 = Upgrades.deployUUPSProxy(
+            "PreConfirmations.sol",
+            abi.encodeCall(PreConfCommitmentStore.initialize, 
+            (address(providerRegistry), 
+            address(bidderRegistry), 
+            address(blockTracker), 
+            feeRecipient, // Oracle
+            address(this))) // Owner
+        );
+        preConfCommitmentStore = PreConfCommitmentStore(payable(proxy4));
+        
         vm.deal(ownerInstance, 5 ether);
         vm.startPrank(ownerInstance);
         uint256 window = blockTracker.getCurrentWindow();
         bidderRegistry.depositForSpecificWindow{value: 2 ether}(window+1);
         
-        oracle = new Oracle(address(preConfCommitmentStore), address(blockTracker), ownerInstance);
+        address proxy5 = Upgrades.deployUUPSProxy(
+            "Oracle.sol",
+            abi.encodeCall(Oracle.initialize, 
+            (address(preConfCommitmentStore), 
+            address(blockTracker), 
+            ownerInstance))
+        );
+        oracle = Oracle(payable(proxy5)); 
+
         vm.stopPrank();
 
         preConfCommitmentStore.updateOracle(address(oracle));

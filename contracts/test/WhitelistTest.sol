@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../contracts/Whitelist.sol";
 
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
 // Tests the Whitelist contract.
 // Note precompile interactions to mint/burn must be tested manually. 
 contract WhitelistTest is Test {
@@ -17,7 +19,12 @@ contract WhitelistTest is Test {
         admin = address(this); // Original contract deployer as admin
         normalBidder = address(0x100);
         addressInstance = address(0x200);
-        whitelist = new Whitelist(admin);
+
+        address proxy = Upgrades.deployUUPSProxy(
+            "Whitelist.sol",
+            abi.encodeCall(Whitelist.initialize, (admin))
+        ); 
+        whitelist = Whitelist(payable(proxy));
     }
 
     function test_IsWhitelisted() public {

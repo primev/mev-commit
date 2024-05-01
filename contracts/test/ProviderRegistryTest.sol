@@ -7,6 +7,8 @@ import {BidderRegistry} from "../contracts/BidderRegistry.sol";
 import {PreConfCommitmentStore} from "../contracts/PreConfirmations.sol";
 import {BlockTracker} from "../contracts/BlockTracker.sol";
 
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
 contract ProviderRegistryTest is Test {
     uint256 testNumber;
     ProviderRegistry internal providerRegistry;
@@ -25,29 +27,51 @@ contract ProviderRegistryTest is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
 
-        providerRegistry = new ProviderRegistry(
-            minStake,
-            feeRecipient,
-            feePercent,
-            address(this)
+        address proxy = Upgrades.deployUUPSProxy(
+            "ProviderRegistry.sol",
+            abi.encodeCall(ProviderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this))) 
         );
-        blockTracker = new BlockTracker(address(this));
-        bidderRegistry = new BidderRegistry(minStake, feeRecipient, feePercent, address(this), address(blockTracker));
+        providerRegistry = ProviderRegistry(payable(proxy));
 
-        preConfCommitmentStore = new PreConfCommitmentStore(
-            address(providerRegistry), // Provider Registry
-            address(bidderRegistry), // User Registry
-            address(blockTracker), // Block Tracker
-            feeRecipient, // Oracle
-            address(this) // Owner
+        address proxy2 = Upgrades.deployUUPSProxy(
+            "BlockTracker.sol",
+            abi.encodeCall(BlockTracker.initialize, 
+            (address(this))) 
         );
+        blockTracker = BlockTracker(payable(proxy2));
+
+        address proxy3 = Upgrades.deployUUPSProxy(
+            "BidderRegistry.sol",
+            abi.encodeCall(BidderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this), 
+            address(blockTracker))) 
+        );
+        bidderRegistry = BidderRegistry(payable(proxy3));
+        
+        address proxy4 = Upgrades.deployUUPSProxy(
+            "PreConfirmations.sol",
+            abi.encodeCall(PreConfCommitmentStore.initialize, 
+            (address(providerRegistry), 
+            address(bidderRegistry), 
+            address(blockTracker), 
+            feeRecipient, // Oracle
+            address(this))) // Owner
+        );
+        preConfCommitmentStore = PreConfCommitmentStore(payable(proxy4));
 
         provider = vm.addr(1);
         vm.deal(provider, 100 ether);
         vm.deal(address(this), 100 ether);
     }
 
-    function test_VerifyInitialContractState() public {
+    function test_VerifyInitialContractState() public view {
         assertEq(providerRegistry.minStake(), 1e18 wei);
         assertEq(providerRegistry.feeRecipient(), feeRecipient);
         assertEq(providerRegistry.feePercent(), feePercent);

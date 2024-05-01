@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/ValidatorRegistry.sol";
@@ -35,7 +35,7 @@ contract ValidatorRegistryTest is Test {
             "ValidatorRegistry.sol",
             abi.encodeCall(ValidatorRegistry.initialize, (MIN_STAKE, UNSTAKE_PERIOD, owner))
         );
-        validatorRegistry = ValidatorRegistry(proxy);
+        validatorRegistry = ValidatorRegistry(payable(proxy));
     }
 
     function testSecondInitialize() public {
