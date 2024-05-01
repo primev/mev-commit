@@ -20,6 +20,8 @@
           - 'mev-commit-provider-node1-funder'
           - 'mev-commit-bidder-node1'
           - 'mev-commit-bidder-node1-funder'
+          - 'mev-commit-provider-emulator-node1'
+          - 'mev-commit-bidder-emulator-node1'
       testnet:
         job_names:
           - 'mev-commit-geth-bootnode1'
@@ -30,6 +32,7 @@
           - 'mev-commit-bootnode1'
           - 'mev-commit-provider-node1'
           - 'mev-commit-provider-node1-funder'
+          - 'mev-commit-provider-emulator-node1'
 
   pre_tasks:
     - name: Configuration | Include job definitions

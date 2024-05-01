@@ -145,3 +145,21 @@ jobs:
     count: 1
     target_type: bidder
     target_name: mev-commit-bidder-node1
+
+  - name: mev-commit-provider-emulator-node1
+    template: mev-commit-emulator.nomad.j2
+    count: 1
+    target_type: provider
+    target_name: mev-commit-provider-node1
+    ports:
+      - metrics:
+          to: 8080
+
+  - name: mev-commit-bidder-emulator-node1
+    template: mev-commit-emulator.nomad.j2
+    count: 1
+    target_type: bidder
+    target_name: mev-commit-bidder-node1
+    ports:
+      - metrics:
+          to: 8080
