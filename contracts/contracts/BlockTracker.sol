@@ -21,8 +21,8 @@ contract BlockTracker is OwnableUpgradeable {
     /// @dev Event emitted when the number of blocks per window is updated.
     event NewBlocksPerWindow(uint256 blocksPerWindow);
 
-    uint256 public currentWindow = 1;
-    uint256 public blocksPerWindow = 10;
+    uint256 public currentWindow;
+    uint256 public blocksPerWindow;
 
     // Mapping from block number to the winner's address
     mapping(uint256 => address) public blockWinners;
@@ -35,6 +35,8 @@ contract BlockTracker is OwnableUpgradeable {
      * @param _owner The address of the contract owner.
      */
     function initialize(address _owner) external initializer {
+        currentWindow = 1;
+        blocksPerWindow = 10;
         __Ownable_init(_owner);
     }
 
