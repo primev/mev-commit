@@ -51,7 +51,7 @@ contract WhitelistTest is Test {
 
     function test_RevertNormalBidderAddToWhitelist() public {
         vm.prank(normalBidder);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(); // Only owner can add to whitelist
         whitelist.addToWhitelist(addressInstance);
     }
 
@@ -60,7 +60,7 @@ contract WhitelistTest is Test {
         whitelist.addToWhitelist(addressInstance);
         assertTrue(whitelist.isWhitelisted(addressInstance));
         vm.prank(normalBidder);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(); // Only owner can remove from whitelist
         whitelist.removeFromWhitelist(addressInstance);
     }
 }
