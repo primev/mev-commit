@@ -33,7 +33,6 @@ start_cluster() {
         nomad run datadog-agent-logs-collector.nomad
         nomad run mev-commit-geth-bootnode1.nomad
         nomad run mev-commit-geth-signer-node1.nomad
-        nomad run mev-commit-geth-signer-node2.nomad
         nomad run mev-commit-geth-member-node.nomad
         nomad run deploy-contracts.nomad && sleep 60
         nomad run mev-commit-bootnode1.nomad
@@ -48,7 +47,6 @@ start_cluster() {
         nomad run datadog-agent-logs-collector.nomad
         nomad run mev-commit-geth-bootnode1.nomad
         nomad run mev-commit-geth-signer-node1.nomad
-        nomad run mev-commit-geth-signer-node2.nomad
         nomad run mev-commit-geth-member-node.nomad
         nomad run deploy-contracts.nomad && sleep 60
         nomad run mev-commit-bootnode1.nomad
