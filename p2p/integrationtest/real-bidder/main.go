@@ -193,14 +193,18 @@ func main() {
 				bundleEnd = len(currentBlock.txns) - 1
 			}
 
+			min := 1000
+			max := 10000
+			startTimeDiff := rand.Intn(max-min+1) + min
+			endTimeDiff := rand.Intn(max-min+1) + min
 			err = sendBid(
 				bidderClient,
 				logger,
 				rpcClient,
 				currentBlock.txns[bundleStart:bundleEnd],
 				currentBlock.blockNum,
-				(time.Now().UnixMilli())-10000,
-				(time.Now().UnixMilli())+10000,
+				(time.Now().UnixMilli())-int64(startTimeDiff),
+				(time.Now().UnixMilli())+int64(endTimeDiff),
 			)
 			if err != nil {
 				logger.Error("failed to send bid", "err", err)
