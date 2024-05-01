@@ -17,7 +17,7 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
-    dir: ./p2p/integrationtest/bidder
+    dir: ./p2p/integrationtest/real-bidder
     binary: "{{ .ProjectName }}"
 
 archives:
