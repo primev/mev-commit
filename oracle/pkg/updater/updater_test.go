@@ -58,7 +58,6 @@ func TestUpdater(t *testing.T) {
 
 	// timestamp of the First block commitment is X
 	startTimestamp := time.UnixMilli(1615195200000)
-	midTimestamp := startTimestamp.Add(time.Duration(2.5 * float64(time.Second)))
 	endTimestamp := startTimestamp.Add(5 * time.Second)
 
 	key, err := crypto.GenerateKey()
