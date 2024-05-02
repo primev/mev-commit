@@ -90,7 +90,6 @@ job "{{ job.name }}" {
             {% endif %}
             -log-tags "${EMULATOR_LOG_TAGS}" \
             -log-fmt "${EMULATOR_LOG_FMT}"
-
         EOH
         destination = "local/run.sh"
         perms = "0755"

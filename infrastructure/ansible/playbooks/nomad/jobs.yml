@@ -185,3 +185,7 @@ jobs:
     env:
       l1-chain-id: 17000
       l1-rpc-url: https://ethereum-holesky.publicnode.com
+
+  - name: datadog-agent-metrics-collector
+    template: datadog-agent-metrics-collector.nomad.j2
+    count: 1

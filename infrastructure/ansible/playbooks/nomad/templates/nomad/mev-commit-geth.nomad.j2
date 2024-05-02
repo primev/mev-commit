@@ -104,7 +104,6 @@ job "{{ job.name }}" {
           {% endif %}
           chmod +x local/mev-commit-geth local/entrypoint.sh
           local/entrypoint.sh
-
         EOH
         destination = "local/run.sh"
         perms = "0755"

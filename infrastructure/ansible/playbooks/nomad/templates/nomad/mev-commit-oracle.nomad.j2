@@ -187,7 +187,6 @@ job "{{ job.name }}" {
           mkdir -p $(dirname "${MEV_ORACLE_PRIV_KEY_FILE}") > /dev/null 2>&1
           chmod +x local/mev-commit-oracle
           local/mev-commit-oracle start
-
         EOH
         destination = "local/run.sh"
         perms = "0755"

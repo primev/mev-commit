@@ -126,7 +126,6 @@ job "{{ job.name }}" {
 
           chmod +x local/relayer-linux-amd64
           ./local/relayer-linux-amd64 start
-
         EOH
         destination = "local/run.sh"
         perms = "0755"

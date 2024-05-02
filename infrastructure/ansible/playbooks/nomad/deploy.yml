@@ -5,6 +5,7 @@
     version: "90df4d6"
     datacenter: "dc1"
     destination: "{{ ansible_env.HOME }}/{{ env }}"
+    tls_ca_crt_file: "/usr/local/share/ca-certificates/ca-mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
     tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
     tls_key_file: "/etc/ssl/private/mev-commit_{{ env }}.mev-commit.primev.xyz.key"
     profiles:
@@ -23,7 +24,7 @@
           - 'mev-commit-provider-emulator-node1'
           - 'mev-commit-bidder-emulator-node1'
           - 'mev-commit-oracle'
-          - 'mev-commit-bridge'
+          - 'datadog-agent-metrics-collector'
       testnet:
         job_names:
           - 'mev-commit-geth-bootnode1'
@@ -36,7 +37,7 @@
           - 'mev-commit-provider-node1-funder'
           - 'mev-commit-provider-emulator-node1'
           - 'mev-commit-oracle'
-          - 'mev-commit-bridge'
+          - 'datadog-agent-metrics-collector'
 
   pre_tasks:
     - name: Configuration | Include job definitions

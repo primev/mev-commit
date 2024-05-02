@@ -73,7 +73,6 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
-
         EOH
         destination = "local/run.sh"
         perms = "0755"
