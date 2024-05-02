@@ -36,11 +36,11 @@ Prepare `hosts.ini` File: This file contains the IP addresses of your Nomad serv
 
 ## Running the Playbook
 
-Execute the Ansible playbook to install Nomad on the specified servers and clients. Navigate to the directory containing your playbook and run the following command:
+Execute the Ansible playbook to install Nomad on the specified servers and clients. From the root of the repository run the following command:
 
 ```shell
 cd ansible
-ansible-playbook -i hosts.ini playbooks/nomad/init.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini infrastructure/nomad/init.yml --private-key=~/.ssh/your_private_key
 ```
 
 - Replace ~/.ssh/your_private_key with the path to your SSH private key if not using the default SSH key.
@@ -49,23 +49,23 @@ ansible-playbook -i hosts.ini playbooks/nomad/init.yml --private-key=~/.ssh/your
 To generate and run Nomad jobs run the following playbook:
 
 ```shell
-ansible-playbook -i hosts.ini playbooks/nomad/deploy.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini infrastructure/nomad/deploy.yml --private-key=~/.ssh/your_private_key
 ```
 
 To destroy all running Nomad jobs run the following playbook:
 
 ```shell
-ansible-playbook -i hosts.ini playbooks/nomad/destroy.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini infrastructure/nomad/destroy.yml --private-key=~/.ssh/your_private_key
 ```
 
 To install [crisis tools](https://www.brendangregg.com/blog/2024-03-24/linux-crisis-tools.html) run the following playbook:
 
 ```shell
-ansible-playbook -i hosts.ini playbooks/nomad/install_linux_crisis_tools.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini infrastructure/nomad/install_linux_crisis_tools.yml --private-key=~/.ssh/your_private_key
 ```
 
 And finally if you need certificates for development purposes, run the following playbook:
 
 ```shell
-ansible-playbook -i hosts.ini playbooks/nomad/install_dev_ss_certificates.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini infrastructure/nomad/install_dev_ss_certificates.yml --private-key=~/.ssh/your_private_key
 ```
