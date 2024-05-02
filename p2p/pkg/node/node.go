@@ -544,14 +544,9 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 }
 
 func (n *Node) Close() error {
-	workersClosed := make(chan struct{})
-	go func() {
-		defer close(workersClosed)
-
-		if n.cancelFunc != nil {
-			n.cancelFunc()
-		}
-	}()
+	if n.cancelFunc != nil {
+		n.cancelFunc()
+	}
 
 	var err error
 	for _, c := range n.closers {
