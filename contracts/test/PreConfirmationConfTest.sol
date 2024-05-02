@@ -156,7 +156,7 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(bidder, recoveredAddress);
         assertEq(digest, bidHash);
         vm.warp(1000);
-        vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
+        vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
         preConfCommitmentStore.storeCommitment(
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
@@ -203,7 +203,7 @@ contract TestPreConfCommitmentStore is Test {
         vm.prank(preConfCommitmentStore.owner());
         preConfCommitmentStore.updateCommitmentDispatchWindow(200);
         vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
-        vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
+        vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
         preConfCommitmentStore.storeCommitment(
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
