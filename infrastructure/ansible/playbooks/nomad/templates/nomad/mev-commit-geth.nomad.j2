@@ -1,0 +1,118 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "{{ job.name }}" {
+  datacenters = ["{{ datacenter }}"]
+
+  group "{{ job.name }}-group" {
+    count = {{ job.count }}
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = {{ ansible_facts['dns']['nameservers'] | tojson }}
+      }
+
+      {% for port_name, port_details in job.ports[0].items() %}
+      port "{{ port_name }}" {
+        {% if port_details.get('static') %}
+        static = {{ port_details['static'] }}
+        {% endif %}
+        {% if port_details.get('to') %}
+        to = {{ port_details['to'] }}
+        {% endif %}
+      }
+      {% endfor %}
+    }
+
+    task "node" {
+      driver = "exec"
+
+      {% for port_name in job.ports[0] %}
+      service {
+        name = "{{ job.name }}"
+        port = "{{ port_name }}"
+        tags = ["{{ port_name }}"]
+        provider = "nomad"
+      }
+      {% endfor %}
+
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_x86_64.tar.gz"
+      }
+
+      template {
+        data = <<-EOH
+          {%- raw %}
+          GETH_DATA_DIR="local/data-{{ env "NOMAD_ALLOC_INDEX" }}"
+          {% endraw %}
+          GENESIS_L1_PATH="local/genesis.json"
+          GETH_BIN_PATH="local/mev-commit-geth"
+          NODE_IP="{{ job.env['ip'] }}"
+          {% if job.env['type'] != 'signer' %}
+          PUBLIC_NODE_IP="{{ job.env['public-ip'] }}"
+          {% endif %}
+          NET_RESTRICT="{{ job.env['net-restrict'] }}"
+          GETH_NODE_TYPE="{{ job.env['type'] }}"
+          GETH_VERBOSITY={{ job.env.get('log-verbosity', '3') }}
+          GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
+          GETH_LOG_TAGS="{{
+            job.env['log-tags'].items() | map('join', ':') | join('; ')
+            if job.env['log-tags'] is defined and job.env['log-tags']
+            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
+          }}"
+          {% if job.env['type'] == 'bootnode' %}
+          {%- raw %}
+          BOOT_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key }}{{ end }}"
+          {% endraw %}
+          {% elif job.env['type'] == 'signer' %}
+          MEV_COMMIT_GETH_PASSWORD="{% raw %}{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_signer{% endraw %}{{ job.name[-1] }}{% raw %}_keystore_password }}{{ end }}{% endraw %}"
+          BLOCK_SIGNER_ADDRESS="{{ job.env['block-address'] }}"
+          {% elif job.env['type'] == 'member' %}
+          GETH_SYNC_MODE="{{ job.env['sync-mode'] }}"
+          {% endif %}
+          {%- if job.env['type'] != 'bootnode' %}
+          {%- raw %}
+          {{- range nomadService "mev-commit-geth-bootnode1" }}
+            {{- if contains "p2p" .Tags }}
+          BOOTNODE_ENDPOINT="enode://34a2a388ad31ca37f127bb9ffe93758ee711c5c2277dff6aff2e359bcf2c9509ea55034196788dbd59ed70861f523c1c03d54f1eabb2b4a5c1c129d966fe1e65@{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
+          {% endif %}
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          {% raw %}
+          {{- range nomadService "datadog-agent-logs-collector" }}
+            {{ if contains "tcp" .Tags }}
+          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+          {% endraw %}
+
+          mkdir -p "${GETH_DATA_DIR}" > /dev/null 2>&1
+          {% if job.env['type'] == 'signer' %}
+          if [ -z "$(ls -A ${GETH_DATA_DIR}/keystore 2> /dev/null)" ]; then
+            mv local/signer-node{{ job.name[-1] }}/keystore "${GETH_DATA_DIR}"
+          fi
+          {% endif %}
+          chmod +x local/mev-commit-geth local/entrypoint.sh
+          local/entrypoint.sh
+        EOH
+        destination = "local/run.sh"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "local/run.sh"]
+      }
+    }
+  }
+}

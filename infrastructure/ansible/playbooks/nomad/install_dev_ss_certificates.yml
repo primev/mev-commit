@@ -1,4 +1,3 @@
----
 - name: Install OpenSSL and Generate Self-Signed Certificates
   hosts: all
   become: yes

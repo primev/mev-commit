@@ -1,0 +1,85 @@
+- name: Deploy Nomad Jobs
+  hosts: nomad_clients
+  vars:
+    env: "devnet"
+    datacenter: "dc1"
+    destination: "{{ ansible_env.HOME }}/{{ env }}"
+    tls_ca_crt_file: "/usr/local/share/ca-certificates/ca-mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
+    tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
+    tls_key_file: "/etc/ssl/private/mev-commit_{{ env }}.mev-commit.primev.xyz.key"
+    profiles:
+      devnet:
+        job_names:
+          - 'datadog-agent-logs-collector'
+          - 'mev-commit-geth-bootnode1'
+          - 'mev-commit-geth-signer-node1'
+          - 'mev-commit-geth-signer-node2'
+          - 'mev-commit-geth-member-node'
+          - 'deploy-contracts'
+          - 'mev-commit-bootnode1'
+          - 'mev-commit-provider-node1'
+          - 'mev-commit-provider-node1-funder'
+          - 'mev-commit-bidder-node1'
+          - 'mev-commit-bidder-node1-funder'
+          - 'mev-commit-provider-emulator-node1'
+          - 'mev-commit-bidder-emulator-node1'
+          - 'mev-commit-oracle'
+          - 'datadog-agent-metrics-collector'
+      testnet:
+        job_names:
+          - 'datadog-agent-logs-collector'
+          - 'mev-commit-geth-bootnode1'
+          - 'mev-commit-geth-signer-node1'
+          - 'mev-commit-geth-signer-node2'
+          - 'mev-commit-geth-member-node'
+          - 'deploy-contracts'
+          - 'mev-commit-bootnode1'
+          - 'mev-commit-provider-node1'
+          - 'mev-commit-provider-node1-funder'
+          - 'mev-commit-provider-emulator-node1'
+          - 'mev-commit-oracle'
+          - 'datadog-agent-metrics-collector'
+
+  vars_prompt:
+    - name: version
+      prompt: "Enter the version"
+      private: no
+
+  pre_tasks:
+    - name: Configuration | Include job definitions
+      include_vars:
+        file: jobs.yml
+
+    - name: Configuration | Using "{{ env }}" profile
+      set_fact:
+        jobs: "{{ lookup('vars', 'jobs') | selectattr('name', 'in', profiles[env].job_names) | list }}"
+
+  tasks:
+    - name: Check | "{{ destination }}" exists
+      ansible.builtin.file:
+        path: "{{ destination }}"
+        state: directory
+        mode: '0744'
+        recurse: yes
+
+    - name: Generate | Nomad scripts
+      ansible.builtin.template:
+        src: "templates/nomad/{{ item.template }}"
+        dest: "{{ destination }}/{{ item.name }}.nomad"
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        job: "{{ item }}"
+
+    - name: Deploy | Nomad jobs
+      ansible.builtin.shell: |
+        nomad run {{ destination }}/{{ job.name }}.nomad
+        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 180 || true
+      args:
+        executable: bash
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        job: "{{ item }}"

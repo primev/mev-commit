@@ -1,6 +1,6 @@
 # Installing Nomad on Server and Client Machines
 
-This guide outlines the steps to install Nomad on multiple machines using Ansible. It covers setting up Nomad servers and clients according to the configuration specified in your config.ini file.
+This guide outlines the steps to install Nomad on multiple machines using Ansible. It covers setting up Nomad servers and clients according to the configuration specified in your hosts.ini file.
 
 ## Prerequisites
 - Ansible installed on your control machine.
@@ -15,12 +15,9 @@ This guide outlines the steps to install Nomad on multiple machines using Ansibl
 
 ## Configuration
 
-Prepare `config.ini` File: This file contains the IP addresses of your Nomad servers and clients. Replace the sample IP addresses with the actual IP addresses of your machines.
+Prepare `hosts.ini` File: This file contains the IP addresses of your Nomad servers and clients. Replace the sample IP addresses with the actual IP addresses of your machines.
 
 ```
-[local]
-127.0.0.1 environment=devnet
-
 [nomad_servers]
 192.0.2.1 ansible_user=ubuntu
 192.0.2.2 ansible_user=ubuntu
@@ -32,7 +29,7 @@ Prepare `config.ini` File: This file contains the IP addresses of your Nomad ser
 198.51.100.3 ansible_user=ubuntu
 ```
 
-> If you run ansible on your local machine add the following to the `[local]` section of your `config.ini` file: 127.0.0.1 ansible_connection=local
+> If you run ansible on your local machine add the following to the `[local]` section of your `hosts.ini` file: 127.0.0.1 ansible_connection=local
 
 - Replace the 192.0.2.X and 198.51.100.X with the IP addresses of your Nomad server and client machines, respectively.
 - Ensure the ansible_user matches the username on your target machines that has SSH access.
@@ -43,20 +40,32 @@ Execute the Ansible playbook to install Nomad on the specified servers and clien
 
 ```shell
 cd ansible
-ansible-playbook -i config.ini playbooks/nomad/init.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini playbooks/nomad/init.yml --private-key=~/.ssh/your_private_key
 ```
 
 - Replace ~/.ssh/your_private_key with the path to your SSH private key if not using the default SSH key.
 - If you prefer to use SSH agent forwarding instead of directly specifying a private key, you can omit the --private-key option, assuming your SSH agent is running and loaded with your keys.
 
+To generate and run Nomad jobs run the following playbook:
+
+```shell
+ansible-playbook -i hosts.ini playbooks/nomad/deploy.yml --private-key=~/.ssh/your_private_key
+```
+
+To destroy all running Nomad jobs run the following playbook:
+
+```shell
+ansible-playbook -i hosts.ini playbooks/nomad/destroy.yml --private-key=~/.ssh/your_private_key
+```
+
 To install [crisis tools](https://www.brendangregg.com/blog/2024-03-24/linux-crisis-tools.html) run the following playbook:
 
 ```shell
-ansible-playbook -i config.ini playbooks/nomad/install_linux_crisis_tools.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini playbooks/nomad/install_linux_crisis_tools.yml --private-key=~/.ssh/your_private_key
 ```
 
 And finally if you need certificates for development purposes, run the following playbook:
 
 ```shell
-ansible-playbook -i config.ini playbooks/nomad/install_dev_ss_certificates.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i hosts.ini playbooks/nomad/install_dev_ss_certificates.yml --private-key=~/.ssh/your_private_key
 ```

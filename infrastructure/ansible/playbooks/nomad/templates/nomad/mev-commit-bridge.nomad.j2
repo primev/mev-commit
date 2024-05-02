@@ -1,0 +1,140 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "{{ job.name }}" {
+  datacenters = ["{{ datacenter }}"]
+
+  group "{{ job.name }}-group" {
+    count = {{ job.count }}
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+
+      {% for port_name, port_details in job.ports[0].items() %}
+      port "{{ port_name }}" {
+        {% if port_details.get('static') %}
+        static = {{ port_details['static'] }}
+        {% endif %}
+        {% if port_details.get('to') %}
+        to = {{ port_details['to'] }}
+        {% endif %}
+      }
+      {% endfor %}
+    }
+
+    task "relayer" {
+      driver = "exec"
+
+      {% for port_name in job.ports[0] %}
+      service {
+        name = "{{ job.name }}"
+        port = "{{ port_name }}"
+        tags = ["{{ port_name }}"]
+        provider = "nomad"
+      }
+      {% endfor %}
+
+      artifact {
+        source = "https://github.com/foundry-rs/foundry/releases/download/nightly-293fad73670b7b59ca901c7f2105bf7a29165a90/foundry_nightly_linux_amd64.tar.gz"
+      }
+
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/contracts_{{ version }}.tar.gz"
+      }
+
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-bridge-relayer_{{ version }}_Linux_x86_64.tar.gz"
+      }
+
+      template {
+        data = <<-EOH
+          {%- raw %}
+          {{- with secret "secret/data/mev-commit" }}
+          {{- .Data.data.bridge_relayer_private_key }}
+          {{- end }}
+          {% endraw %}
+        EOH
+        destination = "secrets/relayer_key"
+        perms = "0600"
+      }
+
+      template {
+        data = <<-EOH
+          STANDARD_BRIDGE_RELAYER_LOG_LEVEL="{{ job.env.get('log-level', 'debug') }}"
+          STANDARD_BRIDGE_RELAYER_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
+          STANDARD_BRIDGE_RELAYER_LOG_TAGS="{{
+            job.env['log-tags'].items() | map('join', ':') | join('; ')
+            if job.env['log-tags'] is defined and job.env['log-tags']
+            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
+          }}"
+          {%- raw %}
+          RELAYER_PRIVKEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.bridge_relayer_private_key }}{{ end }}"
+          {{- range nomadService "mev-commit-geth-bootnode1" }}
+            {{- if contains "http" .Tags }}
+          STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
+          STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1-rpc-url'] }}"
+          STANDARD_BRIDGE_RELAYER_PRIV_KEY_FILE="secrets/relayer_key"
+          L1_CHAIN_ID="{{ job.env['l1-chain-id'] }}"
+          FORGE_BIN_PATH="local/forge"
+          CAST_BIN_PATH="local/cast"
+          CONTRACTS_PATH="local/contracts"
+          ARTIFACT_OUT_PATH="local"
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          {% raw %}
+          {{- range nomadService "datadog-agent-logs-collector" }}
+            {{ if contains "tcp" .Tags }}
+          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+          {% endraw %}
+
+          if [ -f "local/L1GatewayArtifact.json" ] && [ -f "local/SettlementGatewayArtifact.json" ]; then
+            echo "Artifacts exist. Skipping contract deployment..."
+          else
+            echo "Deploying contracts..."
+            chmod +x local/deploy_contracts.sh
+            ./local/deploy_contracts.sh
+          fi
+
+          export STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR="$(jq -r '.l1_gateway_addr' local/L1GatewayArtifact.json)"
+          export STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR="$(jq -r '.settlement_gateway_addr' local/SettlementGatewayArtifact.json)"
+
+          if [ -z "$STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR" ] || ! echo "$STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR" | grep -q "^0x"; then
+            echo "Error: L1 Contract Address is not populated"
+            exit 1
+          fi
+          if [ -z "$STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR" ] || ! echo "$STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR" | grep -q "^0x"; then
+              echo "Error: Settlement Contract Address is not populated"
+              exit 1
+          fi
+
+          echo "L1 Contract Address: $STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR"
+          echo "Settlement Contract Address: $STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR"
+
+          chmod +x local/relayer-linux-amd64
+          ./local/relayer-linux-amd64 start
+        EOH
+        destination = "local/run.sh"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "local/run.sh"]
+      }
+    }
+  }
+}

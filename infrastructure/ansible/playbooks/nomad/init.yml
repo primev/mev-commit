@@ -1,4 +1,3 @@
----
 - name: Initialize and Configure Cluster
   hosts: all
   become: yes
@@ -6,7 +5,7 @@
   gather_facts: yes
 
   vars:
-    env: "{{ hostvars[groups['local'][0]].environment | default('undefined') }}"
+    env: "devnet"
     nomad_server_ip: "{{ (hostvars[groups['nomad_servers'][0]]['ansible_default_ipv4']['address'] if groups['nomad_servers'] | default([]) | length > 0 else '127.0.0.1') }}"
     nomad_clients_defined: "{{ groups['nomad_clients'] | length > 0 }}"
     nomad_servers_defined: "{{ groups['nomad_servers'] | length > 0 }}"
@@ -78,6 +77,7 @@
           - hvac
           - boto3
           - botocore
+          - python-nomad
         state: present
       become: yes
       remote_user: ubuntu
@@ -144,7 +144,7 @@
 
     - name: Configuration | Deploy Vault configuration file
       ansible.builtin.template:
-        src: "vault.hcl.j2"
+        src: "templates/system/vault.hcl.j2"
         dest: "/etc/vault.d/vault.hcl"
         owner: vault
         group: vault
@@ -152,7 +152,7 @@
 
     - name: Configuration | Deploy Vault env file
       ansible.builtin.template:
-        src: "vault.env.j2"
+        src: "templates/system/vault.env.j2"
         dest: "/etc/vault.d/vault.env"
         owner: vault
         group: vault
@@ -190,7 +190,6 @@
         validate_certs: no
       register: vault_init
       when: vault_status.json.initialized == false
-      no_log: true
 
     - name: Configuration | Store Vault unseal key and root token
       ansible.builtin.copy:
@@ -200,7 +199,6 @@
       when: vault_status.json.initialized == false
       become: true
       become_user: ubuntu
-      no_log: true
 
     - name: Configuration | Retrieve Vault seal status
       ansible.builtin.uri:
@@ -210,10 +208,21 @@
         validate_certs: no
       register: vault_seal_status
 
-    - name: Configuration | Load vault initialization file
-      ansible.builtin.set_fact:
-        vault_init: "{{ vault_init | combine({'json': (lookup('file', vault_init_file) | from_json)}) }}"
+    - name: Configuration | Fetch Vault initialization file
+      slurp:
+        src: "{{ vault_init_file }}"
+      register: vault_init_content
       when:
+        - vault_status.json.initialized == true
+        - vault_seal_status.json.sealed == true
+      become: true
+      become_user: ubuntu
+
+    - name: Configuration | Parse Vault initialization file
+      ansible.builtin.set_fact:
+        vault_init: "{{ vault_init | combine({'json': (vault_init_content['content'] | b64decode | from_json) }) }}"
+      when:
+        - vault_init_content is defined
         - vault_status.json.initialized == true
         - vault_seal_status.json.sealed == true
 
@@ -237,9 +246,8 @@
       retries: 5
       delay: 10
       when: vault_seal_status.json.sealed == true
-      no_log: true
 
-    - name: Configuration | Retrieve secrets
+    - name: Configuration | Import secrets
       ansible.builtin.set_fact:
         mev_commit_secrets: >-
           {{
@@ -253,7 +261,6 @@
           else lookup('file', 'mev-commit-secrets.json') | from_json
           }}
       when: unseal_result.json.sealed == false
-      no_log: true
 
     - name: Configuration | Enable KV secrets engine
       ansible.builtin.uri:
@@ -324,7 +331,7 @@
 
     - name: Configuration | Deploy Nomad configuration file
       ansible.builtin.template:
-        src: "nomad.hcl.j2"
+        src: "templates/system/nomad.hcl.j2"
         dest: "/etc/nomad.d/nomad.hcl"
         owner: nomad
         group: nomad
@@ -332,7 +339,7 @@
 
     - name: Configuration | Deploy Nomad env file
       ansible.builtin.template:
-        src: "nomad.env.j2"
+        src: "templates/system/nomad.env.j2"
         dest: "/etc/nomad.d/nomad.env"
         owner: nomad
         group: nomad

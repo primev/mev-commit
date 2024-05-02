@@ -1,27 +1,50 @@
-job "datadog-agent-metrics-collector" {
-  datacenters = ["dc1"]
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "{{ job.name }}" {
+  datacenters = ["{{ datacenter }}"]
 
-  group "datadog-agent-group" {
-    count = 1
+  group "{{ job.name }}-group" {
+    count = {{ job.count }}
 
     network {
       mode = "bridge"
 
       dns {
-        servers = ["127.0.0.53", "1.1.1.1", "8.8.8.8", "8.8.4.4"]
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
       }
+
+      {% if job.ports is defined %}
+        {% for port_name, port_details in job.ports[0].items() %}
+      port "{{ port_name }}" {
+        {% if port_details.get('static') %}
+        static = {{ port_details['static'] }}
+        {% endif %}
+        {% if port_details.get('to') %}
+        to = {{ port_details['to'] }}
+        {% endif %}
+      }
+        {% endfor %}
+      {% endif %}
     }
 
     task "datadog-agent" {
       driver = "exec"
 
+      {% if job.ports is defined %}
+        {% for port_name in job.ports[0] %}
+      service {
+        name = "{{ job.name }}"
+        port = "{{ port_name }}"
+        tags = ["{{ port_name }}"]
+        provider = "nomad"
+      }
+        {% endfor %}
+      {% endif %}
+
       template {
         data = <<-EOH
-        {{- with nomadVar "nomad/jobs" }}
-          REQUESTS_CA_BUNDLE="{{ .MEV_COMMIT_CA_TLS_CERTIFICATE_FILE }}"
-        {{ end }}
+          REQUESTS_CA_BUNDLE="{{ tls_ca_crt_file }}"
         EOH
-        destination = "local/variables.env"
+        destination = "secrets/.env"
         env = true
       }
 
@@ -29,18 +52,31 @@ job "datadog-agent-metrics-collector" {
         data = <<-EOH
           site: datadoghq.com
           logs_enabled: true
-        {{- with nomadVar "nomad/jobs" }}
-          api_key: {{ .DATA_DOG_API_KEY }}
+          {%- raw %}
+          api_key: {{ with secret "secret/data/mev-commit" }}{{ .Data.data.datadog_api_key }}{{ end }}
+          {% endraw %}
           tags:
-            - env: {{ .DATA_DOG_ENV_TAG }}
-              version: {{ .DATA_DOG_VERSION_TAG }}
-        {{- end }}
+            - env:{{ env }}
+            - version:{{ version }}
         EOH
         destination = "etc/datadog-agent/datadog.yaml"
       }
 
+      {% if job.type == 'logs' %}
       template {
         data = <<-EOH
+          logs:
+            - type: tcp
+              port: 10500
+              source: "{{ env }}@{{ version }}"
+              encoding: "utf-8"
+        EOH
+        destination = "etc/datadog-agent/conf.d/logs-collector.d/conf.yaml"
+      }
+      {% elif job.type == 'metrics' %}
+      template {
+        data = <<-EOH
+          {%- raw %}
           init_config:
 
           instances:
@@ -147,24 +183,6 @@ job "datadog-agent-metrics-collector" {
             {{- end }}
           {{- end }}
 
-          {{- range nomadService "mev-commit-geth-signer-node3" }}
-            {{- if contains "metrics" .Tags }}
-            - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/debug/metrics/prometheus
-              service: "mev-commit-geth-signer-node3"
-              metrics:
-                - txpool*
-                - trie*
-                - system*
-                - state*
-                - rpc*
-                - p2p*
-                - eth*
-                - chain*
-                - clique*
-                - vm*
-            {{- end }}
-          {{- end }}
-
           {{- range nomadService "mev-commit-provider-emulator-node1" }}
             {{- if contains "metrics" .Tags }}
             - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
@@ -182,9 +200,11 @@ job "datadog-agent-metrics-collector" {
                 - mev_commit*
             {{- end }}
           {{- end }}
+          {% endraw %}
         EOH
         destination = "etc/datadog-agent/conf.d/openmetrics.d/conf.yaml"
       }
+      {% endif %}
 
       config {
         command = "datadog-agent"

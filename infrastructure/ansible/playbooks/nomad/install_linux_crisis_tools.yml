@@ -1,4 +1,3 @@
----
 - name: Install Linux Crisis Management Tools
   hosts: all
   become: yes

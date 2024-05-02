@@ -33,13 +33,13 @@ jobs:
 
       - name: Upload Artifact to AWS S3
         run: |
-          aws s3 cp ${{ env.ARTIFACT_NAME }} s3://primev-infrastructure-artifacts
+          aws s3 cp ${{ env.ARTIFACT_NAME }} s3://${{ secrets.AWS_S3_BUCKET }}
 
       - name: Set Artifact Retention
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: |
           aws s3api put-object-tagging \
-            --bucket primev-infrastructure-artifacts \
+            --bucket ${{ secrets.AWS_S3_BUCKET }} \
             --key "${{ env.ARTIFACT_NAME }}" \
             --tagging 'TagSet=[{Key=AutoDelete,Value=true}]'
 
@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload Artifacts to AWS S3
         run: |
-          aws s3 cp ./dist/ s3://primev-infrastructure-artifacts \
+          aws s3 cp ./dist/ s3://${{ secrets.AWS_S3_BUCKET }} \
             --recursive \
             --exclude "*" \
             --include "*.gz" \
@@ -105,7 +105,7 @@ jobs:
           ls -1 ./dist | grep '\.gz\|\.txt$' | while read -r file; do
             echo "Tagging uploaded file $file for auto delete"
             aws s3api put-object-tagging \
-              --bucket primev-infrastructure-artifacts \
+              --bucket ${{ secrets.AWS_S3_BUCKET }} \
               --key "$file" \
               --tagging 'TagSet=[{Key=AutoDelete,Value=true}]'
           done
