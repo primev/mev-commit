@@ -242,3 +242,15 @@ message CancelResponse {
     pattern: "[a-fA-F0-9]{64}"
   }];
 };
+
+message ProcessedBidResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Processed bid response"
+      description: "Response containing the status and dispatch timestamp of a processed bid."
+    }
+    example: "{\"status\": \"ACCEPTED\", \"dispatch_timestamp\": 1609459200}"
+  };
+  BidResponse.Status status = 1;
+  int64 dispatch_timestamp = 2;
+};
