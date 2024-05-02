@@ -37,7 +37,8 @@ contract ProviderRegistryTest is Test {
             address(providerRegistry), // Provider Registry
             address(bidderRegistry), // User Registry
             feeRecipient, // Oracle
-            address(this) // Owner
+            address(this),
+            500
         );
 
         provider = vm.addr(1);

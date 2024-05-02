@@ -58,7 +58,6 @@ func TestUpdater(t *testing.T) {
 
 	// timestamp of the First block commitment is X
 	startTimestamp := time.UnixMilli(1615195200000)
-	midTimestamp := startTimestamp.Add(time.Duration(2.5 * float64(time.Second)))
 	endTimestamp := startTimestamp.Add(5 * time.Second)
 
 	key, err := crypto.GenerateKey()
@@ -90,7 +89,7 @@ func TestUpdater(t *testing.T) {
 				Commiter:            builderAddr,
 				TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 				CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-				BlockCommitedAt:     big.NewInt(0),
+				DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
 				DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 				DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			}
@@ -99,7 +98,7 @@ func TestUpdater(t *testing.T) {
 				Commiter:            otherBuilderAddr,
 				TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 				CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-				BlockCommitedAt:     big.NewInt(0),
+				DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
 				DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 				DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			}
@@ -119,7 +118,7 @@ func TestUpdater(t *testing.T) {
 			Commiter:            builderAddr,
 			TxnHash:             bundle,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			BlockCommitedAt:     big.NewInt(0),
+			DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 		}
@@ -136,11 +135,6 @@ func TestUpdater(t *testing.T) {
 		block:    types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 	}
 
-	l2Client := &testL1Client{
-		blockNum: 0,
-		block:    types.NewBlock(&types.Header{Time: uint64(midTimestamp.UnixMilli())}, txns, nil, nil, NewHasher()),
-	}
-
 	testOracle := &testOracle{
 		builder:     "test",
 		builderAddr: builderAddr,
@@ -154,7 +148,6 @@ func TestUpdater(t *testing.T) {
 	updtr := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		l2Client,
 		testWinnerRegister,
 		testOracle,
 		testPreconf,
@@ -247,9 +240,9 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		}
 
 		commitments[string(idxBytes[:])] = preconf.PreConfCommitmentStorePreConfCommitment{
-			Commiter:        builderAddr,
-			TxnHash:         bundle,
-			BlockCommitedAt: big.NewInt(0),
+			Commiter:          builderAddr,
+			TxnHash:           bundle,
+			DispatchTimestamp: 0,
 		}
 	}
 
@@ -264,10 +257,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		block:    types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 	}
 
-	l2Client := &testL1Client{
-		blockNum: 0,
-		block:    types.NewBlock(&types.Header{Time: uint64(time.Now().UnixMilli())}, txns, nil, nil, NewHasher()),
-	}
 	testOracle := &testOracle{
 		builder:     "test",
 		builderAddr: builderAddr,
@@ -281,7 +270,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 	updtr := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		l2Client,
 		testWinnerRegister,
 		testOracle,
 		testPreconf,

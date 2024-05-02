@@ -22,7 +22,7 @@ interface IPreConfCommitmentStore {
         bytes32 commitmentHash;
         bytes bidSignature;
         bytes commitmentSignature;
-        uint256 blockCommitedAt;
+        uint64 dispatchTimestamp;
     }
 
 
@@ -66,12 +66,16 @@ interface IPreConfCommitmentStore {
         uint64 blockNumber,
         string memory txnHash,
         string memory commitmentHash,
+        uint64 decayStartTimeStamp,
+        uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory commitmentSignature
-    ) external returns (uint256);
+        bytes memory commitmentSignature,
+        uint64 dispatchTimestamp
+    ) external returns (bytes32 commitmentIndex);
 
     function getCommitmentsByBlockNumber(uint256 blockNumber) external view returns (bytes32[] memory);
 
+    function updateCommitmentDispatchWindow(uint64 newDispatchWindow) external;
 
     function getCommitment(bytes32 commitmentIndex) external view returns (PreConfCommitment memory);
 

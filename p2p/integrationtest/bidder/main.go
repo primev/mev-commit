@@ -297,7 +297,7 @@ func sendBid(
 		Amount:              strconv.Itoa(int(amount)),
 		BlockNumber:         int64(blkNum) + 5,
 		DecayStartTimestamp: time.Now().UnixMilli() - (time.Duration(8 * time.Second).Milliseconds()),
-		DecayEndTimestamp:   time.Now().UnixMilli(),
+		DecayEndTimestamp:   time.Now().UnixMilli() + (time.Duration(8 * time.Second).Milliseconds()),
 	}
 
 	logger.Info("sending bid", "bid", bid)

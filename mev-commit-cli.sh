@@ -1,13 +1,18 @@
 #!/bin/bash
 
 # Default RPC URL and Paths
-L1_RPC_BASE_URL=https://sepolia.infura.io/v3
+L1_RPC_BASE_URL=https://ethereum-holesky-rpc.publicnode.com
 DEFAULT_RPC_URL="http://sl-bootnode:8545"
 PRIMEV_DIR="$HOME/.primev"
 DEFAULT_CHAIN_ID="17864"
 
 # Default Docker network name
 DOCKER_NETWORK_NAME="primev_net"
+
+# Contract addresses
+BIDDER_REGISTRY="0x02CcEcB19c6D7EFe583C8b97022cB4b4C0B65608"
+PROVIDER_REGISTRY="0xF69451b49598F11c63956bAD5E27f55114200753"
+PRECONF_CONTRACT="0x86281283DA6D9e3987A55Aa702140fAB4dC71B27"
 
 # Default values for optional arguments
 rpc_url=$DEFAULT_RPC_URL
@@ -62,13 +67,13 @@ start_mev_commit_minimal() {
     # Create or overwrite the .env file
     echo "Setting .env file..."
     cat > "p2p/integrationtest/.env" <<-EOF
-    BIDDER_REGISTRY=0xded9029fC3789ED393D62686c0c0f9dfA92aA2f6
-    PROVIDER_REGISTRY=0xFA19327bDBf2632aAB7C77e61DC69DbC872d5AC1
-    PRECONF_CONTRACT=0x1F8989fAd5f0538D794Fd9fa15d50942F305f367
+    BIDDER_REGISTRY=${BIDDER_REGISTRY}
+    PROVIDER_REGISTRY=${PROVIDER_REGISTRY}
+    PRECONF_CONTRACT=${PRECONF_CONTRACT}
 
     RPC_URL=${rpc_url}
     PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-    L1_RPC_URL="${L1_RPC_BASE_URL}/${sepolia_key}"
+    L1_RPC_URL="${L1_RPC_BASE_URL}"
 EOF
 
     docker compose --profile minimal-setup -f "p2p/integration-compose.yml" up --build -d
@@ -76,9 +81,7 @@ EOF
 
 start_mev_commit_e2e() {
     local datadog_key=""
-    local sepolia_key=""
     echo "Starting MEV-Commit..."
-
     # Loop through arguments and process them
     for arg in "$@"
     do
@@ -87,26 +90,22 @@ start_mev_commit_e2e() {
             datadog_key="${arg#*=}"
             shift # Remove --datadog-key= from processing
             ;;
-            --sepolia-key=*)
-            sepolia_key="${arg#*=}"
-            shift # Remove --sepolia-key= from processing
-            ;;
             *)
             # Unknown option
             ;;
         esac
     done
+    
     echo "Setting .env file..."
-
     # Create or overwrite the .env file
     cat > "p2p/integrationtest/.env" <<-EOF
-    BIDDER_REGISTRY=0xded9029fC3789ED393D62686c0c0f9dfA92aA2f6
-    PROVIDER_REGISTRY=0xFA19327bDBf2632aAB7C77e61DC69DbC872d5AC1
-    PRECONF_CONTRACT=0x1F8989fAd5f0538D794Fd9fa15d50942F305f367
+    BIDDER_REGISTRY=${BIDDER_REGISTRY}
+    PROVIDER_REGISTRY=${PROVIDER_REGISTRY}
+    PRECONF_CONTRACT=${PRECONF_CONTRACT}
 
     RPC_URL=${rpc_url}
     PRIVATE_KEY=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-    L1_RPC_URL="${L1_RPC_BASE_URL}/${sepolia_key}"
+    L1_RPC_URL="${L1_RPC_BASE_URL}"
 EOF
 
 
@@ -176,7 +175,7 @@ deploy_contracts() {
 }
 
 start_oracle(){
-    local l1_url=${L1_RPC_BASE_URL}/$1
+    local l1_url=${L1_RPC_BASE_URL}
     local datadog_key=$2
     # Run Docker Compose
     L1_URL="$l1_url" DD_KEY="$datadog_key" docker compose -f "oracle/integration-compose.yml" up -d --build
@@ -348,26 +347,27 @@ start_service() {
     local service_name=$1
     case $service_name in
         "all")
+            create_docker_network
             start_settlement_layer "$datadog_key"
             deploy_contracts "$rpc_url"
             start_mev_commit "$datadog_key"
-            start_oracle "$sepolia_key" "$datadog_key"
+            start_oracle "$datadog_key"
             start_hyperlane "$public_rpc_url"
             ;;
         "e2e")
             initialize_environment
             start_settlement_layer "$datadog_key"
             deploy_contracts "$rpc_url"
-            start_mev_commit_e2e "--sepolia-key=$sepolia_key" "--datadog-key=$datadog_key"
+            start_mev_commit_e2e "--datadog-key=$datadog_key"
             sleep 12
-            start_oracle "$sepolia_key" "$datadog_key"
+            start_oracle "$datadog_key"
             start_hyperlane "$public_rpc_url"
             ;;
         "mev-commit")
             start_mev_commit "$datadog_key"
             ;;
         "oracle")
-            start_oracle "$sepolia_key" "$datadog_key"
+            start_oracle "$datadog_key"
             ;;
         "sl")
             start_settlement_layer "$datadog_key"
@@ -415,7 +415,6 @@ show_help() {
     echo "  --rpc-url URL          Set the internal RPC URL for mev-commit-geth"
     echo "  --public-rpc-url URL   Set the public RPC URL for mev-commit-geth"
     echo "  --datadog-key KEY      Set the Datadog key"
-    echo "  --sepolia-key KEY      Set the Sepolia key"
     echo ""
     echo "Examples:"
     echo "  $0 start all --rpc-url http://localhost:8545  Start all services with a specific RPC URL"
@@ -443,10 +442,6 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --datadog-key)
             datadog_key="$2"
-            shift 2
-            ;;
-        --sepolia-key)
-            sepolia_key="$2"
             shift 2
             ;;
         start|stop|deploy_contracts|update|clean|init_network)

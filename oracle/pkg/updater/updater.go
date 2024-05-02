@@ -54,7 +54,6 @@ type Preconf interface {
 type Updater struct {
 	logger               *slog.Logger
 	l1Client             EVMClient
-	l2Client             EVMClient
 	winnerRegister       WinnerRegister
 	preconfClient        Preconf
 	rollupClient         Oracle
@@ -65,7 +64,6 @@ type Updater struct {
 func NewUpdater(
 	logger *slog.Logger,
 	l1Client EVMClient,
-	l2Client EVMClient,
 	winnerRegister WinnerRegister,
 	rollupClient Oracle,
 	preconfClient Preconf,
@@ -73,7 +71,6 @@ func NewUpdater(
 	return &Updater{
 		logger:               logger,
 		l1Client:             l1Client,
-		l2Client:             l2Client,
 		winnerRegister:       winnerRegister,
 		preconfClient:        preconfClient,
 		rollupClient:         rollupClient,
@@ -154,11 +151,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 							return fmt.Errorf("failed to get commitment: %w", err)
 						}
 
-						l2Block, err := u.l2Client.BlockByNumber(ctx, commitment.BlockCommitedAt)
-						if err != nil {
-							return fmt.Errorf("failed to get L2 Block: %w", err)
-						}
-						decayPercentage := computeDecayPercentage(commitment.DecayStartTimeStamp, commitment.DecayEndTimeStamp, l2Block.Header().Time)
+						decayPercentage := computeDecayPercentage(commitment.DecayStartTimeStamp, commitment.DecayEndTimeStamp, commitment.DispatchTimestamp)
 
 						settlementType := settler.SettlementTypeReturn
 
@@ -238,7 +231,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 // The computation does not care what format the timestamps are in, as long as they are consistent
 // (e.g they could be unix or unixMili timestamps)
 func computeDecayPercentage(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
-	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp {
+	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
 		return 0
 	}
 

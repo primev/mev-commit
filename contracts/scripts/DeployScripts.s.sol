@@ -47,6 +47,7 @@ contract DeployScript is Script, Create2Deployer {
         address feeRecipient = address(0x68bC10674b265f266b4b1F079Fa06eF4045c3ab9);
         uint16 feePercent = 2;
         uint256 nextRequestedBlockNumber = 4958905;
+        uint64 commitmentDispatchWindow = 250;
 
         // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
@@ -57,7 +58,7 @@ contract DeployScript is Script, Create2Deployer {
         ProviderRegistry providerRegistry = new ProviderRegistry{salt: salt}(minStake, feeRecipient, feePercent, msg.sender);
         console.log("ProviderRegistry deployed to:", address(providerRegistry));
 
-        PreConfCommitmentStore preConfCommitmentStore = new PreConfCommitmentStore{salt: salt}(address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender);
+        PreConfCommitmentStore preConfCommitmentStore = new PreConfCommitmentStore{salt: salt}(address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender, commitmentDispatchWindow);
         console.log("PreConfCommitmentStore deployed to:", address(preConfCommitmentStore));
 
         providerRegistry.setPreconfirmationsContract(address(preConfCommitmentStore));

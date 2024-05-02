@@ -27,6 +27,9 @@ contract PreConfCommitmentStore is Ownable {
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256("PreConfBid(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)");
 
+    // Represents the dispatch window in milliseconds
+    uint64 public commitment_dispatch_window;
+
     /// @dev commitment counter
     uint256 public commitmentCount;
 
@@ -75,7 +78,7 @@ contract PreConfCommitmentStore is Ownable {
         bytes32 commitmentHash;
         bytes bidSignature;
         bytes commitmentSignature;
-        uint256 blockCommitedAt;
+        uint64 dispatchTimestamp;
     }
 
     /// @dev Event to log successful verifications
@@ -119,7 +122,8 @@ contract PreConfCommitmentStore is Ownable {
         address _providerRegistry,
         address _bidderRegistry,
         address _oracle, 
-        address _owner
+        address _owner,
+        uint64 _commitment_dispatch_window
     ) {
         oracle = _oracle;
         providerRegistry = IProviderRegistry(_providerRegistry);
@@ -142,6 +146,15 @@ contract PreConfCommitmentStore is Ownable {
                 keccak256("1")
             )
         );
+        commitment_dispatch_window = _commitment_dispatch_window;
+    }
+
+    /**
+     * @dev Updates the commitment dispatch window to a new value. This function can only be called by the contract owner.
+     * @param newDispatchWindow The new dispatch window value to be set.
+     */
+    function updateCommitmentDispatchWindow(uint64 newDispatchWindow) external onlyOwner {
+        commitment_dispatch_window = newDispatchWindow;
     }
 
     /**
@@ -289,6 +302,8 @@ contract PreConfCommitmentStore is Ownable {
         );
     }
 
+
+
     /**
      * @dev Store a commitment.
      * @param bid The bid amount.
@@ -296,6 +311,7 @@ contract PreConfCommitmentStore is Ownable {
      * @param txnHash The transaction hash.
      * @param bidSignature The signature of the bid.
      * @param commitmentSignature The signature of the commitment.
+     * @param dispatchTimestamp The timestamp at which the commitment is dispatched
      * @return commitmentIndex The index of the stored commitment
      */
     function storeCommitment(
@@ -305,7 +321,8 @@ contract PreConfCommitmentStore is Ownable {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory commitmentSignature
+        bytes memory commitmentSignature,
+        uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
         (bytes32 bHash, address bidderAddress, uint256 stake) = verifyBid(
             bid,
@@ -315,6 +332,9 @@ contract PreConfCommitmentStore is Ownable {
             txnHash,
             bidSignature
         );
+
+        require(dispatchTimestamp >= block.timestamp || block.timestamp - dispatchTimestamp < commitment_dispatch_window, "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
+        
         // This helps in avoiding stack too deep
         {
             bytes32 commitmentDigest = getPreConfHash(
@@ -345,7 +365,7 @@ contract PreConfCommitmentStore is Ownable {
                 commitmentDigest,
                 bidSignature,
                 commitmentSignature,
-                block.number
+                dispatchTimestamp
             );
 
             commitmentIndex = getCommitmentIndex(newCommitment);

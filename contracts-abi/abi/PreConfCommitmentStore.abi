@@ -21,6 +21,11 @@
         "name": "_owner",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_commitment_dispatch_window",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "nonpayable"
@@ -156,6 +161,19 @@
   },
   {
     "type": "function",
+    "name": "commitment_dispatch_window",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "commitments",
     "inputs": [
       {
@@ -226,9 +244,9 @@
         "internalType": "bytes"
       },
       {
-        "name": "blockCommitedAt",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -368,9 +386,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "blockCommitedAt",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
           }
         ]
       }
@@ -447,9 +465,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "blockCommitedAt",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
           }
         ]
       }
@@ -726,6 +744,11 @@
         "name": "commitmentSignature",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "outputs": [
@@ -771,6 +794,19 @@
         "name": "newBidderRegistry",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateCommitmentDispatchWindow",
+    "inputs": [
+      {
+        "name": "newDispatchWindow",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "outputs": [],
