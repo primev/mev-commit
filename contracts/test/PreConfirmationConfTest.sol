@@ -605,7 +605,6 @@ contract TestPreConfCommitmentStore is Test {
         }
     }
 
-
     function test_InitiateRewardFullyDecayed() public {
         // Assuming you have a stored commitment
         {
@@ -677,6 +676,3 @@ contract TestPreConfCommitmentStore is Test {
         return string(_string);
     }
 }
-
-
-
