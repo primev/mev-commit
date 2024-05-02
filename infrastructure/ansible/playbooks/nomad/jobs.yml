@@ -175,3 +175,13 @@ jobs:
           to: 8080
     env:
       l1-rpc-url: https://rpc.sepolia.org
+
+  - name: mev-commit-bridge
+    template: mev-commit-bridge.nomad.j2
+    count: 1
+    ports:
+      - metrics:
+          to: 8080
+    env:
+      l1-chain-id: 17000
+      l1-rpc-url: https://ethereum-holesky.publicnode.com

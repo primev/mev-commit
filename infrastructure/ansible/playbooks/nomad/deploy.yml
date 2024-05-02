@@ -2,7 +2,7 @@
   hosts: nomad_clients
   vars:
     env: "devnet"
-    version: "f28e345"
+    version: "90df4d6"
     datacenter: "dc1"
     destination: "{{ ansible_env.HOME }}/{{ env }}"
     tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
@@ -23,6 +23,7 @@
           - 'mev-commit-provider-emulator-node1'
           - 'mev-commit-bidder-emulator-node1'
           - 'mev-commit-oracle'
+          - 'mev-commit-bridge'
       testnet:
         job_names:
           - 'mev-commit-geth-bootnode1'
@@ -35,6 +36,7 @@
           - 'mev-commit-provider-node1-funder'
           - 'mev-commit-provider-emulator-node1'
           - 'mev-commit-oracle'
+          - 'mev-commit-bridge'
 
   pre_tasks:
     - name: Configuration | Include job definitions
