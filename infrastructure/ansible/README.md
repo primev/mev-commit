@@ -46,6 +46,18 @@ ansible-playbook -i hosts.ini playbooks/nomad/init.yml --private-key=~/.ssh/your
 - Replace ~/.ssh/your_private_key with the path to your SSH private key if not using the default SSH key.
 - If you prefer to use SSH agent forwarding instead of directly specifying a private key, you can omit the --private-key option, assuming your SSH agent is running and loaded with your keys.
 
+To generate and run Nomad jobs run the following playbook:
+
+```shell
+ansible-playbook -i hosts.ini playbooks/nomad/deploy.yml --private-key=~/.ssh/your_private_key
+```
+
+To destroy all running Nomad jobs run the following playbook:
+
+```shell
+ansible-playbook -i hosts.ini playbooks/nomad/destroy.yml --private-key=~/.ssh/your_private_key
+```
+
 To install [crisis tools](https://www.brendangregg.com/blog/2024-03-24/linux-crisis-tools.html) run the following playbook:
 
 ```shell

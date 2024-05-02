@@ -1,4 +1,12 @@
 jobs:
+  - name: datadog-agent-logs-collector
+    template: datadog-agent.nomad.j2
+    count: 1
+    type: logs
+    ports:
+      - tcp:
+          to: 10500
+
   - name: mev-commit-geth-bootnode1
     template: mev-commit-geth.nomad.j2
     count: 1
@@ -187,5 +195,6 @@ jobs:
       l1-rpc-url: https://ethereum-holesky.publicnode.com
 
   - name: datadog-agent-metrics-collector
-    template: datadog-agent-metrics-collector.nomad.j2
+    template: datadog-agent.nomad.j2
     count: 1
+    type: metrics

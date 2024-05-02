@@ -2,7 +2,6 @@
   hosts: nomad_clients
   vars:
     env: "devnet"
-    version: "90df4d6"
     datacenter: "dc1"
     destination: "{{ ansible_env.HOME }}/{{ env }}"
     tls_ca_crt_file: "/usr/local/share/ca-certificates/ca-mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
@@ -11,6 +10,7 @@
     profiles:
       devnet:
         job_names:
+          - 'datadog-agent-logs-collector'
           - 'mev-commit-geth-bootnode1'
           - 'mev-commit-geth-signer-node1'
           - 'mev-commit-geth-signer-node2'
@@ -27,6 +27,7 @@
           - 'datadog-agent-metrics-collector'
       testnet:
         job_names:
+          - 'datadog-agent-logs-collector'
           - 'mev-commit-geth-bootnode1'
           - 'mev-commit-geth-signer-node1'
           - 'mev-commit-geth-signer-node2'
@@ -38,6 +39,11 @@
           - 'mev-commit-provider-emulator-node1'
           - 'mev-commit-oracle'
           - 'datadog-agent-metrics-collector'
+
+  vars_prompt:
+    - name: version
+      prompt: "Enter the version"
+      private: no
 
   pre_tasks:
     - name: Configuration | Include job definitions
