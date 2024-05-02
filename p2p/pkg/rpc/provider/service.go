@@ -20,10 +20,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type ProcessedBidResponse struct {
+	Status            providerapiv1.BidResponse_Status
+	DispatchTimestamp int64
+}
+
 type Service struct {
 	providerapiv1.UnimplementedProviderServer
 	receiver         chan *providerapiv1.Bid
-	bidsInProcess    map[string]func(providerapiv1.ProcessedBidResponse)
+	bidsInProcess    map[string]func(ProcessedBidResponse)
 	bidsMu           sync.Mutex
 	logger           *slog.Logger
 	owner            common.Address
@@ -47,7 +52,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		receiver:         make(chan *providerapiv1.Bid),
-		bidsInProcess:    make(map[string]func(providerapiv1.ProcessedBidResponse)),
+		bidsInProcess:    make(map[string]func(ProcessedBidResponse)),
 		registryContract: registryContract,
 		owner:            owner,
 		logger:           logger,
@@ -67,7 +72,7 @@ func toString(bid *providerapiv1.Bid) string {
 func (s *Service) ProcessBid(
 	ctx context.Context,
 	bid *preconfpb.Bid,
-) (chan providerapiv1.ProcessedBidResponse, error) {
+) (chan ProcessedBidResponse, error) {
 	bidMsg := &providerapiv1.Bid{
 		TxHashes:            strings.Split(bid.TxHash, ","),
 		BidAmount:           bid.BidAmount,
@@ -82,10 +87,10 @@ func (s *Service) ProcessBid(
 		return nil, err
 	}
 
-	respC := make(chan providerapiv1.ProcessedBidResponse, 1)
+	respC := make(chan ProcessedBidResponse, 1)
 	s.bidsMu.Lock()
-	s.bidsInProcess[string(bid.Digest)] = func(bidResponse providerapiv1.ProcessedBidResponse) {
-		respC <- providerapiv1.ProcessedBidResponse{
+	s.bidsInProcess[string(bid.Digest)] = func(bidResponse ProcessedBidResponse) {
+		respC <- ProcessedBidResponse{
 			Status:            bidResponse.Status,
 			DispatchTimestamp: bidResponse.DispatchTimestamp,
 		}
@@ -153,7 +158,7 @@ func (s *Service) SendProcessedBids(srv providerapiv1.Provider_SendProcessedBids
 				"bidDigest", hex.EncodeToString(status.BidDigest),
 				"status", status.Status.String(),
 			)
-			callback(providerapiv1.ProcessedBidResponse{
+			callback(ProcessedBidResponse{
 				Status:            status.Status,
 				DispatchTimestamp: status.DispatchTimestamp,
 			})
