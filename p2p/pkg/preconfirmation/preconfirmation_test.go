@@ -9,14 +9,11 @@ import (
 	"log/slog"
 	"math/big"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
@@ -24,8 +21,6 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/preconfirmation"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
-	"github.com/primevprotocol/mev-commit/x/util"
 )
 
 type testTopo struct {
@@ -93,25 +88,6 @@ func (t *testCommitmentDA) StoreEncryptedCommitment(
 	return common.Hash{}, nil
 }
 
-func (t *testCommitmentDA) OpenCommitment(
-	_ context.Context,
-	_ []byte,
-	_ string,
-	_ int64,
-	_ string,
-	_ int64,
-	_ int64,
-	_ []byte,
-	_ []byte,
-	_ []byte,
-) (common.Hash, error) {
-	return common.Hash{}, nil
-}
-
-func (t *testCommitmentDA) Close() error {
-	return nil
-}
-
 func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
 	t.Helper()
 
@@ -132,6 +108,12 @@ func (t *testDepositManager) CheckAndDeductDeposit(ctx context.Context, address 
 }
 
 func (t *testDepositManager) RefundDeposit(address common.Address, deductedAmount *big.Int, blockNumber int64) error {
+	return nil
+}
+
+type testTracker struct{}
+
+func (t *testTracker) TrackCommitment(ctx context.Context, cm *store.EncryptedPreConfirmationWithDecrypted) error {
 	return nil
 }
 
@@ -205,20 +187,6 @@ func TestPreconfBidSubmission(t *testing.T) {
 			preConfirmationSigner:    common.HexToAddress("0x2"),
 		}
 
-		btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		evtMgr := events.NewListener(
-			util.NewTestLogger(io.Discard),
-			&btABI,
-		)
-
-		store, err := store.NewStore()
-		if err != nil {
-			t.Fatal(err)
-		}
 		depositMgr := &testDepositManager{}
 		p := preconfirmation.New(
 			client.EthAddress,
@@ -228,8 +196,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 			depositMgr,
 			proc,
 			&testCommitmentDA{},
-			evtMgr,
-			store,
+			&testTracker{},
 			newTestLogger(t, os.Stdout),
 		)
 
