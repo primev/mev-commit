@@ -28,7 +28,7 @@ contract PreConfCommitmentStore is Ownable {
         keccak256("PreConfBid(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)");
 
     // Represents the dispatch window in milliseconds
-    uint64 public COMMITMENT_DISPATCH_WINDOW;
+    uint64 public commitment_dispatch_window;
 
     /// @dev commitment counter
     uint256 public commitmentCount;
@@ -146,7 +146,7 @@ contract PreConfCommitmentStore is Ownable {
                 keccak256("1")
             )
         );
-        COMMITMENT_DISPATCH_WINDOW = _commitment_dispatch_window;
+        commitment_dispatch_window = _commitment_dispatch_window;
     }
 
     /**
@@ -154,7 +154,7 @@ contract PreConfCommitmentStore is Ownable {
      * @param newDispatchWindow The new dispatch window value to be set.
      */
     function updateCommitmentDispatchWindow(uint64 newDispatchWindow) external onlyOwner {
-        COMMITMENT_DISPATCH_WINDOW = newDispatchWindow;
+        commitment_dispatch_window = newDispatchWindow;
     }
 
     /**
@@ -333,7 +333,7 @@ contract PreConfCommitmentStore is Ownable {
             bidSignature
         );
 
-        require(dispatchTimestamp >= block.timestamp || block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW, "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < COMMITMENT_DISPATCH_WINDOW");
+        require(dispatchTimestamp >= block.timestamp || block.timestamp - dispatchTimestamp < commitment_dispatch_window, "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
         
         // This helps in avoiding stack too deep
         {
