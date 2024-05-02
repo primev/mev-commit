@@ -20,15 +20,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type ProcessedBidResponse struct {
-	Status            providerapiv1.BidResponse_Status
-	DispatchTimestamp int64
-}
-
 type Service struct {
 	providerapiv1.UnimplementedProviderServer
 	receiver         chan *providerapiv1.Bid
-	bidsInProcess    map[string]func(ProcessedBidResponse)
+	bidsInProcess    map[string]func(providerapiv1.ProcessedBidResponse)
 	bidsMu           sync.Mutex
 	logger           *slog.Logger
 	owner            common.Address
@@ -52,7 +47,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		receiver:         make(chan *providerapiv1.Bid),
-		bidsInProcess:    make(map[string]func(ProcessedBidResponse)),
+		bidsInProcess:    make(map[string]func(providerapiv1.ProcessedBidResponse)),
 		registryContract: registryContract,
 		owner:            owner,
 		logger:           logger,
@@ -72,7 +67,7 @@ func toString(bid *providerapiv1.Bid) string {
 func (s *Service) ProcessBid(
 	ctx context.Context,
 	bid *preconfpb.Bid,
-) (chan ProcessedBidResponse, error) {
+) (chan providerapiv1.ProcessedBidResponse, error) {
 	bidMsg := &providerapiv1.Bid{
 		TxHashes:            strings.Split(bid.TxHash, ","),
 		BidAmount:           bid.BidAmount,
@@ -87,10 +82,10 @@ func (s *Service) ProcessBid(
 		return nil, err
 	}
 
-	respC := make(chan ProcessedBidResponse, 1)
+	respC := make(chan providerapiv1.ProcessedBidResponse, 1)
 	s.bidsMu.Lock()
-	s.bidsInProcess[string(bid.Digest)] = func(bidResponse ProcessedBidResponse) {
-		respC <- ProcessedBidResponse{
+	s.bidsInProcess[string(bid.Digest)] = func(bidResponse providerapiv1.ProcessedBidResponse) {
+		respC <- providerapiv1.ProcessedBidResponse{
 			Status:            bidResponse.Status,
 			DispatchTimestamp: bidResponse.DispatchTimestamp,
 		}
@@ -158,7 +153,7 @@ func (s *Service) SendProcessedBids(srv providerapiv1.Provider_SendProcessedBids
 				"bidDigest", hex.EncodeToString(status.BidDigest),
 				"status", status.Status.String(),
 			)
-			callback(ProcessedBidResponse{
+			callback(providerapiv1.ProcessedBidResponse{
 				Status:            status.Status,
 				DispatchTimestamp: status.DispatchTimestamp,
 			})
