@@ -3,25 +3,19 @@ package preconfirmation
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	preconfcommstore "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
-	preconfcontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/preconf"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	providerapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/provider"
 	encryptor "github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -38,11 +32,8 @@ type Preconfirmation struct {
 	streamer     p2p.Streamer
 	depositMgr   DepositManager
 	processer    BidProcessor
-	commitmentDA preconfcontract.Interface
-	evtMgr       events.EventManager
-	ecds         CommitmentStore
-	newL1Blocks  chan *blocktracker.BlocktrackerNewL1Block
-	enryptedCmts chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
+	commitmentDA PreconfContract
+	tracker      Tracker
 	logger       *slog.Logger
 	metrics      *metrics
 }
@@ -69,18 +60,22 @@ type DepositManager interface {
 	RefundDeposit(ethAddress common.Address, amount *big.Int, blockNumber int64) error
 }
 
-type CommitmentStore interface {
-	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
-	GetCommitmentByHash(commitmentHash string) (*store.EncryptedPreConfirmationWithDecrypted, error)
-	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
-	DeleteCommitmentByBlockNumber(blockNum int64) error
-	SetCommitmentIndexByCommitmentDigest(commitmentDigest, commitmentIndex [32]byte) error
+type Tracker interface {
+	TrackCommitment(ctx context.Context, cm *store.EncryptedPreConfirmationWithDecrypted) error
 }
 
 type DepositManager interface {
 	Start(ctx context.Context) <-chan struct{}
 	CheckAndDeductDeposit(ctx context.Context, ethAddress common.Address, bidAmount string, blockNumber int64) (*big.Int, error)
 	RefundDeposit(ethAddress common.Address, amount *big.Int, blockNumber int64) error
+}
+
+type PreconfContract interface {
+	StoreEncryptedCommitment(
+		ctx context.Context,
+		commitmentDigest []byte,
+		commitmentSignature []byte,
+	) (common.Hash, error)
 }
 
 func New(
@@ -90,9 +85,8 @@ func New(
 	encryptor encryptor.Encryptor,
 	depositMgr DepositManager,
 	processor BidProcessor,
-	commitmentDA preconfcontract.Interface,
-	evtMgr events.EventManager,
-	edcs CommitmentStore,
+	commitmentDA PreconfContract,
+	tracker Tracker,
 	logger *slog.Logger,
 ) *Preconfirmation {
 	return &Preconfirmation{
@@ -103,10 +97,7 @@ func New(
 		depositMgr:   depositMgr,
 		processer:    processor,
 		commitmentDA: commitmentDA,
-		evtMgr:       evtMgr,
-		ecds:         edcs,
-		newL1Blocks:  make(chan *blocktracker.BlocktrackerNewL1Block),
-		enryptedCmts: make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
+		tracker:      tracker,
 		logger:       logger,
 		metrics:      newMetrics(),
 	}
@@ -124,89 +115,6 @@ func (p *Preconfirmation) Streams() []p2p.StreamDesc {
 	return []p2p.StreamDesc{p.bidStream()}
 }
 
-func (p *Preconfirmation) Start(ctx context.Context) <-chan struct{} {
-	doneChan := make(chan struct{})
-
-	eg, egCtx := errgroup.WithContext(ctx)
-
-	startWg := sync.WaitGroup{}
-	startWg.Add(2)
-
-	eg.Go(func() error {
-		ev1 := events.NewEventHandler(
-			"NewL1Block",
-			func(newL1Block *blocktracker.BlocktrackerNewL1Block) {
-				select {
-				case <-egCtx.Done():
-				case p.newL1Blocks <- newL1Block:
-				}
-			},
-		)
-
-		sub1, err := p.evtMgr.Subscribe(ev1)
-		if err != nil {
-			return fmt.Errorf("failed to subscribe to NewL1Block event: %w", err)
-		}
-		defer sub1.Unsubscribe()
-
-		ev2 := events.NewEventHandler(
-			"EncryptedCommitmentStored",
-			func(ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored) {
-				select {
-				case <-egCtx.Done():
-				case p.enryptedCmts <- ec:
-				}
-			},
-		)
-		sub2, err := p.evtMgr.Subscribe(ev2)
-		if err != nil {
-			return fmt.Errorf("failed to subscribe to EncryptedCommitmentStored event: %w", err)
-		}
-		defer sub2.Unsubscribe()
-
-		startWg.Done()
-
-		select {
-		case <-egCtx.Done():
-			return nil
-		case err := <-sub1.Err():
-			return fmt.Errorf("NewL1Block subscription error: %w", err)
-		case err := <-sub2.Err():
-			return fmt.Errorf("EncryptedCommitmentStored subscription error: %w", err)
-		}
-	})
-
-	eg.Go(func() error {
-		startWg.Done()
-
-		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			case newL1Block := <-p.newL1Blocks:
-				if err := p.handleNewL1Block(egCtx, newL1Block); err != nil {
-					return err
-				}
-			case ec := <-p.enryptedCmts:
-				if err := p.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
-					return err
-				}
-			}
-		}
-	})
-
-	go func() {
-		defer close(doneChan)
-		if err := eg.Wait(); err != nil {
-			p.logger.Error("failed to start preconfirmation", "error", err)
-		}
-	}()
-
-	startWg.Wait()
-
-	return doneChan
-}
-
 // SendBid is meant to be called by the bidder to construct and send bids to the provider.
 // It takes the txHash, the bid amount in wei and the maximum valid block number.
 // It waits for preConfirmations from all providers and then returns.
@@ -220,7 +128,13 @@ func (p *Preconfirmation) SendBid(
 	decayEndTimestamp int64,
 ) (chan *preconfpb.PreConfirmation, error) {
 	startTime := time.Now()
-	bid, encryptedBid, err := p.encryptor.ConstructEncryptedBid(txHash, bidAmt, blockNumber, decayStartTimestamp, decayEndTimestamp)
+	bid, encryptedBid, err := p.encryptor.ConstructEncryptedBid(
+		txHash,
+		bidAmt,
+		blockNumber,
+		decayStartTimestamp,
+		decayEndTimestamp,
+	)
 	if err != nil {
 		p.logger.Error("constructing encrypted bid", "error", err, "txHash", txHash)
 		return nil, err
@@ -278,7 +192,11 @@ func (p *Preconfirmation) SendBid(
 
 			// Process preConfirmation as a bidder
 			verifyStartTime := time.Now()
-			sharedSecretKey, providerAddress, err := p.encryptor.VerifyEncryptedPreConfirmation(provider.Keys.NIKEPublicKey, bid.Digest, encryptedPreConfirmation)
+			sharedSecretKey, providerAddress, err := p.encryptor.VerifyEncryptedPreConfirmation(
+				provider.Keys.NIKEPublicKey,
+				bid.Digest,
+				encryptedPreConfirmation,
+			)
 			if err != nil {
 				logger.Error("verifying provider signature", "error", err)
 				return
@@ -301,9 +219,13 @@ func (p *Preconfirmation) SendBid(
 				PreConfirmation:          preConfirmation,
 			}
 
-			p.ecds.AddCommitment(encryptedAndDecryptedPreconfirmation)
 			logger.Info("received preconfirmation", "preConfirmation", preConfirmation)
 			p.metrics.ReceivedPreconfsCount.Inc()
+			// Track the preconfirmation
+			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
+				logger.Error("tracking commitment", "error", err)
+				return
+			}
 
 			select {
 			case preConfirmations <- preConfirmation:
@@ -406,7 +328,10 @@ func (p *Preconfirmation) handleBid(
 				PreConfirmation:          preConfirmation,
 			}
 
-			p.ecds.AddCommitment(encryptedAndDecryptedPreconfirmation)
+			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
+				p.logger.Error("tracking commitment", "error", err)
+				return status.Errorf(codes.Internal, "failed to track commitment: %v", err)
+			}
 
 			// If we reach here, the bid was successful
 			successful = true
@@ -415,51 +340,4 @@ func (p *Preconfirmation) handleBid(
 		}
 	}
 	return nil
-}
-
-func (p *Preconfirmation) handleNewL1Block(ctx context.Context, newL1Block *blocktracker.BlocktrackerNewL1Block) error {
-	p.logger.Info("New L1 Block event received", "blockNumber", newL1Block.BlockNumber, "winner", newL1Block.Winner, "window", newL1Block.Window)
-	commitments, err := p.ecds.GetCommitmentsByBlockNumber(newL1Block.BlockNumber.Int64())
-	if err != nil {
-		p.logger.Error("failed to get commitments by block number", "error", err)
-		return err
-	}
-	for _, commitment := range commitments {
-		if common.BytesToAddress(commitment.ProviderAddress) != newL1Block.Winner {
-			p.logger.Info("provider address does not match the winner", "providerAddress", commitment.ProviderAddress, "winner", newL1Block.Winner)
-			continue
-		}
-		startTime := time.Now()
-		txHash, err := p.commitmentDA.OpenCommitment(
-			ctx,
-			commitment.EncryptedPreConfirmation.CommitmentIndex,
-			commitment.PreConfirmation.Bid.BidAmount,
-			commitment.PreConfirmation.Bid.BlockNumber,
-			commitment.PreConfirmation.Bid.TxHash,
-			commitment.PreConfirmation.Bid.DecayStartTimestamp,
-			commitment.PreConfirmation.Bid.DecayEndTimestamp,
-			commitment.PreConfirmation.Bid.Signature,
-			commitment.PreConfirmation.Signature,
-			commitment.PreConfirmation.SharedSecret,
-		)
-		if err != nil {
-			// todo: retry mechanism?
-			p.logger.Error("failed to open commitment", "error", err)
-			continue
-		}
-		duration := time.Since(startTime)
-		p.logger.Info("opened commitment", "txHash", txHash, "duration", duration)
-	}
-
-	err = p.ecds.DeleteCommitmentByBlockNumber(newL1Block.BlockNumber.Int64())
-	if err != nil {
-		p.logger.Error("failed to delete commitments by block number", "error", err)
-		return err
-	}
-	return nil
-}
-
-func (p *Preconfirmation) handleEncryptedCommitmentStored(ctx context.Context, ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored) error {
-	p.logger.Info("Encrypted Commitment Stored event received", "commitmentDigest", ec.CommitmentDigest, "commitmentIndex", ec.CommitmentIndex)
-	return p.ecds.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
 }

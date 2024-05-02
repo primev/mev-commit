@@ -128,6 +128,29 @@ func (cs *CommitmentsStore) DeleteCommitmentByBlockNumber(blockNum int64) error 
 	return nil
 }
 
+func (cs *CommitmentsStore) DeleteCommitmentByIndex(blockNum int64, index [32]byte) error {
+	cs.commitmentByBlockNumberMu.Lock()
+	defer cs.commitmentByBlockNumberMu.Unlock()
+
+	for _, v := range cs.commitmentsByCommitmentHash {
+		if common.Bytes2Hex(v.EncryptedPreConfirmation.CommitmentIndex) == common.Bytes2Hex(index[:]) {
+			err := cs.deleteCommitmentByHash(common.Bytes2Hex(v.Commitment))
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	for idx, v := range cs.commitmentsByBlockNumber[blockNum] {
+		if common.Bytes2Hex(v.EncryptedPreConfirmation.CommitmentIndex) == common.Bytes2Hex(index[:]) {
+			cs.commitmentsByBlockNumber[blockNum] = append(cs.commitmentsByBlockNumber[blockNum][:idx], cs.commitmentsByBlockNumber[blockNum][idx+1:]...)
+			break
+		}
+	}
+	return nil
+}
+
 func (cs *CommitmentsStore) deleteCommitmentByHash(hash string) error {
 	cs.commitmentsByCommitmentHashMu.Lock()
 	defer cs.commitmentsByCommitmentHashMu.Unlock()
