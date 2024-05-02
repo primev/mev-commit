@@ -1,0 +1,188 @@
+- name: Deploy Nomad Jobs
+  hosts: nomad_clients
+  vars:
+    env: "devnet"
+    build: false
+    datacenter: "dc1"
+    destination: "{{ ansible_env.HOME }}/{{ env }}"
+    tls_ca_crt_file: "/usr/local/share/ca-certificates/ca-mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
+    tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
+    tls_key_file: "/etc/ssl/private/mev-commit_{{ env }}.mev-commit.primev.xyz.key"
+    aws_s3_bucket: "primev-infrastructure-artifacts"
+    profiles:
+      devnet:
+        job_names:
+          - 'datadog-agent-logs-collector'
+          - 'mev-commit-geth-bootnode1'
+          - 'mev-commit-geth-signer-node1'
+          - 'mev-commit-geth-member-node'
+          - 'deploy-contracts'
+          - 'mev-commit-bootnode1'
+          - 'mev-commit-provider-node1'
+          - 'mev-commit-provider-node1-funder'
+          - 'mev-commit-bidder-node1'
+          - 'mev-commit-bidder-node1-funder'
+          - 'mev-commit-provider-emulator-node1'
+          - 'mev-commit-bidder-emulator-node1'
+          - 'mev-commit-oracle'
+          - 'datadog-agent-metrics-collector'
+      testnet:
+        job_names:
+          - 'datadog-agent-logs-collector'
+          - 'mev-commit-geth-bootnode1'
+          - 'mev-commit-geth-signer-node1'
+          - 'mev-commit-geth-member-node'
+          - 'deploy-contracts'
+          - 'mev-commit-bootnode1'
+          - 'mev-commit-provider-node1'
+          - 'mev-commit-provider-node1-funder'
+          - 'mev-commit-provider-emulator-node1'
+          - 'mev-commit-oracle'
+          - 'datadog-agent-metrics-collector'
+
+  vars_prompt:
+    - name: version
+      prompt: "Enter the version"
+      private: no
+
+  pre_tasks:
+    - name: Configuration | Get AWS caller information
+      amazon.aws.aws_caller_info:
+      register: aws_caller_info
+      delegate_to: localhost
+      when: version is not defined or version == ''
+
+    - name: Configuration | Check and fail AWS caller information
+      ansible.builtin.fail:
+        msg: "AWS Caller Information is empty or invalid; configure your aws credentials."
+      when: >
+        (aws_caller_info is undefined or
+        aws_caller_info.user_id is undefined or
+        aws_caller_info.user_id == "") and
+        (version is not defined or version == '')
+
+    - name: Configuration | Determining build version
+      ansible.builtin.shell: |
+        echo "$(git rev-parse --short HEAD)$(git diff --quiet || echo '-dirty')"
+      register: git_hash
+      delegate_to: localhost
+      changed_when: false
+      when: version is not defined or version == ''
+
+    - name: Configuration | Setting up build version
+      set_fact:
+        build: true
+        version: "{{ git_hash.stdout }}"
+      when: version is not defined or version == ''
+
+    - name: Configuration | Version info
+      ansible.builtin.debug:
+        msg: |
+          version: {{ version | default('Version not set') }}
+
+    - name: Configuration | Build info
+      ansible.builtin.debug:
+        msg: |
+          local build: {{ build | default('Build status unknown') }}
+
+    - name: Configuration | Check version
+      ansible.builtin.fail:
+        msg: "Version is not set; provide a valid version."
+      when: version is not defined or version == ''
+
+    - name: Configuration | Include job definitions
+      include_vars:
+        file: jobs.yml
+
+    - name: Configuration | Using "{{ env }}" profile
+      set_fact:
+        jobs: "{{ lookup('vars', 'jobs') | selectattr('name', 'in', profiles[env].job_names) | list }}"
+
+  tasks:
+    - name: Check | "{{ destination }}" exists
+      ansible.builtin.file:
+        path: "{{ destination }}"
+        state: directory
+        mode: '0744'
+        recurse: yes
+
+    - name: Build | Nomad artifacts
+      ansible.builtin.shell: |
+        DESTINATION_DIR="/tmp/dist/{{ item }}-{{ version }}"
+        mkdir -p ${DESTINATION_DIR}
+        if [ "{{ item }}" == "contracts" ]; then
+          set -x
+          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
+        else
+          goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
+          mv ./dist/* ${DESTINATION_DIR}
+        fi
+      environment:
+        DIRTY_SUFFIX: "{{ '-dirty' if '-dirty' in version else '' }}"
+      args:
+        chdir: "{{ playbook_dir }}/../../"
+      loop:
+        - infrastructure/tools/keystore-generator
+        - p2p/integrationtest/provider
+        - p2p/integrationtest/bidder
+        - bridge/standard/bridge-v1
+        - external/geth
+        - contracts
+        - oracle
+        - p2p
+      loop_control:
+        label: "{{ item }}"
+      delegate_to: localhost
+      when: build
+
+    - name: Upload | Filter artifacts
+      ansible.builtin.find:
+        paths: "/tmp/dist"
+        patterns: "*{{ version }}*.gz,*{{ version }}*.txt"
+        recurse: yes
+      register: artefacts
+      delegate_to: localhost
+      when: build
+
+    - name: Upload | Files to S3
+      amazon.aws.aws_s3:
+        bucket: "{{ aws_s3_bucket }}"
+        object: "{{ item.path | basename }}"
+        src: "{{ item.path }}"
+        mode: put
+        tags:
+          AutoDelete: "true"
+      loop: "{{ artefacts.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: (artefacts.files | default([])) | length > 0 and build
+      delegate_to: localhost
+
+    - name: Cleanup | Removing "/tmp/dist"
+      ansible.builtin.file:
+        path: "/tmp/dist"
+        state: absent
+      delegate_to: localhost
+      when: build
+
+    - name: Generate | Nomad scripts
+      ansible.builtin.template:
+        src: "templates/nomad/{{ item.template }}"
+        dest: "{{ destination }}/{{ item.name }}.nomad"
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        job: "{{ item }}"
+
+    - name: Deploy | Nomad jobs
+      ansible.builtin.shell: |
+        nomad run {{ destination }}/{{ job.name }}.nomad
+        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 180 || true
+      args:
+        executable: bash
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        job: "{{ item }}"

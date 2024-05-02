@@ -23,10 +23,11 @@ builds:
 archives:
   - format: tar.gz
     name_template: >-
-      {{ .ProjectName }}_
-      {{- if .IsSnapshot }}{{ .ShortCommit }}_
-      {{- else }}{{ .Version }}_
+      {{ .Binary }}_
+      {{- if .IsSnapshot }}{{ .ShortCommit }}
+      {{- else }}{{ .Version }}
       {{ end }}
+      {{- if .Env.DIRTY_SUFFIX }}{{ .Env.DIRTY_SUFFIX }}{{ end }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else if eq .Arch "386" }}i386
@@ -42,5 +43,6 @@ checksum:
     {{ .ProjectName }}_
     {{- if .IsSnapshot }}{{ .ShortCommit }}
     {{- else }}{{ .Version }}
-    {{- end -}}
+    {{- end }}
+    {{- if .Env.DIRTY_SUFFIX }}{{ .Env.DIRTY_SUFFIX }}{{ end -}}
     _checksums.txt

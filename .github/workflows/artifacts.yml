@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [ infrastructure/tools/keystore-generator,  p2p/integrationtest/bidder, p2p/integrationtest/provider, bridge/standard/bridge-v1, external/geth, oracle, p2p]
+        module: [ infrastructure/tools/keystore-generator,  p2p/integrationtest/provider, p2p/integrationtest/bidder, bridge/standard/bridge-v1, external/geth, oracle, p2p]
     steps:
       - name: Set Snapshot Flag
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
