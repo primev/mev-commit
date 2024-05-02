@@ -545,6 +545,9 @@ func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTim
 	u.logger.Info("decayPercentage", "decayPercentage", decayPercentage)
 
 	decayPercentageRound := int64(math.Round(decayPercentage * 100))
+	if decayPercentageRound > 100 {
+		decayPercentageRound = 100
+	}
 	u.logger.Info("decayPercentageRound", "decayPercentageRound", decayPercentageRound)
 	return decayPercentageRound
 }
