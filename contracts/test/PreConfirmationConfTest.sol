@@ -135,45 +135,6 @@ contract TestPreConfCommitmentStore is Test {
 
 
     function test_StoreCommitmentFailureDueToTimestampValidation() public {
-        // bytes32 bidHash = preConfCommitmentStore.getBidHash(
-        //     _testCommitmentAliceBob.txnHash,
-        //     _testCommitmentAliceBob.bid,
-        //     _testCommitmentAliceBob.blockNumber,
-        //     _testCommitmentAliceBob.decayStartTimestamp,
-        //     _testCommitmentAliceBob.decayEndTimestamp
-        // );
-        // (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
-        // // Wallet memory kartik = vm.createWallet('test wallet');
-        // (uint8 v,bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
-        // bytes memory signature = abi.encodePacked(r, s, v);
-
-        // vm.deal(bidder, 200000 ether);
-        // vm.prank(bidder);
-        // bidderRegistry.depositForSpecificWindow{value: 2 ether}(2);
-
-        // (bytes32 digest, address recoveredAddress) =  preConfCommitmentStore.verifyBid(
-        //     _testCommitmentAliceBob.bid, 
-        //     _testCommitmentAliceBob.blockNumber, 
-        //     _testCommitmentAliceBob.decayStartTimestamp, 
-        //     _testCommitmentAliceBob.decayEndTimestamp, 
-        //     _testCommitmentAliceBob.txnHash, 
-        //     signature);
-        
-        // assertEq(bidder, recoveredAddress);
-        // assertEq(digest, bidHash);
-        // vm.warp(1000);
-        // vm.expectRevert("Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
-        // preConfCommitmentStore.storeCommitment(
-        //     _testCommitmentAliceBob.bid,
-        //     _testCommitmentAliceBob.blockNumber,
-        //     _testCommitmentAliceBob.txnHash,
-        //     _testCommitmentAliceBob.decayStartTimestamp,
-        //     _testCommitmentAliceBob.decayEndTimestamp,
-        //     signature,
-        //     _testCommitmentAliceBob.commitmentSignature,
-        //     _testCommitmentAliceBob.dispatchTimestamp
-        // );
-        // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
         );
