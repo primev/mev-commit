@@ -213,7 +213,6 @@ func NewNode(opts *Options) (*Node, error) {
 	updtr, err := updater.NewUpdater(
 		nd.logger.With("component", "updater"),
 		l1Client,
-		settlementClient,
 		st,
 		evtMgr,
 		oracleTransactorSession,

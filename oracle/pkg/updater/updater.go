@@ -9,7 +9,6 @@ import (
 	"math"
 	"math/big"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -53,7 +52,7 @@ type WinnerRegister interface {
 		committer []byte,
 		commitmentHash []byte,
 		commitmentSignature []byte,
-		blockNum int64,
+		dispatchTimestamp uint64,
 	) error
 	IsSettled(ctx context.Context, commitmentIdx []byte) (bool, error)
 	GetWinner(ctx context.Context, blockNum int64) (Winner, error)
@@ -88,18 +87,16 @@ type EVMClient interface {
 }
 
 type Updater struct {
-	logger           *slog.Logger
-	l1Client         EVMClient
-	l2Client         EVMClient
-	winnerRegister   WinnerRegister
-	oracle           Oracle
-	evtMgr           events.EventManager
-	l1BlockCache     *lru.Cache[uint64, map[string]int]
-	l2BlockTimeCache *lru.Cache[uint64, uint64]
-	encryptedCmts    chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored
-	openedCmts       chan *preconf.PreconfcommitmentstoreCommitmentStored
-	currentWindow    atomic.Int64
-	metrics          *metrics
+	logger         *slog.Logger
+	l1Client       EVMClient
+	winnerRegister WinnerRegister
+	oracle         Oracle
+	evtMgr         events.EventManager
+	l1BlockCache   *lru.Cache[uint64, map[string]int]
+	encryptedCmts  chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored
+	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
+	currentWindow  atomic.Int64
+	metrics        *metrics
 }
 
 func NewUpdater(
@@ -113,22 +110,16 @@ func NewUpdater(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create L1 block cache: %w", err)
 	}
-	l2BlockTimeCache, err := lru.New[uint64, uint64](1024)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create L2 block time cache: %w", err)
-	}
 	return &Updater{
-		logger:           logger,
-		l1Client:         l1Client,
-		l2Client:         l2Client,
-		l1BlockCache:     l1BlockCache,
-		l2BlockTimeCache: l2BlockTimeCache,
-		winnerRegister:   winnerRegister,
-		evtMgr:           evtMgr,
-		oracle:           oracle,
-		metrics:          newMetrics(),
-		openedCmts:       make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
-		encryptedCmts:    make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
+		logger:         logger,
+		l1Client:       l1Client,
+		l1BlockCache:   l1BlockCache,
+		winnerRegister: winnerRegister,
+		evtMgr:         evtMgr,
+		oracle:         oracle,
+		metrics:        newMetrics(),
+		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
+		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
 	}, nil
 }
 
@@ -141,74 +132,51 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	// Waits for events to be subscribed before returning
-	startWg := sync.WaitGroup{}
-	startWg.Add(2)
+	ev1 := events.NewEventHandler(
+		"EncryptedCommitmentStored",
+		func(update *preconf.PreconfcommitmentstoreEncryptedCommitmentStored) {
+			select {
+			case <-egCtx.Done():
+			case u.encryptedCmts <- update:
+			}
+		},
+	)
+
+	ev2 := events.NewEventHandler(
+		"CommitmentStored",
+		func(update *preconf.PreconfcommitmentstoreCommitmentStored) {
+			select {
+			case <-egCtx.Done():
+			case u.openedCmts <- update:
+			}
+		},
+	)
+
+	ev3 := events.NewEventHandler(
+		"NewWindow",
+		func(update *blocktracker.BlocktrackerNewWindow) {
+			u.currentWindow.Store(update.Window.Int64())
+		},
+	)
+
+	sub, err := u.evtMgr.Subscribe(ev1, ev2, ev3)
+	if err != nil {
+		u.logger.Error("failed to subscribe to events", "error", err)
+		close(doneChan)
+		return doneChan
+	}
 
 	eg.Go(func() error {
-		ev1 := events.NewEventHandler(
-			"EncryptedCommitmentStored",
-			func(update *preconf.PreconfcommitmentstoreEncryptedCommitmentStored) {
-				select {
-				case <-egCtx.Done():
-				case u.encryptedCmts <- update:
-				}
-			},
-		)
-		sub1, err := u.evtMgr.Subscribe(ev1)
-		if err != nil {
-			startWg.Done()
-			return fmt.Errorf("failed to subscribe to encrypted commitments: %w", err)
-		}
-		defer sub1.Unsubscribe()
-
-		ev2 := events.NewEventHandler(
-			"CommitmentStored",
-			func(update *preconf.PreconfcommitmentstoreCommitmentStored) {
-				select {
-				case <-egCtx.Done():
-				case u.openedCmts <- update:
-				}
-			},
-		)
-		sub2, err := u.evtMgr.Subscribe(ev2)
-		if err != nil {
-			startWg.Done()
-			return fmt.Errorf("failed to subscribe to opened commitments: %w", err)
-		}
-		defer sub2.Unsubscribe()
-
-		ev3 := events.NewEventHandler(
-			"NewWindow",
-			func(update *blocktracker.BlocktrackerNewWindow) {
-				u.currentWindow.Store(update.Window.Int64())
-			},
-		)
-
-		sub3, err := u.evtMgr.Subscribe(ev3)
-		if err != nil {
-			startWg.Done()
-			return fmt.Errorf("failed to subscribe to new window: %w", err)
-		}
-		defer sub3.Unsubscribe()
-
-		startWg.Done()
-
+		defer sub.Unsubscribe()
 		select {
 		case <-egCtx.Done():
 			return nil
-		case err := <-sub1.Err():
-			return err
-		case err := <-sub2.Err():
-			return err
-		case err := <-sub3.Err():
+		case err := <-sub.Err():
 			return err
 		}
 	})
 
 	eg.Go(func() error {
-		startWg.Done()
-
 		for {
 			select {
 			case <-egCtx.Done():
@@ -232,8 +200,6 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 		}
 	}()
 
-	startWg.Wait()
-
 	return doneChan
 }
 
@@ -247,7 +213,7 @@ func (u *Updater) handleEncryptedCommitment(
 		update.Commiter.Bytes(),
 		update.CommitmentDigest[:],
 		update.CommitmentSignature,
-		update.BlockCommitedAt.Int64(),
+		update.DispatchTimestamp,
 	)
 	if err != nil {
 		u.logger.Error(
@@ -261,7 +227,7 @@ func (u *Updater) handleEncryptedCommitment(
 	u.logger.Debug(
 		"added encrypted commitment",
 		"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-		"blockNumber", update.BlockCommitedAt.Int64(),
+		"dispatch timestamp", update.DispatchTimestamp,
 	)
 	return nil
 }
@@ -300,7 +266,7 @@ func (u *Updater) handleOpenedCommitment(
 		}
 		u.logger.Error(
 			"failed to get winner",
-			"blockNumber", update.BlockCommitedAt.Int64(),
+			"blockNumber", update.BlockNumber,
 			"error", err,
 		)
 		return err
@@ -340,20 +306,10 @@ func (u *Updater) handleOpenedCommitment(
 	}
 
 	// Compute the decay percentage
-	l2BlockTime, err := u.getL2BlockTime(ctx, update.BlockCommitedAt.Uint64())
-	if err != nil {
-		u.logger.Error(
-			"failed to get L2 block time",
-			"blockNumber", update.BlockCommitedAt.Int64(),
-			"error", err,
-		)
-		return err
-	}
-
 	decayPercentage := u.computeDecayPercentage(
 		update.DecayStartTimeStamp,
 		update.DecayEndTimeStamp,
-		l2BlockTime,
+		update.DispatchTimestamp,
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
@@ -506,31 +462,12 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]in
 	return txnsInBlock, nil
 }
 
-func (u *Updater) getL2BlockTime(ctx context.Context, blockNum uint64) (uint64, error) {
-	time, ok := u.l2BlockTimeCache.Get(blockNum)
-	if ok {
-		u.metrics.BlockTimeCacheHits.Inc()
-		return time, nil
-	}
-
-	u.metrics.BlockTimeCacheMisses.Inc()
-
-	blk, err := u.l2Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
-	if err != nil {
-		return 0, fmt.Errorf("failed to get block by number: %w", err)
-	}
-
-	_ = u.l2BlockTimeCache.Add(blockNum, blk.Header().Time)
-
-	return blk.Header().Time, nil
-}
-
 // computeDecayPercentage takes startTimestamp, endTimestamp, commitTimestamp and computes a linear decay percentage
 // The computation does not care what format the timestamps are in, as long as they are consistent
 // (e.g they could be unix or unixMili timestamps)
 func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
 	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
-		u.logger.Info("invalid timestamps", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
+		u.logger.Info("timestamp out of range", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
 		return 0
 	}
 

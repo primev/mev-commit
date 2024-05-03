@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS encrypted_commitments (
 	committer BYTEA,
 	commitment_hash BYTEA,
 	commitment_signature BYTEA,
-	block_number BIGINT
+	dispatch_timestamp BIGINT
 );`
 
 var winnersTable = `
@@ -125,21 +125,21 @@ func (s *Store) AddEncryptedCommitment(
 	committer []byte,
 	commitmentHash []byte,
 	commitmentSignature []byte,
-	blockNum int64,
+	dispatchTimestamp uint64,
 ) error {
 	columns := []string{
 		"commitment_index",
 		"committer",
 		"commitment_hash",
 		"commitment_signature",
-		"block_number",
+		"dispatch_timestamp",
 	}
 	values := []interface{}{
 		commitmentIdx,
 		committer,
 		commitmentHash,
 		commitmentSignature,
-		blockNum,
+		dispatchTimestamp,
 	}
 	placeholder := make([]string, len(values))
 	for i := range columns {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
@@ -210,15 +211,14 @@ func TestStore(t *testing.T) {
 			t.Fatalf("Failed to create store: %s", err)
 		}
 
-		for i, settlement := range settlements {
-			blkNo := int64(i/3) + 1
+		for _, settlement := range settlements {
 			err = st.AddEncryptedCommitment(
 				context.Background(),
 				settlement.CommitmentIdx,
 				settlement.Builder,
 				[]byte("hash"),
 				[]byte("signature"),
-				blkNo,
+				uint64(time.Now().Unix()),
 			)
 			if err != nil {
 				t.Fatalf("Failed to add encrypted commitment: %s", err)

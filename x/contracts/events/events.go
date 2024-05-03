@@ -170,12 +170,14 @@ func (l *Listener) Subscribe(ev ...EventHandler) (Subscription, error) {
 	l.subMu.Lock()
 	defer l.subMu.Unlock()
 
+	errC := make(chan error, len(ev))
 	sub := &subscription{
-		errCh: make(chan error, len(ev)),
+		errCh: errC,
 		unsub: func() {
 			for _, event := range ev {
 				l.unsubscribe(event.topic(), event)
 			}
+			close(errC)
 		},
 	}
 
@@ -197,7 +199,6 @@ func (l *Listener) unsubscribe(topic common.Hash, event EventHandler) {
 	for i, e := range events {
 		if e.evt == event {
 			events = append(events[:i], events[i+1:]...)
-			close(e.errCh)
 			break
 		}
 	}

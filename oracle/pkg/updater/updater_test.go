@@ -63,6 +63,7 @@ func TestUpdater(t *testing.T) {
 
 	// timestamp of the First block commitment is X
 	startTimestamp := time.UnixMilli(1615195200000)
+	midTimestamp := startTimestamp.Add(time.Duration(2.5 * float64(time.Second)))
 	endTimestamp := startTimestamp.Add(5 * time.Second)
 
 	key, err := crypto.GenerateKey()
@@ -95,7 +96,7 @@ func TestUpdater(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
-			BlockCommitedAt:     big.NewInt(0),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
@@ -103,9 +104,9 @@ func TestUpdater(t *testing.T) {
 			BlockNumber:         5,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
-			BlockCommitedAt:     big.NewInt(0),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 
 		if i%2 == 0 {
@@ -135,7 +136,7 @@ func TestUpdater(t *testing.T) {
 			Commiter:            builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
-			BlockCommitedAt:     big.NewInt(0),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
@@ -143,10 +144,10 @@ func TestUpdater(t *testing.T) {
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 		encCommitments = append(encCommitments, encCommitment)
 		commitments = append(commitments, commitment)
@@ -169,12 +170,6 @@ func TestUpdater(t *testing.T) {
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
 			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
-		},
-	}
-
-	l2Client := &testEVMClient{
-		blocks: map[int64]*types.Block{
-			0: types.NewBlock(&types.Header{Time: uint64(midTimestamp.UnixMilli())}, txns, nil, nil, NewHasher()),
 		},
 	}
 
@@ -201,7 +196,6 @@ func TestUpdater(t *testing.T) {
 	updtr, err := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		l2Client,
 		register,
 		evtMgr,
 		oracle,
@@ -239,8 +233,8 @@ func TestUpdater(t *testing.T) {
 			if !bytes.Equal(enc.commitmentSignature, ec.CommitmentSignature) {
 				t.Fatal("wrong commitment signature")
 			}
-			if enc.blockNum != 0 {
-				t.Fatal("wrong block number")
+			if enc.dispatchTimestamp != ec.DispatchTimestamp {
+				t.Fatal("wrong dispatch timestamp")
 			}
 		}
 	}
@@ -358,9 +352,9 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			BlockNumber:         5,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
-			BlockCommitedAt:     big.NewInt(0),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 
 		commitments = append(commitments, commitment)
@@ -382,12 +376,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
 			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
-		},
-	}
-
-	l2Client := &testEVMClient{
-		blocks: map[int64]*types.Block{
-			0: types.NewBlock(&types.Header{Time: uint64(midTimestamp.UnixMilli())}, txns, nil, nil, NewHasher()),
 		},
 	}
 
@@ -414,7 +402,6 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 	updtr, err := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		l2Client,
 		register,
 		evtMgr,
 		oracle,
@@ -545,9 +532,9 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			BlockNumber:         blockNum,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
-			DispatchTimestamp: 0,
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 
 		if i == 9 {
@@ -587,12 +574,6 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		},
 	}
 
-	l2Client := &testEVMClient{
-		blocks: map[int64]*types.Block{
-			0: types.NewBlock(&types.Header{Time: uint64(midTimestamp.UnixMilli())}, txns, nil, nil, NewHasher()),
-		},
-	}
-
 	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
 	if err != nil {
 		t.Fatal(err)
@@ -616,7 +597,6 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 	updtr, err := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		l2Client,
 		register,
 		evtMgr,
 		oracle,
@@ -725,7 +705,7 @@ type testEncryptedCommitment struct {
 	committer           []byte
 	commitmentHash      []byte
 	commitmentSignature []byte
-	blockNum            int64
+	dispatchTimestamp   uint64
 }
 
 type testWinner struct {
@@ -801,14 +781,14 @@ func (t *testWinnerRegister) AddEncryptedCommitment(
 	committer []byte,
 	commitmentHash []byte,
 	commitmentSignature []byte,
-	blockNum int64,
+	dispatchTimestamp uint64,
 ) error {
 	t.encCommit <- testEncryptedCommitment{
 		commitmentIdx:       commitmentIdx,
 		committer:           committer,
 		commitmentHash:      commitmentHash,
 		commitmentSignature: commitmentSignature,
-		blockNum:            blockNum,
+		dispatchTimestamp:   dispatchTimestamp,
 	}
 	return nil
 }
@@ -864,7 +844,7 @@ func publishEncCommitment(
 		ec.Commiter,
 		ec.CommitmentDigest,
 		ec.CommitmentSignature,
-		ec.BlockCommitedAt,
+		ec.DispatchTimestamp,
 	)
 	if err != nil {
 		return err
@@ -904,7 +884,7 @@ func publishCommitment(
 		c.CommitmentHash,
 		c.BidSignature,
 		c.CommitmentSignature,
-		c.BlockCommitedAt,
+		c.DispatchTimestamp,
 		c.SharedSecretKey,
 	)
 	if err != nil {
