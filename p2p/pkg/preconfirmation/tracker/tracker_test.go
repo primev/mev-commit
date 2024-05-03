@@ -119,7 +119,7 @@ func TestTracker(t *testing.T) {
 			CommitmentIndex:     common.BytesToHash(c.EncryptedPreConfirmation.CommitmentIndex),
 			CommitmentDigest:    common.BytesToHash(c.EncryptedPreConfirmation.Commitment),
 			CommitmentSignature: c.EncryptedPreConfirmation.Signature,
-			BlockCommitedAt:     big.NewInt(1),
+			DispatchTimestamp:   uint64(1),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -145,7 +145,7 @@ func TestTracker(t *testing.T) {
 		CommitmentHash:      common.BytesToHash(commitments[4].PreConfirmation.Digest),
 		BidSignature:        commitments[4].PreConfirmation.Bid.Signature,
 		CommitmentSignature: commitments[4].PreConfirmation.Signature,
-		BlockCommitedAt:     big.NewInt(1),
+		DispatchTimestamp:   uint64(1),
 		SharedSecretKey:     commitments[4].PreConfirmation.SharedSecret,
 	})
 	if err != nil {
@@ -342,7 +342,7 @@ func publishEncCommitment(
 		ec.Commiter,
 		ec.CommitmentDigest,
 		ec.CommitmentSignature,
-		ec.BlockCommitedAt,
+		ec.DispatchTimestamp,
 	)
 	if err != nil {
 		return err
@@ -382,7 +382,7 @@ func publishCommitment(
 		c.CommitmentHash,
 		c.BidSignature,
 		c.CommitmentSignature,
-		c.BlockCommitedAt,
+		c.DispatchTimestamp,
 		c.SharedSecretKey,
 	)
 	if err != nil {

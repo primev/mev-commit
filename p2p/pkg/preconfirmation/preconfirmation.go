@@ -64,17 +64,12 @@ type Tracker interface {
 	TrackCommitment(ctx context.Context, cm *store.EncryptedPreConfirmationWithDecrypted) error
 }
 
-type DepositManager interface {
-	Start(ctx context.Context) <-chan struct{}
-	CheckAndDeductDeposit(ctx context.Context, ethAddress common.Address, bidAmount string, blockNumber int64) (*big.Int, error)
-	RefundDeposit(ethAddress common.Address, amount *big.Int, blockNumber int64) error
-}
-
 type PreconfContract interface {
 	StoreEncryptedCommitment(
 		ctx context.Context,
 		commitmentDigest []byte,
 		commitmentSignature []byte,
+		dispatchTimestamp uint64,
 	) (common.Hash, error)
 }
 

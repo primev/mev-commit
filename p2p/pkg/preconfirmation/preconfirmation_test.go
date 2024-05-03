@@ -19,6 +19,7 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primevprotocol/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/preconfirmation"
+	providerapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
 )
@@ -85,6 +86,7 @@ func (t *testCommitmentDA) StoreEncryptedCommitment(
 	_ context.Context,
 	_ []byte,
 	_ []byte,
+	_ uint64,
 ) (common.Hash, error) {
 	return common.Hash{}, nil
 }
