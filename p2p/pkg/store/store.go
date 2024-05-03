@@ -22,10 +22,9 @@ type BlockStore struct {
 }
 
 type CommitmentsStore struct {
-	commitmentsByBlockNumber      map[int64][]*EncryptedPreConfirmationWithDecrypted
-	commitmentsByCommitmentHash   map[string]*EncryptedPreConfirmationWithDecrypted
-	commitmentByBlockNumberMu     sync.RWMutex
-	commitmentsByCommitmentHashMu sync.RWMutex
+	commitmentsMu               sync.RWMutex
+	commitmentsByBlockNumber    map[int64][]*EncryptedPreConfirmationWithDecrypted
+	commitmentsByCommitmentHash map[string]*EncryptedPreConfirmationWithDecrypted
 }
 
 type EncryptedPreConfirmationWithDecrypted struct {
@@ -75,28 +74,17 @@ func (bs *BlockStore) SetLastBlock(blockNum uint64) error {
 	return nil
 }
 
-func (cs *CommitmentsStore) addCommitmentByBlockNumber(blockNum int64, commitment *EncryptedPreConfirmationWithDecrypted) {
-	cs.commitmentByBlockNumberMu.Lock()
-	defer cs.commitmentByBlockNumberMu.Unlock()
-
-	cs.commitmentsByBlockNumber[blockNum] = append(cs.commitmentsByBlockNumber[blockNum], commitment)
-}
-
-func (cs *CommitmentsStore) addCommitmentByHash(hash string, commitment *EncryptedPreConfirmationWithDecrypted) {
-	cs.commitmentsByCommitmentHashMu.Lock()
-	defer cs.commitmentsByCommitmentHashMu.Unlock()
-
-	cs.commitmentsByCommitmentHash[hash] = commitment
-}
-
 func (cs *CommitmentsStore) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted) {
-	cs.addCommitmentByBlockNumber(commitment.Bid.BlockNumber, commitment)
-	cs.addCommitmentByHash(common.Bytes2Hex(commitment.Commitment), commitment)
+	cs.commitmentsMu.Lock()
+	defer cs.commitmentsMu.Unlock()
+
+	cs.commitmentsByBlockNumber[commitment.Bid.BlockNumber] = append(cs.commitmentsByBlockNumber[commitment.Bid.BlockNumber], commitment)
+	cs.commitmentsByCommitmentHash[common.Bytes2Hex(commitment.EncryptedPreConfirmation.Commitment)] = commitment
 }
 
 func (cs *CommitmentsStore) GetCommitmentsByBlockNumber(blockNum int64) ([]*EncryptedPreConfirmationWithDecrypted, error) {
-	cs.commitmentByBlockNumberMu.RLock()
-	defer cs.commitmentByBlockNumberMu.RUnlock()
+	cs.commitmentsMu.RLock()
+	defer cs.commitmentsMu.RUnlock()
 
 	if commitments, exists := cs.commitmentsByBlockNumber[blockNum]; exists {
 		return commitments, nil
@@ -104,43 +92,20 @@ func (cs *CommitmentsStore) GetCommitmentsByBlockNumber(blockNum int64) ([]*Encr
 	return nil, nil
 }
 
-func (cs *CommitmentsStore) GetCommitmentByHash(hash string) (*EncryptedPreConfirmationWithDecrypted, error) {
-	cs.commitmentsByCommitmentHashMu.RLock()
-	defer cs.commitmentsByCommitmentHashMu.RUnlock()
-
-	if commitment, exists := cs.commitmentsByCommitmentHash[hash]; exists {
-		return commitment, nil
-	}
-	return nil, nil
-}
-
 func (cs *CommitmentsStore) DeleteCommitmentByBlockNumber(blockNum int64) error {
-	cs.commitmentByBlockNumberMu.Lock()
-	defer cs.commitmentByBlockNumberMu.Unlock()
+	cs.commitmentsMu.Lock()
+	defer cs.commitmentsMu.Unlock()
 
 	for _, v := range cs.commitmentsByBlockNumber[blockNum] {
-		err := cs.deleteCommitmentByHash(common.Bytes2Hex(v.Commitment))
-		if err != nil {
-			return err
-		}
+		delete(cs.commitmentsByCommitmentHash, common.Bytes2Hex(v.EncryptedPreConfirmation.Commitment))
 	}
 	delete(cs.commitmentsByBlockNumber, blockNum)
 	return nil
 }
 
 func (cs *CommitmentsStore) DeleteCommitmentByIndex(blockNum int64, index [32]byte) error {
-	cs.commitmentByBlockNumberMu.Lock()
-	defer cs.commitmentByBlockNumberMu.Unlock()
-
-	for _, v := range cs.commitmentsByCommitmentHash {
-		if common.Bytes2Hex(v.EncryptedPreConfirmation.CommitmentIndex) == common.Bytes2Hex(index[:]) {
-			err := cs.deleteCommitmentByHash(common.Bytes2Hex(v.Commitment))
-			if err != nil {
-				return err
-			}
-			break
-		}
-	}
+	cs.commitmentsMu.Lock()
+	defer cs.commitmentsMu.Unlock()
 
 	for idx, v := range cs.commitmentsByBlockNumber[blockNum] {
 		if common.Bytes2Hex(v.EncryptedPreConfirmation.CommitmentIndex) == common.Bytes2Hex(index[:]) {
@@ -148,29 +113,27 @@ func (cs *CommitmentsStore) DeleteCommitmentByIndex(blockNum int64, index [32]by
 			break
 		}
 	}
-	return nil
-}
 
-func (cs *CommitmentsStore) deleteCommitmentByHash(hash string) error {
-	cs.commitmentsByCommitmentHashMu.Lock()
-	defer cs.commitmentsByCommitmentHashMu.Unlock()
+	for _, v := range cs.commitmentsByCommitmentHash {
+		if common.Bytes2Hex(v.EncryptedPreConfirmation.CommitmentIndex) == common.Bytes2Hex(index[:]) {
+			delete(cs.commitmentsByCommitmentHash, common.Bytes2Hex(v.EncryptedPreConfirmation.Commitment))
+			break
+		}
+	}
 
-	delete(cs.commitmentsByCommitmentHash, hash)
 	return nil
 }
 
 func (cs *CommitmentsStore) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex [32]byte) error {
+	cs.commitmentsMu.Lock()
+	defer cs.commitmentsMu.Unlock()
+
 	// when we will have db, this will be UPDATE query, instead of inmemory update
-	commitment, err := cs.GetCommitmentByHash(common.Bytes2Hex(cDigest[:]))
-	if err != nil {
-		return fmt.Errorf("failed to get commitment by hash: %w", err)
-	}
-	if commitment == nil {
-		// commitment could be not found in case this commitment is from another bidder/provider
-		// so no need to return error in this case
+	if commitment, exists := cs.commitmentsByCommitmentHash[common.Bytes2Hex(cDigest[:])]; exists {
+		commitment.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
 		return nil
 	}
-	commitment.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
+
 	return nil
 }
 
