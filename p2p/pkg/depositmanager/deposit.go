@@ -126,13 +126,13 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				return nil
 			case bidderReg := <-dm.bidderRegs:
-				blocksPerWindow, err := dm.checkAndSetBlocksPerWindow()
+				blocksPerWindow, err := dm.getOrSetBlocksPerWindow()
 				if err != nil {
 					dm.logger.Error("failed to get blocks per window", "error", err)
 					return err
 				}
 			
-				effectiveStake := new(big.Int).Div(new(big.Int).Set(bidderReg.DepositedAmount), new(big.Int).SetUint64(blocksPerWindow))
+				effectiveStake := new(big.Int).Div(bidderReg.DepositedAmount, new(big.Int).SetUint64(blocksPerWindow))
 				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, effectiveStake); err != nil {
 					return err
 				}
@@ -153,7 +153,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (dm *DepositManager) CheckAndDeductDeposit(ctx context.Context, address common.Address, bidAmountStr string, blockNumber int64) (*big.Int, error) {
-	blocksPerWindow, err := dm.checkAndSetBlocksPerWindow()
+	blocksPerWindow, err := dm.getOrSetBlocksPerWindow()
 	if err != nil {
 		dm.logger.Error("failed to get blocks per window", "error", err)
 		return nil, status.Error(codes.Internal, err.Error())
@@ -225,7 +225,7 @@ func (dm *DepositManager) RefundDeposit(address common.Address, deductedAmount *
 	return dm.store.RefundBalanceForBlock(address, deductedAmount, blockNumber)
 }
 
-func (dm *DepositManager) checkAndSetBlocksPerWindow() (uint64, error) {
+func (dm *DepositManager) getOrSetBlocksPerWindow() (uint64, error) {
 	bpwCache := dm.blocksPerWindow.Load()
 
 	if bpwCache != 0 {

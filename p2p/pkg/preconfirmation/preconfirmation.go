@@ -47,14 +47,6 @@ type BidProcessor interface {
 	ProcessBid(context.Context, *preconfpb.Bid) (chan providerapi.ProcessedBidResponse, error)
 }
 
-type EncrDecrCommitmentStore interface {
-	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
-	GetCommitmentByHash(commitmentHash string) (*store.EncryptedPreConfirmationWithDecrypted, error)
-	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
-	DeleteCommitmentByBlockNumber(blockNum int64) error
-	SetCommitmentIndexByCommitmentDigest(commitmentDigest, commitmentIndex [32]byte) error
-}
-
 type DepositManager interface {
 	Start(ctx context.Context) <-chan struct{}
 	CheckAndDeductDeposit(ctx context.Context, ethAddress common.Address, bidAmount string, blockNumber int64) (*big.Int, error)
