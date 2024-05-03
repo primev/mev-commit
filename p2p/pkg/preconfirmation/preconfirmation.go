@@ -3,6 +3,7 @@ package preconfirmation
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"sync"
@@ -306,6 +307,20 @@ func (p *Preconfirmation) handleBid(
 			if err != nil {
 				return status.Errorf(codes.Internal, "failed to constuct encrypted preconfirmation: %v", err)
 			}
+			p.logger.Info(
+				"CommitmentDetails",
+				"BidAmount", preConfirmation.Bid.BidAmount,
+				"BlockNumber", uint64(preConfirmation.Bid.BlockNumber),
+				"TxHash", preConfirmation.Bid.TxHash,
+				"DecayStartTimestamp", uint64(preConfirmation.Bid.DecayStartTimestamp),
+				"DecayEndTimestamp", uint64(preConfirmation.Bid.DecayEndTimestamp),
+				"BidSignature", fmt.Sprint(preConfirmation.Bid.Signature),
+				"PreConfirmationSignature", fmt.Sprint(preConfirmation.Signature),
+				"SharedSecret", fmt.Sprint(preConfirmation.SharedSecret),
+				"EncryptedCommitment", fmt.Sprint([32]byte(encryptedPreConfirmation.Commitment)),
+				"EncryptedPreConfirmation.Signature", fmt.Sprint(encryptedPreConfirmation.Signature),
+			)
+
 			p.logger.Info("sending preconfirmation", "preConfirmation", encryptedPreConfirmation)
 			_, err = p.commitmentDA.StoreEncryptedCommitment(
 				ctx,

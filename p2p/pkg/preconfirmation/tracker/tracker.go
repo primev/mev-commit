@@ -210,6 +210,7 @@ func (t *Tracker) handleNewL1Block(
 			continue
 		}
 		startTime := time.Now()
+
 		txHash, err := t.preconfContract.OpenCommitment(
 			ctx,
 			commitment.EncryptedPreConfirmation.CommitmentIndex,

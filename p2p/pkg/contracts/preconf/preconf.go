@@ -71,7 +71,6 @@ func (p *preconfContract) StoreEncryptedCommitment(
 	commitmentSignature []byte,
 	decayDispatchTimestamp uint64,
 ) (common.Hash, error) {
-
 	callData, err := p.preconfABI.Pack(
 		"storeEncryptedCommitment",
 		[32]byte(commitmentDigest),
@@ -115,14 +114,27 @@ func (p *preconfContract) OpenCommitment(
 	var eciBytes [32]byte
 	copy(eciBytes[:], encryptedCommitmentIndex)
 
+	p.logger.Info(
+		"CommitmentDetails",
+		"CommitmentIndex", fmt.Sprint(eciBytes),
+		"BidAmount", bidAmt.String(),
+		"BlockNumber", uint64(blockNumber),
+		"TxHash", txnHash,
+		"DecayStartTimestamp", uint64(decayStartTimeStamp),
+		"DecayEndTimestamp", uint64(decayEndTimeStamp),
+		"BidSignature", fmt.Sprint(bidSignature),
+		"PreConfirmationSignature", fmt.Sprint(commitmentSignature),
+		"SharedSecret", fmt.Sprint(sharedSecretKey),
+	)
+
 	callData, err := p.preconfABI.Pack(
 		"openCommitment",
 		eciBytes,
 		bidAmt.Uint64(),
-		big.NewInt(blockNumber).Uint64(),
+		uint64(blockNumber),
 		txnHash,
-		big.NewInt(decayStartTimeStamp).Uint64(),
-		big.NewInt(decayEndTimeStamp).Uint64(),
+		uint64(decayStartTimeStamp),
+		uint64(decayEndTimeStamp),
 		bidSignature,
 		commitmentSignature,
 		sharedSecretKey,
