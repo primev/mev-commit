@@ -135,6 +135,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					return err
 				}
 			case ec := <-t.enryptedCmts:
+				t.logger.Info("encrypted commitment stored", "commitmentDigest", fmt.Sprint(ec.CommitmentDigest), "commitmentIndex", fmt.Sprint(ec.CommitmentIndex))
 				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
 					return err
 				}
