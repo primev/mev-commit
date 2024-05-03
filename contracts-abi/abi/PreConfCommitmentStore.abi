@@ -13,17 +13,17 @@
         "internalType": "address"
       },
       {
-        "name": "_blockTracker",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "_oracle",
         "type": "address",
         "internalType": "address"
       },
       {
         "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_blockTracker",
         "type": "address",
         "internalType": "address"
       },
@@ -325,9 +325,9 @@
         "internalType": "bytes"
       },
       {
-        "name": "blockCommitedAt",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -628,9 +628,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "blockCommitedAt",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
           }
         ]
       }
@@ -667,9 +667,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "blockCommitedAt",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
           }
         ]
       }
@@ -1028,19 +1028,6 @@
   },
   {
     "type": "function",
-    "name": "updateCommitmentDispatchWindow",
-    "inputs": [
-      {
-        "name": "newDispatchWindow",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "updateOracle",
     "inputs": [
       {
@@ -1255,10 +1242,10 @@
         "internalType": "bytes"
       },
       {
-        "name": "blockCommitedAt",
-        "type": "uint256",
+        "name": "dispatchTimestamp",
+        "type": "uint64",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint64"
       },
       {
         "name": "sharedSecretKey",
@@ -1298,10 +1285,10 @@
         "internalType": "bytes"
       },
       {
-        "name": "blockCommitedAt",
-        "type": "uint256",
+        "name": "dispatchTimestamp",
+        "type": "uint64",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint64"
       }
     ],
     "anonymous": false
