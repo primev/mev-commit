@@ -91,6 +91,24 @@ func (p *preconfContract) StoreEncryptedCommitment(
 		return common.Hash{}, err
 	}
 
+	// todo: delete after testing
+	receipt, err := p.client.WaitForReceipt(ctx, txnHash)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	p.logger.Info("preconf contract storeEncryptedCommitment successful", "txnHash", txnHash)
+	eventTopicHash := p.preconfABI.Events["EncryptedCommitmentStored"].ID
+
+	for _, log := range receipt.Logs {
+		if len(log.Topics) > 0 && log.Topics[0] == eventTopicHash {
+			commitmentIndex := log.Topics[1]
+			p.logger.Info("Encrypted commitment stored", "commitmentIndex", commitmentIndex.Hex())
+
+			return txnHash, nil
+		}
+	}
+
 	return txnHash, nil
 }
 
