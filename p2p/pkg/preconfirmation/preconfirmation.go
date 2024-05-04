@@ -2,6 +2,7 @@ package preconfirmation
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -306,11 +307,12 @@ func (p *Preconfirmation) handleBid(
 				"TxHash", preConfirmation.Bid.TxHash,
 				"DecayStartTimestamp", uint64(preConfirmation.Bid.DecayStartTimestamp),
 				"DecayEndTimestamp", uint64(preConfirmation.Bid.DecayEndTimestamp),
-				"BidSignature", fmt.Sprint(preConfirmation.Bid.Signature),
-				"PreConfirmationSignature", fmt.Sprint(preConfirmation.Signature),
-				"SharedSecret", fmt.Sprint(preConfirmation.SharedSecret),
-				"EncryptedCommitment", fmt.Sprint([32]byte(encryptedPreConfirmation.Commitment)),
-				"EncryptedPreConfirmation.Signature", fmt.Sprint(encryptedPreConfirmation.Signature),
+				"BidSignature", hex.EncodeToString(preConfirmation.Bid.Signature),
+				"PreConfirmationSignature", hex.EncodeToString(preConfirmation.Signature),
+				"SharedSecret", hex.EncodeToString(preConfirmation.SharedSecret),
+				"EncryptedCommitment", hex.EncodeToString(encryptedPreConfirmation.Commitment),
+				"EncryptedCommitment32", fmt.Sprint([32]byte(encryptedPreConfirmation.Commitment)),
+				"EncryptedPreConfirmation.Signature", hex.EncodeToString(encryptedPreConfirmation.Signature),
 			)
 
 			p.logger.Info("sending preconfirmation", "preConfirmation", encryptedPreConfirmation)

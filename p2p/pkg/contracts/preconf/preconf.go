@@ -2,6 +2,7 @@ package preconfcontract
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -116,15 +117,16 @@ func (p *preconfContract) OpenCommitment(
 
 	p.logger.Info(
 		"CommitmentDetails",
-		"CommitmentIndex", fmt.Sprint(eciBytes),
+		"CommitmentIndex", hex.EncodeToString(encryptedCommitmentIndex),
+		"CommitmentIndex32", fmt.Sprint(eciBytes),
 		"BidAmount", bidAmt.String(),
 		"BlockNumber", uint64(blockNumber),
 		"TxHash", txnHash,
 		"DecayStartTimestamp", uint64(decayStartTimeStamp),
 		"DecayEndTimestamp", uint64(decayEndTimeStamp),
-		"BidSignature", fmt.Sprint(bidSignature),
-		"PreConfirmationSignature", fmt.Sprint(commitmentSignature),
-		"SharedSecret", fmt.Sprint(sharedSecretKey),
+		"BidSignature", hex.EncodeToString(bidSignature),
+		"PreConfirmationSignature", hex.EncodeToString(commitmentSignature),
+		"SharedSecret", hex.EncodeToString(sharedSecretKey),
 	)
 
 	callData, err := p.preconfABI.Pack(
