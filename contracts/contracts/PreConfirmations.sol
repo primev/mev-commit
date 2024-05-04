@@ -504,40 +504,38 @@ contract PreConfCommitmentStore is Ownable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        {
-            require(dispatchTimestamp >= block.timestamp || block.timestamp - dispatchTimestamp < commitment_dispatch_window, "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
+        require(dispatchTimestamp >= block.timestamp || block.timestamp - dispatchTimestamp < commitment_dispatch_window, "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
 
-            address commiterAddress = commitmentDigest.recover(
-                commitmentSignature
-            );
+        address commiterAddress = commitmentDigest.recover(
+            commitmentSignature
+        );
 
-            EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
-                false,
-                commiterAddress,
-                commitmentDigest,
-                commitmentSignature,
-                dispatchTimestamp
-            );
+        EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
+            false,
+            commiterAddress,
+            commitmentDigest,
+            commitmentSignature,
+            dispatchTimestamp
+        );
 
-            commitmentIndex = getEncryptedCommitmentIndex(newCommitment);
+        commitmentIndex = getEncryptedCommitmentIndex(newCommitment);
 
-            // Store commitment
-            encryptedCommitments[commitmentIndex] = newCommitment;
+        // Store commitment
+        encryptedCommitments[commitmentIndex] = newCommitment;
 
-            // Push pointers to other mappings
-            providerEncryptedCommitments[commiterAddress].push(commitmentIndex);
+        // Push pointers to other mappings
+        providerEncryptedCommitments[commiterAddress].push(commitmentIndex);
 
-            commitmentCount++;
-            commitmentsCount[commiterAddress] += 1;
+        commitmentCount++;
+        commitmentsCount[commiterAddress] += 1;
 
-            emit EncryptedCommitmentStored(
-                commitmentIndex,
-                commiterAddress,
-                commitmentDigest,
-                commitmentSignature,
-                dispatchTimestamp
-            );
-        }
+        emit EncryptedCommitmentStored(
+            commitmentIndex,
+            commiterAddress,
+            commitmentDigest,
+            commitmentSignature,
+            dispatchTimestamp
+        );
 
         return commitmentIndex;
     }
