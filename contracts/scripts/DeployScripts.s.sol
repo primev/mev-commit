@@ -56,7 +56,7 @@ contract DeployScript is Script, Create2Deployer {
             0x68bC10674b265f266b4b1F079Fa06eF4045c3ab9
         );
         uint16 feePercent = 2;
-        uint64 commitmentDispatchWindow = 500;
+        uint64 commitmentDispatchWindow = 2000;
 
         uint256 blocksPerWindow = 10;
         // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
