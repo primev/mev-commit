@@ -67,6 +67,7 @@ job "{{ job.name }}" {
       }
 
       artifact {
+        # TODO: Address that this needs to be contracts version w/ newly generated keystore.
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/contracts_{{ version }}.tar.gz"
       }
 
@@ -78,7 +79,7 @@ job "{{ job.name }}" {
           RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          PRIVATE_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.deploy_contracts_private_key }}{{ end }}"
+          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
           {% endraw %}
           CHAIN_ID="{{ job['chain-id'] }}"
           FORGE_BIN_PATH="local/forge"

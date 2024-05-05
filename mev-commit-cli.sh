@@ -1,9 +1,11 @@
 #!/bin/bash
 
+# TODO: Need to address this file. Prob need to keep old priv key config for docker contract deploy
+# TODO: Need to fund new contract deployer account on mev-commit chain genesis
+
 # Default RPC URL and Paths
 L1_RPC_BASE_URL=https://ethereum-holesky-rpc.publicnode.com
 DEFAULT_RPC_URL="http://sl-bootnode:8545"
-PRIMEV_DIR="$HOME/.primev"
 DEFAULT_CHAIN_ID="17864"
 
 # Default Docker network name
