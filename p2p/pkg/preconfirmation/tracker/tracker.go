@@ -2,7 +2,6 @@ package preconftracker
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"time"
@@ -135,7 +134,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					return err
 				}
 			case ec := <-t.enryptedCmts:
-				t.logger.Info("encrypted commitment stored", "commitmentDigest", hex.EncodeToString(ec.CommitmentDigest[:]), "commitmentIndex", hex.EncodeToString(ec.CommitmentIndex[:]))
 				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
 					return err
 				}
