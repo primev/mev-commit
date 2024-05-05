@@ -29,7 +29,7 @@ contract SettlementGatewayTest is Test {
         whitelist.addToWhitelist(address(settlementGateway));
     }
 
-    function test_ConstructorSetsVariablesCorrectly() public {
+    function test_ConstructorSetsVariablesCorrectly() public view {
         // Test if the constructor correctly initializes variables
         assertEq(settlementGateway.owner(), owner);
         assertEq(settlementGateway.relayer(), relayer);

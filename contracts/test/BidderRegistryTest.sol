@@ -30,7 +30,7 @@ contract BidderRegistryTest is Test {
         vm.deal(address(this), 1000 ether);
     }
 
-    function test_VerifyInitialContractState() public {
+    function test_VerifyInitialContractState() public view {
         assertEq(bidderRegistry.minDeposit(), 1e18 wei);
         assertEq(bidderRegistry.feeRecipient(), feeRecipient);
         assertEq(bidderRegistry.feePercent(), feePercent);

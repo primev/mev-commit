@@ -160,6 +160,7 @@ contract TestPreConfCommitmentStore is Test {
             abi.encodePacked("commitment data")
         );
         (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        assertNotEq(committer, address(0));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
             committerPk,
             commitmentDigest
@@ -195,7 +196,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_GetBidHash() public {
+    function test_GetBidHash() public view {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.bid,
@@ -323,7 +324,7 @@ contract TestPreConfCommitmentStore is Test {
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         bytes memory bidSignature
-    ) public returns (bytes32) {
+    ) public view returns (bytes32) {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             txnHash,
             bid,
@@ -424,7 +425,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
-    ) public {
+    ) public view {
         PreConfCommitmentStore.PreConfCommitment
             memory commitment = preConfCommitmentStore.getCommitment(index);
 

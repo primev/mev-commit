@@ -48,7 +48,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(address(this), 100 ether);
     }
 
-    function test_VerifyInitialContractState() public {
+    function test_VerifyInitialContractState() public view {
         assertEq(providerRegistry.minStake(), 1e18 wei);
         assertEq(providerRegistry.feeRecipient(), feeRecipient);
         assertEq(providerRegistry.feePercent(), feePercent);
