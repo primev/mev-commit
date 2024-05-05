@@ -252,7 +252,13 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 
 		grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
-		preconfEncryptor := preconfencryptor.NewEncryptor(keyKeeper)
+		preconfEncryptor, err := preconfencryptor.NewEncryptor(keyKeeper)
+		if err != nil {
+			opts.Logger.Error("failed to create preconf encryptor", "error", err)
+			cancel()
+			return nil, errors.Join(err, nd.Close())
+		}
+		
 		validator, err := protovalidate.New()
 		if err != nil {
 			opts.Logger.Error("failed to create proto validator", "error", err)

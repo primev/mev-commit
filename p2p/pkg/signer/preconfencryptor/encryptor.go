@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
+	lru "github.com/hashicorp/golang-lru/v2"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 )
@@ -34,15 +35,18 @@ type Encryptor interface {
 
 type encryptor struct {
 	keyKeeper      keykeeper.KeyKeeper
-	bidHashesToBid map[string]*preconfpb.Bid
+	bidHashesToBid *lru.Cache[string, *preconfpb.Bid]
 }
 
-func NewEncryptor(keyKeeper keykeeper.KeyKeeper) *encryptor {
-	bidHashesToBid := make(map[string]*preconfpb.Bid)
+func NewEncryptor(keyKeeper keykeeper.KeyKeeper) (*encryptor, error) {
+	bidHashesToBidCache, err := lru.New[string, *preconfpb.Bid](2048)
+	if err != nil {
+		return nil, err
+	}
 	return &encryptor{
 		keyKeeper:      keyKeeper,
-		bidHashesToBid: bidHashesToBid,
-	}
+		bidHashesToBid: bidHashesToBidCache,
+	}, nil
 }
 
 func (e *encryptor) ConstructEncryptedBid(
@@ -94,7 +98,7 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	e.bidHashesToBid[hex.EncodeToString(bidHash)] = bid
+	e.bidHashesToBid.Add(hex.EncodeToString(bidHash), bid)
 
 	encryptedBidData, err := keykeeper.EncryptWithAESGCM(bidderKK.AESKey, bidDataBytes)
 	if err != nil {
@@ -194,8 +198,10 @@ func (e *encryptor) VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKe
 	}
 
 	bidHashStr := hex.EncodeToString(bidHash)
-	bid := e.bidHashesToBid[bidHashStr]
-
+	bid, ok := e.bidHashesToBid.Get(bidHashStr)
+	if !ok {
+		return nil, nil, errors.New("bid not found")
+	}
 	bidderKK := e.keyKeeper.(*keykeeper.BidderKeyKeeper)
 	sharedSecredBidderSk, err := bidderKK.BidHashesToNIKE[bidHashStr].ECDH(providerNikePK)
 	if err != nil {

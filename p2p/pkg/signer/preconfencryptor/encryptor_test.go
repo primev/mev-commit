@@ -28,8 +28,10 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		encryptor := preconfencryptor.NewEncryptor(keyKeeper)
-
+		encryptor, err := preconfencryptor.NewEncryptor(keyKeeper)
+		if err != nil {
+			t.Fatal(err)
+		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
 		_, encryptedBid, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
@@ -42,7 +44,10 @@ func TestBids(t *testing.T) {
 			t.Fatal(err)
 		}
 		providerKeyKeeper.SetAESKey(address, keyKeeper.AESKey)
-		encryptorProvider := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		encryptorProvider, err := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		if err != nil {
+			t.Fatal(err)
+		}
 		bid, err := encryptorProvider.DecryptBidData(address, encryptedBid)
 		if err != nil {
 			t.Fatal(err)
@@ -72,7 +77,10 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		bidderEncryptor := preconfencryptor.NewEncryptor(bidderKeyKeeper)
+		bidderEncryptor, err := preconfencryptor.NewEncryptor(bidderKeyKeeper)
+		if err != nil {
+			t.Fatal(err)
+		}
 		providerKey, err := crypto.GenerateKey()
 		if err != nil {
 			t.Fatal(err)
@@ -86,7 +94,10 @@ func TestBids(t *testing.T) {
 		}
 
 		providerKeyKeeper.SetAESKey(bidderAddress, bidderKeyKeeper.AESKey)
-		providerEncryptor := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		providerEncryptor, err := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		if err != nil {
+			t.Fatal(err)
+		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
 
