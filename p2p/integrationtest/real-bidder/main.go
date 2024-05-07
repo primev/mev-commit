@@ -312,8 +312,11 @@ func sendBid(
 	amount := rand.Intn(200000)
 	amount += 100000
 
+	hashesToSend := make([]string, len(txnHashes))
+	copy(hashesToSend, txnHashes)
+
 	bid := &pb.Bid{
-		TxHashes:            txnHashes,
+		TxHashes:            hashesToSend,
 		Amount:              strconv.Itoa(amount),
 		BlockNumber:         int64(blkNum),
 		DecayStartTimestamp: decayStartTimestamp,
