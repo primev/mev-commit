@@ -1,16 +1,19 @@
-package preconfsigner
+package preconfencryptor
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
+	lru "github.com/hashicorp/golang-lru/v2"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keysigner"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 )
 
 var (
@@ -19,34 +22,42 @@ var (
 	ErrInvalidSignature             = errors.New("signature is not valid")
 	ErrInvalidHash                  = errors.New("bidhash doesn't match bid payload")
 	ErrAlreadySignedPreConfirmation = errors.New("preConfirmation is already hashed or signed")
+	ErrInvalidCommitment            = errors.New("commitment is incorrect")
 )
 
-type Signer interface {
-	ConstructSignedBid(string, string, int64, int64, int64) (*preconfpb.Bid, error)
-	ConstructPreConfirmation(*preconfpb.Bid) (*preconfpb.PreConfirmation, error)
+type Encryptor interface {
+	ConstructEncryptedBid(string, string, int64, int64, int64) (*preconfpb.Bid, *preconfpb.EncryptedBid, error)
+	ConstructEncryptedPreConfirmation(*preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error)
 	VerifyBid(*preconfpb.Bid) (*common.Address, error)
-	VerifyPreConfirmation(*preconfpb.PreConfirmation) (*common.Address, error)
+	VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error)
+	DecryptBidData(common.Address, *preconfpb.EncryptedBid) (*preconfpb.Bid, error)
 }
 
-type privateKeySigner struct {
-	keySigner keysigner.KeySigner
+type encryptor struct {
+	keyKeeper      keykeeper.KeyKeeper
+	bidHashesToBid *lru.Cache[string, *preconfpb.Bid]
 }
 
-func NewSigner(keySigner keysigner.KeySigner) *privateKeySigner {
-	return &privateKeySigner{
-		keySigner: keySigner,
+func NewEncryptor(keyKeeper keykeeper.KeyKeeper) (*encryptor, error) {
+	bidHashesToBidCache, err := lru.New[string, *preconfpb.Bid](2048)
+	if err != nil {
+		return nil, err
 	}
+	return &encryptor{
+		keyKeeper:      keyKeeper,
+		bidHashesToBid: bidHashesToBidCache,
+	}, nil
 }
 
-func (p *privateKeySigner) ConstructSignedBid(
+func (e *encryptor) ConstructEncryptedBid(
 	txHash string,
 	bidAmt string,
 	blockNumber int64,
 	decayStartTimeStamp int64,
 	decayEndTimeStamp int64,
-) (*preconfpb.Bid, error) {
+) (*preconfpb.Bid, *preconfpb.EncryptedBid, error) {
 	if txHash == "" || bidAmt == "" || blockNumber == 0 {
-		return nil, errors.New("missing required fields")
+		return nil, nil, errors.New("missing required fields")
 	}
 
 	bid := &preconfpb.Bid{
@@ -59,42 +70,75 @@ func (p *privateKeySigner) ConstructSignedBid(
 
 	bidHash, err := GetBidHash(bid)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	sig, err := p.keySigner.SignHash(bidHash)
+	// todo: probably sign all data including nike public key
+	sig, err := e.keyKeeper.SignHash(bidHash)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if sig[64] == 0 || sig[64] == 1 {
 		sig[64] += 27 // Transform V from 0/1 to 27/28
 	}
 
+	bidderKK := e.keyKeeper.(*keykeeper.BidderKeyKeeper)
+	nikePublicKey, err := bidderKK.GenerateNIKEKeys(bidHash)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bid.NikePublicKey = nikePublicKey.Bytes()
 	bid.Digest = bidHash
 	bid.Signature = sig
 
-	return bid, nil
+	bidDataBytes, err := json.Marshal(bid)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	e.bidHashesToBid.Add(hex.EncodeToString(bidHash), bid)
+
+	encryptedBidData, err := keykeeper.EncryptWithAESGCM(bidderKK.AESKey, bidDataBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return bid, &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, nil
 }
 
-func (p *privateKeySigner) ConstructPreConfirmation(bid *preconfpb.Bid) (*preconfpb.PreConfirmation, error) {
-	_, err := p.VerifyBid(bid)
+func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
+	_, err := e.VerifyBid(bid)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	bidDataPublicKey, err := ecdh.Curve.NewPublicKey(ecdh.P256(), bid.NikePublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	providerKK := e.keyKeeper.(*keykeeper.ProviderKeyKeeper)
+	sharedSecredProviderSk, err := providerKK.GetNIKEPrivateKey().ECDH(bidDataPublicKey)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	preConfirmation := &preconfpb.PreConfirmation{
-		Bid: bid,
+		Bid:             bid,
+		SharedSecret:    sharedSecredProviderSk,
+		ProviderAddress: providerKK.GetAddress().Bytes(),
 	}
 
 	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	sig, err := p.keySigner.SignHash(preConfirmationHash)
+	sig, err := e.keyKeeper.SignHash(preConfirmationHash)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if sig[64] == 0 || sig[64] == 1 {
@@ -104,10 +148,13 @@ func (p *privateKeySigner) ConstructPreConfirmation(bid *preconfpb.Bid) (*precon
 	preConfirmation.Digest = preConfirmationHash
 	preConfirmation.Signature = sig
 
-	return preConfirmation, nil
+	return preConfirmation, &preconfpb.EncryptedPreConfirmation{
+		Commitment: preConfirmationHash,
+		Signature:  sig,
+	}, nil
 }
 
-func (p *privateKeySigner) VerifyBid(bid *preconfpb.Bid) (*common.Address, error) {
+func (e *encryptor) VerifyBid(bid *preconfpb.Bid) (*common.Address, error) {
 	if bid.Digest == nil || bid.Signature == nil {
 		return nil, ErrMissingHashSignature
 	}
@@ -124,24 +171,61 @@ func (p *privateKeySigner) VerifyBid(bid *preconfpb.Bid) (*common.Address, error
 	)
 }
 
+func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.EncryptedBid) (*preconfpb.Bid, error) {
+	pkk := e.keyKeeper.(*keykeeper.ProviderKeyKeeper)
+	aesKey, exists := pkk.GetAESKey(bidderAddress)
+	if !exists {
+		return nil, errors.New("no AES key found for bidder")
+	}
+	decryptedBytes, err := keykeeper.DecryptWithAESGCM(aesKey, bid.Ciphertext)
+	if err != nil {
+		return nil, err
+	}
+
+	var bidData preconfpb.Bid
+	if err := json.Unmarshal(decryptedBytes, &bidData); err != nil {
+		return nil, err
+	}
+
+	return &bidData, nil
+}
+
 // VerifyPreConfirmation verifies the preconfirmation message, and returns the address of the provider
 // that signed the preconfirmation.
-func (p *privateKeySigner) VerifyPreConfirmation(c *preconfpb.PreConfirmation) (*common.Address, error) {
-	if c.Digest == nil || c.Signature == nil {
-		return nil, ErrMissingHashSignature
+func (e *encryptor) VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
+	if c.Signature == nil {
+		return nil, nil, ErrMissingHashSignature
 	}
 
-	_, err := p.VerifyBid(c.Bid)
+	bidHashStr := hex.EncodeToString(bidHash)
+	bid, ok := e.bidHashesToBid.Get(bidHashStr)
+	if !ok {
+		return nil, nil, errors.New("bid not found")
+	}
+	bidderKK := e.keyKeeper.(*keykeeper.BidderKeyKeeper)
+	sharedSecredBidderSk, err := bidderKK.BidHashesToNIKE[bidHashStr].ECDH(providerNikePK)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	preConfirmationHash, err := GetPreConfirmationHash(c)
+	preConfirmation := &preconfpb.PreConfirmation{
+		Bid:          bid,
+		Digest:       bidHash,
+		Signature:    c.Signature,
+		SharedSecret: sharedSecredBidderSk,
+	}
+
+	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return eipVerify(preConfirmationHash, c.Digest, c.Signature)
+	address, err := eipVerify(preConfirmationHash, c.Commitment, c.Signature)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return sharedSecredBidderSk, address, nil
 }
 
 func eipVerify(
@@ -242,13 +326,14 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 
 	// EIP712_MESSAGE_TYPEHASH
 	eip712MessageTypeHash := crypto.Keccak256Hash(
-		[]byte("PreConfCommitment(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,string bidHash,string signature)"),
+		[]byte("PreConfCommitment(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"),
 	)
 
 	// Convert the txnHash to a byte array and hash it
 	txnHashHash := crypto.Keccak256Hash([]byte(c.Bid.TxHash))
 	bidDigestHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.Bid.Digest)))
 	bidSigHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.Bid.Signature)))
+	sharedSecretHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.SharedSecret)))
 
 	// Encode values similar to Solidity's abi.encode
 	data := append(eip712MessageTypeHash.Bytes(), txnHashHash.Bytes()...)
@@ -258,6 +343,7 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 	data = append(data, math.U256Bytes(big.NewInt(c.Bid.DecayEndTimestamp))...)
 	data = append(data, bidDigestHash.Bytes()...)
 	data = append(data, bidSigHash.Bytes()...)
+	data = append(data, sharedSecretHash.Bytes()...)
 	dataHash := crypto.Keccak256Hash(data)
 
 	rawData := append([]byte("\x19\x01"), append(domainSeparatorBid.Bytes(), dataHash.Bytes()...)...)

@@ -3,6 +3,7 @@ package bidderapi
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"strings"
@@ -15,37 +16,46 @@ import (
 	registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/bidder_registry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 type Service struct {
 	bidderapiv1.UnimplementedBidderServer
-	sender           PreconfSender
-	owner            common.Address
-	registryContract registrycontract.Interface
-	logger           *slog.Logger
-	metrics          *metrics
-	validator        *protovalidate.Validator
+	sender               PreconfSender
+	owner                common.Address
+	registryContract     registrycontract.Interface
+	blockTrackerContract BlockTrackerContract
+	logger               *slog.Logger
+	metrics              *metrics
+	validator            *protovalidate.Validator
 }
 
 func NewService(
 	sender PreconfSender,
 	owner common.Address,
 	registryContract registrycontract.Interface,
+	blockTrackerContract BlockTrackerContract,
 	validator *protovalidate.Validator,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		sender:           sender,
-		owner:            owner,
-		registryContract: registryContract,
-		logger:           logger,
-		metrics:          newMetrics(),
-		validator:        validator,
+		sender:               sender,
+		owner:                owner,
+		registryContract:     registryContract,
+		blockTrackerContract: blockTrackerContract,
+		logger:               logger,
+		metrics:              newMetrics(),
+		validator:            validator,
 	}
 }
 
 type PreconfSender interface {
 	SendBid(context.Context, string, string, int64, int64, int64) (chan *preconfirmationv1.PreConfirmation, error)
+}
+
+type BlockTrackerContract interface {
+	GetCurrentWindow() (*big.Int, error)
+	GetBlocksPerWindow() (*big.Int, error)
 }
 
 func (s *Service) SendBid(
@@ -103,53 +113,132 @@ func (s *Service) SendBid(
 	return nil
 }
 
-func (s *Service) PrepayAllowance(
+func (s *Service) Deposit(
 	ctx context.Context,
-	stake *bidderapiv1.PrepayRequest,
-) (*bidderapiv1.PrepayResponse, error) {
-	err := s.validator.Validate(stake)
+	r *bidderapiv1.DepositRequest,
+) (*bidderapiv1.DepositResponse, error) {
+	err := s.validator.Validate(r)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "validating prepay request: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "validating deposit request: %v", err)
 	}
 
-	amount, success := big.NewInt(0).SetString(stake.Amount, 10)
+	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
+	}
+
+	windowToDeposit, err := s.calculateWindowToDeposit(ctx, r, currentWindow.Uint64())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "calculating window to deposit: %v", err)
+	}
+
+	amount, success := big.NewInt(0).SetString(r.Amount, 10)
 	if !success {
-		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", stake.Amount)
+		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", r.Amount)
 	}
 
-	err = s.registryContract.PrepayAllowance(ctx, amount)
+	err = s.registryContract.DepositForSpecificWindow(ctx, amount, windowToDeposit)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "prepaying allowance: %v", err)
+		return nil, status.Errorf(codes.Internal, "deposit: %v", err)
 	}
 
-	stakeAmount, err := s.registryContract.GetAllowance(ctx, s.owner)
+	stakeAmount, err := s.registryContract.GetDeposit(ctx, s.owner, windowToDeposit)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getting allowance: %v", err)
+		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 	}
 
-	return &bidderapiv1.PrepayResponse{Amount: stakeAmount.String()}, nil
+	s.logger.Info("deposit successful", "amount", stakeAmount.String(), "window", windowToDeposit)
+
+	return &bidderapiv1.DepositResponse{
+		Amount:       stakeAmount.String(),
+		WindowNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
+	}, nil
 }
 
-func (s *Service) GetAllowance(
-	ctx context.Context,
-	_ *bidderapiv1.EmptyMessage,
-) (*bidderapiv1.PrepayResponse, error) {
-	stakeAmount, err := s.registryContract.GetAllowance(ctx, s.owner)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getting allowance: %v", err)
+func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.DepositRequest, currentWindow uint64) (*big.Int, error) {
+	if r.WindowNumber != nil {
+		// Directly use the specified window number if available.
+		return new(big.Int).SetUint64(r.WindowNumber.Value), nil
+	} else if r.BlockNumber != nil {
+		// Calculate the window based on the block number.
+		blocksPerWindow, err := s.blockTrackerContract.GetBlocksPerWindow()
+		if err != nil {
+			return nil, fmt.Errorf("getting window for block: %w", err)
+		}
+		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/blocksPerWindow.Uint64() + 1), nil
 	}
-
-	return &bidderapiv1.PrepayResponse{Amount: stakeAmount.String()}, nil
+	// Default to two windows ahead of the current window if no specific block or window is given.
+	// This is for the case where the oracle works 2 windows behind the current window.
+	return new(big.Int).SetUint64(currentWindow + 2), nil
 }
 
-func (s *Service) GetMinAllowance(
+func (s *Service) GetDeposit(
 	ctx context.Context,
-	_ *bidderapiv1.EmptyMessage,
-) (*bidderapiv1.PrepayResponse, error) {
-	stakeAmount, err := s.registryContract.GetMinAllowance(ctx)
+	r *bidderapiv1.GetDepositRequest,
+) (*bidderapiv1.DepositResponse, error) {
+	var (
+		window *big.Int
+		err    error
+	)
+	if r.WindowNumber == nil {
+		window, err = s.blockTrackerContract.GetCurrentWindow()
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
+		}
+		// as oracle working 2 windows behind the current window, we add + 2 here
+		window = new(big.Int).Add(window, big.NewInt(2))
+	} else {
+		window = new(big.Int).SetUint64(r.WindowNumber.Value)
+	}
+	stakeAmount, err := s.registryContract.GetDeposit(ctx, s.owner, window)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getting min allowance: %v", err)
+		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 	}
 
-	return &bidderapiv1.PrepayResponse{Amount: stakeAmount.String()}, nil
+	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String()}, nil
+}
+
+func (s *Service) GetMinDeposit(
+	ctx context.Context,
+	_ *bidderapiv1.EmptyMessage,
+) (*bidderapiv1.DepositResponse, error) {
+	stakeAmount, err := s.registryContract.GetMinDeposit(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting min deposit: %v", err)
+	}
+
+	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String()}, nil
+}
+
+func (s *Service) Withdraw(
+	ctx context.Context,
+	r *bidderapiv1.WithdrawRequest,
+) (*bidderapiv1.WithdrawResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw request: %v", err)
+	}
+
+	var window *big.Int
+	if r.WindowNumber == nil {
+		window, err = s.blockTrackerContract.GetCurrentWindow()
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
+		}
+		window = new(big.Int).Sub(window, big.NewInt(1))
+	} else {
+		window = new(big.Int).SetUint64(r.WindowNumber.Value)
+	}
+
+	amount, err := s.registryContract.WithdrawDeposit(ctx, window)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
+	}
+
+	s.logger.Info("withdraw successful", "amount", amount.String(), "window", window)
+
+	return &bidderapiv1.WithdrawResponse{
+		Amount:       amount.String(),
+		WindowNumber: wrapperspb.UInt64(window.Uint64()),
+	}, nil
 }

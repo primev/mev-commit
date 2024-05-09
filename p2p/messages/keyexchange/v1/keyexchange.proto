@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package keyexchange;
+
+message EncryptedKeysMessage {
+  repeated bytes EncryptedKeys = 1;
+  bytes TimestampMessage = 2;
+}
+
+message EKMWithSignature {
+  bytes Message = 1;
+  bytes Signature = 2;
+}

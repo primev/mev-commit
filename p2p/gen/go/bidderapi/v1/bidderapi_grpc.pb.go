@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Bidder_SendBid_FullMethodName         = "/bidderapi.v1.Bidder/SendBid"
-	Bidder_PrepayAllowance_FullMethodName = "/bidderapi.v1.Bidder/PrepayAllowance"
-	Bidder_GetAllowance_FullMethodName    = "/bidderapi.v1.Bidder/GetAllowance"
-	Bidder_GetMinAllowance_FullMethodName = "/bidderapi.v1.Bidder/GetMinAllowance"
+	Bidder_SendBid_FullMethodName       = "/bidderapi.v1.Bidder/SendBid"
+	Bidder_Deposit_FullMethodName       = "/bidderapi.v1.Bidder/Deposit"
+	Bidder_GetDeposit_FullMethodName    = "/bidderapi.v1.Bidder/GetDeposit"
+	Bidder_GetMinDeposit_FullMethodName = "/bidderapi.v1.Bidder/GetMinDeposit"
+	Bidder_Withdraw_FullMethodName      = "/bidderapi.v1.Bidder/Withdraw"
 )
 
 // BidderClient is the client API for Bidder service.
@@ -33,18 +34,22 @@ type BidderClient interface {
 	//
 	// Send a bid to the bidder mev-commit node.
 	SendBid(ctx context.Context, in *Bid, opts ...grpc.CallOption) (Bidder_SendBidClient, error)
-	// PrepayAllowance
+	// Deposit
 	//
-	// PrepayAllowance is called by the bidder node to add prepaid allowance in the bidder registry.
-	PrepayAllowance(ctx context.Context, in *PrepayRequest, opts ...grpc.CallOption) (*PrepayResponse, error)
-	// GetAllowance
+	// Deposit is called by the bidder node to add deposit in the bidder registry.
+	Deposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*DepositResponse, error)
+	// GetDeposit
 	//
-	// GetAllowance is called by the bidder to get its allowance in the bidder registry.
-	GetAllowance(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*PrepayResponse, error)
-	// GetMinAllowance
+	// GetDeposit is called by the bidder to get its deposit in the bidder registry.
+	GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*DepositResponse, error)
+	// GetMinDeposit
 	//
-	// GetMinAllowance is called by the bidder to get the minimum allowance required in the bidder registry to make bids.
-	GetMinAllowance(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*PrepayResponse, error)
+	// GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
+	GetMinDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*DepositResponse, error)
+	// Withdraw
+	//
+	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+	Withdraw(ctx context.Context, in *WithdrawRequest, opts ...grpc.CallOption) (*WithdrawResponse, error)
 }
 
 type bidderClient struct {
@@ -87,27 +92,36 @@ func (x *bidderSendBidClient) Recv() (*Commitment, error) {
 	return m, nil
 }
 
-func (c *bidderClient) PrepayAllowance(ctx context.Context, in *PrepayRequest, opts ...grpc.CallOption) (*PrepayResponse, error) {
-	out := new(PrepayResponse)
-	err := c.cc.Invoke(ctx, Bidder_PrepayAllowance_FullMethodName, in, out, opts...)
+func (c *bidderClient) Deposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*DepositResponse, error) {
+	out := new(DepositResponse)
+	err := c.cc.Invoke(ctx, Bidder_Deposit_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *bidderClient) GetAllowance(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*PrepayResponse, error) {
-	out := new(PrepayResponse)
-	err := c.cc.Invoke(ctx, Bidder_GetAllowance_FullMethodName, in, out, opts...)
+func (c *bidderClient) GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*DepositResponse, error) {
+	out := new(DepositResponse)
+	err := c.cc.Invoke(ctx, Bidder_GetDeposit_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *bidderClient) GetMinAllowance(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*PrepayResponse, error) {
-	out := new(PrepayResponse)
-	err := c.cc.Invoke(ctx, Bidder_GetMinAllowance_FullMethodName, in, out, opts...)
+func (c *bidderClient) GetMinDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*DepositResponse, error) {
+	out := new(DepositResponse)
+	err := c.cc.Invoke(ctx, Bidder_GetMinDeposit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) Withdraw(ctx context.Context, in *WithdrawRequest, opts ...grpc.CallOption) (*WithdrawResponse, error) {
+	out := new(WithdrawResponse)
+	err := c.cc.Invoke(ctx, Bidder_Withdraw_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -122,18 +136,22 @@ type BidderServer interface {
 	//
 	// Send a bid to the bidder mev-commit node.
 	SendBid(*Bid, Bidder_SendBidServer) error
-	// PrepayAllowance
+	// Deposit
 	//
-	// PrepayAllowance is called by the bidder node to add prepaid allowance in the bidder registry.
-	PrepayAllowance(context.Context, *PrepayRequest) (*PrepayResponse, error)
-	// GetAllowance
+	// Deposit is called by the bidder node to add deposit in the bidder registry.
+	Deposit(context.Context, *DepositRequest) (*DepositResponse, error)
+	// GetDeposit
 	//
-	// GetAllowance is called by the bidder to get its allowance in the bidder registry.
-	GetAllowance(context.Context, *EmptyMessage) (*PrepayResponse, error)
-	// GetMinAllowance
+	// GetDeposit is called by the bidder to get its deposit in the bidder registry.
+	GetDeposit(context.Context, *GetDepositRequest) (*DepositResponse, error)
+	// GetMinDeposit
 	//
-	// GetMinAllowance is called by the bidder to get the minimum allowance required in the bidder registry to make bids.
-	GetMinAllowance(context.Context, *EmptyMessage) (*PrepayResponse, error)
+	// GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
+	GetMinDeposit(context.Context, *EmptyMessage) (*DepositResponse, error)
+	// Withdraw
+	//
+	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+	Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error)
 	mustEmbedUnimplementedBidderServer()
 }
 
@@ -144,14 +162,17 @@ type UnimplementedBidderServer struct {
 func (UnimplementedBidderServer) SendBid(*Bid, Bidder_SendBidServer) error {
 	return status.Errorf(codes.Unimplemented, "method SendBid not implemented")
 }
-func (UnimplementedBidderServer) PrepayAllowance(context.Context, *PrepayRequest) (*PrepayResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PrepayAllowance not implemented")
+func (UnimplementedBidderServer) Deposit(context.Context, *DepositRequest) (*DepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Deposit not implemented")
 }
-func (UnimplementedBidderServer) GetAllowance(context.Context, *EmptyMessage) (*PrepayResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAllowance not implemented")
+func (UnimplementedBidderServer) GetDeposit(context.Context, *GetDepositRequest) (*DepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDeposit not implemented")
 }
-func (UnimplementedBidderServer) GetMinAllowance(context.Context, *EmptyMessage) (*PrepayResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetMinAllowance not implemented")
+func (UnimplementedBidderServer) GetMinDeposit(context.Context, *EmptyMessage) (*DepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMinDeposit not implemented")
+}
+func (UnimplementedBidderServer) Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Withdraw not implemented")
 }
 func (UnimplementedBidderServer) mustEmbedUnimplementedBidderServer() {}
 
@@ -187,56 +208,74 @@ func (x *bidderSendBidServer) Send(m *Commitment) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _Bidder_PrepayAllowance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PrepayRequest)
+func _Bidder_Deposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DepositRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BidderServer).PrepayAllowance(ctx, in)
+		return srv.(BidderServer).Deposit(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Bidder_PrepayAllowance_FullMethodName,
+		FullMethod: Bidder_Deposit_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BidderServer).PrepayAllowance(ctx, req.(*PrepayRequest))
+		return srv.(BidderServer).Deposit(ctx, req.(*DepositRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Bidder_GetAllowance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Bidder_GetDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDepositRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).GetDeposit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_GetDeposit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).GetDeposit(ctx, req.(*GetDepositRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_GetMinDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EmptyMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BidderServer).GetAllowance(ctx, in)
+		return srv.(BidderServer).GetMinDeposit(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Bidder_GetAllowance_FullMethodName,
+		FullMethod: Bidder_GetMinDeposit_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BidderServer).GetAllowance(ctx, req.(*EmptyMessage))
+		return srv.(BidderServer).GetMinDeposit(ctx, req.(*EmptyMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Bidder_GetMinAllowance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyMessage)
+func _Bidder_Withdraw_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WithdrawRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BidderServer).GetMinAllowance(ctx, in)
+		return srv.(BidderServer).Withdraw(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Bidder_GetMinAllowance_FullMethodName,
+		FullMethod: Bidder_Withdraw_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BidderServer).GetMinAllowance(ctx, req.(*EmptyMessage))
+		return srv.(BidderServer).Withdraw(ctx, req.(*WithdrawRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -249,16 +288,20 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*BidderServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "PrepayAllowance",
-			Handler:    _Bidder_PrepayAllowance_Handler,
+			MethodName: "Deposit",
+			Handler:    _Bidder_Deposit_Handler,
 		},
 		{
-			MethodName: "GetAllowance",
-			Handler:    _Bidder_GetAllowance_Handler,
+			MethodName: "GetDeposit",
+			Handler:    _Bidder_GetDeposit_Handler,
 		},
 		{
-			MethodName: "GetMinAllowance",
-			Handler:    _Bidder_GetMinAllowance_Handler,
+			MethodName: "GetMinDeposit",
+			Handler:    _Bidder_GetMinDeposit_Handler,
+		},
+		{
+			MethodName: "Withdraw",
+			Handler:    _Bidder_Withdraw_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

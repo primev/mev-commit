@@ -21,7 +21,7 @@ contract L1GatewayTest is Test {
         l1Gateway = new L1Gateway(owner, relayer, finalizationFee, counterpartyFee);
     }
 
-    function test_ConstructorSetsVariablesCorrectly() public {
+    function test_ConstructorSetsVariablesCorrectly() public view {
         assertEq(l1Gateway.owner(), owner);
         assertEq(l1Gateway.relayer(), relayer);
         assertEq(l1Gateway.finalizationFee(), finalizationFee);

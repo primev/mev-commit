@@ -31,7 +31,7 @@ var (
 
 // OracleMetaData contains all meta data concerning the Oracle contract.
 var OracleMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_preConfContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_nextRequestedBlockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"addBuilderAddress\",\"inputs\":[{\"name\":\"builderName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"builderAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBuilder\",\"inputs\":[{\"name\":\"builderNameGrafiti\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getNextRequestedBlockNumber\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"moveToNextBlock\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"nextRequestedBlockNumber\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockBuilderName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNextBlock\",\"inputs\":[{\"name\":\"newBlockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unlockFunds\",\"inputs\":[{\"name\":\"bidIDs\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[{\"name\":\"_preConfContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_blockTrackerContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false}]",
 }
 
 // OracleABI is the input ABI used to generate the binding from.
@@ -211,99 +211,6 @@ func (_Oracle *OracleCallerSession) BlockBuilderNameToAddress(arg0 string) (comm
 	return _Oracle.Contract.BlockBuilderNameToAddress(&_Oracle.CallOpts, arg0)
 }
 
-// GetBuilder is a free data retrieval call binding the contract method 0x237ba8fb.
-//
-// Solidity: function getBuilder(string builderNameGrafiti) view returns(address)
-func (_Oracle *OracleCaller) GetBuilder(opts *bind.CallOpts, builderNameGrafiti string) (common.Address, error) {
-	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getBuilder", builderNameGrafiti)
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// GetBuilder is a free data retrieval call binding the contract method 0x237ba8fb.
-//
-// Solidity: function getBuilder(string builderNameGrafiti) view returns(address)
-func (_Oracle *OracleSession) GetBuilder(builderNameGrafiti string) (common.Address, error) {
-	return _Oracle.Contract.GetBuilder(&_Oracle.CallOpts, builderNameGrafiti)
-}
-
-// GetBuilder is a free data retrieval call binding the contract method 0x237ba8fb.
-//
-// Solidity: function getBuilder(string builderNameGrafiti) view returns(address)
-func (_Oracle *OracleCallerSession) GetBuilder(builderNameGrafiti string) (common.Address, error) {
-	return _Oracle.Contract.GetBuilder(&_Oracle.CallOpts, builderNameGrafiti)
-}
-
-// GetNextRequestedBlockNumber is a free data retrieval call binding the contract method 0xfce2a502.
-//
-// Solidity: function getNextRequestedBlockNumber() view returns(uint256)
-func (_Oracle *OracleCaller) GetNextRequestedBlockNumber(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "getNextRequestedBlockNumber")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// GetNextRequestedBlockNumber is a free data retrieval call binding the contract method 0xfce2a502.
-//
-// Solidity: function getNextRequestedBlockNumber() view returns(uint256)
-func (_Oracle *OracleSession) GetNextRequestedBlockNumber() (*big.Int, error) {
-	return _Oracle.Contract.GetNextRequestedBlockNumber(&_Oracle.CallOpts)
-}
-
-// GetNextRequestedBlockNumber is a free data retrieval call binding the contract method 0xfce2a502.
-//
-// Solidity: function getNextRequestedBlockNumber() view returns(uint256)
-func (_Oracle *OracleCallerSession) GetNextRequestedBlockNumber() (*big.Int, error) {
-	return _Oracle.Contract.GetNextRequestedBlockNumber(&_Oracle.CallOpts)
-}
-
-// NextRequestedBlockNumber is a free data retrieval call binding the contract method 0xc512c561.
-//
-// Solidity: function nextRequestedBlockNumber() view returns(uint256)
-func (_Oracle *OracleCaller) NextRequestedBlockNumber(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "nextRequestedBlockNumber")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// NextRequestedBlockNumber is a free data retrieval call binding the contract method 0xc512c561.
-//
-// Solidity: function nextRequestedBlockNumber() view returns(uint256)
-func (_Oracle *OracleSession) NextRequestedBlockNumber() (*big.Int, error) {
-	return _Oracle.Contract.NextRequestedBlockNumber(&_Oracle.CallOpts)
-}
-
-// NextRequestedBlockNumber is a free data retrieval call binding the contract method 0xc512c561.
-//
-// Solidity: function nextRequestedBlockNumber() view returns(uint256)
-func (_Oracle *OracleCallerSession) NextRequestedBlockNumber() (*big.Int, error) {
-	return _Oracle.Contract.NextRequestedBlockNumber(&_Oracle.CallOpts)
-}
-
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -335,67 +242,25 @@ func (_Oracle *OracleCallerSession) Owner() (common.Address, error) {
 	return _Oracle.Contract.Owner(&_Oracle.CallOpts)
 }
 
-// AddBuilderAddress is a paid mutator transaction binding the contract method 0x0bd0a9e1.
+// ProcessBuilderCommitmentForBlockNumber is a paid mutator transaction binding the contract method 0x40d46772.
 //
-// Solidity: function addBuilderAddress(string builderName, address builderAddress) returns()
-func (_Oracle *OracleTransactor) AddBuilderAddress(opts *bind.TransactOpts, builderName string, builderAddress common.Address) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "addBuilderAddress", builderName, builderAddress)
+// Solidity: function processBuilderCommitmentForBlockNumber(bytes32 commitmentIndex, uint256 blockNumber, address builder, bool isSlash, uint256 residualBidPercentAfterDecay) returns()
+func (_Oracle *OracleTransactor) ProcessBuilderCommitmentForBlockNumber(opts *bind.TransactOpts, commitmentIndex [32]byte, blockNumber *big.Int, builder common.Address, isSlash bool, residualBidPercentAfterDecay *big.Int) (*types.Transaction, error) {
+	return _Oracle.contract.Transact(opts, "processBuilderCommitmentForBlockNumber", commitmentIndex, blockNumber, builder, isSlash, residualBidPercentAfterDecay)
 }
 
-// AddBuilderAddress is a paid mutator transaction binding the contract method 0x0bd0a9e1.
+// ProcessBuilderCommitmentForBlockNumber is a paid mutator transaction binding the contract method 0x40d46772.
 //
-// Solidity: function addBuilderAddress(string builderName, address builderAddress) returns()
-func (_Oracle *OracleSession) AddBuilderAddress(builderName string, builderAddress common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.AddBuilderAddress(&_Oracle.TransactOpts, builderName, builderAddress)
+// Solidity: function processBuilderCommitmentForBlockNumber(bytes32 commitmentIndex, uint256 blockNumber, address builder, bool isSlash, uint256 residualBidPercentAfterDecay) returns()
+func (_Oracle *OracleSession) ProcessBuilderCommitmentForBlockNumber(commitmentIndex [32]byte, blockNumber *big.Int, builder common.Address, isSlash bool, residualBidPercentAfterDecay *big.Int) (*types.Transaction, error) {
+	return _Oracle.Contract.ProcessBuilderCommitmentForBlockNumber(&_Oracle.TransactOpts, commitmentIndex, blockNumber, builder, isSlash, residualBidPercentAfterDecay)
 }
 
-// AddBuilderAddress is a paid mutator transaction binding the contract method 0x0bd0a9e1.
+// ProcessBuilderCommitmentForBlockNumber is a paid mutator transaction binding the contract method 0x40d46772.
 //
-// Solidity: function addBuilderAddress(string builderName, address builderAddress) returns()
-func (_Oracle *OracleTransactorSession) AddBuilderAddress(builderName string, builderAddress common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.AddBuilderAddress(&_Oracle.TransactOpts, builderName, builderAddress)
-}
-
-// MoveToNextBlock is a paid mutator transaction binding the contract method 0x32289b72.
-//
-// Solidity: function moveToNextBlock() returns()
-func (_Oracle *OracleTransactor) MoveToNextBlock(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "moveToNextBlock")
-}
-
-// MoveToNextBlock is a paid mutator transaction binding the contract method 0x32289b72.
-//
-// Solidity: function moveToNextBlock() returns()
-func (_Oracle *OracleSession) MoveToNextBlock() (*types.Transaction, error) {
-	return _Oracle.Contract.MoveToNextBlock(&_Oracle.TransactOpts)
-}
-
-// MoveToNextBlock is a paid mutator transaction binding the contract method 0x32289b72.
-//
-// Solidity: function moveToNextBlock() returns()
-func (_Oracle *OracleTransactorSession) MoveToNextBlock() (*types.Transaction, error) {
-	return _Oracle.Contract.MoveToNextBlock(&_Oracle.TransactOpts)
-}
-
-// ProcessBuilderCommitmentForBlockNumber is a paid mutator transaction binding the contract method 0x2e9bd11f.
-//
-// Solidity: function processBuilderCommitmentForBlockNumber(bytes32 commitmentIndex, uint256 blockNumber, string blockBuilderName, bool isSlash, uint256 residualBidPercentAfterDecay) returns()
-func (_Oracle *OracleTransactor) ProcessBuilderCommitmentForBlockNumber(opts *bind.TransactOpts, commitmentIndex [32]byte, blockNumber *big.Int, blockBuilderName string, isSlash bool, residualBidPercentAfterDecay *big.Int) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "processBuilderCommitmentForBlockNumber", commitmentIndex, blockNumber, blockBuilderName, isSlash, residualBidPercentAfterDecay)
-}
-
-// ProcessBuilderCommitmentForBlockNumber is a paid mutator transaction binding the contract method 0x2e9bd11f.
-//
-// Solidity: function processBuilderCommitmentForBlockNumber(bytes32 commitmentIndex, uint256 blockNumber, string blockBuilderName, bool isSlash, uint256 residualBidPercentAfterDecay) returns()
-func (_Oracle *OracleSession) ProcessBuilderCommitmentForBlockNumber(commitmentIndex [32]byte, blockNumber *big.Int, blockBuilderName string, isSlash bool, residualBidPercentAfterDecay *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.ProcessBuilderCommitmentForBlockNumber(&_Oracle.TransactOpts, commitmentIndex, blockNumber, blockBuilderName, isSlash, residualBidPercentAfterDecay)
-}
-
-// ProcessBuilderCommitmentForBlockNumber is a paid mutator transaction binding the contract method 0x2e9bd11f.
-//
-// Solidity: function processBuilderCommitmentForBlockNumber(bytes32 commitmentIndex, uint256 blockNumber, string blockBuilderName, bool isSlash, uint256 residualBidPercentAfterDecay) returns()
-func (_Oracle *OracleTransactorSession) ProcessBuilderCommitmentForBlockNumber(commitmentIndex [32]byte, blockNumber *big.Int, blockBuilderName string, isSlash bool, residualBidPercentAfterDecay *big.Int) (*types.Transaction, error) {
-	return _Oracle.Contract.ProcessBuilderCommitmentForBlockNumber(&_Oracle.TransactOpts, commitmentIndex, blockNumber, blockBuilderName, isSlash, residualBidPercentAfterDecay)
+// Solidity: function processBuilderCommitmentForBlockNumber(bytes32 commitmentIndex, uint256 blockNumber, address builder, bool isSlash, uint256 residualBidPercentAfterDecay) returns()
+func (_Oracle *OracleTransactorSession) ProcessBuilderCommitmentForBlockNumber(commitmentIndex [32]byte, blockNumber *big.Int, builder common.Address, isSlash bool, residualBidPercentAfterDecay *big.Int) (*types.Transaction, error) {
+	return _Oracle.Contract.ProcessBuilderCommitmentForBlockNumber(&_Oracle.TransactOpts, commitmentIndex, blockNumber, builder, isSlash, residualBidPercentAfterDecay)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -419,27 +284,6 @@ func (_Oracle *OracleTransactorSession) RenounceOwnership() (*types.Transaction,
 	return _Oracle.Contract.RenounceOwnership(&_Oracle.TransactOpts)
 }
 
-// SetNextBlock is a paid mutator transaction binding the contract method 0x19072add.
-//
-// Solidity: function setNextBlock(uint64 newBlockNumber) returns()
-func (_Oracle *OracleTransactor) SetNextBlock(opts *bind.TransactOpts, newBlockNumber uint64) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "setNextBlock", newBlockNumber)
-}
-
-// SetNextBlock is a paid mutator transaction binding the contract method 0x19072add.
-//
-// Solidity: function setNextBlock(uint64 newBlockNumber) returns()
-func (_Oracle *OracleSession) SetNextBlock(newBlockNumber uint64) (*types.Transaction, error) {
-	return _Oracle.Contract.SetNextBlock(&_Oracle.TransactOpts, newBlockNumber)
-}
-
-// SetNextBlock is a paid mutator transaction binding the contract method 0x19072add.
-//
-// Solidity: function setNextBlock(uint64 newBlockNumber) returns()
-func (_Oracle *OracleTransactorSession) SetNextBlock(newBlockNumber uint64) (*types.Transaction, error) {
-	return _Oracle.Contract.SetNextBlock(&_Oracle.TransactOpts, newBlockNumber)
-}
-
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
 // Solidity: function transferOwnership(address newOwner) returns()
@@ -459,27 +303,6 @@ func (_Oracle *OracleSession) TransferOwnership(newOwner common.Address) (*types
 // Solidity: function transferOwnership(address newOwner) returns()
 func (_Oracle *OracleTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
 	return _Oracle.Contract.TransferOwnership(&_Oracle.TransactOpts, newOwner)
-}
-
-// UnlockFunds is a paid mutator transaction binding the contract method 0x9dd4152b.
-//
-// Solidity: function unlockFunds(bytes32[] bidIDs) returns()
-func (_Oracle *OracleTransactor) UnlockFunds(opts *bind.TransactOpts, bidIDs [][32]byte) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "unlockFunds", bidIDs)
-}
-
-// UnlockFunds is a paid mutator transaction binding the contract method 0x9dd4152b.
-//
-// Solidity: function unlockFunds(bytes32[] bidIDs) returns()
-func (_Oracle *OracleSession) UnlockFunds(bidIDs [][32]byte) (*types.Transaction, error) {
-	return _Oracle.Contract.UnlockFunds(&_Oracle.TransactOpts, bidIDs)
-}
-
-// UnlockFunds is a paid mutator transaction binding the contract method 0x9dd4152b.
-//
-// Solidity: function unlockFunds(bytes32[] bidIDs) returns()
-func (_Oracle *OracleTransactorSession) UnlockFunds(bidIDs [][32]byte) (*types.Transaction, error) {
-	return _Oracle.Contract.UnlockFunds(&_Oracle.TransactOpts, bidIDs)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
