@@ -126,7 +126,7 @@ jobs:
           forge --version
 
       - name: Run Tests
-        run: forge test -vvv --via-ir
+        run: forge clean && forge test -vvv --via-ir
 
       - name: Run Snapshot
         run: forge snapshot --via-ir
