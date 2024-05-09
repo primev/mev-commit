@@ -11,10 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
-	preconfcontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/preconf"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	providerapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/provider"
-	signer "github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfsigner"
+	encryptor "github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,16 +22,18 @@ import (
 
 const (
 	ProtocolName    = "preconfirmation"
-	ProtocolVersion = "2.0.0"
+	ProtocolVersion = "3.0.0"
 )
 
 type Preconfirmation struct {
-	signer       signer.Signer
+	owner        common.Address
+	encryptor    encryptor.Encryptor
 	topo         Topology
 	streamer     p2p.Streamer
-	us           BidderStore
+	depositMgr   DepositManager
 	processer    BidProcessor
-	commitmentDA preconfcontract.Interface
+	commitmentDA PreconfContract
+	tracker      Tracker
 	logger       *slog.Logger
 	metrics      *metrics
 }
@@ -40,36 +42,55 @@ type Topology interface {
 	GetPeers(topology.Query) []p2p.Peer
 }
 
-type BidderStore interface {
-	CheckBidderAllowance(context.Context, common.Address) bool
-}
-
 type BidProcessor interface {
 	ProcessBid(context.Context, *preconfpb.Bid) (chan providerapi.ProcessedBidResponse, error)
 }
 
+type DepositManager interface {
+	Start(ctx context.Context) <-chan struct{}
+	CheckAndDeductDeposit(ctx context.Context, ethAddress common.Address, bidAmount string, blockNumber int64) (*big.Int, error)
+	RefundDeposit(ethAddress common.Address, amount *big.Int, blockNumber int64) error
+}
+
+type Tracker interface {
+	TrackCommitment(ctx context.Context, cm *store.EncryptedPreConfirmationWithDecrypted) error
+}
+
+type PreconfContract interface {
+	StoreEncryptedCommitment(
+		ctx context.Context,
+		commitmentDigest []byte,
+		commitmentSignature []byte,
+		dispatchTimestamp uint64,
+	) (common.Hash, error)
+}
+
 func New(
+	owner common.Address,
 	topo Topology,
 	streamer p2p.Streamer,
-	signer signer.Signer,
-	us BidderStore,
+	encryptor encryptor.Encryptor,
+	depositMgr DepositManager,
 	processor BidProcessor,
-	commitmentDA preconfcontract.Interface,
+	commitmentDA PreconfContract,
+	tracker Tracker,
 	logger *slog.Logger,
 ) *Preconfirmation {
 	return &Preconfirmation{
+		owner:        owner,
 		topo:         topo,
 		streamer:     streamer,
-		signer:       signer,
-		us:           us,
+		encryptor:    encryptor,
+		depositMgr:   depositMgr,
 		processer:    processor,
 		commitmentDA: commitmentDA,
+		tracker:      tracker,
 		logger:       logger,
 		metrics:      newMetrics(),
 	}
 }
 
-func (p *Preconfirmation) preconfStream() p2p.StreamDesc {
+func (p *Preconfirmation) bidStream() p2p.StreamDesc {
 	return p2p.StreamDesc{
 		Name:    ProtocolName,
 		Version: ProtocolVersion,
@@ -78,7 +99,7 @@ func (p *Preconfirmation) preconfStream() p2p.StreamDesc {
 }
 
 func (p *Preconfirmation) Streams() []p2p.StreamDesc {
-	return []p2p.StreamDesc{p.preconfStream()}
+	return []p2p.StreamDesc{p.bidStream()}
 }
 
 // SendBid is meant to be called by the bidder to construct and send bids to the provider.
@@ -93,12 +114,20 @@ func (p *Preconfirmation) SendBid(
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
 ) (chan *preconfpb.PreConfirmation, error) {
-	signedBid, err := p.signer.ConstructSignedBid(txHash, bidAmt, blockNumber, decayStartTimestamp, decayEndTimestamp)
+	startTime := time.Now()
+	bid, encryptedBid, err := p.encryptor.ConstructEncryptedBid(
+		txHash,
+		bidAmt,
+		blockNumber,
+		decayStartTimestamp,
+		decayEndTimestamp,
+	)
 	if err != nil {
-		p.logger.Error("constructing signed bid", "error", err, "txHash", txHash)
+		p.logger.Error("constructing encrypted bid", "error", err, "txHash", txHash)
 		return nil, err
 	}
-	p.logger.Info("constructed signed bid", "signedBid", signedBid)
+	duration := time.Since(startTime)
+	p.logger.Info("constructed encrypted bid", "encryptedBid", encryptedBid, "duration", duration)
 
 	providers := p.topo.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
 	if len(providers) == 0 {
@@ -121,16 +150,16 @@ func (p *Preconfirmation) SendBid(
 				ctx,
 				provider,
 				nil,
-				p.preconfStream(),
+				p.bidStream(),
 			)
 			if err != nil {
 				logger.Error("creating stream", "error", err)
 				return
 			}
 
-			logger.Info("sending signed bid", "signedBid", signedBid)
+			logger.Info("sending encrypted bid", "encryptedBid", encryptedBid)
 
-			err = providerStream.WriteMsg(ctx, signedBid)
+			err = providerStream.WriteMsg(ctx, encryptedBid)
 			if err != nil {
 				_ = providerStream.Reset()
 				logger.Error("writing message", "error", err)
@@ -138,8 +167,8 @@ func (p *Preconfirmation) SendBid(
 			}
 			p.metrics.SentBidsCount.Inc()
 
-			preConfirmation := new(preconfpb.PreConfirmation)
-			err = providerStream.ReadMsg(ctx, preConfirmation)
+			encryptedPreConfirmation := new(preconfpb.EncryptedPreConfirmation)
+			err = providerStream.ReadMsg(ctx, encryptedPreConfirmation)
 			if err != nil {
 				_ = providerStream.Reset()
 				logger.Error("reading message", "error", err)
@@ -149,15 +178,41 @@ func (p *Preconfirmation) SendBid(
 			_ = providerStream.Close()
 
 			// Process preConfirmation as a bidder
-			providerAddress, err := p.signer.VerifyPreConfirmation(preConfirmation)
+			verifyStartTime := time.Now()
+			sharedSecretKey, providerAddress, err := p.encryptor.VerifyEncryptedPreConfirmation(
+				provider.Keys.NIKEPublicKey,
+				bid.Digest,
+				encryptedPreConfirmation,
+			)
 			if err != nil {
 				logger.Error("verifying provider signature", "error", err)
 				return
 			}
+			verifyDuration := time.Since(verifyStartTime)
+			logger.Info("verified encrypted preconfirmation", "duration", verifyDuration)
+
+			preConfirmation := &preconfpb.PreConfirmation{
+				Bid:          bid,
+				SharedSecret: sharedSecretKey,
+				Digest:       encryptedPreConfirmation.Commitment,
+				Signature:    encryptedPreConfirmation.Signature,
+			}
+
 			preConfirmation.ProviderAddress = make([]byte, len(providerAddress))
 			copy(preConfirmation.ProviderAddress, providerAddress[:])
+
+			encryptedAndDecryptedPreconfirmation := &store.EncryptedPreConfirmationWithDecrypted{
+				EncryptedPreConfirmation: encryptedPreConfirmation,
+				PreConfirmation:          preConfirmation,
+			}
+
 			logger.Info("received preconfirmation", "preConfirmation", preConfirmation)
 			p.metrics.ReceivedPreconfsCount.Inc()
+			// Track the preconfirmation
+			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
+				logger.Error("tracking commitment", "error", err)
+				return
+			}
 
 			select {
 			case preConfirmations <- preConfirmation:
@@ -189,26 +244,39 @@ func (p *Preconfirmation) handleBid(
 		return ErrInvalidBidderTypeForBid
 	}
 
-	bid := new(preconfpb.Bid)
-	err := stream.ReadMsg(ctx, bid)
+	encryptedBid := new(preconfpb.EncryptedBid)
+	err := stream.ReadMsg(ctx, encryptedBid)
 	if err != nil {
 		return err
 	}
 
-	p.logger.Info("received bid", "bid", bid)
-
-	ethAddress, err := p.signer.VerifyBid(bid)
+	p.logger.Info("received bid", "encryptedBid", encryptedBid)
+	bid, err := p.encryptor.DecryptBidData(peer.EthAddress, encryptedBid)
 	if err != nil {
-		p.logger.Error("verifying bid", "error", err)
-		return status.Errorf(codes.InvalidArgument, "invalid bid: %v", err)
+		return err
+	}
+	ethAddress, err := p.encryptor.VerifyBid(bid)
+	if err != nil {
+		return err
 	}
 
-	if !p.us.CheckBidderAllowance(ctx, *ethAddress) {
-		p.logger.Error("bidder does not have enough allowance", "ethAddress", ethAddress)
-		return status.Errorf(codes.FailedPrecondition, "bidder not allowed")
+	deductedAmount, err := p.depositMgr.CheckAndDeductDeposit(ctx, *ethAddress, bid.BidAmount, bid.BlockNumber)
+	if err != nil {
+		p.logger.Error("checking deposit", "error", err)
+		return err
 	}
 
-	bidAmt, _ := new(big.Int).SetString(bid.BidAmount, 10)
+	// Setup defer for possible refund
+	successful := false
+	defer func() {
+		if !successful {
+			// Refund the deducted amount if the bid process did not succeed
+			refundErr := p.depositMgr.RefundDeposit(*ethAddress, deductedAmount, bid.BlockNumber)
+			if refundErr != nil {
+				p.logger.Error("refunding deposit", "error", refundErr)
+			}
+		}
+	}()
 
 	// try to enqueue for 5 seconds
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -226,29 +294,38 @@ func (p *Preconfirmation) handleBid(
 		case providerapiv1.BidResponse_STATUS_REJECTED:
 			return status.Errorf(codes.Internal, "bid rejected")
 		case providerapiv1.BidResponse_STATUS_ACCEPTED:
-			preConfirmation, err := p.signer.ConstructPreConfirmation(bid)
+			preConfirmation, encryptedPreConfirmation, err := p.encryptor.ConstructEncryptedPreConfirmation(bid)
 			if err != nil {
-				return status.Errorf(codes.Internal, "failed to construct preconfirmation: %v", err)
+				return status.Errorf(codes.Internal, "failed to constuct encrypted preconfirmation: %v", err)
 			}
-			p.logger.Info("sending preconfirmation", "preConfirmation", preConfirmation)
-			err = p.commitmentDA.StoreCommitment(
+
+			p.logger.Info("sending preconfirmation", "preConfirmation", encryptedPreConfirmation)
+			_, err = p.commitmentDA.StoreEncryptedCommitment(
 				ctx,
-				bidAmt,
-				uint64(preConfirmation.Bid.BlockNumber),
-				preConfirmation.Bid.TxHash,
-				uint64(preConfirmation.Bid.DecayStartTimestamp),
-				uint64(preConfirmation.Bid.DecayEndTimestamp),
-				preConfirmation.Bid.Signature,
-				preConfirmation.Signature,
+				encryptedPreConfirmation.Commitment,
+				encryptedPreConfirmation.Signature,
 				uint64(st.DispatchTimestamp),
 			)
 			if err != nil {
 				p.logger.Error("storing commitment", "error", err)
-				return status.Errorf(codes.Internal, "failed to store commitment: %v", err)
+				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
 			}
-			return stream.WriteMsg(ctx, preConfirmation)
+
+			encryptedAndDecryptedPreconfirmation := &store.EncryptedPreConfirmationWithDecrypted{
+				EncryptedPreConfirmation: encryptedPreConfirmation,
+				PreConfirmation:          preConfirmation,
+			}
+
+			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
+				p.logger.Error("tracking commitment", "error", err)
+				return status.Errorf(codes.Internal, "failed to track commitment: %v", err)
+			}
+
+			// If we reach here, the bid was successful
+			successful = true
+
+			return stream.WriteMsg(ctx, encryptedPreConfirmation)
 		}
 	}
-
 	return nil
 }

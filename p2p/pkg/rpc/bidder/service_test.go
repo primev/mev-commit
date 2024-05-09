@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 const (
@@ -75,25 +76,43 @@ func (s *testSender) SendBid(
 }
 
 type testRegistryContract struct {
-	allowance    *big.Int
-	minAllowance *big.Int
+	deposit    *big.Int
+	minDeposit *big.Int
 }
 
-func (t *testRegistryContract) PrepayAllowance(ctx context.Context, amount *big.Int) error {
-	t.allowance = amount
+func (t *testRegistryContract) DepositForSpecificWindow(ctx context.Context, amount, window *big.Int) error {
+	t.deposit = amount
 	return nil
 }
 
-func (t *testRegistryContract) GetAllowance(ctx context.Context, address common.Address) (*big.Int, error) {
-	return t.allowance, nil
+func (t *testRegistryContract) GetDeposit(ctx context.Context, address common.Address, window *big.Int) (*big.Int, error) {
+	return t.deposit, nil
 }
 
-func (t *testRegistryContract) GetMinAllowance(ctx context.Context) (*big.Int, error) {
-	return t.minAllowance, nil
+func (t *testRegistryContract) GetMinDeposit(ctx context.Context) (*big.Int, error) {
+	return t.minDeposit, nil
 }
 
-func (t *testRegistryContract) CheckBidderAllowance(ctx context.Context, address common.Address) bool {
-	return t.allowance.Cmp(t.minAllowance) > 0
+func (t *testRegistryContract) CheckBidderDeposit(ctx context.Context, address common.Address, window, numberOfRounds *big.Int) bool {
+	return t.deposit.Cmp(t.minDeposit) > 0
+}
+
+func (t *testRegistryContract) WithdrawDeposit(ctx context.Context, window *big.Int) (*big.Int, error) {
+	return t.deposit, nil
+}
+
+type testBlockTrackerContract struct {
+	blockNumberToWinner map[uint64]common.Address
+	lastBlockNumber     uint64
+	blocksPerWindow     uint64
+}
+
+func (btc *testBlockTrackerContract) GetCurrentWindow() (*big.Int, error) {
+	return big.NewInt(int64(btc.lastBlockNumber / btc.blocksPerWindow)), nil
+}
+
+func (btx *testBlockTrackerContract) GetBlocksPerWindow() (*big.Int, error) {
+	return big.NewInt(int64(btx.blocksPerWindow)), nil
 }
 
 func startServer(t *testing.T) bidderapiv1.BidderClient {
@@ -106,13 +125,14 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	}
 
 	owner := common.HexToAddress("0x00001")
-	registryContract := &testRegistryContract{minAllowance: big.NewInt(100000000000000000)}
+	registryContract := &testRegistryContract{minDeposit: big.NewInt(100000000000000000)}
 	sender := &testSender{noOfPreconfs: 2}
-
+	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
 	srvImpl := bidderapi.NewService(
 		sender,
 		owner,
 		registryContract,
+		blockTrackerContract,
 		validator,
 		logger,
 	)
@@ -146,12 +166,12 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	return client
 }
 
-func TestAllowanceHandling(t *testing.T) {
+func TestDepositHandling(t *testing.T) {
 	t.Parallel()
 
 	client := startServer(t)
 
-	t.Run("prepay", func(t *testing.T) {
+	t.Run("deposit", func(t *testing.T) {
 		type testCase struct {
 			amount string
 			err    string
@@ -175,39 +195,54 @@ func TestAllowanceHandling(t *testing.T) {
 				err:    "",
 			},
 		} {
-			allowance, err := client.PrepayAllowance(context.Background(), &bidderapiv1.PrepayRequest{Amount: tc.amount})
+			deposit, err := client.Deposit(context.Background(), &bidderapiv1.DepositRequest{Amount: tc.amount})
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
-					t.Fatalf("expected error prepaying allowance")
+					t.Fatalf("expected error depositing")
 				}
 			} else {
 				if err != nil {
-					t.Fatalf("error prepaying allowance: %v", err)
+					t.Fatalf("error depositing: %v", err)
 				}
-				if allowance.Amount != tc.amount {
-					t.Fatalf("expected amount to be %v, got %v", tc.amount, allowance.Amount)
+				if deposit.Amount != tc.amount {
+					t.Fatalf("expected amount to be %v, got %v", tc.amount, deposit.Amount)
 				}
 			}
 		}
 	})
 
-	t.Run("get allowance", func(t *testing.T) {
-		allowance, err := client.GetAllowance(context.Background(), &bidderapiv1.EmptyMessage{})
+	t.Run("get deposit", func(t *testing.T) {
+		deposit, err := client.GetDeposit(context.Background(), &bidderapiv1.GetDepositRequest{WindowNumber: wrapperspb.UInt64(1)})
 		if err != nil {
-			t.Fatalf("error getting allowance: %v", err)
+			t.Fatalf("error getting deposit: %v", err)
 		}
-		if allowance.Amount != "1000000000000000000" {
-			t.Fatalf("expected amount to be 1000000000000000000, got %v", allowance.Amount)
+		if deposit.Amount != "1000000000000000000" {
+			t.Fatalf("expected amount to be 1000000000000000000, got %v", deposit.Amount)
 		}
 	})
 
-	t.Run("get min allowance", func(t *testing.T) {
-		allowance, err := client.GetMinAllowance(context.Background(), &bidderapiv1.EmptyMessage{})
+	t.Run("get min deposit", func(t *testing.T) {
+		deposit, err := client.GetMinDeposit(context.Background(), &bidderapiv1.EmptyMessage{})
 		if err != nil {
-			t.Fatalf("error getting min allowance: %v", err)
+			t.Fatalf("error getting min deposit: %v", err)
 		}
-		if allowance.Amount != "100000000000000000" {
-			t.Fatalf("expected amount to be 100000000000000000, got %v", allowance.Amount)
+		if deposit.Amount != "100000000000000000" {
+			t.Fatalf("expected amount to be 100000000000000000, got %v", deposit.Amount)
+		}
+	})
+
+	t.Run("withdraw", func(t *testing.T) {
+		resp, err := client.Withdraw(context.Background(), &bidderapiv1.WithdrawRequest{WindowNumber: wrapperspb.UInt64(1)})
+		if err != nil {
+			t.Fatalf("error withdrawing: %v", err)
+		}
+
+		if resp.Amount != "1000000000000000000" {
+			t.Fatalf("expected amount to be 1000000000000000000, got %v", resp.Amount)
+		}
+
+		if resp.WindowNumber.Value != 1 {
+			t.Fatalf("expected window number to be 1, got %v", resp.WindowNumber)
 		}
 	})
 }

@@ -10,7 +10,7 @@ import (
 
 	contracts "github.com/primevprotocol/mev-commit/contracts-abi/config"
 	mevcommit "github.com/primevprotocol/mev-commit/p2p"
-	ks "github.com/primevprotocol/mev-commit/p2p/pkg/keysigner"
+	ks "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/node"
 	"github.com/primevprotocol/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
@@ -192,11 +192,25 @@ var (
 		Value:   contracts.TestnetContracts.PreconfCommitmentStore,
 	})
 
+	optionBlockTrackerAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "block-tracker-contract",
+		Usage:   "address of the block tracker contract",
+		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
+		Value:   contracts.TestnetContracts.BlockTracker,
+	})
+
 	optionSettlementRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "settlement-rpc-endpoint",
 		Usage:   "rpc endpoint of the settlement layer",
 		EnvVars: []string{"MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT"},
 		Value:   "http://localhost:8545",
+	})
+
+	optionSettlementWSRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "settlement-ws-rpc-endpoint",
+		Usage:   "ws rpc endpoint of the settlement layer",
+		EnvVars: []string{"MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT"},
+		Value:   "ws://localhost:8546",
 	})
 
 	optionNATAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -246,7 +260,9 @@ func main() {
 		optionBidderRegistryAddr,
 		optionProviderRegistryAddr,
 		optionPreconfStoreAddr,
+		optionBlockTrackerAddr,
 		optionSettlementRPCEndpoint,
+		optionSettlementWSRPCEndpoint,
 		optionNATAddr,
 		optionNATPort,
 		optionServerTLSCert,
@@ -330,7 +346,9 @@ func launchNodeWithConfig(c *cli.Context) error {
 		PreconfContract:          c.String(optionPreconfStoreAddr.Name),
 		ProviderRegistryContract: c.String(optionProviderRegistryAddr.Name),
 		BidderRegistryContract:   c.String(optionBidderRegistryAddr.Name),
+		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
+		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
 		NatAddr:                  natAddr,
 		TLSCertificateFile:       crtFile,
 		TLSPrivateKeyFile:        keyFile,

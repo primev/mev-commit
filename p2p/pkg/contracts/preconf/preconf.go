@@ -2,6 +2,7 @@ package preconfcontract
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"strings"
@@ -24,17 +25,24 @@ var preconfABI = func() abi.ABI {
 var defaultWaitTimeout = 10 * time.Second
 
 type Interface interface {
-	StoreCommitment(
+	StoreEncryptedCommitment(
 		ctx context.Context,
-		bid *big.Int,
-		blockNumber uint64,
-		txHash string,
-		decayStartTimeStamp uint64,
-		decayEndTimeStamp uint64,
-		bidSignature []byte,
+		commitmentDigest []byte,
 		commitmentSignature []byte,
 		decayDispatchTimestamp uint64,
-	) error
+	) (common.Hash, error)
+	OpenCommitment(
+		ctx context.Context,
+		encryptedCommitmentIndex []byte,
+		bid string,
+		blockNumber int64,
+		txnHash string,
+		decayStartTimeStamp int64,
+		decayEndTimeStamp int64,
+		bidSignature []byte,
+		commitmentSignature []byte,
+		sharedSecretKey []byte,
+	) (common.Hash, error)
 }
 
 type preconfContract struct {
@@ -57,32 +65,21 @@ func New(
 	}
 }
 
-func (p *preconfContract) StoreCommitment(
+func (p *preconfContract) StoreEncryptedCommitment(
 	ctx context.Context,
-	bid *big.Int,
-	blockNumber uint64,
-	txHash string,
-	deacyStartTimeStamp uint64,
-	decayEndTimeStamp uint64,
-	bidSignature []byte,
+	commitmentDigest []byte,
 	commitmentSignature []byte,
 	decayDispatchTimestamp uint64,
-) error {
-
+) (common.Hash, error) {
 	callData, err := p.preconfABI.Pack(
-		"storeCommitment",
-		uint64(bid.Int64()),
-		blockNumber,
-		txHash,
-		deacyStartTimeStamp,
-		decayEndTimeStamp,
-		bidSignature,
+		"storeEncryptedCommitment",
+		[32]byte(commitmentDigest),
 		commitmentSignature,
 		decayDispatchTimestamp,
 	)
 	if err != nil {
-		p.logger.Error("preconf contract storeCommitment pack error", "err", err)
-		return err
+		p.logger.Error("preconf contract storeEncryptedCommitment pack error", "err", err)
+		return common.Hash{}, err
 	}
 
 	txnHash, err := p.client.Send(ctx, &evmclient.TxRequest{
@@ -90,10 +87,59 @@ func (p *preconfContract) StoreCommitment(
 		CallData: callData,
 	})
 	if err != nil {
-		return err
+		return common.Hash{}, err
 	}
 
-	p.logger.Info("preconf contract storeCommitment successful", "txnHash", txnHash)
+	return txnHash, nil
+}
 
-	return nil
+func (p *preconfContract) OpenCommitment(
+	ctx context.Context,
+	encryptedCommitmentIndex []byte,
+	bid string,
+	blockNumber int64,
+	txnHash string,
+	decayStartTimeStamp int64,
+	decayEndTimeStamp int64,
+	bidSignature []byte,
+	commitmentSignature []byte,
+	sharedSecretKey []byte,
+) (common.Hash, error) {
+	bidAmt, ok := new(big.Int).SetString(bid, 10)
+	if !ok {
+		p.logger.Error("Error converting bid to big.Int", "bid", bid)
+		return common.Hash{}, fmt.Errorf("error converting bid to big.Int, bid: %s", bid)
+	}
+
+	var eciBytes [32]byte
+	copy(eciBytes[:], encryptedCommitmentIndex)
+
+	callData, err := p.preconfABI.Pack(
+		"openCommitment",
+		eciBytes,
+		bidAmt.Uint64(),
+		uint64(blockNumber),
+		txnHash,
+		uint64(decayStartTimeStamp),
+		uint64(decayEndTimeStamp),
+		bidSignature,
+		commitmentSignature,
+		sharedSecretKey,
+	)
+	if err != nil {
+		p.logger.Error("Error packing call data for openCommitment", "error", err)
+		return common.Hash{}, err
+	}
+
+	txHash, err := p.client.Send(ctx, &evmclient.TxRequest{
+		To:       &p.preconfContractAddr,
+		CallData: callData,
+	})
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	p.logger.Info("preconf contract openCommitment successful", "txHash", txHash.String())
+
+	return txHash, nil
 }

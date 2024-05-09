@@ -1,23 +1,28 @@
 package updater_test
 
 import (
+	"bytes"
 	"context"
-	"errors"
+	"database/sql"
 	"fmt"
 	"hash"
 	"io"
 	"log/slog"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/settler"
 	"github.com/primevprotocol/mev-commit/oracle/pkg/updater"
+	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	"github.com/primevprotocol/mev-commit/x/util"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -58,6 +63,7 @@ func TestUpdater(t *testing.T) {
 
 	// timestamp of the First block commitment is X
 	startTimestamp := time.UnixMilli(1615195200000)
+	midTimestamp := startTimestamp.Add(time.Duration(2.5 * float64(time.Second)))
 	endTimestamp := startTimestamp.Add(5 * time.Second)
 
 	key, err := crypto.GenerateKey()
@@ -80,28 +86,39 @@ func TestUpdater(t *testing.T) {
 		}))
 	}
 
-	commitments := make(map[string]preconf.PreConfCommitmentStorePreConfCommitment)
+	encCommitments := make([]preconf.PreconfcommitmentstoreEncryptedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
+		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+			CommitmentIndex:     idxBytes,
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentSignature: []byte("signature"),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+		}
+		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+			CommitmentIndex:     idxBytes,
+			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
+			BlockNumber:         5,
+			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentSignature: []byte("signature"),
+			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
+			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+		}
+
 		if i%2 == 0 {
-			commitments[string(idxBytes[:])] = preconf.PreConfCommitmentStorePreConfCommitment{
-				Commiter:            builderAddr,
-				TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
-				CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-				DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
-				DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
-				DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
-			}
+			encCommitment.Commiter = builderAddr
+			commitment.Commiter = builderAddr
+			encCommitments = append(encCommitments, encCommitment)
+			commitments = append(commitments, commitment)
 		} else {
-			commitments[string(idxBytes[:])] = preconf.PreConfCommitmentStorePreConfCommitment{
-				Commiter:            otherBuilderAddr,
-				TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
-				CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-				DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
-				DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
-				DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
-			}
+			encCommitment.Commiter = otherBuilderAddr
+			commitment.Commiter = otherBuilderAddr
+			encCommitments = append(encCommitments, encCommitment)
+			commitments = append(commitments, commitment)
 		}
 	}
 
@@ -114,89 +131,173 @@ func TestUpdater(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		commitments[string(idxBytes[:])] = preconf.PreConfCommitmentStorePreConfCommitment{
+		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+			CommitmentIndex:     idxBytes,
+			Commiter:            builderAddr,
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentSignature: []byte("signature"),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+		}
+		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+			CommitmentIndex:     idxBytes,
 			Commiter:            builderAddr,
 			TxnHash:             bundle,
+			BlockNumber:         5,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			DispatchTimestamp:   uint64((startTimestamp.UnixMilli() + endTimestamp.UnixMilli()) / 2),
+			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
+		encCommitments = append(encCommitments, encCommitment)
+		commitments = append(commitments, commitment)
 	}
 
-	testWinnerRegister := &testWinnerRegister{
-		winners:     make(chan updater.BlockWinner),
-		settlements: make(chan testSettlement),
-		done:        make(chan int64, 1),
+	register := &testWinnerRegister{
+		winners: []testWinner{
+			{
+				blockNum: 5,
+				winner: updater.Winner{
+					Winner: builderAddr.Bytes(),
+					Window: 1,
+				},
+			},
+		},
+		settlements: make(chan testSettlement, 1),
+		encCommit:   make(chan testEncryptedCommitment, 1),
 	}
 
-	l1Client := &testL1Client{
-		blockNum: 5,
-		block:    types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+	l1Client := &testEVMClient{
+		blocks: map[int64]*types.Block{
+			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+		},
 	}
 
-	testOracle := &testOracle{
-		builder:     "test",
-		builderAddr: builderAddr,
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	testPreconf := &testPreconf{
-		blockNum:    5,
-		commitments: commitments,
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	updtr := updater.NewUpdater(
+	evtMgr := events.NewListener(
+		util.NewTestLogger(io.Discard),
+		&btABI,
+		&pcABI,
+	)
+
+	oracle := &testOracle{
+		commitments: make(chan processedCommitment, 1),
+	}
+
+	updtr, err := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		testWinnerRegister,
-		testOracle,
-		testPreconf,
+		register,
+		evtMgr,
+		oracle,
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := updtr.Start(ctx)
 
-	testWinnerRegister.winners <- updater.BlockWinner{
-		BlockNumber: 5,
-		Winner:      "test",
+	w := blocktracker.BlocktrackerNewWindow{
+		Window: big.NewInt(1),
+	}
+	publishNewWindow(evtMgr, &btABI, w)
+
+	for _, ec := range encCommitments {
+		if err := publishEncCommitment(evtMgr, &pcABI, ec); err != nil {
+			t.Fatal(err)
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		case enc := <-register.encCommit:
+			if !bytes.Equal(enc.commitmentIdx, ec.CommitmentIndex[:]) {
+				t.Fatal("wrong commitment index")
+			}
+			if !bytes.Equal(enc.committer, ec.Commiter.Bytes()) {
+				t.Fatal("wrong committer")
+			}
+			if !bytes.Equal(enc.commitmentHash, ec.CommitmentDigest[:]) {
+				t.Fatal("wrong commitment hash")
+			}
+			if !bytes.Equal(enc.commitmentSignature, ec.CommitmentSignature) {
+				t.Fatal("wrong commitment signature")
+			}
+			if enc.dispatchTimestamp != ec.DispatchTimestamp {
+				t.Fatal("wrong dispatch timestamp")
+			}
+		}
 	}
 
-	count := 0
-	rewards, returns := 0, 0
-	for {
-		if count == 20 {
-			break
+	for _, c := range commitments {
+		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+			t.Fatal(err)
 		}
-		settlement := <-testWinnerRegister.settlements
-		if settlement.decayPercentage != 50 {
-			t.Fatalf("wrong decay percentage, got %d", settlement.decayPercentage)
-		}
-		if settlement.blockNum != 5 {
-			t.Fatal("wrong block number")
-		}
-		if settlement.settlementType == settler.SettlementTypeSlash {
-			t.Fatal("should not be slash")
-		}
-		if settlement.settlementType == settler.SettlementTypeReward {
-			rewards++
-		}
-		if settlement.settlementType == settler.SettlementTypeReturn {
-			returns++
-		}
-		count++
-	}
 
-	if rewards != 15 {
-		t.Fatal("wrong rewards count")
-	}
-	if returns != 5 {
-		t.Fatal("wrong returns count")
-	}
+		if c.Commiter.Cmp(otherBuilderAddr) == 0 {
+			continue
+		}
 
-	select {
-	case <-testWinnerRegister.done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
+		select {
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		case commitment := <-oracle.commitments:
+			if !bytes.Equal(commitment.commitmentIdx[:], c.CommitmentIndex[:]) {
+				t.Fatal("wrong commitment index")
+			}
+			if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
+				t.Fatal("wrong block number")
+			}
+			if commitment.builder != c.Commiter {
+				t.Fatal("wrong builder")
+			}
+			if commitment.isSlash {
+				t.Fatal("wrong isSlash")
+			}
+			if commitment.residualDecay.Cmp(big.NewInt(50)) != 0 {
+				t.Fatal("wrong residual decay")
+			}
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		case settlement := <-register.settlements:
+			if !bytes.Equal(settlement.commitmentIdx, c.CommitmentIndex[:]) {
+				t.Fatal("wrong commitment index")
+			}
+			if settlement.txHash != c.TxnHash {
+				t.Fatal("wrong txn hash")
+			}
+			if settlement.blockNum != 5 {
+				t.Fatal("wrong block number")
+			}
+			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+				t.Fatal("wrong builder")
+			}
+			if settlement.amount != 0 {
+				t.Fatal("wrong amount")
+			}
+			if settlement.settlementType != updater.SettlementTypeReward {
+				t.Fatal("wrong settlement type")
+			}
+			if settlement.decayPercentage != 50 {
+				t.Fatal("wrong decay percentage")
+			}
+			if settlement.window != 1 {
+				t.Fatal("wrong window")
+			}
+		}
 	}
 
 	cancel()
@@ -209,6 +310,186 @@ func TestUpdater(t *testing.T) {
 
 func TestUpdaterBundlesFailure(t *testing.T) {
 	t.Parallel()
+
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	startTimestamp := time.UnixMilli(1615195200000)
+	midTimestamp := startTimestamp.Add(time.Duration(2.5 * float64(time.Second)))
+	endTimestamp := startTimestamp.Add(5 * time.Second)
+
+	builderAddr := common.HexToAddress("0xabcd")
+
+	signer := types.NewLondonSigner(big.NewInt(5))
+	var txns []*types.Transaction
+	for i := 0; i < 10; i++ {
+		txns = append(txns, types.MustSignNewTx(key, signer, &types.DynamicFeeTx{
+			Nonce:     uint64(i + 1),
+			Gas:       1000000,
+			Value:     big.NewInt(1),
+			GasTipCap: big.NewInt(500),
+			GasFeeCap: big.NewInt(500),
+		}))
+	}
+
+	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+
+	// constructing bundles
+	for i := 1; i < 10; i++ {
+		idxBytes := getIdxBytes(int64(i))
+
+		bundle := txns[i].Hash().Hex()
+		for j := 10 - i; j > 0; j-- {
+			bundle += "," + txns[j].Hash().Hex()
+		}
+
+		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+			CommitmentIndex:     idxBytes,
+			Commiter:            builderAddr,
+			TxnHash:             bundle,
+			BlockNumber:         5,
+			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentSignature: []byte("signature"),
+			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
+			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+		}
+
+		commitments = append(commitments, commitment)
+	}
+
+	register := &testWinnerRegister{
+		winners: []testWinner{
+			{
+				blockNum: 5,
+				winner: updater.Winner{
+					Winner: builderAddr.Bytes(),
+					Window: 1,
+				},
+			},
+		},
+		settlements: make(chan testSettlement, 1),
+	}
+
+	l1Client := &testEVMClient{
+		blocks: map[int64]*types.Block{
+			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+		},
+	}
+
+	oracle := &testOracle{
+		commitments: make(chan processedCommitment, 1),
+	}
+
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	evtMgr := events.NewListener(
+		util.NewTestLogger(io.Discard),
+		&btABI,
+		&pcABI,
+	)
+
+	updtr, err := updater.NewUpdater(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		l1Client,
+		register,
+		evtMgr,
+		oracle,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := updtr.Start(ctx)
+
+	w := blocktracker.BlocktrackerNewWindow{
+		Window: big.NewInt(1),
+	}
+	publishNewWindow(evtMgr, &btABI, w)
+
+	for _, c := range commitments {
+		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+			t.Fatal(err)
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		case commitment := <-oracle.commitments:
+			if !bytes.Equal(commitment.commitmentIdx[:], c.CommitmentIndex[:]) {
+				t.Fatal("wrong commitment index")
+			}
+			if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
+				t.Fatal("wrong block number")
+			}
+			if commitment.builder != c.Commiter {
+				t.Fatal("wrong builder")
+			}
+			if !commitment.isSlash {
+				t.Fatal("wrong isSlash")
+			}
+			if commitment.residualDecay.Cmp(big.NewInt(50)) != 0 {
+				t.Fatal("wrong residual decay")
+			}
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		case settlement := <-register.settlements:
+			if !bytes.Equal(settlement.commitmentIdx, c.CommitmentIndex[:]) {
+				t.Fatal("wrong commitment index")
+			}
+			if settlement.txHash != c.TxnHash {
+				t.Fatal("wrong txn hash")
+			}
+			if settlement.blockNum != 5 {
+				t.Fatal("wrong block number")
+			}
+			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+				t.Fatal("wrong builder")
+			}
+			if settlement.amount != 0 {
+				t.Fatal("wrong amount")
+			}
+			if settlement.settlementType != updater.SettlementTypeSlash {
+				t.Fatal("wrong settlement type")
+			}
+			if settlement.decayPercentage != 50 {
+				t.Fatal("wrong decay percentage")
+			}
+			if settlement.window != 1 {
+				t.Fatal("wrong window")
+			}
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout")
+	}
+}
+
+func TestUpdaterIgnoreCommitments(t *testing.T) {
+	t.Parallel()
+
+	// timestamp of the First block commitment is X
+	startTimestamp := time.UnixMilli(1615195200000)
+	midTimestamp := startTimestamp.Add(time.Duration(2.5 * float64(time.Second)))
+	endTimestamp := startTimestamp.Add(5 * time.Second)
 
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -229,79 +510,173 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		}))
 	}
 
-	commitments := make(map[string]preconf.PreConfCommitmentStorePreConfCommitment)
-	// constructing bundles
-	for i := 1; i < 10; i++ {
+	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+
+	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		bundle := txns[i].Hash().Hex()
-		for j := 10 - i; j > 0; j-- {
-			bundle += "," + txns[j].Hash().Hex()
+		// block no 5 will not be settled, so we will ignore it
+		// block no 8 will not be settled as no winner is registered for it
+		// block no 10 will be settled
+		blockNum := uint64(5)
+		if i > 5 && i < 8 {
+			blockNum = 8
+		} else if i >= 8 {
+			blockNum = 10
 		}
 
-		commitments[string(idxBytes[:])] = preconf.PreConfCommitmentStorePreConfCommitment{
-			Commiter:          builderAddr,
-			TxnHash:           bundle,
-			DispatchTimestamp: 0,
+		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+			CommitmentIndex:     idxBytes,
+			Commiter:            builderAddr,
+			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
+			BlockNumber:         blockNum,
+			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentSignature: []byte("signature"),
+			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
+			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
+			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
+
+		if i == 9 {
+			// duplicate commitment
+			commitment.CommitmentIndex = getIdxBytes(int64(i - 1))
+		}
+
+		commitments = append(commitments, commitment)
 	}
 
-	testWinnerRegister := &testWinnerRegister{
-		winners:     make(chan updater.BlockWinner),
-		settlements: make(chan testSettlement),
-		done:        make(chan int64, 1),
+	register := &testWinnerRegister{
+		winners: []testWinner{
+			{
+				blockNum: 5,
+				winner: updater.Winner{
+					Winner: builderAddr.Bytes(),
+					Window: 1,
+				},
+			},
+			{
+				blockNum: 10,
+				winner: updater.Winner{
+					Winner: builderAddr.Bytes(),
+					Window: 5,
+				},
+			},
+		},
+		settlements: make(chan testSettlement, 1),
+		encCommit:   make(chan testEncryptedCommitment, 1),
 	}
 
-	l1Client := &testL1Client{
-		blockNum: 5,
-		block:    types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+	l1Client := &testEVMClient{
+		blocks: map[int64]*types.Block{
+			5:  types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			8:  types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			10: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+		},
 	}
 
-	testOracle := &testOracle{
-		builder:     "test",
-		builderAddr: builderAddr,
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	testPreconf := &testPreconf{
-		blockNum:    5,
-		commitments: commitments,
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	updtr := updater.NewUpdater(
+	evtMgr := events.NewListener(
+		util.NewTestLogger(io.Discard),
+		&btABI,
+		&pcABI,
+	)
+
+	oracle := &testOracle{
+		commitments: make(chan processedCommitment, 1),
+	}
+
+	updtr, err := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		l1Client,
-		testWinnerRegister,
-		testOracle,
-		testPreconf,
+		register,
+		evtMgr,
+		oracle,
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := updtr.Start(ctx)
 
-	testWinnerRegister.winners <- updater.BlockWinner{
-		BlockNumber: 5,
-		Winner:      "test",
+	w := blocktracker.BlocktrackerNewWindow{
+		Window: big.NewInt(5),
 	}
+	publishNewWindow(evtMgr, &btABI, w)
 
-	count := 0
-	for {
-		if count == 9 {
-			break
+	for i, c := range commitments {
+		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+			t.Fatal(err)
 		}
-		settlement := <-testWinnerRegister.settlements
-		if settlement.blockNum != 5 {
-			t.Fatal("wrong block number")
-		}
-		if settlement.settlementType != settler.SettlementTypeSlash {
-			t.Fatalf("should be slash, got %s", settlement.settlementType)
-		}
-		count++
-	}
 
-	select {
-	case <-testWinnerRegister.done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timeout")
+		if i < 8 {
+			continue
+		}
+
+		if i == 9 {
+			// duplicate commitment
+			continue
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		case commitment := <-oracle.commitments:
+			if !bytes.Equal(commitment.commitmentIdx[:], c.CommitmentIndex[:]) {
+				t.Fatal("wrong commitment index")
+			}
+			if commitment.blockNum.Cmp(big.NewInt(10)) != 0 {
+				t.Fatal("wrong block number", commitment.blockNum)
+			}
+			if commitment.builder != c.Commiter {
+				t.Fatal("wrong builder")
+			}
+			if commitment.isSlash {
+				t.Fatal("wrong isSlash")
+			}
+			if commitment.residualDecay.Cmp(big.NewInt(50)) != 0 {
+				t.Fatal("wrong residual decay")
+			}
+		}
+
+		select {
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout")
+		case settlement := <-register.settlements:
+			if !bytes.Equal(settlement.commitmentIdx, c.CommitmentIndex[:]) {
+				t.Fatal("wrong commitment index")
+			}
+			if settlement.txHash != c.TxnHash {
+				t.Fatal("wrong txn hash")
+			}
+			if settlement.blockNum != 10 {
+				t.Fatal("wrong block number")
+			}
+			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+				t.Fatal("wrong builder")
+			}
+			if settlement.amount != 0 {
+				t.Fatal("wrong amount")
+			}
+			if settlement.settlementType != updater.SettlementTypeReward {
+				t.Fatal("wrong settlement type")
+			}
+			if settlement.decayPercentage != 50 {
+				t.Fatal("wrong decay percentage")
+			}
+			if settlement.window != 5 {
+				t.Fatal("wrong window")
+			}
+		}
 	}
 
 	cancel()
@@ -316,25 +691,55 @@ type testSettlement struct {
 	commitmentIdx   []byte
 	txHash          string
 	blockNum        int64
-	builder         string
+	builder         []byte
 	amount          uint64
-	settlementType  settler.SettlementType
+	settlementType  updater.SettlementType
 	decayPercentage int64
+	window          int64
+	chainhash       []byte
+	nonce           uint64
+}
+
+type testEncryptedCommitment struct {
+	commitmentIdx       []byte
+	committer           []byte
+	commitmentHash      []byte
+	commitmentSignature []byte
+	dispatchTimestamp   uint64
+}
+
+type testWinner struct {
+	blockNum int64
+	winner   updater.Winner
 }
 
 type testWinnerRegister struct {
-	winners     chan updater.BlockWinner
-	settlements chan testSettlement
-	done        chan int64
+	mu              sync.Mutex
+	winners         []testWinner
+	setttlementIdxs [][]byte
+	settlements     chan testSettlement
+	encCommit       chan testEncryptedCommitment
 }
 
-func (t *testWinnerRegister) SubscribeWinners(ctx context.Context) <-chan updater.BlockWinner {
-	return t.winners
+func (t *testWinnerRegister) IsSettled(ctx context.Context, commitmentIdx []byte) (bool, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for _, idx := range t.setttlementIdxs {
+		if bytes.Equal(idx, commitmentIdx) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
-func (t *testWinnerRegister) UpdateComplete(ctx context.Context, blockNum int64) error {
-	t.done <- blockNum
-	return nil
+func (t *testWinnerRegister) GetWinner(ctx context.Context, blockNum int64) (updater.Winner, error) {
+	for _, w := range t.winners {
+		if w.blockNum == blockNum {
+			return w.winner, nil
+		}
+	}
+	return updater.Winner{}, sql.ErrNoRows
 }
 
 func (t *testWinnerRegister) AddSettlement(
@@ -343,11 +748,18 @@ func (t *testWinnerRegister) AddSettlement(
 	txHash string,
 	blockNum int64,
 	amount uint64,
-	builder string,
+	builder []byte,
 	_ []byte,
-	settlementType settler.SettlementType,
+	settlementType updater.SettlementType,
 	decayPercentage int64,
+	window int64,
+	chainhash []byte,
+	nonce uint64,
 ) error {
+	t.mu.Lock()
+	t.setttlementIdxs = append(t.setttlementIdxs, commitmentIdx)
+	t.mu.Unlock()
+
 	t.settlements <- testSettlement{
 		commitmentIdx:   commitmentIdx,
 		txHash:          txHash,
@@ -356,58 +768,161 @@ func (t *testWinnerRegister) AddSettlement(
 		builder:         builder,
 		settlementType:  settlementType,
 		decayPercentage: decayPercentage,
+		window:          window,
+		chainhash:       chainhash,
+		nonce:           nonce,
 	}
 	return nil
 }
 
-type testL1Client struct {
-	blockNum int64
-	block    *types.Block
+func (t *testWinnerRegister) AddEncryptedCommitment(
+	ctx context.Context,
+	commitmentIdx []byte,
+	committer []byte,
+	commitmentHash []byte,
+	commitmentSignature []byte,
+	dispatchTimestamp uint64,
+) error {
+	t.encCommit <- testEncryptedCommitment{
+		commitmentIdx:       commitmentIdx,
+		committer:           committer,
+		commitmentHash:      commitmentHash,
+		commitmentSignature: commitmentSignature,
+		dispatchTimestamp:   dispatchTimestamp,
+	}
+	return nil
 }
 
-func (t *testL1Client) BlockByNumber(ctx context.Context, blkNum *big.Int) (*types.Block, error) {
-	if blkNum.Int64() == t.blockNum {
-		return t.block, nil
+type testEVMClient struct {
+	blocks map[int64]*types.Block
+}
+
+func (t *testEVMClient) BlockByNumber(ctx context.Context, blkNum *big.Int) (*types.Block, error) {
+	blk, found := t.blocks[blkNum.Int64()]
+	if !found {
+		return nil, fmt.Errorf("block %d not found", blkNum.Int64())
 	}
-	return nil, fmt.Errorf("block %d not found", blkNum.Int64())
+	return blk, nil
+}
+
+type processedCommitment struct {
+	commitmentIdx [32]byte
+	blockNum      *big.Int
+	builder       common.Address
+	isSlash       bool
+	residualDecay *big.Int
 }
 
 type testOracle struct {
-	builder     string
-	builderAddr common.Address
+	commitments chan processedCommitment
 }
 
-func (t *testOracle) GetBuilder(builder string) (common.Address, error) {
-	if builder == t.builder {
-		return t.builderAddr, nil
-	}
-	return common.Address{}, errors.New("builder not found")
-}
-
-type testPreconf struct {
-	blockNum    int64
-	commitments map[string]preconf.PreConfCommitmentStorePreConfCommitment
-}
-
-func (t *testPreconf) GetCommitmentsByBlockNumber(blockNum *big.Int) ([][32]byte, error) {
-	if blockNum.Int64() == t.blockNum {
-		var commitments [][32]byte
-		for idx := range t.commitments {
-			cIdx := [32]byte{}
-			copy(cIdx[:], []byte(idx))
-			commitments = append(commitments, cIdx)
-		}
-		return commitments, nil
-	}
-
-	return nil, errors.New("block not found")
-}
-
-func (t *testPreconf) GetCommitment(
+func (t *testOracle) ProcessBuilderCommitmentForBlockNumber(
 	commitmentIdx [32]byte,
-) (preconf.PreConfCommitmentStorePreConfCommitment, error) {
-	if commitment, ok := t.commitments[string(commitmentIdx[:])]; ok {
-		return commitment, nil
+	blockNum *big.Int,
+	builder common.Address,
+	isSlash bool,
+	residualDecay *big.Int,
+) (*types.Transaction, error) {
+	t.commitments <- processedCommitment{
+		commitmentIdx: commitmentIdx,
+		blockNum:      blockNum,
+		builder:       builder,
+		isSlash:       isSlash,
+		residualDecay: residualDecay,
 	}
-	return preconf.PreConfCommitmentStorePreConfCommitment{}, errors.New("commitment not found")
+	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
+}
+
+func publishEncCommitment(
+	evtMgr events.EventManager,
+	pcABI *abi.ABI,
+	ec preconf.PreconfcommitmentstoreEncryptedCommitmentStored,
+) error {
+	event := pcABI.Events["EncryptedCommitmentStored"]
+	buf, err := event.Inputs.NonIndexed().Pack(
+		ec.Commiter,
+		ec.CommitmentDigest,
+		ec.CommitmentSignature,
+		ec.DispatchTimestamp,
+	)
+	if err != nil {
+		return err
+	}
+
+	commitmentIndex := common.BytesToHash(ec.CommitmentIndex[:])
+
+	// Creating a Log object
+	testLog := types.Log{
+		Topics: []common.Hash{
+			event.ID,        // The first topic is the hash of the event signature
+			commitmentIndex, // The next topics are the indexed event parameters
+		},
+		// Non-indexed parameters are stored in the Data field
+		Data: buf,
+	}
+
+	evtMgr.PublishLogEvent(context.Background(), testLog)
+	return nil
+}
+
+func publishCommitment(
+	evtMgr events.EventManager,
+	pcABI *abi.ABI,
+	c preconf.PreconfcommitmentstoreCommitmentStored,
+) error {
+	event := pcABI.Events["CommitmentStored"]
+	buf, err := event.Inputs.NonIndexed().Pack(
+		c.Bidder,
+		c.Commiter,
+		c.Bid,
+		c.BlockNumber,
+		c.BidHash,
+		c.DecayStartTimeStamp,
+		c.DecayEndTimeStamp,
+		c.TxnHash,
+		c.CommitmentHash,
+		c.BidSignature,
+		c.CommitmentSignature,
+		c.DispatchTimestamp,
+		c.SharedSecretKey,
+	)
+	if err != nil {
+		return err
+	}
+
+	commitmentIndex := common.BytesToHash(c.CommitmentIndex[:])
+
+	// Creating a Log object
+	testLog := types.Log{
+		Topics: []common.Hash{
+			event.ID,        // The first topic is the hash of the event signature
+			commitmentIndex, // The next topics are the indexed event parameters
+		},
+		// Since there are no non-indexed parameters, Data is empty
+		Data: buf,
+	}
+
+	evtMgr.PublishLogEvent(context.Background(), testLog)
+	return nil
+}
+
+func publishNewWindow(
+	evtMgr events.EventManager,
+	btABI *abi.ABI,
+	w blocktracker.BlocktrackerNewWindow,
+) {
+	event := btABI.Events["NewWindow"]
+
+	// Creating a Log object
+	testLog := types.Log{
+		Topics: []common.Hash{
+			event.ID,                   // The first topic is the hash of the event signature
+			common.BigToHash(w.Window), // The next topics are the indexed event parameters
+		},
+		// Non-indexed parameters are stored in the Data field
+		Data: nil,
+	}
+
+	evtMgr.PublishLogEvent(context.Background(), testLog)
 }

@@ -20,6 +20,7 @@ type EventHandler interface {
 	eventName() string
 	handle(types.Log) error
 	setTopicAndContract(topic common.Hash, contract *abi.ABI)
+	topic() common.Hash
 }
 
 // eventHandler is a generic implementation of EventHandler for type-safe event handling.
@@ -85,13 +86,17 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 	return nil
 }
 
+func (h *eventHandler[T]) topic() common.Hash {
+	return h.topicID
+}
+
 // EventManager is an interface for subscribing to contract events. The EventHandler callback
 // is called when an event is received. The Subscription returned by the Subscribe
 // method can be used to unsubscribe from the event and also to receive any errors
 // that occur while parsing the event. The PublishLogEvent method is used to publish
 // the log events to the subscribers.
 type EventManager interface {
-	Subscribe(event EventHandler) (Subscription, error)
+	Subscribe(event ...EventHandler) (Subscription, error)
 	PublishLogEvent(ctx context.Context, log types.Log)
 }
 
@@ -108,7 +113,7 @@ type Subscription interface {
 type Listener struct {
 	logger      *slog.Logger
 	subMu       sync.RWMutex
-	subscribers map[common.Hash][]*subscription
+	subscribers map[common.Hash][]*storedEvent
 	contracts   []*abi.ABI
 }
 
@@ -118,13 +123,12 @@ func NewListener(
 ) *Listener {
 	return &Listener{
 		logger:      logger,
-		subscribers: make(map[common.Hash][]*subscription),
+		subscribers: make(map[common.Hash][]*storedEvent),
 		contracts:   contracts,
 	}
 }
 
 type subscription struct {
-	event EventHandler
 	unsub func()
 	errCh chan error
 }
@@ -137,32 +141,52 @@ func (s *subscription) Err() <-chan error {
 	return s.errCh
 }
 
-func (l *Listener) Subscribe(event EventHandler) (Subscription, error) {
-	var topic common.Hash
-	for _, c := range l.contracts {
-		for _, e := range c.Events {
-			if e.Name == event.eventName() {
-				event.setTopicAndContract(e.ID, c)
-				topic = e.ID
-				break
-			}
-		}
+type storedEvent struct {
+	evt   EventHandler
+	errCh chan error
+}
+
+func (l *Listener) Subscribe(ev ...EventHandler) (Subscription, error) {
+	if len(ev) == 0 {
+		return nil, fmt.Errorf("no events provided")
 	}
 
-	if topic == (common.Hash{}) {
-		return nil, fmt.Errorf("event not found")
+	for _, event := range ev {
+		found := false
+		for _, c := range l.contracts {
+			for _, e := range c.Events {
+				if e.Name == event.eventName() {
+					event.setTopicAndContract(e.ID, c)
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("event %s not found", event.eventName())
+		}
 	}
 
 	l.subMu.Lock()
 	defer l.subMu.Unlock()
 
+	errC := make(chan error, len(ev))
 	sub := &subscription{
-		event: event,
-		errCh: make(chan error, 1),
-		unsub: func() { l.unsubscribe(topic, event) },
+		errCh: errC,
+		unsub: func() {
+			for _, event := range ev {
+				l.unsubscribe(event.topic(), event)
+			}
+			close(errC)
+		},
 	}
 
-	l.subscribers[topic] = append(l.subscribers[topic], sub)
+	for _, event := range ev {
+		l.subscribers[event.topic()] = append(l.subscribers[event.topic()], &storedEvent{
+			evt:   event,
+			errCh: sub.errCh,
+		})
+	}
 
 	return sub, nil
 }
@@ -173,9 +197,8 @@ func (l *Listener) unsubscribe(topic common.Hash, event EventHandler) {
 
 	events := l.subscribers[topic]
 	for i, e := range events {
-		if e.event == event {
+		if e.evt == event {
 			events = append(events[:i], events[i+1:]...)
-			close(e.errCh)
 			break
 		}
 	}
@@ -195,13 +218,13 @@ func (l *Listener) PublishLogEvent(ctx context.Context, log types.Log) {
 		go func() {
 			defer wg.Done()
 
-			if err := ev.event.handle(log); err != nil {
+			if err := ev.evt.handle(log); err != nil {
 				l.logger.Error("failed to handle log", "error", err)
 				select {
-				case ev.errCh <- err:
+				case ev.errCh <- fmt.Errorf("failed to handle event %s: %w", ev.evt.eventName(), err):
 				case <-ctx.Done():
 				default:
-					l.logger.Error("failed to send error to subscriber", "error", err, "event", ev.event.eventName())
+					l.logger.Error("failed to send error to subscriber", "error", err, "event", ev.evt.eventName())
 				}
 			}
 		}()

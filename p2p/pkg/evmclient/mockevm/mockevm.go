@@ -16,6 +16,7 @@ type mockEvm struct {
 	networkID              *big.Int
 	batcherFunc            func() evmclient.Batcher
 	blockNumFunc           func(ctx context.Context) (uint64, error)
+	blockByNumberFunc      func(ctx context.Context, blockNumber *big.Int) (*types.Block, error)
 	pendingNonceAtFunc     func(ctx context.Context, account common.Address) (uint64, error)
 	nonceAtFunc            func(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	suggestGasPriceFunc    func(ctx context.Context) (*big.Int, error)
@@ -25,6 +26,8 @@ type mockEvm struct {
 	callContractFunc       func(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	transactionReceiptFunc func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	transactionByHasFunc   func(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
+	subscribeLogsFunc      func(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	filterLogsFunc         func(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)
 }
 
 type Option func(*mockEvm)
@@ -46,6 +49,12 @@ func WithBatcherFunc(batcherFunc func(context.Context, []rpc.BatchElem) error) O
 func WithBlockNumFunc(blockNumFunc func(ctx context.Context) (uint64, error)) Option {
 	return func(m *mockEvm) {
 		m.blockNumFunc = blockNumFunc
+	}
+}
+
+func WithBlockByNumberFunc(blockByNumberFunc func(ctx context.Context, blockNumber *big.Int) (*types.Block, error)) Option {
+	return func(m *mockEvm) {
+		m.blockByNumberFunc = blockByNumberFunc
 	}
 }
 
@@ -103,6 +112,18 @@ func WithTransactionByHashFunc(transactionByHashFunc func(ctx context.Context, t
 	}
 }
 
+func WithSubscribeLogsFunc(subscribeLogsFunc func(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)) Option {
+	return func(m *mockEvm) {
+		m.subscribeLogsFunc = subscribeLogsFunc
+	}
+}
+
+func WithFilterLogs(filterLogsFunc func(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)) Option {
+	return func(m *mockEvm) {
+		m.filterLogsFunc = filterLogsFunc
+	}
+}
+
 func NewMockEvm(networkID uint64, opts ...Option) *mockEvm {
 	m := &mockEvm{}
 	for _, opt := range opts {
@@ -130,6 +151,13 @@ func (m *mockEvm) BlockNumber(ctx context.Context) (uint64, error) {
 		return m.blockNumFunc(ctx)
 	}
 	return 0, ErrNotImplemented
+}
+
+func (m *mockEvm) BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error) {
+	if m.blockByNumberFunc != nil {
+		return m.blockByNumberFunc(ctx, blockNumber)
+	}
+	return nil, ErrNotImplemented
 }
 
 func (m *mockEvm) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -203,4 +231,25 @@ func (m *mockEvm) TransactionByHash(
 		return m.transactionByHasFunc(ctx, txHash)
 	}
 	return nil, false, ErrNotImplemented
+}
+
+func (m *mockEvm) SubscribeFilterLogs(
+	ctx context.Context,
+	query ethereum.FilterQuery,
+	ch chan<- types.Log,
+) (ethereum.Subscription, error) {
+	if m.subscribeLogsFunc != nil {
+		return m.subscribeLogsFunc(ctx, query, ch)
+	}
+	return nil, ErrNotImplemented
+}
+
+func (m *mockEvm) FilterLogs(
+	ctx context.Context,
+	query ethereum.FilterQuery,
+) ([]types.Log, error) {
+	if m.filterLogsFunc != nil {
+		return m.filterLogsFunc(ctx, query)
+	}
+	return nil, ErrNotImplemented
 }

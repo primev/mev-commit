@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var (
@@ -93,6 +94,8 @@ var (
 		Help:      "Duration of failed SendBid operation in ms.",
 	})
 )
+
+var deposits = map[uint64]struct{}{}
 
 func main() {
 	flag.Parse()
@@ -188,7 +191,7 @@ func main() {
 		defer ticker.Stop()
 
 		for {
-			err = checkOrPrepay(bidderClient, logger)
+			err = checkOrDeposit(bidderClient, logger)
 			if err != nil {
 				logger.Error("failed to check or stake", "error", err)
 			}
@@ -213,52 +216,75 @@ func main() {
 	wg.Wait()
 }
 
-func checkOrPrepay(
+func checkOrDeposit(
 	bidderClient pb.BidderClient,
 	logger *slog.Logger,
 ) error {
-	allowance, err := bidderClient.GetAllowance(context.Background(), &pb.EmptyMessage{})
+	deposit, err := bidderClient.GetDeposit(context.Background(), &pb.GetDepositRequest{})
 	if err != nil {
-		logger.Error("failed to get allowance", "error", err)
+		logger.Error("failed to get deposit", "error", err)
 		return err
 	}
 
-	logger.Info("prepaid allowance", "amount", allowance.Amount)
+	logger.Info("deposited", "amount", deposit.Amount)
 
-	minAllowance, err := bidderClient.GetMinAllowance(context.Background(), &pb.EmptyMessage{})
+	minDeposit, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
 	if err != nil {
-		logger.Error("failed to get min allowance", "error", err)
+		logger.Error("failed to get min deposit", "error", err)
 		return err
 	}
 
-	allowanceAmt, set := big.NewInt(0).SetString(allowance.Amount, 10)
+	depositAmt, set := big.NewInt(0).SetString(deposit.Amount, 10)
 	if !set {
-		logger.Error("failed to parse allowance amount")
-		return errors.New("failed to parse allowance amount")
+		logger.Error("failed to parse deposit amount")
+		return errors.New("failed to parse deposit amount")
 	}
 
-	minAllowanceAmt, set := big.NewInt(0).SetString(minAllowance.Amount, 10)
+	minDepositAmt, set := big.NewInt(0).SetString(minDeposit.Amount, 10)
 	if !set {
-		logger.Error("failed to parse min allowance amount")
-		return errors.New("failed to parse min allowance amount")
+		logger.Error("failed to parse min deposit amount")
+		return errors.New("failed to parse min deposit amount")
 	}
 
-	if allowanceAmt.Cmp(minAllowanceAmt) > 0 {
+	if depositAmt.Cmp(minDepositAmt) > 0 {
 		logger.Error("bidder already has balance")
 		return nil
 	}
 
-	topup := big.NewInt(0).Mul(minAllowanceAmt, big.NewInt(10))
+	resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{})
+	if err != nil {
+		logger.Error("failed to withdraw", "error", err)
+		return err
+	}
+	logger.Info("withdraw", "amount", resp.Amount, "window", resp.WindowNumber)
 
-	_, err = bidderClient.PrepayAllowance(context.Background(), &pb.PrepayRequest{
+	topup := big.NewInt(0).Mul(minDepositAmt, big.NewInt(10))
+
+	deposit, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{
 		Amount: topup.String(),
 	})
 	if err != nil {
-		logger.Error("failed to prepay allowance", "error", err)
+		logger.Error("failed to deposit", "error", err)
 		return err
 	}
 
-	logger.Info("prepaid allowance", "amount", topup.String())
+	logger.Info("deposit", "amount", topup.String())
+
+	deposits[deposit.WindowNumber.Value] = struct{}{}
+
+	for window := range deposits {
+		if window < deposit.WindowNumber.Value-2 {
+			resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{
+				WindowNumber: wrapperspb.UInt64(window),
+			})
+			if err != nil {
+				logger.Error("failed to withdraw", "error", err)
+				return err
+			}
+			logger.Info("withdraw", "amount", resp.Amount, "window", resp.WindowNumber)
+			delete(deposits, window)
+		}
+	}
 
 	return nil
 }

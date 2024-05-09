@@ -25,6 +25,11 @@ type Topology struct {
 	addressbook p2p.Addressbook
 	announcer   Announcer
 	metrics     *metrics
+	subs        []func(p2p.Peer)
+}
+
+func (t *Topology) SubscribePeer(handler func(p2p.Peer)) {
+	t.subs = append(t.subs, handler)
 }
 
 func New(a p2p.Addressbook, logger *slog.Logger) *Topology {
@@ -127,6 +132,9 @@ func (t *Topology) Disconnected(p p2p.Peer) {
 func (t *Topology) AddPeers(peers ...p2p.Peer) {
 	for _, p := range peers {
 		t.add(p)
+		for _, sub := range t.subs {
+			sub(p)
+		}
 	}
 }
 

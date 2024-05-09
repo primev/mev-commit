@@ -37,61 +37,101 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/bidderapiv1Bid'
-  /v1/bidder/get_allowance:
-    get:
-      summary: GetAllowance
-      description: GetAllowance is called by the bidder to get its allowance in the bidder registry.
-      operationId: Bidder_GetAllowance
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1PrepayResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-  /v1/bidder/get_min_allowance:
-    get:
-      summary: GetMinAllowance
-      description: GetMinAllowance is called by the bidder to get the minimum allowance required in the bidder registry to make bids.
-      operationId: Bidder_GetMinAllowance
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1PrepayResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-  /v1/bidder/prepay/{amount}:
+  /v1/bidder/deposit/{amount}:
     post:
-      summary: PrepayAllowance
-      description: PrepayAllowance is called by the bidder node to add prepaid allowance in the bidder registry.
-      operationId: Bidder_PrepayAllowance
+      summary: Deposit
+      description: Deposit is called by the bidder node to add deposit in the bidder registry.
+      operationId: Bidder_Deposit
       responses:
         "200":
           description: A successful response.
           schema:
-            $ref: '#/definitions/v1PrepayResponse'
+            $ref: '#/definitions/v1DepositResponse'
         default:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
         - name: amount
-          description: Amount of ETH to be prepaid in wei.
+          description: Amount of ETH to be deposited in wei.
           in: path
           required: true
           type: string
+        - name: windowNumber
+          description: Optional window number for querying deposit. If not specified, the current block number is used.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: blockNumber
+          description: Optional block number for querying deposit. If specified, calculate window based on this block number.
+          in: query
+          required: false
+          type: string
+          format: uint64
+  /v1/bidder/get_deposit:
+    get:
+      summary: GetDeposit
+      description: GetDeposit is called by the bidder to get its deposit in the bidder registry.
+      operationId: Bidder_GetDeposit
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DepositResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: windowNumber
+          description: Optional window number for querying deposits. If not specified, the current block number is used.
+          in: query
+          required: false
+          type: string
+          format: uint64
+  /v1/bidder/get_min_deposit:
+    get:
+      summary: GetMinDeposit
+      description: GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
+      operationId: Bidder_GetMinDeposit
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1DepositResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/bidder/withdraw:
+    post:
+      summary: Withdraw
+      description: Withdraw is called by the bidder to withdraw deposit from the bidder registry.
+      operationId: Bidder_Withdraw
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1WithdrawResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: windowNumber
+          description: Optional window number for withdrawing deposits. If not specified, the last window number is used.
+          in: query
+          required: false
+          type: string
+          format: uint64
 definitions:
   bidderapiv1Bid:
     type: object
     example:
       amount: "1000000000000000000"
-      blockNumber: 123456
-      txHashes:
+      block_number: 123456
+      tx_hashes:
         - fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7
         - 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
     properties:
@@ -185,12 +225,29 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the commitment is published.
-  v1PrepayResponse:
+  v1DepositResponse:
     type: object
     example:
       amount: "1000000000000000000"
+      window_number: 1
     properties:
       amount:
         type: string
-    description: Get prepaid allowance for bidder in the bidder registry.
-    title: Prepay response
+      windowNumber:
+        type: string
+        format: uint64
+    description: Get deposit for bidder in the bidder registry.
+    title: Deposit response
+  v1WithdrawResponse:
+    type: object
+    example:
+      amount: "1000000000000000000"
+      window_number: 1
+    properties:
+      amount:
+        type: string
+      windowNumber:
+        type: string
+        format: uint64
+    description: Withdraw deposit from the bidder registry.
+    title: Withdraw response

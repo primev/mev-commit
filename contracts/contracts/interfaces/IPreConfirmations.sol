@@ -25,8 +25,6 @@ interface IPreConfCommitmentStore {
         uint64 dispatchTimestamp;
     }
 
-
-
     event SignatureVerified(
         address indexed signer,
         string txnHash,

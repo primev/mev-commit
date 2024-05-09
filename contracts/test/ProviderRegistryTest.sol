@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
 import {BidderRegistry} from "../contracts/BidderRegistry.sol";
 import {PreConfCommitmentStore} from "../contracts/PreConfirmations.sol";
+import {BlockTracker} from "../contracts/BlockTracker.sol";
 
 contract ProviderRegistryTest is Test {
     uint256 testNumber;
@@ -15,7 +16,7 @@ contract ProviderRegistryTest is Test {
     address internal feeRecipient;
     BidderRegistry bidderRegistry;
     PreConfCommitmentStore preConfCommitmentStore;
-
+    BlockTracker blockTracker;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount);
 
     function setUp() public {
@@ -30,12 +31,13 @@ contract ProviderRegistryTest is Test {
             feePercent,
             address(this)
         );
-
-        bidderRegistry = new BidderRegistry(minStake, feeRecipient, feePercent, address(this));
+        blockTracker = new BlockTracker(address(this));
+        bidderRegistry = new BidderRegistry(minStake, feeRecipient, feePercent, address(this), address(blockTracker));
 
         preConfCommitmentStore = new PreConfCommitmentStore(
             address(providerRegistry), // Provider Registry
             address(bidderRegistry), // User Registry
+            address(blockTracker), // Block Tracker
             feeRecipient, // Oracle
             address(this),
             500
@@ -46,7 +48,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(address(this), 100 ether);
     }
 
-    function test_VerifyInitialContractState() public {
+    function test_VerifyInitialContractState() public view {
         assertEq(providerRegistry.minStake(), 1e18 wei);
         assertEq(providerRegistry.feeRecipient(), feeRecipient);
         assertEq(providerRegistry.feePercent(), feePercent);
