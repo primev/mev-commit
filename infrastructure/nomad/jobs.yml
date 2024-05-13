@@ -39,21 +39,6 @@ jobs:
       sync-mode: snap
       block-address: "0xd9cd8E5DE6d55f796D980B818D350C0746C25b97"
 
-  - name: mev-commit-geth-signer-node2
-    template: mev-commit-geth.nomad.j2
-    count: 1
-    ports:
-      - metrics:
-          to: 6060
-        p2p:
-          to: 30311
-    env:
-      ip: 0.0.0.0
-      net-restrict: 0.0.0.0/0
-      type: signer
-      sync-mode: snap
-      block-address: "0x788EBABe5c3dD422Ef92Ca6714A69e2eabcE1Ee4"
-
   - name: mev-commit-geth-member-node
     template: mev-commit-geth.nomad.j2
     count: 1
@@ -182,7 +167,7 @@ jobs:
         http:
           to: 8080
     env:
-      l1-rpc-url: https://rpc.sepolia.org
+      l1-rpc-url: https://ethereum-holesky-rpc.publicnode.com
 
   - name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2

@@ -134,11 +134,12 @@ job "{{ job.name }}" {
             else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
           }}"
           MEV_ORACLE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
-          MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '64') }}"
+          MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '20') }}"
           MEV_ORACLE_L1_RPC_URL="{{ job.env['l1-rpc-url'] }}"
           {%- raw %}
-          MEV_ORACLE_KEYSTORE_PATH="/local/data-{{env "NOMAD_ALLOC_INDEX"}}/keystore"
-          MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_keystore_password }}{{ end }}"
+          # MEV_ORACLE_KEYSTORE_PATH="/local/data-{{env "NOMAD_ALLOC_INDEX"}}/keystore"
+          # MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_keystore_password }}{{ end }}"
+          MEV_ORACLE_PRIV_KEY_FILE = "/local/data-{{env "NOMAD_ALLOC_INDEX"}}/priv-key"
           {{- range nomadService "mev-commit-oracle" }}
             {{- if contains "http" .Tags }}
           MEV_ORACLE_HTTP_PORT="{{ .Port }}"
@@ -147,6 +148,9 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           MEV_ORACLE_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+            {{- if contains "ws" .Tags }}
+          MEV_ORACLE_SETTLEMENT_WS_RPC_ENDPOINT="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
@@ -168,6 +172,16 @@ job "{{ job.name }}" {
         data = <<-EOH
           #!/usr/bin/env bash
 
+          {% raw %}
+          {{- range nomadService "mev-commit-provider-node1" }}
+            {{- if contains "http" .Tags }}
+              TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/topology)
+              PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.self["Ethereum Address"]')
+              export MEV_ORACLE_OVERRIDE_WINNERS=${PROVIDER_ETHEREUM_ADDRESS}
+            {{- end }}
+          {{- end }}
+          {% endraw %}
+
           {%- raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
@@ -185,6 +199,7 @@ job "{{ job.name }}" {
           fi
 
           mkdir -p $(dirname "${MEV_ORACLE_PRIV_KEY_FILE}") > /dev/null 2>&1
+          echo {{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_private_key }}{{ end }} > ${MEV_ORACLE_PRIV_KEY_FILE}
           chmod +x local/mev-commit-oracle
           local/mev-commit-oracle start
         EOH
