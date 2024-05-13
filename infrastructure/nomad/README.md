@@ -1,10 +1,15 @@
 # Installing Nomad on Server and Client Machines
 
-This guide outlines the steps to install Nomad on multiple machines using Ansible. It covers setting up Nomad servers and clients according to the configuration specified in your hosts.ini file.
+This guide outlines the steps to install Nomad on multiple machines using Ansible.
+It covers setting up Nomad servers and clients according to the configuration specified in your hosts.ini file.
 
 ## Prerequisites
-- Ansible installed on your control machine.
-- Ansible's collections installed:
+
+On your control machine:
+- [AWS CLI tools](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- [GoReleaser](https://goreleaser.com/install/)
+- [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
+- [Ansible's collections installed](https://docs.ansible.com/ansible/latest/collections_guide/collections_installing.html):
   ```shell
   ansible-galaxy collection install community.aws
   ansible-galaxy collection install community.general
@@ -29,43 +34,38 @@ Prepare `hosts.ini` File: This file contains the IP addresses of your Nomad serv
 198.51.100.3 ansible_user=ubuntu
 ```
 
-> If you run ansible on your local machine add the following to the `[local]` section of your `hosts.ini` file: 127.0.0.1 ansible_connection=local
+If your host machine is the same as your control machine add the following to your `hosts.ini` file:
+```
+[local]
+127.0.0.1 ansible_connection=local
+```
 
 - Replace the 192.0.2.X and 198.51.100.X with the IP addresses of your Nomad server and client machines, respectively.
 - Ensure the ansible_user matches the username on your target machines that has SSH access.
 
 ## Running the Playbook
 
+Export the following environment variable before executing any of the playbooks below: `export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`
+
 Execute the Ansible playbook to install Nomad on the specified servers and clients. From the root of the repository run the following command:
 
 ```shell
-cd ansible
-ansible-playbook -i hosts.ini infrastructure/nomad/init.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i infrastructure/nomad/hosts.ini infrastructure/nomad/init.yml --private-key=~/.ssh/your_private_key
 ```
 
 - Replace ~/.ssh/your_private_key with the path to your SSH private key if not using the default SSH key.
 - If you prefer to use SSH agent forwarding instead of directly specifying a private key, you can omit the --private-key option, assuming your SSH agent is running and loaded with your keys.
 
+> The init script also installs self-signed certificates. To avoid this step, add the `--skip-tags "certs"` option to the end of the command.
+
 To generate and run Nomad jobs run the following playbook:
 
 ```shell
-ansible-playbook -i hosts.ini infrastructure/nomad/deploy.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i infrastructure/nomad/hosts.ini infrastructure/nomad/deploy.yml --private-key=~/.ssh/your_private_key
 ```
 
 To destroy all running Nomad jobs run the following playbook:
 
 ```shell
-ansible-playbook -i hosts.ini infrastructure/nomad/destroy.yml --private-key=~/.ssh/your_private_key
-```
-
-To install [crisis tools](https://www.brendangregg.com/blog/2024-03-24/linux-crisis-tools.html) run the following playbook:
-
-```shell
-ansible-playbook -i hosts.ini infrastructure/nomad/install_linux_crisis_tools.yml --private-key=~/.ssh/your_private_key
-```
-
-And finally if you need certificates for development purposes, run the following playbook:
-
-```shell
-ansible-playbook -i hosts.ini infrastructure/nomad/install_dev_ss_certificates.yml --private-key=~/.ssh/your_private_key
+ansible-playbook -i infrastructure/nomad/hosts.ini infrastructure/nomad/destroy.yml --private-key=~/.ssh/your_private_key
 ```

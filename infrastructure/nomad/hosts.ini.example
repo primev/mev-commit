@@ -1,5 +1,5 @@
 [nomad_servers]
-127.0.0.1 ansible_user=ubuntu
+103.219.170.135 ansible_user=ubuntu
 
 [nomad_clients]
-127.0.0.1 ansible_user=ubuntu
+103.219.170.135 ansible_user=ubuntu
