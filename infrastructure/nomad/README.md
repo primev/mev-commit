@@ -39,7 +39,6 @@ Prepare `hosts.ini` File: This file contains the IP addresses of your Nomad serv
 Execute the Ansible playbook to install Nomad on the specified servers and clients. From the root of the repository run the following command:
 
 ```shell
-cd ansible
 ansible-playbook -i hosts.ini infrastructure/nomad/init.yml --private-key=~/.ssh/your_private_key
 ```
 
