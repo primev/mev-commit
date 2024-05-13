@@ -199,7 +199,9 @@ job "{{ job.name }}" {
           fi
 
           mkdir -p $(dirname "${MEV_ORACLE_PRIV_KEY_FILE}") > /dev/null 2>&1
+          {%- raw %}
           echo {{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_private_key }}{{ end }} > ${MEV_ORACLE_PRIV_KEY_FILE}
+          {% endraw %}
           chmod +x local/mev-commit-oracle
           local/mev-commit-oracle start
         EOH
