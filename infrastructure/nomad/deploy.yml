@@ -138,7 +138,7 @@
     - name: Upload | Filter artifacts
       ansible.builtin.find:
         paths: "/tmp/dist"
-        patterns: "*{{ version }}*.gz,*{{ version }}*.txt"
+        patterns: "*{{ version }}*Linux_x86_64.tar.gz,*{{ version }}*.txt"
         recurse: yes
       register: artefacts
       delegate_to: localhost

@@ -13,48 +13,13 @@
     vault_address: "https://127.0.0.1:8200"
     vault_kv_engine_path: "secret"
     vault_secret_path: "mev-commit"
+    openssl_dir: "/etc/ssl"
+    ca_certificates_dir: "/usr/local/share/ca-certificates"
+    server_common_name: "mev-commit-{{ env }}.mev-commit.primev.xyz"
+    ca_certificate_subject: "/C=US/ST=Delaware/L=Delaware City/O=Primev Inc/OU=Certificate Authority/CN={{ ansible_default_ipv4['address'] }}"
+    server_csr_subject_alt_name: "DNS:localhost,IP:127.0.0.1,IP:{{ ansible_default_ipv4['address'] }}"
 
-  vars_prompt:
-    - name: aws_access_key
-      prompt: "Enter your AWS Access Key ID"
-      private: no
-
-    - name: aws_secret_key
-      prompt: "Enter your AWS Secret Access Key"
-      private: yes
-
-    - name: aws_region
-      prompt: "Enter your Default region name"
-      private: no
-
-  tasks:
-    - name: Check | Environment variable is set
-      fail:
-        msg: "The 'environment' variable is not set for the host in the 'local' group."
-      when: >
-        env == 'undefined' or
-        env == ''
-
-    - name: Check | AWS credentials
-      fail:
-        msg: "All fields are required - AWS Access Key ID, AWS Secret Access Key, and AWS Region name cannot be empty."
-      when:
-        - env in ['mainnet', 'testnet']
-        - (aws_access_key | default('') | trim == '') or
-          (aws_secret_key | default('') | trim == '') or
-          (aws_region | default('') | trim == '')
-
-    - name: Check | Verify the operating system
-      assert:
-        that:
-          - ansible_facts['os_family'] == "Debian"
-        fail_msg: "This playbook only supports Debian systems."
-        success_msg: "Operating system is supported."
-
-    - name: Configuration | Determine the architecture of the target system
-      ansible.builtin.set_fact:
-        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
-
+  pre_tasks:
     - name: Dependency | Install common utility packages and dependencies
       ansible.builtin.apt:
         name:
@@ -68,20 +33,69 @@
           - git
           - python3
           - python3-pip
+          - python3-hvac
+          - python3-boto3
+          - python3-botocore
+          - python3-cryptography
         state: present
         update_cache: yes
 
-    - name: Dependency | Install Python dependencies for Ansible collections
-      ansible.builtin.pip:
+    - name: Dependency | Install Linux crisis management tools
+      ansible.builtin.apt:
         name:
-          - hvac
-          - boto3
-          - botocore
-          - python-nomad
+          - procps
+          - util-linux
+          - sysstat
+          - iproute2
+          - numactl
+          - tcpdump
+          - linux-tools-common
+          - bpfcc-tools
+          - bpftrace
+          - trace-cmd
+          - nicstat
+          - ethtool
+          - tiptop
+          - cpuid
+          - msr-tools
         state: present
-      become: yes
-      remote_user: ubuntu
+      ignore_errors: yes
 
+    - name: Check | env variable
+      ansible.builtin.assert:
+        that:
+          - env is defined and env != ''
+        fail_msg: "The 'env' variable is not set."
+        success_msg: "The 'env' variable is set to: {{ env }}."
+
+    - name: Check | Operating system
+      assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: "This playbook only supports Debian systems."
+        success_msg: "Operating system is supported."
+
+    - name: Configuration | Determine the architecture of the target system
+      ansible.builtin.set_fact:
+        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+    - name: Check | Load AWS caller information
+      amazon.aws.aws_caller_info:
+      register: aws_caller_info
+      delegate_to: localhost
+      become: true
+      become_user: "{{ lookup('env', 'USER') }}"
+
+    - name: Check | Validate AWS caller information
+      ansible.builtin.assert:
+        that:
+          - aws_caller_info is defined
+          - aws_caller_info.user_id is defined
+          - aws_caller_info.user_id | length > 0
+        fail_msg: "AWS caller information is invalid or empty."
+        success_msg: "AWS caller information is valid."
+
+  tasks:
     - name: Dependency | Add DataDog repository key
       ansible.builtin.apt_key:
         url: "https://keys.datadoghq.com/DATADOG_APT_KEY_CURRENT.public"
@@ -247,20 +261,11 @@
       delay: 10
       when: vault_seal_status.json.sealed == true
 
-    - name: Configuration | Import secrets
+    - name: Configuration | Fetch secrets
       ansible.builtin.set_fact:
-        mev_commit_secrets: >-
-          {{
-          lookup(
-          'amazon.aws.aws_secret',
-          env ~ '/' ~ vault_secret_path,
-          region=aws_region,
-          access_key=aws_access_key,
-          secret_key=aws_secret_key
-          ) if env in ['mainnet', 'testnet']
-          else lookup('file', 'mev-commit-secrets.json') | from_json
-          }}
+        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', env ~ '/' ~ vault_secret_path, errors='ignore') }}"
       when: unseal_result.json.sealed == false
+      delegate_to: localhost
 
     - name: Configuration | Enable KV secrets engine
       ansible.builtin.uri:
@@ -294,7 +299,6 @@
         status_code: [200, 204]
         validate_certs: no
       when: unseal_result.json.sealed == false
-      no_log: true
 
     - name: Dependency | Install Nomad
       ansible.builtin.apt:
@@ -346,7 +350,6 @@
         mode: '0644'
       vars:
         vault_token: "{{ vault_init.json.root_token }}"
-      no_log: true
 
     - name: System | Restart and enable Nomad service
       ansible.builtin.systemd:
@@ -355,7 +358,69 @@
         enabled: yes
         daemon_reload: yes
 
+    - name: Dependency | Install OpenSSL
+      ansible.builtin.apt:
+        name: openssl
+        state: present
+        update_cache: yes
+      tags:
+        - certs
+
+    - name: Configuration | Create directory for OpenSSL
+      ansible.builtin.file:
+        path: "{{ openssl_dir }}"
+        state: directory
+        mode: '0755'
+      tags:
+        - certs
+
+    - name: Configuration | Generate Private Key for CA
+      ansible.builtin.openssl_privatekey:
+        path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
+        size: 4096
+      tags:
+        - certs
+
+    - name: Configuration | Generate Self-Signed CA Certificate
+      ansible.builtin.command:
+        cmd: "openssl req -x509 -new -nodes -key {{ ca_certificates_dir }}/ca-{{ server_common_name }}.key -days 3650 -out {{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt -subj '{{ ca_certificate_subject }}'"
+      notify: update ca-certificates
+      tags:
+        - certs
+
+    - name: Configuration | Generate Private Key for Server
+      ansible.builtin.openssl_privatekey:
+        path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        size: 4096
+      tags:
+        - certs
+
+    - name: Configuration | Generate CSR for Server
+      ansible.builtin.openssl_csr:
+        path: "/tmp/{{ server_common_name }}.csr"
+        privatekey_path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        common_name: "{{ ansible_default_ipv4['address'] }}"
+        subject_alt_name: "{{ server_csr_subject_alt_name }}"
+      tags:
+        - certs
+
+    - name: Configuration | Generate Server Certificate signed by Self-Signed CA
+      ansible.builtin.openssl_certificate:
+        path: "{{ openssl_dir }}/certs/{{ server_common_name }}.crt"
+        privatekey_path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        csr_path: "/tmp/{{ server_common_name }}.csr"
+        provider: ownca
+        ownca_path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
+        ownca_privatekey_path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
+        ownca_not_before: "-1d"
+        ownca_not_after: "+365d"
+      tags:
+        - certs
+
   handlers:
     - name: reload sysctl
       ansible.builtin.command:
         cmd: sysctl --system
+    - name: update ca-certificates
+      ansible.builtin.command:
+        cmd: update-ca-certificates
