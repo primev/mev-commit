@@ -16,6 +16,9 @@ jobs:
         http:
           static: 8545
           to: 8545
+        ws:
+          static: 8546
+          to: 8546
         p2p:
           to: 30301
     env:
@@ -105,6 +108,10 @@ jobs:
       nat-address: "{{ ansible_facts['default_ipv4']['address'] }}"
       tls-crt-file: "{{ tls_crt_file }}"
       tls-key-file: "{{ tls_key_file }}"
+      preconf-contract-address: "{{ preconf_contract_address }}"
+      blocktracker-contract-address: "{{ blocktracker_contract_address }}"
+      bidder-registry-contract-address: "{{ bidder_registry_contract_address }}"
+      provider-registry-contract-address: "{{ provider_registry_contract_address }}"
 
   - name: mev-commit-provider-node1-funder
     template: mev-commit-funder.nomad.j2
@@ -132,6 +139,10 @@ jobs:
       type: bidder
       tls-crt-file: "{{ tls_crt_file }}"
       tls-key-file: "{{ tls_key_file }}"
+      preconf-contract-address: "{{ preconf_contract_address }}"
+      blocktracker-contract-address: "{{ blocktracker_contract_address }}"
+      bidder-registry-contract-address: "{{ bidder_registry_contract_address }}"
+      provider-registry-contract-address: "{{ provider_registry_contract_address }}"
 
   - name: mev-commit-bidder-node1-funder
     template: mev-commit-funder.nomad.j2
@@ -165,9 +176,15 @@ jobs:
           static: 5432
           to: 5432
         http:
+          static: 8080
           to: 8080
     env:
       l1-rpc-url: https://ethereum-holesky-rpc.publicnode.com
+      preconf-contract-address: "{{ preconf_contract_address }}"
+      blocktracker-contract-address: "{{ blocktracker_contract_address }}"
+      bidder-registry-contract-address: "{{ bidder_registry_contract_address }}"
+      provider-registry-contract-address: "{{ provider_registry_contract_address }}"
+      oracle-contract-address: "{{ oracle_contract_address }}"
 
   - name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2

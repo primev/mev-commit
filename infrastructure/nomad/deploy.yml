@@ -17,33 +17,33 @@
     profiles:
       devnet:
         job_names:
-          - 'datadog-agent-logs-collector'
-          - 'mev-commit-geth-bootnode1'
-          - 'mev-commit-geth-signer-node1'
-          - 'mev-commit-geth-member-node'
-          - 'deploy-contracts'
-          - 'mev-commit-bootnode1'
-          - 'mev-commit-provider-node1'
-          - 'mev-commit-provider-node1-funder'
-          - 'mev-commit-oracle'
-          - 'mev-commit-bidder-node1'
-          - 'mev-commit-bidder-node1-funder'
-          - 'mev-commit-provider-emulator-node1'
-          - 'mev-commit-bidder-emulator-node1'
-          - 'datadog-agent-metrics-collector'
+          # - 'datadog-agent-logs-collector'
+          - "mev-commit-geth-bootnode1"
+          - "mev-commit-geth-signer-node1"
+          - "mev-commit-geth-member-node"
+          - "deploy-contracts"
+          - "mev-commit-bootnode1"
+          - "mev-commit-provider-node1"
+          - "mev-commit-provider-node1-funder"
+          - "mev-commit-oracle"
+          - "mev-commit-bidder-node1"
+          - "mev-commit-bidder-node1-funder"
+          - "mev-commit-provider-emulator-node1"
+          - "mev-commit-bidder-emulator-node1"
+          - "datadog-agent-metrics-collector"
       testnet:
         job_names:
-          - 'datadog-agent-logs-collector'
-          - 'mev-commit-geth-bootnode1'
-          - 'mev-commit-geth-signer-node1'
-          - 'mev-commit-geth-member-node'
-          - 'deploy-contracts'
-          - 'mev-commit-bootnode1'
-          - 'mev-commit-provider-node1'
-          - 'mev-commit-provider-node1-funder'
-          - 'mev-commit-provider-emulator-node1'
-          - 'mev-commit-oracle'
-          - 'datadog-agent-metrics-collector'
+          - "datadog-agent-logs-collector"
+          - "mev-commit-geth-bootnode1"
+          - "mev-commit-geth-signer-node1"
+          - "mev-commit-geth-member-node"
+          - "deploy-contracts"
+          - "mev-commit-bootnode1"
+          - "mev-commit-provider-node1"
+          - "mev-commit-provider-node1-funder"
+          - "mev-commit-provider-emulator-node1"
+          - "mev-commit-oracle"
+          - "datadog-agent-metrics-collector"
 
   vars_prompt:
     - name: version
@@ -108,7 +108,7 @@
       ansible.builtin.file:
         path: "{{ destination }}"
         state: directory
-        mode: '0744'
+        mode: "0744"
         recurse: yes
 
     - name: Build | Nomad artifacts
