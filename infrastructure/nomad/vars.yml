@@ -1,3 +1,13 @@
+env: "devnet"
+openssl_dir: "/etc/ssl"
+private_keys_dir: "{{ openssl_dir }}/private"
+certificates_dir: "{{ openssl_dir }}/certs"
+ca_certificates_dir: "/usr/local/share/ca-certificates"
+server_common_name: "mev-commit_{{ env }}.mev-commit.primev.xyz"
+tls_crt_file: "{{ certificates_dir }}/{{ server_common_name }}.crt"
+tls_key_file: "{{ private_keys_dir }}/{{ server_common_name }}.key"
+tls_ca_crt_file: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
+
 jobs:
   - name: datadog-agent-logs-collector
     template: datadog-agent.nomad.j2
@@ -20,8 +30,8 @@ jobs:
           to: 30301
     env:
       ip: 0.0.0.0
-      public-ip: 0.0.0.0
-      net-restrict: 0.0.0.0/0
+      public_ip: 0.0.0.0
+      net_restrict: 0.0.0.0/0
       type: bootnode
 
   - name: mev-commit-geth-signer-node1
@@ -34,10 +44,10 @@ jobs:
           to: 30311
     env:
       ip: 0.0.0.0
-      net-restrict: 0.0.0.0/0
+      net_restrict: 0.0.0.0/0
       type: signer
-      sync-mode: snap
-      block-address: "0xd9cd8E5DE6d55f796D980B818D350C0746C25b97"
+      sync_mode: snap
+      block_address: "0xd9cd8E5DE6d55f796D980B818D350C0746C25b97"
 
   - name: mev-commit-geth-signer-node2
     template: mev-commit-geth.nomad.j2
@@ -49,10 +59,10 @@ jobs:
           to: 30311
     env:
       ip: 0.0.0.0
-      net-restrict: 0.0.0.0/0
+      net_restrict: 0.0.0.0/0
       type: signer
-      sync-mode: snap
-      block-address: "0x788EBABe5c3dD422Ef92Ca6714A69e2eabcE1Ee4"
+      sync_mode: snap
+      block_address: "0x788EBABe5c3dD422Ef92Ca6714A69e2eabcE1Ee4"
 
   - name: mev-commit-geth-member-node
     template: mev-commit-geth.nomad.j2
@@ -70,10 +80,10 @@ jobs:
           to: 30311
     env:
       ip: 0.0.0.0
-      public-ip: "{{ ansible_facts['default_ipv4']['address'] }}"
-      net-restrict: 0.0.0.0/0
+      public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      net_restrict: 0.0.0.0/0
       type: member
-      sync-mode: snap
+      sync_mode: snap
 
   - name: deploy-contracts
     template: deploy-contracts.nomad.j2
@@ -96,8 +106,8 @@ jobs:
           to: 13522
     env:
       type: bootnode
-      tls-crt-file: "{{ tls_crt_file }}"
-      tls-key-file: "{{ tls_key_file }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
 
   - name: mev-commit-provider-node1
     template: mev-commit.nomad.j2
@@ -117,9 +127,9 @@ jobs:
           to: 13524
     env:
       type: provider
-      nat-address: "{{ ansible_facts['default_ipv4']['address'] }}"
-      tls-crt-file: "{{ tls_crt_file }}"
-      tls-key-file: "{{ tls_key_file }}"
+      nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
 
   - name: mev-commit-provider-node1-funder
     template: mev-commit-funder.nomad.j2
@@ -145,8 +155,8 @@ jobs:
           to: 13524
     env:
       type: bidder
-      tls-crt-file: "{{ tls_crt_file }}"
-      tls-key-file: "{{ tls_key_file }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
 
   - name: mev-commit-bidder-node1-funder
     template: mev-commit-funder.nomad.j2
@@ -182,7 +192,7 @@ jobs:
         http:
           to: 8080
     env:
-      l1-rpc-url: https://rpc.sepolia.org
+      l1_rpc_url: https://rpc.sepolia.org
 
   - name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2
@@ -191,8 +201,8 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1-chain-id: 17000
-      l1-rpc-url: https://ethereum-holesky.publicnode.com
+      l1_chain_id: 17000
+      l1_rpc_url: https://ethereum-holesky.publicnode.com
 
   - name: datadog-agent-metrics-collector
     template: datadog-agent.nomad.j2

@@ -77,9 +77,9 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
-          STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1-rpc-url'] }}"
+          STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           STANDARD_BRIDGE_RELAYER_PRIV_KEY_FILE="secrets/relayer_key"
-          L1_CHAIN_ID="{{ job.env['l1-chain-id'] }}"
+          L1_CHAIN_ID="{{ job.env['l1_chain_id'] }}"
           FORGE_BIN_PATH="local/forge"
           CAST_BIN_PATH="local/cast"
           CONTRACTS_PATH="local/contracts"

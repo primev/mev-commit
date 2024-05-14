@@ -71,10 +71,10 @@ job "{{ job.name }}" {
           MEV_COMMIT_HTTP_ADDR="{{ job.env.get('http-address', '0.0.0.0') }}"
           MEV_COMMIT_RPC_ADDR="{{ job.env.get('rpc-address', '0.0.0.0') }}"
           MEV_COMMIT_P2P_ADDR="{{ job.env.get('p2p-address', '0.0.0.0') }}"
-          MEV_COMMIT_SERVER_TLS_CERTIFICATE="{{ job.env['tls-crt-file'] }}"
-          MEV_COMMIT_SERVER_TLS_PRIVATE_KEY="{{ job.env['tls-key-file'] }}"
+          MEV_COMMIT_SERVER_TLS_CERTIFICATE="{{ job.env['tls_crt_file'] }}"
+          MEV_COMMIT_SERVER_TLS_PRIVATE_KEY="{{ job.env['tls_key_file'] }}"
           {% if job.env['type'] == 'provider' %}
-          MEV_COMMIT_NAT_ADDR="{{ job.env['nat-address'] }}"
+          MEV_COMMIT_NAT_ADDR="{{ job.env['nat_address'] }}"
           {%- raw %}
           {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
             {{- if contains "p2p" .Tags }}
