@@ -75,8 +75,7 @@ func TestDepositManager(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 
-	var i int64
-	for i = 1; i <= 10; i++ {
+	for i := int64(1); i <= 10; i++ {
 		// deduct deposit
 		refund, err := dm.CheckAndDeductDeposit(
 			context.Background(),

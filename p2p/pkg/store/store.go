@@ -109,7 +109,7 @@ func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("bbs/%s/%s", windowNumber.String(), bidder.String())
+	key := fmt.Sprintf("bbs/%s/%s", windowNumber, bidder)
 	_, _ = s.Tree.Insert(key, depositedAmount)
 	return nil
 }
@@ -118,7 +118,7 @@ func (s *Store) GetBalance(bidder common.Address, windowNumber *big.Int) (*big.I
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	key := fmt.Sprintf("bbs/%s/%s", windowNumber.String(), bidder.String())
+	key := fmt.Sprintf("bbs/%s/%s", windowNumber, bidder)
 	val, ok := s.Tree.Get(key)
 	if !ok {
 		return nil, nil
@@ -155,7 +155,7 @@ func (s *Store) ClearBalances(windowNumber *big.Int) error {
 
 	s.mu.Lock()
 	for _, w := range windows {
-		key := fmt.Sprintf("bbs/%s", w.String())
+		key := fmt.Sprintf("bbs/%s", w)
 		_ = s.Tree.DeletePrefix(key)
 	}
 	s.mu.Unlock()
@@ -171,7 +171,7 @@ func (s *Store) GetBalanceForBlock(
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	key := fmt.Sprintf("bbs/%s/%s/%d", window.String(), bidder.String(), blockNumber)
+	key := fmt.Sprintf("bbs/%s/%s/%d", window, bidder, blockNumber)
 	val, ok := s.Tree.Get(key)
 	if !ok {
 		return nil, nil
@@ -188,7 +188,7 @@ func (s *Store) SetBalanceForBlock(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("bbs/%s/%s/%d", window.String(), bidder.String(), blockNumber)
+	key := fmt.Sprintf("bbs/%s/%s/%d", window, bidder, blockNumber)
 	_, _ = s.Tree.Insert(key, amount)
 	return nil
 }
@@ -202,7 +202,7 @@ func (s *Store) RefundBalanceForBlock(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("bbs/%s/%s/%d", window.String(), bidder.String(), blockNumber)
+	key := fmt.Sprintf("bbs/%s/%s/%d", window, bidder, blockNumber)
 	val, ok := s.Tree.Get(key)
 	if !ok {
 		_, _ = s.Tree.Insert(key, amount)

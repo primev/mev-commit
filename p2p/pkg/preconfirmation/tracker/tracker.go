@@ -250,7 +250,7 @@ func (t *Tracker) handleNewL1Block(
 	}
 
 	t.logger.Info("commitments opened",
-		"blockNumber", blockToProcess.Int64(),
+		"blockNumber", blockToProcess,
 		"total", len(commitments),
 		"settled", settled,
 		"failed", len(failedCommitments),

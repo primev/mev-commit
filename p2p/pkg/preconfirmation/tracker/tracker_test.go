@@ -89,7 +89,7 @@ func TestTracker(t *testing.T) {
 			},
 			PreConfirmation: &preconfpb.PreConfirmation{
 				Bid: &preconfpb.Bid{
-					TxHash:              common.HexToHash(fmt.Sprintf("0x%d", i)).String(),
+					TxHash:              common.HexToHash(fmt.Sprintf("0x%x", i)).String(),
 					BidAmount:           "1000",
 					BlockNumber:         getBlockNum(i),
 					DecayStartTimestamp: 1,
@@ -103,7 +103,7 @@ func TestTracker(t *testing.T) {
 				ProviderAddress: getProvider(getBlockNum(i)).Bytes(),
 				SharedSecret:    []byte(fmt.Sprintf("sharedSecret%d", i)),
 			},
-			TxnHash: common.HexToHash(fmt.Sprintf("0x%d", i)),
+			TxnHash: common.HexToHash(fmt.Sprintf("0x%x", i)),
 		})
 	}
 

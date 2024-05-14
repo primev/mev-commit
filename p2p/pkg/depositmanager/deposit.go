@@ -202,7 +202,7 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 	}
 
 	if defaultBalance.Cmp(bidAmount) < 0 {
-		dm.logger.Error("insufficient balance", "balance", defaultBalance.Uint64(), "bidAmount", bidAmount.Uint64())
+		dm.logger.Error("insufficient balance", "balance", defaultBalance, "bidAmount", bidAmount)
 		return nil, status.Errorf(codes.FailedPrecondition, "insufficient balance")
 	}
 
