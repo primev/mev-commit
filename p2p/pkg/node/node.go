@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math/big"
 	"net"
 	"net/http"
 	"strings"
@@ -48,6 +47,7 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
 	"github.com/primevprotocol/mev-commit/x/contracts/events"
 	"github.com/primevprotocol/mev-commit/x/contracts/events/publisher"
+	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -258,7 +258,7 @@ func NewNode(opts *Options) (*Node, error) {
 			cancel()
 			return nil, errors.Join(err, nd.Close())
 		}
-		
+
 		validator, err := protovalidate.New()
 		if err != nil {
 			opts.Logger.Error("failed to create proto validator", "error", err)
@@ -298,18 +298,14 @@ func NewNode(opts *Options) (*Node, error) {
 		)
 		opts.Logger.Info("registered preconf contract")
 
-		store, err := store.NewStore()
-		if err != nil {
-			opts.Logger.Error("failed to create store", "error", err)
-			cancel()
-			return nil, err
-		}
+		store := store.NewStore()
 
 		tracker := preconftracker.NewTracker(
 			peerType,
 			evtMgr,
 			store,
 			commitmentDA,
+			txmonitor.NewEVMHelper(contractRPC.Client()),
 			opts.Logger.With("component", "tracker"),
 		)
 		nd.closers = append(nd.closers, channelCloserFunc(tracker.Start(ctx)))
@@ -326,14 +322,16 @@ func NewNode(opts *Options) (*Node, error) {
 			providerapiv1.RegisterProviderServer(grpcServer, providerAPI)
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
-			depositMgr = depositmanager.NewDepositManager(bidderRegistry,
+			depositMgr = depositmanager.NewDepositManager(
 				blockTrackerSession,
-				commitmentDA,
 				store,
 				evtMgr,
 				opts.Logger.With("component", "depositmanager"),
 			)
-			nd.closers = append(nd.closers, channelCloserFunc(depositMgr.Start(ctx)))
+			nd.closers = append(
+				nd.closers,
+				channelCloserFunc(depositMgr.(*depositmanager.DepositManager).Start(ctx)),
+			)
 			preconfProto := preconfirmation.New(
 				keyKeeper.GetAddress(),
 				topo,
@@ -578,16 +576,8 @@ func (noOpBidProcessor) ProcessBid(
 
 type noOpDepositManager struct{}
 
-func (noOpDepositManager) Start(_ context.Context) <-chan struct{} {
-	return nil
-}
-
-func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string, _ int64) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (noOpDepositManager) RefundDeposit(_ common.Address, _ *big.Int, _ int64) error {
-	return nil
+func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Address, _ string, _ int64) (func() error, error) {
+	return func() error { return nil }, nil
 }
 
 type testStore struct{}

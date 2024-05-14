@@ -3,6 +3,7 @@ package preconftracker_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -21,6 +22,7 @@ import (
 	preconftracker "github.com/primevprotocol/mev-commit/p2p/pkg/preconfirmation/tracker"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
 	"github.com/primevprotocol/mev-commit/x/util"
 )
 
@@ -43,10 +45,7 @@ func TestTracker(t *testing.T) {
 		&pcABI,
 	)
 
-	st, err := store.NewStore()
-	if err != nil {
-		t.Fatal(err)
-	}
+	st := store.NewStore()
 
 	contract := &testPreconfContract{
 		openedCommitments: make(chan openedCommitment, 10),
@@ -57,6 +56,7 @@ func TestTracker(t *testing.T) {
 		evtMgr,
 		st,
 		contract,
+		&testReceiptGetter{count: 1},
 		util.NewTestLogger(io.Discard),
 	)
 
@@ -80,14 +80,12 @@ func TestTracker(t *testing.T) {
 	commitments := make([]*store.EncryptedPreConfirmationWithDecrypted, 0)
 
 	for i := 1; i <= 10; i++ {
-		idx := common.HexToHash(fmt.Sprintf("0x%x", i))
 		digest := common.HexToHash(fmt.Sprintf("0x%x", i))
 
 		commitments = append(commitments, &store.EncryptedPreConfirmationWithDecrypted{
 			EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
-				Commitment:      digest.Bytes(),
-				Signature:       []byte(fmt.Sprintf("signature%d", i)),
-				CommitmentIndex: idx.Bytes(),
+				Commitment: digest.Bytes(),
+				Signature:  []byte(fmt.Sprintf("signature%d", i)),
 			},
 			PreConfirmation: &preconfpb.PreConfirmation{
 				Bid: &preconfpb.Bid{
@@ -105,18 +103,24 @@ func TestTracker(t *testing.T) {
 				ProviderAddress: getProvider(getBlockNum(i)).Bytes(),
 				SharedSecret:    []byte(fmt.Sprintf("sharedSecret%d", i)),
 			},
+			TxnHash: common.HexToHash(fmt.Sprintf("0x%d", i)),
 		})
 	}
 
-	for _, c := range commitments {
+	for i, c := range commitments {
 		err := tracker.TrackCommitment(context.Background(), c)
 		if err != nil {
 			t.Fatal(err)
 		}
 
+		if i == 3 {
+			// skip this to simulate transaction error
+			continue
+		}
+
 		err = publishEncCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
 			Commiter:            common.BytesToAddress(c.PreConfirmation.ProviderAddress),
-			CommitmentIndex:     common.BytesToHash(c.EncryptedPreConfirmation.CommitmentIndex),
+			CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", i+1)),
 			CommitmentDigest:    common.BytesToHash(c.EncryptedPreConfirmation.Commitment),
 			CommitmentSignature: c.EncryptedPreConfirmation.Signature,
 			DispatchTimestamp:   uint64(1),
@@ -133,7 +137,7 @@ func TestTracker(t *testing.T) {
 
 	// this commitment should not be opened again
 	err = publishCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreCommitmentStored{
-		CommitmentIndex:     common.BytesToHash(commitments[4].EncryptedPreConfirmation.CommitmentIndex),
+		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Commiter:            common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
 		Bid:                 amount,
@@ -330,6 +334,23 @@ func (t *testPreconfContract) OpenCommitment(
 		sharedSecretKey:          sharedSecretKey,
 	}
 	return common.Hash{}, nil
+}
+
+type testReceiptGetter struct {
+	count int
+}
+
+func (t *testReceiptGetter) BatchReceipts(_ context.Context, txns []common.Hash) ([]txmonitor.Result, error) {
+	if t.count != len(txns) {
+		return nil, fmt.Errorf("expected %d txns, got %d", t.count, len(txns))
+	}
+	results := make([]txmonitor.Result, 0, len(txns))
+	for range txns {
+		results = append(results, txmonitor.Result{
+			Err: errors.New("test error"),
+		})
+	}
+	return results, nil
 }
 
 func publishEncCommitment(
