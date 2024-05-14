@@ -86,6 +86,10 @@ jobs:
       type: bootnode
       tls-crt-file: "{{ tls_crt_file }}"
       tls-key-file: "{{ tls_key_file }}"
+      preconf-contract-address: "{{ preconf_contract_address }}"
+      blocktracker-contract-address: "{{ blocktracker_contract_address }}"
+      bidder-registry-contract-address: "{{ bidder_registry_contract_address }}"
+      provider-registry-contract-address: "{{ provider_registry_contract_address }}"
 
   - name: mev-commit-provider-node1
     template: mev-commit.nomad.j2
@@ -185,6 +189,8 @@ jobs:
     ports:
       - metrics:
           to: 8080
+    env:
+      l1-rpc-url: https://ethereum-holesky-rpc.publicnode.com
 
   - name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2

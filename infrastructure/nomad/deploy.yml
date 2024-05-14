@@ -183,7 +183,7 @@
     - name: Deploy | Nomad jobs
       ansible.builtin.shell: |
         nomad run {{ destination }}/{{ job.name }}.nomad
-        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 180 || true
+        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 240 || true
       args:
         executable: bash
       loop: "{{ jobs }}"
