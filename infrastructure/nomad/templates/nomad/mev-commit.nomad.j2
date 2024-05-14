@@ -76,10 +76,10 @@ job "{{ job.name }}" {
           MEV_COMMIT_P2P_ADDR="{{ job.env.get('p2p-address', '0.0.0.0') }}"
           MEV_COMMIT_SERVER_TLS_CERTIFICATE="{{ job.env['tls-crt-file'] }}"
           MEV_COMMIT_SERVER_TLS_PRIVATE_KEY="{{ job.env['tls-key-file'] }}"
-          MEV_COMMIT_PROVIDER_REGISTRY_ADDR="{{ job.env['provider-registry-contract-address'] }}"
-          MEV_COMMIT_BIDDER_REGISTRY_ADDR="{{ job.env['bidder-registry-contract-address'] }}"
-          MEV_COMMIT_PRECONF_ADDR="{{ job.env['preconf-contract-address'] }}"
-          MEV_COMMIT_BLOCK_TRACKER_ADDR="{{ job.env['blocktracker-contract-address'] }}"
+          MEV_COMMIT_PROVIDER_REGISTRY_ADDR="{{ job.env.get('provider-registry-contract-address') }}"
+          MEV_COMMIT_BIDDER_REGISTRY_ADDR="{{ job.env.get('bidder-registry-contract-address') }}"
+          MEV_COMMIT_PRECONF_ADDR="{{ job.env.get('preconf-contract-address') }}"
+          MEV_COMMIT_BLOCK_TRACKER_ADDR="{{ job.env.get('blocktracker-contract-address') }}"
           {% if job.env['type'] == 'provider' %}
           MEV_COMMIT_NAT_ADDR="{{ job.env['nat-address'] }}"
           {%- raw %}
