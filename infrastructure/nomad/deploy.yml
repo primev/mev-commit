@@ -5,11 +5,6 @@
     build: false
     datacenter: "dc1"
     aws_s3_bucket: "primev-infrastructure-artifacts"
-    preconf_contract_address: "0x2Aff805aBdF1Fe79AfcF8B3a9B4B45ECcD6b6D6e"
-    blocktracker_contract_address: "0x042744D8cF66d8455350D43F9e09CA73b5C0CB94"
-    oracle_contract_address: "0x77A4FE615de28fdf0bF68D9B9ba773A32b5C7630"
-    bidder_registry_contract_address: "0x1E218818D409E0f00dfeBE8A960F7585d4fDff70"
-    provider_registry_contract_address: "0x0332388390d9df01cA3d26269f2B1Fc314deD9c0"
     profiles:
       devnet:
         job_names:

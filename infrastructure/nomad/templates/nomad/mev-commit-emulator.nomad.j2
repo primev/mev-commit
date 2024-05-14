@@ -57,7 +57,7 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
           {% if job.target_type == 'bidder' %}
-          EMULATOR_L1_RPC_URL="{{ job.env['l1-rpc-url'] }}"
+          EMULATOR_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           {% endif %}
         EOH
         destination = "secrets/.env"

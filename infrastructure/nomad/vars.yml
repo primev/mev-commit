@@ -7,6 +7,11 @@ server_common_name: "mev-commit_{{ env }}.mev-commit.primev.xyz"
 tls_crt_file: "{{ certificates_dir }}/{{ server_common_name }}.crt"
 tls_key_file: "{{ private_keys_dir }}/{{ server_common_name }}.key"
 tls_ca_crt_file: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
+preconf_contract_address: "0x2Aff805aBdF1Fe79AfcF8B3a9B4B45ECcD6b6D6e"
+blocktracker_contract_address: "0x042744D8cF66d8455350D43F9e09CA73b5C0CB94"
+oracle_contract_address: "0x77A4FE615de28fdf0bF68D9B9ba773A32b5C7630"
+bidder_registry_contract_address: "0x1E218818D409E0f00dfeBE8A960F7585d4fDff70"
+provider_registry_contract_address: "0x0332388390d9df01cA3d26269f2B1Fc314deD9c0"
 
 jobs:
   - name: datadog-agent-logs-collector
@@ -144,7 +149,7 @@ jobs:
           static: 8080
           to: 8080
     env:
-      l1-rpc-url: https://ethereum-holesky-rpc.publicnode.com
+      l1_rpc_url: https://ethereum-holesky-rpc.publicnode.com
       preconf_contract_address: "{{ preconf_contract_address }}"
       blocktracker_contract_address: "{{ blocktracker_contract_address }}"
       bidder_registry_contract_address: "{{ bidder_registry_contract_address }}"
