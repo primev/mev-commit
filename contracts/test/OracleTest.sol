@@ -99,7 +99,7 @@ contract OracleTest is Test {
             (address(providerRegistry),
             address(bidderRegistry),
             feeRecipient,
-            msg.sender,
+            address(this),
             address(blockTracker),
             500))
         );
@@ -150,7 +150,7 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -179,7 +179,7 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -213,8 +213,8 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -252,10 +252,10 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -349,13 +349,13 @@ contract OracleTest is Test {
 
     /**
     constructAndStoreCommitment is a helper function to construct and store a commitment
+    Note decayStartTimestamp and decayEndTimestamp are hardcoded to 10 and 20 respectively
+    to avoid "stack too deep" errors.
      */
     function constructAndStoreCommitment(
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
-        uint64 decayStartTimestamp,
-        uint64 decayEndTimestamp,
         uint256 bidderPk,
         uint256 signerPk,
         address provider,
@@ -365,8 +365,8 @@ contract OracleTest is Test {
             txnHash,
             bid,
             blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp
+            10,
+            20
         );
 
 
@@ -377,8 +377,8 @@ contract OracleTest is Test {
             txnHash,
             bid,
             blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp,
+            10,
+            20,
             bidHash,
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
@@ -402,8 +402,8 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txnHash,
-            decayStartTimestamp,
-            decayEndTimestamp,
+            10,
+            20,
             bidSignature,
             commitmentSignature,
             sharedSecretKey
