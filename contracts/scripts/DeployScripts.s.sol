@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../contracts/BidderRegistry.sol";
 import "../contracts/ProviderRegistry.sol";
-import "../contracts/PreConfirmations.sol";
+import "../contracts/PreConfCommitmentStore.sol";
 import "../contracts/Oracle.sol";
 import "../contracts/Whitelist.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -11,44 +11,10 @@ import "../contracts/ValidatorRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import "../contracts/BlockTracker.sol";
 
-// Deploy scripts should inherit this contract if they deploy using create2 deterministic addrs.
-contract Create2Deployer {
-    address constant _CREATE2_PROXY =
-        0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address constant _EXPECTED_DEPLOYER =
-        0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-
-    function _checkCreate2Deployed() internal view {
-        require(
-            isContractDeployed(_CREATE2_PROXY),
-            "Create2 proxy needs to be deployed. See https://github.com/primev/deterministic-deployment-proxy"
-        );
-    }
-
-    function _checkDeployer() internal view {
-        if (msg.sender != _EXPECTED_DEPLOYER) {
-            console.log(
-                "Warning: deployer is not expected address of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266. Contracts addresses will not match documentation"
-            );
-        }
-    }
-
-    function isContractDeployed(address addr) public view returns (bool) {
-        uint size;
-        assembly {
-            size := extcodesize(addr)
-        }
-        return size > 0;
-    }
-}
-
 // Deploys core contracts
-contract DeployScript is Script, Create2Deployer {
+contract DeployScript is Script {
     function run() external {
         vm.startBroadcast();
-
-        _checkCreate2Deployed();
-        _checkDeployer();
 
         // Replace these with your contract's constructor parameters
         uint256 minStake = 1 ether;
@@ -57,45 +23,35 @@ contract DeployScript is Script, Create2Deployer {
         );
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
-
         uint256 blocksPerWindow = 10;
-        // Forge deploy with salt uses create2 proxy from https://github.com/primev/deterministic-deployment-proxy
-        bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
 
-        BlockTracker blockTracker = new BlockTracker{salt: salt}(msg.sender);
+        address blockTrackerProxy = Upgrades.deployUUPSProxy(
+            "BlockTracker.sol",
+            abi.encodeCall(BlockTracker.initialize, (msg.sender))
+        );
+        BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
         console.log("BlockTracker deployed to:", address(blockTracker));
 
-        BidderRegistry bidderRegistry = new BidderRegistry{salt: salt}(
-            minStake,
-            feeRecipient,
-            feePercent,
-            msg.sender,
-            address(blockTracker)
+        address bidderRegistryProxy = Upgrades.deployUUPSProxy(
+            "BidderRegistry.sol",
+            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, address(blockTracker)))
         );
+        BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry deployed to:", address(bidderRegistry));
 
-        ProviderRegistry providerRegistry = new ProviderRegistry{salt: salt}(
-            minStake,
-            feeRecipient,
-            feePercent,
-            msg.sender
+        address providerRegistryProxy = Upgrades.deployUUPSProxy(
+            "ProviderRegistry.sol",
+            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender))
         );
+        ProviderRegistry providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
         console.log("ProviderRegistry deployed to:", address(providerRegistry));
 
-        PreConfCommitmentStore preConfCommitmentStore = new PreConfCommitmentStore{
-                salt: salt
-            }(
-                address(providerRegistry),
-                address(bidderRegistry),
-                feeRecipient,
-                msg.sender,
-                address(blockTracker),
-                commitmentDispatchWindow
-            );
-        console.log(
-            "PreConfCommitmentStore deployed to:",
-            address(preConfCommitmentStore)
+        address preconfCommitmentStoreProxy = Upgrades.deployUUPSProxy(
+            "PreConfCommitmentStore.sol",
+            abi.encodeCall(PreConfCommitmentStore.initialize, (address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender, address(blockTracker), commitmentDispatchWindow))
         );
+        PreConfCommitmentStore preConfCommitmentStore = PreConfCommitmentStore(payable(preconfCommitmentStoreProxy));
+        console.log("PreConfCommitmentStore deployed to:", address(preConfCommitmentStore));
 
         providerRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
@@ -113,11 +69,11 @@ contract DeployScript is Script, Create2Deployer {
             address(preConfCommitmentStore)
         );
 
-        Oracle oracle = new Oracle{salt: salt}(
-            address(preConfCommitmentStore),
-            address(blockTracker),
-            msg.sender
+        address oracleProxy = Upgrades.deployUUPSProxy(
+            "Oracle.sol",
+            abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), msg.sender))
         );
+        Oracle oracle = Oracle(payable(oracleProxy));
         console.log("Oracle deployed to:", address(oracle));
 
         preConfCommitmentStore.updateOracle(address(oracle));
@@ -131,25 +87,13 @@ contract DeployScript is Script, Create2Deployer {
 }
 
 // Deploys whitelist contract and adds HypERC20 to whitelist
-contract DeployWhitelist is Script, Create2Deployer {
+contract DeployWhitelist is Script {
     function run() external {
         console.log(
             "Warning: DeployWhitelist is deprecated and only for backwards compatibility with hyperlane"
         );
 
-        address expectedWhiteListAddr = 0x57508f0B0f3426758F1f3D63ad4935a7c9383620;
-        if (isContractDeployed(expectedWhiteListAddr)) {
-            console.log(
-                "Whitelist already deployed to:",
-                expectedWhiteListAddr
-            );
-            return;
-        }
-
         vm.startBroadcast();
-
-        _checkCreate2Deployed();
-        _checkDeployer();
 
         address hypERC20Addr = vm.envAddress("HYP_ERC20_ADDR");
         require(
@@ -157,10 +101,11 @@ contract DeployWhitelist is Script, Create2Deployer {
             "Address to whitelist not provided"
         );
 
-        // Forge deploy with salt uses create2 proxy from https://github.com/primev/deterministic-deployment-proxy
-        bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
-
-        Whitelist whitelist = new Whitelist{salt: salt}(msg.sender);
+        address whitelistProxy = Upgrades.deployUUPSProxy(
+            "Whitelist.sol",
+            abi.encodeCall(Whitelist.initialize, (msg.sender))
+        );
+        Whitelist whitelist = Whitelist(payable(whitelistProxy));
         console.log("Whitelist deployed to:", address(whitelist));
 
         whitelist.addToWhitelist(address(hypERC20Addr));
@@ -195,7 +140,7 @@ contract DeployValidatorRegistry is Script {
             address(proxy)
         );
 
-        ValidatorRegistry validatorRegistry = ValidatorRegistry(proxy);
+        ValidatorRegistry validatorRegistry = ValidatorRegistry(payable(proxy));
         console.log("ValidatorRegistry owner:", validatorRegistry.owner());
 
         vm.stopBroadcast();

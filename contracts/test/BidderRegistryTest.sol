@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 import {BidderRegistry} from "../contracts/BidderRegistry.sol";
 import {BlockTracker} from "../contracts/BlockTracker.sol";
 
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+
 contract BidderRegistryTest is Test {
     uint256 testNumber;
     BidderRegistry internal bidderRegistry;
@@ -22,8 +24,18 @@ contract BidderRegistryTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        blockTracker = new BlockTracker(address(this));
-        bidderRegistry = new BidderRegistry(minStake, feeRecipient, feePercent, address(this), address(blockTracker));
+
+        address proxy = Upgrades.deployUUPSProxy(
+            "BlockTracker.sol",
+            abi.encodeCall(BlockTracker.initialize, (address(this)))
+        );
+        blockTracker = BlockTracker(payable(proxy));
+
+        address proxy2 = Upgrades.deployUUPSProxy(
+            "BidderRegistry.sol",
+            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, address(this), address(blockTracker)))
+        );
+        bidderRegistry = BidderRegistry(payable(proxy2));
 
         bidder = vm.addr(1);
         vm.deal(bidder, 1000 ether);

@@ -26,7 +26,7 @@ extract_and_save_abi "$BASE_DIR/out/ProviderRegistry.sol/ProviderRegistry.json" 
 extract_and_save_abi "$BASE_DIR/out/Oracle.sol/Oracle.json" "$ABI_DIR/Oracle.abi"
 
 # Extract ABI for PreConfCommitmentStore.json
-extract_and_save_abi "$BASE_DIR/out/PreConfirmations.sol/PreConfCommitmentStore.json" "$ABI_DIR/PreConfCommitmentStore.abi"
+extract_and_save_abi "$BASE_DIR/out/PreConfCommitmentStore.sol/PreConfCommitmentStore.json" "$ABI_DIR/PreConfCommitmentStore.abi"
 
 # Extract ABI for SettlementGateway.json
 extract_and_save_abi "$BASE_DIR/out/SettlementGateway.sol/SettlementGateway.json" "$ABI_DIR/SettlementGateway.abi"
