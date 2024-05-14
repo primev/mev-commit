@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../../contracts/standard-bridge/L1Gateway.sol";
+
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract L1GatewayTest is Test {
     L1Gateway l1Gateway;
@@ -18,7 +20,15 @@ contract L1GatewayTest is Test {
         bridgeUser = address(0x101);
         finalizationFee = 0.1 ether;
         counterpartyFee = 0.05 ether;
-        l1Gateway = new L1Gateway(owner, relayer, finalizationFee, counterpartyFee);
+
+        address proxy = Upgrades.deployUUPSProxy(
+            "L1Gateway.sol",
+            abi.encodeCall(L1Gateway.initialize,
+            (owner, 
+            relayer, 
+            finalizationFee, 
+            counterpartyFee))); 
+        l1Gateway = L1Gateway(payable(proxy));
     }
 
     function test_ConstructorSetsVariablesCorrectly() public view {

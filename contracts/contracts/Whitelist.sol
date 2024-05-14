@@ -1,18 +1,24 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 // Contract that allows an admin to add/remove addresses from the whitelist,
 // and allows whitelisted addresses to mint native tokens.
 //
 // The whitelist contract's create2 address must be funded on genesis.
-contract Whitelist is Ownable {
+contract Whitelist is OwnableUpgradeable {
 
     mapping(address => bool) public whitelistedAddresses;
 
-    constructor(address _owner) Ownable() {
-        _transferOwnership(_owner);
+    function initialize(address _owner) external initializer {
+        __Ownable_init(_owner);
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     function addToWhitelist(address _address) external onlyOwner {

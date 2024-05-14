@@ -9,9 +9,9 @@ type Contracts struct {
 }
 
 var TestnetContracts = Contracts{
-	BidderRegistry:         "0xded9029fC3789ED393D62686c0c0f9dfA92aA2f6",
-	ProviderRegistry:       "0xFA19327bDBf2632aAB7C77e61DC69DbC872d5AC1",
-	PreconfCommitmentStore: "0x1F8989fAd5f0538D794Fd9fa15d50942F305f367",
-	Oracle:                 "0x1cB85eC90320Ef25FB4F991E41392f518980e53a",
-	BlockTracker:           "0xCB4AA84C916BB891cBF43320e0c97C3d4329Cec7",
+	BidderRegistry:         "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+	ProviderRegistry:       "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+	PreconfCommitmentStore: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+	Oracle:                 "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+	BlockTracker:           "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
 /// @title Implements an enumerable set of bytes arrays.
 /// @notice Adapted from OpenZeppelin's EnumerableSet.sol implementation. 

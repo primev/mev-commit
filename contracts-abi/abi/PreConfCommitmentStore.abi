@@ -1,38 +1,7 @@
 [
   {
     "type": "constructor",
-    "inputs": [
-      {
-        "name": "_providerRegistry",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_bidderRegistry",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_oracle",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_owner",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_blockTracker",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_commitment_dispatch_window",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
+    "inputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -179,19 +148,6 @@
   },
   {
     "type": "function",
-    "name": "commitment_dispatch_window",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "commitments",
     "inputs": [
       {
@@ -262,9 +218,9 @@
         "internalType": "bytes"
       },
       {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
+        "name": "blockCommitedAt",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "sharedSecretKey",
@@ -325,9 +281,9 @@
         "internalType": "bytes"
       },
       {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
+        "name": "blockCommitedAt",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -448,9 +404,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "blockCommitedAt",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "sharedSecretKey",
@@ -532,9 +488,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "blockCommitedAt",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "sharedSecretKey",
@@ -628,9 +584,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "blockCommitedAt",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -667,9 +623,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
+            "name": "blockCommitedAt",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -755,6 +711,39 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "initialize",
+    "inputs": [
+      {
+        "name": "_providerRegistry",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_bidderRegistry",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_blockTracker",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_oracle",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -971,11 +960,6 @@
         "name": "commitmentSignature",
         "type": "bytes",
         "internalType": "bytes"
-      },
-      {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
       }
     ],
     "outputs": [
@@ -1008,19 +992,6 @@
         "name": "newBidderRegistry",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "updateCommitmentDispatchWindow",
-    "inputs": [
-      {
-        "name": "newDispatchWindow",
-        "type": "uint64",
-        "internalType": "uint64"
       }
     ],
     "outputs": [],
@@ -1242,10 +1213,10 @@
         "internalType": "bytes"
       },
       {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
+        "name": "blockCommitedAt",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "uint64"
+        "internalType": "uint256"
       },
       {
         "name": "sharedSecretKey",
@@ -1285,7 +1256,20 @@
         "internalType": "bytes"
       },
       {
-        "name": "dispatchTimestamp",
+        "name": "blockCommitedAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
@@ -1342,5 +1326,37 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OwnableInvalidOwner",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OwnableUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   }
 ]

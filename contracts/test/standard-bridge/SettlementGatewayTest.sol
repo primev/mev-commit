@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../../contracts/standard-bridge/SettlementGateway.sol";
 import "../../contracts/interfaces/IWhitelist.sol";
 import "../../contracts/Whitelist.sol";
+
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract SettlementGatewayTest is Test {
 
@@ -23,8 +25,24 @@ contract SettlementGatewayTest is Test {
         bridgeUser = address(0x101);
         finalizationFee = 0.05 ether;
         counterpartyFee = 0.1 ether;
-        whitelist = new Whitelist(owner);
-        settlementGateway = new SettlementGateway(address(whitelist), owner, relayer, finalizationFee, counterpartyFee);
+
+        address proxy = Upgrades.deployUUPSProxy(
+            "Whitelist.sol",
+            abi.encodeCall(Whitelist.initialize, (owner))
+        ); 
+        whitelist = Whitelist(payable(proxy));
+        
+        address proxy2 = Upgrades.deployUUPSProxy(
+            "SettlementGateway.sol",
+            abi.encodeCall(SettlementGateway.initialize, 
+            (address(whitelist), 
+            owner, 
+            relayer, 
+            finalizationFee, 
+            counterpartyFee))
+        );
+        settlementGateway = SettlementGateway(payable(proxy2));
+
         vm.prank(owner);
         whitelist.addToWhitelist(address(settlementGateway));
     }
