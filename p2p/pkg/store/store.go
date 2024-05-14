@@ -12,6 +12,28 @@ import (
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
 )
 
+var (
+	commitmentNS = "cm/"
+	balanceNS    = "bbs/"
+
+	commitmentKey = func(blockNum int64, index []byte) string {
+		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
+	}
+	blockCommitmentPrefix = func(blockNum int64) string {
+		return fmt.Sprintf("%s%d", commitmentNS, blockNum)
+	}
+
+	balanceKey = func(window *big.Int, bidder common.Address) string {
+		return fmt.Sprintf("%s%s/%s", balanceNS, window, bidder)
+	}
+	blockBalanceKey = func(window *big.Int, bidder common.Address, blockNumber int64) string {
+		return fmt.Sprintf("%s%s/%s/%d", balanceNS, window, bidder, blockNumber)
+	}
+	balancePrefix = func(window *big.Int) string {
+		return fmt.Sprintf("%s%s", balanceNS, window)
+	}
+)
+
 type Store struct {
 	mu sync.RWMutex
 	*radix.Tree
@@ -51,10 +73,7 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("cm/%d/%s",
-		commitment.Bid.BlockNumber,
-		string(commitment.EncryptedPreConfirmation.Commitment),
-	)
+	key := commitmentKey(commitment.Bid.BlockNumber, commitment.EncryptedPreConfirmation.Commitment)
 	_, _ = s.Tree.Insert(key, commitment)
 }
 
@@ -62,8 +81,9 @@ func (s *Store) GetCommitmentsByBlockNumber(blockNum int64) ([]*EncryptedPreConf
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	blockCommitmentsKey := fmt.Sprintf("cm/%d", blockNum)
+	blockCommitmentsKey := blockCommitmentPrefix(blockNum)
 	commitments := make([]*EncryptedPreConfirmationWithDecrypted, 0)
+
 	s.Tree.WalkPrefix(blockCommitmentsKey, func(key string, value interface{}) bool {
 		commitments = append(commitments, value.(*EncryptedPreConfirmationWithDecrypted))
 		return false
@@ -75,7 +95,7 @@ func (s *Store) DeleteCommitmentByBlockNumber(blockNum int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	blockCommitmentsKey := fmt.Sprintf("cm/%d", blockNum)
+	blockCommitmentsKey := blockCommitmentPrefix(blockNum)
 	_ = s.Tree.DeletePrefix(blockCommitmentsKey)
 	return nil
 }
@@ -84,7 +104,7 @@ func (s *Store) DeleteCommitmentByIndex(blockNum int64, index [32]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("cm/%d/%s", blockNum, string(index[:]))
+	key := commitmentKey(blockNum, index[:])
 	_, _ = s.Tree.Delete(key)
 	return nil
 }
@@ -93,7 +113,7 @@ func (s *Store) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex [32]byte) e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.Tree.WalkPrefix("cm/", func(key string, value interface{}) bool {
+	s.Tree.WalkPrefix(commitmentNS, func(key string, value interface{}) bool {
 		commitment := value.(*EncryptedPreConfirmationWithDecrypted)
 		if bytes.Equal(commitment.EncryptedPreConfirmation.Commitment, cDigest[:]) {
 			commitment.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
@@ -109,7 +129,7 @@ func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("bbs/%s/%s", windowNumber, bidder)
+	key := balanceKey(windowNumber, bidder)
 	_, _ = s.Tree.Insert(key, depositedAmount)
 	return nil
 }
@@ -118,7 +138,7 @@ func (s *Store) GetBalance(bidder common.Address, windowNumber *big.Int) (*big.I
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	key := fmt.Sprintf("bbs/%s/%s", windowNumber, bidder)
+	key := balanceKey(windowNumber, bidder)
 	val, ok := s.Tree.Get(key)
 	if !ok {
 		return nil, nil
@@ -133,7 +153,7 @@ func (s *Store) ClearBalances(windowNumber *big.Int) error {
 
 	s.mu.RLock()
 	windows := make([]*big.Int, 0)
-	s.Tree.WalkPrefix("bbs/", func(key string, value interface{}) bool {
+	s.Tree.WalkPrefix(balanceNS, func(key string, value interface{}) bool {
 		parts := strings.Split(key, "/")
 		if len(parts) != 3 {
 			return false
@@ -155,7 +175,7 @@ func (s *Store) ClearBalances(windowNumber *big.Int) error {
 
 	s.mu.Lock()
 	for _, w := range windows {
-		key := fmt.Sprintf("bbs/%s", w)
+		key := balancePrefix(w)
 		_ = s.Tree.DeletePrefix(key)
 	}
 	s.mu.Unlock()
@@ -171,7 +191,7 @@ func (s *Store) GetBalanceForBlock(
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	key := fmt.Sprintf("bbs/%s/%s/%d", window, bidder, blockNumber)
+	key := blockBalanceKey(window, bidder, blockNumber)
 	val, ok := s.Tree.Get(key)
 	if !ok {
 		return nil, nil
@@ -188,7 +208,7 @@ func (s *Store) SetBalanceForBlock(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("bbs/%s/%s/%d", window, bidder, blockNumber)
+	key := blockBalanceKey(window, bidder, blockNumber)
 	_, _ = s.Tree.Insert(key, amount)
 	return nil
 }
@@ -202,7 +222,7 @@ func (s *Store) RefundBalanceForBlock(
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := fmt.Sprintf("bbs/%s/%s/%d", window, bidder, blockNumber)
+	key := blockBalanceKey(window, bidder, blockNumber)
 	val, ok := s.Tree.Get(key)
 	if !ok {
 		_, _ = s.Tree.Insert(key, amount)
