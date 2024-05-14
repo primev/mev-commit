@@ -17,7 +17,7 @@
     profiles:
       devnet:
         job_names:
-          # - 'datadog-agent-logs-collector'
+          - "datadog-agent-logs-collector"
           - "mev-commit-geth-bootnode1"
           - "mev-commit-geth-signer-node1"
           - "mev-commit-geth-member-node"
