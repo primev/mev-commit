@@ -119,6 +119,24 @@ jobs:
     target_type: provider
     target_name: mev-commit-provider-node1
 
+  - name: mev-commit-oracle
+    template: mev-commit-oracle.nomad.j2
+    count: 1
+    ports:
+      - db:
+          static: 5432
+          to: 5432
+        http:
+          static: 8080
+          to: 8080
+    env:
+      l1-rpc-url: https://ethereum-holesky-rpc.publicnode.com
+      preconf-contract-address: "{{ preconf_contract_address }}"
+      blocktracker-contract-address: "{{ blocktracker_contract_address }}"
+      bidder-registry-contract-address: "{{ bidder_registry_contract_address }}"
+      provider-registry-contract-address: "{{ provider_registry_contract_address }}"
+      oracle-contract-address: "{{ oracle_contract_address }}"
+
   - name: mev-commit-bidder-node1
     template: mev-commit.nomad.j2
     count: 1
@@ -167,24 +185,6 @@ jobs:
     ports:
       - metrics:
           to: 8080
-
-  - name: mev-commit-oracle
-    template: mev-commit-oracle.nomad.j2
-    count: 1
-    ports:
-      - db:
-          static: 5432
-          to: 5432
-        http:
-          static: 8080
-          to: 8080
-    env:
-      l1-rpc-url: https://ethereum-holesky-rpc.publicnode.com
-      preconf-contract-address: "{{ preconf_contract_address }}"
-      blocktracker-contract-address: "{{ blocktracker_contract_address }}"
-      bidder-registry-contract-address: "{{ bidder_registry_contract_address }}"
-      provider-registry-contract-address: "{{ provider_registry_contract_address }}"
-      oracle-contract-address: "{{ oracle_contract_address }}"
 
   - name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2
