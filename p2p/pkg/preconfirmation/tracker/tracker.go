@@ -12,6 +12,7 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -20,6 +21,7 @@ type Tracker struct {
 	evtMgr          events.EventManager
 	store           CommitmentStore
 	preconfContract PreconfContract
+	receiptGetter   txmonitor.BatchReceiptGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
@@ -55,6 +57,7 @@ func NewTracker(
 	evtMgr events.EventManager,
 	store CommitmentStore,
 	preconfContract PreconfContract,
+	receiptGetter txmonitor.BatchReceiptGetter,
 	logger *slog.Logger,
 ) *Tracker {
 	return &Tracker{
@@ -62,6 +65,7 @@ func NewTracker(
 		evtMgr:          evtMgr,
 		store:           store,
 		preconfContract: preconfContract,
+		receiptGetter:   receiptGetter,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
@@ -174,6 +178,8 @@ func (t *Tracker) handleNewL1Block(
 		"window", newL1Block.Window,
 	)
 
+	openStart := time.Now()
+
 	blockToProcess := newL1Block.BlockNumber
 	if t.peerType == p2p.PeerTypeBidder {
 		// Bidders should process the block 1 behind the current one. Ideally the
@@ -199,7 +205,13 @@ func (t *Tracker) handleNewL1Block(
 		return err
 	}
 
+	failedCommitments := make([]common.Hash, 0)
+	settled := 0
 	for _, commitment := range commitments {
+		if commitment.CommitmentIndex == nil {
+			failedCommitments = append(failedCommitments, commitment.TxnHash)
+			continue
+		}
 		if common.BytesToAddress(commitment.ProviderAddress) != newL1Block.Winner {
 			t.logger.Debug(
 				"provider address does not match the winner",
@@ -223,18 +235,40 @@ func (t *Tracker) handleNewL1Block(
 			commitment.PreConfirmation.SharedSecret,
 		)
 		if err != nil {
-			// todo: retry mechanism?
 			t.logger.Error("failed to open commitment", "error", err)
 			continue
 		}
 		duration := time.Since(startTime)
 		t.logger.Info("opened commitment", "txHash", txHash, "duration", duration)
+		settled++
 	}
 
 	err = t.store.DeleteCommitmentByBlockNumber(blockToProcess.Int64())
 	if err != nil {
 		t.logger.Error("failed to delete commitments by block number", "error", err)
 		return err
+	}
+
+	t.logger.Info("commitments opened",
+		"blockNumber", blockToProcess,
+		"total", len(commitments),
+		"settled", settled,
+		"failed", len(failedCommitments),
+		"duration", time.Since(openStart),
+	)
+
+	if len(failedCommitments) > 0 {
+		receipts, err := t.receiptGetter.BatchReceipts(ctx, failedCommitments)
+		if err != nil {
+			t.logger.Warn("failed to get receipts for failed commitments", "error", err)
+			return nil
+		}
+		for i, receipt := range receipts {
+			t.logger.Debug("receipt for failed commitment",
+				"txHash", failedCommitments[i],
+				"error", receipt.Err,
+			)
+		}
 	}
 
 	return nil

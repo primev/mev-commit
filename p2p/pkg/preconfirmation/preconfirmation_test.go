@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"io"
 	"log/slog"
-	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -102,16 +101,13 @@ func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
 
 type testDepositManager struct{}
 
-func (t *testDepositManager) Start(ctx context.Context) <-chan struct{} {
-	return nil
-}
-
-func (t *testDepositManager) CheckAndDeductDeposit(ctx context.Context, address common.Address, bidAmountStr string, blockNumber int64) (*big.Int, error) {
-	return big.NewInt(0), nil
-}
-
-func (t *testDepositManager) RefundDeposit(address common.Address, deductedAmount *big.Int, blockNumber int64) error {
-	return nil
+func (t *testDepositManager) CheckAndDeductDeposit(
+	ctx context.Context,
+	address common.Address,
+	bidAmountStr string,
+	blockNumber int64,
+) (func() error, error) {
+	return func() error { return nil }, nil
 }
 
 type testTracker struct{}

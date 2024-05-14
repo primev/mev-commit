@@ -1,18 +1,7 @@
 - name: Destroy Nomad Jobs
   hosts: nomad_clients
-  vars:
-    env: "devnet"
-    version: "68894a3"
-    destination: "{{ ansible_env.HOME }}/{{ env }}"
 
   tasks:
-    - name: Check | "{{ destination }}" exists
-      ansible.builtin.file:
-        path: "{{ destination }}"
-        state: directory
-        mode: '0744'
-        recurse: yes
-
     - name: Destroy | Nomad jobs
       ansible.builtin.shell: |
         for job in $(nomad job status | awk 'NR > 1 {print $1}'); do

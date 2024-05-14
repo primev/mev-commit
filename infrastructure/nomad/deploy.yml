@@ -1,13 +1,9 @@
 - name: Deploy Nomad Jobs
   hosts: nomad_clients
+
   vars:
-    env: "devnet"
     build: false
     datacenter: "dc1"
-    destination: "{{ ansible_env.HOME }}/{{ env }}"
-    tls_ca_crt_file: "/usr/local/share/ca-certificates/ca-mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
-    tls_crt_file: "/etc/ssl/certs/mev-commit_{{ env }}.mev-commit.primev.xyz.crt"
-    tls_key_file: "/etc/ssl/private/mev-commit_{{ env }}.mev-commit.primev.xyz.key"
     aws_s3_bucket: "primev-infrastructure-artifacts"
     preconf_contract_address: "0x2Aff805aBdF1Fe79AfcF8B3a9B4B45ECcD6b6D6e"
     blocktracker_contract_address: "0x042744D8cF66d8455350D43F9e09CA73b5C0CB94"
@@ -51,6 +47,10 @@
       private: no
 
   pre_tasks:
+    - name: Configuration | Include variables
+      include_vars:
+        file: vars.yml
+
     - name: Configuration | Get AWS caller information
       amazon.aws.aws_caller_info:
       register: aws_caller_info
@@ -95,18 +95,14 @@
         msg: "Version is not set; provide a valid version."
       when: version is not defined or version == ''
 
-    - name: Configuration | Include job definitions
-      include_vars:
-        file: jobs.yml
-
     - name: Configuration | Using "{{ env }}" profile
       set_fact:
         jobs: "{{ lookup('vars', 'jobs') | selectattr('name', 'in', profiles[env].job_names) | list }}"
 
   tasks:
-    - name: Check | "{{ destination }}" exists
+    - name: Check | "{{ ansible_env.HOME }}/{{ env }}" exists
       ansible.builtin.file:
-        path: "{{ destination }}"
+        path: "{{ ansible_env.HOME }}/{{ env }}"
         state: directory
         mode: "0744"
         recurse: yes
@@ -173,7 +169,7 @@
     - name: Generate | Nomad scripts
       ansible.builtin.template:
         src: "templates/nomad/{{ item.template }}"
-        dest: "{{ destination }}/{{ item.name }}.nomad"
+        dest: "{{ ansible_env.HOME }}/{{ env }}/{{ item.name }}.nomad"
       loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
@@ -182,7 +178,7 @@
 
     - name: Deploy | Nomad jobs
       ansible.builtin.shell: |
-        nomad run {{ destination }}/{{ job.name }}.nomad
+        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
         [ "{{ job.name }}" = "deploy-contracts" ] && sleep 240 || true
       args:
         executable: bash

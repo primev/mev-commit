@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"math/big"
 	"sync"
 	"time"
 
@@ -47,9 +46,12 @@ type BidProcessor interface {
 }
 
 type DepositManager interface {
-	Start(ctx context.Context) <-chan struct{}
-	CheckAndDeductDeposit(ctx context.Context, ethAddress common.Address, bidAmount string, blockNumber int64) (*big.Int, error)
-	RefundDeposit(ethAddress common.Address, amount *big.Int, blockNumber int64) error
+	CheckAndDeductDeposit(
+		ctx context.Context,
+		ethAddress common.Address,
+		bidAmount string,
+		blockNumber int64,
+	) (func() error, error)
 }
 
 type Tracker interface {
@@ -260,7 +262,7 @@ func (p *Preconfirmation) handleBid(
 		return err
 	}
 
-	deductedAmount, err := p.depositMgr.CheckAndDeductDeposit(ctx, *ethAddress, bid.BidAmount, bid.BlockNumber)
+	refund, err := p.depositMgr.CheckAndDeductDeposit(ctx, *ethAddress, bid.BidAmount, bid.BlockNumber)
 	if err != nil {
 		p.logger.Error("checking deposit", "error", err)
 		return err
@@ -271,7 +273,7 @@ func (p *Preconfirmation) handleBid(
 	defer func() {
 		if !successful {
 			// Refund the deducted amount if the bid process did not succeed
-			refundErr := p.depositMgr.RefundDeposit(*ethAddress, deductedAmount, bid.BlockNumber)
+			refundErr := refund()
 			if refundErr != nil {
 				p.logger.Error("refunding deposit", "error", refundErr)
 			}
@@ -300,7 +302,7 @@ func (p *Preconfirmation) handleBid(
 			}
 
 			p.logger.Info("sending preconfirmation", "preConfirmation", encryptedPreConfirmation)
-			_, err = p.commitmentDA.StoreEncryptedCommitment(
+			txnHash, err := p.commitmentDA.StoreEncryptedCommitment(
 				ctx,
 				encryptedPreConfirmation.Commitment,
 				encryptedPreConfirmation.Signature,
@@ -312,6 +314,7 @@ func (p *Preconfirmation) handleBid(
 			}
 
 			encryptedAndDecryptedPreconfirmation := &store.EncryptedPreConfirmationWithDecrypted{
+				TxnHash:                  txnHash,
 				EncryptedPreConfirmation: encryptedPreConfirmation,
 				PreConfirmation:          preConfirmation,
 			}

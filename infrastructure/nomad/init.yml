@@ -5,7 +5,6 @@
   gather_facts: yes
 
   vars:
-    env: "devnet"
     nomad_server_ip: "{{ (hostvars[groups['nomad_servers'][0]]['ansible_default_ipv4']['address'] if groups['nomad_servers'] | default([]) | length > 0 else '127.0.0.1') }}"
     nomad_clients_defined: "{{ groups['nomad_clients'] | length > 0 }}"
     nomad_servers_defined: "{{ groups['nomad_servers'] | length > 0 }}"
@@ -13,14 +12,13 @@
     vault_address: "https://127.0.0.1:8200"
     vault_kv_engine_path: "secret"
     vault_secret_path: "mev-commit"
-    openssl_dir: "/etc/ssl"
-    ca_certificates_dir: "/usr/local/share/ca-certificates"
-    server_common_name: "mev-commit-{{ env }}.mev-commit.primev.xyz"
-    ca_certificate_subject: "/C=US/ST=Delaware/L=Delaware City/O=Primev Inc/OU=Certificate Authority/CN={{ ansible_default_ipv4['address'] }}"
-    server_csr_subject_alt_name: "DNS:localhost,IP:127.0.0.1,IP:{{ ansible_default_ipv4['address'] }}"
 
   pre_tasks:
-    - name: Dependency | Install common utility packages and dependencies
+    - name: Configuration | Include variables
+      include_vars:
+        file: vars.yml
+
+    - name: Dependencies | Install common utility packages and dependencies
       ansible.builtin.apt:
         name:
           - tree
@@ -40,7 +38,7 @@
         state: present
         update_cache: yes
 
-    - name: Dependency | Install Linux crisis management tools
+    - name: Dependencies | Install Linux crisis management tools
       ansible.builtin.apt:
         name:
           - procps
@@ -96,19 +94,19 @@
         success_msg: "AWS caller information is valid."
 
   tasks:
-    - name: Dependency | Add DataDog repository key
+    - name: Dependencies | Add DataDog repository key
       ansible.builtin.apt_key:
         url: "https://keys.datadoghq.com/DATADOG_APT_KEY_CURRENT.public"
         state: present
         keyring: /usr/share/keyrings/datadog-archive-keyring.gpg
 
-    - name: Dependency | Add DataDog repository
+    - name: Dependencies | Add DataDog repository
       ansible.builtin.apt_repository:
         repo: "deb [signed-by=/usr/share/keyrings/datadog-archive-keyring.gpg] https://apt.datadoghq.com/ stable 7"
         state: present
         filename: datadog.list
 
-    - name: Dependency | Install DataDog Agent
+    - name: Dependencies | Install DataDog Agent
       ansible.builtin.apt:
         name:
           - datadog-agent
@@ -116,18 +114,18 @@
         state: present
         update_cache: yes
 
-    - name: Dependency | Import the PostgreSQL repository key
+    - name: Dependencies | Import the PostgreSQL repository key
       ansible.builtin.apt_key:
         url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
         state: present
 
-    - name: Dependency | Add PostgreSQL repository
+    - name: Dependencies | Add PostgreSQL repository
       ansible.builtin.apt_repository:
         repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
         state: present
         filename: pgdg.list
 
-    - name: Dependency | Install PostgreSQL
+    - name: Dependencies | Install PostgreSQL
       ansible.builtin.apt:
         name: postgresql-15
         state: present
@@ -139,19 +137,19 @@
         state: stopped
         enabled: no
 
-    - name: Dependency | Add HashiCorp GPG key
+    - name: Dependencies | Add HashiCorp GPG key
       ansible.builtin.apt_key:
         url: https://apt.releases.hashicorp.com/gpg
         keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
 
-    - name: Dependency | Add HashiCorp repository
+    - name: Dependencies | Add HashiCorp repository
       ansible.builtin.apt_repository:
         repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
         filename: hashicorp
         state: present
         update_cache: yes
 
-    - name: Dependency | Install Vault
+    - name: Dependencies | Install Vault
       ansible.builtin.apt:
         name: vault
         state: present
@@ -300,22 +298,22 @@
         validate_certs: no
       when: unseal_result.json.sealed == false
 
-    - name: Dependency | Install Nomad
+    - name: Dependencies | Install Nomad
       ansible.builtin.apt:
         name: nomad
         state: present
 
-    - name: Dependency | Download CNI plugins package
+    - name: Dependencies | Download CNI plugins package
       ansible.builtin.get_url:
         url: "https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-{{ system_arch }}-v1.4.0.tgz"
         dest: "/tmp/cni-plugins.tgz"
 
-    - name: Dependency | Ensure /opt/cni/bin directory exists
+    - name: Dependencies | Ensure /opt/cni/bin directory exists
       ansible.builtin.file:
         path: "/opt/cni/bin"
         state: directory
 
-    - name: Dependency | Extract the CNI plugins package
+    - name: Dependencies | Extract the CNI plugins package
       ansible.builtin.unarchive:
         src: "/tmp/cni-plugins.tgz"
         dest: "/opt/cni/bin"
@@ -358,7 +356,7 @@
         enabled: yes
         daemon_reload: yes
 
-    - name: Dependency | Install OpenSSL
+    - name: Dependencies | Install OpenSSL
       ansible.builtin.apt:
         name: openssl
         state: present
@@ -374,43 +372,43 @@
       tags:
         - certs
 
-    - name: Configuration | Generate Private Key for CA
+    - name: Configuration | Generate private key for CA
       ansible.builtin.openssl_privatekey:
         path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
         size: 4096
       tags:
         - certs
 
-    - name: Configuration | Generate Self-Signed CA Certificate
+    - name: Configuration | Generate self-signed CA certificate
       ansible.builtin.command:
-        cmd: "openssl req -x509 -new -nodes -key {{ ca_certificates_dir }}/ca-{{ server_common_name }}.key -days 3650 -out {{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt -subj '{{ ca_certificate_subject }}'"
+        cmd: "openssl req -x509 -new -nodes -key {{ ca_certificates_dir }}/ca-{{ server_common_name }}.key -days 3650 -out {{ tls_ca_crt_file }} -subj '/C=US/ST=Delaware/L=Delaware City/O=Primev Inc/OU=Certificate Authority/CN={{ ansible_default_ipv4['address'] }}'"
       notify: update ca-certificates
       tags:
         - certs
 
-    - name: Configuration | Generate Private Key for Server
+    - name: Configuration | Generate private key for server
       ansible.builtin.openssl_privatekey:
-        path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        path: "{{ tls_key_file }}"
         size: 4096
       tags:
         - certs
 
-    - name: Configuration | Generate CSR for Server
+    - name: Configuration | Generate CSR for server
       ansible.builtin.openssl_csr:
         path: "/tmp/{{ server_common_name }}.csr"
-        privatekey_path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        privatekey_path: "{{ tls_key_file }}"
         common_name: "{{ ansible_default_ipv4['address'] }}"
-        subject_alt_name: "{{ server_csr_subject_alt_name }}"
+        subject_alt_name: "DNS:localhost,IP:127.0.0.1,IP:{{ ansible_default_ipv4['address'] }}"
       tags:
         - certs
 
-    - name: Configuration | Generate Server Certificate signed by Self-Signed CA
+    - name: Configuration | Generate server certificate signed by self-signed CA
       ansible.builtin.openssl_certificate:
-        path: "{{ openssl_dir }}/certs/{{ server_common_name }}.crt"
-        privatekey_path: "{{ openssl_dir }}/private/{{ server_common_name }}.key"
+        path: "{{ tls_crt_file }}"
+        privatekey_path: "{{ tls_key_file }}"
         csr_path: "/tmp/{{ server_common_name }}.csr"
         provider: ownca
-        ownca_path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
+        ownca_path: "{{ tls_ca_crt_file }}"
         ownca_privatekey_path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
         ownca_not_before: "-1d"
         ownca_not_after: "+365d"
