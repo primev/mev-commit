@@ -22,7 +22,7 @@ if [ "$DEPLOY_TYPE" = "core" ]; then
     $FORGE_BIN_PATH script \
         "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployScript \
         --rpc-url "$RPC_URL" \
-        --keystores ./deployer_keystore \
+        --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
@@ -40,7 +40,7 @@ elif [ "$DEPLOY_TYPE" = "whitelist" ]; then
     HYP_ERC20_ADDR="$HYP_ERC20_ADDR" $FORGE_BIN_PATH script \
         "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployWhitelist \
         --rpc-url "$RPC_URL" \
-        --keystores ./deployer_keystore \
+        --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
@@ -57,7 +57,7 @@ elif [ "$DEPLOY_TYPE" = "settlement-gateway" ]; then
     RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script \
         "${SCRIPT_PATH_PREFIX}"DeployStandardBridge.s.sol:DeploySettlementGateway \
         --rpc-url "$RPC_URL" \
-        --keystores ./deployer_keystore \
+        --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
@@ -74,7 +74,7 @@ elif [ "$DEPLOY_TYPE" = "l1-gateway" ]; then
     RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script \
         "${SCRIPT_PATH_PREFIX}"DeployStandardBridge.s.sol:DeployL1Gateway \
         --rpc-url "$RPC_URL" \
-        --keystores ./deployer_keystore \
+        --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
@@ -90,7 +90,7 @@ elif [ "$DEPLOY_TYPE" = "validator-registry" ]; then
         --with-gas-price 5000000000 \
         "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployValidatorRegistry \
         --rpc-url "$RPC_URL" \
-        --keystores ./deployer_keystore \
+        --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
