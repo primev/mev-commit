@@ -11,10 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p/core"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	handshakepb "github.com/primevprotocol/mev-commit/p2p/gen/go/handshake/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
+	handshakepb "github.com/primev/mev-commit/p2p/gen/go/handshake/v1"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/signer"
 )
 
 const (

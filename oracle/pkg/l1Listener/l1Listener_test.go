@@ -18,10 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/l1Listener"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
-	"github.com/primevprotocol/mev-commit/x/util"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	"github.com/primev/mev-commit/oracle/pkg/l1Listener"
+	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestL1Listener(t *testing.T) {

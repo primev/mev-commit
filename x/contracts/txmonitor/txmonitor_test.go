@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
-	"github.com/primevprotocol/mev-commit/x/util"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestTxMonitor(t *testing.T) {

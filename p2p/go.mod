@@ -1,4 +1,4 @@
-module github.com/primevprotocol/mev-commit/p2p
+module github.com/primev/mev-commit/p2p
 
 go 1.22
 
@@ -14,8 +14,8 @@ require (
 	github.com/libp2p/go-msgio v0.3.0
 	github.com/multiformats/go-multiaddr v0.12.2
 	github.com/multiformats/go-multiaddr-dns v0.3.1
-	github.com/primevprotocol/mev-commit/contracts-abi v0.0.1
-	github.com/primevprotocol/mev-commit/x v0.0.1
+	github.com/primev/mev-commit/contracts-abi v0.0.1
+	github.com/primev/mev-commit/x v0.0.1
 	github.com/prometheus/client_golang v1.18.0
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.27.1
@@ -138,6 +138,6 @@ require (
 )
 
 replace (
-	github.com/primevprotocol/mev-commit/contracts-abi => ../contracts-abi
-	github.com/primevprotocol/mev-commit/x => ../x
+	github.com/primev/mev-commit/contracts-abi => ../contracts-abi
+	github.com/primev/mev-commit/x => ../x
 )

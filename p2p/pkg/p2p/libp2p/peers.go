@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	core "github.com/libp2p/go-libp2p/core"
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 )
 
 type peerRegistry struct {

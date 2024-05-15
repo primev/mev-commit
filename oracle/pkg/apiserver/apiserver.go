@@ -12,8 +12,8 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/updater"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/oracle/pkg/updater"
+	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

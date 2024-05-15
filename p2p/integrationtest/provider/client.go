@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
+	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"

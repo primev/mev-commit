@@ -15,7 +15,7 @@ contract DeploySettlementGateway is Script, Create2Deployer {
         _checkCreate2Deployed();
         _checkDeployer();
 
-        // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
+        // Forge deploy with salt uses create2 proxy from https://github.com/primev/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
 
         address expectedWhitelistAddr = 0x57508f0B0f3426758F1f3D63ad4935a7c9383620;
@@ -65,7 +65,7 @@ contract DeployL1Gateway is Script, Create2Deployer {
         _checkCreate2Deployed();
         _checkDeployer();
 
-        // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
+        // Forge deploy with salt uses create2 proxy from https://github.com/primev/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
 
         address relayerAddr = vm.envAddress("RELAYER_ADDR");

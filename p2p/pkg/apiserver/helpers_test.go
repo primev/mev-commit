@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/primevprotocol/mev-commit/p2p/pkg/apiserver"
+	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 )
 
 type testHandler struct {

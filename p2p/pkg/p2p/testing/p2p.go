@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"google.golang.org/protobuf/proto"
 )
 

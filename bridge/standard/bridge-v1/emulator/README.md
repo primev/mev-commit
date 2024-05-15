@@ -4,7 +4,7 @@ This directory contains an emulator program for stress testing the standard brid
 
 ## Accounts
 
-Since a [local l1 network](https://github.com/primevprotocol/mev-commit-geth/blob/552a9cf940652156441b2608907839e635208af9/geth-poa/docker-compose.yml#L168) is used for testing. Five accounts will be allocated L1 balances on genesis. This can be confirmed with the local l1's [genesis.json](https://github.com/primevprotocol/mev-commit-geth/blob/de3ff446517b87f3ac0ad322af3a2edc382bf13a/geth-poa/local-l1/genesis.json).
+Since a [local l1 network](https://github.com/primev/mev-commit-geth/blob/552a9cf940652156441b2608907839e635208af9/geth-poa/docker-compose.yml#L168) is used for testing. Five accounts will be allocated L1 balances on genesis. This can be confirmed with the local l1's [genesis.json](https://github.com/primev/mev-commit-geth/blob/de3ff446517b87f3ac0ad322af3a2edc382bf13a/geth-poa/local-l1/genesis.json).
 
 To best simulate new users of the mev-commit chain, these emulator accounts will have no corresponding genesis allocation on the mev-commit chain. The emulators will continuously bridge a random value in [0.01, 10] ETH from L1 -> mev-commit chain, then bridge that random value (minus 0.009 ETH for fees) back to L1.
 

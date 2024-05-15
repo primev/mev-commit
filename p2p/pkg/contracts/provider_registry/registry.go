@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/primevprotocol/mev-commit/contracts-abi/clients/ProviderRegistry"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
+	"github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 )
 
 var registryABI = func() abi.ABI {

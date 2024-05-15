@@ -10,13 +10,13 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keyexchange"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	p2ptest "github.com/primevprotocol/mev-commit/p2p/pkg/p2p/testing"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
+	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 )
 
 type testTopology struct {

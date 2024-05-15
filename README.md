@@ -17,7 +17,7 @@ The mev-commit repository is a mono-repository that also use submodules for exte
 To clone the repository and its submodules, run the following command:
 
 ```shell
-git clone --recurse-submodules <git@github.com:primevprotocol/mev-commit.git|https://github.com/primevprotocol/monorepo.git>
+git clone --recurse-submodules <git@github.com:primev/mev-commit.git|https://github.com/primev/mev-commit.git>
 ```
 
 If you have already cloned the repository and need to update the submodules, run the following command:

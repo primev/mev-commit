@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner"
 )
 
 type KeyKeeper interface {

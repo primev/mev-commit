@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	pb "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
+	pb "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/urfave/cli/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

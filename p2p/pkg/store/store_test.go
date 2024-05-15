@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 )
 
 func TestStore(t *testing.T) {

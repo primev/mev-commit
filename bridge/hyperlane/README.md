@@ -44,9 +44,9 @@ Note support for keystore and hardware wallets will be added later.
 
 ## Versions
 
-Agents are built from https://github.com/primevprotocol/hyperlane-monorepo, using the rust/build.sh script from that repo. Docker images for the agents are optimized for amd64 architecture, and may need to be compiled on a powerful machine.
+Agents are built from https://github.com/primev/hyperlane-monorepo, using the rust/build.sh script from that repo. Docker images for the agents are optimized for amd64 architecture, and may need to be compiled on a powerful machine.
 
-Hyperlane contracts and CLI are built from custom fork of their monorepo https://github.com/primevprotocol/hyperlane-monorepo.
+Hyperlane contracts and CLI are built from custom fork of their monorepo https://github.com/primev/hyperlane-monorepo.
 
 ## Contract deployer
 
@@ -61,7 +61,7 @@ To properly set a new hyperlane deployer:
 * replace `CONTRACT_DEPLOYER_PRIVATE_KEY` in `.env`
 * allocate funds to `Address` in the allocs field of `genesis.json`
 
-Note the deployer of [primev contracts](https://github.com/primevprotocol/contracts) can be a separate account.
+Note the deployer of [primev contracts](https://github.com/primev/contracts) can be a separate account.
 
 ## Validator Accounts (same keys as POA signers)
 

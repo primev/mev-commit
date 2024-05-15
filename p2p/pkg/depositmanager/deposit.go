@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
-	bidderregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/BidderRegistry"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
