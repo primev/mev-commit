@@ -24,6 +24,7 @@ if [ "$DEPLOY_TYPE" = "core" ]; then
         --rpc-url "$RPC_URL" \
         --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
@@ -42,6 +43,7 @@ elif [ "$DEPLOY_TYPE" = "whitelist" ]; then
         --rpc-url "$RPC_URL" \
         --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
@@ -59,6 +61,7 @@ elif [ "$DEPLOY_TYPE" = "settlement-gateway" ]; then
         --rpc-url "$RPC_URL" \
         --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
@@ -76,6 +79,7 @@ elif [ "$DEPLOY_TYPE" = "l1-gateway" ]; then
         --rpc-url "$RPC_URL" \
         --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
@@ -92,6 +96,7 @@ elif [ "$DEPLOY_TYPE" = "validator-registry" ]; then
         --rpc-url "$RPC_URL" \
         --keystores ./deployer_keystore/* \
         --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
