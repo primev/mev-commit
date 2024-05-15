@@ -57,13 +57,7 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
           {% if job.target_type == 'bidder' %}
-          {%- raw %}
-          {{ range nomadService "mev-commit-geth-bootnode1" }}
-            {{- if contains "http" .Tags }}
-          EMULATOR_SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
-            {{ end }}
-          {{ end }}
-          {% endraw %}
+          EMULATOR_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           {% endif %}
         EOH
         destination = "secrets/.env"
@@ -86,10 +80,8 @@ job "{{ job.name }}" {
           ${EMULATOR_BINARY} \
             -server-addr "${EMULATOR_IP_PORT}" \
             {% if job.target_type == 'bidder' %}
-            -rpc-addr "${EMULATOR_SETTLEMENT_RPC_ENDPOINT}" \
+            -rpc-addr "${EMULATOR_L1_RPC_URL}" \
             {% endif %}
-            -log-tags "${EMULATOR_LOG_TAGS}" \
-            -log-fmt "${EMULATOR_LOG_FMT}"
         EOH
         destination = "local/run.sh"
         perms = "0755"

@@ -65,6 +65,9 @@ job "{{ job.name }}" {
             {{- if contains "http" .Tags }}
           MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
+            {{- if contains "ws" .Tags }}
+          MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT="ws://{{ .Address}}:{{ .Port }}"
+            {{- end }}  
           {{- end }}
           {% endraw %}
           MEV_COMMIT_PEER_TYPE="{{ job.env['type'] }}"
