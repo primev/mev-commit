@@ -14,7 +14,7 @@ job "{{ job.name }}" {
 
     network {
       dns {
-        servers = {{ ansible_facts['dns']['nameservers'] | tojson }}
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
       }
     }
 
