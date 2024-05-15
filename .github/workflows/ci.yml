@@ -55,6 +55,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           submodules: recursive
 
       - name: Setup Cache
@@ -74,7 +75,7 @@ jobs:
           check-latest: true
           cache-dependency-path: go.work.sum
 
-      - name: Workspace Modules
+      - name: Determine Workspace Modules
         run: |
           echo $(go list -f '{{.Dir}}' -m)
           echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> $GITHUB_ENV
@@ -82,11 +83,13 @@ jobs:
       - name: Run Gofmt
         run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l
 
-      - name: Run Tidy
-        run: go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
-
-      - name: Run Sync
-        run: go work sync
+      - name: Run Tidy & Workspace Sync
+        run: |
+          go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
+          go work sync
+          git checkout ${{ github.event.pull_request.head.ref }}
+          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work files" && exit 1)
+          git reset --hard HEAD
 
       - name: Run Lint
         uses: golangci/golangci-lint-action@v4
@@ -101,6 +104,20 @@ jobs:
         # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
       - name: Run Test
         run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test -short -race
+
+      - name: Setup Protobuf
+        uses: bufbuild/buf-setup-action@v1.31.0
+
+      - name: Protobuf version
+        run: buf --version
+
+      - name: Check Protobuf Parity
+        run: |
+          make bufgen
+          git checkout ${{ github.event.pull_request.head.ref }}
+          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
+          git reset --hard HEAD
+        working-directory: p2p
 
   foundry:
     name: Foundry Checks and Reports
@@ -188,5 +205,6 @@ jobs:
         run: |
           bash script.sh
           git checkout ${{ github.event.pull_request.head.ref }}
-          git diff --name-only --exit-code .
+          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
+          git reset --hard HEAD
         working-directory: contracts-abi
