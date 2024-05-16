@@ -206,8 +206,10 @@ func (ke *KeyExchange) handleTimestampMessage(ctx context.Context, peer p2p.Peer
 		return fmt.Errorf("validate and process timestamp failed: %w", err)
 	}
 
-	ke.store.SetAESKey(peer.EthAddress, aesKey)
-
+	err = ke.store.SetAESKey(peer.EthAddress, aesKey)
+	if err != nil {
+		return fmt.Errorf("failed to set AES key: %w", err)
+	}
 	ke.logger.Info("successfully processed timestamp message", "peer", peer.EthAddress, "key", aesKey)
 
 	return nil

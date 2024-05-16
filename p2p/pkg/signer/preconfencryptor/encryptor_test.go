@@ -32,7 +32,10 @@ func TestBids(t *testing.T) {
 			t.Fatal(err)
 		}
 		bidderStore := store.NewStore()
-		bidderStore.SetAESKey(address, aesKey)
+		err = bidderStore.SetAESKey(address, aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 		encryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
 		if err != nil {
 			t.Fatal(err)
@@ -45,7 +48,10 @@ func TestBids(t *testing.T) {
 		}
 
 		providerStore := store.NewStore()
-		providerStore.SetAESKey(address, aesKey)
+		err = providerStore.SetAESKey(address, aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 		encryptorProvider, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
 		if err != nil {
 			t.Fatal(err)
@@ -80,7 +86,10 @@ func TestBids(t *testing.T) {
 
 		keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
 		bidderStore := store.NewStore()
-		bidderStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+		err = bidderStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 		bidderEncryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
 		if err != nil {
 			t.Fatal(err)
@@ -93,7 +102,10 @@ func TestBids(t *testing.T) {
 		bidderAddress := crypto.PubkeyToAddress(bidderKey.PublicKey)
 		keySigner = mockkeysigner.NewMockKeySigner(providerKey, crypto.PubkeyToAddress(providerKey.PublicKey))
 		providerStore := store.NewStore()
-		providerStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+		err = providerStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 		providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
 		if err != nil {
 			t.Fatal(err)
@@ -114,8 +126,10 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		providerStore.SetNikePrivateKey(providerNikePrivateKey)
-
+		err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 		_, encryptedPreConfirmation, err := providerEncryptor.ConstructEncryptedPreConfirmation(decryptedBid)
 		if err != nil {
 			t.Fail()
