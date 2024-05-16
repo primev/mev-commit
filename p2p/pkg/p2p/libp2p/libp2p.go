@@ -55,10 +55,11 @@ type Service struct {
 
 type ProviderRegistry interface {
 	CheckProviderRegistered(ctx context.Context, ethAddress common.Address) bool
-}
+}	
 
 type Options struct {
 	KeyKeeper      keykeeper.KeyKeeper
+	Store          handshake.Store
 	Secret         string
 	PeerType       p2p.PeerType
 	Register       handshake.ProviderRegistry
@@ -167,6 +168,7 @@ func New(opts *Options) (*Service, error) {
 		opts.PeerType,
 		opts.Secret,
 		signer.New(),
+		opts.Store,
 		opts.Register,
 		GetEthAddressFromPeerID,
 	)

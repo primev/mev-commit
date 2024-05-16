@@ -14,6 +14,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 )
 
 type testRegister struct{}
@@ -62,11 +63,13 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		store1 := store.NewStore()
 		hs1, err := handshake.New(
 			kk1,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address2},
+			store1,
 			&testRegister{},
 			func(p core.PeerID) (common.Address, error) {
 				return address2, nil
@@ -76,11 +79,14 @@ func TestHandshake(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		store2 := store.NewStore()
+
 		hs2, err := handshake.New(
 			kk2,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address1},
+			store2,
 			&testRegister{},
 			func(p core.PeerID) (common.Address, error) {
 				return address1, nil
@@ -116,7 +122,13 @@ func TestHandshake(t *testing.T) {
 				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), kk2.GetNIKEPublicKey().Bytes())
 				return
 			}
-			if !p.Keys.PKEPublicKey.ExportECDSA().Equal(kk2.GetECIESPublicKey().ExportECDSA()) {
+			prvKey2, err := store2.GetECIESPrivateKey()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			
+			if !p.Keys.PKEPublicKey.ExportECDSA().Equal(prvKey2.PublicKey.ExportECDSA()) {
 				t.Error("expected pke pk is not equal to present")
 				return
 			}
@@ -135,7 +147,12 @@ func TestHandshake(t *testing.T) {
 		if !p.Keys.NIKEPublicKey.Equal(kk1.GetNIKEPublicKey()) {
 			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), kk1.GetNIKEPublicKey().Bytes())
 		}
-		if !p.Keys.PKEPublicKey.ExportECDSA().Equal(kk1.GetECIESPublicKey().ExportECDSA()) {
+		prvKey1, err := store1.GetECIESPrivateKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !p.Keys.PKEPublicKey.ExportECDSA().Equal(prvKey1.PublicKey.ExportECDSA()) {
 			t.Fatalf("expected pke pk is not equal to present")
 		}
 		<-done

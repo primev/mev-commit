@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
@@ -44,4 +45,5 @@ type Topology interface {
 type Store interface {
 	SetAESKey(common.Address, []byte) error
 	GetAESKey(common.Address) ([]byte, error)
+	GetECIESPrivateKey() (*ecies.PrivateKey, error)
 }

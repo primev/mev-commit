@@ -2,6 +2,8 @@ package keyexchange_test
 
 import (
 	"bytes"
+	"crypto/elliptic"
+	"crypto/rand"
 	"io"
 	"os"
 	"testing"
@@ -10,6 +12,7 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
 	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
 	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
@@ -61,10 +64,23 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		Type:       p2p.PeerTypeBidder,
 	}
 
+	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bidderStore := store.NewStore()
+	providerStore := store.NewStore()
+
+	err = providerStore.SetECIESPrivateKey(encryptionPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	providerPeer := p2p.Peer{
 		EthAddress: providerKK.KeySigner.GetAddress(),
 		Type:       p2p.PeerTypeProvider,
-		Keys:       &p2p.Keys{PKEPublicKey: providerKK.GetECIESPublicKey(), NIKEPublicKey: providerKK.GetNIKEPublicKey()},
+		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: providerKK.GetNIKEPublicKey()},
 	}
 	topo1 := &testTopology{peers: []p2p.Peer{providerPeer}}
 	topo2 := &testTopology{peers: []p2p.Peer{bidderPeer}}
@@ -79,9 +95,6 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 	svc2 := p2ptest.New(
 		&providerPeer,
 	)
-
-	bidderStore := store.NewStore()
-	providerStore := store.NewStore()
 
 	ke1 := keyexchange.New(topo1, svc1, bidderKK, bidderStore, logger, signer)
 	ke2 := keyexchange.New(topo2, svc2, providerKK, providerStore, logger, signer)

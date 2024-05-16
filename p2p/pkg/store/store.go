@@ -9,6 +9,7 @@ import (
 
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 )
 
@@ -16,6 +17,10 @@ var (
 	commitmentNS = "cm/"
 	balanceNS    = "bbs/"
 	aesKeysNS    = "aes/"
+
+	// provider related keys
+	eciesPrivateKeyNS = "ecies/"
+	nikePrivateKeyNS  = "nike/"
 
 	commitmentKey = func(blockNum int64, index []byte) string {
 		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
@@ -148,6 +153,25 @@ func (s *Store) GetAESKey(bidder common.Address) ([]byte, error) {
 		return nil, nil
 	}
 	return val.([]byte), nil
+}
+
+func (s *Store) SetECIESPrivateKey(key *ecies.PrivateKey) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(eciesPrivateKeyNS, key)
+	return nil
+}
+
+func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	val, ok := s.Tree.Get(eciesPrivateKeyNS)
+	if !ok {
+		return nil, nil
+	}
+	return val.(*ecies.PrivateKey), nil
 }
 
 func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount *big.Int) error {

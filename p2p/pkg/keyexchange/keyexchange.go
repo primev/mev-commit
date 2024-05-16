@@ -265,10 +265,13 @@ func (ke *KeyExchange) decryptMessage(ekmWithSignature *keyexchangepb.EKMWithSig
 		return nil, nil, fmt.Errorf("failed to unmarshal message: %w", err)
 	}
 
-	providerKK := ke.keyKeeper.(*keykeeper.ProviderKeyKeeper)
+	prvKey, err := ke.store.GetECIESPrivateKey()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get ECIES private key: %w", err)
+	}
 
 	for i := 0; i < len(message.EncryptedKeys); i++ {
-		aesKey, err = providerKK.DecryptWithECIES(message.EncryptedKeys[i])
+		aesKey, err = prvKey.Decrypt(message.EncryptedKeys[i], nil, nil)
 		if err == nil {
 			decrypted = true
 			break // Successfully decrypted AES key, stop trying further keys

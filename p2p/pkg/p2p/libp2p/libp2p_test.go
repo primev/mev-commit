@@ -17,6 +17,7 @@ import (
 	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -61,6 +62,7 @@ func newTestService(t *testing.T) *libp2p.Service {
 		ListenAddr: "0.0.0.0",
 		PeerType:   p2p.PeerTypeProvider,
 		Register:   &testRegistry{},
+		Store:      store.NewStore(),
 		Logger:     newTestLogger(t, os.Stdout),
 	})
 	if err != nil {
@@ -244,6 +246,7 @@ func TestBootstrap(t *testing.T) {
 		ListenAddr: "0.0.0.0",
 		PeerType:   p2p.PeerTypeProvider,
 		Register:   &testRegistry{},
+		Store:      store.NewStore(),
 		Logger:     newTestLogger(t, os.Stdout),
 	}
 

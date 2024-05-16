@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdh"
+	"crypto/elliptic"
+	"crypto/rand"
 	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/libp2p/go-libp2p/core"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	handshakepb "github.com/primev/mev-commit/p2p/gen/go/handshake/v1"
@@ -34,12 +37,18 @@ type ProviderRegistry interface {
 	CheckProviderRegistered(context.Context, common.Address) bool
 }
 
+type Store interface {
+	SetECIESPrivateKey(*ecies.PrivateKey) error
+	GetECIESPrivateKey() (*ecies.PrivateKey, error)
+}
+
 // Handshake is the handshake protocol
 type Service struct {
 	kk            keykeeper.KeyKeeper
 	peerType      p2p.PeerType
 	passcode      string
 	signer        signer.Signer
+	store         Store
 	register      ProviderRegistry
 	handshakeReq  *handshakepb.HandshakeReq
 	getEthAddress func(core.PeerID) (common.Address, error)
@@ -50,6 +59,7 @@ func New(
 	peerType p2p.PeerType,
 	passcode string,
 	signer signer.Signer,
+	store Store,
 	register ProviderRegistry,
 	getEthAddress func(core.PeerID) (common.Address, error),
 ) (*Service, error) {
@@ -58,6 +68,7 @@ func New(
 		peerType:      peerType,
 		passcode:      passcode,
 		signer:        signer,
+		store:         store,
 		register:      register,
 		getEthAddress: getEthAddress,
 	}
@@ -132,7 +143,11 @@ func (h *Service) setHandshakeReq() error {
 
 	if h.peerType == p2p.PeerTypeProvider {
 		providerKK := h.kk.(*keykeeper.ProviderKeyKeeper)
-		ppk := p2pcrypto.SerializeEciesPublicKey(providerKK.GetECIESPublicKey())
+		prvKey, err := h.getOrSetECIESPrivateKey()
+		if err != nil {
+			return err
+		}
+		ppk := p2pcrypto.SerializeEciesPublicKey(&prvKey.PublicKey)
 		npk := providerKK.GetNIKEPublicKey().Bytes()
 		req.Keys = &handshakepb.SerializedKeys{
 			PKEPublicKey:  ppk,
@@ -142,6 +157,24 @@ func (h *Service) setHandshakeReq() error {
 
 	h.handshakeReq = req
 	return nil
+}
+
+func (h *Service) getOrSetECIESPrivateKey() (*ecies.PrivateKey, error) {
+	prvKey, err := h.store.GetECIESPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	if prvKey == nil {
+		prvKey, err = ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		if err != nil {
+			return nil, err
+		}
+		err = h.store.SetECIESPrivateKey(prvKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return prvKey, nil
 }
 
 func (h *Service) verifyResp(resp *handshakepb.HandshakeResp) error {

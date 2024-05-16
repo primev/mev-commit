@@ -138,6 +138,8 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.Logger.With("component", "providerregistry"),
 	)
 
+	store := store.NewStore()
+
 	var keyKeeper keykeeper.KeyKeeper
 	switch opts.PeerType {
 	case p2p.PeerTypeProvider.String():
@@ -161,6 +163,7 @@ func NewNode(opts *Options) (*Node, error) {
 		Secret:         opts.Secret,
 		PeerType:       peerType,
 		Register:       providerRegistry,
+		Store:          store,
 		Logger:         opts.Logger.With("component", "p2p"),
 		ListenPort:     opts.P2PPort,
 		ListenAddr:     opts.P2PAddr,
@@ -252,8 +255,7 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 
 		grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
-		store := store.NewStore()
-		
+
 		preconfEncryptor, err := preconfencryptor.NewEncryptor(keyKeeper, store)
 		if err != nil {
 			opts.Logger.Error("failed to create preconf encryptor", "error", err)

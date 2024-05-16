@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner"
 )
 
@@ -21,8 +20,6 @@ type BaseKeyKeeper struct {
 }
 
 type ProviderKeys struct {
-	EncryptionPrivateKey *ecies.PrivateKey
-	EncryptionPublicKey  *ecies.PublicKey
 	NIKEPrivateKey       *ecdh.PrivateKey
 	NIKEPublicKey        *ecdh.PublicKey
 }
