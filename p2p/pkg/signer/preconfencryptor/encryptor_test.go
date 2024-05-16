@@ -1,6 +1,8 @@
 package preconfencryptor_test
 
 import (
+	"crypto/ecdh"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 	"time"
@@ -125,12 +127,18 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		providerStore.SetNikePrivateKey(providerNikePrivateKey)
+
 		_, encryptedPreConfirmation, err := providerEncryptor.ConstructEncryptedPreConfirmation(decryptedBid)
 		if err != nil {
 			t.Fail()
 		}
 
-		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerKeyKeeper.GetNIKEPublicKey(), nikePrivateKey, bid.Digest, encryptedPreConfirmation)
+		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerNikePrivateKey.PublicKey(), nikePrivateKey, bid.Digest, encryptedPreConfirmation)
 		if err != nil {
 			t.Fail()
 		}

@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"fmt"
 	"math/big"
 	"strings"
@@ -172,6 +173,25 @@ func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
 		return nil, nil
 	}
 	return val.(*ecies.PrivateKey), nil
+}
+
+func (s *Store) SetNikePrivateKey(key *ecdh.PrivateKey) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(nikePrivateKeyNS, key)
+	return nil
+}
+
+func (s *Store) GetNikePrivateKey() (*ecdh.PrivateKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	val, ok := s.Tree.Get(nikePrivateKeyNS)
+	if !ok {
+		return nil, nil
+	}
+	return val.(*ecdh.PrivateKey), nil
 }
 
 func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount *big.Int) error {

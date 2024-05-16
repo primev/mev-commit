@@ -1,7 +1,6 @@
 package keykeeper
 
 import (
-	"crypto/ecdh"
 	"crypto/ecdsa"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,14 +18,8 @@ type BaseKeyKeeper struct {
 	KeySigner keysigner.KeySigner
 }
 
-type ProviderKeys struct {
-	NIKEPrivateKey       *ecdh.PrivateKey
-	NIKEPublicKey        *ecdh.PublicKey
-}
-
 type ProviderKeyKeeper struct {
 	*BaseKeyKeeper
-	keys               ProviderKeys
 }
 
 type BidderKeyKeeper struct {

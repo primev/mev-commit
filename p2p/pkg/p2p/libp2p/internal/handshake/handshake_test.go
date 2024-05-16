@@ -2,6 +2,7 @@ package handshake_test
 
 import (
 	"context"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -64,6 +65,14 @@ func TestHandshake(t *testing.T) {
 			t.Fatal(err)
 		}
 		store1 := store.NewStore()
+		nikePrivateKey1, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store1.SetNikePrivateKey(nikePrivateKey1)
+		if err != nil {
+			t.Fatal(err)
+		}
 		hs1, err := handshake.New(
 			kk1,
 			p2p.PeerTypeProvider,
@@ -78,9 +87,15 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		store2 := store.NewStore()
-
+		nikePrivateKey2, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store2.SetNikePrivateKey(nikePrivateKey2)
+		if err != nil {
+			t.Fatal(err)
+		}
 		hs2, err := handshake.New(
 			kk2,
 			p2p.PeerTypeProvider,
@@ -118,8 +133,13 @@ func TestHandshake(t *testing.T) {
 				t.Errorf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 				return
 			}
-			if !p.Keys.NIKEPublicKey.Equal(kk2.GetNIKEPublicKey()) {
-				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), kk2.GetNIKEPublicKey().Bytes())
+			nikePrvKey, err := store2.GetNikePrivateKey()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if !p.Keys.NIKEPublicKey.Equal(nikePrvKey.PublicKey()) {
+				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), nikePrvKey.PublicKey().Bytes())
 				return
 			}
 			prvKey2, err := store2.GetECIESPrivateKey()
@@ -127,7 +147,7 @@ func TestHandshake(t *testing.T) {
 				t.Error(err)
 				return
 			}
-			
+
 			if !p.Keys.PKEPublicKey.ExportECDSA().Equal(prvKey2.PublicKey.ExportECDSA()) {
 				t.Error("expected pke pk is not equal to present")
 				return
@@ -144,8 +164,12 @@ func TestHandshake(t *testing.T) {
 		if p.Type != p2p.PeerTypeProvider {
 			t.Fatalf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 		}
-		if !p.Keys.NIKEPublicKey.Equal(kk1.GetNIKEPublicKey()) {
-			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), kk1.GetNIKEPublicKey().Bytes())
+		nikePrvKey, err := store1.GetNikePrivateKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !p.Keys.NIKEPublicKey.Equal(nikePrvKey.PublicKey()) {
+			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), nikePrvKey.Bytes())
 		}
 		prvKey1, err := store1.GetECIESPrivateKey()
 		if err != nil {

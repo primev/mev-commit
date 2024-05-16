@@ -2,6 +2,7 @@ package keyexchange_test
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"crypto/elliptic"
 	"crypto/rand"
 	"io"
@@ -64,15 +65,25 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		Type:       p2p.PeerTypeBidder,
 	}
 
+	bidderStore := store.NewStore()
+	providerStore := store.NewStore()
+
 	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	bidderStore := store.NewStore()
-	providerStore := store.NewStore()
-
 	err = providerStore.SetECIESPrivateKey(encryptionPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = providerStore.SetNikePrivateKey(nikePrivateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +91,7 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 	providerPeer := p2p.Peer{
 		EthAddress: providerKK.KeySigner.GetAddress(),
 		Type:       p2p.PeerTypeProvider,
-		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: providerKK.GetNIKEPublicKey()},
+		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: nikePrivateKey.PublicKey()},
 	}
 	topo1 := &testTopology{peers: []p2p.Peer{providerPeer}}
 	topo2 := &testTopology{peers: []p2p.Peer{bidderPeer}}

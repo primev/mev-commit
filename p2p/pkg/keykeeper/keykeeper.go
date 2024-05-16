@@ -1,9 +1,7 @@
 package keykeeper
 
 import (
-	"crypto/ecdh"
 	"crypto/ecdsa"
-	"crypto/rand"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner"
@@ -37,24 +35,7 @@ func NewBidderKeyKeeper(keysigner keysigner.KeySigner) (*BidderKeyKeeper, error)
 }
 
 func NewProviderKeyKeeper(keysigner keysigner.KeySigner) (*ProviderKeyKeeper, error) {
-	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-
 	return &ProviderKeyKeeper{
 		BaseKeyKeeper:      NewBaseKeyKeeper(keysigner),
-		keys: ProviderKeys{
-			NIKEPrivateKey:       nikePrivateKey,
-			NIKEPublicKey:        nikePrivateKey.PublicKey(),
-		},
 	}, nil
-}
-
-func (pkk *ProviderKeyKeeper) GetNIKEPublicKey() *ecdh.PublicKey {
-	return pkk.keys.NIKEPublicKey
-}
-
-func (pkk *ProviderKeyKeeper) GetNIKEPrivateKey() *ecdh.PrivateKey {
-	return pkk.keys.NIKEPrivateKey
 }

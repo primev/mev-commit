@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	lru "github.com/hashicorp/golang-lru/v2"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
 )
 
 var (
@@ -37,6 +37,7 @@ type Encryptor interface {
 
 type Store interface {
 	GetAESKey(common.Address) ([]byte, error)
+	GetNikePrivateKey() (*ecdh.PrivateKey, error)
 }
 
 type encryptor struct {
@@ -136,7 +137,11 @@ func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*prec
 	}
 
 	providerKK := e.keyKeeper.(*keykeeper.ProviderKeyKeeper)
-	sharedSecredProviderSk, err := providerKK.GetNIKEPrivateKey().ECDH(bidDataPublicKey)
+	nikePrvKey, err := e.store.GetNikePrivateKey()
+	if err != nil {
+		return nil, nil, err
+	}
+	sharedSecredProviderSk, err := nikePrvKey.ECDH(bidDataPublicKey)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -40,6 +40,8 @@ type ProviderRegistry interface {
 type Store interface {
 	SetECIESPrivateKey(*ecies.PrivateKey) error
 	GetECIESPrivateKey() (*ecies.PrivateKey, error)
+	SetNikePrivateKey(*ecdh.PrivateKey) error
+	GetNikePrivateKey() (*ecdh.PrivateKey, error)
 }
 
 // Handshake is the handshake protocol
@@ -142,16 +144,18 @@ func (h *Service) setHandshakeReq() error {
 	}
 
 	if h.peerType == p2p.PeerTypeProvider {
-		providerKK := h.kk.(*keykeeper.ProviderKeyKeeper)
 		prvKey, err := h.getOrSetECIESPrivateKey()
 		if err != nil {
 			return err
 		}
+		npk, err := h.getOrSetNikePrivateKey()
+		if err != nil {
+			return err
+		}
 		ppk := p2pcrypto.SerializeEciesPublicKey(&prvKey.PublicKey)
-		npk := providerKK.GetNIKEPublicKey().Bytes()
 		req.Keys = &handshakepb.SerializedKeys{
 			PKEPublicKey:  ppk,
-			NIKEPublicKey: npk,
+			NIKEPublicKey: npk.PublicKey().Bytes(),
 		}
 	}
 
@@ -170,6 +174,24 @@ func (h *Service) getOrSetECIESPrivateKey() (*ecies.PrivateKey, error) {
 			return nil, err
 		}
 		err = h.store.SetECIESPrivateKey(prvKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return prvKey, nil
+}
+
+func (h *Service) getOrSetNikePrivateKey() (*ecdh.PrivateKey, error) {
+	prvKey, err := h.store.GetNikePrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	if prvKey == nil {
+		prvKey, err = ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, err
+		}
+		err = h.store.SetNikePrivateKey(prvKey)
 		if err != nil {
 			return nil, err
 		}
