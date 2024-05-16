@@ -155,9 +155,12 @@ func TestStore(t *testing.T) {
 			}
 		}
 
-		err = st.ClearBalances(big.NewInt(12))
+		windows, err := st.ClearBalances(big.NewInt(12))
 		if err != nil {
 			t.Fatal(err)
+		}
+		if len(windows) != 1 {
+			t.Fatalf("expected 1, got %d", len(windows))
 		}
 
 		for i := 1; i <= 10; i++ {

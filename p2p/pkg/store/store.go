@@ -146,9 +146,9 @@ func (s *Store) GetBalance(bidder common.Address, windowNumber *big.Int) (*big.I
 	return val.(*big.Int), nil
 }
 
-func (s *Store) ClearBalances(windowNumber *big.Int) error {
+func (s *Store) ClearBalances(windowNumber *big.Int) ([]*big.Int, error) {
 	if windowNumber == nil || windowNumber.Cmp(big.NewInt(0)) == -1 {
-		return nil
+		return nil, nil
 	}
 
 	s.mu.RLock()
@@ -180,7 +180,7 @@ func (s *Store) ClearBalances(windowNumber *big.Int) error {
 	}
 	s.mu.Unlock()
 
-	return nil
+	return windows, nil
 }
 
 func (s *Store) GetBalanceForBlock(

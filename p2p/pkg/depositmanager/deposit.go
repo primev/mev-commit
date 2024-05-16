@@ -36,7 +36,7 @@ type Store interface {
 		amount *big.Int,
 		blockNumber int64,
 	) error
-	ClearBalances(windowNumber *big.Int) error
+	ClearBalances(windowNumber *big.Int) ([]*big.Int, error)
 }
 
 type BlockTracker interface {
@@ -120,10 +120,12 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 				return nil
 			case window := <-dm.windowChan:
 				windowToClear := new(big.Int).Sub(window.Window, big.NewInt(2))
-				if err := dm.store.ClearBalances(windowToClear); err != nil {
-					dm.logger.Error("failed to clear balances", "error", err)
+				windows, err := dm.store.ClearBalances(windowToClear)
+				if err != nil {
+					dm.logger.Error("failed to clear balances", "error", err, "window", windowToClear)
 					return err
 				}
+				dm.logger.Info("cleared balances", "windows", windows)
 			case bidderReg := <-dm.bidderRegs:
 				blocksPerWindow, err := dm.getOrSetBlocksPerWindow()
 				if err != nil {
@@ -135,6 +137,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, effectiveStake); err != nil {
 					return err
 				}
+				dm.logger.Info("set balance", "bidder", bidderReg.Bidder, "window", bidderReg.WindowNumber, "amount", effectiveStake)
 			}
 		}
 	})
