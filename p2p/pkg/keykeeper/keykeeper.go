@@ -6,7 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/hex"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -35,16 +34,10 @@ func (bkk *BaseKeyKeeper) ZeroPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 func NewBidderKeyKeeper(keysigner keysigner.KeySigner) (*BidderKeyKeeper, error) {
-	aesKey, err := generateAESKey()
-	if err != nil {
-		return nil, err
-	}
-
 	bidHashesToNIKE := make(map[string]*ecdh.PrivateKey)
 
 	return &BidderKeyKeeper{
 		BaseKeyKeeper:   NewBaseKeyKeeper(keysigner),
-		AESKey:          aesKey,
 		BidHashesToNIKE: bidHashesToNIKE,
 	}, nil
 }
@@ -60,8 +53,6 @@ func (bkk *BidderKeyKeeper) GenerateNIKEKeys(bidHash []byte) (*ecdh.PublicKey, e
 }
 
 func NewProviderKeyKeeper(keysigner keysigner.KeySigner) (*ProviderKeyKeeper, error) {
-	biddersAESKeys := make(map[common.Address][]byte)
-
 	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
 	if err != nil {
 		return nil, err
@@ -74,8 +65,6 @@ func NewProviderKeyKeeper(keysigner keysigner.KeySigner) (*ProviderKeyKeeper, er
 
 	return &ProviderKeyKeeper{
 		BaseKeyKeeper:      NewBaseKeyKeeper(keysigner),
-		BiddersAESKeys:     biddersAESKeys,
-		bidderAESKeysMutex: &sync.RWMutex{},
 		keys: ProviderKeys{
 			EncryptionPrivateKey: encryptionPrivateKey,
 			EncryptionPublicKey:  &encryptionPrivateKey.PublicKey,
@@ -99,17 +88,4 @@ func (pkk *ProviderKeyKeeper) DecryptWithECIES(message []byte) ([]byte, error) {
 
 func (pkk *ProviderKeyKeeper) GetNIKEPrivateKey() *ecdh.PrivateKey {
 	return pkk.keys.NIKEPrivateKey
-}
-
-func (pkk *ProviderKeyKeeper) SetAESKey(bidder common.Address, key []byte) {
-	pkk.bidderAESKeysMutex.Lock()
-	defer pkk.bidderAESKeysMutex.Unlock()
-	pkk.BiddersAESKeys[bidder] = key
-}
-
-func (pkk *ProviderKeyKeeper) GetAESKey(bidder common.Address) ([]byte, bool) {
-	pkk.bidderAESKeysMutex.RLock()
-	defer pkk.bidderAESKeysMutex.RUnlock()
-	key, exists := pkk.BiddersAESKeys[bidder]
-	return key, exists
 }

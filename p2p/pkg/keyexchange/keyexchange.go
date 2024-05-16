@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	keyexchangepb "github.com/primevprotocol/mev-commit/p2p/gen/go/keyexchange/v1"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/crypto"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
@@ -23,15 +24,17 @@ func New(
 	topo Topology,
 	streamer p2p.Streamer,
 	keyKeeper keykeeper.KeyKeeper,
+	store Store,
 	logger *slog.Logger,
 	signer signer.Signer,
 ) *KeyExchange {
 	return &KeyExchange{
-		topo:              topo,
-		streamer:          streamer,
-		keyKeeper:         keyKeeper,
-		logger:            logger,
-		signer:            signer,
+		topo:      topo,
+		streamer:  streamer,
+		keyKeeper: keyKeeper,
+		store:     store,
+		logger:    logger,
+		signer:    signer,
 	}
 }
 
@@ -75,22 +78,34 @@ func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 }
 
 func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, error) {
-	bidderKK, ok := ke.keyKeeper.(*keykeeper.BidderKeyKeeper)
-	if !ok {
-		return nil, nil, fmt.Errorf("keyKeeper is not of type BidderKeyKeeper")
+	bidderAddress := ke.keyKeeper.GetAddress()
+
+	aesKey, err := ke.store.GetAESKey(bidderAddress)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting AES key: %w", err)
+	}
+	if aesKey == nil {
+		aesKey, err = crypto.GenerateAESKey()
+		if err != nil {
+			return nil, nil, fmt.Errorf("error generating AES key: %w", err)
+		}
+		err = ke.store.SetAESKey(bidderAddress, aesKey)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error setting AES key: %w", err)
+		}
 	}
 
 	var encryptedKeys [][]byte
 	for _, provider := range providers {
-		encryptedKey, err := ecies.Encrypt(rand.Reader, provider.Keys.PKEPublicKey, bidderKK.AESKey, nil, nil)
+		encryptedKey, err := ecies.Encrypt(rand.Reader, provider.Keys.PKEPublicKey, aesKey, nil, nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error encrypting key for provider %s: %w", provider.EthAddress, err)
 		}
 		encryptedKeys = append(encryptedKeys, encryptedKey)
 	}
 
-	timestampMessage := fmt.Sprintf("mev-commit bidder %s setup %d", bidderKK.KeySigner.GetAddress(), time.Now().Unix())
-	encryptedTimestampMessage, err := keykeeper.EncryptWithAESGCM(bidderKK.AESKey, []byte(timestampMessage))
+	timestampMessage := fmt.Sprintf("mev-commit bidder %s setup %d", bidderAddress, time.Now().Unix())
+	encryptedTimestampMessage, err := crypto.EncryptWithAESGCM(aesKey, []byte(timestampMessage))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error encrypting timestamp message: %w", err)
 	}
@@ -195,7 +210,7 @@ func (ke *KeyExchange) handleTimestampMessage(ctx context.Context, peer p2p.Peer
 		return fmt.Errorf("validate and process timestamp failed: %w", err)
 	}
 
-	ke.keyKeeper.(*keykeeper.ProviderKeyKeeper).SetAESKey(peer.EthAddress, aesKey)
+	ke.store.SetAESKey(peer.EthAddress, aesKey)
 
 	ke.logger.Info("successfully processed timestamp message", "peer", peer.EthAddress, "key", aesKey)
 
@@ -267,7 +282,7 @@ func (ke *KeyExchange) decryptMessage(ekmWithSignature *keyexchangepb.EKMWithSig
 	}
 
 	encryptedMessage := message.TimestampMessage
-	decryptedMessage, err := keykeeper.DecryptWithAESGCM(aesKey, encryptedMessage)
+	decryptedMessage, err := crypto.DecryptWithAESGCM(aesKey, encryptedMessage)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}

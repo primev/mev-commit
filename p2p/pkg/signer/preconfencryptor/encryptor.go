@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	lru "github.com/hashicorp/golang-lru/v2"
 	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
+	p2pcrypto "github.com/primevprotocol/mev-commit/p2p/pkg/crypto"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 )
 
@@ -33,18 +34,24 @@ type Encryptor interface {
 	DecryptBidData(common.Address, *preconfpb.EncryptedBid) (*preconfpb.Bid, error)
 }
 
+type Store interface {
+	GetAESKey(common.Address) ([]byte, error)
+}
+
 type encryptor struct {
 	keyKeeper      keykeeper.KeyKeeper
+	store          Store
 	bidHashesToBid *lru.Cache[string, *preconfpb.Bid]
 }
 
-func NewEncryptor(keyKeeper keykeeper.KeyKeeper) (*encryptor, error) {
+func NewEncryptor(keyKeeper keykeeper.KeyKeeper, store Store) (*encryptor, error) {
 	bidHashesToBidCache, err := lru.New[string, *preconfpb.Bid](2048)
 	if err != nil {
 		return nil, err
 	}
 	return &encryptor{
 		keyKeeper:      keyKeeper,
+		store:          store,
 		bidHashesToBid: bidHashesToBidCache,
 	}, nil
 }
@@ -100,7 +107,14 @@ func (e *encryptor) ConstructEncryptedBid(
 
 	e.bidHashesToBid.Add(hex.EncodeToString(bidHash), bid)
 
-	encryptedBidData, err := keykeeper.EncryptWithAESGCM(bidderKK.AESKey, bidDataBytes)
+	aesKey, err := e.store.GetAESKey(bidderKK.GetAddress())
+	if err != nil {
+		return nil, nil, err
+	}
+	if aesKey == nil {
+		return nil, nil, errors.New("no AES key found for bidder")
+	}
+	encryptedBidData, err := p2pcrypto.EncryptWithAESGCM(aesKey, bidDataBytes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -172,12 +186,14 @@ func (e *encryptor) VerifyBid(bid *preconfpb.Bid) (*common.Address, error) {
 }
 
 func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.EncryptedBid) (*preconfpb.Bid, error) {
-	pkk := e.keyKeeper.(*keykeeper.ProviderKeyKeeper)
-	aesKey, exists := pkk.GetAESKey(bidderAddress)
-	if !exists {
+	aesKey, err := e.store.GetAESKey(bidderAddress)
+	if err != nil {
+		return nil, err
+	}
+	if aesKey == nil {
 		return nil, errors.New("no AES key found for bidder")
 	}
-	decryptedBytes, err := keykeeper.DecryptWithAESGCM(aesKey, bid.Ciphertext)
+	decryptedBytes, err := p2pcrypto.DecryptWithAESGCM(aesKey, bid.Ciphertext)
 	if err != nil {
 		return nil, err
 	}

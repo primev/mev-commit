@@ -252,7 +252,9 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 
 		grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
-		preconfEncryptor, err := preconfencryptor.NewEncryptor(keyKeeper)
+		store := store.NewStore()
+		
+		preconfEncryptor, err := preconfencryptor.NewEncryptor(keyKeeper, store)
 		if err != nil {
 			opts.Logger.Error("failed to create preconf encryptor", "error", err)
 			cancel()
@@ -297,8 +299,6 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.Logger.With("component", "preconfcontract"),
 		)
 		opts.Logger.Info("registered preconf contract")
-
-		store := store.NewStore()
 
 		tracker := preconftracker.NewTracker(
 			peerType,
@@ -350,6 +350,7 @@ func NewNode(opts *Options) (*Node, error) {
 				topo,
 				p2pSvc,
 				keyKeeper,
+				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 			)
@@ -385,6 +386,7 @@ func NewNode(opts *Options) (*Node, error) {
 				topo,
 				p2pSvc,
 				keyKeeper,
+				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 			)

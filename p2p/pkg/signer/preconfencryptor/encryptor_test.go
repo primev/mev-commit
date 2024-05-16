@@ -10,6 +10,8 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
+	p2pcrypto "github.com/primevprotocol/mev-commit/p2p/pkg/crypto"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,11 +26,17 @@ func TestBids(t *testing.T) {
 
 		address := crypto.PubkeyToAddress(key.PublicKey)
 		keySigner := mockkeysigner.NewMockKeySigner(key, address)
+		aesKey, err := p2pcrypto.GenerateAESKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+		bidderStore := store.NewStore()
+		bidderStore.SetAESKey(address, aesKey)
 		keyKeeper, err := keykeeper.NewBidderKeyKeeper(keySigner)
 		if err != nil {
 			t.Fatal(err)
 		}
-		encryptor, err := preconfencryptor.NewEncryptor(keyKeeper)
+		encryptor, err := preconfencryptor.NewEncryptor(keyKeeper, bidderStore)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -43,8 +51,9 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		providerKeyKeeper.SetAESKey(address, keyKeeper.AESKey)
-		encryptorProvider, err := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		providerStore := store.NewStore()
+		providerStore.SetAESKey(address, aesKey)
+		encryptorProvider, err := preconfencryptor.NewEncryptor(providerKeyKeeper, providerStore)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -71,13 +80,19 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
+		aesKey, err := p2pcrypto.GenerateAESKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+		
 		keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
 		bidderKeyKeeper, err := keykeeper.NewBidderKeyKeeper(keySigner)
 		if err != nil {
 			t.Fatal(err)
 		}
-		bidderEncryptor, err := preconfencryptor.NewEncryptor(bidderKeyKeeper)
+		bidderStore := store.NewStore()
+		bidderStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+		bidderEncryptor, err := preconfencryptor.NewEncryptor(bidderKeyKeeper, bidderStore)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,9 +107,9 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		providerKeyKeeper.SetAESKey(bidderAddress, bidderKeyKeeper.AESKey)
-		providerEncryptor, err := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		providerStore := store.NewStore()
+		providerStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+		providerEncryptor, err := preconfencryptor.NewEncryptor(providerKeyKeeper, providerStore)
 		if err != nil {
 			t.Fatal(err)
 		}

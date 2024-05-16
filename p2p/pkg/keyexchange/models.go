@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
@@ -27,14 +28,20 @@ var (
 
 // KeyExchange manages the key exchange process.
 type KeyExchange struct {
-	keyKeeper      keykeeper.KeyKeeper
-	topo           Topology
-	streamer       p2p.Streamer
-	signer         signer.Signer
-	logger         *slog.Logger
+	keyKeeper keykeeper.KeyKeeper
+	topo      Topology
+	streamer  p2p.Streamer
+	signer    signer.Signer
+	store     Store
+	logger    *slog.Logger
 }
 
 // Topology interface to get peers.
 type Topology interface {
 	GetPeers(topology.Query) []p2p.Peer
+}
+
+type Store interface {
+	SetAESKey(common.Address, []byte) error
+	GetAESKey(common.Address) ([]byte, error)
 }

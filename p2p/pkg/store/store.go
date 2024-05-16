@@ -15,6 +15,7 @@ import (
 var (
 	commitmentNS = "cm/"
 	balanceNS    = "bbs/"
+	aesKeysNS    = "aes/"
 
 	commitmentKey = func(blockNum int64, index []byte) string {
 		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
@@ -31,6 +32,10 @@ var (
 	}
 	balancePrefix = func(window *big.Int) string {
 		return fmt.Sprintf("%s%s", balanceNS, window)
+	}
+
+	bidderAesKey = func(bidder common.Address) string {
+		return fmt.Sprintf("%s%s", aesKeysNS, bidder)
 	}
 )
 
@@ -123,6 +128,26 @@ func (s *Store) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex [32]byte) e
 	})
 
 	return nil
+}
+
+func (s *Store) SetAESKey(bidder common.Address, key []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(bidderAesKey(bidder), key)
+	return nil
+}
+
+func (s *Store) GetAESKey(bidder common.Address) ([]byte, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	key := bidderAesKey(bidder)
+	val, ok := s.Tree.Get(key)
+	if !ok {
+		return nil, nil
+	}
+	return val.([]byte), nil
 }
 
 func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount *big.Int) error {

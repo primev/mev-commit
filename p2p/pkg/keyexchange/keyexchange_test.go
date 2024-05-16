@@ -16,6 +16,7 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primevprotocol/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
+	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
 )
 
@@ -79,8 +80,11 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		&providerPeer,
 	)
 
-	ke1 := keyexchange.New(topo1, svc1, bidderKK, logger, signer)
-	ke2 := keyexchange.New(topo2, svc2, providerKK, logger, signer)
+	bidderStore := store.NewStore()
+	providerStore := store.NewStore()
+
+	ke1 := keyexchange.New(topo1, svc1, bidderKK, bidderStore, logger, signer)
+	ke2 := keyexchange.New(topo2, svc2, providerKK, providerStore, logger, signer)
 
 	svc1.SetPeerHandler(bidderPeer, ke2.Streams()[0])
 
@@ -94,9 +98,16 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("timed out")
 		}
-		aesKey, exists := providerKK.GetAESKey(bidderPeer.EthAddress)
-		if exists {
-			if !bytes.Equal(bidderKK.AESKey, aesKey) {
+		providerAesKey, err := providerStore.GetAESKey(bidderPeer.EthAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bidderAesKey, err := bidderStore.GetAESKey(bidderPeer.EthAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if providerAesKey != nil {
+			if !bytes.Equal(providerAesKey, bidderAesKey) {
 				t.Fatal("AES keys are not equal")
 			}
 			break

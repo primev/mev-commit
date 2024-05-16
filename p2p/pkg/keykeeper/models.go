@@ -3,7 +3,6 @@ package keykeeper
 import (
 	"crypto/ecdh"
 	"crypto/ecdsa"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -31,12 +30,9 @@ type ProviderKeys struct {
 type ProviderKeyKeeper struct {
 	*BaseKeyKeeper
 	keys               ProviderKeys
-	bidderAESKeysMutex *sync.RWMutex
-	BiddersAESKeys     map[common.Address][]byte
 }
 
 type BidderKeyKeeper struct {
 	*BaseKeyKeeper
-	AESKey          []byte
 	BidHashesToNIKE map[string]*ecdh.PrivateKey
 }

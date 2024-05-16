@@ -15,6 +15,7 @@ import (
 	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
 	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
+	p2pcrypto "github.com/primevprotocol/mev-commit/p2p/pkg/crypto"
 )
 
 const (
@@ -131,7 +132,7 @@ func (h *Service) setHandshakeReq() error {
 
 	if h.peerType == p2p.PeerTypeProvider {
 		providerKK := h.kk.(*keykeeper.ProviderKeyKeeper)
-		ppk := keykeeper.SerializePublicKey(providerKK.GetECIESPublicKey())
+		ppk := p2pcrypto.SerializeEciesPublicKey(providerKK.GetECIESPublicKey())
 		npk := providerKK.GetNIKEPublicKey().Bytes()
 		req.Keys = &handshakepb.SerializedKeys{
 			PKEPublicKey:  ppk,
@@ -201,7 +202,7 @@ func (h *Service) Handle(
 	}
 
 	if req.PeerType == p2p.PeerTypeProvider.String() {
-		ppk, err := keykeeper.DeserializePublicKey(req.Keys.PKEPublicKey)
+		ppk, err := p2pcrypto.DeserializeEciesPublicKey(req.Keys.PKEPublicKey)
 		if err != nil {
 			return &p2p.Peer{}, err
 		}
@@ -261,7 +262,7 @@ func (h *Service) Handshake(
 	}
 
 	if ack.PeerType == p2p.PeerTypeProvider.String() {
-		ppk, err := keykeeper.DeserializePublicKey(ack.Keys.PKEPublicKey)
+		ppk, err := p2pcrypto.DeserializeEciesPublicKey(ack.Keys.PKEPublicKey)
 		if err != nil {
 			return &p2p.Peer{}, err
 		}
