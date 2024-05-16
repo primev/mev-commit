@@ -15,13 +15,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 )
 
 type testTopology struct {
@@ -50,18 +49,9 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 	}
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
 	ks := mockkeysigner.NewMockKeySigner(privKey, address)
-	bidderKK, err := keykeeper.NewBidderKeyKeeper(ks)
-	if err != nil {
-		t.Fatalf("Failed to create BidderKeyKeeper: %v", err)
-	}
-
-	providerKK, err := keykeeper.NewProviderKeyKeeper(ks)
-	if err != nil {
-		t.Fatalf("Failed to create ProviderKeyKeeper: %v", err)
-	}
 
 	bidderPeer := p2p.Peer{
-		EthAddress: bidderKK.KeySigner.GetAddress(),
+		EthAddress: ks.GetAddress(),
 		Type:       p2p.PeerTypeBidder,
 	}
 
@@ -89,7 +79,7 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 	}
 
 	providerPeer := p2p.Peer{
-		EthAddress: providerKK.KeySigner.GetAddress(),
+		EthAddress: ks.GetAddress(),
 		Type:       p2p.PeerTypeProvider,
 		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: nikePrivateKey.PublicKey()},
 	}
@@ -107,8 +97,8 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		&providerPeer,
 	)
 
-	ke1 := keyexchange.New(topo1, svc1, bidderKK, bidderStore, logger, signer)
-	ke2 := keyexchange.New(topo2, svc2, providerKK, providerStore, logger, signer)
+	ke1 := keyexchange.New(topo1, svc1, ks, bidderStore, logger, signer)
+	ke2 := keyexchange.New(topo2, svc2, ks, providerStore, logger, signer)
 
 	svc1.SetPeerHandler(bidderPeer, ke2.Streams()[0])
 

@@ -10,12 +10,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/libp2p/go-libp2p/core"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/store"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 )
 
 type testRegister struct{}
@@ -49,10 +48,6 @@ func TestHandshake(t *testing.T) {
 		}
 		address1 := common.HexToAddress("0x1")
 		ks1 := mockkeysigner.NewMockKeySigner(privKey1, address1)
-		kk1, err := keykeeper.NewProviderKeyKeeper(ks1)
-		if err != nil {
-			t.Fatal(err)
-		}
 		privKey2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			t.Fatal(err)
@@ -60,10 +55,6 @@ func TestHandshake(t *testing.T) {
 
 		address2 := common.HexToAddress("0x2")
 		ks2 := mockkeysigner.NewMockKeySigner(privKey2, address2)
-		kk2, err := keykeeper.NewProviderKeyKeeper(ks2)
-		if err != nil {
-			t.Fatal(err)
-		}
 		store1 := store.NewStore()
 		nikePrivateKey1, err := ecdh.P256().GenerateKey(rand.Reader)
 		if err != nil {
@@ -74,7 +65,7 @@ func TestHandshake(t *testing.T) {
 			t.Fatal(err)
 		}
 		hs1, err := handshake.New(
-			kk1,
+			ks1,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address2},
@@ -97,7 +88,7 @@ func TestHandshake(t *testing.T) {
 			t.Fatal(err)
 		}
 		hs2, err := handshake.New(
-			kk2,
+			ks2,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address1},

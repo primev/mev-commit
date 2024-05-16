@@ -15,7 +15,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/x/keysigner"
 )
 
 var (
@@ -41,18 +41,18 @@ type Store interface {
 }
 
 type encryptor struct {
-	keyKeeper      keykeeper.KeyKeeper
+	keySigner      keysigner.KeySigner
 	store          Store
 	bidHashesToBid *lru.Cache[string, *preconfpb.Bid]
 }
 
-func NewEncryptor(keyKeeper keykeeper.KeyKeeper, store Store) (*encryptor, error) {
+func NewEncryptor(ks keysigner.KeySigner, store Store) (*encryptor, error) {
 	bidHashesToBidCache, err := lru.New[string, *preconfpb.Bid](2048)
 	if err != nil {
 		return nil, err
 	}
 	return &encryptor{
-		keyKeeper:      keyKeeper,
+		keySigner:      ks,
 		store:          store,
 		bidHashesToBid: bidHashesToBidCache,
 	}, nil
@@ -82,7 +82,7 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, nil, err
 	}
 
-	sig, err := e.keyKeeper.SignHash(bidHash)
+	sig, err := e.keySigner.SignHash(bidHash)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -91,7 +91,6 @@ func (e *encryptor) ConstructEncryptedBid(
 		sig[64] += 27 // Transform V from 0/1 to 27/28
 	}
 
-	bidderKK := e.keyKeeper.(*keykeeper.BidderKeyKeeper)
 	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, nil, err
@@ -110,7 +109,7 @@ func (e *encryptor) ConstructEncryptedBid(
 
 	e.bidHashesToBid.Add(hex.EncodeToString(bidHash), bid)
 
-	aesKey, err := e.store.GetAESKey(bidderKK.GetAddress())
+	aesKey, err := e.store.GetAESKey(e.keySigner.GetAddress())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -136,7 +135,6 @@ func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*prec
 		return nil, nil, err
 	}
 
-	providerKK := e.keyKeeper.(*keykeeper.ProviderKeyKeeper)
 	nikePrvKey, err := e.store.GetNikePrivateKey()
 	if err != nil {
 		return nil, nil, err
@@ -149,7 +147,7 @@ func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*prec
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:             bid,
 		SharedSecret:    sharedSecredProviderSk,
-		ProviderAddress: providerKK.GetAddress().Bytes(),
+		ProviderAddress: e.keySigner.GetAddress().Bytes(),
 	}
 
 	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation)
@@ -157,7 +155,7 @@ func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*prec
 		return nil, nil, err
 	}
 
-	sig, err := e.keyKeeper.SignHash(preConfirmationHash)
+	sig, err := e.keySigner.SignHash(preConfirmationHash)
 	if err != nil {
 		return nil, nil, err
 	}

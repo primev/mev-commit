@@ -10,8 +10,8 @@ import (
 
 	contracts "github.com/primev/mev-commit/contracts-abi/config"
 	mevcommit "github.com/primev/mev-commit/p2p"
-	ks "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner"
 	"github.com/primev/mev-commit/p2p/pkg/node"
+	ks "github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"

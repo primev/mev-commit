@@ -13,17 +13,17 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	keyexchangepb "github.com/primev/mev-commit/p2p/gen/go/keyexchange/v1"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/protobuf/proto"
 )
 
 func New(
 	topo Topology,
 	streamer p2p.Streamer,
-	keyKeeper keykeeper.KeyKeeper,
+	keySigner keysigner.KeySigner,
 	store Store,
 	logger *slog.Logger,
 	signer signer.Signer,
@@ -31,7 +31,7 @@ func New(
 	return &KeyExchange{
 		topo:      topo,
 		streamer:  streamer,
-		keyKeeper: keyKeeper,
+		keySigner: keySigner,
 		store:     store,
 		logger:    logger,
 		signer:    signer,
@@ -78,7 +78,7 @@ func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 }
 
 func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, error) {
-	bidderAddress := ke.keyKeeper.GetAddress()
+	bidderAddress := ke.keySigner.GetAddress()
 	aesKey, err := ke.store.GetAESKey(bidderAddress)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting AES key: %w", err)
@@ -157,9 +157,7 @@ func (ke *KeyExchange) createSignedMessage(encryptedKeys [][]byte, timestampMess
 
 	hashedMessage := hashData(messageBytes)
 
-	bidderKK := ke.keyKeeper.(*keykeeper.BidderKeyKeeper)
-
-	signature, err := bidderKK.KeySigner.SignHash(hashedMessage.Bytes())
+	signature, err := ke.keySigner.SignHash(hashedMessage.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign message: %w", err)
 	}

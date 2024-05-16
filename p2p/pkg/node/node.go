@@ -33,8 +33,6 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
 	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
@@ -48,6 +46,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -140,26 +139,8 @@ func NewNode(opts *Options) (*Node, error) {
 
 	store := store.NewStore()
 
-	var keyKeeper keykeeper.KeyKeeper
-	switch opts.PeerType {
-	case p2p.PeerTypeProvider.String():
-		keyKeeper, err = keykeeper.NewProviderKeyKeeper(opts.KeySigner)
-		if err != nil {
-			opts.Logger.Error("failed to create provider key keeper", "error", err)
-			return nil, errors.Join(err, nd.Close())
-		}
-	case p2p.PeerTypeBidder.String():
-		keyKeeper, err = keykeeper.NewBidderKeyKeeper(opts.KeySigner)
-		if err != nil {
-			opts.Logger.Error("failed to create bidder key keeper", "error", err)
-			return nil, errors.Join(err, nd.Close())
-		}
-	default:
-		keyKeeper = keykeeper.NewBaseKeyKeeper(opts.KeySigner)
-	}
-
 	p2pSvc, err := libp2p.New(&libp2p.Options{
-		KeyKeeper:      keyKeeper,
+		KeySigner:      opts.KeySigner,
 		Secret:         opts.Secret,
 		PeerType:       peerType,
 		Register:       providerRegistry,
@@ -256,7 +237,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 		grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
 
-		preconfEncryptor, err := preconfencryptor.NewEncryptor(keyKeeper, store)
+		preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
 		if err != nil {
 			opts.Logger.Error("failed to create preconf encryptor", "error", err)
 			cancel()
@@ -335,7 +316,7 @@ func NewNode(opts *Options) (*Node, error) {
 				channelCloserFunc(depositMgr.(*depositmanager.DepositManager).Start(ctx)),
 			)
 			preconfProto := preconfirmation.New(
-				keyKeeper.GetAddress(),
+				opts.KeySigner.GetAddress(),
 				topo,
 				p2pSvc,
 				preconfEncryptor,
@@ -351,7 +332,7 @@ func NewNode(opts *Options) (*Node, error) {
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
-				keyKeeper,
+				opts.KeySigner,
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
@@ -361,7 +342,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 		case p2p.PeerTypeBidder.String():
 			preconfProto := preconfirmation.New(
-				keyKeeper.GetAddress(),
+				opts.KeySigner.GetAddress(),
 				topo,
 				p2pSvc,
 				preconfEncryptor,
@@ -387,7 +368,7 @@ func NewNode(opts *Options) (*Node, error) {
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
-				keyKeeper,
+				opts.KeySigner,
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),

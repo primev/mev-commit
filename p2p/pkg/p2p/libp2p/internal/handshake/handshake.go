@@ -16,9 +16,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	handshakepb "github.com/primev/mev-commit/p2p/gen/go/handshake/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/x/keysigner"
 )
 
 const (
@@ -46,7 +46,7 @@ type Store interface {
 
 // Handshake is the handshake protocol
 type Service struct {
-	kk            keykeeper.KeyKeeper
+	ks            keysigner.KeySigner
 	peerType      p2p.PeerType
 	passcode      string
 	signer        signer.Signer
@@ -57,7 +57,7 @@ type Service struct {
 }
 
 func New(
-	kk keykeeper.KeyKeeper,
+	ks keysigner.KeySigner,
 	peerType p2p.PeerType,
 	passcode string,
 	signer signer.Signer,
@@ -66,7 +66,7 @@ func New(
 	getEthAddress func(core.PeerID) (common.Address, error),
 ) (*Service, error) {
 	s := &Service{
-		kk:            kk,
+		ks:            ks,
 		peerType:      peerType,
 		passcode:      passcode,
 		signer:        signer,
@@ -123,7 +123,7 @@ func (h *Service) verifyReq(
 func (h *Service) createSignature() ([]byte, error) {
 	unsignedData := []byte(h.peerType.String() + h.passcode)
 	hash := crypto.Keccak256Hash(unsignedData)
-	sig, err := h.kk.SignHash(hash.Bytes())
+	sig, err := h.ks.SignHash(hash.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (h *Service) getOrSetNikePrivateKey() (*ecdh.PrivateKey, error) {
 }
 
 func (h *Service) verifyResp(resp *handshakepb.HandshakeResp) error {
-	if !bytes.Equal(resp.ObservedAddress, h.kk.GetAddress().Bytes()) {
+	if !bytes.Equal(resp.ObservedAddress, h.ks.GetAddress().Bytes()) {
 		return errors.New("observed address mismatch")
 	}
 

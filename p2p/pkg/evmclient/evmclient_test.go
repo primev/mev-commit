@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 	"github.com/primev/mev-commit/p2p/pkg/evmclient/mockevm"
-	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/primev/mev-commit/x/util"
 )
 
