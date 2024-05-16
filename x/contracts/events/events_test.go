@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	bidderregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/BidderRegistry"
-	"github.com/primevprotocol/mev-commit/x/util"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestEventHandler(t *testing.T) {

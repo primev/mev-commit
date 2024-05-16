@@ -2,11 +2,11 @@
 mev-commit is P2P software that creates a network of execution providers and bidders. Bidders can broadcast bids to providers and receive commitments from them. A high throughput POA EVM chain settles the bids at the end of a block slot.
 
 # mev-commit software components
-  - [mev-commit client](https://github.com/primevprotocol/mev-commit)
-  - [mev-commit-geth](https://github.com/primevprotocol/mev-commit-geth)
-  - [contracts](https://github.com/primevprotocol/contracts)
-  - [mev-commit-oracle](https://github.com/primevprotocol/mev-commit-oracle)
-  - [mev-commit-bridge](https://github.com/primevprotocol/mev-commit-geth/tree/master/geth-poa)
+  - [mev-commit client](https://github.com/primev/mev-commit/tree/main/p2p)
+  - [mev-commit-geth](https://github.com/primev/mev-commit/tree/main/external/geth)
+  - [contracts](https://github.com/primev/mev-commit/tree/main/contracts)
+  - [mev-commit-oracle](https://github.com/primev/mev-commit/tree/main/oracle)
+  - [mev-commit-bridge](https://github.com/primev/mev-commit/tree/main/external/geth/tree/master/geth-poa)
   - curl
 
 # mev-commit execution requirements
@@ -27,12 +27,12 @@ The command:
 
 ### Bidder Node
 ```bash
-curl -o launchmevcommit https://raw.githubusercontent.com/primevprotocol/scripts/main/launchmevcommit && chmod +x launchmevcommit && ./launchmevcommit --node-type bidder
+curl -o launchmevcommit https://raw.githubusercontent.com/primev/scripts/main/launchmevcommit && chmod +x launchmevcommit && ./launchmevcommit --node-type bidder
 ```
 
 ### Provider Node
 ```bash
-curl -o launchmevcommit https://raw.githubusercontent.com/primevprotocol/scripts/main/launchmevcommit && chmod +x launchmevcommit && ./launchmevcommit --node-type provider
+curl -o launchmevcommit https://raw.githubusercontent.com/primev/scripts/main/launchmevcommit && chmod +x launchmevcommit && ./launchmevcommit --node-type provider
 ```
 
 ## Quick Build (For docker please skip this instruction)
@@ -58,7 +58,7 @@ OPTIONS:
    --help, -h  show help
 ```
 
-- Once the key is available, create a yaml config file. Example config files are available in the [config](https://github.com/primevprotocol/mev-commit/tree/main/config) folder. The important options are defined below:
+- Once the key is available, create a yaml config file. Example config files are available in the [config](https://github.com/primev/mev-commit/tree/main/p2p/config) folder. The important options are defined below:
 ```yaml
 # Path to private key file.
 priv_key_file: ~/.mev-commit/keys/nodekey

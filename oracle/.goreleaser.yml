@@ -52,8 +52,8 @@ checksum:
 # TODO(mrekucci): Re-enable when the repo is finalized.
 #dockers:
 #  - image_templates:
-#    - ghcr.io/primevprotocol/mev-commit-oracle:v{{ .Major }}.{{ .Minor }}
-#    - ghcr.io/primevprotocol/mev-commit-oracle:latest
+#    - ghcr.io/primev/mev-commit-oracle:v{{ .Major }}.{{ .Minor }}
+#    - ghcr.io/primev/mev-commit-oracle:latest
 #    dockerfile: Dockerfile.goreleaser
 #    use: buildx
 #    goarch: amd64

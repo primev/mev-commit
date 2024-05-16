@@ -4,7 +4,7 @@ import (
 	"time"
 
 	core "github.com/libp2p/go-libp2p/core"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 )
 
 type blockInfo struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/lib/pq"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/updater"
+	"github.com/primev/mev-commit/oracle/pkg/updater"
 )
 
 var settlementType = `

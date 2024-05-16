@@ -1,11 +1,11 @@
-module github.com/primevprotocol/mev-commit/x
+module github.com/primev/mev-commit/x
 
 go 1.22
 
 require (
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/google/go-cmp v0.5.9
-	github.com/primevprotocol/mev-commit/contracts-abi v0.0.1
+	github.com/primev/mev-commit/contracts-abi v0.0.1
 )
 
 require (
@@ -38,4 +38,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/primevprotocol/mev-commit/contracts-abi => ../contracts-abi
+replace github.com/primev/mev-commit/contracts-abi => ../contracts-abi

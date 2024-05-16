@@ -2,7 +2,7 @@ package libp2p
 
 import (
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 )
 
 var (

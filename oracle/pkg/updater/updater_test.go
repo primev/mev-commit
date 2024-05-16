@@ -18,11 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/updater"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
-	"github.com/primevprotocol/mev-commit/x/util"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	"github.com/primev/mev-commit/oracle/pkg/updater"
+	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/util"
 	"golang.org/x/crypto/sha3"
 )
 

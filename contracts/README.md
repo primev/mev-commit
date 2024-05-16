@@ -180,7 +180,7 @@ This means the solidity version used for contract compilation affects the addres
 
 It's recommended to use `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` as the deployer account so that contract addresses will match external facing documentation. In production this address will have proper key management, for now here's the private key: `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`.
 
-The CREATE2 proxy needs to be deployed prior to these contracts. See [this repo](https://github.com/primevprotocol/deterministic-deployment-proxy), or this [make command](https://github.com/primevprotocol/go-ethereum/blob/d29cfe94205e852cc57a8184585ccc895d32a517/geth-poa/Makefile#L48) to deploy. Anvil automatically deploys this proxy to the expected address.
+The CREATE2 proxy needs to be deployed prior to these contracts. See [this repo](https://github.com/primev/deterministic-deployment-proxy), or this [make command](https://github.com/primev/mev-commit-geth/blob/d29cfe94205e852cc57a8184585ccc895d32a517/geth-poa/Makefile#L48) to deploy. Anvil automatically deploys this proxy to the expected address.
 
 Using the above private key and compiling with solidity 0.8.23, expected contract addresses are:
 

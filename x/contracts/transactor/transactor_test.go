@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/primevprotocol/mev-commit/x/contracts/transactor"
+	"github.com/primev/mev-commit/x/contracts/transactor"
 )
 
 func TestTrasactor(t *testing.T) {

@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	keyexchangepb "github.com/primevprotocol/mev-commit/p2p/gen/go/keyexchange/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	keyexchangepb "github.com/primev/mev-commit/p2p/gen/go/keyexchange/v1"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -27,11 +27,11 @@ func New(
 	signer signer.Signer,
 ) *KeyExchange {
 	return &KeyExchange{
-		topo:              topo,
-		streamer:          streamer,
-		keyKeeper:         keyKeeper,
-		logger:            logger,
-		signer:            signer,
+		topo:      topo,
+		streamer:  streamer,
+		keyKeeper: keyKeeper,
+		logger:    logger,
+		signer:    signer,
 	}
 }
 

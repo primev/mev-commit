@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru/v2"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	preconf "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )

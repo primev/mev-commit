@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	l1g "github.com/primevprotocol/mev-commit/contracts-abi/clients/L1Gateway"
+	l1g "github.com/primev/mev-commit/contracts-abi/clients/L1Gateway"
 )
 
 type L1Filterer struct {

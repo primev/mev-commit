@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/shared"
-	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/transfer"
-	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/util"
+	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/shared"
+	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/transfer"
+	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/util"
 )
 
 const (

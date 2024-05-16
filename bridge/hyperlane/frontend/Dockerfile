@@ -2,7 +2,7 @@ FROM alpine:latest
 
 RUN apk add --no-cache git yarn jq
 
-RUN git clone https://github.com/primevprotocol/hyperlane-ui.git
+RUN git clone https://github.com/primev/hyperlane-ui.git
 WORKDIR /hyperlane-ui
 RUN git checkout ff1586ed9cad6eeddba2cebc5f9b7828c74f25d1
 
