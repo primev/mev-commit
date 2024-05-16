@@ -42,7 +42,7 @@ func TestBids(t *testing.T) {
 		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
-		_, encryptedBid, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		_, encryptedBid, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -116,7 +116,7 @@ func TestBids(t *testing.T) {
 		start := time.Now().UnixMilli()
 		end := start + 100000
 
-		bid, encryptedBid, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		bid, encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -130,7 +130,7 @@ func TestBids(t *testing.T) {
 			t.Fail()
 		}
 
-		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerKeyKeeper.GetNIKEPublicKey(), bid.Digest, encryptedPreConfirmation)
+		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerKeyKeeper.GetNIKEPublicKey(), nikePrivateKey, bid.Digest, encryptedPreConfirmation)
 		if err != nil {
 			t.Fail()
 		}

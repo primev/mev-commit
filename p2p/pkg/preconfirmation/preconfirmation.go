@@ -117,7 +117,7 @@ func (p *Preconfirmation) SendBid(
 	decayEndTimestamp int64,
 ) (chan *preconfpb.PreConfirmation, error) {
 	startTime := time.Now()
-	bid, encryptedBid, err := p.encryptor.ConstructEncryptedBid(
+	bid, encryptedBid, nikePrivateKey, err := p.encryptor.ConstructEncryptedBid(
 		txHash,
 		bidAmt,
 		blockNumber,
@@ -183,6 +183,7 @@ func (p *Preconfirmation) SendBid(
 			verifyStartTime := time.Now()
 			sharedSecretKey, providerAddress, err := p.encryptor.VerifyEncryptedPreConfirmation(
 				provider.Keys.NIKEPublicKey,
+				nikePrivateKey,
 				bid.Digest,
 				encryptedPreConfirmation,
 			)

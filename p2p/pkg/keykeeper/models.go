@@ -34,5 +34,4 @@ type ProviderKeyKeeper struct {
 
 type BidderKeyKeeper struct {
 	*BaseKeyKeeper
-	BidHashesToNIKE map[string]*ecdh.PrivateKey
 }

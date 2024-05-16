@@ -3,6 +3,7 @@ package preconfencryptor
 import (
 	"bytes"
 	"crypto/ecdh"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -27,10 +28,10 @@ var (
 )
 
 type Encryptor interface {
-	ConstructEncryptedBid(string, string, int64, int64, int64) (*preconfpb.Bid, *preconfpb.EncryptedBid, error)
+	ConstructEncryptedBid(string, string, int64, int64, int64) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error)
 	ConstructEncryptedPreConfirmation(*preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error)
 	VerifyBid(*preconfpb.Bid) (*common.Address, error)
-	VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error)
+	VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidderNikeSC *ecdh.PrivateKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error)
 	DecryptBidData(common.Address, *preconfpb.EncryptedBid) (*preconfpb.Bid, error)
 }
 
@@ -62,9 +63,9 @@ func (e *encryptor) ConstructEncryptedBid(
 	blockNumber int64,
 	decayStartTimeStamp int64,
 	decayEndTimeStamp int64,
-) (*preconfpb.Bid, *preconfpb.EncryptedBid, error) {
+) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
 	if txHash == "" || bidAmt == "" || blockNumber == 0 {
-		return nil, nil, errors.New("missing required fields")
+		return nil, nil, nil, errors.New("missing required fields")
 	}
 
 	bid := &preconfpb.Bid{
@@ -77,13 +78,12 @@ func (e *encryptor) ConstructEncryptedBid(
 
 	bidHash, err := GetBidHash(bid)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	// todo: probably sign all data including nike public key
 	sig, err := e.keyKeeper.SignHash(bidHash)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if sig[64] == 0 || sig[64] == 1 {
@@ -91,10 +91,12 @@ func (e *encryptor) ConstructEncryptedBid(
 	}
 
 	bidderKK := e.keyKeeper.(*keykeeper.BidderKeyKeeper)
-	nikePublicKey, err := bidderKK.GenerateNIKEKeys(bidHash)
+	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+
+	nikePublicKey := nikePrivateKey.PublicKey()
 
 	bid.NikePublicKey = nikePublicKey.Bytes()
 	bid.Digest = bidHash
@@ -102,24 +104,24 @@ func (e *encryptor) ConstructEncryptedBid(
 
 	bidDataBytes, err := json.Marshal(bid)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	e.bidHashesToBid.Add(hex.EncodeToString(bidHash), bid)
 
 	aesKey, err := e.store.GetAESKey(bidderKK.GetAddress())
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if aesKey == nil {
-		return nil, nil, errors.New("no AES key found for bidder")
+		return nil, nil, nil, errors.New("no AES key found for bidder")
 	}
 	encryptedBidData, err := p2pcrypto.EncryptWithAESGCM(aesKey, bidDataBytes)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return bid, &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, nil
+	return bid, &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, nikePrivateKey, nil
 }
 
 func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
@@ -208,7 +210,7 @@ func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.
 
 // VerifyPreConfirmation verifies the preconfirmation message, and returns the address of the provider
 // that signed the preconfirmation.
-func (e *encryptor) VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
+func (e *encryptor) VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidderNikeSC *ecdh.PrivateKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
 	if c.Signature == nil {
 		return nil, nil, ErrMissingHashSignature
 	}
@@ -218,8 +220,7 @@ func (e *encryptor) VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKe
 	if !ok {
 		return nil, nil, errors.New("bid not found")
 	}
-	bidderKK := e.keyKeeper.(*keykeeper.BidderKeyKeeper)
-	sharedSecredBidderSk, err := bidderKK.BidHashesToNIKE[bidHashStr].ECDH(providerNikePK)
+	sharedSecredBidderSk, err := bidderNikeSC.ECDH(providerNikePK)
 	if err != nil {
 		return nil, nil, err
 	}

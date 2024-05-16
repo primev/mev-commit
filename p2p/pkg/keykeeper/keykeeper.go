@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
@@ -34,22 +33,9 @@ func (bkk *BaseKeyKeeper) ZeroPrivateKey(key *ecdsa.PrivateKey) {
 }
 
 func NewBidderKeyKeeper(keysigner keysigner.KeySigner) (*BidderKeyKeeper, error) {
-	bidHashesToNIKE := make(map[string]*ecdh.PrivateKey)
-
 	return &BidderKeyKeeper{
 		BaseKeyKeeper:   NewBaseKeyKeeper(keysigner),
-		BidHashesToNIKE: bidHashesToNIKE,
 	}, nil
-}
-
-func (bkk *BidderKeyKeeper) GenerateNIKEKeys(bidHash []byte) (*ecdh.PublicKey, error) {
-	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	nikePublicKey := nikePrivateKey.PublicKey()
-	bkk.BidHashesToNIKE[hex.EncodeToString(bidHash)] = nikePrivateKey
-	return nikePublicKey, nil
 }
 
 func NewProviderKeyKeeper(keysigner keysigner.KeySigner) (*ProviderKeyKeeper, error) {
