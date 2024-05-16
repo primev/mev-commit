@@ -16,6 +16,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
 )
 

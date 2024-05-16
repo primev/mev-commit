@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	keyexchangepb "github.com/primevprotocol/mev-commit/p2p/gen/go/keyexchange/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	keyexchangepb "github.com/primev/mev-commit/p2p/gen/go/keyexchange/v1"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -28,11 +29,12 @@ func New(
 	signer signer.Signer,
 ) *KeyExchange {
 	return &KeyExchange{
-		topo:              topo,
-		streamer:          streamer,
-		keyKeeper:         keyKeeper,
-		logger:            logger,
-		signer:            signer,
+		topo:      topo,
+		streamer:  streamer,
+		keyKeeper: keyKeeper,
+		store:     store,
+		logger:    logger,
+		signer:    signer,
 	}
 }
 
@@ -77,7 +79,6 @@ func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 
 func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, error) {
 	bidderAddress := ke.keyKeeper.GetAddress()
-
 	aesKey, err := ke.store.GetAESKey(bidderAddress)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting AES key: %w", err)
@@ -92,7 +93,6 @@ func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, 
 			return nil, nil, fmt.Errorf("error setting AES key: %w", err)
 		}
 	}
-
 	var encryptedKeys [][]byte
 	for _, provider := range providers {
 		encryptedKey, err := ecies.Encrypt(rand.Reader, provider.Keys.PKEPublicKey, aesKey, nil, nil)

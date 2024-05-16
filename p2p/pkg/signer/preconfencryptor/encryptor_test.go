@@ -7,10 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
 	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
-	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -83,7 +84,7 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		
+
 		keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
 		bidderKeyKeeper, err := keykeeper.NewBidderKeyKeeper(keySigner)
 		if err != nil {
