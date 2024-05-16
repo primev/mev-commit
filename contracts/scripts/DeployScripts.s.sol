@@ -21,7 +21,7 @@ contract Create2Deployer {
     function _checkCreate2Deployed() internal view {
         require(
             isContractDeployed(_CREATE2_PROXY),
-            "Create2 proxy needs to be deployed. See https://github.com/primevprotocol/deterministic-deployment-proxy"
+            "Create2 proxy needs to be deployed. See https://github.com/primev/deterministic-deployment-proxy"
         );
     }
 
@@ -59,7 +59,7 @@ contract DeployScript is Script, Create2Deployer {
         uint64 commitmentDispatchWindow = 2000;
 
         uint256 blocksPerWindow = 10;
-        // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
+        // Forge deploy with salt uses create2 proxy from https://github.com/primev/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
 
         BlockTracker blockTracker = new BlockTracker{salt: salt}(msg.sender);
@@ -157,7 +157,7 @@ contract DeployWhitelist is Script, Create2Deployer {
             "Address to whitelist not provided"
         );
 
-        // Forge deploy with salt uses create2 proxy from https://github.com/primevprotocol/deterministic-deployment-proxy
+        // Forge deploy with salt uses create2 proxy from https://github.com/primev/deterministic-deployment-proxy
         bytes32 salt = 0x8989000000000000000000000000000000000000000000000000000000000000;
 
         Whitelist whitelist = new Whitelist{salt: salt}(msg.sender);

@@ -9,10 +9,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	bidder_registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/bidder_registry"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
-	mockevmclient "github.com/primevprotocol/mev-commit/p2p/pkg/evmclient/mock"
-	"github.com/primevprotocol/mev-commit/x/util"
+	bidder_registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/bidder_registry"
+	"github.com/primev/mev-commit/p2p/pkg/evmclient"
+	mockevmclient "github.com/primev/mev-commit/p2p/pkg/evmclient/mock"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestBidderRegistryContract(t *testing.T) {

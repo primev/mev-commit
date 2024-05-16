@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/crypto"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"

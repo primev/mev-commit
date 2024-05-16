@@ -13,9 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	lru "github.com/hashicorp/golang-lru/v2"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	p2pcrypto "github.com/primevprotocol/mev-commit/p2p/pkg/crypto"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 )
 
 var (

@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -388,7 +388,7 @@ func (c *EvmClient) CancelTx(ctx context.Context, txnHash common.Hash) (common.H
 }
 
 func (c *EvmClient) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, logsCh chan<- types.Log) (ethereum.Subscription, error) {
-    return c.ethClient.SubscribeFilterLogs(ctx, query, logsCh)
+	return c.ethClient.SubscribeFilterLogs(ctx, query, logsCh)
 }
 
 func (c *EvmClient) BlockByNumber(ctx context.Context, blockNumber *big.Int) (*types.Block, error) {

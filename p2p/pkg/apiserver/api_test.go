@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/primevprotocol/mev-commit/p2p/pkg/apiserver"
+	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 )
 
 func newTestLogger(w io.Writer) *slog.Logger {

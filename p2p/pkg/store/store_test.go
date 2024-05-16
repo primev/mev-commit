@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 )
 
 func TestStore(t *testing.T) {
@@ -155,9 +155,12 @@ func TestStore(t *testing.T) {
 			}
 		}
 
-		err = st.ClearBalances(big.NewInt(12))
+		windows, err := st.ClearBalances(big.NewInt(12))
 		if err != nil {
 			t.Fatal(err)
+		}
+		if len(windows) != 1 {
+			t.Fatalf("expected 1, got %d", len(windows))
 		}
 
 		for i := 1; i <= 10; i++ {

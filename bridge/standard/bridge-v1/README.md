@@ -108,7 +108,7 @@ One possible implementation is the full data from each `TransferInitiated` event
 
 ### Multiple Relayers
 
-V2 improvements will include decentralization of the relayer role. A simple scheme could adapt [contracts](https://github.com/primevprotocol/contracts/tree/main/contracts/standard-bridge) to require `n` out of `m` relayers each with separate EOAs, to listen for `TransferInitiated` events and/or associated metadata. Then submit `FinalizeTransfer` txes on the destination chain. 
+V2 improvements will include decentralization of the relayer role. A simple scheme could adapt [contracts](https://github.com/primev/mev-commit/contracts/tree/main/contracts/standard-bridge) to require `n` out of `m` relayers each with separate EOAs, to listen for `TransferInitiated` events and/or associated metadata. Then submit `FinalizeTransfer` txes on the destination chain. 
 
 
 ###  Side Chain State Commitments

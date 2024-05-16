@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/go-cmp/cmp"
-	"github.com/primevprotocol/mev-commit/x/contracts/events/publisher"
-	"github.com/primevprotocol/mev-commit/x/util"
+	"github.com/primev/mev-commit/x/contracts/events/publisher"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestHTTPPublisher(t *testing.T) {

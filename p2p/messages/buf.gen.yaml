@@ -2,7 +2,7 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/primevprotocol/mev-commit/gen/go
+    default: github.com/primev/mev-commit/p2p/gen/go
     except:
       - buf.build/bufbuild/protovalidate
       - buf.build/googleapis/googleapis

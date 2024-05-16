@@ -1,4 +1,4 @@
-module github.com/primevprotocol/mev-commit/oracle
+module github.com/primev/mev-commit/oracle
 
 go 1.22
 
@@ -7,8 +7,8 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/lib/pq v1.10.9
-	github.com/primevprotocol/mev-commit/contracts-abi v0.0.1
-	github.com/primevprotocol/mev-commit/x v0.0.1
+	github.com/primev/mev-commit/contracts-abi v0.0.1
+	github.com/primev/mev-commit/x v0.0.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/testcontainers/testcontainers-go v0.27.0
 	github.com/urfave/cli/v2 v2.27.1
@@ -98,6 +98,6 @@ require (
 )
 
 replace (
-	github.com/primevprotocol/mev-commit/contracts-abi => ../contracts-abi
-	github.com/primevprotocol/mev-commit/x => ../x
+	github.com/primev/mev-commit/contracts-abi => ../contracts-abi
+	github.com/primev/mev-commit/x => ../x
 )

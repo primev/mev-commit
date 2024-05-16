@@ -6,8 +6,8 @@ import (
 	"io"
 
 	"github.com/libp2p/go-msgio"
-	streammsgv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/streammsg/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
+	streammsgv1 "github.com/primev/mev-commit/p2p/gen/go/streammsg/v1"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 )

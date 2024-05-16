@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )

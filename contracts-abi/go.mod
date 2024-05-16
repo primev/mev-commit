@@ -1,4 +1,4 @@
-module github.com/primevprotocol/mev-commit/contracts-abi
+module github.com/primev/mev-commit/contracts-abi
 
 go 1.22
 

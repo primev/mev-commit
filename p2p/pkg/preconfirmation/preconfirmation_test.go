@@ -13,14 +13,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	p2ptest "github.com/primevprotocol/mev-commit/p2p/pkg/p2p/testing"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/preconfirmation"
-	providerapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/provider"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
+	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
+	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
+	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 )
 
 type testTopo struct {

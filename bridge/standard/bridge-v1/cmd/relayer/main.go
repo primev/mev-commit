@@ -12,8 +12,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/relayer"
-	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/util"
+	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/relayer"
+	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )

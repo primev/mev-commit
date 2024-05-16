@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
-	p2pcrypto "github.com/primevprotocol/mev-commit/p2p/pkg/crypto"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
+	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/stretchr/testify/assert"
 )
 

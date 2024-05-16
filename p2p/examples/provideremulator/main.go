@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/primevprotocol/mev-commit/p2p/examples/provideremulator/client"
-	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
+	"github.com/primev/mev-commit/p2p/examples/provideremulator/client"
+	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 )
 
 var (

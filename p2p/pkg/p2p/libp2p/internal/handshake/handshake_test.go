@@ -9,11 +9,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/libp2p/go-libp2p/core"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
-	p2ptest "github.com/primevprotocol/mev-commit/p2p/pkg/p2p/testing"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
+	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 )
 
 type testRegister struct{}

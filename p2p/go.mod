@@ -1,10 +1,11 @@
-module github.com/primevprotocol/mev-commit/p2p
+module github.com/primev/mev-commit/p2p
 
 go 1.22
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.32.0-20240221180331-f05a6f4403ce.1
 	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/armon/go-radix v1.0.0
 	github.com/bufbuild/protovalidate-go v0.6.0
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1
@@ -13,8 +14,8 @@ require (
 	github.com/libp2p/go-msgio v0.3.0
 	github.com/multiformats/go-multiaddr v0.12.2
 	github.com/multiformats/go-multiaddr-dns v0.3.1
-	github.com/primevprotocol/mev-commit/contracts-abi v0.0.1
-	github.com/primevprotocol/mev-commit/x v0.0.1
+	github.com/primev/mev-commit/contracts-abi v0.0.1
+	github.com/primev/mev-commit/x v0.0.1
 	github.com/prometheus/client_golang v1.18.0
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.27.1
@@ -33,7 +34,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
-	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
@@ -138,6 +138,6 @@ require (
 )
 
 replace (
-	github.com/primevprotocol/mev-commit/contracts-abi => ../contracts-abi
-	github.com/primevprotocol/mev-commit/x => ../x
+	github.com/primev/mev-commit/contracts-abi => ../contracts-abi
+	github.com/primev/mev-commit/x => ../x
 )

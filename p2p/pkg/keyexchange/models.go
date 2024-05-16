@@ -5,10 +5,10 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 )
 
 // Protocol constants.

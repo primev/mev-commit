@@ -25,8 +25,8 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/primevprotocol/mev-commit/p2p.version={{.Version}}
-      - -X github.com/primevprotocol/mev-commit/p2p.revision={{ .ShortCommit }}
+      - -X github.com/primev/mev-commit/p2p.version={{.Version}}
+      - -X github.com/primev/mev-commit/p2p.revision={{ .ShortCommit }}
 
 archives:
   - format: tar.gz
@@ -62,8 +62,8 @@ checksum:
 # TODO(mrekucci): Re-enable when the repo is finalized.
 #dockers:
 #  - image_templates:
-#    - ghcr.io/primevprotocol/mev-commit:v{{ .Major }}.{{ .Minor }}
-#    - ghcr.io/primevprotocol/mev-commit:latest
+#    - ghcr.io/primev/mev-commit:v{{ .Major }}.{{ .Minor }}
+#    - ghcr.io/primev/mev-commit:latest
 #    dockerfile: Dockerfile.goreleaser
 #    use: buildx
 #    goarch: amd64
@@ -75,8 +75,8 @@ checksum:
 #      - "--label=org.opencontainers.image.version={{.Version}}"
 #      - "--platform=linux/amd64"
 #  - image_templates:
-#    - ghcr.io/primevprotocol/mev-commit:v{{ .Major }}.{{ .Minor }}
-#    - ghcr.io/primevprotocol/mev-commit:latest
+#    - ghcr.io/primev/mev-commit:v{{ .Major }}.{{ .Minor }}
+#    - ghcr.io/primev/mev-commit:latest
 #    dockerfile: Dockerfile.goreleaser
 #    use: buildx
 #    goarch: arm64

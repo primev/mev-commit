@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	streammsgv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/streammsg/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p/libp2p"
+	streammsgv1 "github.com/primev/mev-commit/p2p/gen/go/streammsg/v1"
+	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

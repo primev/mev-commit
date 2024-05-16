@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
+	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 )
 
 type Option func(*mockEvmClient)

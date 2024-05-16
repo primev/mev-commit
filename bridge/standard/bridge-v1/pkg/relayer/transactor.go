@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/shared"
+	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/shared"
 )
 
 type Transactor struct {
