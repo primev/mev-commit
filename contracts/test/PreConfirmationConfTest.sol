@@ -3,11 +3,13 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 
-import {PreConfCommitmentStore} from "../contracts/PreConfirmations.sol";
+import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
 import "../contracts/ProviderRegistry.sol";
 import "../contracts/BidderRegistry.sol";
 import "../contracts/BlockTracker.sol";
 import "forge-std/console.sol";
+
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract TestPreConfCommitmentStore is Test {
     struct TestCommitment {
@@ -53,29 +55,46 @@ contract TestPreConfCommitmentStore is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        providerRegistry = new ProviderRegistry(
-            minStake,
-            feeRecipient,
-            feePercent,
-            address(this)
-        );
-        blockTracker = new BlockTracker(address(this));
-        bidderRegistry = new BidderRegistry(
-            minStake,
-            feeRecipient,
-            feePercent,
-            address(this),
-            address(blockTracker)
-        );
 
-        preConfCommitmentStore = new PreConfCommitmentStore(
-            address(providerRegistry), // Provider Registry
+        address providerRegistryProxy = Upgrades.deployUUPSProxy(
+            "ProviderRegistry.sol",
+            abi.encodeCall(ProviderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this))) 
+        );
+        providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
+
+        address blockTrackerProxy = Upgrades.deployUUPSProxy(
+            "BlockTracker.sol",
+            abi.encodeCall(BlockTracker.initialize, 
+            (address(this)))
+        );
+        blockTracker = BlockTracker(payable(blockTrackerProxy));
+
+        address bidderRegistryProxy = Upgrades.deployUUPSProxy(
+            "BidderRegistry.sol",
+            abi.encodeCall(BidderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this), 
+            address(blockTracker)))
+        );
+        bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
+        
+        address preconfStoreProxy = Upgrades.deployUUPSProxy(
+            "PreConfCommitmentStore.sol",
+            abi.encodeCall(PreConfCommitmentStore.initialize, 
+            (address(providerRegistry), // Provider Registry
             address(bidderRegistry), // User Registry
             feeRecipient, // Oracle
             address(this),
             address(blockTracker), // Block Tracker
-            500
+            500)) // Commitment Dispatch Window
         );
+        preConfCommitmentStore = PreConfCommitmentStore(payable(preconfStoreProxy));
 
         // Sets fake block timestamp
         vm.warp(16);
@@ -132,7 +151,6 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(commitment.commitmentDigest, commitmentDigest);
         assertEq(commitment.commitmentSignature, commitmentSignature);
     }
-
 
     function test_StoreCommitmentFailureDueToTimestampValidation() public {
         bytes32 commitmentDigest = keccak256(
@@ -317,7 +335,7 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(commitmentTxnHash, _testCommitmentAliceBob.txnHash);
     }
 
-    function verifyCommitmentNotUsed(
+    function verifyCommitmentNotUsed (
         string memory txnHash,
         uint64 bid,
         uint64 blockNumber,

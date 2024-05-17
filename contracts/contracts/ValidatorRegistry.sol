@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
@@ -20,6 +20,20 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     /// @dev Number of blocks required between unstake initiation and withdrawal.
     uint256 public unstakePeriodBlocks;
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev Receive function is disabled for this contract to prevent unintended interactions.
+     */
+    receive() external payable {
+        revert("Invalid call");
+    }
 
     function initialize(
         uint256 _minStake, 

@@ -3,11 +3,13 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/Oracle.sol";
-import "../contracts/PreConfirmations.sol";
-import "../contracts/interfaces/IPreConfirmations.sol";
+import "../contracts/PreConfCommitmentStore.sol";
+import "../contracts/interfaces/IPreConfCommitmentStore.sol";
 import "../contracts/ProviderRegistry.sol";
 import "../contracts/BidderRegistry.sol";
 import "../contracts/BlockTracker.sol";
+
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract OracleTest is Test {
     address internal owner;
@@ -66,30 +68,57 @@ contract OracleTest is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
 
-        providerRegistry = new ProviderRegistry(
-            minStake,
-            feeRecipient,
-            feePercent,
-            address(this)
+        address proxy = Upgrades.deployUUPSProxy(
+            "ProviderRegistry.sol",
+            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, address(this))) 
         );
-        address ownerInstance = 0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3;
-        blockTracker = new BlockTracker(ownerInstance);
-        bidderRegistry = new BidderRegistry(minStake, feeRecipient, feePercent, address(this), address(blockTracker));
-        preConfCommitmentStore = new PreConfCommitmentStore(
-            address(providerRegistry), // Provider Registry
-            address(bidderRegistry), // User Registry
-            feeRecipient, // Oracle
-            address(this),
-            address(blockTracker), // Block Tracker
-            500
-        );
+        providerRegistry = ProviderRegistry(payable(proxy));
 
+        address ownerInstance = 0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3;
+
+        address blockTrackerProxy = Upgrades.deployUUPSProxy(
+            "BlockTracker.sol",
+            abi.encodeCall(BlockTracker.initialize, (ownerInstance))
+        );
+        blockTracker = BlockTracker(payable(blockTrackerProxy));
+
+        address proxy3 = Upgrades.deployUUPSProxy(
+            "BidderRegistry.sol",
+            abi.encodeCall(BidderRegistry.initialize, 
+            (minStake, 
+            feeRecipient, 
+            feePercent, 
+            address(this), 
+            address(blockTracker)))
+        );    
+        bidderRegistry = BidderRegistry(payable(proxy3));
+
+        address proxy4 = Upgrades.deployUUPSProxy(
+            "PreConfCommitmentStore.sol",
+            abi.encodeCall(PreConfCommitmentStore.initialize, 
+            (address(providerRegistry),
+            address(bidderRegistry),
+            feeRecipient,
+            address(this),
+            address(blockTracker),
+            500))
+        );
+        preConfCommitmentStore = PreConfCommitmentStore(payable(proxy4));
+        
         vm.deal(ownerInstance, 5 ether);
         vm.startPrank(ownerInstance);
         uint256 window = blockTracker.getCurrentWindow();
         bidderRegistry.depositForSpecificWindow{value: 2 ether}(window+1);
         
-        oracle = new Oracle(address(preConfCommitmentStore), address(blockTracker), ownerInstance);
+        address oracleProxy = Upgrades.deployUUPSProxy(
+            "Oracle.sol",
+            abi.encodeCall(Oracle.initialize, 
+            (address(preConfCommitmentStore), 
+            address(blockTracker), 
+            ownerInstance))
+        );
+        oracle = Oracle(payable(oracleProxy)); 
+
         vm.stopPrank();
 
         preConfCommitmentStore.updateOracle(address(oracle));
@@ -121,7 +150,7 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -150,7 +179,7 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index = constructAndStoreCommitment(bid, blockNumber, txn, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -184,8 +213,8 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -223,10 +252,10 @@ contract OracleTest is Test {
         providerRegistry.registerAndStake{value: 250 ether}();
         vm.stopPrank();
 
-        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
-        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, 10, 20, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index1 = constructAndStoreCommitment(bid, blockNumber, txn1, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index2 = constructAndStoreCommitment(bid, blockNumber, txn2, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index3 = constructAndStoreCommitment(bid, blockNumber, txn3, bidderPk, providerPk, provider, dispatchTimestampTesting);
+        bytes32 index4 = constructAndStoreCommitment(bid, blockNumber, txn4, bidderPk, providerPk, provider, dispatchTimestampTesting);
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
@@ -320,13 +349,13 @@ contract OracleTest is Test {
 
     /**
     constructAndStoreCommitment is a helper function to construct and store a commitment
+    Note decayStartTimestamp and decayEndTimestamp are hardcoded to 10 and 20 respectively
+    to avoid "stack too deep" errors.
      */
     function constructAndStoreCommitment(
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
-        uint64 decayStartTimestamp,
-        uint64 decayEndTimestamp,
         uint256 bidderPk,
         uint256 signerPk,
         address provider,
@@ -336,8 +365,8 @@ contract OracleTest is Test {
             txnHash,
             bid,
             blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp
+            10,
+            20
         );
 
 
@@ -348,8 +377,8 @@ contract OracleTest is Test {
             txnHash,
             bid,
             blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp,
+            10,
+            20,
             bidHash,
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
@@ -373,8 +402,8 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txnHash,
-            decayStartTimestamp,
-            decayEndTimestamp,
+            10,
+            20,
             bidSignature,
             commitmentSignature,
             sharedSecretKey
