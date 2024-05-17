@@ -28,13 +28,12 @@ import (
 	bidder_registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/bidder_registry"
 	preconfcontract "github.com/primev/mev-commit/p2p/pkg/contracts/preconf"
 	provider_registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/provider_registry"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/debugapi"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
 	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
@@ -48,6 +47,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -138,29 +138,14 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.Logger.With("component", "providerregistry"),
 	)
 
-	var keyKeeper keykeeper.KeyKeeper
-	switch opts.PeerType {
-	case p2p.PeerTypeProvider.String():
-		keyKeeper, err = keykeeper.NewProviderKeyKeeper(opts.KeySigner)
-		if err != nil {
-			opts.Logger.Error("failed to create provider key keeper", "error", err)
-			return nil, errors.Join(err, nd.Close())
-		}
-	case p2p.PeerTypeBidder.String():
-		keyKeeper, err = keykeeper.NewBidderKeyKeeper(opts.KeySigner)
-		if err != nil {
-			opts.Logger.Error("failed to create bidder key keeper", "error", err)
-			return nil, errors.Join(err, nd.Close())
-		}
-	default:
-		keyKeeper = keykeeper.NewBaseKeyKeeper(opts.KeySigner)
-	}
+	store := store.NewStore()
 
 	p2pSvc, err := libp2p.New(&libp2p.Options{
-		KeyKeeper:      keyKeeper,
+		KeySigner:      opts.KeySigner,
 		Secret:         opts.Secret,
 		PeerType:       peerType,
 		Register:       providerRegistry,
+		Store:          store,
 		Logger:         opts.Logger.With("component", "p2p"),
 		ListenPort:     opts.P2PPort,
 		ListenAddr:     opts.P2PAddr,
@@ -252,7 +237,8 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 
 		grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
-		preconfEncryptor, err := preconfencryptor.NewEncryptor(keyKeeper)
+
+		preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
 		if err != nil {
 			opts.Logger.Error("failed to create preconf encryptor", "error", err)
 			cancel()
@@ -298,8 +284,6 @@ func NewNode(opts *Options) (*Node, error) {
 		)
 		opts.Logger.Info("registered preconf contract")
 
-		store := store.NewStore()
-
 		tracker := preconftracker.NewTracker(
 			peerType,
 			evtMgr,
@@ -333,7 +317,7 @@ func NewNode(opts *Options) (*Node, error) {
 				channelCloserFunc(depositMgr.(*depositmanager.DepositManager).Start(ctx)),
 			)
 			preconfProto := preconfirmation.New(
-				keyKeeper.GetAddress(),
+				opts.KeySigner.GetAddress(),
 				topo,
 				p2pSvc,
 				preconfEncryptor,
@@ -349,7 +333,9 @@ func NewNode(opts *Options) (*Node, error) {
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
-				keyKeeper,
+				opts.KeySigner,
+				nil,
+				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 			)
@@ -358,7 +344,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 		case p2p.PeerTypeBidder.String():
 			preconfProto := preconfirmation.New(
-				keyKeeper.GetAddress(),
+				opts.KeySigner.GetAddress(),
 				topo,
 				p2pSvc,
 				preconfEncryptor,
@@ -381,10 +367,25 @@ func NewNode(opts *Options) (*Node, error) {
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
+			aesKey, err := crypto.GenerateAESKey()
+			if err != nil {
+				opts.Logger.Error("failed to generate AES key", "error", err)
+				cancel()
+				return nil, errors.Join(err, nd.Close())
+			}
+			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
+			if err != nil {
+				opts.Logger.Error("failed to set AES key", "error", err)
+				cancel()
+				return nil, errors.Join(err, nd.Close())
+			}
+
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
-				keyKeeper,
+				opts.KeySigner,
+				aesKey,
+				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 			)

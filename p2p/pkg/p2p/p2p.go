@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -70,7 +70,7 @@ type jsonKeys struct {
 }
 
 func (k *Keys) MarshalJSON() ([]byte, error) {
-	ppk := keykeeper.SerializePublicKey(k.PKEPublicKey)
+	ppk := crypto.SerializeEciesPublicKey(k.PKEPublicKey)
 	pkePublicKeyB64 := base64.StdEncoding.EncodeToString(ppk)
 
 	npk := k.NIKEPublicKey.Bytes()
@@ -93,7 +93,7 @@ func (k *Keys) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	pkePublicKey, err := keykeeper.DeserializePublicKey(pkePublicKeyBytes)
+	pkePublicKey, err := crypto.DeserializeEciesPublicKey(pkePublicKeyBytes)
 	if err != nil {
 		return err
 	}

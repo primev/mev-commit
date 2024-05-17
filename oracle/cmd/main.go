@@ -12,8 +12,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	contracts "github.com/primev/mev-commit/contracts-abi/config"
-	"github.com/primev/mev-commit/oracle/pkg/keysigner"
 	"github.com/primev/mev-commit/oracle/pkg/node"
+	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )

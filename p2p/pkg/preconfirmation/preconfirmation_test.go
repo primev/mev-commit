@@ -36,14 +36,15 @@ type testEncryptor struct {
 	encryptedBid             *preconfpb.EncryptedBid
 	bid                      *preconfpb.Bid
 	encryptedPreConfirmation *preconfpb.EncryptedPreConfirmation
+	nikePrivateKey           *ecdh.PrivateKey
 	preConfirmation          *preconfpb.PreConfirmation
 	sharedSecretKey          []byte
 	bidSigner                common.Address
 	preConfirmationSigner    common.Address
 }
 
-func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64) (*preconfpb.Bid, *preconfpb.EncryptedBid, error) {
-	return t.bid, t.encryptedBid, nil
+func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
+	return t.bid, t.encryptedBid, t.nikePrivateKey, nil
 }
 
 func (t *testEncryptor) ConstructEncryptedPreConfirmation(_ *preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
@@ -62,7 +63,7 @@ func (t *testEncryptor) DecryptBidData(_ common.Address, _ *preconfpb.EncryptedB
 	return t.bid, nil
 }
 
-func (t *testEncryptor) VerifyEncryptedPreConfirmation(*ecdh.PublicKey, []byte, *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
+func (t *testEncryptor) VerifyEncryptedPreConfirmation(*ecdh.PublicKey, *ecdh.PrivateKey, []byte, *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
 	return t.sharedSecretKey, &t.preConfirmationSigner, nil
 }
 

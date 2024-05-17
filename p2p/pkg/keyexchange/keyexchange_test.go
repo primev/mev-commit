@@ -2,6 +2,9 @@ package keyexchange_test
 
 import (
 	"bytes"
+	"crypto/ecdh"
+	"crypto/elliptic"
+	"crypto/rand"
 	"io"
 	"os"
 	"testing"
@@ -10,13 +13,15 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 )
 
 type testTopology struct {
@@ -45,25 +50,39 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 	}
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
 	ks := mockkeysigner.NewMockKeySigner(privKey, address)
-	bidderKK, err := keykeeper.NewBidderKeyKeeper(ks)
-	if err != nil {
-		t.Fatalf("Failed to create BidderKeyKeeper: %v", err)
-	}
-
-	providerKK, err := keykeeper.NewProviderKeyKeeper(ks)
-	if err != nil {
-		t.Fatalf("Failed to create ProviderKeyKeeper: %v", err)
-	}
 
 	bidderPeer := p2p.Peer{
-		EthAddress: bidderKK.KeySigner.GetAddress(),
+		EthAddress: ks.GetAddress(),
 		Type:       p2p.PeerTypeBidder,
 	}
 
+	bidderStore := store.NewStore()
+	providerStore := store.NewStore()
+
+	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = providerStore.SetECIESPrivateKey(encryptionPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = providerStore.SetNikePrivateKey(nikePrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	providerPeer := p2p.Peer{
-		EthAddress: providerKK.KeySigner.GetAddress(),
+		EthAddress: ks.GetAddress(),
 		Type:       p2p.PeerTypeProvider,
-		Keys:       &p2p.Keys{PKEPublicKey: providerKK.GetECIESPublicKey(), NIKEPublicKey: providerKK.GetNIKEPublicKey()},
+		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: nikePrivateKey.PublicKey()},
 	}
 	topo1 := &testTopology{peers: []p2p.Peer{providerPeer}}
 	topo2 := &testTopology{peers: []p2p.Peer{bidderPeer}}
@@ -79,9 +98,20 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		&providerPeer,
 	)
 
-	ke1 := keyexchange.New(topo1, svc1, bidderKK, logger, signer)
-	ke2 := keyexchange.New(topo2, svc2, providerKK, logger, signer)
+	aesKey, err := p2pcrypto.GenerateAESKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = bidderStore.SetAESKey(ks.GetAddress(), aesKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	ke1 := keyexchange.New(topo1, svc1, ks, aesKey, bidderStore, logger, signer)
+	ke2 := keyexchange.New(topo2, svc2, ks, nil, providerStore, logger, signer)
+	if err != nil {
+		t.Fatalf("keyexchange new failed: %v", err)
+	}
 	svc1.SetPeerHandler(bidderPeer, ke2.Streams()[0])
 
 	err = ke1.SendTimestampMessage()
@@ -94,9 +124,16 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("timed out")
 		}
-		aesKey, exists := providerKK.GetAESKey(bidderPeer.EthAddress)
-		if exists {
-			if !bytes.Equal(bidderKK.AESKey, aesKey) {
+		providerAesKey, err := providerStore.GetAESKey(bidderPeer.EthAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bidderAesKey, err := bidderStore.GetAESKey(bidderPeer.EthAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if providerAesKey != nil {
+			if !bytes.Equal(providerAesKey, bidderAesKey) {
 				t.Fatal("AES keys are not equal")
 			}
 			break
