@@ -102,6 +102,7 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
+          ${FORGE_BIN_PATH} clean
           ${FORGE_BIN_PATH} --version && ${FORGE_BIN_PATH} build --use 0.8.23 --via-ir --root ${CONTRACT_REPO_ROOT_PATH}
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh && ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           rm -rf ${CONTRACT_REPO_ROOT_PATH}
