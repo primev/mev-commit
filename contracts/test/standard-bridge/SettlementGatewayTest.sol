@@ -30,7 +30,7 @@ contract SettlementGatewayTest is Test {
             "Whitelist.sol",
             abi.encodeCall(Whitelist.initialize, (owner))
         ); 
-        whitelist = Whitelist(payable(proxy));
+        whitelist = Whitelist(payable(whitelistProxy));
         
         address proxy2 = Upgrades.deployUUPSProxy(
             "SettlementGateway.sol",
@@ -41,7 +41,7 @@ contract SettlementGatewayTest is Test {
             finalizationFee, 
             counterpartyFee))
         );
-        settlementGateway = SettlementGateway(payable(proxy2));
+        settlementGateway = SettlementGateway(payable(settlementGatewayProxy));
 
         vm.prank(owner);
         whitelist.addToWhitelist(address(settlementGateway));

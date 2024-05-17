@@ -24,7 +24,7 @@ contract WhitelistTest is Test {
             "Whitelist.sol",
             abi.encodeCall(Whitelist.initialize, (admin))
         ); 
-        whitelist = Whitelist(payable(proxy));
+        whitelist = Whitelist(payable(whitelistProxy));
     }
 
     function test_IsWhitelisted() public {

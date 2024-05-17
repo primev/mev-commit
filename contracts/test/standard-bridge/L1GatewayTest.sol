@@ -28,7 +28,7 @@ contract L1GatewayTest is Test {
             relayer, 
             finalizationFee, 
             counterpartyFee))); 
-        l1Gateway = L1Gateway(payable(proxy));
+        l1Gateway = L1Gateway(payable(l1GatewayProxy));
     }
 
     function test_ConstructorSetsVariablesCorrectly() public view {

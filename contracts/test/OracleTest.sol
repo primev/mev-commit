@@ -80,7 +80,7 @@ contract OracleTest is Test {
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, (ownerInstance))
         );
-        blockTracker = BlockTracker(payable(proxy2));
+        blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         address proxy3 = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
@@ -117,7 +117,7 @@ contract OracleTest is Test {
             address(blockTracker), 
             ownerInstance))
         );
-        oracle = Oracle(payable(proxy5)); 
+        oracle = Oracle(payable(oracleProxy)); 
 
         vm.stopPrank();
 

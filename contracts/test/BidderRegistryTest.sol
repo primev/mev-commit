@@ -29,13 +29,13 @@ contract BidderRegistryTest is Test {
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, (address(this)))
         );
-        blockTracker = BlockTracker(payable(proxy));
+        blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         address proxy2 = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, address(this), address(blockTracker)))
         );
-        bidderRegistry = BidderRegistry(payable(proxy2));
+        bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
         bidder = vm.addr(1);
         vm.deal(bidder, 1000 ether);

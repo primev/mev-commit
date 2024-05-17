@@ -64,14 +64,14 @@ contract TestPreConfCommitmentStore is Test {
             feePercent, 
             address(this))) 
         );
-        providerRegistry = ProviderRegistry(payable(proxy));
+        providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
 
         address proxy2 = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, 
             (address(this)))
         );
-        blockTracker = BlockTracker(payable(proxy2));
+        blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         address proxy3 = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
@@ -82,7 +82,7 @@ contract TestPreConfCommitmentStore is Test {
             address(this), 
             address(blockTracker)))
         );
-        bidderRegistry = BidderRegistry(payable(proxy3));
+        bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
         address proxy4 = Upgrades.deployUUPSProxy(
             "PreConfCommitmentStore.sol",
@@ -94,7 +94,7 @@ contract TestPreConfCommitmentStore is Test {
             address(blockTracker), // Block Tracker
             500)) // Commitment Dispatch Window
         );
-        preConfCommitmentStore = PreConfCommitmentStore(payable(proxy4));
+        preConfCommitmentStore = PreConfCommitmentStore(payable(preconfStoreProxy));
 
         // Sets fake block timestamp
         vm.warp(16);

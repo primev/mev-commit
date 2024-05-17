@@ -35,14 +35,14 @@ contract ProviderRegistryTest is Test {
             feePercent, 
             address(this))) 
         );
-        providerRegistry = ProviderRegistry(payable(proxy));
+        providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
 
         address proxy2 = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, 
             (address(this))) 
         );
-        blockTracker = BlockTracker(payable(proxy2));
+        blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         address proxy3 = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
@@ -53,7 +53,7 @@ contract ProviderRegistryTest is Test {
             address(this), 
             address(blockTracker))) 
         );
-        bidderRegistry = BidderRegistry(payable(proxy3));
+        bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
         address proxy4 = Upgrades.deployUUPSProxy(
             "PreConfCommitmentStore.sol",
@@ -65,7 +65,7 @@ contract ProviderRegistryTest is Test {
             address(this),
             500))
         );
-        preConfCommitmentStore = PreConfCommitmentStore(payable(proxy4));
+        preConfCommitmentStore = PreConfCommitmentStore(payable(preconfStoreProxy));
 
         provider = vm.addr(1);
         vm.deal(provider, 100 ether);
