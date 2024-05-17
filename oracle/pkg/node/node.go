@@ -22,7 +22,6 @@ import (
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	"github.com/primev/mev-commit/oracle/pkg/apiserver"
-	"github.com/primev/mev-commit/oracle/pkg/keysigner"
 	"github.com/primev/mev-commit/oracle/pkg/l1Listener"
 	"github.com/primev/mev-commit/oracle/pkg/store"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
@@ -30,6 +29,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/keysigner"
 )
 
 type Options struct {

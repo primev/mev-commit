@@ -2,18 +2,20 @@ package handshake_test
 
 import (
 	"context"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/libp2p/go-libp2p/core"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
+	"github.com/primev/mev-commit/p2p/pkg/store"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 )
 
 type testRegister struct{}
@@ -47,10 +49,6 @@ func TestHandshake(t *testing.T) {
 		}
 		address1 := common.HexToAddress("0x1")
 		ks1 := mockkeysigner.NewMockKeySigner(privKey1, address1)
-		kk1, err := keykeeper.NewProviderKeyKeeper(ks1)
-		if err != nil {
-			t.Fatal(err)
-		}
 		privKey2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			t.Fatal(err)
@@ -58,15 +56,33 @@ func TestHandshake(t *testing.T) {
 
 		address2 := common.HexToAddress("0x2")
 		ks2 := mockkeysigner.NewMockKeySigner(privKey2, address2)
-		kk2, err := keykeeper.NewProviderKeyKeeper(ks2)
+		store1 := store.NewStore()
+		nikePrivateKey1, err := ecdh.P256().GenerateKey(rand.Reader)
 		if err != nil {
 			t.Fatal(err)
 		}
+		err = store1.SetNikePrivateKey(nikePrivateKey1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prvKey1, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store1.SetECIESPrivateKey(prvKey1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		providerKeys1 := p2p.Keys{
+			PKEPublicKey:  &prvKey1.PublicKey,
+			NIKEPublicKey: nikePrivateKey1.PublicKey(),
+		}
 		hs1, err := handshake.New(
-			kk1,
+			ks1,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address2},
+			&providerKeys1,
 			&testRegister{},
 			func(p core.PeerID) (common.Address, error) {
 				return address2, nil
@@ -75,12 +91,35 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		store2 := store.NewStore()
+		nikePrivateKey2, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store2.SetNikePrivateKey(nikePrivateKey2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prvKey2, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store2.SetECIESPrivateKey(prvKey2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		providerKeys2 := p2p.Keys{
+			PKEPublicKey:  &prvKey2.PublicKey,
+			NIKEPublicKey: nikePrivateKey2.PublicKey(),
+		}
 
 		hs2, err := handshake.New(
-			kk2,
+			ks2,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address1},
+			&providerKeys2,
 			&testRegister{},
 			func(p core.PeerID) (common.Address, error) {
 				return address1, nil
@@ -112,11 +151,22 @@ func TestHandshake(t *testing.T) {
 				t.Errorf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 				return
 			}
-			if !p.Keys.NIKEPublicKey.Equal(kk2.GetNIKEPublicKey()) {
-				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), kk2.GetNIKEPublicKey().Bytes())
+			nikePrvKey, err := store2.GetNikePrivateKey()
+			if err != nil {
+				t.Error(err)
 				return
 			}
-			if !p.Keys.PKEPublicKey.ExportECDSA().Equal(kk2.GetECIESPublicKey().ExportECDSA()) {
+			if !p.Keys.NIKEPublicKey.Equal(nikePrvKey.PublicKey()) {
+				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), nikePrvKey.PublicKey().Bytes())
+				return
+			}
+			prvKey2, err := store2.GetECIESPrivateKey()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+
+			if !p.Keys.PKEPublicKey.ExportECDSA().Equal(prvKey2.PublicKey.ExportECDSA()) {
 				t.Error("expected pke pk is not equal to present")
 				return
 			}
@@ -132,10 +182,19 @@ func TestHandshake(t *testing.T) {
 		if p.Type != p2p.PeerTypeProvider {
 			t.Fatalf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 		}
-		if !p.Keys.NIKEPublicKey.Equal(kk1.GetNIKEPublicKey()) {
-			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), kk1.GetNIKEPublicKey().Bytes())
+		nikePrvKey, err := store1.GetNikePrivateKey()
+		if err != nil {
+			t.Fatal(err)
 		}
-		if !p.Keys.PKEPublicKey.ExportECDSA().Equal(kk1.GetECIESPublicKey().ExportECDSA()) {
+		if !p.Keys.NIKEPublicKey.Equal(nikePrvKey.PublicKey()) {
+			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), nikePrvKey.Bytes())
+		}
+		prvKey1, err = store1.GetECIESPrivateKey()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !p.Keys.PKEPublicKey.ExportECDSA().Equal(prvKey1.PublicKey.ExportECDSA()) {
 			t.Fatalf("expected pke pk is not equal to present")
 		}
 		<-done

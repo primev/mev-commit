@@ -1,4 +1,4 @@
-package keykeeper
+package crypto
 
 import (
 	"crypto/aes"
@@ -6,7 +6,7 @@ import (
 	"crypto/rand"
 )
 
-func generateAESKey() ([]byte, error) {
+func GenerateAESKey() ([]byte, error) {
 	aesKey := make([]byte, 32) // AES-256
 	_, err := rand.Read(aesKey)
 	if err != nil {
