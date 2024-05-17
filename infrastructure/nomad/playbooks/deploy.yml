@@ -1,0 +1,204 @@
+- name: Deploy Cluster
+  hosts: nomad_clients
+  gather_facts: yes
+
+  vars:
+    datacenter: "dc1"
+    build_artifacts: false
+    build_templates: false
+    aws_s3_bucket: "primev-infrastructure-artifacts"
+
+  pre_tasks:
+    - name: Determine the Architecture of the Target System
+      ansible.builtin.set_fact:
+        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+    - name: Include Variables
+      include_vars:
+        file: vars.yml
+
+    - name: Check Operating System of the Target System
+      assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: "This playbook only supports Debian systems."
+        success_msg: "Operating system is supported."
+
+    - name: Load AWS Caller Information
+      amazon.aws.aws_caller_info:
+      register: aws_caller_info
+      delegate_to: localhost
+      become: true
+      become_user: "{{ lookup('env', 'USER') }}"
+      when: version is not defined or version == ''
+
+    - name: Check AWS Caller Information
+      ansible.builtin.assert:
+        that:
+          - aws_caller_info is defined
+          - aws_caller_info.user_id is defined
+          - aws_caller_info.user_id | length > 0
+        fail_msg: "AWS caller information is invalid or empty."
+        success_msg: "AWS caller information is valid."
+      when: version is not defined or version == ''
+
+    - name: Check Profile
+      ansible.builtin.assert:
+        that:
+          - profile is defined
+          - profile != ''
+          - profile in profiles
+        fail_msg: "The profile variable is not set correctly."
+        success_msg: "The profile variable is set to: {{ profile }}."
+
+    - name: Determine "{{ profile }}" Jobs Profile
+      set_fact:
+        jobs: >-
+          {{
+            lookup('vars', 'jobs')
+            | selectattr('name', 'in', (profiles[profile].job_names | difference(['datadog-agent-logs-collector'] if no_logs_collection | default(false) else [])))
+            | list
+          }}
+
+    - name: Determine Artifacts Build Version
+      ansible.builtin.shell: |
+        echo "$(git rev-parse --short HEAD)$(git diff --quiet && echo '-'$(date +%s) || echo '-dirty-'$(date +%s))"
+      args:
+        executable: bash
+      register: artifacts_build_version
+      delegate_to: localhost
+      changed_when: false
+      when: version is not defined or version == ''
+
+    - name: Set Artifacts Build Version
+      set_fact:
+        build_artifacts: true
+        version: "{{ artifacts_build_version.stdout }}"
+      when: version is not defined or version == ''
+
+    - name: Determine Existing Scripts Artifact Version
+      ansible.builtin.shell: |
+        cat "{{ ansible_env.HOME }}/{{ profile }}/version.txt" 2>/dev/null || echo ""
+      register: existing_scripts_artifacts_version
+
+    - name: Set Existing Scripts Artifact Version as Stale
+      set_fact:
+        build_templates: "{{ (existing_scripts_artifacts_version.stdout | trim) != version }}"
+      when: existing_scripts_artifacts_version.stdout is defined
+
+    - name: Deployment Info
+      ansible.builtin.assert:
+        that:
+          - profile is defined
+          - profile != ''
+          - version is defined
+          - version != ''
+        fail_msg: |
+          Invalid profile or version.
+        success_msg: |
+          Profile: {{ profile }}
+          Version: {{ version }}
+          Build Artifacts: {{ 'yes' if build_artifacts | default(false) else 'no' }}
+          Build Templates: {{ 'yes' if build_templates | default(false) else 'no' }}
+
+  tasks:
+    - name: Ensure "{{ ansible_env.HOME }}/{{ profile }}" Directory Exists
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/{{ profile }}"
+        state: directory
+        mode: "0744"
+        recurse: yes
+
+    - name: Build Artifacts
+      ansible.builtin.shell: |
+        DESTINATION_DIR="/tmp/dist/{{ item }}-{{ version }}"
+        mkdir -p ${DESTINATION_DIR}
+        if [ "{{ item }}" == "contracts" ]; then
+          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
+        else
+          goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
+          mv ./dist/* ${DESTINATION_DIR}
+        fi
+      environment:
+        DIRTY_SUFFIX: "{{ version | regex_search('-.*') | default('') }}"
+      args:
+        chdir: "{{ playbook_dir }}/../../../"
+        executable: bash
+      loop:
+        - infrastructure/tools/keystore-generator
+        - p2p/integrationtest/provider
+        - p2p/integrationtest/real-bidder
+        - bridge/standard/bridge-v1
+        - external/geth
+        - contracts
+        - oracle
+        - p2p
+      loop_control:
+        label: "{{ item }}"
+      delegate_to: localhost
+      when: build_artifacts
+
+    - name: Filter Artifacts for Upload
+      ansible.builtin.find:
+        paths: "/tmp/dist"
+        patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt"
+        recurse: yes
+      register: artifacts
+      delegate_to: localhost
+      when: build_artifacts
+
+    - name: Upload Artifacts to AWS S3
+      amazon.aws.aws_s3:
+        bucket: "{{ aws_s3_bucket }}"
+        object: "{{ item.path | basename }}"
+        src: "{{ item.path }}"
+        mode: put
+        tags:
+          AutoDelete: "true"
+      loop: "{{ artifacts.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: (artifacts.files | default([])) | length > 0 and build_artifacts
+      delegate_to: localhost
+
+    - name: Remove Artifacts from "/tmp/dist"
+      ansible.builtin.file:
+        path: "/tmp/dist"
+        state: absent
+      delegate_to: localhost
+      when: build_artifacts
+
+    - name: Delete "version.txt"
+      file:
+        path: "{{ ansible_env.HOME }}/{{ profile }}/version.txt"
+        state: absent
+      when: build_templates is defined and build_templates
+
+    - name: Build Templates
+      ansible.builtin.template:
+        src: "templates/jobs/{{ item.template }}"
+        dest: "{{ ansible_env.HOME }}/{{ profile }}/{{ item.name }}.nomad"
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        job: "{{ item }}"
+      when: build_templates is not defined or build_templates
+
+    - name: Create "version.txt"
+      copy:
+        content: "{{ version }}"
+        dest: "{{ ansible_env.HOME }}/{{ profile }}/version.txt"
+      when: build_templates is not defined or build_templates
+
+    - name: Deploy Jobs
+      ansible.builtin.shell: |
+        nomad run {{ ansible_env.HOME }}/{{ profile }}/{{ job.name }}.nomad
+        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 240 || true
+      args:
+        executable: bash
+      loop: "{{ jobs }}"
+      loop_control:
+        label: "{{ item.name }}"
+      vars:
+        job: "{{ item }}"
