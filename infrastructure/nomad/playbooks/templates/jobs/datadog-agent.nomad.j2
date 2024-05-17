@@ -56,7 +56,7 @@ job "{{ job.name }}" {
           api_key: {{ with secret "secret/data/mev-commit" }}{{ .Data.data.datadog_api_key }}{{ end }}
           {% endraw %}
           tags:
-            - env:{{ env }}
+            - env:{{ profile }}
             - version:{{ version }}
         EOH
         destination = "etc/datadog-agent/datadog.yaml"
@@ -68,7 +68,7 @@ job "{{ job.name }}" {
           logs:
             - type: tcp
               port: 10500
-              source: "{{ env }}@{{ version }}"
+              source: "{{ profile }}@{{ version }}"
               encoding: "utf-8"
         EOH
         destination = "etc/datadog-agent/conf.d/logs-collector.d/conf.yaml"

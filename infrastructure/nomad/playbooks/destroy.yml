@@ -1,11 +1,14 @@
-- name: Destroy Nomad Jobs
+- name: Destroy Cluster
   hosts: nomad_clients
+  gather_facts: no
 
   tasks:
-    - name: Destroy | Nomad jobs
+    - name: Destroy ALl Jobs
       ansible.builtin.shell: |
         for job in $(nomad job status | awk 'NR > 1 {print $1}'); do
           nomad stop -purge "${job}"
         done
+        nomad var purge "nomad/jobs"
+        nomad system gc
       args:
         executable: bash
