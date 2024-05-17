@@ -1,7 +1,7 @@
 - name: Initialize and Configure Cluster
   hosts: all
   become: yes
-  remote_user: ubuntu
+  remote_user: "{{ hostvars[inventory_hostname].ansible_user }}"
   gather_facts: yes
 
   vars:
@@ -14,11 +14,47 @@
     vault_secret_path: "mev-commit"
 
   pre_tasks:
-    - name: Configuration | Include variables
+    - name: Determine the Architecture of the Target System
+      ansible.builtin.set_fact:
+        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+    - name: Include Variables
       include_vars:
         file: vars.yml
 
-    - name: Dependencies | Install common utility packages and dependencies
+    - name: Check Operating System of the Target System
+      assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: "This playbook only supports Debian systems."
+        success_msg: "Operating system is supported."
+
+    - name: Load AWS Caller Information
+      amazon.aws.aws_caller_info:
+      register: aws_caller_info
+      delegate_to: localhost
+      become: true
+      become_user: "{{ lookup('env', 'USER') }}"
+
+    - name: Check AWS Caller Information
+      ansible.builtin.assert:
+        that:
+          - aws_caller_info is defined
+          - aws_caller_info.user_id is defined
+          - aws_caller_info.user_id | length > 0
+        fail_msg: "AWS caller information is invalid or empty."
+        success_msg: "AWS caller information is valid."
+
+    - name: Check Profile
+      ansible.builtin.assert:
+        that:
+          - profile is defined
+          - profile != ''
+          - profile in profiles
+        fail_msg: "The profile variable is not set correctly."
+        success_msg: "The profile variable is set to: {{ profile }}."
+
+    - name: Install Common Utility Packages and Dependencies
       ansible.builtin.apt:
         name:
           - tree
@@ -38,7 +74,7 @@
         state: present
         update_cache: yes
 
-    - name: Dependencies | Install Linux crisis management tools
+    - name: Install Linux Crisis Management Tools
       ansible.builtin.apt:
         name:
           - procps
@@ -59,54 +95,20 @@
         state: present
       ignore_errors: yes
 
-    - name: Check | env variable
-      ansible.builtin.assert:
-        that:
-          - env is defined and env != ''
-        fail_msg: "The 'env' variable is not set."
-        success_msg: "The 'env' variable is set to: {{ env }}."
-
-    - name: Check | Operating system
-      assert:
-        that:
-          - ansible_facts['os_family'] == "Debian"
-        fail_msg: "This playbook only supports Debian systems."
-        success_msg: "Operating system is supported."
-
-    - name: Configuration | Determine the architecture of the target system
-      ansible.builtin.set_fact:
-        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
-
-    - name: Check | Load AWS caller information
-      amazon.aws.aws_caller_info:
-      register: aws_caller_info
-      delegate_to: localhost
-      become: true
-      become_user: "{{ lookup('env', 'USER') }}"
-
-    - name: Check | Validate AWS caller information
-      ansible.builtin.assert:
-        that:
-          - aws_caller_info is defined
-          - aws_caller_info.user_id is defined
-          - aws_caller_info.user_id | length > 0
-        fail_msg: "AWS caller information is invalid or empty."
-        success_msg: "AWS caller information is valid."
-
   tasks:
-    - name: Dependencies | Add DataDog repository key
+    - name: Add DataDog Repository Key
       ansible.builtin.apt_key:
         url: "https://keys.datadoghq.com/DATADOG_APT_KEY_CURRENT.public"
         state: present
         keyring: /usr/share/keyrings/datadog-archive-keyring.gpg
 
-    - name: Dependencies | Add DataDog repository
+    - name: Add DataDog Repository
       ansible.builtin.apt_repository:
         repo: "deb [signed-by=/usr/share/keyrings/datadog-archive-keyring.gpg] https://apt.datadoghq.com/ stable 7"
         state: present
         filename: datadog.list
 
-    - name: Dependencies | Install DataDog Agent
+    - name: Install DataDog Agent
       ansible.builtin.apt:
         name:
           - datadog-agent
@@ -114,70 +116,70 @@
         state: present
         update_cache: yes
 
-    - name: Dependencies | Import the PostgreSQL repository key
+    - name: Add PostgreSQL Repository Key
       ansible.builtin.apt_key:
         url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
         state: present
 
-    - name: Dependencies | Add PostgreSQL repository
+    - name: Add PostgreSQL Repository
       ansible.builtin.apt_repository:
         repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
         state: present
         filename: pgdg.list
 
-    - name: Dependencies | Install PostgreSQL
+    - name: Install PostgreSQL
       ansible.builtin.apt:
         name: postgresql-15
         state: present
         update_cache: yes
 
-    - name: System | Stop and disable PostgreSQL service
+    - name: Stop and Disable PostgreSQL Service
       ansible.builtin.systemd:
         name: postgresql
         state: stopped
         enabled: no
 
-    - name: Dependencies | Add HashiCorp GPG key
+    - name: Add HashiCorp Repository Key
       ansible.builtin.apt_key:
         url: https://apt.releases.hashicorp.com/gpg
         keyring: /usr/share/keyrings/hashicorp-archive-keyring.gpg
 
-    - name: Dependencies | Add HashiCorp repository
+    - name: Add HashiCorp Repository
       ansible.builtin.apt_repository:
         repo: "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
         filename: hashicorp
         state: present
         update_cache: yes
 
-    - name: Dependencies | Install Vault
+    - name: Install Vault
       ansible.builtin.apt:
         name: vault
         state: present
 
-    - name: Configuration | Deploy Vault configuration file
+    - name: Deploy Vault Configuration File
       ansible.builtin.template:
-        src: "templates/system/vault.hcl.j2"
+        src: "templates/services/vault.hcl.j2"
         dest: "/etc/vault.d/vault.hcl"
         owner: vault
         group: vault
-        mode: '0644'
+        mode: "0644"
 
-    - name: Configuration | Deploy Vault env file
+    - name: Deploy Vault Environment File
       ansible.builtin.template:
-        src: "templates/system/vault.env.j2"
+        src: "templates/services/vault.env.j2"
         dest: "/etc/vault.d/vault.env"
         owner: vault
         group: vault
-        mode: '0644'
+        mode: "0644"
 
-    - name: System | Restart and enable Vault service
+    - name: Restart and Enable Vault Service
       ansible.builtin.systemd:
         name: vault
         state: restarted
         enabled: yes
         daemon_reload: yes
 
-    - name: Configuration | Retrieve Vault status
+    - name: Determine Vault Status
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/sys/init"
         method: GET
@@ -185,7 +187,7 @@
         validate_certs: no
       register: vault_status
 
-    - name: Configuration | Initialize Vault if not already initialized
+    - name: Initialize Vault
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/sys/init"
         method: PUT
@@ -203,16 +205,16 @@
       register: vault_init
       when: vault_status.json.initialized == false
 
-    - name: Configuration | Store Vault unseal key and root token
+    - name: Save Vault Unseal Key and Root Token
       ansible.builtin.copy:
         content: "{{ vault_init.json }}"
         dest: "{{ vault_init_file }}"
-        mode: '0400'
+        mode: "0400"
       when: vault_status.json.initialized == false
       become: true
-      become_user: ubuntu
+      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
 
-    - name: Configuration | Retrieve Vault seal status
+    - name: Determine Vault Seal Status
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/sys/seal-status"
         method: GET
@@ -220,7 +222,7 @@
         validate_certs: no
       register: vault_seal_status
 
-    - name: Configuration | Fetch Vault initialization file
+    - name: Load Vault Initialization File
       slurp:
         src: "{{ vault_init_file }}"
       register: vault_init_content
@@ -228,9 +230,9 @@
         - vault_status.json.initialized == true
         - vault_seal_status.json.sealed == true
       become: true
-      become_user: ubuntu
+      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
 
-    - name: Configuration | Parse Vault initialization file
+    - name: Parse Vault Initialization File
       ansible.builtin.set_fact:
         vault_init: "{{ vault_init | combine({'json': (vault_init_content['content'] | b64decode | from_json) }) }}"
       when:
@@ -238,7 +240,7 @@
         - vault_status.json.initialized == true
         - vault_seal_status.json.sealed == true
 
-    - name: Configuration | Unseal Vault
+    - name: Unseal Vault
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/sys/unseal"
         method: PUT
@@ -259,13 +261,13 @@
       delay: 10
       when: vault_seal_status.json.sealed == true
 
-    - name: Configuration | Fetch secrets
+    - name: Fetch Secrets
       ansible.builtin.set_fact:
-        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', env ~ '/' ~ vault_secret_path, errors='ignore') }}"
+        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', profile ~ '/' ~ vault_secret_path) }}"
       when: unseal_result.json.sealed == false
       delegate_to: localhost
 
-    - name: Configuration | Enable KV secrets engine
+    - name: Enable KV Secrets Engine
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/sys/mounts/{{ vault_kv_engine_path }}"
         method: POST
@@ -285,7 +287,7 @@
         - vault_status.json.initialized == false
         - unseal_result.json.sealed == false
 
-    - name: Configuration | Write the retrieved secret into HashiCorp Vault
+    - name: Write Retrieved Secret into Vault
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}"
         method: POST
@@ -298,65 +300,65 @@
         validate_certs: no
       when: unseal_result.json.sealed == false
 
-    - name: Dependencies | Install Nomad
+    - name: Install Nomad
       ansible.builtin.apt:
         name: nomad
         state: present
 
-    - name: Dependencies | Download CNI plugins package
+    - name: Download CNI Plugins Package
       ansible.builtin.get_url:
         url: "https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-{{ system_arch }}-v1.4.0.tgz"
         dest: "/tmp/cni-plugins.tgz"
 
-    - name: Dependencies | Ensure /opt/cni/bin directory exists
+    - name: Ensure "/opt/cni/bin" Directory Exists
       ansible.builtin.file:
         path: "/opt/cni/bin"
         state: directory
 
-    - name: Dependencies | Extract the CNI plugins package
+    - name: Extract CNI Plugins Package
       ansible.builtin.unarchive:
         src: "/tmp/cni-plugins.tgz"
         dest: "/opt/cni/bin"
         remote_src: yes
         extra_opts: [--strip-components=1]
 
-    - name: Configuration | Configure bridge network settings
+    - name: Deploy Bridge Network Settings
       ansible.builtin.copy:
         dest: "/etc/sysctl.d/bridge.conf"
         content: |
           net.bridge.bridge-nf-call-arptables = 1
           net.bridge.bridge-nf-call-ip6tables = 1
           net.bridge.bridge-nf-call-iptables = 1
-        mode: '0644'
+        mode: "0644"
       notify:
         - reload sysctl
 
-    - name: Configuration | Deploy Nomad configuration file
+    - name: Deploy Nomad Configuration File
       ansible.builtin.template:
-        src: "templates/system/nomad.hcl.j2"
+        src: "templates/services/nomad.hcl.j2"
         dest: "/etc/nomad.d/nomad.hcl"
         owner: nomad
         group: nomad
-        mode: '0644'
+        mode: "0644"
 
-    - name: Configuration | Deploy Nomad env file
+    - name: Deploy Nomad environment File
       ansible.builtin.template:
-        src: "templates/system/nomad.env.j2"
+        src: "templates/services/nomad.env.j2"
         dest: "/etc/nomad.d/nomad.env"
         owner: nomad
         group: nomad
-        mode: '0644'
+        mode: "0644"
       vars:
         vault_token: "{{ vault_init.json.root_token }}"
 
-    - name: System | Restart and enable Nomad service
+    - name: Restart and Enable Nomad Service
       ansible.builtin.systemd:
         name: nomad
         state: restarted
         enabled: yes
         daemon_reload: yes
 
-    - name: Dependencies | Install OpenSSL
+    - name: Install OpenSSL
       ansible.builtin.apt:
         name: openssl
         state: present
@@ -364,36 +366,36 @@
       tags:
         - certs
 
-    - name: Configuration | Create directory for OpenSSL
+    - name: Ensure "{{ openssl_dir }}" Directory Exists
       ansible.builtin.file:
         path: "{{ openssl_dir }}"
         state: directory
-        mode: '0755'
+        mode: "0755"
       tags:
         - certs
 
-    - name: Configuration | Generate private key for CA
+    - name: Generate Private Key for CA
       ansible.builtin.openssl_privatekey:
         path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
         size: 4096
       tags:
         - certs
 
-    - name: Configuration | Generate self-signed CA certificate
+    - name: Generate Self-Signed CA Certificate
       ansible.builtin.command:
         cmd: "openssl req -x509 -new -nodes -key {{ ca_certificates_dir }}/ca-{{ server_common_name }}.key -days 3650 -out {{ tls_ca_crt_file }} -subj '/C=US/ST=Delaware/L=Delaware City/O=Primev Inc/OU=Certificate Authority/CN={{ ansible_default_ipv4['address'] }}'"
       notify: update ca-certificates
       tags:
         - certs
 
-    - name: Configuration | Generate private key for server
+    - name: Generate Private Key for Server
       ansible.builtin.openssl_privatekey:
         path: "{{ tls_key_file }}"
         size: 4096
       tags:
         - certs
 
-    - name: Configuration | Generate CSR for server
+    - name: Generate CSR for Server
       ansible.builtin.openssl_csr:
         path: "/tmp/{{ server_common_name }}.csr"
         privatekey_path: "{{ tls_key_file }}"
@@ -402,7 +404,7 @@
       tags:
         - certs
 
-    - name: Configuration | Generate server certificate signed by self-signed CA
+    - name: Generate Server Certificate Signed by Self-Signed CA
       ansible.builtin.openssl_certificate:
         path: "{{ tls_crt_file }}"
         privatekey_path: "{{ tls_key_file }}"
