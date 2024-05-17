@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
-import {PreConfCommitmentStore} from "./PreConfirmations.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
-import {IPreConfCommitmentStore} from './interfaces/IPreConfirmations.sol';
+import {IPreConfCommitmentStore} from './interfaces/IPreConfCommitmentStore.sol';
 import {IBidderRegistry} from './interfaces/IBidderRegistry.sol';
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
@@ -16,7 +16,7 @@ import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
  * @title Oracle - A contract for Fetching L1 Block Builder Info and Block Data.
  * @dev This contract serves as an oracle to fetch and process Ethereum Layer 1 block data.
  */
-contract Oracle is Ownable {
+contract Oracle is OwnableUpgradeable {
     /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
 
@@ -40,18 +40,24 @@ contract Oracle is Ownable {
     IBlockTracker private blockTrackerContract;
 
     /**
-     * @dev Constructor to initialize the contract with a PreConfirmations contract.
+     * @dev Initializes the contract with a PreConfirmations contract.
      * @param _preConfContract The address of the pre-confirmations contract.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed with create2 factory.
      */
-    constructor(
+    function initialize(
         address _preConfContract,
         address _blockTrackerContract,
         address _owner
-    ) Ownable() {
+    ) external initializer {
         preConfContract = IPreConfCommitmentStore(_preConfContract);
         blockTrackerContract = IBlockTracker(_blockTrackerContract);
-        _transferOwnership(_owner);
+        __Ownable_init(_owner);
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /// @dev Event emitted when a commitment is processed.

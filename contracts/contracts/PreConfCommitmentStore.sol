@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.20;
 
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
@@ -14,7 +14,7 @@ import "forge-std/console.sol";
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
  */
-contract PreConfCommitmentStore is Ownable {
+contract PreConfCommitmentStore is OwnableUpgradeable {
     using ECDSA for bytes32;
 
     /// @dev EIP-712 Type Hash for preconfirmation commitment
@@ -165,19 +165,19 @@ contract PreConfCommitmentStore is Ownable {
      * @param _oracle The address of the oracle.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      */
-    constructor(
+    function initialize(
         address _providerRegistry,
         address _bidderRegistry,
         address _oracle, 
         address _owner,
         address _blockTracker,
         uint64 _commitment_dispatch_window
-    ) {
+    ) external initializer {
         oracle = _oracle;
         blockTracker = IBlockTracker(_blockTracker);
         providerRegistry = IProviderRegistry(_providerRegistry);
         bidderRegistry = IBidderRegistry(_bidderRegistry);
-        _transferOwnership(_owner);
+        __Ownable_init(_owner);
 
         // EIP-712 domain separator
         DOMAIN_SEPARATOR_PRECONF = keccak256(
@@ -204,6 +204,12 @@ contract PreConfCommitmentStore is Ownable {
      */
     function updateCommitmentDispatchWindow(uint64 newDispatchWindow) external onlyOwner {
         commitment_dispatch_window = newDispatchWindow;
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /**

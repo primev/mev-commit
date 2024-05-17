@@ -127,22 +127,22 @@ Impact: Medium
 Confidence: High
  - [ ] ID-13
 Contract locking ether found:
-	Contract [PreConfCommitmentStore](contracts/PreConfirmations.sol#L16-L448) has payable functions:
-	 - [PreConfCommitmentStore.fallback()](contracts/PreConfirmations.sol#L99-L101)
-	 - [PreConfCommitmentStore.receive()](contracts/PreConfirmations.sol#L106-L108)
+	Contract [PreConfCommitmentStore](contracts/PreConfCommitmentStore.sol#L16-L448) has payable functions:
+	 - [PreConfCommitmentStore.fallback()](contracts/PreConfCommitmentStore.sol#L99-L101)
+	 - [PreConfCommitmentStore.receive()](contracts/PreConfCommitmentStore.sol#L106-L108)
 	But does not have a function to withdraw the ether
 
-contracts/PreConfirmations.sol#L16-L448
+contracts/PreConfCommitmentStore.sol#L16-L448
 
 
 ## events-access
 Impact: Low
 Confidence: Medium
  - [ ] ID-14
-[PreConfCommitmentStore.updateOracle(address)](contracts/PreConfirmations.sol#L393-L395) should emit an event for: 
-	- [oracle = newOracle](contracts/PreConfirmations.sol#L394) 
+[PreConfCommitmentStore.updateOracle(address)](contracts/PreConfCommitmentStore.sol#L393-L395) should emit an event for: 
+	- [oracle = newOracle](contracts/PreConfCommitmentStore.sol#L394) 
 
-contracts/PreConfirmations.sol#L393-L395
+contracts/PreConfCommitmentStore.sol#L393-L395
 
 
  - [ ] ID-15
@@ -191,10 +191,10 @@ contracts/BidderRegistry.sol#L165
 
 
  - [ ] ID-21
-[PreConfCommitmentStore.updateOracle(address).newOracle](contracts/PreConfirmations.sol#L393) lacks a zero-check on :
-		- [oracle = newOracle](contracts/PreConfirmations.sol#L394)
+[PreConfCommitmentStore.updateOracle(address).newOracle](contracts/PreConfCommitmentStore.sol#L393) lacks a zero-check on :
+		- [oracle = newOracle](contracts/PreConfCommitmentStore.sol#L394)
 
-contracts/PreConfirmations.sol#L393
+contracts/PreConfCommitmentStore.sol#L393
 
 
  - [ ] ID-22
@@ -226,10 +226,10 @@ contracts/BidderRegistry.sol#L208
 
 
  - [ ] ID-26
-[PreConfCommitmentStore.constructor(address,address,address)._oracle](contracts/PreConfirmations.sol#L127) lacks a zero-check on :
-		- [oracle = _oracle](contracts/PreConfirmations.sol#L129)
+[PreConfCommitmentStore.constructor(address,address,address)._oracle](contracts/PreConfCommitmentStore.sol#L127) lacks a zero-check on :
+		- [oracle = _oracle](contracts/PreConfCommitmentStore.sol#L129)
 
-contracts/PreConfirmations.sol#L127
+contracts/PreConfCommitmentStore.sol#L127
 
 
 ## assembly
@@ -340,9 +340,9 @@ contracts/interfaces/IProviderRegistry.sol#L2
 
 
  - [ ] ID-43
-Pragma version[^0.8.20](contracts/PreConfirmations.sol#L2) necessitates a version too recent to be trusted. Consider deploying with 0.8.18.
+Pragma version[^0.8.20](contracts/PreConfCommitmentStore.sol#L2) necessitates a version too recent to be trusted. Consider deploying with 0.8.18.
 
-contracts/PreConfirmations.sol#L2
+contracts/PreConfCommitmentStore.sol#L2
 
 
  - [ ] ID-44
@@ -413,90 +413,90 @@ contracts/ProviderRegistry.sol#L191-L198
 Impact: Informational
 Confidence: High
  - [ ] ID-53
-Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._txnHash](contracts/PreConfirmations.sol#L196) is not in mixedCase
+Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._txnHash](contracts/PreConfCommitmentStore.sol#L196) is not in mixedCase
 
-contracts/PreConfirmations.sol#L196
+contracts/PreConfCommitmentStore.sol#L196
 
 
  - [ ] ID-54
-Variable [PreConfCommitmentStore.DOMAIN_SEPARATOR_BID](contracts/PreConfirmations.sol#L39) is not in mixedCase
+Variable [PreConfCommitmentStore.DOMAIN_SEPARATOR_BID](contracts/PreConfCommitmentStore.sol#L39) is not in mixedCase
 
-contracts/PreConfirmations.sol#L39
+contracts/PreConfCommitmentStore.sol#L39
 
 
  - [ ] ID-55
-Function [PreConfCommitmentStore._bytesToHexString(bytes)](contracts/PreConfirmations.sol#L437-L447) is not in mixedCase
+Function [PreConfCommitmentStore._bytesToHexString(bytes)](contracts/PreConfCommitmentStore.sol#L437-L447) is not in mixedCase
 
-contracts/PreConfirmations.sol#L437-L447
+contracts/PreConfCommitmentStore.sol#L437-L447
 
 
  - [ ] ID-56
-Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._blockNumber](contracts/PreConfirmations.sol#L198) is not in mixedCase
+Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._blockNumber](contracts/PreConfCommitmentStore.sol#L198) is not in mixedCase
 
-contracts/PreConfirmations.sol#L198
+contracts/PreConfCommitmentStore.sol#L198
 
 
  - [ ] ID-57
-Variable [PreConfCommitmentStore.DOMAIN_SEPARATOR_PRECONF](contracts/PreConfirmations.sol#L36) is not in mixedCase
+Variable [PreConfCommitmentStore.DOMAIN_SEPARATOR_PRECONF](contracts/PreConfCommitmentStore.sol#L36) is not in mixedCase
 
-contracts/PreConfirmations.sol#L36
+contracts/PreConfCommitmentStore.sol#L36
 
 
  - [ ] ID-58
-Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._bid](contracts/PreConfirmations.sol#L197) is not in mixedCase
+Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._bid](contracts/PreConfCommitmentStore.sol#L197) is not in mixedCase
 
-contracts/PreConfirmations.sol#L197
+contracts/PreConfCommitmentStore.sol#L197
 
 
  - [ ] ID-59
-Parameter [PreConfCommitmentStore.getBidHash(string,uint64,uint64)._txnHash](contracts/PreConfirmations.sol#L169) is not in mixedCase
+Parameter [PreConfCommitmentStore.getBidHash(string,uint64,uint64)._txnHash](contracts/PreConfCommitmentStore.sol#L169) is not in mixedCase
 
-contracts/PreConfirmations.sol#L169
+contracts/PreConfCommitmentStore.sol#L169
 
 
  - [ ] ID-60
-Parameter [PreConfCommitmentStore._bytesToHexString(bytes)._bytes](contracts/PreConfirmations.sol#L438) is not in mixedCase
+Parameter [PreConfCommitmentStore._bytesToHexString(bytes)._bytes](contracts/PreConfCommitmentStore.sol#L438) is not in mixedCase
 
-contracts/PreConfirmations.sol#L438
+contracts/PreConfCommitmentStore.sol#L438
 
 
  - [ ] ID-61
-Parameter [PreConfCommitmentStore.getBidHash(string,uint64,uint64)._blockNumber](contracts/PreConfirmations.sol#L171) is not in mixedCase
+Parameter [PreConfCommitmentStore.getBidHash(string,uint64,uint64)._blockNumber](contracts/PreConfCommitmentStore.sol#L171) is not in mixedCase
 
-contracts/PreConfirmations.sol#L171
+contracts/PreConfCommitmentStore.sol#L171
 
 
  - [ ] ID-62
-Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._bidHash](contracts/PreConfirmations.sol#L199) is not in mixedCase
+Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._bidHash](contracts/PreConfCommitmentStore.sol#L199) is not in mixedCase
 
-contracts/PreConfirmations.sol#L199
+contracts/PreConfCommitmentStore.sol#L199
 
 
  - [ ] ID-63
-Parameter [PreConfCommitmentStore.getBidHash(string,uint64,uint64)._bid](contracts/PreConfirmations.sol#L170) is not in mixedCase
+Parameter [PreConfCommitmentStore.getBidHash(string,uint64,uint64)._bid](contracts/PreConfCommitmentStore.sol#L170) is not in mixedCase
 
-contracts/PreConfirmations.sol#L170
+contracts/PreConfCommitmentStore.sol#L170
 
 
  - [ ] ID-64
-Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._bidSignature](contracts/PreConfirmations.sol#L200) is not in mixedCase
+Parameter [PreConfCommitmentStore.getPreConfHash(string,uint64,uint64,bytes32,string)._bidSignature](contracts/PreConfCommitmentStore.sol#L200) is not in mixedCase
 
-contracts/PreConfirmations.sol#L200
+contracts/PreConfCommitmentStore.sol#L200
 
 
 ## immutable-states
 Impact: Optimization
 Confidence: High
  - [ ] ID-65
-[PreConfCommitmentStore.DOMAIN_SEPARATOR_BID](contracts/PreConfirmations.sol#L39) should be immutable 
+[PreConfCommitmentStore.DOMAIN_SEPARATOR_BID](contracts/PreConfCommitmentStore.sol#L39) should be immutable 
 
-contracts/PreConfirmations.sol#L39
+contracts/PreConfCommitmentStore.sol#L39
 
 
  - [ ] ID-66
-[PreConfCommitmentStore.DOMAIN_SEPARATOR_PRECONF](contracts/PreConfirmations.sol#L36) should be immutable 
+[PreConfCommitmentStore.DOMAIN_SEPARATOR_PRECONF](contracts/PreConfCommitmentStore.sol#L36) should be immutable 
 
-contracts/PreConfirmations.sol#L36
+contracts/PreConfCommitmentStore.sol#L36
 
 
  - [ ] ID-67

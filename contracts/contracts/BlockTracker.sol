@@ -1,12 +1,13 @@
+// SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin-contracts/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title BlockTracker
  * @dev A contract that tracks Ethereum blocks and their winners.
  */
-contract BlockTracker is Ownable {
+contract BlockTracker is OwnableUpgradeable {
     /// @dev Event emitted when a new L1 block is tracked.
     event NewL1Block(
         uint256 indexed blockNumber,
@@ -20,8 +21,8 @@ contract BlockTracker is Ownable {
     /// @dev Event emitted when the number of blocks per window is updated.
     event NewBlocksPerWindow(uint256 blocksPerWindow);
 
-    uint256 public currentWindow = 1;
-    uint256 public blocksPerWindow = 10;
+    uint256 public currentWindow;
+    uint256 public blocksPerWindow;
 
     // Mapping from block number to the winner's address
     mapping(uint256 => address) public blockWinners;
@@ -33,8 +34,16 @@ contract BlockTracker is Ownable {
      * @dev Initializes the BlockTracker contract with the specified owner.
      * @param _owner The address of the contract owner.
      */
-    constructor(address _owner) Ownable() {
-        _transferOwnership(_owner);
+    function initialize(address _owner) external initializer {
+        currentWindow = 1;
+        blocksPerWindow = 10;
+        __Ownable_init(_owner);
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /**
