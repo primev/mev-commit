@@ -21,7 +21,7 @@ contract L1GatewayTest is Test {
         finalizationFee = 0.1 ether;
         counterpartyFee = 0.05 ether;
 
-        address proxy = Upgrades.deployUUPSProxy(
+        address l1GatewayProxy = Upgrades.deployUUPSProxy(
             "L1Gateway.sol",
             abi.encodeCall(L1Gateway.initialize,
             (owner, 

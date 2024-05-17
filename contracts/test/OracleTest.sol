@@ -76,7 +76,7 @@ contract OracleTest is Test {
 
         address ownerInstance = 0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3;
 
-        address proxy2 = Upgrades.deployUUPSProxy(
+        address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, (ownerInstance))
         );
@@ -110,7 +110,7 @@ contract OracleTest is Test {
         uint256 window = blockTracker.getCurrentWindow();
         bidderRegistry.depositForSpecificWindow{value: 2 ether}(window+1);
         
-        address proxy5 = Upgrades.deployUUPSProxy(
+        address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
             abi.encodeCall(Oracle.initialize, 
             (address(preConfCommitmentStore), 

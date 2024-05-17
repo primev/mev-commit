@@ -56,7 +56,7 @@ contract TestPreConfCommitmentStore is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
 
-        address proxy = Upgrades.deployUUPSProxy(
+        address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(ProviderRegistry.initialize, 
             (minStake, 
@@ -66,14 +66,14 @@ contract TestPreConfCommitmentStore is Test {
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
 
-        address proxy2 = Upgrades.deployUUPSProxy(
+        address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, 
             (address(this)))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
-        address proxy3 = Upgrades.deployUUPSProxy(
+        address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(BidderRegistry.initialize, 
             (minStake, 
@@ -84,7 +84,7 @@ contract TestPreConfCommitmentStore is Test {
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
-        address proxy4 = Upgrades.deployUUPSProxy(
+        address preconfStoreProxy = Upgrades.deployUUPSProxy(
             "PreConfCommitmentStore.sol",
             abi.encodeCall(PreConfCommitmentStore.initialize, 
             (address(providerRegistry), // Provider Registry

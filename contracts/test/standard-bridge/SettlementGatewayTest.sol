@@ -26,13 +26,13 @@ contract SettlementGatewayTest is Test {
         finalizationFee = 0.05 ether;
         counterpartyFee = 0.1 ether;
 
-        address proxy = Upgrades.deployUUPSProxy(
+        address whitelistProxy = Upgrades.deployUUPSProxy(
             "Whitelist.sol",
             abi.encodeCall(Whitelist.initialize, (owner))
         ); 
         whitelist = Whitelist(payable(whitelistProxy));
         
-        address proxy2 = Upgrades.deployUUPSProxy(
+        address settlementGatewayProxy = Upgrades.deployUUPSProxy(
             "SettlementGateway.sol",
             abi.encodeCall(SettlementGateway.initialize, 
             (address(whitelist), 

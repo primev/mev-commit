@@ -20,7 +20,7 @@ contract WhitelistTest is Test {
         normalBidder = address(0x100);
         addressInstance = address(0x200);
 
-        address proxy = Upgrades.deployUUPSProxy(
+        address whitelistProxy = Upgrades.deployUUPSProxy(
             "Whitelist.sol",
             abi.encodeCall(Whitelist.initialize, (admin))
         ); 
