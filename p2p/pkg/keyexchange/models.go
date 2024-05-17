@@ -30,6 +30,7 @@ var (
 // KeyExchange manages the key exchange process.
 type KeyExchange struct {
 	keySigner keysigner.KeySigner
+	address   common.Address
 	topo      Topology
 	streamer  p2p.Streamer
 	signer    signer.Signer

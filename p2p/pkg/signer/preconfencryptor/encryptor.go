@@ -139,14 +139,14 @@ func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*prec
 	if err != nil {
 		return nil, nil, err
 	}
-	sharedSecredProviderSk, err := nikePrvKey.ECDH(bidDataPublicKey)
+	sharedSecretProviderSk, err := nikePrvKey.ECDH(bidDataPublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:             bid,
-		SharedSecret:    sharedSecredProviderSk,
+		SharedSecret:    sharedSecretProviderSk,
 		ProviderAddress: e.keySigner.GetAddress().Bytes(),
 	}
 
@@ -213,7 +213,11 @@ func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.
 
 // VerifyPreConfirmation verifies the preconfirmation message, and returns the address of the provider
 // that signed the preconfirmation.
-func (e *encryptor) VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidderNikeSC *ecdh.PrivateKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
+func (e *encryptor) VerifyEncryptedPreConfirmation(
+	providerNikePK *ecdh.PublicKey,
+	bidderNikeSC *ecdh.PrivateKey,
+	bidHash []byte, c *preconfpb.EncryptedPreConfirmation,
+) ([]byte, *common.Address, error) {
 	if c.Signature == nil {
 		return nil, nil, ErrMissingHashSignature
 	}

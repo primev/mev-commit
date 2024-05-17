@@ -32,6 +32,7 @@ func New(
 		topo:      topo,
 		streamer:  streamer,
 		keySigner: keySigner,
+		address:   keySigner.GetAddress(),
 		store:     store,
 		logger:    logger,
 		signer:    signer,
@@ -78,8 +79,7 @@ func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 }
 
 func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, error) {
-	bidderAddress := ke.keySigner.GetAddress()
-	aesKey, err := ke.store.GetAESKey(bidderAddress)
+	aesKey, err := ke.store.GetAESKey(ke.address)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting AES key: %w", err)
 	}
@@ -88,7 +88,7 @@ func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, 
 		if err != nil {
 			return nil, nil, fmt.Errorf("error generating AES key: %w", err)
 		}
-		err = ke.store.SetAESKey(bidderAddress, aesKey)
+		err = ke.store.SetAESKey(ke.address, aesKey)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error setting AES key: %w", err)
 		}
@@ -102,7 +102,7 @@ func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, 
 		encryptedKeys = append(encryptedKeys, encryptedKey)
 	}
 
-	timestampMessage := fmt.Sprintf("mev-commit bidder %s setup %d", bidderAddress, time.Now().Unix())
+	timestampMessage := fmt.Sprintf("mev-commit bidder %s setup %d", ke.address, time.Now().Unix())
 	encryptedTimestampMessage, err := crypto.EncryptWithAESGCM(aesKey, []byte(timestampMessage))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error encrypting timestamp message: %w", err)
