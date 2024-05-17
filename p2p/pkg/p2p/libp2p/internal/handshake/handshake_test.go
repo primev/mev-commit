@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/libp2p/go-libp2p/core"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
@@ -64,12 +65,24 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		prvKey1, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store1.SetECIESPrivateKey(prvKey1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		providerKeys1 := p2p.Keys{
+			PKEPublicKey:  &prvKey1.PublicKey,
+			NIKEPublicKey: nikePrivateKey1.PublicKey(),
+		}
 		hs1, err := handshake.New(
 			ks1,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address2},
-			store1,
+			&providerKeys1,
 			&testRegister{},
 			func(p core.PeerID) (common.Address, error) {
 				return address2, nil
@@ -87,12 +100,26 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		prvKey2, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store2.SetECIESPrivateKey(prvKey2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		providerKeys2 := p2p.Keys{
+			PKEPublicKey:  &prvKey2.PublicKey,
+			NIKEPublicKey: nikePrivateKey2.PublicKey(),
+		}
+
 		hs2, err := handshake.New(
 			ks2,
 			p2p.PeerTypeProvider,
 			"test",
 			&testSigner{address: address1},
-			store2,
+			&providerKeys2,
 			&testRegister{},
 			func(p core.PeerID) (common.Address, error) {
 				return address1, nil
@@ -162,7 +189,7 @@ func TestHandshake(t *testing.T) {
 		if !p.Keys.NIKEPublicKey.Equal(nikePrvKey.PublicKey()) {
 			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), nikePrvKey.Bytes())
 		}
-		prvKey1, err := store1.GetECIESPrivateKey()
+		prvKey1, err = store1.GetECIESPrivateKey()
 		if err != nil {
 			t.Fatal(err)
 		}

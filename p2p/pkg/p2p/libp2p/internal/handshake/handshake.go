@@ -4,14 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdh"
-	"crypto/elliptic"
-	"crypto/rand"
 	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/libp2p/go-libp2p/core"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	handshakepb "github.com/primev/mev-commit/p2p/gen/go/handshake/v1"
@@ -37,20 +34,13 @@ type ProviderRegistry interface {
 	CheckProviderRegistered(context.Context, common.Address) bool
 }
 
-type Store interface {
-	SetECIESPrivateKey(*ecies.PrivateKey) error
-	GetECIESPrivateKey() (*ecies.PrivateKey, error)
-	SetNikePrivateKey(*ecdh.PrivateKey) error
-	GetNikePrivateKey() (*ecdh.PrivateKey, error)
-}
-
 // Handshake is the handshake protocol
 type Service struct {
 	ks            keysigner.KeySigner
 	peerType      p2p.PeerType
 	passcode      string
 	signer        signer.Signer
-	store         Store
+	providerKeys  *p2p.Keys
 	register      ProviderRegistry
 	handshakeReq  *handshakepb.HandshakeReq
 	getEthAddress func(core.PeerID) (common.Address, error)
@@ -61,7 +51,7 @@ func New(
 	peerType p2p.PeerType,
 	passcode string,
 	signer signer.Signer,
-	store Store,
+	providerKeys *p2p.Keys,
 	register ProviderRegistry,
 	getEthAddress func(core.PeerID) (common.Address, error),
 ) (*Service, error) {
@@ -70,7 +60,7 @@ func New(
 		peerType:      peerType,
 		passcode:      passcode,
 		signer:        signer,
-		store:         store,
+		providerKeys:  providerKeys,
 		register:      register,
 		getEthAddress: getEthAddress,
 	}
@@ -144,59 +134,15 @@ func (h *Service) setHandshakeReq() error {
 	}
 
 	if h.peerType == p2p.PeerTypeProvider {
-		prvKey, err := h.getOrSetECIESPrivateKey()
-		if err != nil {
-			return err
-		}
-		npk, err := h.getOrSetNikePrivateKey()
-		if err != nil {
-			return err
-		}
-		ppk := p2pcrypto.SerializeEciesPublicKey(&prvKey.PublicKey)
+		ppk := p2pcrypto.SerializeEciesPublicKey(h.providerKeys.PKEPublicKey)
 		req.Keys = &handshakepb.SerializedKeys{
 			PKEPublicKey:  ppk,
-			NIKEPublicKey: npk.PublicKey().Bytes(),
+			NIKEPublicKey: h.providerKeys.NIKEPublicKey.Bytes(),
 		}
 	}
 
 	h.handshakeReq = req
 	return nil
-}
-
-func (h *Service) getOrSetECIESPrivateKey() (*ecies.PrivateKey, error) {
-	prvKey, err := h.store.GetECIESPrivateKey()
-	if err != nil {
-		return nil, err
-	}
-	if prvKey == nil {
-		prvKey, err = ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
-		if err != nil {
-			return nil, err
-		}
-		err = h.store.SetECIESPrivateKey(prvKey)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return prvKey, nil
-}
-
-func (h *Service) getOrSetNikePrivateKey() (*ecdh.PrivateKey, error) {
-	prvKey, err := h.store.GetNikePrivateKey()
-	if err != nil {
-		return nil, err
-	}
-	if prvKey == nil {
-		prvKey, err = ecdh.P256().GenerateKey(rand.Reader)
-		if err != nil {
-			return nil, err
-		}
-		err = h.store.SetNikePrivateKey(prvKey)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return prvKey, nil
 }
 
 func (h *Service) verifyResp(resp *handshakepb.HandshakeResp) error {

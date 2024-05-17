@@ -59,7 +59,7 @@ type ProviderRegistry interface {
 
 type Options struct {
 	KeySigner      keysigner.KeySigner
-	Store          handshake.Store
+	Store          Store
 	Secret         string
 	PeerType       p2p.PeerType
 	Register       handshake.ProviderRegistry
@@ -163,12 +163,20 @@ func New(opts *Options) (*Service, error) {
 		return nil, err
 	}
 
+	var providerKeys *p2p.Keys
+	if opts.PeerType == p2p.PeerTypeProvider {
+		providerKeys, err = getOrSetProviderKeys(opts.Store)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	hsSvc, err := handshake.New(
 		opts.KeySigner,
 		opts.PeerType,
 		opts.Secret,
 		signer.New(),
-		opts.Store,
+		providerKeys,
 		opts.Register,
 		GetEthAddressFromPeerID,
 	)
