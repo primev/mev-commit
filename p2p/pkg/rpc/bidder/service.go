@@ -11,9 +11,9 @@ import (
 
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/ethereum/go-ethereum/common"
-	bidderapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
-	preconfirmationv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	registrycontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/bidder_registry"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/bidder_registry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"

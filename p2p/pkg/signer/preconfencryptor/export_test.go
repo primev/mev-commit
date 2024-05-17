@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 )
 
 var EIPVerify = eipVerify

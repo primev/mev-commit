@@ -13,8 +13,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	ma "github.com/multiformats/go-multiaddr"
 	madns "github.com/multiformats/go-multiaddr-dns"
-	"github.com/primevprotocol/mev-commit/x/util"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/x/keysigner"
+	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc/status"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,9 +28,9 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/host/peerstore/pstoremem"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	connmgr "github.com/libp2p/go-libp2p/p2p/net/connmgr"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
+	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -58,7 +58,8 @@ type ProviderRegistry interface {
 }
 
 type Options struct {
-	KeyKeeper      keykeeper.KeyKeeper
+	KeySigner      keysigner.KeySigner
+	Store          Store
 	Secret         string
 	PeerType       p2p.PeerType
 	Register       handshake.ProviderRegistry
@@ -71,11 +72,11 @@ type Options struct {
 }
 
 func New(opts *Options) (*Service, error) {
-	privKey, err := opts.KeyKeeper.GetPrivateKey()
+	privKey, err := opts.KeySigner.GetPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get priv key: %w", err)
 	}
-	defer opts.KeyKeeper.ZeroPrivateKey(privKey)
+	defer opts.KeySigner.ZeroPrivateKey(privKey)
 
 	padded32BytePrivKey := util.PadKeyTo32Bytes(privKey.D)
 	libp2pKey, err := libp2pcrypto.UnmarshalSecp256k1PrivateKey(padded32BytePrivKey)
@@ -162,11 +163,20 @@ func New(opts *Options) (*Service, error) {
 		return nil, err
 	}
 
+	var providerKeys *p2p.Keys
+	if opts.PeerType == p2p.PeerTypeProvider {
+		providerKeys, err = getOrSetProviderKeys(opts.Store)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	hsSvc, err := handshake.New(
-		opts.KeyKeeper,
+		opts.KeySigner,
 		opts.PeerType,
 		opts.Secret,
 		signer.New(),
+		providerKeys,
 		opts.Register,
 		GetEthAddressFromPeerID,
 	)

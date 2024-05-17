@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 )
 
 type Query struct {

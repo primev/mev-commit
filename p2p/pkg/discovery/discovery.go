@@ -5,8 +5,8 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
-	discoverypb "github.com/primevprotocol/mev-commit/p2p/gen/go/discovery/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
+	discoverypb "github.com/primev/mev-commit/p2p/gen/go/discovery/v1"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

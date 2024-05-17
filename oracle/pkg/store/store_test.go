@@ -9,8 +9,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/store"
-	"github.com/primevprotocol/mev-commit/oracle/pkg/updater"
+	"github.com/primev/mev-commit/oracle/pkg/store"
+	"github.com/primev/mev-commit/oracle/pkg/updater"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )

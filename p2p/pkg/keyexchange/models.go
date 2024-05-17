@@ -5,10 +5,11 @@ import (
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/signer"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/x/keysigner"
 )
 
 // Protocol constants.
@@ -28,7 +29,9 @@ var (
 
 // KeyExchange manages the key exchange process.
 type KeyExchange struct {
-	keyKeeper keykeeper.KeyKeeper
+	keySigner keysigner.KeySigner
+	address   common.Address
+	aesKey    []byte
 	topo      Topology
 	streamer  p2p.Streamer
 	signer    signer.Signer
@@ -44,4 +47,5 @@ type Topology interface {
 type Store interface {
 	SetAESKey(common.Address, []byte) error
 	GetAESKey(common.Address) ([]byte, error)
+	GetECIESPrivateKey() (*ecies.PrivateKey, error)
 }

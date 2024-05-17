@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	preconfcommitmentstore "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
+	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 )
 
 var preconfABI = func() abi.ABI {

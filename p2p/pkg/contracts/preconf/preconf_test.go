@@ -8,10 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	preconfcontract "github.com/primevprotocol/mev-commit/p2p/pkg/contracts/preconf"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
-	mockevmclient "github.com/primevprotocol/mev-commit/p2p/pkg/evmclient/mock"
-	"github.com/primevprotocol/mev-commit/x/util"
+	preconfcontract "github.com/primev/mev-commit/p2p/pkg/contracts/preconf"
+	"github.com/primev/mev-commit/p2p/pkg/evmclient"
+	mockevmclient "github.com/primev/mev-commit/p2p/pkg/evmclient/mock"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestPreconfContract(t *testing.T) {

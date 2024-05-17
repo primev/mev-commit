@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"fmt"
 	"math/big"
 	"strings"
@@ -9,13 +10,18 @@ import (
 
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 )
 
 var (
 	commitmentNS = "cm/"
 	balanceNS    = "bbs/"
 	aesKeysNS    = "aes/"
+
+	// provider related keys
+	eciesPrivateKeyNS = "ecies/"
+	nikePrivateKeyNS  = "nike/"
 
 	commitmentKey = func(blockNum int64, index []byte) string {
 		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
@@ -150,6 +156,44 @@ func (s *Store) GetAESKey(bidder common.Address) ([]byte, error) {
 	return val.([]byte), nil
 }
 
+func (s *Store) SetECIESPrivateKey(key *ecies.PrivateKey) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(eciesPrivateKeyNS, key)
+	return nil
+}
+
+func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	val, ok := s.Tree.Get(eciesPrivateKeyNS)
+	if !ok {
+		return nil, nil
+	}
+	return val.(*ecies.PrivateKey), nil
+}
+
+func (s *Store) SetNikePrivateKey(key *ecdh.PrivateKey) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(nikePrivateKeyNS, key)
+	return nil
+}
+
+func (s *Store) GetNikePrivateKey() (*ecdh.PrivateKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	val, ok := s.Tree.Get(nikePrivateKeyNS)
+	if !ok {
+		return nil, nil
+	}
+	return val.(*ecdh.PrivateKey), nil
+}
+
 func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount *big.Int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -171,9 +215,9 @@ func (s *Store) GetBalance(bidder common.Address, windowNumber *big.Int) (*big.I
 	return val.(*big.Int), nil
 }
 
-func (s *Store) ClearBalances(windowNumber *big.Int) error {
+func (s *Store) ClearBalances(windowNumber *big.Int) ([]*big.Int, error) {
 	if windowNumber == nil || windowNumber.Cmp(big.NewInt(0)) == -1 {
-		return nil
+		return nil, nil
 	}
 
 	s.mu.RLock()
@@ -205,7 +249,7 @@ func (s *Store) ClearBalances(windowNumber *big.Int) error {
 	}
 	s.mu.Unlock()
 
-	return nil
+	return windows, nil
 }
 
 func (s *Store) GetBalanceForBlock(

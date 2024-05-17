@@ -1,11 +1,11 @@
-module github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1
+module github.com/primev/mev-commit/bridge/standard/bridge-v1
 
 go 1.22
 
 require (
 	github.com/DataDog/datadog-api-client-go v1.16.0
 	github.com/ethereum/go-ethereum v1.13.14
-	github.com/primevprotocol/mev-commit/contracts-abi v0.0.1
+	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/crypto v0.21.0
 )
@@ -61,4 +61,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/primevprotocol/mev-commit/contracts-abi => ../../../contracts-abi
+replace github.com/primev/mev-commit/contracts-abi => ../../../contracts-abi

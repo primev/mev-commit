@@ -15,10 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/evmclient/mockevm"
-	"github.com/primevprotocol/mev-commit/x/util"
-	mockkeysigner "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
+	"github.com/primev/mev-commit/p2p/pkg/evmclient"
+	"github.com/primev/mev-commit/p2p/pkg/evmclient/mockevm"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestSendCall(t *testing.T) {

@@ -12,9 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/primevprotocol/mev-commit/bridge/standard/bridge-v1/pkg/shared"
-	l1g "github.com/primevprotocol/mev-commit/contracts-abi/clients/L1Gateway"
-	sg "github.com/primevprotocol/mev-commit/contracts-abi/clients/SettlementGateway"
+	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/shared"
+	l1g "github.com/primev/mev-commit/contracts-abi/clients/L1Gateway"
+	sg "github.com/primev/mev-commit/contracts-abi/clients/SettlementGateway"
 	"golang.org/x/crypto/sha3"
 )
 

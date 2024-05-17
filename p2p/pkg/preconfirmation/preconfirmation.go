@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	preconfpb "github.com/primevprotocol/mev-commit/p2p/gen/go/preconfirmation/v1"
-	providerapiv1 "github.com/primevprotocol/mev-commit/p2p/gen/go/providerapi/v1"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	providerapi "github.com/primevprotocol/mev-commit/p2p/pkg/rpc/provider"
-	encryptor "github.com/primevprotocol/mev-commit/p2p/pkg/signer/preconfencryptor"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/topology"
+	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
+	encryptor "github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
+	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -117,7 +117,7 @@ func (p *Preconfirmation) SendBid(
 	decayEndTimestamp int64,
 ) (chan *preconfpb.PreConfirmation, error) {
 	startTime := time.Now()
-	bid, encryptedBid, err := p.encryptor.ConstructEncryptedBid(
+	bid, encryptedBid, nikePrivateKey, err := p.encryptor.ConstructEncryptedBid(
 		txHash,
 		bidAmt,
 		blockNumber,
@@ -183,6 +183,7 @@ func (p *Preconfirmation) SendBid(
 			verifyStartTime := time.Now()
 			sharedSecretKey, providerAddress, err := p.encryptor.VerifyEncryptedPreConfirmation(
 				provider.Keys.NIKEPublicKey,
+				nikePrivateKey,
 				bid.Digest,
 				encryptedPreConfirmation,
 			)

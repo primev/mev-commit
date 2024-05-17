@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"strconv"
 
-	bidderregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/BidderRegistry"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	oracle "github.com/primevprotocol/mev-commit/contracts-abi/clients/Oracle"
-	preconfcommitmentstore "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	providerregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/ProviderRegistry"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
+	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+	"github.com/primev/mev-commit/x/contracts/events"
 )
 
 type BlockStats struct {

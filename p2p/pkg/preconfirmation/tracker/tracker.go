@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	preconfcommstore "github.com/primevprotocol/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/p2p"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
-	"github.com/primevprotocol/mev-commit/x/contracts/txmonitor"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"golang.org/x/sync/errgroup"
 )
 

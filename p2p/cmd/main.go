@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	contracts "github.com/primevprotocol/mev-commit/contracts-abi/config"
-	mevcommit "github.com/primevprotocol/mev-commit/p2p"
-	ks "github.com/primevprotocol/mev-commit/p2p/pkg/keykeeper/keysigner"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/node"
-	"github.com/primevprotocol/mev-commit/x/util"
+	contracts "github.com/primev/mev-commit/contracts-abi/config"
+	mevcommit "github.com/primev/mev-commit/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/node"
+	ks "github.com/primev/mev-commit/x/keysigner"
+	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )

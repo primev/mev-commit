@@ -4,7 +4,6 @@ go 1.21.2
 
 require (
 	github.com/ethereum/go-ethereum v1.13.11
-	github.com/urfave/cli v1.22.14
 	github.com/urfave/cli/v2 v2.27.1
 )
 

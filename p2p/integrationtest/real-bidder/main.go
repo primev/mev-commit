@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	pb "github.com/primevprotocol/mev-commit/p2p/gen/go/bidderapi/v1"
+	pb "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"

@@ -4,6 +4,6 @@ COPY mev-commit-oracle /usr/local/bin/mev-commit-oracle
 
 EXPOSE 8080
 
-LABEL org.opencontainers.image.source https://github.com/primevprotocol/mev-commit-oracle
+LABEL org.opencontainers.image.source https://github.com/primev/mev-commit/tree/main/oracle
 
 ENTRYPOINT ["mev-commit-oracle", "start"]

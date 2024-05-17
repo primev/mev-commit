@@ -11,12 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	bidderregistry "github.com/primevprotocol/mev-commit/contracts-abi/clients/BidderRegistry"
-	blocktracker "github.com/primevprotocol/mev-commit/contracts-abi/clients/BlockTracker"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/depositmanager"
-	"github.com/primevprotocol/mev-commit/p2p/pkg/store"
-	"github.com/primevprotocol/mev-commit/x/contracts/events"
-	"github.com/primevprotocol/mev-commit/x/util"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
+	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/util"
 )
 
 func TestDepositManager(t *testing.T) {
