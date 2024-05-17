@@ -31,6 +31,7 @@ var (
 type KeyExchange struct {
 	keySigner keysigner.KeySigner
 	address   common.Address
+	aesKey    []byte
 	topo      Topology
 	streamer  p2p.Streamer
 	signer    signer.Signer

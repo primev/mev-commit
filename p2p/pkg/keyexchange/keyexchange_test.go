@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
@@ -97,9 +98,20 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		&providerPeer,
 	)
 
-	ke1 := keyexchange.New(topo1, svc1, ks, bidderStore, logger, signer)
-	ke2 := keyexchange.New(topo2, svc2, ks, providerStore, logger, signer)
+	aesKey, err := p2pcrypto.GenerateAESKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = bidderStore.SetAESKey(ks.GetAddress(), aesKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	ke1 := keyexchange.New(topo1, svc1, ks, aesKey, bidderStore, logger, signer)
+	ke2 := keyexchange.New(topo2, svc2, ks, nil, providerStore, logger, signer)
+	if err != nil {
+		t.Fatalf("keyexchange new failed: %v", err)
+	}
 	svc1.SetPeerHandler(bidderPeer, ke2.Streams()[0])
 
 	err = ke1.SendTimestampMessage()

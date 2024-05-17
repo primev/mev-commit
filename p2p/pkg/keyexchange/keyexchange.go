@@ -24,6 +24,7 @@ func New(
 	topo Topology,
 	streamer p2p.Streamer,
 	keySigner keysigner.KeySigner,
+	aesKey []byte,
 	store Store,
 	logger *slog.Logger,
 	signer signer.Signer,
@@ -32,6 +33,7 @@ func New(
 		topo:      topo,
 		streamer:  streamer,
 		keySigner: keySigner,
+		aesKey:    aesKey,
 		address:   keySigner.GetAddress(),
 		store:     store,
 		logger:    logger,
@@ -79,23 +81,9 @@ func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 }
 
 func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, error) {
-	aesKey, err := ke.store.GetAESKey(ke.address)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting AES key: %w", err)
-	}
-	if aesKey == nil {
-		aesKey, err = crypto.GenerateAESKey()
-		if err != nil {
-			return nil, nil, fmt.Errorf("error generating AES key: %w", err)
-		}
-		err = ke.store.SetAESKey(ke.address, aesKey)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error setting AES key: %w", err)
-		}
-	}
 	var encryptedKeys [][]byte
 	for _, provider := range providers {
-		encryptedKey, err := ecies.Encrypt(rand.Reader, provider.Keys.PKEPublicKey, aesKey, nil, nil)
+		encryptedKey, err := ecies.Encrypt(rand.Reader, provider.Keys.PKEPublicKey, ke.aesKey, nil, nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error encrypting key for provider %s: %w", provider.EthAddress, err)
 		}
@@ -103,7 +91,7 @@ func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, 
 	}
 
 	timestampMessage := fmt.Sprintf("mev-commit bidder %s setup %d", ke.address, time.Now().Unix())
-	encryptedTimestampMessage, err := crypto.EncryptWithAESGCM(aesKey, []byte(timestampMessage))
+	encryptedTimestampMessage, err := crypto.EncryptWithAESGCM(ke.aesKey, []byte(timestampMessage))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error encrypting timestamp message: %w", err)
 	}

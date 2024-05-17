@@ -28,6 +28,7 @@ import (
 	bidder_registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/bidder_registry"
 	preconfcontract "github.com/primev/mev-commit/p2p/pkg/contracts/preconf"
 	provider_registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/provider_registry"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/debugapi"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
@@ -333,6 +334,7 @@ func NewNode(opts *Options) (*Node, error) {
 				topo,
 				p2pSvc,
 				opts.KeySigner,
+				nil,
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
@@ -365,10 +367,24 @@ func NewNode(opts *Options) (*Node, error) {
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
+			aesKey, err := crypto.GenerateAESKey()
+			if err != nil {
+				opts.Logger.Error("failed to generate AES key", "error", err)
+				cancel()
+				return nil, errors.Join(err, nd.Close())
+			}
+			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
+			if err != nil {
+				opts.Logger.Error("failed to set AES key", "error", err)
+				cancel()
+				return nil, errors.Join(err, nd.Close())
+			}
+
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
 				opts.KeySigner,
+				aesKey,
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
