@@ -12,24 +12,30 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	keyexchangepb "github.com/primev/mev-commit/p2p/gen/go/keyexchange/v1"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/protobuf/proto"
 )
 
 func New(
 	topo Topology,
 	streamer p2p.Streamer,
-	keyKeeper keykeeper.KeyKeeper,
+	keySigner keysigner.KeySigner,
+	aesKey []byte,
+	store Store,
 	logger *slog.Logger,
 	signer signer.Signer,
 ) *KeyExchange {
 	return &KeyExchange{
 		topo:      topo,
 		streamer:  streamer,
-		keyKeeper: keyKeeper,
+		keySigner: keySigner,
+		aesKey:    aesKey,
+		address:   keySigner.GetAddress(),
+		store:     store,
 		logger:    logger,
 		signer:    signer,
 	}
@@ -75,22 +81,17 @@ func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 }
 
 func (ke *KeyExchange) prepareMessages(providers []p2p.Peer) ([][]byte, []byte, error) {
-	bidderKK, ok := ke.keyKeeper.(*keykeeper.BidderKeyKeeper)
-	if !ok {
-		return nil, nil, fmt.Errorf("keyKeeper is not of type BidderKeyKeeper")
-	}
-
 	var encryptedKeys [][]byte
 	for _, provider := range providers {
-		encryptedKey, err := ecies.Encrypt(rand.Reader, provider.Keys.PKEPublicKey, bidderKK.AESKey, nil, nil)
+		encryptedKey, err := ecies.Encrypt(rand.Reader, provider.Keys.PKEPublicKey, ke.aesKey, nil, nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error encrypting key for provider %s: %w", provider.EthAddress, err)
 		}
 		encryptedKeys = append(encryptedKeys, encryptedKey)
 	}
 
-	timestampMessage := fmt.Sprintf("mev-commit bidder %s setup %d", bidderKK.KeySigner.GetAddress(), time.Now().Unix())
-	encryptedTimestampMessage, err := keykeeper.EncryptWithAESGCM(bidderKK.AESKey, []byte(timestampMessage))
+	timestampMessage := fmt.Sprintf("mev-commit bidder %s setup %d", ke.address, time.Now().Unix())
+	encryptedTimestampMessage, err := crypto.EncryptWithAESGCM(ke.aesKey, []byte(timestampMessage))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error encrypting timestamp message: %w", err)
 	}
@@ -144,9 +145,7 @@ func (ke *KeyExchange) createSignedMessage(encryptedKeys [][]byte, timestampMess
 
 	hashedMessage := hashData(messageBytes)
 
-	bidderKK := ke.keyKeeper.(*keykeeper.BidderKeyKeeper)
-
-	signature, err := bidderKK.KeySigner.SignHash(hashedMessage.Bytes())
+	signature, err := ke.keySigner.SignHash(hashedMessage.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign message: %w", err)
 	}
@@ -195,8 +194,10 @@ func (ke *KeyExchange) handleTimestampMessage(ctx context.Context, peer p2p.Peer
 		return fmt.Errorf("validate and process timestamp failed: %w", err)
 	}
 
-	ke.keyKeeper.(*keykeeper.ProviderKeyKeeper).SetAESKey(peer.EthAddress, aesKey)
-
+	err = ke.store.SetAESKey(peer.EthAddress, aesKey)
+	if err != nil {
+		return fmt.Errorf("failed to set AES key: %w", err)
+	}
 	ke.logger.Info("successfully processed timestamp message", "peer", peer.EthAddress, "key", aesKey)
 
 	return nil
@@ -252,10 +253,13 @@ func (ke *KeyExchange) decryptMessage(ekmWithSignature *keyexchangepb.EKMWithSig
 		return nil, nil, fmt.Errorf("failed to unmarshal message: %w", err)
 	}
 
-	providerKK := ke.keyKeeper.(*keykeeper.ProviderKeyKeeper)
+	prvKey, err := ke.store.GetECIESPrivateKey()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get ECIES private key: %w", err)
+	}
 
 	for i := 0; i < len(message.EncryptedKeys); i++ {
-		aesKey, err = providerKK.DecryptWithECIES(message.EncryptedKeys[i])
+		aesKey, err = prvKey.Decrypt(message.EncryptedKeys[i], nil, nil)
 		if err == nil {
 			decrypted = true
 			break // Successfully decrypted AES key, stop trying further keys
@@ -267,7 +271,7 @@ func (ke *KeyExchange) decryptMessage(ekmWithSignature *keyexchangepb.EKMWithSig
 	}
 
 	encryptedMessage := message.TimestampMessage
-	decryptedMessage, err := keykeeper.DecryptWithAESGCM(aesKey, encryptedMessage)
+	decryptedMessage, err := crypto.DecryptWithAESGCM(aesKey, encryptedMessage)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}

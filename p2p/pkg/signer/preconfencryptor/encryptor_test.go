@@ -1,15 +1,18 @@
 package preconfencryptor_test
 
 import (
+	"crypto/ecdh"
+	"crypto/rand"
 	"encoding/hex"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
+	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,27 +27,32 @@ func TestBids(t *testing.T) {
 
 		address := crypto.PubkeyToAddress(key.PublicKey)
 		keySigner := mockkeysigner.NewMockKeySigner(key, address)
-		keyKeeper, err := keykeeper.NewBidderKeyKeeper(keySigner)
+		aesKey, err := p2pcrypto.GenerateAESKey()
 		if err != nil {
 			t.Fatal(err)
 		}
-		encryptor, err := preconfencryptor.NewEncryptor(keyKeeper)
+		bidderStore := store.NewStore()
+		err = bidderStore.SetAESKey(address, aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
 		if err != nil {
 			t.Fatal(err)
 		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
-		_, encryptedBid, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		_, encryptedBid, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		providerKeyKeeper, err := keykeeper.NewProviderKeyKeeper(keySigner)
+		providerStore := store.NewStore()
+		err = providerStore.SetAESKey(address, aesKey)
 		if err != nil {
 			t.Fatal(err)
 		}
-		providerKeyKeeper.SetAESKey(address, keyKeeper.AESKey)
-		encryptorProvider, err := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		encryptorProvider, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -71,13 +79,18 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
-		bidderKeyKeeper, err := keykeeper.NewBidderKeyKeeper(keySigner)
+		aesKey, err := p2pcrypto.GenerateAESKey()
 		if err != nil {
 			t.Fatal(err)
 		}
-		bidderEncryptor, err := preconfencryptor.NewEncryptor(bidderKeyKeeper)
+
+		keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
+		bidderStore := store.NewStore()
+		err = bidderStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bidderEncryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -88,20 +101,19 @@ func TestBids(t *testing.T) {
 
 		bidderAddress := crypto.PubkeyToAddress(bidderKey.PublicKey)
 		keySigner = mockkeysigner.NewMockKeySigner(providerKey, crypto.PubkeyToAddress(providerKey.PublicKey))
-		providerKeyKeeper, err := keykeeper.NewProviderKeyKeeper(keySigner)
+		providerStore := store.NewStore()
+		err = providerStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		providerKeyKeeper.SetAESKey(bidderAddress, bidderKeyKeeper.AESKey)
-		providerEncryptor, err := preconfencryptor.NewEncryptor(providerKeyKeeper)
+		providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
 		if err != nil {
 			t.Fatal(err)
 		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
 
-		bid, encryptedBid, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		bid, encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,12 +122,20 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
 		_, encryptedPreConfirmation, err := providerEncryptor.ConstructEncryptedPreConfirmation(decryptedBid)
 		if err != nil {
 			t.Fail()
 		}
 
-		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerKeyKeeper.GetNIKEPublicKey(), bid.Digest, encryptedPreConfirmation)
+		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerNikePrivateKey.PublicKey(), nikePrivateKey, bid.Digest, encryptedPreConfirmation)
 		if err != nil {
 			t.Fail()
 		}

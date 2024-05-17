@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/primev/mev-commit/p2p/pkg/keykeeper"
-	mockkeysigner "github.com/primev/mev-commit/p2p/pkg/keykeeper/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
+	"github.com/primev/mev-commit/p2p/pkg/store"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -50,17 +50,14 @@ func newTestService(t *testing.T) *libp2p.Service {
 	}
 	address := crypto.PubkeyToAddress(privKey.PublicKey)
 	ks := mockkeysigner.NewMockKeySigner(privKey, address)
-	pkk, err := keykeeper.NewProviderKeyKeeper(ks)
-	if err != nil {
-		t.Fatal(err)
-	}
 	svc, err := libp2p.New(&libp2p.Options{
-		KeyKeeper:  pkk,
+		KeySigner:  ks,
 		Secret:     "test",
 		ListenPort: 0,
 		ListenAddr: "0.0.0.0",
 		PeerType:   p2p.PeerTypeProvider,
 		Register:   &testRegistry{},
+		Store:      store.NewStore(),
 		Logger:     newTestLogger(t, os.Stdout),
 	})
 	if err != nil {
@@ -244,6 +241,7 @@ func TestBootstrap(t *testing.T) {
 		ListenAddr: "0.0.0.0",
 		PeerType:   p2p.PeerTypeProvider,
 		Register:   &testRegistry{},
+		Store:      store.NewStore(),
 		Logger:     newTestLogger(t, os.Stdout),
 	}
 
@@ -255,7 +253,7 @@ func TestBootstrap(t *testing.T) {
 	ks := mockkeysigner.NewMockKeySigner(privKey, address)
 
 	bnOpts := testDefaultOptions
-	bnOpts.KeyKeeper = keykeeper.NewBaseKeyKeeper(ks)
+	bnOpts.KeySigner = ks
 	bnOpts.PeerType = p2p.PeerTypeBootnode
 
 	bootnode, err := libp2p.New(&bnOpts)
@@ -276,7 +274,7 @@ func TestBootstrap(t *testing.T) {
 
 	n1Opts := testDefaultOptions
 	n1Opts.BootstrapAddrs = []string{bootnode.AddrString()}
-	n1Opts.KeyKeeper, err = keykeeper.NewProviderKeyKeeper(ks)
+	n1Opts.KeySigner = ks
 	if err != nil {
 		t.Fatal(err)
 	}

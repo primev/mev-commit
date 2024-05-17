@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"crypto/ecdh"
 	"fmt"
 	"math/big"
 	"strings"
@@ -9,12 +10,18 @@ import (
 
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 )
 
 var (
 	commitmentNS = "cm/"
 	balanceNS    = "bbs/"
+	aesKeysNS    = "aes/"
+
+	// provider related keys
+	eciesPrivateKeyNS = "ecies/"
+	nikePrivateKeyNS  = "nike/"
 
 	commitmentKey = func(blockNum int64, index []byte) string {
 		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
@@ -31,6 +38,10 @@ var (
 	}
 	balancePrefix = func(window *big.Int) string {
 		return fmt.Sprintf("%s%s", balanceNS, window)
+	}
+
+	bidderAesKey = func(bidder common.Address) string {
+		return fmt.Sprintf("%s%s", aesKeysNS, bidder)
 	}
 )
 
@@ -123,6 +134,64 @@ func (s *Store) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex [32]byte) e
 	})
 
 	return nil
+}
+
+func (s *Store) SetAESKey(bidder common.Address, key []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(bidderAesKey(bidder), key)
+	return nil
+}
+
+func (s *Store) GetAESKey(bidder common.Address) ([]byte, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	key := bidderAesKey(bidder)
+	val, ok := s.Tree.Get(key)
+	if !ok {
+		return nil, nil
+	}
+	return val.([]byte), nil
+}
+
+func (s *Store) SetECIESPrivateKey(key *ecies.PrivateKey) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(eciesPrivateKeyNS, key)
+	return nil
+}
+
+func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	val, ok := s.Tree.Get(eciesPrivateKeyNS)
+	if !ok {
+		return nil, nil
+	}
+	return val.(*ecies.PrivateKey), nil
+}
+
+func (s *Store) SetNikePrivateKey(key *ecdh.PrivateKey) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(nikePrivateKeyNS, key)
+	return nil
+}
+
+func (s *Store) GetNikePrivateKey() (*ecdh.PrivateKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	val, ok := s.Tree.Get(nikePrivateKeyNS)
+	if !ok {
+		return nil, nil
+	}
+	return val.(*ecdh.PrivateKey), nil
 }
 
 func (s *Store) SetBalance(bidder common.Address, windowNumber, depositedAmount *big.Int) error {
