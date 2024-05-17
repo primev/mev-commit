@@ -9,7 +9,6 @@ contract SettlementGateway is Gateway {
     // Assuming deployer is 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266,
     // whitelist's create2 addr should be 0x57508f0B0f3426758F1f3D63ad4935a7c9383620.
     // This variable is not hardcoded for testing purposes.
-    // TODO: These will be different now
     address public whitelistAddr;
     
     function initialize(
