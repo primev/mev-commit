@@ -13,60 +13,60 @@ deploy_version="HEAD"
 profile_name="devnet"
 
 help() {
-    echo "Usage: $0 [--init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]] [--deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]] [--destroy [--debug]] [--help]"
+    echo "Usage: $0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]] [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]] [destroy [--debug]] [--help]"
     echo
     echo "Parameters:"
-    echo "  --init                          Initialize the environment."
+    echo "  init                            Initialize the environment."
     echo "    --profile <name=devnet>       Specify the profile to use (default is devnet)."
     echo "    --skip-certificates-setup     Skip the certificates installation and setup."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
-    echo "  --deploy [version=HEAD]         Deploy the specified artifact version (a git commit hash or an existing AWS S3 tag). If not specified or set to HEAD, a local build is triggered."
+    echo "  deploy [version=HEAD]           Deploy the specified artifact version (a git commit hash or an existing AWS S3 tag). If not specified or set to HEAD, a local build is triggered."
     echo "    --profile <name=devnet>       Specify the profile to use (default is devnet)."
     echo "    --force-build-templates       Force the build of all job templates before deployment."
     echo "    --no-logs-collection          Disable the collection of logs from deployed jobs."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
-    echo "  --destroy                       Destroy the environment."
+    echo "  destroy                         Destroy the environment."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
     echo "  --help                          Display this help message."
     echo
     echo "Examples:"
     echo "  Initialize with default profile:"
-    echo "    $0 --init"
+    echo "    $0 init"
     echo
     echo "  Initialize with a specific profile:"
-    echo "    $0 --init --profile testnet"
+    echo "    $0 init --profile testnet"
     echo
     echo "  Initialize with a specific profile and skip certificates setup:"
-    echo "    $0 --init --profile testnet --skip-certificates-setup"
+    echo "    $0 init --profile testnet --skip-certificates-setup"
     echo
     echo "  Initialize with a specific profile in debug mode:"
-    echo "    $0 --init --profile testnet --debug"
+    echo "    $0 init --profile testnet --debug"
     echo
     echo "  Deploy the current vcs version and profile:"
-    echo "    $0 --deploy"
+    echo "    $0 deploy"
     echo
     echo "  Deploy with a specific version:"
-    echo "    $0 --deploy 5266b68"
+    echo "    $0 deploy 5266b68"
     echo
     echo "  Deploy with a specific version and profile:"
-    echo "    $0 --deploy v0.1.0 --profile testnet"
+    echo "    $0 deploy v0.1.0 --profile testnet"
     echo
     echo "  Deploy with a specific version and profile and force to build all job templates:"
-    echo "    $0 --deploy v0.1.0 --profile testnet --force-build-templates"
+    echo "    $0 deploy v0.1.0 --profile testnet --force-build-templates"
     echo
     echo "  Deploy with a specific version and profile in debug mode with disabled logs collection:"
-    echo "    $0 --deploy v0.1.0 --profile testnet --no-logs-collection --debug"
+    echo "    $0 deploy v0.1.0 --profile testnet --no-logs-collection --debug"
     echo
     echo "  Destroy with debug mode:"
-    echo "    $0 --destroy --debug"
+    echo "    $0 destroy --debug"
     exit 1
 }
 
 usage() {
-    echo "Usage: $0 [--init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]] [--deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]] [--destroy [--debug]] [--help]"
+    echo "Usage: $0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]] [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]] [destroy [--debug]] [--help]"
     exit 1
 }
 
@@ -102,6 +102,11 @@ check_deps() {
         exit 1
     fi
 
+    if ! aws sts get-caller-identity &> /dev/null; then
+        echo "Error: AWS is not configured properly. Please run 'aws configure' to set up your credentials."
+        exit 1
+    fi
+
     if [[ ! -f hosts.ini ]]; then
         echo "Error: hosts.ini file not found."
         exit 1
@@ -112,9 +117,9 @@ parse_args() {
     while [[ $# -gt 0 ]]; do
         key="$1"
         case $key in
-            --init)
+            init)
                 if $init_flag || $deploy_flag || $destroy_flag; then
-                    echo "Error: Only one of --init, --deploy, or --destroy can be specified."
+                    echo "Error: Only one of 'init', 'deploy', or 'destroy' can be specified."
                     usage
                 fi
                 init_flag=true
@@ -137,9 +142,9 @@ parse_args() {
                     shift
                 fi
                 ;;
-            --deploy)
+            deploy)
                 if $init_flag || $deploy_flag || $destroy_flag; then
-                    echo "Error: Only one of --init, --deploy, or --destroy can be specified."
+                    echo "Error: Only one of 'init', 'deploy', or 'destroy' can be specified."
                     usage
                 fi
                 deploy_flag=true
@@ -170,6 +175,18 @@ parse_args() {
                     shift
                 fi
                 ;;
+            destroy)
+                if $init_flag || $deploy_flag || $destroy_flag; then
+                    echo "Error: Only one of 'init', 'deploy', or 'destroy' can be specified."
+                    usage
+                fi
+                destroy_flag=true
+                shift
+                if [[ $# -gt 0 && $1 == "--debug" ]]; then
+                    debug_flag=true
+                    shift
+                fi
+                ;;
             --profile)
                 if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                     profile_name="$2"
@@ -180,23 +197,11 @@ parse_args() {
                 fi
                 shift
                 ;;
-            --destroy)
-                if $init_flag || $deploy_flag || $destroy_flag; then
-                    echo "Error: Only one of --init, --deploy, or --destroy can be specified."
-                    usage
-                fi
-                destroy_flag=true
-                shift
-                if [[ $# -gt 0 && $1 == "--debug" ]]; then
-                    debug_flag=true
-                    shift
-                fi
-                ;;
             --help)
                 help
                 ;;
             *)
-                echo "Error: Unknown flag: $1."
+                echo "Error: Unknown flag '$1'."
                 usage
                 ;;
         esac
