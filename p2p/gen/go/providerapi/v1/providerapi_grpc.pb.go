@@ -24,8 +24,6 @@ const (
 	Provider_RegisterStake_FullMethodName     = "/providerapi.v1.Provider/RegisterStake"
 	Provider_GetStake_FullMethodName          = "/providerapi.v1.Provider/GetStake"
 	Provider_GetMinStake_FullMethodName       = "/providerapi.v1.Provider/GetMinStake"
-	Provider_GetPendingTxns_FullMethodName    = "/providerapi.v1.Provider/GetPendingTxns"
-	Provider_CancelTransaction_FullMethodName = "/providerapi.v1.Provider/CancelTransaction"
 )
 
 // ProviderClient is the client API for Provider service.
@@ -54,14 +52,6 @@ type ProviderClient interface {
 	//
 	// GetMinStake is called by the provider to get the minimum stake required to be in the provider registry.
 	GetMinStake(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*StakeResponse, error)
-	// GetPendingTxns
-	//
-	// GetPendingTxns is called by the provider to get the pending transactions for the wallet.
-	GetPendingTxns(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*PendingTxnsResponse, error)
-	// CancelTransaction
-	//
-	// CancelTransaction is called by the provider to cancel a transaction sent from this wallet.
-	CancelTransaction(ctx context.Context, in *CancelReq, opts ...grpc.CallOption) (*CancelResponse, error)
 }
 
 type providerClient struct {
@@ -165,24 +155,6 @@ func (c *providerClient) GetMinStake(ctx context.Context, in *EmptyMessage, opts
 	return out, nil
 }
 
-func (c *providerClient) GetPendingTxns(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*PendingTxnsResponse, error) {
-	out := new(PendingTxnsResponse)
-	err := c.cc.Invoke(ctx, Provider_GetPendingTxns_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *providerClient) CancelTransaction(ctx context.Context, in *CancelReq, opts ...grpc.CallOption) (*CancelResponse, error) {
-	out := new(CancelResponse)
-	err := c.cc.Invoke(ctx, Provider_CancelTransaction_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ProviderServer is the server API for Provider service.
 // All implementations must embed UnimplementedProviderServer
 // for forward compatibility
@@ -209,14 +181,6 @@ type ProviderServer interface {
 	//
 	// GetMinStake is called by the provider to get the minimum stake required to be in the provider registry.
 	GetMinStake(context.Context, *EmptyMessage) (*StakeResponse, error)
-	// GetPendingTxns
-	//
-	// GetPendingTxns is called by the provider to get the pending transactions for the wallet.
-	GetPendingTxns(context.Context, *EmptyMessage) (*PendingTxnsResponse, error)
-	// CancelTransaction
-	//
-	// CancelTransaction is called by the provider to cancel a transaction sent from this wallet.
-	CancelTransaction(context.Context, *CancelReq) (*CancelResponse, error)
 	mustEmbedUnimplementedProviderServer()
 }
 
@@ -238,12 +202,6 @@ func (UnimplementedProviderServer) GetStake(context.Context, *EmptyMessage) (*St
 }
 func (UnimplementedProviderServer) GetMinStake(context.Context, *EmptyMessage) (*StakeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMinStake not implemented")
-}
-func (UnimplementedProviderServer) GetPendingTxns(context.Context, *EmptyMessage) (*PendingTxnsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPendingTxns not implemented")
-}
-func (UnimplementedProviderServer) CancelTransaction(context.Context, *CancelReq) (*CancelResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CancelTransaction not implemented")
 }
 func (UnimplementedProviderServer) mustEmbedUnimplementedProviderServer() {}
 
@@ -359,42 +317,6 @@ func _Provider_GetMinStake_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Provider_GetPendingTxns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyMessage)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ProviderServer).GetPendingTxns(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Provider_GetPendingTxns_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServer).GetPendingTxns(ctx, req.(*EmptyMessage))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Provider_CancelTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CancelReq)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ProviderServer).CancelTransaction(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Provider_CancelTransaction_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServer).CancelTransaction(ctx, req.(*CancelReq))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Provider_ServiceDesc is the grpc.ServiceDesc for Provider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -413,14 +335,6 @@ var Provider_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMinStake",
 			Handler:    _Provider_GetMinStake_Handler,
-		},
-		{
-			MethodName: "GetPendingTxns",
-			Handler:    _Provider_GetPendingTxns_Handler,
-		},
-		{
-			MethodName: "CancelTransaction",
-			Handler:    _Provider_CancelTransaction_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

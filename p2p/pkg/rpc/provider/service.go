@@ -11,11 +11,12 @@ import (
 	"sync"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
-	registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/provider_registry"
-	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -32,22 +33,32 @@ type Service struct {
 	bidsMu           sync.Mutex
 	logger           *slog.Logger
 	owner            common.Address
-	registryContract registrycontract.Interface
-	evmClient        EvmClient
+	registryContract ProviderRegistryContract
+	watcher          Watcher
+	optsGetter       OptsGetter
 	metrics          *metrics
 	validator        *protovalidate.Validator
 }
 
-type EvmClient interface {
-	PendingTxns() []evmclient.TxnInfo
-	CancelTx(ctx context.Context, txHash common.Hash) (common.Hash, error)
+type ProviderRegistryContract interface {
+	RegisterAndStake(*bind.TransactOpts) (*types.Transaction, error)
+	CheckStake(*bind.CallOpts, common.Address) (*big.Int, error)
+	MinStake(*bind.CallOpts) (*big.Int, error)
+	ParseFundsDeposited(types.Log) (*providerregistry.ProviderregistryFundsDeposited, error)
 }
+
+type Watcher interface {
+	WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error)
+}
+
+type OptsGetter func(ctx context.Context) (*bind.TransactOpts, error)
 
 func NewService(
 	logger *slog.Logger,
-	registryContract registrycontract.Interface,
+	registryContract ProviderRegistryContract,
 	owner common.Address,
-	e EvmClient,
+	watcher Watcher,
+	optsGetter OptsGetter,
 	validator *protovalidate.Validator,
 ) *Service {
 	return &Service{
@@ -56,7 +67,8 @@ func NewService(
 		registryContract: registryContract,
 		owner:            owner,
 		logger:           logger,
-		evmClient:        e,
+		watcher:          watcher,
+		optsGetter:       optsGetter,
 		metrics:          newMetrics(),
 		validator:        validator,
 	}
@@ -187,24 +199,45 @@ func (s *Service) RegisterStake(
 		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", stake.Amount)
 	}
 
-	err = s.registryContract.RegisterProvider(ctx, amount)
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+	opts.Value = amount
+
+	tx, err := s.registryContract.RegisterAndStake(opts)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "registering stake: %v", err)
 	}
 
-	stakeAmount, err := s.registryContract.GetStake(ctx, s.owner)
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getting stake: %v", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
 	}
 
-	return &providerapiv1.StakeResponse{Amount: stakeAmount.String()}, nil
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	for _, log := range receipt.Logs {
+		if registration, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
+			s.logger.Info("stake registered", "amount", registration.Amount)
+			return &providerapiv1.StakeResponse{Amount: registration.Amount.String()}, nil
+		}
+	}
+
+	s.logger.Error("no registration event found")
+	return nil, status.Error(codes.Internal, "no registration event found")
 }
 
 func (s *Service) GetStake(
 	ctx context.Context,
 	_ *providerapiv1.EmptyMessage,
 ) (*providerapiv1.StakeResponse, error) {
-	stakeAmount, err := s.registryContract.GetStake(ctx, s.owner)
+	stakeAmount, err := s.registryContract.CheckStake(&bind.CallOpts{
+		Context: ctx,
+		From:    s.owner,
+	}, s.owner)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting stake: %v", err)
 	}
@@ -216,41 +249,13 @@ func (s *Service) GetMinStake(
 	ctx context.Context,
 	_ *providerapiv1.EmptyMessage,
 ) (*providerapiv1.StakeResponse, error) {
-	stakeAmount, err := s.registryContract.GetMinStake(ctx)
+	stakeAmount, err := s.registryContract.MinStake(&bind.CallOpts{
+		Context: ctx,
+		From:    s.owner,
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting min stake: %v", err)
 	}
 
 	return &providerapiv1.StakeResponse{Amount: stakeAmount.String()}, nil
-}
-
-func (s *Service) GetPendingTxns(
-	ctx context.Context,
-	_ *providerapiv1.EmptyMessage,
-) (*providerapiv1.PendingTxnsResponse, error) {
-	txns := s.evmClient.PendingTxns()
-
-	txnsMsg := make([]*providerapiv1.TransactionInfo, len(txns))
-	for i, txn := range txns {
-		txnsMsg[i] = &providerapiv1.TransactionInfo{
-			TxHash:  txn.Hash,
-			Nonce:   int64(txn.Nonce),
-			Created: txn.Created,
-		}
-	}
-
-	return &providerapiv1.PendingTxnsResponse{PendingTxns: txnsMsg}, nil
-}
-
-func (s *Service) CancelTransaction(
-	ctx context.Context,
-	cancel *providerapiv1.CancelReq,
-) (*providerapiv1.CancelResponse, error) {
-	txHash := common.HexToHash(cancel.TxHash)
-	cHash, err := s.evmClient.CancelTx(ctx, txHash)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "cancelling transaction: %v", err)
-	}
-
-	return &providerapiv1.CancelResponse{TxHash: cHash.Hex()}, nil
 }

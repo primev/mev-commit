@@ -21,24 +21,23 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
-	bidder_registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/bidder_registry"
-	preconfcontract "github.com/primev/mev-commit/p2p/pkg/contracts/preconf"
-	provider_registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/provider_registry"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
-	"github.com/primev/mev-commit/p2p/pkg/debugapi"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
-	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
 	preconftracker "github.com/primev/mev-commit/p2p/pkg/preconfirmation/tracker"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
+	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
@@ -111,40 +110,100 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}
 
-	evmClient, err := evmclient.New(
-		opts.KeySigner,
-		evmclient.WrapEthClient(contractRPC),
-		opts.Logger.With("component", "evmclient"),
-	)
+	chainID, err := contractRPC.ChainID(context.Background())
 	if err != nil {
-		opts.Logger.Error("failed to create evm client", "error", err)
+		opts.Logger.Error("failed to get chain ID", "error", err)
 		return nil, err
 	}
-	nd.closers = append(nd.closers, evmClient)
-	srv.MetricsRegistry().MustRegister(evmClient.Metrics()...)
-
-	bidderRegistryContractAddr := common.HexToAddress(opts.BidderRegistryContract)
-	bidderRegistry := bidder_registrycontract.New(
-		opts.KeySigner.GetAddress(),
-		bidderRegistryContractAddr,
-		evmClient,
-		opts.Logger.With("component", "bidderregistry"),
-	)
-
-	providerRegistryContractAddr := common.HexToAddress(opts.ProviderRegistryContract)
-	providerRegistry := provider_registrycontract.New(
-		providerRegistryContractAddr,
-		evmClient,
-		opts.Logger.With("component", "providerregistry"),
-	)
 
 	store := store.NewStore()
 
+	contracts, err := getContractABIs(opts)
+	if err != nil {
+		opts.Logger.Error("failed to get contract ABIs", "error", err)
+		return nil, err
+	}
+
+	abis := make([]*abi.ABI, 0, len(contracts))
+	contractAddrs := make([]common.Address, 0, len(contracts))
+
+	for addr, abi := range contracts {
+		abis = append(abis, abi)
+		contractAddrs = append(contractAddrs, addr)
+	}
+
+	evtMgr := events.NewListener(
+		opts.Logger.With("component", "events"),
+		abis...,
+	)
+
+	var startables []Startable
+	var evtPublisher PublisherStartable
+
+	if opts.WSRPCEndpoint != "" {
+		// Use WS publisher if WSRPCEndpoint is set
+		evtPublisher = publisher.NewWSPublisher(
+			store,
+			opts.Logger.With("component", "ws_publisher"),
+			contractRPC,
+			evtMgr,
+		)
+	} else {
+		evtPublisher = publisher.NewHTTPPublisher(
+			store,
+			opts.Logger.With("component", "http_publisher"),
+			contractRPC,
+			evtMgr,
+		)
+	}
+
+	startables = append(
+		startables,
+		StartableFunc(func(ctx context.Context) <-chan struct{} {
+			return evtPublisher.Start(ctx, contractAddrs...)
+		}),
+	)
+
+	monitor := txmonitor.New(
+		opts.KeySigner.GetAddress(),
+		contractRPC,
+		txmonitor.NewEVMHelper(contractRPC.Client()),
+		store,
+		opts.Logger.With("component", "txmonitor"),
+		256,
+	)
+	startables = append(startables, monitor)
+
+	providerRegistry, err := providerregistry.NewProviderregistry(
+		common.HexToAddress(opts.ProviderRegistryContract),
+		contractRPC,
+	)
+	if err != nil {
+		opts.Logger.Error("failed to instantiate provider registry contract", "error", err)
+		return nil, err
+	}
+
+	bidderRegistry, err := bidderregistry.NewBidderregistry(
+		common.HexToAddress(opts.BidderRegistryContract),
+		contractRPC,
+	)
+	if err != nil {
+		opts.Logger.Error("failed to instantiate bidder registry contract", "error", err)
+		return nil, err
+	}
+
+	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
+		return opts.KeySigner.GetAuthWithCtx(ctx, chainID)
+	}
+
 	p2pSvc, err := libp2p.New(&libp2p.Options{
-		KeySigner:      opts.KeySigner,
-		Secret:         opts.Secret,
-		PeerType:       peerType,
-		Register:       providerRegistry,
+		KeySigner: opts.KeySigner,
+		Secret:    opts.Secret,
+		PeerType:  peerType,
+		Register: &providerStakeChecker{
+			providerRegistry: providerRegistry,
+			from:             opts.KeySigner.GetAddress(),
+		},
 		Store:          store,
 		Logger:         opts.Logger.With("component", "p2p"),
 		ListenPort:     opts.P2PPort,
@@ -173,82 +232,51 @@ func NewNode(opts *Options) (*Node, error) {
 	// Register the discovery protocol with the p2p service
 	p2pSvc.AddStreamHandlers(disc.Streams()...)
 
-	debugapi.RegisterAPI(srv, topo, p2pSvc, opts.Logger.With("component", "debugapi"))
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	contracts, err := getContractABIs(opts)
+	lis, err := net.Listen("tcp", opts.RPCAddr)
 	if err != nil {
-		opts.Logger.Error("failed to get contract ABIs", "error", err)
-		cancel()
-		return nil, err
+		opts.Logger.Error("failed to listen", "error", err)
+		return nil, errors.Join(err, nd.Close())
 	}
 
-	abis := make([]*abi.ABI, 0, len(contracts))
-	contractAddrs := make([]common.Address, 0, len(contracts))
-
-	for addr, abi := range contracts {
-		abis = append(abis, abi)
-		contractAddrs = append(contractAddrs, addr)
+	var tlsCredentials credentials.TransportCredentials
+	if opts.TLSCertificateFile != "" && opts.TLSPrivateKeyFile != "" {
+		tlsCredentials, err = credentials.NewServerTLSFromFile(
+			opts.TLSCertificateFile,
+			opts.TLSPrivateKeyFile,
+		)
+		if err != nil {
+			opts.Logger.Error("failed to load TLS credentials", "error", err)
+			return nil, fmt.Errorf("unable to load TLS credentials: %w", err)
+		}
 	}
 
-	evtMgr := events.NewListener(
-		opts.Logger.With("component", "events"),
-		abis...,
+	grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
+
+	debugService := debugapi.NewService(
+		store,
+		txmonitor.NewCanceller(
+			chainID,
+			contractRPC,
+			opts.KeySigner,
+			monitor,
+			opts.Logger.With("component", "txmonitor/canceller"),
+		),
+		p2pSvc,
+		topo,
 	)
 
-	var evtPublisher Starter
-	if opts.WSRPCEndpoint != "" {
-		// Use WS publisher if WSRPCEndpoint is set
-		evtPublisher = publisher.NewWSPublisher(
-			testStore{},
-			opts.Logger.With("component", "ws_publisher"),
-			contractRPC,
-			evtMgr,
-		)
-	} else {
-		evtPublisher = publisher.NewHTTPPublisher(
-			testStore{},
-			opts.Logger.With("component", "http_publisher"),
-			contractRPC,
-			evtMgr,
-		)
-	}
+	debugapiv1.RegisterDebugServiceServer(grpcServer, debugService)
 
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
-		lis, err := net.Listen("tcp", opts.RPCAddr)
-		if err != nil {
-			opts.Logger.Error("failed to listen", "error", err)
-			cancel()
-			return nil, errors.Join(err, nd.Close())
-		}
-
-		var tlsCredentials credentials.TransportCredentials
-		if opts.TLSCertificateFile != "" && opts.TLSPrivateKeyFile != "" {
-			tlsCredentials, err = credentials.NewServerTLSFromFile(
-				opts.TLSCertificateFile,
-				opts.TLSPrivateKeyFile,
-			)
-			if err != nil {
-				opts.Logger.Error("failed to load TLS credentials", "error", err)
-				cancel()
-				return nil, fmt.Errorf("unable to load TLS credentials: %w", err)
-			}
-		}
-
-		grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
-
 		preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
 		if err != nil {
 			opts.Logger.Error("failed to create preconf encryptor", "error", err)
-			cancel()
 			return nil, errors.Join(err, nd.Close())
 		}
 
 		validator, err := protovalidate.New()
 		if err != nil {
 			opts.Logger.Error("failed to create proto validator", "error", err)
-			cancel()
 			return nil, errors.Join(err, nd.Close())
 		}
 
@@ -257,15 +285,12 @@ func NewNode(opts *Options) (*Node, error) {
 			depositMgr   preconfirmation.DepositManager = noOpDepositManager{}
 		)
 
-		blockTrackerAddr := common.HexToAddress(opts.BlockTrackerContract)
-
 		blockTrackerCaller, err := blocktracker.NewBlocktrackerCaller(
-			blockTrackerAddr,
+			common.HexToAddress(opts.BlockTrackerContract),
 			contractRPC,
 		)
 		if err != nil {
 			opts.Logger.Error("failed to instantiate block tracker contract", "error", err)
-			cancel()
 			return nil, err
 		}
 
@@ -276,13 +301,14 @@ func NewNode(opts *Options) (*Node, error) {
 			},
 		}
 
-		preconfContractAddr := common.HexToAddress(opts.PreconfContract)
-		commitmentDA := preconfcontract.New(
-			preconfContractAddr,
-			evmClient,
-			opts.Logger.With("component", "preconfcontract"),
+		commitmentDA, err := preconfcommitmentstore.NewPreconfcommitmentstore(
+			common.HexToAddress(opts.PreconfContract),
+			contractRPC,
 		)
-		opts.Logger.Info("registered preconf contract")
+		if err != nil {
+			opts.Logger.Error("failed to instantiate preconf commitment store contract", "error", err)
+			return nil, err
+		}
 
 		tracker := preconftracker.NewTracker(
 			peerType,
@@ -290,9 +316,10 @@ func NewNode(opts *Options) (*Node, error) {
 			store,
 			commitmentDA,
 			txmonitor.NewEVMHelper(contractRPC.Client()),
+			optsGetter,
 			opts.Logger.With("component", "tracker"),
 		)
-		nd.closers = append(nd.closers, channelCloserFunc(tracker.Start(ctx)))
+		startables = append(startables, tracker)
 
 		switch opts.PeerType {
 		case p2p.PeerTypeProvider.String():
@@ -300,7 +327,8 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.With("component", "providerapi"),
 				providerRegistry,
 				opts.KeySigner.GetAddress(),
-				evmClient,
+				monitor,
+				optsGetter,
 				validator,
 			)
 			providerapiv1.RegisterProviderServer(grpcServer, providerAPI)
@@ -312,12 +340,8 @@ func NewNode(opts *Options) (*Node, error) {
 				evtMgr,
 				opts.Logger.With("component", "depositmanager"),
 			)
-			nd.closers = append(
-				nd.closers,
-				channelCloserFunc(depositMgr.(*depositmanager.DepositManager).Start(ctx)),
-			)
+			startables = append(startables, depositMgr.(*depositmanager.DepositManager))
 			preconfProto := preconfirmation.New(
-				opts.KeySigner.GetAddress(),
 				topo,
 				p2pSvc,
 				preconfEncryptor,
@@ -325,6 +349,7 @@ func NewNode(opts *Options) (*Node, error) {
 				bidProcessor,
 				commitmentDA,
 				tracker,
+				optsGetter,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
 
@@ -344,7 +369,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 		case p2p.PeerTypeBidder.String():
 			preconfProto := preconfirmation.New(
-				opts.KeySigner.GetAddress(),
 				topo,
 				p2pSvc,
 				preconfEncryptor,
@@ -352,17 +376,20 @@ func NewNode(opts *Options) (*Node, error) {
 				bidProcessor,
 				commitmentDA,
 				tracker,
+				optsGetter,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
 			bidderAPI := bidderapi.NewService(
-				preconfProto,
 				opts.KeySigner.GetAddress(),
+				preconfProto,
 				bidderRegistry,
 				blockTrackerSession,
 				validator,
+				monitor,
+				optsGetter,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
@@ -370,13 +397,11 @@ func NewNode(opts *Options) (*Node, error) {
 			aesKey, err := crypto.GenerateAESKey()
 			if err != nil {
 				opts.Logger.Error("failed to generate AES key", "error", err)
-				cancel()
 				return nil, errors.Join(err, nd.Close())
 			}
 			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
 			if err != nil {
 				opts.Logger.Error("failed to set AES key", "error", err)
-				cancel()
 				return nil, errors.Join(err, nd.Close())
 			}
 
@@ -400,99 +425,102 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(bidderAPI.Metrics()...)
 		}
-
-		started := make(chan struct{})
-		go func() {
-			// signal that the server has started
-			close(started)
-
-			err := grpcServer.Serve(lis)
-			if err != nil {
-				opts.Logger.Error("failed to start grpc server", "err", err)
-			}
-		}()
-		nd.closers = append(nd.closers, lis)
-
-		// Wait for the server to start
-		<-started
-
-		// Since we don't know if the server has TLS enabled on its rpc
-		// endpoint, we try different strategies from most secure to
-		// least secure. In the future, when only TLS-enabled servers
-		// are allowed, only the TLS system pool certificate strategy
-		// should be used.
-		var grpcConn *grpc.ClientConn
-		for _, e := range []struct {
-			strategy   string
-			isSecure   bool
-			credential credentials.TransportCredentials
-		}{
-			{"TLS system pool certificate", true, credentials.NewClientTLSFromCert(nil, "")},
-			{"TLS skip verification", false, credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})},
-			{"TLS disabled", false, insecure.NewCredentials()},
-		} {
-			ctx, cancel := context.WithTimeout(context.Background(), grpcServerDialTimeout)
-			opts.Logger.Info("dialing to grpc server", "strategy", e.strategy)
-			// nolint:staticcheck
-			grpcConn, err = grpc.DialContext(
-				ctx,
-				opts.RPCAddr,
-				grpc.WithBlock(),
-				grpc.WithTransportCredentials(e.credential),
-			)
-			if err != nil {
-				opts.Logger.Error("failed to dial grpc server", "error", err)
-				cancel()
-				continue
-			}
-
-			cancel()
-			if !e.isSecure {
-				opts.Logger.Warn("established connection with the grpc server has potential security risk")
-			}
-			break
-		}
-		if grpcConn == nil {
-			cancel()
-			return nil, errors.New("dialing of grpc server failed")
-		}
-
-		handlerCtx, handlerCancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer handlerCancel()
-
-		gatewayMux := runtime.NewServeMux()
-		switch opts.PeerType {
-		case p2p.PeerTypeProvider.String():
-			err := providerapiv1.RegisterProviderHandler(handlerCtx, gatewayMux, grpcConn)
-			if err != nil {
-				opts.Logger.Error("failed to register provider handler", "err", err)
-				cancel()
-				return nil, errors.Join(err, nd.Close())
-			}
-		case p2p.PeerTypeBidder.String():
-			err := bidderapiv1.RegisterBidderHandler(handlerCtx, gatewayMux, grpcConn)
-			if err != nil {
-				opts.Logger.Error("failed to register bidder handler", "err", err)
-				cancel()
-				return nil, errors.Join(err, nd.Close())
-			}
-		}
-
-		srv.ChainHandlers("/", gatewayMux)
-		srv.ChainHandlers(
-			"/health",
-			http.HandlerFunc(
-				func(w http.ResponseWriter, r *http.Request) {
-					w.Header().Set("Content-Type", "text/plain")
-					if s := grpcConn.GetState(); s != connectivity.Ready {
-						http.Error(w, fmt.Sprintf("grpc server is %s", s), http.StatusBadGateway)
-						return
-					}
-					fmt.Fprintln(w, "ok")
-				},
-			),
-		)
 	}
+
+	started := make(chan struct{})
+	go func() {
+		// signal that the server has started
+		close(started)
+
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			opts.Logger.Error("failed to start grpc server", "err", err)
+		}
+	}()
+	nd.closers = append(nd.closers, lis)
+
+	// Wait for the server to start
+	<-started
+
+	// Since we don't know if the server has TLS enabled on its rpc
+	// endpoint, we try different strategies from most secure to
+	// least secure. In the future, when only TLS-enabled servers
+	// are allowed, only the TLS system pool certificate strategy
+	// should be used.
+	var grpcConn *grpc.ClientConn
+	for _, e := range []struct {
+		strategy   string
+		isSecure   bool
+		credential credentials.TransportCredentials
+	}{
+		{"TLS system pool certificate", true, credentials.NewClientTLSFromCert(nil, "")},
+		{"TLS skip verification", false, credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})},
+		{"TLS disabled", false, insecure.NewCredentials()},
+	} {
+		ctx, cancel := context.WithTimeout(context.Background(), grpcServerDialTimeout)
+		opts.Logger.Info("dialing to grpc server", "strategy", e.strategy)
+		// nolint:staticcheck
+		grpcConn, err = grpc.DialContext(
+			ctx,
+			opts.RPCAddr,
+			grpc.WithBlock(),
+			grpc.WithTransportCredentials(e.credential),
+		)
+		if err != nil {
+			opts.Logger.Error("failed to dial grpc server", "error", err)
+			cancel()
+			continue
+		}
+
+		cancel()
+		if !e.isSecure {
+			opts.Logger.Warn("established connection with the grpc server has potential security risk")
+		}
+		break
+	}
+	if grpcConn == nil {
+		return nil, errors.New("dialing of grpc server failed")
+	}
+
+	handlerCtx, handlerCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer handlerCancel()
+
+	gatewayMux := runtime.NewServeMux()
+	err = debugapiv1.RegisterDebugServiceHandler(handlerCtx, gatewayMux, grpcConn)
+	if err != nil {
+		opts.Logger.Error("failed to register debug handler", "err", err)
+		return nil, errors.Join(err, nd.Close())
+	}
+
+	switch opts.PeerType {
+	case p2p.PeerTypeProvider.String():
+		err := providerapiv1.RegisterProviderHandler(handlerCtx, gatewayMux, grpcConn)
+		if err != nil {
+			opts.Logger.Error("failed to register provider handler", "err", err)
+			return nil, errors.Join(err, nd.Close())
+		}
+	case p2p.PeerTypeBidder.String():
+		err := bidderapiv1.RegisterBidderHandler(handlerCtx, gatewayMux, grpcConn)
+		if err != nil {
+			opts.Logger.Error("failed to register bidder handler", "err", err)
+			return nil, errors.Join(err, nd.Close())
+		}
+	}
+
+	srv.ChainHandlers("/", gatewayMux)
+	srv.ChainHandlers(
+		"/health",
+		http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/plain")
+				if s := grpcConn.GetState(); s != connectivity.Ready {
+					http.Error(w, fmt.Sprintf("grpc server is %s", s), http.StatusBadGateway)
+					return
+				}
+				fmt.Fprintln(w, "ok")
+			},
+		),
+	)
 
 	server := &http.Server{
 		Addr:    opts.HTTPAddr,
@@ -518,7 +546,12 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}()
 	nd.closers = append(nd.closers, server)
-	nd.closers = append(nd.closers, channelCloserFunc(evtPublisher.Start(ctx, contractAddrs...)))
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	for _, s := range startables {
+		nd.closers = append(nd.closers, channelCloserFunc(s.Start(ctx)))
+	}
 
 	nd.cancelFunc = cancel
 
@@ -582,16 +615,6 @@ func (noOpDepositManager) CheckAndDeductDeposit(_ context.Context, _ common.Addr
 	return func() error { return nil }, nil
 }
 
-type testStore struct{}
-
-func (t testStore) LastBlock() (uint64, error) {
-	return 0, nil
-}
-
-func (t testStore) SetLastBlock(_ uint64) error {
-	return nil
-}
-
 type channelCloser <-chan struct{}
 
 func channelCloserFunc(c <-chan struct{}) io.Closer {
@@ -607,6 +630,40 @@ func (c channelCloser) Close() error {
 	}
 }
 
-type Starter interface {
+type PublisherStartable interface {
 	Start(ctx context.Context, contracts ...common.Address) <-chan struct{}
+}
+
+type Startable interface {
+	Start(ctx context.Context) <-chan struct{}
+}
+
+type StartableFunc func(ctx context.Context) <-chan struct{}
+
+func (f StartableFunc) Start(ctx context.Context) <-chan struct{} {
+	return f(ctx)
+}
+
+type providerStakeChecker struct {
+	providerRegistry *providerregistry.Providerregistry
+	from             common.Address
+}
+
+func (p *providerStakeChecker) CheckProviderRegistered(ctx context.Context, provider common.Address) bool {
+	callOpts := &bind.CallOpts{
+		From:    p.from,
+		Context: ctx,
+	}
+
+	minStake, err := p.providerRegistry.MinStake(callOpts)
+	if err != nil {
+		return false
+	}
+
+	stake, err := p.providerRegistry.CheckStake(callOpts, provider)
+	if err != nil {
+		return false
+	}
+
+	return stake.Cmp(minStake) >= 0
 }

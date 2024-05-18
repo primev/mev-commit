@@ -1,6 +1,7 @@
 package mockkeysigner
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"math/big"
 
@@ -42,5 +43,9 @@ func (m *MockKeySigner) String() string {
 }
 
 func (m *MockKeySigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
+	return nil, nil
+}
+
+func (m *MockKeySigner) GetAuthWithCtx(_ context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
 	return nil, nil
 }

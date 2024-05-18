@@ -1,6 +1,7 @@
 package keysigner
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
@@ -19,4 +20,5 @@ type KeySigner interface {
 	GetPrivateKey() (*ecdsa.PrivateKey, error)
 	ZeroPrivateKey(key *ecdsa.PrivateKey)
 	GetAuth(chainID *big.Int) (*bind.TransactOpts, error)
+	GetAuthWithCtx(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error)
 }

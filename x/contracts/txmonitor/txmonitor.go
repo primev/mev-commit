@@ -230,6 +230,16 @@ func (m *Monitor) WatchTx(txHash common.Hash, nonce uint64) <-chan Result {
 	return c
 }
 
+func (m *Monitor) WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
+	res := m.WatchTx(tx.Hash(), tx.Nonce())
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-res:
+		return r.Receipt, r.Err
+	}
+}
+
 func (m *Monitor) triggerNewTx() {
 	select {
 	case m.newTxAdded <- struct{}{}:

@@ -1,6 +1,7 @@
 package keysigner
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
@@ -59,6 +60,15 @@ func (pks *PrivateKeySigner) GetPrivateKey() (*ecdsa.PrivateKey, error) {
 
 func (pks *PrivateKeySigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
 	return bind.NewKeyedTransactorWithChainID(pks.privKey, chainID)
+}
+
+func (pks *PrivateKeySigner) GetAuthWithCtx(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
+	opts, err := pks.GetAuth(chainID)
+	if err != nil {
+		return nil, err
+	}
+	opts.Context = ctx
+	return opts, nil
 }
 
 // ZeroPrivateKey does nothing because the private key for PKS persists in memory

@@ -1,6 +1,7 @@
 package keysigner
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
@@ -77,4 +78,14 @@ func (kss *KeystoreSigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error)
 	}
 
 	return bind.NewKeyStoreTransactorWithChainID(kss.keystore, kss.account, chainID)
+}
+
+func (kss *KeystoreSigner) GetAuthWithCtx(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {
+	opts, err := kss.GetAuth(chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	opts.Context = ctx
+	return opts, nil
 }

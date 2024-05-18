@@ -261,11 +261,16 @@ func (s *Service) disconnected(p p2p.Peer) {
 }
 
 func (s *Service) Self() map[string]interface{} {
+	addrStrings := make([]interface{}, 0, len(s.host.Addrs()))
+	for _, addr := range s.host.Addrs() {
+		addrStrings = append(addrStrings, addr.String())
+	}
+
 	return map[string]interface{}{
 		"Ethereum Address": s.ethAddress.Hex(),
 		"Peer Type":        s.peerType.String(),
 		"Underlay":         s.host.ID().String(),
-		"Addresses":        s.host.Addrs(),
+		"Addresses":        addrStrings,
 	}
 }
 

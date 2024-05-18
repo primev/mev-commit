@@ -12,7 +12,10 @@ import (
 	"testing"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
@@ -80,25 +83,60 @@ type testRegistryContract struct {
 	minDeposit *big.Int
 }
 
-func (t *testRegistryContract) DepositForSpecificWindow(ctx context.Context, amount, window *big.Int) error {
-	t.deposit = amount
-	return nil
+func (t *testRegistryContract) DepositForSpecificWindow(opts *bind.TransactOpts, _ *big.Int) (*types.Transaction, error) {
+	t.deposit = opts.Value
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func (t *testRegistryContract) GetDeposit(ctx context.Context, address common.Address, window *big.Int) (*big.Int, error) {
+func (t *testRegistryContract) WithdrawBidderAmountFromWindow(
+	opts *bind.TransactOpts,
+	address common.Address,
+	window *big.Int,
+) (*types.Transaction, error) {
+	return types.NewTransaction(2, common.Address{}, nil, 0, nil, nil), nil
+}
+
+func (t *testRegistryContract) GetDeposit(_ *bind.CallOpts, _ common.Address, _ *big.Int) (*big.Int, error) {
 	return t.deposit, nil
 }
 
-func (t *testRegistryContract) GetMinDeposit(ctx context.Context) (*big.Int, error) {
+func (t *testRegistryContract) MinDeposit(_ *bind.CallOpts) (*big.Int, error) {
 	return t.minDeposit, nil
 }
 
-func (t *testRegistryContract) CheckBidderDeposit(ctx context.Context, address common.Address, window, numberOfRounds *big.Int) bool {
-	return t.deposit.Cmp(t.minDeposit) > 0
+func (t *testRegistryContract) ParseBidderRegistered(_ types.Log) (*bidderregistry.BidderregistryBidderRegistered, error) {
+	return &bidderregistry.BidderregistryBidderRegistered{
+		DepositedAmount: t.deposit,
+		WindowNumber:    big.NewInt(1),
+	}, nil
 }
 
-func (t *testRegistryContract) WithdrawDeposit(ctx context.Context, window *big.Int) (*big.Int, error) {
-	return t.deposit, nil
+func (t *testRegistryContract) ParseBidderWithdrawal(_ types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error) {
+	return &bidderregistry.BidderregistryBidderWithdrawal{
+		Amount: t.deposit,
+		Window: big.NewInt(1),
+	}, nil
+}
+
+type testTxWatcher struct {
+	nonce int
+}
+
+func (t *testTxWatcher) WaitForReceipt(_ context.Context, tx *types.Transaction) (*types.Receipt, error) {
+	t.nonce++
+	if tx.Nonce() != uint64(t.nonce) {
+		return nil, errors.New("nonce mismatch")
+	}
+	return &types.Receipt{
+		Status: 1,
+		Logs: []*types.Log{
+			{
+				Address: common.Address{},
+				Topics:  []common.Hash{},
+				Data:    []byte{},
+			},
+		},
+	}, nil
 }
 
 type testBlockTrackerContract struct {
@@ -129,11 +167,18 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	sender := &testSender{noOfPreconfs: 2}
 	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
 	srvImpl := bidderapi.NewService(
-		sender,
 		owner,
+		sender,
 		registryContract,
 		blockTrackerContract,
 		validator,
+		&testTxWatcher{},
+		func(ctx context.Context) (*bind.TransactOpts, error) {
+			return &bind.TransactOpts{
+				From:    owner,
+				Context: ctx,
+			}, nil
+		},
 		logger,
 	)
 

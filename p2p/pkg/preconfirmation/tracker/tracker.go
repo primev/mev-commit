@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
@@ -22,12 +25,15 @@ type Tracker struct {
 	store           CommitmentStore
 	preconfContract PreconfContract
 	receiptGetter   txmonitor.BatchReceiptGetter
+	optsGetter      OptsGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
 	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
 	logger          *slog.Logger
 }
+
+type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type CommitmentStore interface {
 	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
@@ -39,17 +45,17 @@ type CommitmentStore interface {
 
 type PreconfContract interface {
 	OpenCommitment(
-		ctx context.Context,
-		encryptedCommitmentIndex []byte,
-		bid string,
-		blockNumber int64,
+		opts *bind.TransactOpts,
+		encryptedCommitmentIndex [32]byte,
+		bid uint64,
+		blockNumber uint64,
 		txnHash string,
-		decayStartTimeStamp int64,
-		decayEndTimeStamp int64,
+		decayStartTimeStamp uint64,
+		decayEndTimeStamp uint64,
 		bidSignature []byte,
 		commitmentSignature []byte,
 		sharedSecretKey []byte,
-	) (common.Hash, error)
+	) (*types.Transaction, error)
 }
 
 func NewTracker(
@@ -58,6 +64,7 @@ func NewTracker(
 	store CommitmentStore,
 	preconfContract PreconfContract,
 	receiptGetter txmonitor.BatchReceiptGetter,
+	optsGetter OptsGetter,
 	logger *slog.Logger,
 ) *Tracker {
 	return &Tracker{
@@ -66,6 +73,7 @@ func NewTracker(
 		store:           store,
 		preconfContract: preconfContract,
 		receiptGetter:   receiptGetter,
+		optsGetter:      optsGetter,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
@@ -222,14 +230,29 @@ func (t *Tracker) handleNewL1Block(
 		}
 		startTime := time.Now()
 
+		var commitmentIdx [32]byte
+		copy(commitmentIdx[:], commitment.CommitmentIndex[:])
+
+		bidAmt, ok := new(big.Int).SetString(commitment.Bid.BidAmount, 10)
+		if !ok {
+			t.logger.Error("failed to parse bid amount", "bidAmount", commitment.Bid.BidAmount)
+			continue
+		}
+
+		opts, err := t.optsGetter(ctx)
+		if err != nil {
+			t.logger.Error("failed to get transact opts", "error", err)
+			continue
+		}
+
 		txHash, err := t.preconfContract.OpenCommitment(
-			ctx,
-			commitment.EncryptedPreConfirmation.CommitmentIndex,
-			commitment.PreConfirmation.Bid.BidAmount,
-			commitment.PreConfirmation.Bid.BlockNumber,
+			opts,
+			commitmentIdx,
+			bidAmt.Uint64(),
+			uint64(commitment.PreConfirmation.Bid.BlockNumber),
 			commitment.PreConfirmation.Bid.TxHash,
-			commitment.PreConfirmation.Bid.DecayStartTimestamp,
-			commitment.PreConfirmation.Bid.DecayEndTimestamp,
+			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
+			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
 			commitment.PreConfirmation.Bid.Signature,
 			commitment.PreConfirmation.Signature,
 			commitment.PreConfirmation.SharedSecret,

@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
@@ -83,12 +85,12 @@ func (t *testProcessor) ProcessBid(
 type testCommitmentDA struct{}
 
 func (t *testCommitmentDA) StoreEncryptedCommitment(
-	_ context.Context,
-	_ []byte,
+	_ *bind.TransactOpts,
+	_ [32]byte,
 	_ []byte,
 	_ uint64,
-) (common.Hash, error) {
-	return common.Hash{}, nil
+) (*types.Transaction, error) {
+	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }
 
 func newTestLogger(t *testing.T, w io.Writer) *slog.Logger {
@@ -192,7 +194,6 @@ func TestPreconfBidSubmission(t *testing.T) {
 
 		depositMgr := &testDepositManager{}
 		p := preconfirmation.New(
-			client.EthAddress,
 			topo,
 			svc,
 			signer,
@@ -200,6 +201,11 @@ func TestPreconfBidSubmission(t *testing.T) {
 			proc,
 			&testCommitmentDA{},
 			&testTracker{},
+			func(context.Context) (*bind.TransactOpts, error) {
+				return &bind.TransactOpts{
+					From: client.EthAddress,
+				}, nil
+			},
 			newTestLogger(t, os.Stdout),
 		)
 

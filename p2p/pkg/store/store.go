@@ -2,11 +2,14 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdh"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +25,9 @@ var (
 	// provider related keys
 	eciesPrivateKeyNS = "ecies/"
 	nikePrivateKeyNS  = "nike/"
+
+	// txns related keys
+	txNS = "tx/"
 
 	commitmentKey = func(blockNum int64, index []byte) string {
 		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
@@ -42,6 +48,10 @@ var (
 
 	bidderAesKey = func(bidder common.Address) string {
 		return fmt.Sprintf("%s%s", aesKeysNS, bidder)
+	}
+
+	txKey = func(txHash common.Hash) string {
+		return fmt.Sprintf("%s%s", txNS, txHash.Hex())
 	}
 )
 
@@ -307,4 +317,42 @@ func (s *Store) Len() int {
 	defer s.mu.RUnlock()
 
 	return s.Tree.Len()
+}
+
+type TxnDetails struct {
+	Hash    common.Hash
+	Nonce   uint64
+	Created int64
+}
+
+func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(txKey(txHash), &TxnDetails{Hash: txHash, Nonce: nonce, Created: time.Now().Unix()})
+	return nil
+}
+
+func (s *Store) Update(ctx context.Context, txHash common.Hash, status string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Delete(txKey(txHash))
+	return nil
+}
+
+func (s *Store) PendingTxns() ([]*TxnDetails, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	txns := make([]*TxnDetails, 0)
+	s.Tree.WalkPrefix(txNS, func(key string, value interface{}) bool {
+		txns = append(txns, value.(*TxnDetails))
+		return false
+	})
+
+	slices.SortFunc(txns, func(a, b *TxnDetails) int {
+		return int(a.Created - b.Created)
+	})
+	return txns, nil
 }

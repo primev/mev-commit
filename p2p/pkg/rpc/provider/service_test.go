@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
-	"github.com/primev/mev-commit/p2p/pkg/evmclient"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
@@ -26,38 +28,42 @@ type testRegistryContract struct {
 	minStake *big.Int
 }
 
-func (t *testRegistryContract) RegisterProvider(ctx context.Context, amount *big.Int) error {
-	t.stake = amount
-	return nil
+func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts) (*types.Transaction, error) {
+	t.stake = opts.Value
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func (t *testRegistryContract) GetStake(ctx context.Context, address common.Address) (*big.Int, error) {
+func (t *testRegistryContract) CheckStake(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
 	return t.stake, nil
 }
 
-func (t *testRegistryContract) GetMinStake(ctx context.Context) (*big.Int, error) {
+func (t *testRegistryContract) MinStake(_ *bind.CallOpts) (*big.Int, error) {
 	return t.minStake, nil
 }
 
-func (t *testRegistryContract) CheckProviderRegistered(ctx context.Context, address common.Address) bool {
-	return t.stake.Cmp(t.minStake) > 0
+func (t *testRegistryContract) ParseFundsDeposited(log types.Log) (*providerregistry.ProviderregistryFundsDeposited, error) {
+	return &providerregistry.ProviderregistryFundsDeposited{
+		Provider: common.Address{},
+		Amount:   t.stake,
+	}, nil
 }
 
-type testEVMClient struct {
-	pendingTxns     []evmclient.TxnInfo
-	cancelledHashes []common.Hash
+type testWatcher struct{}
+
+func (t *testWatcher) WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
+	return &types.Receipt{
+		Status: 1,
+		Logs: []*types.Log{
+			{
+				Address: common.Address{},
+				Topics:  []common.Hash{},
+				Data:    []byte{},
+			},
+		},
+	}, nil
 }
 
-func (t *testEVMClient) PendingTxns() []evmclient.TxnInfo {
-	return t.pendingTxns
-}
-
-func (t *testEVMClient) CancelTx(ctx context.Context, txHash common.Hash) (common.Hash, error) {
-	t.cancelledHashes = append(t.cancelledHashes, txHash)
-	return txHash, nil
-}
-
-func startServer(t *testing.T, evm *testEVMClient) (providerapiv1.ProviderClient, *providerapi.Service) {
+func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Service) {
 	buffer := 101024 * 1024
 	lis := bufconn.Listen(buffer)
 
@@ -69,15 +75,18 @@ func startServer(t *testing.T, evm *testEVMClient) (providerapiv1.ProviderClient
 
 	owner := common.HexToAddress("0x00001")
 	registryContract := &testRegistryContract{minStake: big.NewInt(100000000000000000)}
-	if evm == nil {
-		evm = &testEVMClient{}
-	}
 
 	srvImpl := providerapi.NewService(
 		logger,
 		registryContract,
 		owner,
-		evm,
+		&testWatcher{},
+		func(context.Context) (*bind.TransactOpts, error) {
+			return &bind.TransactOpts{
+				From:    owner,
+				Context: context.Background(),
+			}, nil
+		},
 		validator,
 	)
 
@@ -114,7 +123,7 @@ func startServer(t *testing.T, evm *testEVMClient) (providerapiv1.ProviderClient
 func TestStakeHandling(t *testing.T) {
 	t.Parallel()
 
-	client, _ := startServer(t, nil)
+	client, _ := startServer(t)
 
 	t.Run("register stake", func(t *testing.T) {
 		type testCase struct {
@@ -282,7 +291,7 @@ func TestBidHandling(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			client, svc := startServer(t, nil)
+			client, svc := startServer(t)
 
 			bidCh := make(chan *providerapiv1.Bid)
 
@@ -364,64 +373,4 @@ func TestBidHandling(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCancelTx(t *testing.T) {
-	t.Parallel()
-
-	evmClient := &testEVMClient{
-		pendingTxns: []evmclient.TxnInfo{
-			{
-				Hash:    common.HexToHash("0x00001").Hex(),
-				Nonce:   1,
-				Created: time.Now().String(),
-			},
-			{
-				Hash:    common.HexToHash("0x00002").Hex(),
-				Nonce:   2,
-				Created: time.Now().String(),
-			},
-		},
-	}
-	client, _ := startServer(t, evmClient)
-
-	t.Run("get pending txns", func(t *testing.T) {
-		pendingTxns, err := client.GetPendingTxns(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error getting pending txns: %v", err)
-		}
-
-		if len(pendingTxns.PendingTxns) != len(evmClient.pendingTxns) {
-			t.Fatalf("expected %v pending txns, got %v", len(evmClient.pendingTxns), len(pendingTxns.PendingTxns))
-		}
-
-		for i, pendingTxn := range pendingTxns.PendingTxns {
-			if pendingTxn.TxHash != evmClient.pendingTxns[i].Hash {
-				t.Fatalf("expected tx hash to be %v, got %v", evmClient.pendingTxns[i].Hash, pendingTxn.TxHash)
-			}
-			if uint64(pendingTxn.Nonce) != evmClient.pendingTxns[i].Nonce {
-				t.Fatalf("expected nonce to be %v, got %v", evmClient.pendingTxns[i].Nonce, pendingTxn.Nonce)
-			}
-			if pendingTxn.Created != evmClient.pendingTxns[i].Created {
-				t.Fatalf("expected created to be %v, got %v", evmClient.pendingTxns[i].Created, pendingTxn.Created)
-			}
-		}
-	})
-
-	t.Run("cancel tx", func(t *testing.T) {
-		txHash := common.HexToHash("0x00001")
-		cancelTxHash, err := client.CancelTransaction(context.Background(), &providerapiv1.CancelReq{TxHash: txHash.Hex()})
-		if err != nil {
-			t.Fatalf("error cancelling tx: %v", err)
-		}
-		if cancelTxHash.TxHash != txHash.Hex() {
-			t.Fatalf("expected cancel tx hash to be %v, got %v", txHash.Hex(), cancelTxHash.TxHash)
-		}
-		if len(evmClient.cancelledHashes) != 1 {
-			t.Fatalf("expected 1 cancelled tx, got %v", len(evmClient.cancelledHashes))
-		}
-		if evmClient.cancelledHashes[0] != txHash {
-			t.Fatalf("expected cancelled tx hash to be %v, got %v", txHash, evmClient.cancelledHashes[0])
-		}
-	})
 }

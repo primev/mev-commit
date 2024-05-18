@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
@@ -57,6 +58,11 @@ func TestTracker(t *testing.T) {
 		st,
 		contract,
 		&testReceiptGetter{count: 1},
+		func(context.Context) (*bind.TransactOpts, error) {
+			return &bind.TransactOpts{
+				From: common.HexToAddress("0x1234"),
+			}, nil
+		},
 		util.NewTestLogger(io.Discard),
 	)
 
@@ -172,30 +178,30 @@ func TestTracker(t *testing.T) {
 
 	for _, c := range opened {
 		oc := <-contract.openedCommitments
-		if !bytes.Equal(c.EncryptedPreConfirmation.CommitmentIndex, oc.encryptedCommitmentIndex) {
+		if !bytes.Equal(c.EncryptedPreConfirmation.CommitmentIndex, oc.encryptedCommitmentIndex[:]) {
 			t.Fatalf(
 				"expected commitment index %x, got %x",
 				c.EncryptedPreConfirmation.CommitmentIndex,
 				oc.encryptedCommitmentIndex,
 			)
 		}
-		if c.PreConfirmation.Bid.BidAmount != oc.bid {
-			t.Fatalf("expected bid %s, got %s", c.PreConfirmation.Bid.BidAmount, oc.bid)
+		if c.PreConfirmation.Bid.BidAmount != strconv.Itoa(int(oc.bid)) {
+			t.Fatalf("expected bid %s, got %d", c.PreConfirmation.Bid.BidAmount, oc.bid)
 		}
-		if c.PreConfirmation.Bid.BlockNumber != oc.blockNumber {
+		if c.PreConfirmation.Bid.BlockNumber != int64(oc.blockNumber) {
 			t.Fatalf("expected block number %d, got %d", c.PreConfirmation.Bid.BlockNumber, oc.blockNumber)
 		}
 		if c.PreConfirmation.Bid.TxHash != oc.txnHash {
 			t.Fatalf("expected txn hash %s, got %s", c.PreConfirmation.Bid.TxHash, oc.txnHash)
 		}
-		if c.PreConfirmation.Bid.DecayStartTimestamp != oc.decayStartTimeStamp {
+		if c.PreConfirmation.Bid.DecayStartTimestamp != int64(oc.decayStartTimeStamp) {
 			t.Fatalf(
 				"expected decay start timestamp %d, got %d",
 				c.PreConfirmation.Bid.DecayStartTimestamp,
 				oc.decayStartTimeStamp,
 			)
 		}
-		if c.PreConfirmation.Bid.DecayEndTimestamp != oc.decayEndTimeStamp {
+		if c.PreConfirmation.Bid.DecayEndTimestamp != int64(oc.decayEndTimeStamp) {
 			t.Fatalf("expected decay end timestamp %d, got %d", c.PreConfirmation.Bid.DecayEndTimestamp, oc.decayEndTimeStamp)
 		}
 		if !bytes.Equal(c.PreConfirmation.Bid.Signature, oc.bidSignature) {
@@ -240,30 +246,30 @@ func TestTracker(t *testing.T) {
 
 	for _, c := range opened {
 		oc := <-contract.openedCommitments
-		if !bytes.Equal(c.EncryptedPreConfirmation.CommitmentIndex, oc.encryptedCommitmentIndex) {
+		if !bytes.Equal(c.EncryptedPreConfirmation.CommitmentIndex, oc.encryptedCommitmentIndex[:]) {
 			t.Fatalf(
 				"expected commitment index %x, got %x",
 				c.EncryptedPreConfirmation.CommitmentIndex,
 				oc.encryptedCommitmentIndex,
 			)
 		}
-		if c.PreConfirmation.Bid.BidAmount != oc.bid {
-			t.Fatalf("expected bid %s, got %s", c.PreConfirmation.Bid.BidAmount, oc.bid)
+		if c.PreConfirmation.Bid.BidAmount != strconv.Itoa(int(oc.bid)) {
+			t.Fatalf("expected bid %s, got %d", c.PreConfirmation.Bid.BidAmount, oc.bid)
 		}
-		if c.PreConfirmation.Bid.BlockNumber != oc.blockNumber {
+		if c.PreConfirmation.Bid.BlockNumber != int64(oc.blockNumber) {
 			t.Fatalf("expected block number %d, got %d", c.PreConfirmation.Bid.BlockNumber, oc.blockNumber)
 		}
 		if c.PreConfirmation.Bid.TxHash != oc.txnHash {
 			t.Fatalf("expected txn hash %s, got %s", c.PreConfirmation.Bid.TxHash, oc.txnHash)
 		}
-		if c.PreConfirmation.Bid.DecayStartTimestamp != oc.decayStartTimeStamp {
+		if c.PreConfirmation.Bid.DecayStartTimestamp != int64(oc.decayStartTimeStamp) {
 			t.Fatalf(
 				"expected decay start timestamp %d, got %d",
 				c.PreConfirmation.Bid.DecayStartTimestamp,
 				oc.decayStartTimeStamp,
 			)
 		}
-		if c.PreConfirmation.Bid.DecayEndTimestamp != oc.decayEndTimeStamp {
+		if c.PreConfirmation.Bid.DecayEndTimestamp != int64(oc.decayEndTimeStamp) {
 			t.Fatalf("expected decay end timestamp %d, got %d", c.PreConfirmation.Bid.DecayEndTimestamp, oc.decayEndTimeStamp)
 		}
 		if !bytes.Equal(c.PreConfirmation.Bid.Signature, oc.bidSignature) {
@@ -295,12 +301,12 @@ func TestTracker(t *testing.T) {
 }
 
 type openedCommitment struct {
-	encryptedCommitmentIndex []byte
-	bid                      string
-	blockNumber              int64
+	encryptedCommitmentIndex [32]byte
+	bid                      uint64
+	blockNumber              uint64
 	txnHash                  string
-	decayStartTimeStamp      int64
-	decayEndTimeStamp        int64
+	decayStartTimeStamp      uint64
+	decayEndTimeStamp        uint64
 	bidSignature             []byte
 	commitmentSignature      []byte
 	sharedSecretKey          []byte
@@ -311,17 +317,17 @@ type testPreconfContract struct {
 }
 
 func (t *testPreconfContract) OpenCommitment(
-	ctx context.Context,
-	encryptedCommitmentIndex []byte,
-	bid string,
-	blockNumber int64,
+	_ *bind.TransactOpts,
+	encryptedCommitmentIndex [32]byte,
+	bid uint64,
+	blockNumber uint64,
 	txnHash string,
-	decayStartTimeStamp int64,
-	decayEndTimeStamp int64,
+	decayStartTimeStamp uint64,
+	decayEndTimeStamp uint64,
 	bidSignature []byte,
 	commitmentSignature []byte,
 	sharedSecretKey []byte,
-) (common.Hash, error) {
+) (*types.Transaction, error) {
 	t.openedCommitments <- openedCommitment{
 		encryptedCommitmentIndex: encryptedCommitmentIndex,
 		bid:                      bid,
@@ -333,7 +339,7 @@ func (t *testPreconfContract) OpenCommitment(
 		commitmentSignature:      commitmentSignature,
 		sharedSecretKey:          sharedSecretKey,
 	}
-	return common.Hash{}, nil
+	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }
 
 type testReceiptGetter struct {
