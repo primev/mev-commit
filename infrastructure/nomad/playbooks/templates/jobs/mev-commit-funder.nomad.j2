@@ -10,7 +10,7 @@ job "{{ job.name }}" {
       driver = "exec"
 
       artifact {
-        source = "https://github.com/foundry-rs/foundry/releases/download/nightly-293fad73670b7b59ca901c7f2105bf7a29165a90/foundry_nightly_linux_amd64.tar.gz"
+        source = "https://github.com/foundry-rs/foundry/releases/download/nightly-467aff3056842e8d45bc58a353be17349f0e8651/foundry_nightly_linux_amd64.tar.gz"
       }
 
       template {
@@ -51,6 +51,8 @@ job "{{ job.name }}" {
             {{- range nomadService "mev-commit-geth-bootnode1" }}
               {{- if contains "http" .Tags }}
             local/cast send \
+                 --priority-gas-price 2000000000 \
+                 --with-gas-price 5000000000 \
                  --rpc-url http://{{ .Address }}:{{ .Port }} \
                  --private-key 0x7c9bf0f015874594d321c1c01ada3166c3509bbd91f76f9e4d7380c2df269c55 ${ETHEREUM_ADDRESS} \
                  --value 1000ether
