@@ -107,6 +107,7 @@ func main() {
 		return
 	}
 
+	// nolint:staticcheck
 	conn, err := grpc.Dial(
 		*serverAddr,
 		grpc.WithTransportCredentials(credentials.NewTLS(

@@ -26,7 +26,7 @@ jobs:
           curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 
-      - name: Print versions
+      - name: Print Versions
         run: |
           git --version
           node --version
@@ -64,7 +64,6 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-            **/go.work.sum
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
@@ -88,7 +87,7 @@ jobs:
           go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
           go work sync
           git checkout ${{ github.event.pull_request.head.ref }}
-          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work files" && exit 1)
+          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work/go.work.sum files" && exit 1)
           git reset --hard HEAD
 
       - name: Run Lint
@@ -108,7 +107,7 @@ jobs:
       - name: Setup Protobuf
         uses: bufbuild/buf-setup-action@v1.31.0
 
-      - name: Protobuf version
+      - name: Protobuf Version
         run: buf --version
 
       - name: Check Protobuf Parity
@@ -135,7 +134,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Print versions
+      - name: Print Versions
         run: |
           git --version
           node --version
@@ -184,7 +183,7 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Print versions
+      - name: Print Versions
         run: |
           git --version
           node --version
