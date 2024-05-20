@@ -23,7 +23,6 @@ contract DeployScript is Script {
         );
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
-        uint256 blocksPerWindow = 10;
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
