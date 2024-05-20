@@ -245,7 +245,7 @@ func checkOrDeposit(
 		return err
 	}
 
-	logger.Info("deposit", "amount", deposit.Amount)
+	logger.Info("initial deposit", "amount", deposit.Amount, "window", deposit.WindowNumber.Value)
 
 	minDeposit, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
 	if err != nil {
@@ -280,7 +280,7 @@ func checkOrDeposit(
 		return err
 	}
 
-	logger.Info("deposit", "amount", topup.String())
+	logger.Info("deposit after topup", "amount", topup.String(), "window", deposit.WindowNumber.Value)
 
 	deposits[deposit.WindowNumber.Value] = struct{}{}
 
