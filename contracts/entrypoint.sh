@@ -26,7 +26,7 @@ if [ "$DEPLOY_TYPE" = "core" ]; then
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        "$ROOT_OPTION" \
+        $ROOT_OPTION \
         --via-ir
 
 elif [ "$DEPLOY_TYPE" = "whitelist" ]; then
