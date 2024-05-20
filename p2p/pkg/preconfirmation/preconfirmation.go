@@ -303,6 +303,10 @@ func (p *Preconfirmation) handleBid(
 			}
 
 			p.logger.Info("sending preconfirmation", "preConfirmation", encryptedPreConfirmation)
+			err = stream.WriteMsg(ctx, encryptedPreConfirmation)
+			if err != nil {
+				return status.Errorf(codes.Internal, "failed to send preconfirmation: %v", err)
+			}
 			txnHash, err := p.commitmentDA.StoreEncryptedCommitment(
 				ctx,
 				encryptedPreConfirmation.Commitment,
@@ -328,7 +332,7 @@ func (p *Preconfirmation) handleBid(
 			// If we reach here, the bid was successful
 			successful = true
 
-			return stream.WriteMsg(ctx, encryptedPreConfirmation)
+			return nil
 		}
 	}
 	return nil
