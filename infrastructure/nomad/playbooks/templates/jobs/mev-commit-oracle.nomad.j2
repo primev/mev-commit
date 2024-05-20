@@ -170,6 +170,18 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
+          {%- raw %}
+          {{- with secret "secret/data/mev-commit" }}
+          {{- .Data.data.oracle_private_key }}
+          {{- end }}
+          {% endraw %}
+        EOH
+        destination = "${MEV_ORACLE_PRIV_KEY_FILE}"
+        perms = "0755"
+      }
+
+      template {
+        data = <<-EOH
           #!/usr/bin/env bash
           {%- raw %}
           {{- range nomadService "mev-commit-provider-node1" }}
