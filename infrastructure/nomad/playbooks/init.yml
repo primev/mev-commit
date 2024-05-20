@@ -57,14 +57,14 @@
     - name: Install Common Utility Packages and Dependencies
       ansible.builtin.apt:
         name:
-          - tree
-          - unzip
-          - apt-transport-https
-          - curl
-          - gnupg
-          - iptables
           - jq
           - git
+          - curl
+          - tree
+          - unzip
+          - gnupg
+          - iptables
+          - apt-transport-https
           - python3
           - python3-pip
           - python3-hvac

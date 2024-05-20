@@ -79,6 +79,8 @@
     - name: Determine Existing Scripts Artifact Version
       ansible.builtin.shell: |
         cat "{{ ansible_env.HOME }}/{{ profile }}/version.txt" 2>/dev/null || echo ""
+      args:
+        executable: bash
       register: existing_scripts_artifacts_version
 
     - name: Set Existing Scripts Artifact Version as Stale
@@ -193,6 +195,7 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
+        nomad system gc
         nomad run {{ ansible_env.HOME }}/{{ profile }}/{{ job.name }}.nomad
         [ "{{ job.name }}" = "deploy-contracts" ] && sleep 240 || true
       args:
