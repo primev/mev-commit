@@ -195,7 +195,7 @@ func (s *Service) GetDeposit(
 		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 	}
 
-	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String()}, nil
+	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String(), WindowNumber: wrapperspb.UInt64(window.Uint64())}, nil
 }
 
 func (s *Service) GetMinDeposit(
