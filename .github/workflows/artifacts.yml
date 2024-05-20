@@ -65,7 +65,6 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-            **/go.work.sum
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
           restore-keys: ${{ runner.os }}-go-
 

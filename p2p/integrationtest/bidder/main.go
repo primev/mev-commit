@@ -156,6 +156,7 @@ func main() {
 	} {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		logger.Info("dialing to grpc server", "strategy", e.strategy)
+		// nolint:staticcheck
 		conn, err = grpc.DialContext(
 			ctx,
 			*serverAddr,

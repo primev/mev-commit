@@ -145,6 +145,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 		}
 	}()
 
+	// nolint:staticcheck
 	conn, err := grpc.DialContext(context.TODO(), "",
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return lis.Dial()

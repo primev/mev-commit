@@ -433,6 +433,7 @@ func NewNode(opts *Options) (*Node, error) {
 		} {
 			ctx, cancel := context.WithTimeout(context.Background(), grpcServerDialTimeout)
 			opts.Logger.Info("dialing to grpc server", "strategy", e.strategy)
+			// nolint:staticcheck
 			grpcConn, err = grpc.DialContext(
 				ctx,
 				opts.RPCAddr,
