@@ -64,7 +64,6 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-            **/go.work.sum
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
@@ -88,7 +87,7 @@ jobs:
           go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
           go work sync
           git checkout ${{ github.event.pull_request.head.ref }}
-          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work files" && exit 1)
+          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work/go.work.sum files" && exit 1)
           git reset --hard HEAD
 
       - name: Run Lint

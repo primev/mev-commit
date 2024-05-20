@@ -10,5 +10,5 @@ bin:
 	mkdir $@
 
 bufgen:
-	cd rpc && buf generate -o ../
-	cd messages && buf generate -o ../
+	cd rpc && buf mod clear-cache && buf generate -o ../
+	cd messages && buf mod clear-cache && buf generate -o ../
