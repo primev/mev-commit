@@ -1,129 +1,51 @@
 #jinja2: trim_blocks:True, lstrip_blocks:True
-job "monitoring" {
+job "{{ job.name }}" {
   datacenters = ["{{ datacenter }}"]
 
-  group "monitoring-group" {
+  type        = "service"
+
+  group "influxdb" {
     count = 1
 
     network {
-      mode = "bridge"
-
-      port "grafana" {
-        static = 3000
-      }
-
-      port "prometheus" {
-        static = 9090
-      }
-
-      port "influxdb" {
+      port "db" {
         static = 8086
       }
     }
 
-    task "grafana" {
-      driver = "exec"
+    service {
+      name = "influxdb"
+      port = "db"
 
-      config {
-        command = "/usr/bin/env"
-        args = ["bash", "local/setup_grafana.sh"]
-      }
-
-      artifact {
-        source = "https://dl.influxdata.com/influxdb/releases/influxdb2-2.0.8-linux-amd64.tar.gz"
-        destination = "local/influxdb"
-      }
-
-      template {
-        data = <<-EOH
-          #!/usr/bin/env bash
-          mkdir -p local/influxdb/data
-          tar -xzf local/influxdb/influxdb2-2.0.8-linux-amd64.tar.gz -C local/influxdb
-          local/influxdb/influxd &
-          echo "InfluxDB started"
-        EOH
-        destination = "local/setup_grafana.sh"
-        perms = "0755"
-      }
-
-      env {
-        GF_SECURITY_ADMIN_USER = "admin"
-        GF_SECURITY_ADMIN_PASSWORD = "admin"
-        GF_PATHS_DATA = "/var/lib/grafana/data"
-        GF_PATHS_LOGS = "/var/log/grafana"
-        GF_PATHS_PLUGINS = "/var/lib/grafana/plugins"
-        GF_PATHS_PROVISIONING = "/etc/grafana/provisioning"
-      }
-
-      service {
-        name = "grafana"
-        port = "grafana"
-        tags = ["monitoring", "grafana", "ui"]
-      }
-    }
-
-    task "prometheus" {
-      driver = "exec"
-
-      config {
-        command = "/bin/bash"
-        args = ["-c", "mkdir -p local/prometheus && tar -xzf local/prometheus/prometheus-2.26.0.linux-amd64.tar.gz -C local/prometheus && chmod +x local/prometheus/prometheus && local/prometheus/prometheus --config.file=local/prometheus.yml"]
-      }
-
-      artifact {
-        source = "https://github.com/prometheus/prometheus/releases/download/v2.26.0/prometheus-2.26.0.linux-amd64.tar.gz"
-        destination = "local/prometheus/prometheus-2.26.0.linux-amd64.tar.gz"
-      }
-
-      template {
-        data = <<-EOH
-          global:
-            scrape_interval: 15s
-            evaluation_interval: 15s
-
-          scrape_configs:
-            - job_name: 'prometheus'
-              static_configs:
-                - targets: ['localhost:9090']
-        EOH
-        destination = "local/prometheus.yml"
-      }
-
-      service {
-        name = "prometheus"
-        port = "prometheus"
-        tags = ["monitoring", "prometheus", "metrics"]
+      check {
+        type     = "tcp"
+        interval = "10s"
+        timeout  = "2s"
       }
     }
 
     task "influxdb" {
-      driver = "exec"
+      driver = "docker"
 
       config {
-        command = "/bin/bash"
-        args = ["local/setup_influxdb.sh"]
+        image = "influxdb:latest"
+        ports = ["db"]
+
+        volumes = [
+          "local/data:/var/lib/influxdb2"
+        ]
+
+        env = {
+          DOCKER_INFLUXDB_INIT_USERNAME = "admin"
+          DOCKER_INFLUXDB_INIT_PASSWORD = "password"
+          DOCKER_INFLUXDB_INIT_ORG = "my-org"
+          DOCKER_INFLUXDB_INIT_BUCKET = "my-bucket"
+        }
       }
 
-      template {
-        data = <<-EOH
-          #!/bin/bash
-          curl -sL https://repos.influxdata.com/influxdb.key | apt-key add -
-          source /etc/lsb-release
-          echo "deb https://repos.influxdata.com/\${DISTRIB_ID,,} \${DISTRIB_CODENAME} stable" | tee /etc/apt/sources.list.d/influxdb.list
-          apt update
-          apt install influxdb -y
-          systemctl enable influxdb
-          systemctl start influxdb
-          apt install influxdb-client -y
-        EOH
-        destination = "local/setup_influxdb.sh"
-        perms = "0755"
-      }
-
-      service {
-        name = "influxdb"
-        port = "influxdb"
-        tags = ["monitoring", "influxdb", "database"]
+      resources {
+        cpu    = 500
+        memory = 512
       }
     }
   }

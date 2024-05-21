@@ -24,6 +24,13 @@ client {
     "/usr" = "/usr"
     "/opt" = "/opt"
   }
+
+  # Specify Docker driver configuration
+  drivers {
+    docker {
+      enabled = true
+    }
+  }
 }
 {% endif %}
 
