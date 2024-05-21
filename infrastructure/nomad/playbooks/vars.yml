@@ -8,6 +8,20 @@ tls_key_file: "{{ private_keys_dir }}/{{ server_common_name }}.key"
 tls_ca_crt_file: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
 
 profiles:
+  ci:
+    job_names:
+      - "mev-commit-geth-bootnode1"
+      - "mev-commit-geth-signer-node1"
+      - "mev-commit-geth-member-node"
+      - "deploy-contracts"
+      - "mev-commit-bootnode1"
+      - "mev-commit-provider-node1"
+      - "mev-commit-provider-node1-funder"
+      - "mev-commit-oracle"
+      - "mev-commit-bidder-node1"
+      - "mev-commit-bidder-node1-funder"
+      - "mev-commit-provider-emulator-node1"
+      - "mev-commit-bidder-emulator-node1"
   devnet:
     job_names:
       - "datadog-agent-logs-collector"

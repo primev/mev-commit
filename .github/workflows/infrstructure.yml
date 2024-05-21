@@ -1,16 +1,22 @@
-name: mev-commit-infrastructure
+name: infrastructure
 
 on:
   workflow_run:
-    workflows: ["mev-commit-ci"]
+    workflows:
+      - ci
     types:
       - completed
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
-  deploy_and_test:
-    name: Deploy and Test mev-commit Minimal Infrastructure
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  cluster:
+    name: Setup and Test Nomad devnet Cluster
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+#    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -18,52 +24,52 @@ jobs:
         submodules: recursive
         ref: ${{ github.event.workflow_run.head_branch }}
 
-    - name: Install jq
+    - name: Install Dependencies
       run: |
+        echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
         sudo apt-get update
-        sudo apt-get install -y jq
+        sudo apt-get install --yes goreleaser
+        
+        pip install boto3 botocore
+        pipx inject ansible-core botocore boto3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Setup Docker Compose
+    - name: Configure Machine
       run: |
-        sudo rm $(which docker-compose)
-        curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
+        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws configure set default.region us-west-2
 
-    - name: Build and Start Services
-      run: ./mev-commit-cli.sh start minimal
+        cat <<-EOH > infrastructure/nomad/hosts.ini
+        [nomad_servers]
+        127.0.0.1 ansible_connection=local ansible_user=${USER}
 
-    - name: Check Service Endpoints
+        [nomad_clients]
+        127.0.0.1 ansible_connection=local ansible_user=${USER}
+        EOH
+
+        ansible-inventory --inventory infrastructure/nomad/hosts.ini hosts.ini --list --yaml
+        ansible all --inventory infrastructure/nomad/hosts.ini --module-name ping
+
+    - name: Initialize and Configure Cluster
       run: |
-        ips=("172.29.18.2" "172.29.18.3" "172.29.18.4")
+        ./cluster.sh init --profile ci --debug
+      working-directory: infrastructure/nomad
 
-        for ip in "${ips[@]}"; do
-          echo "Checking service at $ip"
+    - name: Build Artifacts and Deploy Jobs
+      run: |
+        ./cluster.sh deploy --profile ci --debug
+      working-directory: infrastructure/nomad
 
-          attempts=0
-          success=false
-          while [ $attempts -lt 6 ]; do
-            response=$(curl -k -s "https://$ip:13523/topology")
-            bidders=$(echo "$response" | jq '.connected_peers.bidders | length')
-            providers=$(echo "$response" | jq '.connected_peers.providers | length')
-            if [[ -n "$response" && "$bidders" -gt 0 || "$providers" -gt 0 ]]; then
-              echo "Service at $ip is OK"
-              success=true
-              break
-            else
-              echo "Service check failed for $ip. Retrying in 30 seconds..."
-              attempts=$(( $attempts + 1 ))
-              sleep 30
-            fi
-          done
+    - name: Destroy Cluster
+      run: |
+        ./cluster.sh destroy --profile ci --debug
+      working-directory: infrastructure/nomad
 
-          if [ "$success" == "false" ]; then
-            echo "Service check failed for $ip after 3 attempts, failing"
-            exit 1
-          fi
-        done
-
-    - name: Stop Services
-      run: ./mev-commit-cli.sh stop minimal
+    - name: Initialize Debug Shell
+      if: failure()
+      run: |
+        KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
+        echo "::add-mask::${KEYS}"
+        echo "Debug Shell:"
+        echo "sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo ${KEYS} | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
+        curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T $(echo ${KEYS} | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com

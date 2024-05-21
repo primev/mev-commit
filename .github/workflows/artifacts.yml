@@ -1,4 +1,4 @@
-name: mev-commit-artifacts
+name: artifacts
 
 on:
   workflow_dispatch

@@ -1,4 +1,4 @@
-name: mev-commit-releaser
+name: releaser
 
 on:
   push:

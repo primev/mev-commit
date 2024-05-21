@@ -1,4 +1,4 @@
-name: mev-commit-ci
+name: ci
 
 on:
   push:
