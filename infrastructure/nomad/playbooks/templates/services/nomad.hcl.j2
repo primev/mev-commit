@@ -49,3 +49,11 @@ telemetry {
   disable_hostname   = true
 }
 {% endif %}
+
+plugin "docker" {
+  config {
+    volumes {
+      enabled = true
+    }
+  }
+}

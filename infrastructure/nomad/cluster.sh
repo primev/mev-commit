@@ -187,6 +187,27 @@ parse_args() {
                     shift
                 fi
                 ;;
+            geth)
+                if $init_flag || $deploy_flag || $destroy_flag || $geth_flag; then
+                    echo "Error: Only one of 'init', 'deploy', 'destroy', or 'geth' can be specified."
+                    usage
+                fi
+                geth_flag=true
+                shift
+                if [[ $# -gt 0 && $1 == "--profile" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        profile_name="$2"
+                        shift 2
+                    else
+                        echo "Error: --profile requires a value."
+                        usage
+                    fi
+                fi
+                if [[ $# -gt 0 && $1 == "--debug" ]]; then
+                    debug_flag=true
+                    shift
+                fi
+                ;;
             --profile)
                 if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                     profile_name="$2"

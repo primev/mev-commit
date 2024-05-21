@@ -1,0 +1,17 @@
+- name: Deploy Geth
+  hosts: nomad_clients
+  gather_facts: yes
+
+  tasks:
+    - name: Deploy Geth Job
+      ansible.builtin.template:
+        src: "templates/jobs/mev-commit-geth.nomad.j2"
+        dest: "/etc/nomad.d/mev-commit-geth.nomad"
+      notify:
+        - restart nomad
+
+  handlers:
+    - name: restart nomad
+      ansible.builtin.systemd:
+        name: nomad
+        state: restarted

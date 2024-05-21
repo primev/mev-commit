@@ -10,20 +10,21 @@ tls_ca_crt_file: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
 profiles:
   devnet:
     job_names:
-      - "datadog-agent-logs-collector"
-      - "mev-commit-geth-bootnode1"
-      - "mev-commit-geth-signer-node1"
-      - "mev-commit-geth-member-node"
-      - "deploy-contracts"
-      - "mev-commit-bootnode1"
-      - "mev-commit-provider-node1"
-      - "mev-commit-provider-node1-funder"
-      - "mev-commit-oracle"
-      - "mev-commit-bidder-node1"
-      - "mev-commit-bidder-node1-funder"
-      - "mev-commit-provider-emulator-node1"
-      - "mev-commit-bidder-emulator-node1"
-      - "datadog-agent-metrics-collector"
+      - "monitoring"
+      # - "datadog-agent-logs-collector"
+      # - "mev-commit-geth-bootnode1"
+      # - "mev-commit-geth-signer-node1"
+      # - "mev-commit-geth-member-node"
+      # - "deploy-contracts"
+      # - "mev-commit-bootnode1"
+      # - "mev-commit-provider-node1"
+      # - "mev-commit-provider-node1-funder"
+      # - "mev-commit-oracle"
+      # - "mev-commit-bidder-node1"
+      # - "mev-commit-bidder-node1-funder"
+      # - "mev-commit-provider-emulator-node1"
+      # - "mev-commit-bidder-emulator-node1"
+      # - "datadog-agent-metrics-collector"
   testnet:
     job_names:
       - "datadog-agent-logs-collector"
@@ -37,7 +38,6 @@ profiles:
       - "mev-commit-provider-emulator-node1"
       - "mev-commit-oracle"
       - "datadog-agent-metrics-collector"
-
 jobs:
   - name: datadog-agent-logs-collector
     template: datadog-agent.nomad.j2
@@ -66,6 +66,7 @@ jobs:
       public_ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
       type: bootnode
+      monitoring_endpoint: "http://{{ ansible_facts['default_ipv4']['address'] }}:9090"
 
   - name: mev-commit-geth-signer-node1
     template: mev-commit-geth.nomad.j2
@@ -81,6 +82,7 @@ jobs:
       type: signer
       sync_mode: snap
       block_address: "0xd9cd8E5DE6d55f796D980B818D350C0746C25b97"
+      monitoring_endpoint: "http://{{ ansible_facts['default_ipv4']['address'] }}:9090"
 
   - name: mev-commit-geth-member-node
     template: mev-commit-geth.nomad.j2
@@ -102,7 +104,29 @@ jobs:
       net_restrict: 0.0.0.0/0
       type: member
       sync_mode: snap
+      monitoring_endpoint: "http://{{ ansible_facts['default_ipv4']['address'] }}:9090"
 
+  - name: monitoring
+    template: monitoring.nomad.j2
+    count: 1
+    ports:
+      - grafana:
+          static: 3000
+          to: 3000
+        prometheus:
+          static: 9090
+          to: 9090
+    env:
+      datacenter: "dc1"
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_PATHS_DATA: "/var/lib/grafana/data"
+      GF_PATHS_LOGS: "/var/log/grafana"
+      GF_PATHS_PLUGINS: "/var/lib/grafana/plugins"
+      GF_PATHS_PROVISIONING: "/etc/grafana/provisioning"
+      PROMETHEUS_SCRAPE_INTERVAL: "15s"
+      PROMETHEUS_EVALUATION_INTERVAL: "15s"
+      PROMETHEUS_TARGETS: "localhost:9090"
   - name: deploy-contracts
     template: deploy-contracts.nomad.j2
     count: 1

@@ -109,64 +109,64 @@
         mode: "0744"
         recurse: yes
 
-    - name: Build Artifacts
-      ansible.builtin.shell: |
-        DESTINATION_DIR="/tmp/dist/{{ item }}-{{ version }}"
-        mkdir -p ${DESTINATION_DIR}
-        if [ "{{ item }}" == "contracts" ]; then
-          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
-        else
-          goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
-          mv ./dist/* ${DESTINATION_DIR}
-        fi
-      environment:
-        DIRTY_SUFFIX: "{{ version | regex_search('-.*') | default('') }}"
-      args:
-        chdir: "{{ playbook_dir }}/../../../"
-        executable: bash
-      loop:
-        - infrastructure/tools/keystore-generator
-        - p2p/integrationtest/provider
-        - p2p/integrationtest/real-bidder
-        - bridge/standard/bridge-v1
-        - external/geth
-        - contracts
-        - oracle
-        - p2p
-      loop_control:
-        label: "{{ item }}"
-      delegate_to: localhost
-      when: build_artifacts
+    # - name: Build Artifacts
+    #   ansible.builtin.shell: |
+    #     DESTINATION_DIR="/tmp/dist/{{ item }}-{{ version }}"
+    #     mkdir -p ${DESTINATION_DIR}
+    #     if [ "{{ item }}" == "contracts" ]; then
+    #       tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
+    #     else
+    #       goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
+    #       mv ./dist/* ${DESTINATION_DIR}
+    #     fi
+    #   environment:
+    #     DIRTY_SUFFIX: "{{ version | regex_search('-.*') | default('') }}"
+    #   args:
+    #     chdir: "{{ playbook_dir }}/../../../"
+    #     executable: bash
+    #   loop:
+    #     - infrastructure/tools/keystore-generator
+    #     - p2p/integrationtest/provider
+    #     - p2p/integrationtest/real-bidder
+    #     - bridge/standard/bridge-v1
+    #     - external/geth
+    #     - contracts
+    #     - oracle
+    #     - p2p
+    #   loop_control:
+    #     label: "{{ item }}"
+    #   delegate_to: localhost
+    #   when: build_artifacts
 
-    - name: Filter Artifacts for Upload
-      ansible.builtin.find:
-        paths: "/tmp/dist"
-        patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt"
-        recurse: yes
-      register: artifacts
-      delegate_to: localhost
-      when: build_artifacts
+    # - name: Filter Artifacts for Upload
+    #   ansible.builtin.find:
+    #     paths: "/tmp/dist"
+    #     patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt"
+    #     recurse: yes
+    #   register: artifacts
+    #   delegate_to: localhost
+    #   when: build_artifacts
 
-    - name: Upload Artifacts to AWS S3
-      amazon.aws.aws_s3:
-        bucket: "{{ aws_s3_bucket }}"
-        object: "{{ item.path | basename }}"
-        src: "{{ item.path }}"
-        mode: put
-        tags:
-          AutoDelete: "true"
-      loop: "{{ artifacts.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
-      when: (artifacts.files | default([])) | length > 0 and build_artifacts
-      delegate_to: localhost
+    # - name: Upload Artifacts to AWS S3
+    #   amazon.aws.aws_s3:
+    #     bucket: "{{ aws_s3_bucket }}"
+    #     object: "{{ item.path | basename }}"
+    #     src: "{{ item.path }}"
+    #     mode: put
+    #     tags:
+    #       AutoDelete: "true"
+    #   loop: "{{ artifacts.files }}"
+    #   loop_control:
+    #     label: "{{ item.path | basename }}"
+    #   when: (artifacts.files | default([])) | length > 0 and build_artifacts
+    #   delegate_to: localhost
 
-    - name: Remove Artifacts from "/tmp/dist"
-      ansible.builtin.file:
-        path: "/tmp/dist"
-        state: absent
-      delegate_to: localhost
-      when: build_artifacts
+    # - name: Remove Artifacts from "/tmp/dist"
+    #   ansible.builtin.file:
+    #     path: "/tmp/dist"
+    #     state: absent
+    #   delegate_to: localhost
+    #   when: build_artifacts
 
     - name: Delete "version.txt"
       file:
