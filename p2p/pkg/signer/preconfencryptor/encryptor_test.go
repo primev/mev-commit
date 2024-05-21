@@ -106,6 +106,15 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
 		if err != nil {
 			t.Fatal(err)
@@ -119,14 +128,6 @@ func TestBids(t *testing.T) {
 		}
 
 		decryptedBid, err := providerEncryptor.DecryptBidData(bidderAddress, encryptedBid)
-		if err != nil {
-			t.Fatal(err)
-		}
-		providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
 		if err != nil {
 			t.Fatal(err)
 		}

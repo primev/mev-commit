@@ -301,12 +301,14 @@ func (p *Preconfirmation) handleBid(
 		case providerapiv1.BidResponse_STATUS_REJECTED:
 			return status.Errorf(codes.Internal, "bid rejected")
 		case providerapiv1.BidResponse_STATUS_ACCEPTED:
+			constructStartTime := time.Now()
 			preConfirmation, encryptedPreConfirmation, err := p.encryptor.ConstructEncryptedPreConfirmation(bid)
 			if err != nil {
 				return status.Errorf(codes.Internal, "failed to constuct encrypted preconfirmation: %v", err)
 			}
+			constructDuration := time.Since(constructStartTime)
+			p.logger.Info("constructed encrypted preconfirmation", "duration", constructDuration)
 
-			p.logger.Info("sending preconfirmation", "preConfirmation", encryptedPreConfirmation)
 			err = stream.WriteMsg(ctx, encryptedPreConfirmation)
 			if err != nil {
 				return status.Errorf(codes.Internal, "failed to send preconfirmation: %v", err)
