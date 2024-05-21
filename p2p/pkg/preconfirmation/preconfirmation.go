@@ -133,7 +133,7 @@ func (p *Preconfirmation) SendBid(
 		return nil, err
 	}
 	duration := time.Since(startTime)
-	p.logger.Info("constructed encrypted bid", "encryptedBid", encryptedBid, "duration", duration)
+	p.logger.Info("constructed encrypted bid", "duration", duration)
 
 	providers := p.topo.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
 	if len(providers) == 0 {
@@ -162,8 +162,6 @@ func (p *Preconfirmation) SendBid(
 				logger.Error("creating stream", "error", err)
 				return
 			}
-
-			logger.Info("sending encrypted bid", "encryptedBid", encryptedBid)
 
 			err = providerStream.WriteMsg(ctx, encryptedBid)
 			if err != nil {
@@ -213,7 +211,6 @@ func (p *Preconfirmation) SendBid(
 				PreConfirmation:          preConfirmation,
 			}
 
-			logger.Info("received preconfirmation", "preConfirmation", preConfirmation)
 			p.metrics.ReceivedPreconfsCount.Inc()
 			// Track the preconfirmation
 			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
@@ -257,7 +254,6 @@ func (p *Preconfirmation) handleBid(
 		return err
 	}
 
-	p.logger.Info("received bid", "encryptedBid", encryptedBid)
 	bid, err := p.encryptor.DecryptBidData(peer.EthAddress, encryptedBid)
 	if err != nil {
 		return err

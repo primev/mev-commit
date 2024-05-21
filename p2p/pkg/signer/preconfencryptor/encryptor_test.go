@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
-	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primev/mev-commit/p2p/pkg/store"
+	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -114,7 +114,6 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
 		if err != nil {
 			t.Fatal(err)
@@ -133,12 +132,12 @@ func TestBids(t *testing.T) {
 		}
 		_, encryptedPreConfirmation, err := providerEncryptor.ConstructEncryptedPreConfirmation(decryptedBid)
 		if err != nil {
-			t.Fail()
+			t.Fatal(err)
 		}
 
 		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerNikePrivateKey.PublicKey(), nikePrivateKey, bid.Digest, encryptedPreConfirmation)
 		if err != nil {
-			t.Fail()
+			t.Fatal(err)
 		}
 
 		assert.Equal(t, crypto.PubkeyToAddress(providerKey.PublicKey), *address)
@@ -242,5 +241,98 @@ func TestVerify(t *testing.T) {
 	expOwner := "0x8339F9E3d7B2693aD8955Aa5EC59D56669A84d60"
 	if owner.Hex() != expOwner {
 		t.Fatalf("owner mismatch: %s != %s", owner.Hex(), expOwner)
+	}
+}
+
+func BenchmarkConstructEncryptedBid(b *testing.B) {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	address := crypto.PubkeyToAddress(key.PublicKey)
+	keySigner := mockkeysigner.NewMockKeySigner(key, address)
+	aesKey, err := p2pcrypto.GenerateAESKey()
+	if err != nil {
+		b.Fatal(err)
+	}
+	bidderStore := store.NewStore()
+	err = bidderStore.SetAESKey(address, aesKey)
+	if err != nil {
+		b.Fatal(err)
+	}
+	encryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
+	if err != nil {
+		b.Fatal(err)
+	}
+	start := time.Now().UnixMilli()
+	end := start + 100000
+
+	// Benchmark loop
+	for i := 0; i < b.N; i++ {
+		_, _, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
+	// Setup code (initialize encryptor, bid, etc.)
+	bidderKey, err := crypto.GenerateKey()
+	if err != nil {
+		b.Fatal(err)
+	}
+	aesKey, err := p2pcrypto.GenerateAESKey()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
+	bidderStore := store.NewStore()
+	err = bidderStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+	if err != nil {
+		b.Fatal(err)
+	}
+	bidderEncryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
+	if err != nil {
+		b.Fatal(err)
+	}
+	providerKey, err := crypto.GenerateKey()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	keySigner = mockkeysigner.NewMockKeySigner(providerKey, crypto.PubkeyToAddress(providerKey.PublicKey))
+	providerStore := store.NewStore()
+	err = providerStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
+	if err != nil {
+		b.Fatal(err)
+	}
+	providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		b.Fatal(err)
+	}
+	err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+	if err != nil {
+		b.Fatal(err)
+	}
+	providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
+	if err != nil {
+		b.Fatal(err)
+	}
+	start := time.Now().UnixMilli()
+	end := start + 100000
+
+	bid, _, _, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, _, err := providerEncryptor.ConstructEncryptedPreConfirmation(bid)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }

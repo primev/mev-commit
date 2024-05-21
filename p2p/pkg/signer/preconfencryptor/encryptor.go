@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -98,24 +99,41 @@ func (e *encryptor) ConstructEncryptedBid(
 		DecayEndTimestamp:   decayEndTimeStamp,
 	}
 
-	bidHash, err := GetBidHash(bid)
-	if err != nil {
-		return nil, nil, nil, err
+	// Calculate bidHash and generate Nike private key concurrently
+	var nikePrivateKey *ecdh.PrivateKey
+	var bidHash, nikePublicKey, sig []byte
+	var err1, err2, err3 error
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		bidHash, err1 = GetBidHash(bid)
+		if err1 != nil {
+			return
+		}
+		sig, err3 = e.keySigner.SignHash(bidHash)
+	}()
+
+	go func() {
+		defer wg.Done()
+		nikePrivateKey, err2 = ecdh.P256().GenerateKey(rand.Reader)
+		nikePublicKey = nikePrivateKey.PublicKey().Bytes()
+	}()
+
+	wg.Wait()
+
+	if err1 != nil {
+		return nil, nil, nil, err1
+	}
+	if err2 != nil {
+		return nil, nil, nil, err2
+	}
+	if err3 != nil {
+		return nil, nil, nil, err3
 	}
 
-	sig, err := e.keySigner.SignHash(bidHash)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	transformSignatureVValue(sig)
-
-	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	bid.NikePublicKey = nikePrivateKey.PublicKey().Bytes()
+	bid.NikePublicKey = nikePublicKey
 	bid.Digest = bidHash
 	bid.Signature = sig
 
@@ -123,7 +141,7 @@ func (e *encryptor) ConstructEncryptedBid(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
+	
 	e.bidHashesToBid.Add(hex.EncodeToString(bidHash), bid)
 
 	encryptedBidData, err := p2pcrypto.EncryptWithAESGCM(e.aesKey, bidDataBytes)
@@ -135,11 +153,6 @@ func (e *encryptor) ConstructEncryptedBid(
 }
 
 func (e *encryptor) ConstructEncryptedPreConfirmation(bid *preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
-	_, err := e.VerifyBid(bid)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	bidDataPublicKey, err := ecdh.Curve.NewPublicKey(ecdh.P256(), bid.NikePublicKey)
 	if err != nil {
 		return nil, nil, err
