@@ -7,6 +7,9 @@ on:
     types:
       - completed
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
@@ -17,6 +20,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
