@@ -133,6 +133,8 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, nil, err3
 	}
 
+	transformSignatureVValue(sig)
+
 	bid.NikePublicKey = nikePublicKey
 	bid.Digest = bidHash
 	bid.Signature = sig
@@ -141,7 +143,7 @@ func (e *encryptor) ConstructEncryptedBid(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	
+
 	e.bidHashesToBid.Add(hex.EncodeToString(bidHash), bid)
 
 	encryptedBidData, err := p2pcrypto.EncryptWithAESGCM(e.aesKey, bidDataBytes)
