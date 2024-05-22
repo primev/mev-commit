@@ -122,6 +122,13 @@ contract BlockTracker is OwnableUpgradeable {
         require(winner != address(0), "Invalid winner address");
 
         blockWinners[blockNumber] = winner;
+        if (blockNumber > 2*blocksPerWindow) {
+            // Clear the previous block winner (if it exists)
+            uint256 clearBlock = blockNumber - 2*blocksPerWindow;
+            if (blockWinners[clearBlock] != address(0)) {
+                delete blockWinners[clearBlock];
+            }
+        }
     }
 
     // Function to get the winner of a specific block
