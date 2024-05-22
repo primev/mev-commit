@@ -157,7 +157,6 @@ contract OracleTest is Test {
         oracle.processBuilderCommitmentForBlockNumber(index, blockNumber, provider, false, 50);
         vm.stopPrank();
         assertEq(bidderRegistry.getProviderAmount(provider), bid*(50)/100);
-
     }
 
 

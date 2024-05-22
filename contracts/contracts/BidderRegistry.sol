@@ -202,7 +202,7 @@ contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardU
         BidState memory bidState = BidPayment[commitmentDigest];
         require(
             bidState.state == State.PreConfirmed,
-            "The bid was not preconfirmed"
+            "The bid was not preconfirmed or already processed"
         );
         uint256 decayedAmt = (bidState.bidAmt *
             residualBidPercentAfterDecay *
@@ -225,8 +225,8 @@ contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardU
             bidState.bidAmt -
             decayedAmt;
 
-        BidPayment[commitmentDigest].state = State.Withdrawn;
-        BidPayment[commitmentDigest].bidAmt = 0;
+        // after rewarding the funds, no point to keep bid payment in the mapping
+        delete BidPayment[commitmentDigest];
 
         emit FundsRewarded(
             commitmentDigest,
@@ -244,12 +244,12 @@ contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardU
      */
     function unlockFunds(uint256 window, bytes32 bidID) external nonReentrant onlyPreConfirmationEngine() {
         BidState memory bidState = BidPayment[bidID];
-        require(bidState.state == State.PreConfirmed, "The bid was not preconfirmed");
+        require(bidState.state == State.PreConfirmed, "The bid was not preconfirmed or already processed");
         uint256 amt = bidState.bidAmt;
         lockedFunds[bidState.bidder][window] += amt;
 
-        BidPayment[bidID].state = State.Withdrawn;
-        BidPayment[bidID].bidAmt = 0;
+        // after unlocking the funds, no point to keep bid payment in the mapping
+        delete BidPayment[bidID];
 
         emit FundsRetrieved(bidID, bidState.bidder, window, amt);
     }
@@ -348,7 +348,7 @@ contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardU
             "funds can only be withdrawn after the window is settled"
         );
         uint256 amount = lockedFunds[bidder][window];
-        lockedFunds[bidder][window] = 0;
+        delete lockedFunds[bidder][window];
         require(amount > 0, "bidder Amount is zero");
 
         (bool success, ) = bidder.call{value: amount}("");

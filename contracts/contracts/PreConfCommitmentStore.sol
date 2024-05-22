@@ -30,10 +30,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         );
 
     // Represents the dispatch window in milliseconds
-    uint64 public commitment_dispatch_window;
-
-    /// @dev commitment counter
-    uint256 public commitmentCount;
+    uint64 public commitmentDispatchWindow;
 
     /// @dev Address of the oracle
     address public oracle;
@@ -59,14 +56,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     /// @dev Mapping from provider to commitments count
     mapping(address => uint256) public commitmentsCount;
 
-    /// @dev Mapping from address to commitments list
-    mapping(address => bytes32[]) public providerCommitments;
-
-    mapping(address => bytes32[]) public providerEncryptedCommitments;
-
-    /// @dev Mapping for blocknumber to list of hash of commitments
-    mapping(uint256 => bytes32[]) public blockCommitments;
-
     /// @dev Commitment Hash -> Commitemnt
     /// @dev Only stores valid commitments
     mapping(bytes32 => PreConfCommitment) public commitments;
@@ -75,7 +64,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
     /// @dev Struct for all the information around preconfirmations commitment
     struct PreConfCommitment {
-        bool commitmentUsed;
         address bidder;
         address commiter;
         uint64 bid;
@@ -111,7 +99,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
     /// @dev Struct for all the information around encrypted preconfirmations commitment
     struct EncrPreConfCommitment {
-        bool commitmentUsed;
         address commiter;
         bytes32 commitmentDigest;
         bytes commitmentSignature;
@@ -168,10 +155,10 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     function initialize(
         address _providerRegistry,
         address _bidderRegistry,
-        address _oracle, 
+        address _oracle,
         address _owner,
         address _blockTracker,
-        uint64 _commitment_dispatch_window
+        uint64 _commitmentDispatchWindow
     ) external initializer {
         oracle = _oracle;
         blockTracker = IBlockTracker(_blockTracker);
@@ -195,15 +182,17 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
                 keccak256("1")
             )
         );
-        commitment_dispatch_window = _commitment_dispatch_window;
+        commitmentDispatchWindow = _commitmentDispatchWindow;
     }
 
     /**
      * @dev Updates the commitment dispatch window to a new value. This function can only be called by the contract owner.
      * @param newDispatchWindow The new dispatch window value to be set.
      */
-    function updateCommitmentDispatchWindow(uint64 newDispatchWindow) external onlyOwner {
-        commitment_dispatch_window = newDispatchWindow;
+    function updateCommitmentDispatchWindow(
+        uint64 newDispatchWindow
+    ) external onlyOwner {
+        commitmentDispatchWindow = newDispatchWindow;
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -297,11 +286,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         uint64 decayEndTimeStamp,
         string memory txnHash,
         bytes calldata bidSignature
-    )
-        public
-        view
-        returns (bytes32 messageDigest, address recoveredAddress)
-    {
+    ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
             txnHash,
             bid,
@@ -414,7 +399,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             txnHash,
             bidSignature
         );
-        
+
         // This helps in avoiding stack too deep
         {
             bytes32 commitmentDigest = getPreConfHash(
@@ -427,13 +412,19 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
                 _bytesToHexString(bidSignature),
                 _bytesToHexString(sharedSecretKey)
             );
-            EncrPreConfCommitment memory encryptedCommitment = encryptedCommitments[encryptedCommitmentIndex];
+            EncrPreConfCommitment
+                memory encryptedCommitment = encryptedCommitments[
+                    encryptedCommitmentIndex
+                ];
             require(
-                !encryptedCommitment.commitmentUsed,
-                "Commitment already used"
+                encryptedCommitment.dispatchTimestamp != 0,
+                "Commitment is already opened or not found"
             );
-            
-            require(encryptedCommitment.commitmentDigest == commitmentDigest, "Invalid commitment digest");
+
+            require(
+                encryptedCommitment.commitmentDigest == commitmentDigest,
+                "Invalid commitment digest"
+            );
 
             address commiterAddress = commitmentDigest.recover(
                 commitmentSignature
@@ -443,12 +434,14 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
                 decayStartTimeStamp < decayEndTimeStamp,
                 "Invalid decay time"
             );
-            
+
             address winner = blockTracker.getBlockWinner(blockNumber);
-            require(msg.sender == winner || msg.sender == bidderAddress, "Caller is not a winner provider or bidder");
+            require(
+                msg.sender == winner || msg.sender == bidderAddress,
+                "Caller is not a winner provider or bidder"
+            );
 
             PreConfCommitment memory newCommitment = PreConfCommitment(
-                false,
                 bidderAddress,
                 commiterAddress,
                 bid,
@@ -469,14 +462,14 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             // Store commitment
             commitments[commitmentIndex] = newCommitment;
 
-            // Mark the encrypted commitment as used
-            encryptedCommitments[encryptedCommitmentIndex].commitmentUsed = true;
+            delete encryptedCommitments[encryptedCommitmentIndex];
 
-            // Push pointers to other mappings
-            providerCommitments[commiterAddress].push(commitmentIndex);
-            blockCommitments[blockNumber].push(commitmentIndex);
-
-            bidderRegistry.OpenBid(commitmentDigest, bid, bidderAddress, blockNumber);
+            bidderRegistry.OpenBid(
+                commitmentDigest,
+                bid,
+                bidderAddress,
+                blockNumber
+            );
 
             emit CommitmentStored(
                 commitmentIndex,
@@ -510,14 +503,15 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        require(dispatchTimestamp >= block.timestamp || block.timestamp - dispatchTimestamp < commitment_dispatch_window, "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitment_dispatch_window");
-
-        address commiterAddress = commitmentDigest.recover(
-            commitmentSignature
+        require(
+            dispatchTimestamp >= block.timestamp ||
+                block.timestamp - dispatchTimestamp < commitmentDispatchWindow,
+            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
         );
 
+        address commiterAddress = commitmentDigest.recover(commitmentSignature);
+
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
-            false,
             commiterAddress,
             commitmentDigest,
             commitmentSignature,
@@ -529,10 +523,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         // Store commitment
         encryptedCommitments[commitmentIndex] = newCommitment;
 
-        // Push pointers to other mappings
-        providerEncryptedCommitments[commiterAddress].push(commitmentIndex);
-
-        commitmentCount++;
         commitmentsCount[commiterAddress] += 1;
 
         emit EncryptedCommitmentStored(
@@ -544,28 +534,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         );
 
         return commitmentIndex;
-    }
-
-    /**
-     * @dev Retrieves the list of commitments for a given committer.
-     * @param commiter The address of the committer.
-     * @return A list of PreConfCommitment structures for the specified committer.
-     */
-    function getCommitmentsByCommitter(
-        address commiter
-    ) public view returns (bytes32[] memory) {
-        return providerCommitments[commiter];
-    }
-
-    /**
-     * @dev Retrieves the list of commitments for a given block number.
-     * @param blockNumber The block number.
-     * @return A list of indexes referencing preconfimration structures for the specified block number.
-     */
-    function getCommitmentsByBlockNumber(
-        uint256 blockNumber
-    ) public view returns (bytes32[] memory) {
-        return blockCommitments[blockNumber];
     }
 
     /**
@@ -611,14 +579,14 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     ) public onlyOracle {
         PreConfCommitment memory commitment = commitments[commitmentIndex];
         require(
-            !commitments[commitmentIndex].commitmentUsed,
-            "Commitment already used"
+            commitment.dispatchTimestamp != 0,
+            "Commitment not found or already used"
         );
 
-       uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(commitment.blockNumber);
+        uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(
+            commitment.blockNumber
+        );
 
-        // Mark this commitment as used to prevent replays
-        commitments[commitmentIndex].commitmentUsed = true;
         commitmentsCount[commitment.commiter] -= 1;
 
         providerRegistry.slash(
@@ -629,6 +597,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         );
 
         bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentHash);
+        delete commitments[commitmentIndex];
     }
 
     /**
@@ -641,14 +610,16 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     ) public onlyOracle {
         PreConfCommitment memory commitment = commitments[commitmentIndex];
         require(
-            !commitments[commitmentIndex].commitmentUsed,
-            "Commitment already used"
+            commitment.dispatchTimestamp != 0,
+            "Commitment not found or already used"
         );
 
-       uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(commitment.blockNumber);
+        uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(
+            commitment.blockNumber
+        );
 
         // Mark this commitment as used to prevent replays
-        commitments[commitmentIndex].commitmentUsed = true;
+        // commitments[commitmentIndex].commitmentUsed = true;
         commitmentsCount[commitment.commiter] -= 1;
 
         bidderRegistry.retrieveFunds(
@@ -657,6 +628,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             payable(commitment.commiter),
             residualBidPercentAfterDecay
         );
+        delete commitments[commitmentIndex];
     }
 
     /**

@@ -98,30 +98,6 @@
   },
   {
     "type": "function",
-    "name": "blockCommitments",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "blockTracker",
     "inputs": [],
     "outputs": [
@@ -135,20 +111,7 @@
   },
   {
     "type": "function",
-    "name": "commitmentCount",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "commitment_dispatch_window",
+    "name": "commitmentDispatchWindow",
     "inputs": [],
     "outputs": [
       {
@@ -170,11 +133,6 @@
       }
     ],
     "outputs": [
-      {
-        "name": "commitmentUsed",
-        "type": "bool",
-        "internalType": "bool"
-      },
       {
         "name": "bidder",
         "type": "address",
@@ -274,11 +232,6 @@
     ],
     "outputs": [
       {
-        "name": "commitmentUsed",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
         "name": "commiter",
         "type": "address",
         "internalType": "address"
@@ -356,11 +309,6 @@
         "type": "tuple",
         "internalType": "struct PreConfCommitmentStore.PreConfCommitment",
         "components": [
-          {
-            "name": "commitmentUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
           {
             "name": "bidder",
             "type": "address",
@@ -441,11 +389,6 @@
         "internalType": "struct PreConfCommitmentStore.PreConfCommitment",
         "components": [
           {
-            "name": "commitmentUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
             "name": "bidder",
             "type": "address",
             "internalType": "address"
@@ -524,44 +467,6 @@
   },
   {
     "type": "function",
-    "name": "getCommitmentsByBlockNumber",
-    "inputs": [
-      {
-        "name": "blockNumber",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32[]",
-        "internalType": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getCommitmentsByCommitter",
-    "inputs": [
-      {
-        "name": "commiter",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32[]",
-        "internalType": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getEncryptedCommitment",
     "inputs": [
       {
@@ -576,11 +481,6 @@
         "type": "tuple",
         "internalType": "struct PreConfCommitmentStore.EncrPreConfCommitment",
         "components": [
-          {
-            "name": "commitmentUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
           {
             "name": "commiter",
             "type": "address",
@@ -615,11 +515,6 @@
         "type": "tuple",
         "internalType": "struct PreConfCommitmentStore.EncrPreConfCommitment",
         "components": [
-          {
-            "name": "commitmentUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
           {
             "name": "commiter",
             "type": "address",
@@ -755,7 +650,7 @@
         "internalType": "address"
       },
       {
-        "name": "_commitment_dispatch_window",
+        "name": "_commitmentDispatchWindow",
         "type": "uint64",
         "internalType": "uint64"
       }
@@ -893,54 +788,6 @@
         "name": "",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "providerCommitments",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "providerEncryptedCommitments",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"

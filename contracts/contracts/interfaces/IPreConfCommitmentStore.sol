@@ -10,7 +10,6 @@ interface IPreConfCommitmentStore {
 
     /// @dev Struct for all the information around preconfirmations commitment
     struct PreConfCommitment {
-        bool commitmentUsed;
         address bidder;
         address commiter;
         uint64 bid;

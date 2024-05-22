@@ -9,7 +9,11 @@ import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 /// @title Provider Registry
 /// @author Kartik Chopra
 /// @notice This contract is for provider registry and staking.
-contract ProviderRegistry is IProviderRegistry, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract ProviderRegistry is
+    IProviderRegistry,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     /// @dev For improved precision
     uint256 constant PRECISION = 10 ** 25;
     uint256 constant PERCENT = 100 * PRECISION;
@@ -46,7 +50,6 @@ contract ProviderRegistry is IProviderRegistry, OwnableUpgradeable, ReentrancyGu
 
     /// @dev Event for slashing funds
     event FundsSlashed(address indexed provider, uint256 amount);
-
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
@@ -158,11 +161,16 @@ contract ProviderRegistry is IProviderRegistry, OwnableUpgradeable, ReentrancyGu
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreConfirmationEngine {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
-        require(providerStakes[provider] >= residualAmt, "Insufficient funds to slash");
+        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) /
+            PERCENT;
+        require(
+            providerStakes[provider] >= residualAmt,
+            "Insufficient funds to slash"
+        );
         providerStakes[provider] -= residualAmt;
 
-        uint256 feeAmt = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
+        uint256 feeAmt = (residualAmt * uint256(feePercent) * PRECISION) /
+            PERCENT;
         uint256 amtMinusFee = residualAmt - feeAmt;
 
         if (feeRecipient != address(0)) {
@@ -223,7 +231,7 @@ contract ProviderRegistry is IProviderRegistry, OwnableUpgradeable, ReentrancyGu
     ) external nonReentrant {
         require(msg.sender == provider, "Only provider can unstake");
         uint256 stake = providerStakes[provider];
-        providerStakes[provider] = 0;
+        delete providerRegistered[provider];
         require(stake > 0, "Provider Staked Amount is zero");
         require(
             preConfirmationsContract != address(0),
