@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	// No of parallel settlement processing
-	parallelSettlements = 16
+	// No of concurrent settlements processing allowed
+	concurrentSettlements = 16
 )
 
 type SettlementType string
@@ -126,7 +126,7 @@ func NewUpdater(
 		metrics:        newMetrics(),
 		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
 		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
-		settlemenSem:   make(chan struct{}, parallelSettlements),
+		settlemenSem:   make(chan struct{}, concurrentSettlements),
 	}, nil
 }
 
