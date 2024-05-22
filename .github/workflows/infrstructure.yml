@@ -16,7 +16,7 @@ jobs:
     name: Setup and Test Nomad devnet Cluster
     runs-on: ubuntu-22.04
     timeout-minutes: 120
-#    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
