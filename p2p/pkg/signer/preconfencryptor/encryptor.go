@@ -100,37 +100,32 @@ func (e *encryptor) ConstructEncryptedBid(
 	}
 
 	// Calculate bidHash and generate Nike private key concurrently
-	var nikePrivateKey *ecdh.PrivateKey
-	var bidHash, nikePublicKey, sig []byte
-	var err1, err2, err3 error
-	var wg sync.WaitGroup
+	var (
+		nikePrivateKey              *ecdh.PrivateKey
+		bidHash, nikePublicKey, sig []byte
+		err1, err2, err3            error
+		wg                          sync.WaitGroup
+	)
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-		bidHash, err1 = GetBidHash(bid)
-		if err1 != nil {
-			return
+		if bidHash, err1 = GetBidHash(bid); err1 == nil {
+			sig, err3 = e.keySigner.SignHash(bidHash)
 		}
-		sig, err3 = e.keySigner.SignHash(bidHash)
 	}()
 
 	go func() {
 		defer wg.Done()
-		nikePrivateKey, err2 = ecdh.P256().GenerateKey(rand.Reader)
-		nikePublicKey = nikePrivateKey.PublicKey().Bytes()
+		if nikePrivateKey, err2 = ecdh.P256().GenerateKey(rand.Reader); err2 == nil {
+			nikePublicKey = nikePrivateKey.PublicKey().Bytes()
+		}
 	}()
 
 	wg.Wait()
 
-	if err1 != nil {
-		return nil, nil, nil, err1
-	}
-	if err2 != nil {
-		return nil, nil, nil, err2
-	}
-	if err3 != nil {
-		return nil, nil, nil, err3
+	if err := firstNonNilError(err1, err2, err3); err != nil {
+		return nil, nil, nil, err
 	}
 
 	transformSignatureVValue(sig)
@@ -399,4 +394,13 @@ func transformSignatureVValue(sig []byte) {
 	if sig[64] == 0 || sig[64] == 1 {
 		sig[64] += 27 // Transform V from 0/1 to 27/28
 	}
+}
+
+func firstNonNilError(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
