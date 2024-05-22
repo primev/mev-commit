@@ -123,13 +123,14 @@ check_deps() {
 
 parse_args() {
     while [[ $# -gt 0 ]]; do
+        if $init_flag || $deploy_flag || $destroy_flag; then
+          echo "Error: Only one of 'init', 'deploy', or 'destroy' can be specified."
+          usage
+        fi
+
         key="$1"
         case $key in
             init)
-                if $init_flag || $deploy_flag || $destroy_flag; then
-                    echo "Error: Only one of 'init', 'deploy', or 'destroy' can be specified."
-                    usage
-                fi
                 init_flag=true
                 shift
                 if [[ $# -gt 0 && $1 == "--profile" ]]; then
@@ -151,10 +152,6 @@ parse_args() {
                 fi
                 ;;
             deploy)
-                if $init_flag || $deploy_flag || $destroy_flag; then
-                    echo "Error: Only one of 'init', 'deploy', or 'destroy' can be specified."
-                    usage
-                fi
                 deploy_flag=true
                 if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                     deploy_version="$2"
@@ -184,26 +181,22 @@ parse_args() {
                 fi
                 ;;
             destroy)
-                if $init_flag || $deploy_flag || $destroy_flag; then
-                    echo "Error: Only one of 'init', 'deploy', or 'destroy' can be specified."
-                    usage
-                fi
                 destroy_flag=true
+                shift
+                if [[ $# -gt 0 && $1 == "--profile" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        profile_name="$2"
+                        shift 2
+                    else
+                        echo "Error: --profile requires a value."
+                        usage
+                    fi
+                fi
                 shift
                 if [[ $# -gt 0 && $1 == "--debug" ]]; then
                     debug_flag=true
                     shift
                 fi
-                ;;
-            --profile)
-                if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
-                    profile_name="$2"
-                    shift
-                else
-                    echo "Error: --profile requires a value."
-                    usage
-                fi
-                shift
                 ;;
             --help)
                 help

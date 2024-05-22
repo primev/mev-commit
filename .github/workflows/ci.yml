@@ -27,12 +27,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install required dependencies
+      - name: Install Required Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y git curl
           curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+
+          npm install conventional-changelog-conventionalcommits
+          npm install --save-dev @commitlint/config-conventional
+          npm install commitlint@latest
 
       - name: Print Versions
         run: |
@@ -41,17 +45,11 @@ jobs:
           npm --version
           npx commitlint --version
 
-      - name: Install commitlint
-        run: |
-          npm install conventional-changelog-conventionalcommits
-          npm install --save-dev @commitlint/config-conventional
-          npm install commitlint@latest
-
-      - name: Validate current commit (last commit) message
+      - name: Validate Current (Last) Commit Message
         if: github.event_name == 'push'
         run: npx commitlint --last --verbose
 
-      - name: Validate PR commit messages
+      - name: Validate PR Commit Messages
         if: github.event_name == 'pull_request'
         run: npx commitlint --from ${{ github.event.pull_request.head.sha }}~${{ github.event.pull_request.commits }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
@@ -86,7 +84,7 @@ jobs:
       - name: Determine Workspace Modules
         run: |
           echo $(go list -f '{{.Dir}}' -m)
-          echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> $GITHUB_ENV
+          echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> ${GITHUB_ENV}
 
       - name: Run Gofmt
         run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l

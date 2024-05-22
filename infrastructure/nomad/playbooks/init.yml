@@ -267,7 +267,7 @@
 
     - name: Fetch Secrets
       ansible.builtin.set_fact:
-        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', profile ~ '/' ~ vault_secret_path) }}"
+        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', 'devnet/' ~ vault_secret_path) }}"
       when: unseal_result.json.sealed == false
       delegate_to: localhost
       no_log: true
