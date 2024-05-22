@@ -18,41 +18,12 @@
       ansible.builtin.set_fact:
         system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
 
-    - name: Include Variables
-      include_vars:
-        file: vars.yml
-
     - name: Check Operating System of the Target System
       assert:
         that:
           - ansible_facts['os_family'] == "Debian"
         fail_msg: "This playbook only supports Debian systems."
         success_msg: "Operating system is supported."
-
-    - name: Load AWS Caller Information
-      amazon.aws.aws_caller_info:
-      register: aws_caller_info
-      delegate_to: localhost
-      become: true
-      become_user: "{{ lookup('env', 'USER') }}"
-
-    - name: Check AWS Caller Information
-      ansible.builtin.assert:
-        that:
-          - aws_caller_info is defined
-          - aws_caller_info.user_id is defined
-          - aws_caller_info.user_id | length > 0
-        fail_msg: "AWS caller information is invalid or empty."
-        success_msg: "AWS caller information is valid."
-
-    - name: Check Profile
-      ansible.builtin.assert:
-        that:
-          - profile is defined
-          - profile != ''
-          - profile in profiles
-        fail_msg: "The profile variable is not set correctly."
-        success_msg: "The profile variable is set to: {{ profile }}."
 
     - name: Install Common Utility Packages and Dependencies
       ansible.builtin.apt:
@@ -93,7 +64,35 @@
           - cpuid
           - msr-tools
         state: present
-      ignore_errors: yes
+
+    - name: Include Variables
+      include_vars:
+        file: vars.yml
+
+    - name: Load AWS Caller Information
+      amazon.aws.aws_caller_info:
+      register: aws_caller_info
+      delegate_to: localhost
+      become: true
+      become_user: "{{ lookup('env', 'USER') }}"
+
+    - name: Check AWS Caller Information
+      ansible.builtin.assert:
+        that:
+          - aws_caller_info is defined
+          - aws_caller_info.user_id is defined
+          - aws_caller_info.user_id | length > 0
+        fail_msg: "AWS caller information is invalid or empty."
+        success_msg: "AWS caller information is valid."
+
+    - name: Check Profile
+      ansible.builtin.assert:
+        that:
+          - profile is defined
+          - profile != ''
+          - profile in profiles
+        fail_msg: "The profile variable is not set correctly."
+        success_msg: "The profile variable is set to: {{ profile }}."
 
   tasks:
     - name: Add DataDog Repository Key
@@ -204,6 +203,7 @@
         validate_certs: no
       register: vault_init
       when: vault_status.json.initialized == false
+      no_log: true
 
     - name: Save Vault Unseal Key and Root Token
       ansible.builtin.copy:
@@ -213,6 +213,7 @@
       when: vault_status.json.initialized == false
       become: true
       become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
+      no_log: true
 
     - name: Determine Vault Seal Status
       ansible.builtin.uri:
@@ -231,6 +232,7 @@
         - vault_seal_status.json.sealed == true
       become: true
       become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
+      no_log: true
 
     - name: Parse Vault Initialization File
       ansible.builtin.set_fact:
@@ -239,6 +241,7 @@
         - vault_init_content is defined
         - vault_status.json.initialized == true
         - vault_seal_status.json.sealed == true
+      no_log: true
 
     - name: Unseal Vault
       ansible.builtin.uri:
@@ -260,12 +263,14 @@
       retries: 5
       delay: 10
       when: vault_seal_status.json.sealed == true
+      no_log: true
 
     - name: Fetch Secrets
       ansible.builtin.set_fact:
         mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', profile ~ '/' ~ vault_secret_path) }}"
       when: unseal_result.json.sealed == false
       delegate_to: localhost
+      no_log: true
 
     - name: Enable KV Secrets Engine
       ansible.builtin.uri:
@@ -286,6 +291,7 @@
       when:
         - vault_status.json.initialized == false
         - unseal_result.json.sealed == false
+      no_log: true
 
     - name: Write Retrieved Secret into Vault
       ansible.builtin.uri:
@@ -299,6 +305,7 @@
         status_code: [200, 204]
         validate_certs: no
       when: unseal_result.json.sealed == false
+      no_log: true
 
     - name: Install Nomad
       ansible.builtin.apt:
@@ -350,6 +357,7 @@
         mode: "0644"
       vars:
         vault_token: "{{ vault_init.json.root_token }}"
+      no_log: true
 
     - name: Restart and Enable Nomad Service
       ansible.builtin.systemd:
