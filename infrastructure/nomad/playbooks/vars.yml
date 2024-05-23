@@ -180,7 +180,7 @@ jobs:
           static: 8080
           to: 8080
     env:
-      l1_rpc_url: https://ethereum-holesky-rpc.publicnode.com
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
 
   - name: mev-commit-bidder-node1
     template: mev-commit.nomad.j2
@@ -227,7 +227,7 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_rpc_url: https://ethereum-holesky-rpc.publicnode.com
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
 
   - name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2
@@ -236,8 +236,8 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_chain_id: 17000
-      l1_rpc_url: https://ethereum-holesky.publicnode.com
+      l1_chain_id: 11155111
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
 
   - name: datadog-agent-metrics-collector
     template: datadog-agent.nomad.j2
