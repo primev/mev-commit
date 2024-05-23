@@ -22,11 +22,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	// No of concurrent settlements processing allowed
-	concurrentSettlements = 16
-)
-
 type SettlementType string
 
 const (
@@ -101,7 +96,6 @@ type Updater struct {
 	encryptedCmts  chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored
 	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
 	currentWindow  atomic.Int64
-	settlemenSem   chan struct{}
 	metrics        *metrics
 }
 
@@ -126,7 +120,6 @@ func NewUpdater(
 		metrics:        newMetrics(),
 		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
 		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
-		settlemenSem:   make(chan struct{}, concurrentSettlements),
 	}, nil
 }
 
@@ -361,15 +354,6 @@ func (u *Updater) settle(
 	decayPercentage int64,
 	window int64,
 ) error {
-	select {
-	case u.settlemenSem <- struct{}{}:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-	defer func() {
-		<-u.settlemenSem
-	}()
-
 	commitmentPostingTxn, err := u.oracle.ProcessBuilderCommitmentForBlockNumber(
 		update.CommitmentIndex,
 		big.NewInt(0).SetUint64(update.BlockNumber),
