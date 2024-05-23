@@ -254,11 +254,14 @@ type testBid struct {
 	end         int64
 }
 
-func generateRandomValues() *testBid {
+func generateRandomValues() (*testBid, error) {
 	start := mrand.Int63()
 	end := start + mrand.Int63n(100000)
 	bidHashBytes := make([]byte, 32)
-	rand.Read(bidHashBytes)
+	_, err := rand.Read(bidHashBytes)
+	if err != nil {
+		return nil, err
+	}
 	bidHash := hex.EncodeToString(bidHashBytes)
 
 	bidAmount := mrand.Int63n(1000)
@@ -270,7 +273,7 @@ func generateRandomValues() *testBid {
 		blocknumber: blocknumber,
 		start:       start,
 		end:         end,
-	}
+	}, nil
 }
 
 func BenchmarkConstructEncryptedBid(b *testing.B) {
@@ -295,19 +298,20 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	bids := make([]*testBid, 10000)
+	bids := make([]*testBid, b.N)
 	for i := 0; i < len(bids); i++ {
-		bids[i] = generateRandomValues()
+		bids[i], err = generateRandomValues()
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 
 	b.ResetTimer()
 	// Benchmark loop
 	for i := 0; i < b.N; i++ {
-		for _, bid := range bids {
-			_, _, _, err := encryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end)
-			if err != nil {
-				b.Fatal(err)
-			}
+		_, _, _, err := encryptor.ConstructEncryptedBid(bids[i].hash, bids[i].amount, bids[i].blocknumber, bids[i].start, bids[i].end)
+		if err != nil {
+			b.Fatal(err)
 		}
 	}
 }
@@ -358,9 +362,12 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	}
 
 	var bid *testBid
-	bids := make([]*preconfpb.Bid, 10000)
+	bids := make([]*preconfpb.Bid, b.N)
 	for i := 0; i < len(bids); i++ {
-		bid = generateRandomValues()
+		bid, err = generateRandomValues()
+		if err != nil {
+			b.Fatal(err)
+		}
 		bids[i], _, _, err = bidderEncryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end)
 		if err != nil {
 			b.Fatal(err)
@@ -370,11 +377,9 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		for _, bid := range bids {
-			_, _, err := providerEncryptor.ConstructEncryptedPreConfirmation(bid)
-			if err != nil {
-				b.Fatal(err)
-			}
+		_, _, err := providerEncryptor.ConstructEncryptedPreConfirmation(bids[i])
+		if err != nil {
+			b.Fatal(err)
 		}
 	}
 }
