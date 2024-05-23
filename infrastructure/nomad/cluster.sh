@@ -13,7 +13,11 @@ deploy_version="HEAD"
 profile_name="devnet"
 
 help() {
-    echo "Usage: $0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]] [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]] [destroy [--debug]] [--help]"
+    echo "Usage:"
+    echo "$0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]]"
+    echo "$0 [destroy [--debug]] [--help]"
+    echo "$0 --help"
     echo
     echo "Parameters:"
     echo "  init                            Initialize the environment."
@@ -66,7 +70,11 @@ help() {
 }
 
 usage() {
-    echo "Usage: $0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]] [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]] [destroy [--debug]] [--help]"
+        echo "Usage:"
+        echo "$0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
+        echo "$0 [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]]"
+        echo "$0 [destroy [--debug]] [--help]"
+        echo "$0 --help"
     exit 1
 }
 
@@ -236,7 +244,7 @@ main() {
             ;;
     esac
 
-    ansible-playbook -i hosts.ini "${playbook}" "${flags[@]}"
+    ansible-playbook --inventory hosts.ini "${playbook}" "${flags[@]}"
 }
 
 main "$@"

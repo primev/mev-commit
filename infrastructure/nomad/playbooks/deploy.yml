@@ -13,16 +13,16 @@
       ansible.builtin.set_fact:
         system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
 
-    - name: Include Variables
-      include_vars:
-        file: vars.yml
-
     - name: Check Operating System of the Target System
       assert:
         that:
           - ansible_facts['os_family'] == "Debian"
         fail_msg: "This playbook only supports Debian systems."
         success_msg: "Operating system is supported."
+
+    - name: Include Variables
+      include_vars:
+        file: vars.yml
 
     - name: Load AWS Caller Information
       amazon.aws.aws_caller_info:

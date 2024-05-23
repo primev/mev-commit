@@ -10,7 +10,11 @@ import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 /// @title Bidder Registry
 /// @author Kartik Chopra
 /// @notice This contract is for bidder registry and staking.
-contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract BidderRegistry is
+    IBidderRegistry,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     /// @dev For improved precision
     uint256 constant PRECISION = 10 ** 25;
     uint256 constant PERCENT = 100 * PRECISION;
@@ -172,7 +176,11 @@ contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardU
         bidderRegistered[msg.sender] = true;
         lockedFunds[msg.sender][window] += msg.value;
 
-        emit BidderRegistered(msg.sender, lockedFunds[msg.sender][window], window);
+        emit BidderRegistered(
+            msg.sender,
+            lockedFunds[msg.sender][window],
+            window
+        );
     }
 
     /**
@@ -242,9 +250,15 @@ contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardU
      * @dev reenterancy not necessary but still putting here for precaution
      * @param bidID is the Bid ID that allows us to identify the bid, and deposit
      */
-    function unlockFunds(uint256 window, bytes32 bidID) external nonReentrant onlyPreConfirmationEngine() {
+    function unlockFunds(
+        uint256 window,
+        bytes32 bidID
+    ) external nonReentrant onlyPreConfirmationEngine {
         BidState memory bidState = BidPayment[bidID];
-        require(bidState.state == State.PreConfirmed, "The bid was not preconfirmed");
+        require(
+            bidState.state == State.PreConfirmed,
+            "The bid was not preconfirmed"
+        );
         uint256 amt = bidState.bidAmt;
         lockedFunds[bidState.bidder][window] += amt;
 
@@ -268,11 +282,13 @@ contract BidderRegistry is IBidderRegistry, OwnableUpgradeable, ReentrancyGuardU
     ) external onlyPreConfirmationEngine {
         BidState memory bidState = BidPayment[commitmentDigest];
         if (bidState.state == State.Undefined) {
-            uint256 currentWindow = blockTrackerContract.getWindowFromBlockNumber(blockNumber);
+            uint256 currentWindow = blockTrackerContract
+                .getWindowFromBlockNumber(blockNumber);
             // @todo delete this, when oracle will do the calculation
             // bidder cannot bid more than allowed for the round
             uint256 numberOfRounds = blockTrackerContract.getBlocksPerWindow();
-            uint256 windowAmount = lockedFunds[bidder][currentWindow] / numberOfRounds;
+            uint256 windowAmount = lockedFunds[bidder][currentWindow] /
+                numberOfRounds;
             if (windowAmount < bid) {
                 bid = uint64(windowAmount);
             }

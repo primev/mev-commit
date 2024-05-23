@@ -1,4 +1,4 @@
-name: mev-commit-ci
+name: ci
 
 on:
   push:
@@ -8,10 +8,18 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
   commitlint:
     name: Check Commit Message
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
 
     steps:
       - name: Checkout Code
@@ -49,7 +57,8 @@ jobs:
 
   go-modules:
     name: Test and Build Go Modules
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
 
     steps:
       - name: Checkout Code
@@ -120,7 +129,8 @@ jobs:
 
   foundry:
     name: Foundry Checks and Reports
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: contracts
@@ -152,7 +162,8 @@ jobs:
 
   contracts:
     name: Test and Build Contracts Scripts
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: contracts

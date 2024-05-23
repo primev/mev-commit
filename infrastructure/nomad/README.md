@@ -64,12 +64,7 @@ Prepare `hosts.ini` File: This file contains the IP addresses of your Nomad serv
 ```
 > Replace the 192.0.2.X and 198.51.100.X with the IP addresses of your Nomad server and client machines, respectively.
 > Ensure the ansible_user matches the username on your target machines that has SSH access.
-
-If your host machine is the same as your control machine add the following to your `hosts.ini` file:
-```ini
-[local]
-127.0.0.1 ansible_connection=local
-```
+> If your host machine is the same as your control machine replace the IP addresses with `127.0.0.1 ansible_connection=local`.
 
 If you do not want to use the SSH agent, another option is to add the following configuration to every `nomad_server` or
 `nomad_client` record in the `host.ini` file: `ansible_ssh_private_key_file=/path/to/your/private_key`. For example:
@@ -80,6 +75,12 @@ If you do not want to use the SSH agent, another option is to add the following 
 [nomad_clients]
 198.51.100.1 ansible_user=ubuntu ansible_ssh_private_key_file=/path/to/your/private_key
 198.51.100.2 ansible_user=ubuntu ansible_ssh_private_key_file=/path/to/your/private_key
+```
+
+Or if the private key is the same for all machines, you can set the `ansible_ssh_private_key_file` in the `[all:vars]` section:
+```ini
+[all:vars]
+ansible_ssh_private_key_file=/path/to/your/private_key
 ```
 
 ## Cluster Management
