@@ -8,8 +8,6 @@ import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
-import "forge-std/console.sol";
-
 /**
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
@@ -64,6 +62,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
     /// @dev Struct for all the information around preconfirmations commitment
     struct PreConfCommitment {
+        bool isUsed;
         address bidder;
         address commiter;
         uint64 bid;
@@ -99,6 +98,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
     /// @dev Struct for all the information around encrypted preconfirmations commitment
     struct EncrPreConfCommitment {
+        bool isUsed;
         address commiter;
         bytes32 commitmentDigest;
         bytes commitmentSignature;
@@ -416,11 +416,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
                 memory encryptedCommitment = encryptedCommitments[
                     encryptedCommitmentIndex
                 ];
-            require(
-                encryptedCommitment.dispatchTimestamp != 0,
-                "Commitment is already opened or not found"
-            );
-            delete encryptedCommitments[encryptedCommitmentIndex];
+            require(!encryptedCommitment.isUsed, "Commitment already used");
 
             require(
                 encryptedCommitment.commitmentDigest == commitmentDigest,
@@ -438,11 +434,13 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
             address winner = blockTracker.getBlockWinner(blockNumber);
             require(
-                (msg.sender == winner && winner == commiterAddress) || msg.sender == bidderAddress,
+                (msg.sender == winner && winner == commiterAddress) ||
+                    msg.sender == bidderAddress,
                 "Caller is not a winner provider or bidder"
             );
 
             PreConfCommitment memory newCommitment = PreConfCommitment(
+                false,
                 bidderAddress,
                 commiterAddress,
                 bid,
@@ -462,6 +460,9 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
             // Store commitment
             commitments[commitmentIndex] = newCommitment;
+
+            // Mark the encrypted commitment as used
+            encryptedCommitments[encryptedCommitmentIndex].isUsed = true;
 
             bidderRegistry.OpenBid(
                 commitmentDigest,
@@ -510,9 +511,13 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
-        require(commiterAddress == msg.sender, "Commiter address is different from the sender address");
-        
+        require(
+            commiterAddress == msg.sender,
+            "Commiter address is different from the sender address"
+        );
+
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
+            false,
             commiterAddress,
             commitmentDigest,
             commitmentSignature,
@@ -580,14 +585,15 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     ) public onlyOracle {
         PreConfCommitment memory commitment = commitments[commitmentIndex];
         require(
-            commitment.dispatchTimestamp != 0,
-            "Commitment not found or already used"
+            !commitments[commitmentIndex].isUsed,
+            "Commitment already used"
         );
 
         uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(
             commitment.blockNumber
         );
 
+        commitments[commitmentIndex].isUsed = true;
         commitmentsCount[commitment.commiter] -= 1;
 
         providerRegistry.slash(
@@ -598,7 +604,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         );
 
         bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentHash);
-        delete commitments[commitmentIndex];
     }
 
     /**
@@ -611,14 +616,15 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     ) public onlyOracle {
         PreConfCommitment memory commitment = commitments[commitmentIndex];
         require(
-            commitment.dispatchTimestamp != 0,
-            "Commitment not found or already used"
+            !commitments[commitmentIndex].isUsed,
+            "Commitment already used"
         );
 
         uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(
             commitment.blockNumber
         );
 
+        commitments[commitmentIndex].isUsed = true;
         commitmentsCount[commitment.commiter] -= 1;
 
         bidderRegistry.retrieveFunds(
@@ -627,7 +633,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             payable(commitment.commiter),
             residualBidPercentAfterDecay
         );
-        delete commitments[commitmentIndex];
     }
 
     /**

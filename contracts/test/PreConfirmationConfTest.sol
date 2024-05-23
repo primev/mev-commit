@@ -390,6 +390,7 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         (
+            bool isUsed,
             ,
             ,
             ,
@@ -401,10 +402,9 @@ contract TestPreConfCommitmentStore is Test {
             ,
             ,
             ,
-            uint64 dispatchTimestamp,
-
+            ,
         ) = preConfCommitmentStore.commitments(preConfHash);
-        assertEq(dispatchTimestamp, 0);
+        assertEq(isUsed, false);
 
         return bidHash;
     }
@@ -613,6 +613,7 @@ contract TestPreConfCommitmentStore is Test {
 
             // Verify that the commitment has not been set before
             (
+                bool isUsed,
                 ,
                 ,
                 ,
@@ -624,10 +625,9 @@ contract TestPreConfCommitmentStore is Test {
                 ,
                 ,
                 ,
-                uint64 dispatchTimestamp,
-
+                ,
             ) = preConfCommitmentStore.commitments(preConfHash);
-            assert(dispatchTimestamp == 0);
+            assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
             bytes32 encryptedIndex = storeCommitment(
@@ -665,10 +665,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateSlash(index, 100);
 
-            (, , , , , , , , , , , dispatchTimestamp, ) = preConfCommitmentStore
+            (isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(index);
             // Verify that the commitment has been deleted
-            assert(dispatchTimestamp == 0);
+            assert(isUsed == true);
         }
         // commitmentHash value is internal to contract and not asserted
     }
@@ -708,6 +708,7 @@ contract TestPreConfCommitmentStore is Test {
 
             // Verify that the commitment has not been used before
             (
+                bool isUsed,
                 ,
                 ,
                 ,
@@ -719,10 +720,9 @@ contract TestPreConfCommitmentStore is Test {
                 ,
                 ,
                 ,
-                uint64 dispatchTimestamp,
-
+                ,
             ) = preConfCommitmentStore.commitments(preConfHash);
-            assert(dispatchTimestamp == 0);
+            assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
             bytes32 encryptedIndex = storeCommitment(
@@ -759,10 +759,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateReward(index, 100);
 
-            (, , , , , , , , , , , dispatchTimestamp, ) = preConfCommitmentStore
+            (isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .commitments(index);
             // Verify that the commitment has been marked as used
-            assert(dispatchTimestamp == 0);
+            assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
         }
     }
@@ -802,6 +802,7 @@ contract TestPreConfCommitmentStore is Test {
 
             // Verify that the commitment has not been used before
             (
+                bool isUsed,
                 ,
                 ,
                 ,
@@ -813,10 +814,10 @@ contract TestPreConfCommitmentStore is Test {
                 ,
                 ,
                 ,
-                uint64 dispatchTimestamp,
+                ,
 
             ) = preConfCommitmentStore.commitments(preConfHash);
-            assert(dispatchTimestamp == 0);
+            assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
             bytes32 encryptedIndex = storeCommitment(
@@ -854,10 +855,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateReward(index, 0);
 
-            (, , , , , , , , , , , dispatchTimestamp, ) = preConfCommitmentStore
+            (isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .commitments(index);
             // Verify that the commitment has been marked as used
-            assert(dispatchTimestamp == 0);
+            assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
 
             assert(bidderRegistry.lockedFunds(bidder, window) == 2 ether);
