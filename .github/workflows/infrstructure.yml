@@ -20,13 +20,9 @@ on:
         type: boolean
         default: false
       logs:
-        description: 'Logs to datadog'
+        description: 'Collect Logs'
         type: boolean
         default: false
-      debug:
-        description: 'Debug mode'
-        type: boolean
-        default: true
       target:
         description: 'Target'
         type: choice
@@ -55,12 +51,10 @@ jobs:
           IS_LOCAL_DEPLOYMENT=$([ "${{ github.event_name }}" == 'workflow_dispatch' ] && echo false || echo true)
           CLUSTER_PROFILE_FLAG=$([ "${IS_LOCAL_DEPLOYMENT}" == "true" ] && echo "--profile ci" || echo "--profile ${{ github.event.inputs.profile }}")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == 'false' ] && echo "--no-logs-collection" || echo "")
-          CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == 'true' ] || [ "${IS_LOCAL_DEPLOYMENT}" == "true" ] && echo "--debug" || echo "")
 
           echo "IS_LOCAL_DEPLOYMENT=${IS_LOCAL_DEPLOYMENT}" >> $GITHUB_ENV
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> $GITHUB_ENV
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> $GITHUB_ENV
-          echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> $GITHUB_ENV
 
 #      - name: Check User Permissions
 #        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'false' }}
@@ -124,24 +118,24 @@ jobs:
       - name: Cleanup Cluster
         if: ${{ env.IS_LOCAL_DEPLOYMENT == 'false' }}
         run: |
-          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} --debug
         working-directory: infrastructure/nomad
 
       - name: Initialize Cluster
         if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' || github.event.inputs.init == 'true'}}
         run: |
-          ./cluster.sh init ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh init ${CLUSTER_PROFILE_FLAG} --debug
         working-directory: infrastructure/nomad
 
       - name: Deploy Cluster
         run: |
-          ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} --debug
         working-directory: infrastructure/nomad
 
       - name: Destroy Cluster
         if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' }}
         run: |
-          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} --debug
         working-directory: infrastructure/nomad
 
       - name: Initialize Debug Shell
