@@ -4,6 +4,8 @@ import (
 	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	mrand "math/rand"
 	"testing"
 	"time"
 
@@ -244,6 +246,33 @@ func TestVerify(t *testing.T) {
 	}
 }
 
+type testBid struct {
+	hash        string
+	amount      string
+	blocknumber int64
+	start       int64
+	end         int64
+}
+
+func generateRandomValues() *testBid {
+	start := mrand.Int63()
+	end := start + mrand.Int63n(100000)
+	bidHashBytes := make([]byte, 32)
+	rand.Read(bidHashBytes)
+	bidHash := hex.EncodeToString(bidHashBytes)
+
+	bidAmount := mrand.Int63n(1000)
+	blocknumber := mrand.Int63n(100000)
+
+	return &testBid{
+		hash:        bidHash,
+		amount:      fmt.Sprintf("%d", bidAmount),
+		blocknumber: blocknumber,
+		start:       start,
+		end:         end,
+	}
+}
+
 func BenchmarkConstructEncryptedBid(b *testing.B) {
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -265,14 +294,20 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	start := time.Now().UnixMilli()
-	end := start + 100000
 
+	bids := make([]*testBid, 10000)
+	for i := 0; i < len(bids); i++ {
+		bids[i] = generateRandomValues()
+	}
+
+	b.ResetTimer()
 	// Benchmark loop
 	for i := 0; i < b.N; i++ {
-		_, _, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
-		if err != nil {
-			b.Fatal(err)
+		for _, bid := range bids {
+			_, _, _, err := encryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	}
 }
@@ -321,18 +356,25 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	start := time.Now().UnixMilli()
-	end := start + 100000
 
-	bid, _, _, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	for i := 0; i < b.N; i++ {
-		_, _, err := providerEncryptor.ConstructEncryptedPreConfirmation(bid)
+	var bid *testBid
+	bids := make([]*preconfpb.Bid, 10000)
+	for i := 0; i < len(bids); i++ {
+		bid = generateRandomValues()
+		bids[i], _, _, err = bidderEncryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end)
 		if err != nil {
 			b.Fatal(err)
+		}
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for _, bid := range bids {
+			_, _, err := providerEncryptor.ConstructEncryptedPreConfirmation(bid)
+			if err != nil {
+				b.Fatal(err)
+			}
 		}
 	}
 }
