@@ -510,6 +510,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
+        require(commiterAddress == msg.sender, "Commiter address is different from the sender address");
+        
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             commiterAddress,
             commitmentDigest,

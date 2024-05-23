@@ -309,8 +309,12 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.bidSignature
         );
 
+        (address commiter, ) = makeAddrAndKey("bob");
+        vm.deal(commiter, 5 ether);
+
         // Step 2: Store the commitment
         bytes32 encryptedIndex = storeCommitment(
+            commiter,
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.txnHash,
@@ -406,6 +410,7 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function storeCommitment(
+        address commiter,
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -435,13 +440,14 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
+        vm.startPrank(commiter);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
                 commitmentHash,
                 commitmentSignature,
                 dispatchTimestamp
             );
-
+        vm.stopPrank();
         return commitmentIndex;
     }
 
@@ -543,7 +549,10 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.bidSignature
         );
         // Step 2: Store the commitment
+        (address commiter, ) = makeAddrAndKey("bob");
+        vm.deal(commiter, 5 ether);
         bytes32 commitmentIndex = storeCommitment(
+            commiter,
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.txnHash,
@@ -619,7 +628,10 @@ contract TestPreConfCommitmentStore is Test {
 
             ) = preConfCommitmentStore.commitments(preConfHash);
             assert(dispatchTimestamp == 0);
+            (address commiter, ) = makeAddrAndKey("bob");
+            vm.deal(commiter, 5 ether);
             bytes32 encryptedIndex = storeCommitment(
+                commiter,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -633,8 +645,6 @@ contract TestPreConfCommitmentStore is Test {
             providerRegistry.setPreconfirmationsContract(
                 address(preConfCommitmentStore)
             );
-            (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
             vm.prank(commiter);
             providerRegistry.registerAndStake{value: 4 ether}();
             uint256 blockNumber = 2;
@@ -713,7 +723,10 @@ contract TestPreConfCommitmentStore is Test {
 
             ) = preConfCommitmentStore.commitments(preConfHash);
             assert(dispatchTimestamp == 0);
+            (address commiter, ) = makeAddrAndKey("bob");
+            vm.deal(commiter, 5 ether);
             bytes32 encryptedIndex = storeCommitment(
+                commiter,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -724,8 +737,6 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
             vm.prank(commiter);
             providerRegistry.registerAndStake{value: 4 ether}();
             blockTracker.addBuilderAddress("test", commiter);
@@ -806,7 +817,10 @@ contract TestPreConfCommitmentStore is Test {
 
             ) = preConfCommitmentStore.commitments(preConfHash);
             assert(dispatchTimestamp == 0);
+            (address commiter, ) = makeAddrAndKey("bob");
+            vm.deal(commiter, 5 ether);
             bytes32 encryptedIndex = storeCommitment(
+                commiter,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -817,12 +831,13 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
             vm.prank(commiter);
             providerRegistry.registerAndStake{value: 4 ether}();
             blockTracker.addBuilderAddress("test", commiter);
-            blockTracker.recordL1Block(_testCommitmentAliceBob.blockNumber, "test");
+            blockTracker.recordL1Block(
+                _testCommitmentAliceBob.blockNumber,
+                "test"
+            );
             bytes32 index = openCommitment(
                 commiter,
                 encryptedIndex,
