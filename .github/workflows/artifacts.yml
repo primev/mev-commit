@@ -3,9 +3,14 @@ name: artifacts
 on:
   workflow_dispatch
 
+permissions:
+  contents: read
+
 jobs:
   upload_contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -44,10 +49,12 @@ jobs:
             --tagging 'TagSet=[{Key=AutoDelete,Value=true}]'
 
   upload_binaries:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     strategy:
       matrix:
         module: [ infrastructure/tools/keystore-generator,  p2p/integrationtest/real-bidder, p2p/integrationtest/provider, bridge/standard/bridge-v1, external/geth, oracle, p2p]
+
     steps:
       - name: Set Snapshot Flag
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
