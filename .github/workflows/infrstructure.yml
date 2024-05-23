@@ -85,6 +85,7 @@ jobs:
       - name: Configure Machine
         run: |
           sudo useradd --create-home ubuntu && sudo usermod --append --groups sudo ubuntu
+          echo "${{ secrets.INFRASTRUCTURE_DNS_RECORDS }}" | sudo tee -a /etc/hosts
 
           TARGET_MACHINE_IP="127.0.0.1"
           ANSIBLE_CONNECTION="ansible_connection=local"
@@ -95,7 +96,6 @@ jobs:
             TARGET_MACHINE_IP=$(dig +short ${{ github.event.inputs.target }})
             ANSIBLE_CONNECTION=""
 
-            echo "${{ secrets.INFRASTRUCTURE_DNS_RECORDS }}" | sudo tee -a /etc/hosts
             mkdir ~/.ssh && \
             chmod 700 ~/.ssh && \
             echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519 && \
