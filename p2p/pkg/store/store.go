@@ -321,6 +321,15 @@ func (s *Store) Len() int {
 	return s.Tree.Len()
 }
 
+// Following are the methods to save and update the transaction details in the store.
+// The store is used to keep track of the transactions that are sent to the blockchain and
+// have not yet received the transaction receipt. These are used by the debug service
+// to show the pending transactions and cancel them if needed. The store hooks up
+// to the txmonitor package which allows a component to get notified when the transaction
+// is sent to the blockchain and when the transaction receipt is received. As of now,
+// the store is in-memory and doesn't persist the transaction details, so the update
+// method is used to remove the transaction from the store. This will no longer be seen
+// in the pending transactions list.
 type TxnDetails struct {
 	Hash    common.Hash
 	Nonce   uint64
