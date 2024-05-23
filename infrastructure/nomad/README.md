@@ -83,6 +83,16 @@ Or if the private key is the same for all machines, you can set the `ansible_ssh
 ansible_ssh_private_key_file=/path/to/your/private_key
 ```
 
+Check ansible inventory:
+```shell
+ansible-inventory --inventory path/to/your/hosts.ini --list --yaml
+```
+
+Test the connection to the target machines:
+```shell
+ansible all --inventory path/to/your/hosts.ini --module-name ping
+```
+
 ## Cluster Management
 
 To manage the Nomad cluster, use the `cluster.sh` script. This script allows you to initialize, deploy, and destroy the Nomad cluster.

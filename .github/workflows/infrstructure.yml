@@ -6,74 +6,147 @@ on:
       - ci
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Profile'
+        type: choice
+        options:
+          - devnet
+          - testnet
+        default: 'devnet'
+      init:
+        description: 'Initialize'
+        type: boolean
+        default: false
+      logs:
+        description: 'Logs to datadog'
+        type: boolean
+        default: false
+      debug:
+        description: 'Debug mode'
+        type: boolean
+        default: true
+      target:
+        description: 'Target'
+        type: choice
+        options:
+          - lax
+          - bue
+        default: 'lax'
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.target }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
   cluster:
     name: Setup and Test Nomad devnet Cluster
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 180
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        ref: ${{ github.event.workflow_run.head_branch }}
+      - name: Determine Deployment Options
+        run: |
+          IS_LOCAL_DEPLOYMENT=$([ "${{ github.event_name }}" == 'workflow_dispatch' ] && echo false || echo true)
+          CLUSTER_PROFILE_FLAG=$([ "${IS_LOCAL_DEPLOYMENT}" == "true" ] && echo "--profile ci" || echo "--profile ${{ github.event.inputs.profile }}")
+          CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == 'false' ] && echo "--no-logs-collection" || echo "")
+          CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == 'true' ] || [ "${IS_LOCAL_DEPLOYMENT}" == "true" ] && echo "--debug" || echo "")
 
-    - name: Install Dependencies
-      run: |
-        echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
-        sudo apt-get update
-        sudo apt-get install --yes goreleaser
-        
-        pip install boto3 botocore
-        pipx inject ansible-core botocore boto3
+          echo "IS_LOCAL_DEPLOYMENT=${IS_LOCAL_DEPLOYMENT}" >> $GITHUB_ENV
+          echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> $GITHUB_ENV
+          echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> $GITHUB_ENV
+          echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> $GITHUB_ENV
 
-    - name: Configure Machine
-      run: |
-        aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws configure set default.region us-west-2
+#      - name: Check User Permissions
+#        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'false' }}
+#        run: |
+#          USERNAME="${{ github.actor }}"
+#          ORG_NAME="${{ github.repository_owner }}"
+#          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/orgs/${ORG_NAME}/members/${USERNAME})
+#          if [ "${RESPONSE}" != "204" ]; then
+#            echo "User ${USERNAME} is not a member of the ${ORG_NAME} organization."
+#            exit 1
+#          fi
 
-        cat <<-EOH > infrastructure/nomad/hosts.ini
-        [nomad_servers]
-        127.0.0.1 ansible_connection=local ansible_user=${USER}
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ github.event.workflow_run.head_branch }}
 
-        [nomad_clients]
-        127.0.0.1 ansible_connection=local ansible_user=${USER}
-        EOH
+      - name: Install Required Dependencies
+        run: |
+          echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo apt-get update
+          sudo apt-get install --yes goreleaser
 
-        ansible-inventory --inventory infrastructure/nomad/hosts.ini hosts.ini --list --yaml
-        ansible all --inventory infrastructure/nomad/hosts.ini --module-name ping
+          pip install boto3 botocore
+          pipx inject ansible-core botocore boto3
 
-    - name: Initialize and Configure Cluster
-      run: |
-        ./cluster.sh init --profile ci --debug
-      working-directory: infrastructure/nomad
+      - name: Configure Machine
+        run: |
+          sudo useradd --create-home ubuntu && sudo usermod --append --groups sudo ubuntu
 
-    - name: Build Artifacts and Deploy Jobs
-      run: |
-        ./cluster.sh deploy --profile ci --debug
-      working-directory: infrastructure/nomad
+          TARGET_MACHINE_IP="127.0.0.1"
+          ANSIBLE_CONNECTION="ansible_connection=local"
 
-    - name: Destroy Cluster
-      run: |
-        ./cluster.sh destroy --profile ci --debug
-      working-directory: infrastructure/nomad
+          if [ "${IS_LOCAL_DEPLOYMENT}" == "false" ]; then
+            export ANSIBLE_HOST_KEY_CHECKING=false
 
-    - name: Initialize Debug Shell
-      if: failure()
-      run: |
-        KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
-        echo "::add-mask::${KEYS}"
-        echo "Debug Shell:"
-        echo "sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo ${KEYS} | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
-        curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T $(echo ${KEYS} | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
+            TARGET_MACHINE_IP=$(dig +short ${{ github.event.inputs.target }})
+            ANSIBLE_CONNECTION=""
+
+            echo "${{ secrets.INFRASTRUCTURE_DNS_RECORDS }}" | sudo tee -a /etc/hosts
+            mkdir ~/.ssh && \
+            chmod 700 ~/.ssh && \
+            echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519 && \
+            chmod 600 ~/.ssh/id_ed25519
+          fi
+
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region us-west-2
+
+          cat <<-EOH > infrastructure/nomad/hosts.ini
+          [nomad_servers]
+          ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=ubuntu
+          [nomad_clients]
+          ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=ubuntu
+          EOH
+
+          ansible all --inventory infrastructure/nomad/hosts.ini --module-name ping
+
+      - name: Cleanup Cluster
+        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'false' }}
+        run: |
+          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+        working-directory: infrastructure/nomad
+
+      - name: Initialize Cluster
+        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' || github.event.inputs.init == 'true'}}
+        run: |
+          ./cluster.sh init ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+        working-directory: infrastructure/nomad
+
+      - name: Deploy Cluster
+        run: |
+          ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${CLUSTER_DEBUG_FLAG}
+        working-directory: infrastructure/nomad
+
+      - name: Destroy Cluster
+        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' }}
+        run: |
+          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+        working-directory: infrastructure/nomad
+
+      - name: Initialize Debug Shell
+        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' && failure() }}
+        run: |
+          KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
+          echo "Debug Shell: sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo ${KEYS} | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
+          curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T $(echo ${KEYS} | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
