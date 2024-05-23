@@ -231,7 +231,7 @@ contract ProviderRegistry is
     ) external nonReentrant {
         require(msg.sender == provider, "Only provider can unstake");
         uint256 stake = providerStakes[provider];
-        delete providerRegistered[provider];
+        delete providerStakes[provider];
         require(stake > 0, "Provider Staked Amount is zero");
         require(
             preConfirmationsContract != address(0),

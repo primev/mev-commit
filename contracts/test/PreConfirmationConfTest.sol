@@ -760,9 +760,8 @@ contract TestPreConfCommitmentStore is Test {
         // Assuming you have a stored commitment
         {
             (address bidder, ) = makeAddrAndKey("alice");
-            uint64 blockNumber = 66;
             uint256 depositWindow = blockTracker.getWindowFromBlockNumber(
-                blockNumber
+                _testCommitmentAliceBob.blockNumber
             );
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
@@ -809,7 +808,7 @@ contract TestPreConfCommitmentStore is Test {
             assert(dispatchTimestamp == 0);
             bytes32 encryptedIndex = storeCommitment(
                 _testCommitmentAliceBob.bid,
-                blockNumber,
+                _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
@@ -823,12 +822,12 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(commiter);
             providerRegistry.registerAndStake{value: 4 ether}();
             blockTracker.addBuilderAddress("test", commiter);
-            blockTracker.recordL1Block(blockNumber, "test");
+            blockTracker.recordL1Block(_testCommitmentAliceBob.blockNumber, "test");
             bytes32 index = openCommitment(
                 commiter,
                 encryptedIndex,
                 _testCommitmentAliceBob.bid,
-                blockNumber,
+                _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,

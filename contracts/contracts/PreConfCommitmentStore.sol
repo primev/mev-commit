@@ -420,6 +420,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
                 encryptedCommitment.dispatchTimestamp != 0,
                 "Commitment is already opened or not found"
             );
+            delete encryptedCommitments[encryptedCommitmentIndex];
 
             require(
                 encryptedCommitment.commitmentDigest == commitmentDigest,
@@ -437,7 +438,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
             address winner = blockTracker.getBlockWinner(blockNumber);
             require(
-                msg.sender == winner || msg.sender == bidderAddress,
+                (msg.sender == winner && winner == commiterAddress) || msg.sender == bidderAddress,
                 "Caller is not a winner provider or bidder"
             );
 
@@ -461,8 +462,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
             // Store commitment
             commitments[commitmentIndex] = newCommitment;
-
-            delete encryptedCommitments[encryptedCommitmentIndex];
 
             bidderRegistry.OpenBid(
                 commitmentDigest,
@@ -618,8 +617,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             commitment.blockNumber
         );
 
-        // Mark this commitment as used to prevent replays
-        // commitments[commitmentIndex].commitmentUsed = true;
         commitmentsCount[commitment.commiter] -= 1;
 
         bidderRegistry.retrieveFunds(
