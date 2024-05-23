@@ -134,6 +134,11 @@
     ],
     "outputs": [
       {
+        "name": "isUsed",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
         "name": "bidder",
         "type": "address",
         "internalType": "address"
@@ -232,6 +237,11 @@
     ],
     "outputs": [
       {
+        "name": "isUsed",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
         "name": "commiter",
         "type": "address",
         "internalType": "address"
@@ -309,6 +319,11 @@
         "type": "tuple",
         "internalType": "struct PreConfCommitmentStore.PreConfCommitment",
         "components": [
+          {
+            "name": "isUsed",
+            "type": "bool",
+            "internalType": "bool"
+          },
           {
             "name": "bidder",
             "type": "address",
@@ -388,6 +403,11 @@
         "type": "tuple",
         "internalType": "struct PreConfCommitmentStore.PreConfCommitment",
         "components": [
+          {
+            "name": "isUsed",
+            "type": "bool",
+            "internalType": "bool"
+          },
           {
             "name": "bidder",
             "type": "address",
@@ -482,6 +502,11 @@
         "internalType": "struct PreConfCommitmentStore.EncrPreConfCommitment",
         "components": [
           {
+            "name": "isUsed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
             "name": "commiter",
             "type": "address",
             "internalType": "address"
@@ -515,6 +540,11 @@
         "type": "tuple",
         "internalType": "struct PreConfCommitmentStore.EncrPreConfCommitment",
         "components": [
+          {
+            "name": "isUsed",
+            "type": "bool",
+            "internalType": "bool"
+          },
           {
             "name": "commiter",
             "type": "address",
