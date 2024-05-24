@@ -37,7 +37,8 @@ job "{{ job.name }}" {
       {% endfor %}
 
       artifact {
-        source = "https://github.com/foundry-rs/foundry/releases/download/nightly-293fad73670b7b59ca901c7f2105bf7a29165a90/foundry_nightly_linux_amd64.tar.gz"
+        source = "https://foundry.paradigm.xyz"
+        destination = "local/foundry.sh"
       }
 
       artifact {
@@ -62,6 +63,7 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
+          XDG_CONFIG_HOME="local/.config"
           STANDARD_BRIDGE_RELAYER_LOG_LEVEL="{{ job.env.get('log-level', 'debug') }}"
           STANDARD_BRIDGE_RELAYER_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           STANDARD_BRIDGE_RELAYER_LOG_TAGS="{{
@@ -80,8 +82,6 @@ job "{{ job.name }}" {
           STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           STANDARD_BRIDGE_RELAYER_PRIV_KEY_FILE="secrets/relayer_key"
           L1_CHAIN_ID="{{ job.env['l1_chain_id'] }}"
-          FORGE_BIN_PATH="local/forge"
-          CAST_BIN_PATH="local/cast"
           CONTRACTS_PATH="local/contracts"
           ARTIFACT_OUT_PATH="local"
         EOH
@@ -100,6 +100,10 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
           {% endraw %}
+
+          chmod +x local/foundry.sh && local/foundry.sh
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
 
           if [ -f "local/L1GatewayArtifact.json" ] && [ -f "local/SettlementGatewayArtifact.json" ]; then
             echo "Artifacts exist. Skipping contract deployment..."

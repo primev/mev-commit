@@ -63,11 +63,15 @@ job "{{ job.name }}" {
       driver = "exec"
 
       artifact {
-        source = "https://github.com/foundry-rs/foundry/releases/download/nightly-0a5b22f07ba4f2ddf525089c8ee9cdcb05e44bd9/foundry_nightly_linux_amd64.tar.gz"
+        source = "https://nodejs.org/dist/v18.16.1/node-v18.16.1-linux-x64.tar.xz"
+        options {
+          archive = false
+        }
       }
 
       artifact {
-        source = "https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh"
+        source = "https://foundry.paradigm.xyz"
+        destination = "local/foundry.sh"
       }
 
       artifact {
@@ -76,6 +80,7 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
+          XDG_CONFIG_HOME="local/.config"
           {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
@@ -85,7 +90,6 @@ job "{{ job.name }}" {
           PRIVATE_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.deploy_contracts_private_key }}{{ end }}"
           {% endraw %}
           CHAIN_ID="{{ job['chain-id'] }}"
-          FORGE_BIN_PATH="local/forge"
           DEPLOY_TYPE="core"
           SCRIPT_PATH_PREFIX="local/contracts/scripts/"
           CONTRACT_REPO_ROOT_PATH="local/contracts"
@@ -106,16 +110,18 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
-          export NVM_DIR="/local/.nvm"
-          mkdir -p ${NVM_DIR}
-          chmod +x local/install.sh
-          local/install.sh
-          source local/.nvm/nvm.sh
-          nvm install 18
+          tar \
+            --extract \
+            --file local/node-v18.16.1-linux-x64.tar.xz \
+            --directory /usr/local \
+            --strip-components=1
 
-          ${FORGE_BIN_PATH} clean
+          chmod +x local/foundry.sh && local/foundry.sh
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
+
+          forge clean
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh && ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
-          rm -rf ${CONTRACT_REPO_ROOT_PATH}
         EOH
         destination = "local/run.sh"
         perms = "0755"

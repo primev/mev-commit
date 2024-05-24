@@ -6,16 +6,35 @@ job "{{ job.name }}" {
   group "{{ job.name }}-group" {
     count = {{ job.count }}
 
+    network {
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+    }
+
     task "funder" {
       driver = "exec"
 
       artifact {
-        source = "https://github.com/foundry-rs/foundry/releases/download/nightly-0a5b22f07ba4f2ddf525089c8ee9cdcb05e44bd9/foundry_nightly_linux_amd64.tar.gz"
+        source = "https://foundry.paradigm.xyz"
+        destination = "local/foundry.sh"
+      }
+
+      template {
+        data = <<-EOH
+          XDG_CONFIG_HOME="local/.config"
+        EOH
+        destination = "secrets/.env"
+        env = true
       }
 
       template {
         data = <<-EOH
           #!/usr/bin/env bash
+
+          chmod +x local/foundry.sh && local/foundry.sh
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
 
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
@@ -50,7 +69,7 @@ job "{{ job.name }}" {
 
             {{- range nomadService "mev-commit-geth-bootnode1" }}
               {{- if contains "http" .Tags }}
-            local/cast send \
+            cast send \
                  --priority-gas-price 2000000000 \
                  --gas-price 5000000000 \
                  --rpc-url http://{{ .Address }}:{{ .Port }} \
