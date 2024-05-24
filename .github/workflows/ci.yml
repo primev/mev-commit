@@ -186,9 +186,6 @@ jobs:
           sudo apt-get install -y ethereum
           abigen --version
 
-      - name: Build Contracts
-        run: forge build
-
       - name: Check ABI Parity
         run: |
           bash script.sh
