@@ -8,7 +8,7 @@ import "../contracts/Oracle.sol";
 import "../contracts/Whitelist.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "../contracts/ValidatorRegistry.sol";
-import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {UnsafeUpgrades} from "openzeppelin-foundry-UnsafeUpgrades/Upgrades.sol";
 import "../contracts/BlockTracker.sol";
 
 // Deploys core contracts
@@ -24,28 +24,28 @@ contract DeployScript is Script {
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
 
-        address blockTrackerProxy = Upgrades.deployUUPSProxy(
+        address blockTrackerProxy = UnsafeUpgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, (msg.sender))
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
         console.log("BlockTracker deployed to:", address(blockTracker));
 
-        address bidderRegistryProxy = Upgrades.deployUUPSProxy(
+        address bidderRegistryProxy = UnsafeUpgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, address(blockTracker)))
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry deployed to:", address(bidderRegistry));
 
-        address providerRegistryProxy = Upgrades.deployUUPSProxy(
+        address providerRegistryProxy = UnsafeUpgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender))
         );
         ProviderRegistry providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
         console.log("ProviderRegistry deployed to:", address(providerRegistry));
 
-        address preconfCommitmentStoreProxy = Upgrades.deployUUPSProxy(
+        address preconfCommitmentStoreProxy = UnsafeUpgrades.deployUUPSProxy(
             "PreConfCommitmentStore.sol",
             abi.encodeCall(PreConfCommitmentStore.initialize, (address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender, address(blockTracker), commitmentDispatchWindow))
         );
@@ -68,7 +68,7 @@ contract DeployScript is Script {
             address(preConfCommitmentStore)
         );
 
-        address oracleProxy = Upgrades.deployUUPSProxy(
+        address oracleProxy = UnsafeUpgrades.deployUUPSProxy(
             "Oracle.sol",
             abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), msg.sender))
         );
@@ -100,7 +100,7 @@ contract DeployWhitelist is Script {
             "Address to whitelist not provided"
         );
 
-        address whitelistProxy = Upgrades.deployUUPSProxy(
+        address whitelistProxy = UnsafeUpgrades.deployUUPSProxy(
             "Whitelist.sol",
             abi.encodeCall(Whitelist.initialize, (msg.sender))
         );
@@ -126,8 +126,8 @@ contract DeployValidatorRegistry is Script {
         // to pass between validator unstake initiation and withdrawal.
         uint256 unstakePeriodBlocks = 7000;
 
-        // Can later be upgraded with https://docs.openzeppelin.com/upgrades-plugins/1.x/api-foundry-upgrades#Upgrades-upgradeProxy-address-string-bytes-
-        address proxy = Upgrades.deployUUPSProxy(
+        // Can later be upgraded with https://docs.openzeppelin.com/UnsafeUpgrades-plugins/1.x/api-foundry-UnsafeUpgrades#UnsafeUpgrades-upgradeProxy-address-string-bytes-
+        address proxy = UnsafeUpgrades.deployUUPSProxy(
             "ValidatorRegistry.sol",
             abi.encodeCall(
                 ValidatorRegistry.initialize,
