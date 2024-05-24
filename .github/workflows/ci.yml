@@ -157,7 +157,6 @@ jobs:
 
       - name: Run Coverage
         run: forge coverage --ir-minimum
-
   contracts:
     name: Test and Build Contracts Scripts
     runs-on: ubuntu-22.04
@@ -175,20 +174,10 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install Hardhat
-        run: npm install -g hardhat
-
-      - name: Install Dependencies
-        run: npm install
-
       - name: Print Versions
         run: |
           git --version
-          npm --version
           forge --version
-
-      - name: Build
-        run: npm run build --if-present
 
       - name: Install abigen
         run: |
@@ -196,6 +185,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ethereum
           abigen --version
+
+      - name: Build Contracts
+        run: forge build
 
       - name: Check ABI Parity
         run: |
