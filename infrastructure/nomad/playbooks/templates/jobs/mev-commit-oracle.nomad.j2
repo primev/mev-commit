@@ -145,12 +145,12 @@ job "{{ job.name }}" {
           MEV_ORACLE_HTTP_PORT="{{ .Port }}"
             {{- end }}
           {{- end }}
-          {{- range nomadService "mev-commit-geth-member-node" }}
+          {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
-          MEV_ORACLE_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
+          MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
             {{- if contains "ws" .Tags }}
-          MEV_ORACLE_SETTLEMENT_WS_RPC_ENDPOINT="ws://{{ .Address}}:{{ .Port }}"
+          MEV_ORACLE_SETTLEMENT_RPC_URL_WS="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}

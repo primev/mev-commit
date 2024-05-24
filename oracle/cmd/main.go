@@ -101,11 +101,18 @@ var (
 		EnvVars: []string{"MEV_ORACLE_L1_RPC_URL"},
 	})
 
-	optionSettlementRPCUrl = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "settlement-rpc-url",
-		Usage:   "URL for settlement RPC",
-		EnvVars: []string{"MEV_ORACLE_SETTLEMENT_RPC_URL"},
+	optionSettlementRPCUrlHTTP = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "settlement-rpc-url-http",
+		Usage:   "URL for settlement RPC endpoint over HTTP",
+		EnvVars: []string{"MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP"},
 		Value:   "http://localhost:8545",
+	})
+
+	optionSettlementRPCUrlWS = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "settlement-rpc-url-ws",
+		Usage:   "URL for settlement RPC over WebSocket",
+		EnvVars: []string{"MEV_ORACLE_SETTLEMENT_RPC_URL_WS"},
+		Value:   "http://localhost:8546",
 	})
 
 	optionOracleContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -214,7 +221,8 @@ func main() {
 		optionLogLevel,
 		optionLogTags,
 		optionL1RPCUrl,
-		optionSettlementRPCUrl,
+		optionSettlementRPCUrlHTTP,
+		optionSettlementRPCUrlWS,
 		optionOracleContractAddr,
 		optionPreconfContractAddr,
 		optionBlockTrackerContractAddr,
@@ -287,12 +295,21 @@ func launchOracleWithConfig(c *cli.Context) error {
 	}
 	logger.Info("key signer account", "address", keySigner.GetAddress().Hex(), "url", keySigner.String())
 
+	rpcURL := c.String(optionSettlementRPCUrlHTTP.Name)
+	if c.IsSet(optionSettlementRPCUrlWS.Name) {
+		rpcURL = c.String(optionSettlementRPCUrlWS.Name)
+	}
+
+	if rpcURL == "" {
+		return fmt.Errorf("settlement rpc url is empty")
+	}
+
 	nd, err := node.NewNode(&node.Options{
 		Logger:                       logger,
 		KeySigner:                    keySigner,
 		HTTPPort:                     c.Int(optionHTTPPort.Name),
 		L1RPCUrl:                     c.String(optionL1RPCUrl.Name),
-		SettlementRPCUrl:             c.String(optionSettlementRPCUrl.Name),
+		SettlementRPCUrl:             rpcURL,
 		OracleContractAddr:           common.HexToAddress(c.String(optionOracleContractAddr.Name)),
 		PreconfContractAddr:          common.HexToAddress(c.String(optionPreconfContractAddr.Name)),
 		BlockTrackerContractAddr:     common.HexToAddress(c.String(optionBlockTrackerContractAddr.Name)),
