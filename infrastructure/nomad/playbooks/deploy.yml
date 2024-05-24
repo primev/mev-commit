@@ -128,8 +128,8 @@
         executable: bash
       loop:
         - infrastructure/tools/keystore-generator
-        - p2p/integrationtest/provider
         - p2p/integrationtest/real-bidder
+        - p2p/integrationtest/provider
         - bridge/standard/bridge-v1
         - external/geth
         - contracts
@@ -163,7 +163,7 @@
       when: (artifacts.files | default([])) | length > 0 and build_artifacts
       delegate_to: localhost
 
-    - name: Remove Artifacts from "/tmp/dist"
+    - name: Cleanup Artifacts
       ansible.builtin.file:
         path: "/tmp/dist"
         state: absent
