@@ -14,7 +14,7 @@ KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"pwd"}
 # Check if CONTRACT_REPO_ROOT_PATH is set, if so, prepare the --root option
 ROOT_OPTION=""
 if [ -n "$CONTRACT_REPO_ROOT_PATH" ]; then
-    ROOT_OPTION=--root $CONTRACT_REPO_ROOT_PATH
+    ROOT_OPTION="--root $CONTRACT_REPO_ROOT_PATH"
 fi
 
 if [ "$DEPLOY_TYPE" = "core" ]; then
@@ -31,7 +31,7 @@ if [ "$DEPLOY_TYPE" = "core" ]; then
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        "$ROOT_OPTION" \
+        $ROOT_OPTION \
         --via-ir
 
 elif [ "$DEPLOY_TYPE" = "whitelist" ]; then
@@ -50,7 +50,7 @@ elif [ "$DEPLOY_TYPE" = "whitelist" ]; then
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        "$ROOT_OPTION"
+        $ROOT_OPTION
 
 elif [ "$DEPLOY_TYPE" = "settlement-gateway" ]; then
     if [ -z "$RELAYER_ADDR" ]; then
@@ -68,7 +68,7 @@ elif [ "$DEPLOY_TYPE" = "settlement-gateway" ]; then
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        "$ROOT_OPTION"
+        $ROOT_OPTION
 
 elif [ "$DEPLOY_TYPE" = "l1-gateway" ]; then
     if [ -z "$RELAYER_ADDR" ]; then
@@ -86,7 +86,7 @@ elif [ "$DEPLOY_TYPE" = "l1-gateway" ]; then
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        "$ROOT_OPTION"
+        $ROOT_OPTION
 
 elif [ "$DEPLOY_TYPE" = "validator-registry" ]; then
     echo "Deploying validator registry contract"
@@ -103,6 +103,6 @@ elif [ "$DEPLOY_TYPE" = "validator-registry" ]; then
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        "$ROOT_OPTION" \
+        $ROOT_OPTION \
         --via-ir
 fi 
