@@ -14,7 +14,7 @@ KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"pwd"}
 # Check if CONTRACT_REPO_ROOT_PATH is set, if so, prepare the --root option
 ROOT_OPTION=""
 if [ -n "$CONTRACT_REPO_ROOT_PATH" ]; then
-    ROOT_OPTION="--root $CONTRACT_REPO_ROOT_PATH"
+    ROOT_OPTION=--root $CONTRACT_REPO_ROOT_PATH
 fi
 
 if [ "$DEPLOY_TYPE" = "core" ]; then
