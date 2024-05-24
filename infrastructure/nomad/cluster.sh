@@ -70,17 +70,18 @@ help() {
 }
 
 usage() {
-        echo "Usage:"
-        echo "$0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
-        echo "$0 [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]]"
-        echo "$0 [destroy [--debug]] [--help]"
-        echo "$0 --help"
+    echo "Usage:"
+    echo "$0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]]"
+    echo "$0 [destroy [--debug]] [--help]"
+    echo "$0 --help"
     exit 1
 }
 
 check_deps() {
     local missing_utils=()
     local required_utilities=(
+        go
         aws
         ansible
         goreleaser
@@ -216,7 +217,7 @@ main() {
 
     local playbook="playbooks/"
     local flags=("--extra-vars" "profile=${profile_name}")
-    [[ "${debug_flag}" == true ]] && flags+=("-vvv")
+    [[ "${debug_flag}" == true ]] && flags+=("-vv")
 
     case true in
         "${init_flag}")
