@@ -48,16 +48,16 @@ jobs:
     steps:
       - name: Determine Deployment Options
         run: |
-          IS_LOCAL_DEPLOYMENT=$([ "${{ github.event_name }}" == 'workflow_dispatch' ] && echo false || echo true)
-          CLUSTER_PROFILE_FLAG=$([ "${IS_LOCAL_DEPLOYMENT}" == "true" ] && echo "--profile ci" || echo "--profile ${{ github.event.inputs.profile }}")
+          IS_MANUAL_DEPLOYMENT=$([ "${{ github.event_name }}" == 'workflow_dispatch' ] && echo true || echo false)
+          CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == 'false' ] && echo "--no-logs-collection" || echo "")
 
-          echo "IS_LOCAL_DEPLOYMENT=${IS_LOCAL_DEPLOYMENT}" >> $GITHUB_ENV
+          echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> $GITHUB_ENV
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> $GITHUB_ENV
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> $GITHUB_ENV
 
 #      - name: Check User Permissions
-#        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'false' }}
+#        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
 #        run: |
 #          USERNAME="${{ github.actor }}"
 #          ORG_NAME="${{ github.repository_owner }}"
@@ -66,6 +66,30 @@ jobs:
 #            echo "User ${USERNAME} is not a member of the ${ORG_NAME} organization."
 #            exit 1
 #          fi
+
+      - name: Notify Channel - Deployment Initialized
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
+        run: |
+          WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(cat <<-EOH
+          {
+            "text": "<@${{ github.actor }}> - deployment to '*${{ github.event.inputs.target }}*' has been initialized",
+            "attachments": [
+              {
+                "color": "#FFFF00",
+                "fields": [
+                  {
+                    "title": "Workflow",
+                    "value": "<${WORKFLOW_URL}|View Workflow Run>",
+                    "short": false
+                  },
+                ]
+              }
+            ]
+          }
+          EOH
+          )
+          curl -X POST -H 'Content-type: application/json' --data "${PAYLOAD}" "${{ secrets.SLACK_CI_CHANNEL_WEBHOOK_URL }}"
 
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -104,7 +128,7 @@ jobs:
           TARGET_MACHINE_IP="127.0.0.1"
           ANSIBLE_CONNECTION="ansible_connection=local"
 
-          if [ "${IS_LOCAL_DEPLOYMENT}" == "false" ]; then
+          if [ "${IS_MANUAL_DEPLOYMENT}" == "true" ]; then
             export ANSIBLE_HOST_KEY_CHECKING=false
 
             TARGET_MACHINE_IP=$(dig +short ${{ github.event.inputs.target }})
@@ -130,13 +154,13 @@ jobs:
           ansible all --inventory infrastructure/nomad/hosts.ini --module-name ping
 
       - name: Destroy Existing Cluster
-        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'false' }}
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
         run: |
           ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} --debug
         working-directory: infrastructure/nomad
 
       - name: Initialize Cluster
-        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' || github.event.inputs.init == 'true'}}
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' || github.event.inputs.init == 'true'}}
         run: |
           ./cluster.sh init ${CLUSTER_PROFILE_FLAG} --debug
         working-directory: infrastructure/nomad
@@ -147,14 +171,96 @@ jobs:
         working-directory: infrastructure/nomad
 
       - name: Destroy Cluster
-        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' }}
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' }}
         run: |
           ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} --debug
         working-directory: infrastructure/nomad
 
-      - name: Initialize Debug Shell
-        if: ${{ env.IS_LOCAL_DEPLOYMENT == 'true' && failure() }}
+      - name: Notify Channel - Deployment Successful
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
         run: |
-          KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
-          echo "Debug Shell: sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo ${KEYS} | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
-          curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T $(echo ${KEYS} | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
+          WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(cat <<-EOH
+          {
+            "text": "<@${{ github.actor }}> - deployment to '*${{ github.event.inputs.target }}*' was successful",
+            "attachments": [
+              {
+                "color": "#00FF00",
+                "fields": [
+                  {
+                    "title": "Workflow",
+                    "value": "<${WORKFLOW_URL}|View Workflow Run>",
+                    "short": false
+                  },
+                ]
+              }
+            ]
+          }
+          EOH
+          )
+          curl -X POST -H 'Content-type: application/json' --data "${PAYLOAD}" "${{ secrets.SLACK_CI_CHANNEL_WEBHOOK_URL }}"
+
+      - name: Notify Channel - Deployment Failed
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && failure() }}
+        run: |
+          WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PAYLOAD=$(cat <<-EOH
+          {
+            "text": "<@${{ github.actor }}> - deployment to '*${{ github.event.inputs.target }}*' has failed",
+            "attachments": [
+              {
+                "color": "#FF0000",
+                "fields": [
+                  {
+                    "title": "Workflow",
+                    "value": "<${WORKFLOW_URL}|View Workflow Run>",
+                    "short": false
+                  },
+                ]
+              }
+            ]
+          }
+          EOH
+          )
+          curl -X POST -H 'Content-type: application/json' --data "${PAYLOAD}" "${{ secrets.SLACK_CI_CHANNEL_WEBHOOK_URL }}"
+
+      - name: Initialize Debug Shell
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && failure() }}
+        run: |
+          TUNSHELL_KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
+          DEBUG_SHELL="sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo ${TUNSHELL_KEYS} | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
+          WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          PR_TITLE="$(jq -r .title <<< '${{ toJson(github.event.pull_request) }}')"
+          PR_URL="$(jq -r .html_url <<< '${{ toJson(github.event.pull_request) }}')"
+          PAYLOAD=$(cat <<-EOH
+          {
+            "text": "<@${{ github.actor }}> infrastructure workflow has failed:",
+            "attachments": [
+              {
+                "color": "#FF0000",
+                "fields": [
+                  {
+                    "title": "Workflow",
+                    "value": "<${WORKFLOW_URL}|View Workflow Run>",
+                    "short": false
+                  },
+                  {
+                    "title": "Pull Request",
+                    "value": "<${PR_URL}|${PR_TITLE}>",
+                    "short": false
+                  },
+                  {
+                    "title": "Debug Shell",
+                    "value": "\`\`\`${DEBUG_SHELL}\`\`\`",
+                    "short": false
+                  }
+                ]
+              }
+            ]
+          }
+          EOH
+          )
+
+          echo "Debug Shell: ${DEBUG_SHELL}"
+          curl -X POST -H 'Content-type: application/json' --data "${PAYLOAD}" "${{ secrets.SLACK_CI_CHANNEL_WEBHOOK_URL }}"
+          curl -sSf https://lets.tunshell.com/init.sh | sh -s -- T $(echo ${TUNSHELL_KEYS} | jq -r .peer1_key) ${{ secrets.TUNSHELL_SECRET }} eu.relay.tunshell.com
