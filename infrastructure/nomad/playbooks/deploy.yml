@@ -195,7 +195,7 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        nomad system gc
+        [ -z "${GC_DONE}" ] && nomad system gc && GC_DONE="1" || true
         nomad run {{ ansible_env.HOME }}/{{ profile }}/{{ job.name }}.nomad
         [ "{{ job.name }}" = "deploy-contracts" ] && sleep 240 || true
       args:
