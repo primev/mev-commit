@@ -13,9 +13,6 @@ KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"pwd"}
 
 CONTRACT_REPO_ROOT_PATH=${CONTRACT_REPO_ROOT_PATH:-$(pwd)}
 
-# TODO: Whole issue could be around the fact that we're not deploying from contracts repo directly!!
-# Try cding into contracts repo root path
-
 if [ "$DEPLOY_TYPE" = "core" ]; then
     echo "Deploying core contracts"
     $FORGE_BIN_PATH script \
