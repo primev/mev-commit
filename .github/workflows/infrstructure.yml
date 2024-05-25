@@ -230,8 +230,8 @@ jobs:
           TUNSHELL_KEYS=$(curl -sSf -X POST https://eu.relay.tunshell.com/api/sessions)
           DEBUG_SHELL="sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo ${TUNSHELL_KEYS} | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          PR_TITLE="$(jq -r .title <<< '${{ toJson(github.event.pull_request) }}')"
-          PR_URL="$(jq -r .html_url <<< '${{ toJson(github.event.pull_request) }}')"
+          PR_TITLE="$(jq -r .head_commit.message <<< '${{ toJson(github.event.workflow_run) }}')"
+          PR_URL="$(jq -r .head_commit.url <<< '${{ toJson(github.event.workflow_run) }}')"
           PAYLOAD=$(cat <<-EOH
           {
             "text": "<@${{ github.actor }}> infrastructure workflow has failed:",
