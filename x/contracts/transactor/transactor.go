@@ -103,6 +103,7 @@ retry:
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-retryTimer.C:
+					_ = retryTimer.Stop()
 					goto retry
 				}
 			}
