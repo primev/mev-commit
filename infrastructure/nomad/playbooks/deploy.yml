@@ -193,9 +193,14 @@
         dest: "{{ ansible_env.HOME }}/{{ profile }}/version.txt"
       when: build_templates is not defined or build_templates
 
-    - name: Deploy Jobs
+    - name: Cleanup System
       ansible.builtin.shell: |
         nomad system gc
+      args:
+        executable: bash
+
+    - name: Deploy Jobs
+      ansible.builtin.shell: |
         nomad run {{ ansible_env.HOME }}/{{ profile }}/{{ job.name }}.nomad
         [ "{{ job.name }}" = "deploy-contracts" ] && sleep 240 || true
       args:

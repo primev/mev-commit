@@ -9,24 +9,25 @@ FORGE_BIN_PATH=${FORGE_BIN_PATH:-forge}
 # Define the script path prefix, default to 'scripts/' if not provided
 SCRIPT_PATH_PREFIX=${SCRIPT_PATH_PREFIX:-scripts/}
 
-# Check if CONTRACT_REPO_ROOT_PATH is set, if so, prepare the --root option
-ROOT_OPTION=""
-if [ -n "$CONTRACT_REPO_ROOT_PATH" ]; then
-    ROOT_OPTION="--root $CONTRACT_REPO_ROOT_PATH"
-fi
+KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"pwd"}
+
+CONTRACT_REPO_ROOT_PATH=${CONTRACT_REPO_ROOT_PATH:-$PWD}
 
 if [ "$DEPLOY_TYPE" = "core" ]; then
     echo "Deploying core contracts"
-    $FORGE_BIN_PATH script "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployScript \
+    $FORGE_BIN_PATH script \
+        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployScript \
         --priority-gas-price 2000000000 \
         --with-gas-price 5000000000 \
         --rpc-url "$RPC_URL" \
-        --private-key "$PRIVATE_KEY" \
+        --keystores "$CONTRACT_REPO_ROOT_PATH"/deployer_keystore/* \
+        --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        $ROOT_OPTION \
+        --root "$CONTRACT_REPO_ROOT_PATH" \
         --via-ir
 
 elif [ "$DEPLOY_TYPE" = "whitelist" ]; then
@@ -35,7 +36,18 @@ elif [ "$DEPLOY_TYPE" = "whitelist" ]; then
         exit 1
     fi
     echo "Deploying whitelist contract"
-    HYP_ERC20_ADDR="$HYP_ERC20_ADDR" $FORGE_BIN_PATH script ${SCRIPT_PATH_PREFIX}DeployScripts.s.sol:DeployWhitelist --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.23 $ROOT_OPTION
+    HYP_ERC20_ADDR="$HYP_ERC20_ADDR" $FORGE_BIN_PATH script \
+        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployWhitelist \
+        --rpc-url "$RPC_URL" \
+        --keystores "$CONTRACT_REPO_ROOT_PATH"/deployer_keystore/* \
+        --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
+        --broadcast \
+        --chain-id "$CHAIN_ID" \
+        -vvvv \
+        --use 0.8.23 \
+        --root "$CONTRACT_REPO_ROOT_PATH" \
+        --via-ir
 
 elif [ "$DEPLOY_TYPE" = "settlement-gateway" ]; then
     if [ -z "$RELAYER_ADDR" ]; then
@@ -43,7 +55,18 @@ elif [ "$DEPLOY_TYPE" = "settlement-gateway" ]; then
         exit 1
     fi
     echo "Deploying gateway contract on settlement chain"
-    RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script ${SCRIPT_PATH_PREFIX}DeployStandardBridge.s.sol:DeploySettlementGateway --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.23 $ROOT_OPTION
+    RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script \
+        "${SCRIPT_PATH_PREFIX}"DeployStandardBridge.s.sol:DeploySettlementGateway \
+        --rpc-url "$RPC_URL" \
+        --keystores "$CONTRACT_REPO_ROOT_PATH"/deployer_keystore/* \
+        --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
+        --broadcast \
+        --chain-id "$CHAIN_ID" \
+        -vvvv \
+        --use 0.8.23 \
+        --root "$CONTRACT_REPO_ROOT_PATH" \
+        --via-ir
 
 elif [ "$DEPLOY_TYPE" = "l1-gateway" ]; then
     if [ -z "$RELAYER_ADDR" ]; then
@@ -51,7 +74,18 @@ elif [ "$DEPLOY_TYPE" = "l1-gateway" ]; then
         exit 1
     fi
     echo "Deploying gateway contract on L1"
-    RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script ${SCRIPT_PATH_PREFIX}DeployStandardBridge.s.sol:DeployL1Gateway --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.23 $ROOT_OPTION
+    RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script \
+        "${SCRIPT_PATH_PREFIX}"DeployStandardBridge.s.sol:DeployL1Gateway \
+        --rpc-url "$RPC_URL" \
+        --keystores "$CONTRACT_REPO_ROOT_PATH"/deployer_keystore/* \
+        --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
+        --broadcast \
+        --chain-id "$CHAIN_ID" \
+        -vvvv \
+        --use 0.8.23 \
+        --root "$CONTRACT_REPO_ROOT_PATH" \
+        --via-ir
 
 elif [ "$DEPLOY_TYPE" = "validator-registry" ]; then
     echo "Deploying validator registry contract"
@@ -61,12 +95,13 @@ elif [ "$DEPLOY_TYPE" = "validator-registry" ]; then
         --with-gas-price 5000000000 \
         "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployValidatorRegistry \
         --rpc-url "$RPC_URL" \
-        --private-key "$PRIVATE_KEY" \
+        --keystores "$CONTRACT_REPO_ROOT_PATH"/deployer_keystore/* \
+        --password "$KEYSTORE_PASSWORD" \
+        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
         --use 0.8.23 \
-        "$ROOT_OPTION" \
+        --root "$CONTRACT_REPO_ROOT_PATH" \
         --via-ir
-
 fi 

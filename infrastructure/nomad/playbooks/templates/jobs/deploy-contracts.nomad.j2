@@ -87,7 +87,7 @@ job "{{ job.name }}" {
           RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          PRIVATE_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.deploy_contracts_private_key }}{{ end }}"
+          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
           {% endraw %}
           CHAIN_ID="{{ job['chain-id'] }}"
           DEPLOY_TYPE="core"
