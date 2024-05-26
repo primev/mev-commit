@@ -188,7 +188,7 @@ func main() {
 			}
 
 			bundleLen := rand.Intn(10)
-			bundleStart := rand.Intn(len(currentBlock.txns))
+			bundleStart := rand.Intn(len(currentBlock.txns) - 1)
 			bundleEnd := bundleStart + bundleLen
 			if bundleEnd > len(currentBlock.txns) {
 				bundleEnd = len(currentBlock.txns) - 1

@@ -2,6 +2,7 @@ package transactor
 
 import (
 	"context"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -85,7 +86,28 @@ func (t *Transactor) SendTransaction(ctx context.Context, tx *types.Transaction)
 		return ctx.Err()
 	}
 
-	if err := t.ContractTransactor.SendTransaction(ctx, tx); err != nil {
+	tries := 0
+	delay := 1 * time.Second
+retry:
+	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if err := t.ContractTransactor.SendTransaction(cctx, tx); err != nil {
+		if err == context.DeadlineExceeded {
+			tries++
+			if tries < 3 {
+				// If the transaction fails due to a timeout, we can retry it.
+				delay *= 2
+				retryTimer := time.NewTimer(delay)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-retryTimer.C:
+					_ = retryTimer.Stop()
+					goto retry
+				}
+			}
+		}
 		return err
 	}
 

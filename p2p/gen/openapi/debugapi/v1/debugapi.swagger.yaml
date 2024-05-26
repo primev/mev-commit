@@ -1,0 +1,149 @@
+swagger: "2.0"
+info:
+  title: Debug API
+  version: 1.0.0-alpha
+  license:
+    name: Business Source License 1.1
+    url: https://github.com/primev/mev-commit/blob/main/LICENSE
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /v1/debug/cancel_transaction/{txHash}:
+    post:
+      summary: CancelTransaction
+      description: CancelTransaction is called by the provider to cancel a transaction sent from this wallet.
+      operationId: DebugService_CancelTransaction
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1CancelTransactionResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: txHash
+          description: Hex string encoding of the hash of the transaction that the bidder wants to cancel.
+          in: path
+          required: true
+          type: string
+  /v1/debug/pending_transactions:
+    get:
+      summary: GetPendingTransactions
+      description: GetPendingTransactions is called by the provider to get the pending transactions for the wallet.
+      operationId: DebugService_GetPendingTransactions
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1PendingTransactionsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/debug/topology:
+    get:
+      summary: GetTopology
+      description: |-
+        GetTopology is called by the user to get the topology of the node. The topology
+        includes connectivity information about the node.
+      operationId: DebugService_GetTopology
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1TopologyResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+definitions:
+  googlerpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  protobufNullValue:
+    type: string
+    description: |-
+      `NullValue` is a singleton enumeration to represent the null value for the
+      `Value` type union.
+
+      The JSON representation for `NullValue` is JSON `null`.
+  v1CancelTransactionResponse:
+    type: object
+    example:
+      txHash: 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
+    properties:
+      txHash:
+        type: string
+        description: Hex string encoding of the hash of the transaction that the bidder wants to cancel.
+        pattern: '[a-fA-F0-9]{64}'
+    description: Hash of the cancellation transaction request.
+    title: Cancel response
+    required:
+      - txHash
+  v1PendingTransactionsResponse:
+    type: object
+    properties:
+      pendingTransactions:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1TransactionInfo'
+        description: List of pending transactions in the provider provider_registry.
+    description: Transaction info returned by the provider.
+    title: Pending transactions list
+    required:
+      - pendingTransactions
+  v1TopologyResponse:
+    type: object
+    properties:
+      topology:
+        type: object
+        description: Topology of the node.
+    description: Topology of the node.
+    title: Topology
+    required:
+      - topology
+  v1TransactionInfo:
+    type: object
+    example:
+      created: 2009-11-10 23:00:00 +0000 UTC m=+0.000000001
+      nonce: 1234
+      txHash: 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
+    properties:
+      txHash:
+        type: string
+        description: Hex string encoding of the hash of the transaction that the bidder wants to include in the block.
+        pattern: '[a-fA-F0-9]{64}'
+      nonce:
+        type: string
+        format: int64
+        description: Nonce used for the transaction.
+      created:
+        type: string
+        description: Time when the transaction was created.
+    description: Transaction info returned by the provider.
+    title: Transaction info
+    required:
+      - txHash
+      - nonce
+      - created

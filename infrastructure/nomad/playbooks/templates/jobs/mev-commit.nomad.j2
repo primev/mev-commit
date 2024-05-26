@@ -109,10 +109,10 @@ job "{{ job.name }}" {
             {{- if contains "http" .Tags }}
 
           # Fetch topology data
-          TOPOLOGY=$(curl https://{{ .Address }}:{{ .Port }}/topology)
+          TOPOLOGY=$(curl https://{{ .Address }}:{{ .Port }}/v1/debug/topology)
 
           # Extract peerId (assuming the response format is JSON and jq is available)
-          PEER_ID=$(echo $TOPOLOGY | jq -r '.self.Underlay')
+          PEER_ID=$(echo $TOPOLOGY | jq -r '.topology.self.Underlay')
 
             {{- else if contains "p2p" .Tags }}
 

@@ -10,26 +10,6 @@ consumes:
 produces:
   - application/json
 paths:
-  /v1/provider/cancel_transaction/{txHash}:
-    post:
-      summary: CancelTransaction
-      description: CancelTransaction is called by the provider to cancel a transaction sent from this wallet.
-      operationId: Provider_CancelTransaction
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1CancelResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-      parameters:
-        - name: txHash
-          description: Hex string encoding of the hash of the transaction that the bidder wants to cancel.
-          in: path
-          required: true
-          type: string
   /v1/provider/get_min_stake:
     get:
       summary: GetMinStake
@@ -40,20 +20,6 @@ paths:
           description: A successful response.
           schema:
             $ref: '#/definitions/v1StakeResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-  /v1/provider/get_pending_txns:
-    get:
-      summary: GetPendingTxns
-      description: GetPendingTxns is called by the provider to get the pending transactions for the wallet.
-      operationId: Provider_GetPendingTxns
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1PendingTxnsResponse'
         default:
           description: An unexpected error response.
           schema:
@@ -231,32 +197,6 @@ definitions:
     enum:
       - STATUS_ACCEPTED
       - STATUS_REJECTED
-  v1CancelResponse:
-    type: object
-    example:
-      txHash: 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
-    properties:
-      txHash:
-        type: string
-        description: Hex string encoding of the hash of the transaction that the bidder wants to cancel.
-        pattern: '[a-fA-F0-9]{64}'
-    description: Hash of the cancellation transaction request.
-    title: Cancel response
-    required:
-      - txHash
-  v1PendingTxnsResponse:
-    type: object
-    properties:
-      pendingTxns:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/v1TransactionInfo'
-        description: List of pending transactions in the provider provider_registry.
-    description: Transaction info returned by the provider.
-    title: Pending transactions list
-    required:
-      - pendingTxns
   v1StakeResponse:
     type: object
     example:
@@ -266,27 +206,3 @@ definitions:
         type: string
     description: Get staked amount for provider in the provider provider_registry.
     title: Stake response
-  v1TransactionInfo:
-    type: object
-    example:
-      created: 2009-11-10 23:00:00 +0000 UTC m=+0.000000001
-      nonce: 1234
-      txHash: 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
-    properties:
-      txHash:
-        type: string
-        description: Hex string encoding of the hash of the transaction that the bidder wants to include in the block.
-        pattern: '[a-fA-F0-9]{64}'
-      nonce:
-        type: string
-        format: int64
-        description: Nonce used for the transaction.
-      created:
-        type: string
-        description: Time when the transaction was created.
-    description: Transaction info returned by the provider.
-    title: Transaction info
-    required:
-      - txHash
-      - nonce
-      - created

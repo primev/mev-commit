@@ -2,11 +2,14 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdh"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,7 +17,7 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 )
 
-var (
+const (
 	commitmentNS = "cm/"
 	balanceNS    = "bbs/"
 	aesKeysNS    = "aes/"
@@ -23,6 +26,11 @@ var (
 	eciesPrivateKeyNS = "ecies/"
 	nikePrivateKeyNS  = "nike/"
 
+	// txns related keys
+	txNS = "tx/"
+)
+
+var (
 	commitmentKey = func(blockNum int64, index []byte) string {
 		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
 	}
@@ -42,6 +50,10 @@ var (
 
 	bidderAesKey = func(bidder common.Address) string {
 		return fmt.Sprintf("%s%s", aesKeysNS, bidder)
+	}
+
+	txKey = func(txHash common.Hash) string {
+		return fmt.Sprintf("%s%s", txNS, txHash.Hex())
 	}
 )
 
@@ -307,4 +319,58 @@ func (s *Store) Len() int {
 	defer s.mu.RUnlock()
 
 	return s.Tree.Len()
+}
+
+// Following are the methods to save and update the transaction details in the store.
+// The store is used to keep track of the transactions that are sent to the blockchain and
+// have not yet received the transaction receipt. These are used by the debug service
+// to show the pending transactions and cancel them if needed. The store hooks up
+// to the txmonitor package which allows a component to get notified when the transaction
+// is sent to the blockchain and when the transaction receipt is received. As of now,
+// the store is in-memory and doesn't persist the transaction details, so the update
+// method is used to remove the transaction from the store. This will no longer be seen
+// in the pending transactions list.
+type TxnDetails struct {
+	Hash    common.Hash
+	Nonce   uint64
+	Created int64
+}
+
+// Save implements the txmonitor.Saver interface. It saves the transaction hash and nonce in the store once
+// the transaction is sent to the blockchain.
+func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(txKey(txHash), &TxnDetails{Hash: txHash, Nonce: nonce, Created: time.Now().Unix()})
+	return nil
+}
+
+// Update implements the txmonitor.Saver interface. It is called to update the status of the
+// transaction once the monitor receives the transaction receipt. For the in-memory store,
+// we don't need to update the but rather remove the transaction from the store as we dont
+// need to keep track of it anymore. Once we implement a persistent store, we will need to
+// update the status of the transaction and keep it in the store for future reference.
+func (s *Store) Update(ctx context.Context, txHash common.Hash, status string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Delete(txKey(txHash))
+	return nil
+}
+
+func (s *Store) PendingTxns() ([]*TxnDetails, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	txns := make([]*TxnDetails, 0)
+	s.Tree.WalkPrefix(txNS, func(key string, value interface{}) bool {
+		txns = append(txns, value.(*TxnDetails))
+		return false
+	})
+
+	slices.SortFunc(txns, func(a, b *TxnDetails) int {
+		return int(a.Created - b.Created)
+	})
+	return txns, nil
 }

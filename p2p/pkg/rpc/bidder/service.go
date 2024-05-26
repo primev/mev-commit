@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
-	registrycontract "github.com/primev/mev-commit/p2p/pkg/contracts/bidder_registry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -21,28 +23,34 @@ import (
 
 type Service struct {
 	bidderapiv1.UnimplementedBidderServer
-	sender               PreconfSender
 	owner                common.Address
-	registryContract     registrycontract.Interface
+	sender               PreconfSender
+	registryContract     BidderRegistryContract
 	blockTrackerContract BlockTrackerContract
+	watcher              TxWatcher
+	optsGetter           OptsGetter
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
 }
 
 func NewService(
-	sender PreconfSender,
 	owner common.Address,
-	registryContract registrycontract.Interface,
+	sender PreconfSender,
+	registryContract BidderRegistryContract,
 	blockTrackerContract BlockTrackerContract,
 	validator *protovalidate.Validator,
+	watcher TxWatcher,
+	optsGetter OptsGetter,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		sender:               sender,
 		owner:                owner,
+		sender:               sender,
 		registryContract:     registryContract,
 		blockTrackerContract: blockTrackerContract,
+		watcher:              watcher,
+		optsGetter:           optsGetter,
 		logger:               logger,
 		metrics:              newMetrics(),
 		validator:            validator,
@@ -53,10 +61,25 @@ type PreconfSender interface {
 	SendBid(context.Context, string, string, int64, int64, int64) (chan *preconfirmationv1.PreConfirmation, error)
 }
 
+type BidderRegistryContract interface {
+	DepositForSpecificWindow(*bind.TransactOpts, *big.Int) (*types.Transaction, error)
+	WithdrawBidderAmountFromWindow(*bind.TransactOpts, common.Address, *big.Int) (*types.Transaction, error)
+	GetDeposit(*bind.CallOpts, common.Address, *big.Int) (*big.Int, error)
+	MinDeposit(*bind.CallOpts) (*big.Int, error)
+	ParseBidderRegistered(types.Log) (*bidderregistry.BidderregistryBidderRegistered, error)
+	ParseBidderWithdrawal(types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error)
+}
+
 type BlockTrackerContract interface {
 	GetCurrentWindow() (*big.Int, error)
 	GetBlocksPerWindow() (*big.Int, error)
 }
+
+type TxWatcher interface {
+	WaitForReceipt(context.Context, *types.Transaction) (*types.Receipt, error)
+}
+
+type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 func (s *Service) SendBid(
 	bid *bidderapiv1.Bid,
@@ -137,22 +160,44 @@ func (s *Service) Deposit(
 		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", r.Amount)
 	}
 
-	err = s.registryContract.DepositForSpecificWindow(ctx, amount, windowToDeposit)
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+	opts.Value = amount
+
+	tx, err := s.registryContract.DepositForSpecificWindow(opts, windowToDeposit)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "deposit: %v", err)
 	}
 
-	stakeAmount, err := s.registryContract.GetDeposit(ctx, s.owner, windowToDeposit)
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
 	}
 
-	s.logger.Info("deposit successful", "amount", stakeAmount.String(), "window", windowToDeposit)
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
 
-	return &bidderapiv1.DepositResponse{
-		Amount:       stakeAmount.String(),
-		WindowNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
-	}, nil
+	for _, log := range receipt.Logs {
+		if registration, err := s.registryContract.ParseBidderRegistered(*log); err == nil {
+			s.logger.Info("deposit successful", "amount", registration.DepositedAmount, "window", registration.WindowNumber)
+			return &bidderapiv1.DepositResponse{
+				Amount:       registration.DepositedAmount.String(),
+				WindowNumber: wrapperspb.UInt64(registration.WindowNumber.Uint64()),
+			}, nil
+		}
+	}
+
+	s.logger.Error(
+		"deposit successful but missing log",
+		"txHash", receipt.TxHash.Hex(),
+		"window", windowToDeposit,
+		"logs", receipt.Logs,
+	)
+
+	return nil, status.Errorf(codes.Internal, "missing log for deposit")
 }
 
 func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.DepositRequest, currentWindow uint64) (*big.Int, error) {
@@ -190,7 +235,10 @@ func (s *Service) GetDeposit(
 	} else {
 		window = new(big.Int).SetUint64(r.WindowNumber.Value)
 	}
-	stakeAmount, err := s.registryContract.GetDeposit(ctx, s.owner, window)
+	stakeAmount, err := s.registryContract.GetDeposit(&bind.CallOpts{
+		From:    s.owner,
+		Context: ctx,
+	}, s.owner, window)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 	}
@@ -202,7 +250,10 @@ func (s *Service) GetMinDeposit(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.DepositResponse, error) {
-	stakeAmount, err := s.registryContract.GetMinDeposit(ctx)
+	stakeAmount, err := s.registryContract.MinDeposit(&bind.CallOpts{
+		From:    s.owner,
+		Context: ctx,
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "getting min deposit: %v", err)
 	}
@@ -230,15 +281,41 @@ func (s *Service) Withdraw(
 		window = new(big.Int).SetUint64(r.WindowNumber.Value)
 	}
 
-	amount, err := s.registryContract.WithdrawDeposit(ctx, window)
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	tx, err := s.registryContract.WithdrawBidderAmountFromWindow(opts, s.owner, window)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
 	}
 
-	s.logger.Info("withdraw successful", "amount", amount.String(), "window", window)
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
 
-	return &bidderapiv1.WithdrawResponse{
-		Amount:       amount.String(),
-		WindowNumber: wrapperspb.UInt64(window.Uint64()),
-	}, nil
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.registryContract.ParseBidderWithdrawal(*log); err == nil {
+			s.logger.Info("withdrawal successful", "amount", withdrawal.Amount.String(), "window", withdrawal.Window.String())
+			return &bidderapiv1.WithdrawResponse{
+				Amount:       withdrawal.Amount.String(),
+				WindowNumber: wrapperspb.UInt64(withdrawal.Window.Uint64()),
+			}, nil
+		}
+	}
+
+	s.logger.Error(
+		"withdraw successful but missing log",
+		"txHash", receipt.TxHash.Hex(),
+		"window", window.Uint64(),
+		"logs", receipt.Logs,
+	)
+
+	return nil, status.Errorf(codes.Internal, "missing log for withdrawal")
 }

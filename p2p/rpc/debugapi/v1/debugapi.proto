@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package debugapi.v1;
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+import "buf/validate/validate.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Debug API";
+    version: "1.0.0-alpha";
+    license: {
+      name: "Business Source License 1.1";
+      url: "https://github.com/primev/mev-commit/blob/main/LICENSE";
+    };
+  };
+};
+
+service DebugService {
+  // GetTopology
+  //
+  // GetTopology is called by the user to get the topology of the node. The topology
+  // includes connectivity information about the node.
+  rpc GetTopology(EmptyMessage) returns (TopologyResponse) {
+    option (google.api.http) = {get: "/v1/debug/topology"};
+  }
+  // GetPendingTransactions
+  //
+  // GetPendingTransactions is called by the provider to get the pending transactions for the wallet.
+  rpc GetPendingTransactions(EmptyMessage) returns (PendingTransactionsResponse) {
+    option (google.api.http) = {get: "/v1/debug/pending_transactions"};
+  }
+  // CancelTransaction
+  //
+  // CancelTransaction is called by the provider to cancel a transaction sent from this wallet.
+  rpc CancelTransaction(CancelTransactionReq) returns (CancelTransactionResponse) {
+    option (google.api.http) = {post: "/v1/debug/cancel_transaction/{tx_hash}"};
+  }
+}
+
+message EmptyMessage {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Empty message"
+      description: "Empty message for requests that do not require any parameters."
+    }
+  };
+};
+
+message TopologyResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Topology"
+      description: "Topology of the node."
+      required: ["topology"]
+    }
+  };
+  google.protobuf.Struct topology = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Topology of the node."
+  }];
+};
+
+message PendingTransactionsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Pending transactions list"
+      description: "Transaction info returned by the provider."
+      required: ["pendingTransactions"]
+    }
+  };
+  repeated TransactionInfo pending_transactions = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "List of pending transactions in the provider provider_registry."
+  }];
+};
+
+message TransactionInfo {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Transaction info"
+      description: "Transaction info returned by the provider."
+      required: ["txHash", "nonce", "created"]
+    }
+    example: "{\"txHash\": \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\", \"nonce\": 1234, \"created\": \"2009-11-10 23:00:00 +0000 UTC m=+0.000000001\"}"
+  };
+  string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hash of the transaction that the bidder wants to include in the block."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
+  int64 nonce = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Nonce used for the transaction."
+  }];
+  string created = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Time when the transaction was created."
+  }];
+};
+
+message CancelTransactionReq {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Cancel request"
+      description: "Cancel transaction request message from bidders to the provider."
+      required: ["txHash"]
+    }
+    example: "{\"txHash\": \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"}"
+  };
+  string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hash of the transaction that the bidder wants to cancel."
+    pattern: "[a-fA-F0-9]{64}"
+  }, (buf.validate.field).cel = {
+      id: "tx_hash",
+      message: "tx_hash must be a 64-character hex string",
+      expression: "this.matches('^[a-fA-F0-9]{64}$')"
+  }];
+};
+
+message CancelTransactionResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Cancel response"
+      description: "Hash of the cancellation transaction request."
+      required: ["txHash"]
+    }
+    example: "{\"txHash\": \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"}"
+  };
+  string tx_hash = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Hex string encoding of the hash of the transaction that the bidder wants to cancel."
+    pattern: "[a-fA-F0-9]{64}"
+  }];
+};

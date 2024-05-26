@@ -64,8 +64,8 @@ job "{{ job.name }}" {
               fi
           done
 
-          TOPOLOGY=$(curl -s https://{{ .Address }}:{{ .Port }}/topology)
-          ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.self["Ethereum Address"]')
+          TOPOLOGY=$(curl -s https://{{ .Address }}:{{ .Port }}/v1/debug/topology)
+          ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
 
             {{- range nomadService "mev-commit-geth-bootnode1" }}
               {{- if contains "http" .Tags }}

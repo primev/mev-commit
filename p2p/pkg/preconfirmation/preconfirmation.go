@@ -7,7 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
@@ -25,7 +27,6 @@ const (
 )
 
 type Preconfirmation struct {
-	owner        common.Address
 	encryptor    encryptor.Encryptor
 	topo         Topology
 	streamer     p2p.Streamer
@@ -33,9 +34,12 @@ type Preconfirmation struct {
 	processer    BidProcessor
 	commitmentDA PreconfContract
 	tracker      Tracker
+	optsGetter   OptsGetter
 	logger       *slog.Logger
 	metrics      *metrics
 }
+
+type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type Topology interface {
 	GetPeers(topology.Query) []p2p.Peer
@@ -60,15 +64,14 @@ type Tracker interface {
 
 type PreconfContract interface {
 	StoreEncryptedCommitment(
-		ctx context.Context,
-		commitmentDigest []byte,
+		opts *bind.TransactOpts,
+		commitmentDigest [32]byte,
 		commitmentSignature []byte,
 		dispatchTimestamp uint64,
-	) (common.Hash, error)
+	) (*types.Transaction, error)
 }
 
 func New(
-	owner common.Address,
 	topo Topology,
 	streamer p2p.Streamer,
 	encryptor encryptor.Encryptor,
@@ -76,10 +79,10 @@ func New(
 	processor BidProcessor,
 	commitmentDA PreconfContract,
 	tracker Tracker,
+	optsGetter OptsGetter,
 	logger *slog.Logger,
 ) *Preconfirmation {
 	return &Preconfirmation{
-		owner:        owner,
 		topo:         topo,
 		streamer:     streamer,
 		encryptor:    encryptor,
@@ -87,6 +90,7 @@ func New(
 		processer:    processor,
 		commitmentDA: commitmentDA,
 		tracker:      tracker,
+		optsGetter:   optsGetter,
 		logger:       logger,
 		metrics:      newMetrics(),
 	}
@@ -307,9 +311,17 @@ func (p *Preconfirmation) handleBid(
 			if err != nil {
 				return status.Errorf(codes.Internal, "failed to send preconfirmation: %v", err)
 			}
-			txnHash, err := p.commitmentDA.StoreEncryptedCommitment(
-				ctx,
-				encryptedPreConfirmation.Commitment,
+			var commitmentDigest [32]byte
+			copy(commitmentDigest[:], encryptedPreConfirmation.Commitment)
+
+			opts, err := p.optsGetter(ctx)
+			if err != nil {
+				return status.Errorf(codes.Internal, "failed to get transact opts: %v", err)
+			}
+
+			txn, err := p.commitmentDA.StoreEncryptedCommitment(
+				opts,
+				commitmentDigest,
 				encryptedPreConfirmation.Signature,
 				uint64(st.DispatchTimestamp),
 			)
@@ -319,7 +331,7 @@ func (p *Preconfirmation) handleBid(
 			}
 
 			encryptedAndDecryptedPreconfirmation := &store.EncryptedPreConfirmationWithDecrypted{
-				TxnHash:                  txnHash,
+				TxnHash:                  txn.Hash(),
 				EncryptedPreConfirmation: encryptedPreConfirmation,
 				PreConfirmation:          preConfirmation,
 			}

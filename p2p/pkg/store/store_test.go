@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdh"
 	"crypto/rand"
 	"math/big"
@@ -273,6 +274,49 @@ func TestStore(t *testing.T) {
 		}
 		if retrievedKey != nil {
 			t.Fatalf("expected nil, got %x", retrievedKey.Bytes())
+		}
+	})
+
+	t.Run("txns", func(t *testing.T) {
+		for i := 1; i <= 10; i++ {
+			txHash := common.BigToHash(big.NewInt(int64(i)))
+			err := st.Save(context.Background(), txHash, uint64(i))
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		txns, err := st.PendingTxns()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(txns) != 10 {
+			t.Fatalf("expected 10, got %d", len(txns))
+		}
+
+		for i := 1; i <= 10; i++ {
+			txHash := common.BigToHash(big.NewInt(int64(i)))
+			if txns[i-1].Hash.Cmp(txHash) != 0 {
+				t.Fatalf("expected %s, got %s", txHash, txns[i-1].Hash)
+			}
+		}
+
+		for i := 1; i <= 10; i++ {
+			txHash := common.BigToHash(big.NewInt(int64(i)))
+			err := st.Update(context.Background(), txHash, "status")
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		txns, err = st.PendingTxns()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(txns) != 0 {
+			t.Fatalf("expected 0, got %d", len(txns))
 		}
 	})
 }
