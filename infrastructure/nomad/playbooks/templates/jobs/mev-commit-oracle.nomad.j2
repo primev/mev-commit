@@ -116,7 +116,7 @@ job "{{ job.name }}" {
       }
 
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/keystore-generator_{{ version }}_Linux_x86_64.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/contracts_{{ version }}.tar.gz"
       }
 
       template {
@@ -137,9 +137,8 @@ job "{{ job.name }}" {
           MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '20') }}"
           MEV_ORACLE_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           {%- raw %}
-          # MEV_ORACLE_KEYSTORE_PATH="/local/data-{{env "NOMAD_ALLOC_INDEX"}}/keystore"
-          # MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_keystore_password }}{{ end }}"
-          MEV_ORACLE_PRIV_KEY_FILE = "/local/data-{{env "NOMAD_ALLOC_INDEX"}}/priv-key"
+          MEV_ORACLE_KEYSTORE_PATH="/local/data-{{env "NOMAD_ALLOC_INDEX"}}/keystore"
+          MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_keystore_password }}{{ end }}"
           {{- range nomadService "mev-commit-oracle" }}
             {{- if contains "http" .Tags }}
           MEV_ORACLE_HTTP_PORT="{{ .Port }}"
@@ -170,18 +169,6 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
-          {%- raw %}
-          {{- with secret "secret/data/mev-commit" }}
-          {{- .Data.data.oracle_private_key }}
-          {{- end }}
-          {% endraw %}
-        EOH
-        destination = "${MEV_ORACLE_PRIV_KEY_FILE}"
-        perms = "0755"
-      }
-
-      template {
-        data = <<-EOH
           #!/usr/bin/env bash
           {%- raw %}
           {{- range nomadService "mev-commit-provider-node1" }}
@@ -203,16 +190,10 @@ job "{{ job.name }}" {
 
           if [ ! -d "${MEV_ORACLE_KEYSTORE_PATH}" ]; then
             mkdir -p "${MEV_ORACLE_KEYSTORE_PATH}" > /dev/null 2>&1
-            chmod +x local/keystore-generator
-            local/keystore-generator generate \
-              --keystore-dir "${MEV_ORACLE_KEYSTORE_PATH}" \
-              --passphrase "${MEV_ORACLE_KEYSTORE_PASSWORD}"
+            mv local/contracts/deployer_keystore/* "${MEV_ORACLE_KEYSTORE_PATH}/"
+            rm -rf local/contracts
           fi
 
-          mkdir -p $(dirname "${MEV_ORACLE_PRIV_KEY_FILE}") > /dev/null 2>&1
-          {%- raw %}
-          echo {{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_private_key }}{{ end }} > ${MEV_ORACLE_PRIV_KEY_FILE}
-          {% endraw %}
           chmod +x local/mev-commit-oracle
           local/mev-commit-oracle start
         EOH
