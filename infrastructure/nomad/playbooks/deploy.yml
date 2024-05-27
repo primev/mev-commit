@@ -28,6 +28,7 @@
       amazon.aws.aws_caller_info:
       register: aws_caller_info
       delegate_to: localhost
+      run_once: true
       become: true
       become_user: "{{ lookup('env', 'USER') }}"
       when: version is not defined or version == ''
@@ -67,6 +68,7 @@
         executable: bash
       register: artifacts_build_version
       delegate_to: localhost
+      run_once: true
       changed_when: false
       when: version is not defined or version == ''
 
@@ -138,6 +140,7 @@
       loop_control:
         label: "{{ item }}"
       delegate_to: localhost
+      run_once: true
       when: build_artifacts
 
     - name: Filter Artifacts for Upload
@@ -147,6 +150,7 @@
         recurse: yes
       register: artifacts
       delegate_to: localhost
+      run_once: true
       when: build_artifacts
 
     - name: Upload Artifacts to AWS S3
@@ -160,14 +164,16 @@
       loop: "{{ artifacts.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
-      when: (artifacts.files | default([])) | length > 0 and build_artifacts
       delegate_to: localhost
+      run_once: true
+      when: (artifacts.files | default([])) | length > 0 and build_artifacts
 
     - name: Cleanup Artifacts
       ansible.builtin.file:
         path: "/tmp/dist"
         state: absent
       delegate_to: localhost
+      run_once: true
       when: build_artifacts
 
     - name: Delete "version.txt"
@@ -202,7 +208,26 @@
     - name: Deploy Jobs
       ansible.builtin.shell: |
         nomad run {{ ansible_env.HOME }}/{{ profile }}/{{ job.name }}.nomad
-        [ "{{ job.name }}" = "deploy-contracts" ] && sleep 240 || true
+        JOB_TYPE=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].JobType')
+        if [ "${JOB_TYPE}" = "batch" ]; then
+          TIMEOUT=300
+          START_TIME=$(date +%s)
+
+          while true; do
+            STATUS=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].ClientStatus')
+            case "${STATUS}" in
+              complete|dead|failed|stopped)
+              break
+              ;;
+            esac
+
+            CURRENT_TIME="$(date +%s)"
+            ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
+            [ ${ELAPSED_TIME} -ge ${TIMEOUT} ] && exit 1
+
+            sleep 1
+          done
+        fi
       args:
         executable: bash
       loop: "{{ jobs }}"

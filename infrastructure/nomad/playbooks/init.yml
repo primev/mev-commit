@@ -73,6 +73,7 @@
       amazon.aws.aws_caller_info:
       register: aws_caller_info
       delegate_to: localhost
+      run_once: true
       become: true
       become_user: "{{ lookup('env', 'USER') }}"
 
@@ -270,6 +271,7 @@
         mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', 'devnet/' ~ vault_secret_path) }}"
       when: unseal_result.json.sealed == false
       delegate_to: localhost
+      run_once: true
       no_log: true
 
     - name: Enable KV Secrets Engine
