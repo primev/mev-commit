@@ -28,7 +28,9 @@ on:
         type: choice
         options:
           - lax
-          - bue
+          - nyc
+          - bue1
+          - bue2
         default: 'lax'
 
 permissions:
