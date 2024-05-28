@@ -34,6 +34,10 @@ import (
 
 var defaultMetricsNamespace = "mev_commit_oracle"
 
+func init() {
+	setupMetricsNamespace(defaultMetricsNamespace)
+}
+
 type Options struct {
 	Logger                       *slog.Logger
 	KeySigner                    keysigner.KeySigner
@@ -235,8 +239,6 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 
 	httpPubDone := httpPub.Start(ctx, contractAddrs...)
-
-	setupMetricsNamespace(defaultMetricsNamespace)
 
 	srv.RegisterMetricsCollectors(l1Lis.Metrics()...)
 	srv.RegisterMetricsCollectors(updtr.Metrics()...)
