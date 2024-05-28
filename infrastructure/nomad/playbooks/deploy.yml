@@ -120,7 +120,7 @@
         if [ "{{ item }}" == "contracts" ]; then
           tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
         elif [ "{{ item }}" == "infrastructure/faucet" ]; then
-          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" ./{{ item }}
+          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./infrastructure/faucet .
         else
           goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
           mv ./dist/* ${DESTINATION_DIR}
