@@ -325,6 +325,8 @@ func (p *Preconfirmation) handleBid(
 				encryptedPreConfirmation.Signature,
 				uint64(st.DispatchTimestamp),
 			)
+
+			p.logger.Info("storing preconfirmation", "txn", txn.Hash())
 			if err != nil {
 				p.logger.Error("storing commitment", "error", err)
 				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
