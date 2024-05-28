@@ -1,0 +1,62 @@
+job "eth-faucet" {
+  datacenters = ["dc1"]
+
+  group "eth-faucet-group" {
+    count = 1
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = ["1.1.1.1"]
+      }
+
+      port "http" {
+        static = 8080
+      }
+    }
+
+    task "eth-faucet" {
+      driver = "exec"
+
+      service {
+        name = "eth-faucet"
+        port = "http"
+        tags = ["http"]
+        provider = "nomad"
+      }
+
+      artifact {
+        source = "https://github.com/chainflag/eth-faucet/releases/download/v1.1.0/eth-faucet_1.1.0_Linux_x86_64.tar.gz"
+        destination = "local/eth-faucet"
+      }
+
+      # TODO: keystores should not be committed to public repo
+      artifact {
+        source = "https://raw.githubusercontent.com/primev/mev-commit/99ff8ae7af7498e2bb6bf666f2e5fd6bba272335/infrastructure/faucet/UTC--2024-05-28T06-17-56.991113000Z--9a5a8ebd13951c8500c728c1982317a503b3e8ce"
+        destination = "local/eth-faucet/keystore"
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+          # TODO: Use url of locally running chain
+          export RPC_URL="https://chainrpc.testnet.mev-commit.xyz/"
+          export KEYSTORE="keystore/UTC--2024-05-28T06-17-56.991113000Z--9a5a8ebd13951c8500c728c1982317a503b3e8ce"
+          cd local/eth-faucet
+          # TODO: Use password from aws secrets
+          echo "pwd" > password.txt
+          chmod +x eth-faucet
+          ./eth-faucet --wallet.keyjson $KEYSTORE --wallet.keypass password.txt --wallet.provider $RPC_URL
+        EOH
+        destination = "local/run.sh"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "local/run.sh"]
+      }
+    }
+  }
+}
