@@ -370,6 +370,7 @@ start_service() {
             start_oracle "$datadog_key"
             ;;
         "sl")
+            initialize_environment
             start_settlement_layer "$datadog_key"
             ;;
         "hyperlane")
