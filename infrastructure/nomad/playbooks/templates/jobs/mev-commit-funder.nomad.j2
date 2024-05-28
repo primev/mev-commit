@@ -78,22 +78,6 @@ job "{{ job.name }}" {
               {{- end }}
             {{- end }}
           {% endraw %}
-
-          {% if job.target_type == 'provider' %}
-          if ! curl -s -X POST https://{% raw %}{{ .Address }}:{{ .Port }}{% endraw %}/v1/provider/register_stake/10000000000000000000 > /dev/null; then
-          {% elif job.target_type == 'bidder' %}
-          if ! curl -s -X POST https://{% raw %}{{ .Address }}:{{ .Port }}{% endraw %}/v1/bidder/prepay/1000000000000000000 > /dev/null; then
-          {% else %}
-          echo "Invalid target type: {{ job.target_type }}"
-          exit 1
-          {% endif %}
-            echo "Failed to send {{ job.target_type }} transaction."
-            exit 1
-          fi
-          {%- raw %}
-            {{- end }}
-          {{- end }}
-          {% endraw %}
         EOH
         destination = "local/run.sh"
         perms = "0755"
