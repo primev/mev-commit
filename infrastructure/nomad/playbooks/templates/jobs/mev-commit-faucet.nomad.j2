@@ -10,9 +10,8 @@ job "eth-faucet" {
       dns {
         servers = ["1.1.1.1"]
       }
-      # TODO: Figure out which job already uses 8080
       port "http" {
-        static = 8080
+        static = 80
       }
     }
 
@@ -39,8 +38,11 @@ job "eth-faucet" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
-          # TODO: Use url of locally running chain
-          export RPC_URL="https://chainrpc.testnet.mev-commit.xyz/"
+          {{- range nomadService "mev-commit-geth-bootnode1" }}
+            {{- if contains "http" .Tags }}
+          RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
           cd eth-faucet
           KEYSTORE_FILE=$(ls | grep -E '^UTC--.*--.*$')
           if [ -z "$KEYSTORE_FILE" ]; then
@@ -50,7 +52,7 @@ job "eth-faucet" {
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}"
           echo $KEYSTORE_PASSWORD > password.txt
           chmod +x eth-faucet
-          ./eth-faucet --wallet.keyjson $KEYSTORE_FILE --wallet.keypass password.txt --wallet.provider $RPC_URL
+          ./eth-faucet --httpport 80 --wallet.keyjson $KEYSTORE_FILE --wallet.keypass password.txt --wallet.provider $RPC_URL
         EOH
         destination = "local/run.sh"
         perms = "0755"
