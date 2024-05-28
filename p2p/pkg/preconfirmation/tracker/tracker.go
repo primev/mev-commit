@@ -16,6 +16,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -30,6 +31,7 @@ type Tracker struct {
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
 	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
+	metrics         *metrics
 	logger          *slog.Logger
 }
 
@@ -78,6 +80,7 @@ func NewTracker(
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
 		winners:         make(map[int64]*blocktracker.BlocktrackerNewL1Block),
+		metrics:         newMetrics(),
 		logger:          logger,
 	}
 }
@@ -173,6 +176,10 @@ func (t *Tracker) TrackCommitment(
 ) error {
 	t.store.AddCommitment(commitment)
 	return nil
+}
+
+func (t *Tracker) Metrics() []prometheus.Collector {
+	return t.metrics.Metrics()
 }
 
 func (t *Tracker) handleNewL1Block(
@@ -272,12 +279,17 @@ func (t *Tracker) handleNewL1Block(
 		return err
 	}
 
+	openDuration := time.Since(openStart)
+	t.metrics.totalCommitmentsToOpen.Add(float64(len(commitments)))
+	t.metrics.totalOpenedCommitments.Add(float64(settled))
+	t.metrics.blockCommitmentProcessTime.Set(float64(openDuration))
+
 	t.logger.Info("commitments opened",
 		"blockNumber", blockToProcess,
 		"total", len(commitments),
 		"settled", settled,
 		"failed", len(failedCommitments),
-		"duration", time.Since(openStart),
+		"duration", openDuration,
 	)
 
 	if len(failedCommitments) > 0 {
@@ -301,6 +313,7 @@ func (t *Tracker) handleEncryptedCommitmentStored(
 	ctx context.Context,
 	ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored,
 ) error {
+	t.metrics.totalEncryptedCommitments.Inc()
 	return t.store.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
 }
 

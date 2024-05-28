@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
+const txnRetriesLimit = 3
+
 // Watcher is an interface that is used to manage the lifecycle of a transaction.
 // The Allow method is used to determine if a transaction should be sent. The context
 // is passed to the method so that the watcher can determine this based on the context.
@@ -95,7 +97,7 @@ retry:
 	if err := t.ContractTransactor.SendTransaction(cctx, tx); err != nil {
 		if err == context.DeadlineExceeded {
 			tries++
-			if tries < 3 {
+			if tries <= txnRetriesLimit {
 				// If the transaction fails due to a timeout, we can retry it.
 				delay *= 2
 				retryTimer := time.NewTimer(delay)

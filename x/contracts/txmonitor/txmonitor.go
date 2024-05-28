@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -62,6 +63,7 @@ type Monitor struct {
 	logger             *slog.Logger
 	lastConfirmedNonce atomic.Uint64
 	maxPendingTxs      uint64
+	metrics            *metrics
 }
 
 func New(
@@ -82,6 +84,7 @@ func New(
 		helper:        helper,
 		saver:         saver,
 		maxPendingTxs: maxPendingTxs,
+		metrics:       newMetrics(),
 		waitMap:       make(map[uint64]map[common.Hash][]chan Result),
 		newTxAdded:    make(chan struct{}),
 		nonceUpdate:   make(chan struct{}),
@@ -89,6 +92,10 @@ func New(
 	}
 
 	return m
+}
+
+func (m *Monitor) Metrics() []prometheus.Collector {
+	return m.metrics.Metrics()
 }
 
 func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
@@ -148,6 +155,7 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 			}
 
 			m.lastConfirmedNonce.Store(lastNonce)
+			m.metrics.lastConfirmedNonce.Set(float64(lastNonce))
 			m.triggerNonceUpdate()
 
 			select {
@@ -200,6 +208,11 @@ func (m *Monitor) Sent(ctx context.Context, tx *types.Transaction) {
 	if err := m.saver.Save(ctx, tx.Hash(), tx.Nonce()); err != nil {
 		m.logger.Error("failed to save transaction", "err", err)
 	}
+
+	m.metrics.lastUsedNonce.Set(float64(tx.Nonce()))
+	m.metrics.lastUsedGas.Set(float64(tx.Gas()))
+	m.metrics.lastUsedGasPrice.Set(float64(tx.GasPrice().Int64()))
+	m.metrics.lastUsedGasTip.Set(float64(tx.GasTipCap().Int64()))
 
 	res := m.WatchTx(tx.Hash(), tx.Nonce())
 	go func() {
