@@ -119,6 +119,8 @@
         mkdir -p ${DESTINATION_DIR}
         if [ "{{ item }}" == "contracts" ]; then
           tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
+        elif [ "{{ item }}" == "infrastructure/faucet" ]; then
+          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" ./{{ item }}
         else
           goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
           mv ./dist/* ${DESTINATION_DIR}
@@ -147,7 +149,7 @@
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
         paths: "/tmp/dist"
-        patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt,*9a5a8ebd13951c8500c728c1982317a503b3e8ce"
+        patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt,faucet_keystore_{{ version }}.tar.gz"
         recurse: yes
       register: artifacts
       delegate_to: localhost

@@ -32,7 +32,8 @@ job "eth-faucet" {
       }
 
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/UTC--2024-05-28T06-17-56.991113000Z--9a5a8ebd13951c8500c728c1982317a503b3e8ce"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/faucet_keystore_{{ version }}.tar.gz"
+        destination = "eth-faucet"
       }
 
       template {
@@ -40,12 +41,16 @@ job "eth-faucet" {
           #!/usr/bin/env bash
           # TODO: Use url of locally running chain
           export RPC_URL="https://chainrpc.testnet.mev-commit.xyz/"
-          export KEYSTORE="UTC--2024-05-28T06-17-56.991113000Z--9a5a8ebd13951c8500c728c1982317a503b3e8ce"
           cd eth-faucet
+          KEYSTORE_FILE=$(ls | grep -E '^UTC--.*--.*$')
+          if [ -z "$KEYSTORE_FILE" ]; then
+            echo "Keystore file not found"
+            exit 1
+          fi
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}"
           echo $KEYSTORE_PASSWORD > password.txt
           chmod +x eth-faucet
-          ./eth-faucet --wallet.keyjson $KEYSTORE --wallet.keypass password.txt --wallet.provider $RPC_URL
+          ./eth-faucet --wallet.keyjson $KEYSTORE_FILE --wallet.keypass password.txt --wallet.provider $RPC_URL
         EOH
         destination = "local/run.sh"
         perms = "0755"
