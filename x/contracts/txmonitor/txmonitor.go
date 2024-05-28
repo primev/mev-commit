@@ -225,6 +225,11 @@ func (m *Monitor) Sent(ctx context.Context, tx *types.Transaction) {
 		if err := m.saver.Update(context.Background(), tx.Hash(), status); err != nil {
 			m.logger.Error("failed to update transaction", "err", err)
 		}
+		m.logger.Debug("transaction status",
+			"txHash", tx.Hash(),
+			"status", status,
+			"receipt", r.Receipt,
+		)
 	}()
 }
 
