@@ -63,17 +63,6 @@ jobs:
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> ${GITHUB_ENV}
           echo "TARGET_MACHINE_IP=${TARGET_MACHINE_IP}" >> ${GITHUB_ENV}
 
-#      - name: Check User Permissions
-#        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
-#        run: |
-#          USERNAME="${{ github.actor }}"
-#          ORG_NAME="${{ github.repository_owner }}"
-#          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/orgs/${ORG_NAME}/members/${USERNAME})
-#          if [ "${RESPONSE}" != "204" ]; then
-#            echo "User ${USERNAME} is not a member of the ${ORG_NAME} organization."
-#            exit 1
-#          fi
-
       - name: Notify Channel - Deployment Initialized
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
         run: |
@@ -172,15 +161,13 @@ jobs:
           ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} --debug
         working-directory: infrastructure/nomad
 
-      - name: Destroy Cluster
-        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' }}
-        run: |
-          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} --debug
-        working-directory: infrastructure/nomad
-
       - name: Notify Channel - Deployment Successful
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
         run: |
+          END_TIME=$(date +%s)
+          START_TIME=$(date +%s -r /proc/$(pgrep -o -x "runner")/stat)
+          DURATION=$((END_TIME - START_TIME))
+          DURATION_STRING=$(date -ud "@$DURATION" +'%H:%M:%S')
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PAYLOAD=$(cat <<-EOH
           {
@@ -194,6 +181,11 @@ jobs:
                     "value": "<${WORKFLOW_URL}|View Workflow Run>",
                     "short": false
                   },
+                  {
+                    "title": "Deployment Duration",
+                    "value": "${DURATION_STRING}",
+                    "short": false
+                  }
                 ]
               }
             ]

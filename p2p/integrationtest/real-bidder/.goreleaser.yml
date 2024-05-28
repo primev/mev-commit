@@ -1,6 +1,7 @@
 version: 1
 
 project_name: bidder-emulator
+dist: /tmp/goreleaser/bidder-emulator
 
 builds:
   - env:

@@ -213,7 +213,7 @@ parse_args() {
 main() {
     check_deps
     parse_args "$@"
-    rm -rf /tmp/dist &> /dev/null
+    rm -rf /tmp/goreleaser &> /dev/null
 
     local playbook="playbooks/"
     local flags=("--extra-vars" "profile=${profile_name}")
