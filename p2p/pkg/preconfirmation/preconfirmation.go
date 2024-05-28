@@ -132,8 +132,8 @@ func (p *Preconfirmation) SendBid(
 		p.logger.Error("constructing encrypted bid", "error", err, "txHash", txHash)
 		return nil, err
 	}
-	duration := time.Since(startTime)
-	p.logger.Info("constructed encrypted bid", "encryptedBid", encryptedBid, "duration", duration)
+	duration := time.Since(startTime).Seconds()
+	p.metrics.BidConstructDurationSummary.Observe(duration)
 
 	providers := p.topo.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
 	if len(providers) == 0 {
@@ -162,8 +162,6 @@ func (p *Preconfirmation) SendBid(
 				logger.Error("creating stream", "error", err)
 				return
 			}
-
-			logger.Info("sending encrypted bid", "encryptedBid", encryptedBid)
 
 			err = providerStream.WriteMsg(ctx, encryptedBid)
 			if err != nil {
@@ -195,8 +193,8 @@ func (p *Preconfirmation) SendBid(
 				logger.Error("verifying provider signature", "error", err)
 				return
 			}
-			verifyDuration := time.Since(verifyStartTime)
-			logger.Info("verified encrypted preconfirmation", "duration", verifyDuration)
+			verifyDuration := time.Since(verifyStartTime).Seconds()
+			p.metrics.VerifyPreconfDurationSummary.Observe(verifyDuration)
 
 			preConfirmation := &preconfpb.PreConfirmation{
 				Bid:          bid,
@@ -213,7 +211,6 @@ func (p *Preconfirmation) SendBid(
 				PreConfirmation:          preConfirmation,
 			}
 
-			logger.Info("received preconfirmation", "preConfirmation", preConfirmation)
 			p.metrics.ReceivedPreconfsCount.Inc()
 			// Track the preconfirmation
 			if err := p.tracker.TrackCommitment(ctx, encryptedAndDecryptedPreconfirmation); err != nil {
@@ -257,7 +254,6 @@ func (p *Preconfirmation) handleBid(
 		return err
 	}
 
-	p.logger.Info("received bid", "encryptedBid", encryptedBid)
 	bid, err := p.encryptor.DecryptBidData(peer.EthAddress, encryptedBid)
 	if err != nil {
 		return err
@@ -301,12 +297,14 @@ func (p *Preconfirmation) handleBid(
 		case providerapiv1.BidResponse_STATUS_REJECTED:
 			return status.Errorf(codes.Internal, "bid rejected")
 		case providerapiv1.BidResponse_STATUS_ACCEPTED:
+			constructStartTime := time.Now()
 			preConfirmation, encryptedPreConfirmation, err := p.encryptor.ConstructEncryptedPreConfirmation(bid)
 			if err != nil {
 				return status.Errorf(codes.Internal, "failed to constuct encrypted preconfirmation: %v", err)
 			}
+			constructDuration := time.Since(constructStartTime).Seconds()
+			p.metrics.ConstructPreconfDurationSummary.Observe(constructDuration)
 
-			p.logger.Info("sending preconfirmation", "preConfirmation", encryptedPreConfirmation)
 			err = stream.WriteMsg(ctx, encryptedPreConfirmation)
 			if err != nil {
 				return status.Errorf(codes.Internal, "failed to send preconfirmation: %v", err)
