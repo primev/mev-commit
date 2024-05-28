@@ -12,8 +12,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var Namespace = "mev_commit"
+
 type metricsWrapper struct {
-	bind.ContractTransactor
+	bind.ContractBackend
 
 	methodSuccessDurations *prometheus.GaugeVec
 	methodErrorDurations   *prometheus.GaugeVec
@@ -21,29 +23,29 @@ type metricsWrapper struct {
 	methodErrorCounts      *prometheus.CounterVec
 }
 
-func NewMetricsWrapper(t bind.ContractTransactor) *metricsWrapper {
+func NewMetricsWrapper(t bind.ContractBackend) *metricsWrapper {
 	return &metricsWrapper{
-		ContractTransactor: t,
+		ContractBackend: t,
 		methodSuccessDurations: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: "mev_commit",
+			Namespace: Namespace,
 			Subsystem: "transactor",
 			Name:      "method_success_durations",
 			Help:      "Duration of successful method calls",
 		}, []string{"method"}),
 		methodErrorDurations: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: "mev_commit",
+			Namespace: Namespace,
 			Subsystem: "transactor",
 			Name:      "method_error_durations",
 			Help:      "Duration of errored method calls",
 		}, []string{"method"}),
 		methodSuccessCounts: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "mev_commit",
+			Namespace: Namespace,
 			Subsystem: "transactor",
 			Name:      "method_success_counts",
 			Help:      "Count of successful method calls",
 		}, []string{"method"}),
 		methodErrorCounts: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "mev_commit",
+			Namespace: Namespace,
 			Subsystem: "transactor",
 			Name:      "method_error_counts",
 			Help:      "Count of errored method calls",
@@ -60,7 +62,7 @@ func (m *metricsWrapper) Metrics() []prometheus.Collector {
 	}
 }
 
-func (m *metricsWrapper) recordTime(start time.Time, label string, err error) {
+func (m *metricsWrapper) recordMetrics(start time.Time, label string, err error) {
 	if err != nil {
 		m.methodErrorDurations.WithLabelValues(label).Set(float64(time.Since(start)))
 		m.methodErrorCounts.WithLabelValues(label).Inc()
@@ -72,31 +74,31 @@ func (m *metricsWrapper) recordTime(start time.Time, label string, err error) {
 }
 
 func (m *metricsWrapper) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
-	defer func(start time.Time) { m.recordTime(start, "PendingNonceAt", err) }(time.Now())
+	defer func(start time.Time) { m.recordMetrics(start, "PendingNonceAt", err) }(time.Now())
 
-	return m.ContractTransactor.PendingNonceAt(ctx, account)
+	return m.ContractBackend.PendingNonceAt(ctx, account)
 }
 
 func (m *metricsWrapper) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
-	defer func(start time.Time) { m.recordTime(start, "EstimateGas", err) }(time.Now())
+	defer func(start time.Time) { m.recordMetrics(start, "EstimateGas", err) }(time.Now())
 
-	return m.ContractTransactor.EstimateGas(ctx, call)
+	return m.ContractBackend.EstimateGas(ctx, call)
 }
 
 func (m *metricsWrapper) SuggestGasPrice(ctx context.Context) (gas *big.Int, err error) {
-	defer func(start time.Time) { m.recordTime(start, "SuggestGasPrice", err) }(time.Now())
+	defer func(start time.Time) { m.recordMetrics(start, "SuggestGasPrice", err) }(time.Now())
 
-	return m.ContractTransactor.SuggestGasPrice(ctx)
+	return m.ContractBackend.SuggestGasPrice(ctx)
 }
 
 func (m *metricsWrapper) SuggestGasTipCap(ctx context.Context) (tip *big.Int, err error) {
-	defer func(start time.Time) { m.recordTime(start, "SuggestGasTipCap", err) }(time.Now())
+	defer func(start time.Time) { m.recordMetrics(start, "SuggestGasTipCap", err) }(time.Now())
 
-	return m.ContractTransactor.SuggestGasTipCap(ctx)
+	return m.ContractBackend.SuggestGasTipCap(ctx)
 }
 
 func (m *metricsWrapper) SendTransaction(ctx context.Context, tx *types.Transaction) (err error) {
-	defer func(start time.Time) { m.recordTime(start, "SendTransaction", err) }(time.Now())
+	defer func(start time.Time) { m.recordMetrics(start, "SendTransaction", err) }(time.Now())
 
-	return m.ContractTransactor.SendTransaction(ctx, tx)
+	return m.ContractBackend.SendTransaction(ctx, tx)
 }

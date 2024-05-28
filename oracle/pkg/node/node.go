@@ -32,6 +32,8 @@ import (
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
+var defaultMetricsNamespace = "mev_commit_oracle"
+
 type Options struct {
 	Logger                       *slog.Logger
 	KeySigner                    keysigner.KeySigner
@@ -111,6 +113,7 @@ func NewNode(opts *Options) (*Node, error) {
 		settlementClient,
 		monitor,
 	)
+	settlementRPC := transactor.NewMetricsWrapper(txnMgr)
 
 	contracts, err := getContractABIs(opts)
 	if err != nil {
@@ -148,7 +151,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	blockTracker, err := blocktracker.NewBlocktrackerTransactor(
 		opts.BlockTrackerContractAddr,
-		txnMgr,
+		settlementRPC,
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate block tracker contract", "error", err)
@@ -158,7 +161,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	oracleTransactor, err := rollupclient.NewOracleTransactor(
 		opts.OracleContractAddr,
-		txnMgr,
+		settlementRPC,
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate oracle transactor", "error", err)
@@ -233,8 +236,13 @@ func NewNode(opts *Options) (*Node, error) {
 
 	httpPubDone := httpPub.Start(ctx, contractAddrs...)
 
+	setupMetricsNamespace(defaultMetricsNamespace)
+
 	srv.RegisterMetricsCollectors(l1Lis.Metrics()...)
 	srv.RegisterMetricsCollectors(updtr.Metrics()...)
+	srv.RegisterMetricsCollectors(monitor.Metrics()...)
+	srv.RegisterMetricsCollectors(evtMgr.Metrics()...)
+	srv.RegisterMetricsCollectors(settlementRPC.Metrics()...)
 
 	srvClosed := srv.Start(fmt.Sprintf(":%d", opts.HTTPPort))
 
@@ -394,4 +402,10 @@ func setBuilderMapping(
 	}
 
 	return nil
+}
+
+func setupMetricsNamespace(ns string) {
+	transactor.Namespace = ns
+	txmonitor.Namespace = ns
+	events.Namespace = ns
 }

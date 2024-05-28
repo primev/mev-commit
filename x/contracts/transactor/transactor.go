@@ -20,7 +20,7 @@ type Watcher interface {
 	Sent(ctx context.Context, tx *types.Transaction)
 }
 
-// Transactor is a wrapper around a bind.ContractTransactor that ensures that
+// Transactor is a wrapper around a bind.ContractBackend that ensures that
 // transactions are sent in nonce order and that the nonce is updated correctly.
 // It also uses rate-limiting to ensure that the transactions are sent at a
 // reasonable rate. The Watcher is used to manage the tx lifecycle. It is used to
@@ -34,13 +34,13 @@ type Watcher interface {
 // that the nonce is updated correctly and that the transactions are sent in order. In case
 // of an error, the nonce is put back into the channel so that it can be reused.
 type Transactor struct {
-	bind.ContractTransactor
+	bind.ContractBackend
 	nonceChan chan uint64
 	watcher   Watcher
 }
 
 func NewTransactor(
-	backend bind.ContractTransactor,
+	backend bind.ContractBackend,
 	watcher Watcher,
 ) *Transactor {
 	nonceChan := make(chan uint64, 1)
@@ -49,9 +49,9 @@ func NewTransactor(
 	// get the nonce from the blockchain.
 	nonceChan <- 1
 	return &Transactor{
-		ContractTransactor: backend,
-		watcher:            watcher,
-		nonceChan:          nonceChan,
+		ContractBackend: backend,
+		watcher:         watcher,
+		nonceChan:       nonceChan,
 	}
 }
 
@@ -60,7 +60,7 @@ func (t *Transactor) PendingNonceAt(ctx context.Context, account common.Address)
 	case <-ctx.Done():
 		return 0, ctx.Err()
 	case nonce := <-t.nonceChan:
-		pendingNonce, err := t.ContractTransactor.PendingNonceAt(ctx, account)
+		pendingNonce, err := t.ContractBackend.PendingNonceAt(ctx, account)
 		if err != nil {
 			// this naked write is safe as only the SendTransaction writes to
 			// the channel. The goroutine which is trying to send the transaction
@@ -94,7 +94,7 @@ retry:
 	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if err := t.ContractTransactor.SendTransaction(cctx, tx); err != nil {
+	if err := t.ContractBackend.SendTransaction(cctx, tx); err != nil {
 		if err == context.DeadlineExceeded {
 			tries++
 			if tries <= txnRetriesLimit {
