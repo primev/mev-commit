@@ -27,7 +27,7 @@ on:
         description: 'Target'
         type: choice
         options:
-          - lax
+          - lax1
           - nyc1
           - nyc2
           - mia2
