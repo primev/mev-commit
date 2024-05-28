@@ -30,7 +30,7 @@ type Transaction struct {
 
 func main() {
 	// Replace with your Geth RPC URL
-	rpcURL := "http://69.67.150.157:8545"
+	rpcURL := "http://localhost:8545"
 
 	client, err := rpc.Dial(rpcURL)
 	if err != nil {
