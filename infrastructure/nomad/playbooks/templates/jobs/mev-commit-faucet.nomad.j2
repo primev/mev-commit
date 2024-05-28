@@ -10,7 +10,7 @@ job "eth-faucet" {
       dns {
         servers = ["1.1.1.1"]
       }
-
+      # TODO: Figure out which job already uses 8080
       port "http" {
         static = 8080
       }
