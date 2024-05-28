@@ -137,6 +137,7 @@
         - contracts
         - oracle
         - p2p
+        - infrastructure/faucet
       loop_control:
         label: "{{ item }}"
       delegate_to: localhost
@@ -146,7 +147,7 @@
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
         paths: "/tmp/dist"
-        patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt"
+        patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt,*9a5a8ebd13951c8500c728c1982317a503b3e8ce"
         recurse: yes
       register: artifacts
       delegate_to: localhost
