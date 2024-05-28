@@ -82,6 +82,8 @@ job "{{ job.name }}" {
             {% if job.target_type == 'bidder' %}
             -rpc-addr "${EMULATOR_L1_RPC_URL}" \
             {% endif %}
+            -log-tags "${EMULATOR_LOG_TAGS}" \
+            -log-fmt "${EMULATOR_LOG_FMT}"
         EOH
         destination = "local/run.sh"
         perms = "0755"
