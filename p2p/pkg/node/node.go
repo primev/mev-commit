@@ -268,12 +268,6 @@ func NewNode(opts *Options) (*Node, error) {
 	debugapiv1.RegisterDebugServiceServer(grpcServer, debugService)
 
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
-		preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
-		if err != nil {
-			opts.Logger.Error("failed to create preconf encryptor", "error", err)
-			return nil, errors.Join(err, nd.Close())
-		}
-
 		validator, err := protovalidate.New()
 		if err != nil {
 			opts.Logger.Error("failed to create proto validator", "error", err)
@@ -341,6 +335,11 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.With("component", "depositmanager"),
 			)
 			startables = append(startables, depositMgr.(*depositmanager.DepositManager))
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			if err != nil {
+				opts.Logger.Error("failed to create preconf encryptor", "error", err)
+				return nil, errors.Join(err, nd.Close())
+			}
 			preconfProto := preconfirmation.New(
 				topo,
 				p2pSvc,
@@ -368,6 +367,23 @@ func NewNode(opts *Options) (*Node, error) {
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
 		case p2p.PeerTypeBidder.String():
+			aesKey, err := crypto.GenerateAESKey()
+			if err != nil {
+				opts.Logger.Error("failed to generate AES key", "error", err)
+				return nil, errors.Join(err, nd.Close())
+			}
+			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
+			if err != nil {
+				opts.Logger.Error("failed to set AES key", "error", err)
+				return nil, errors.Join(err, nd.Close())
+			}
+
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			if err != nil {
+				opts.Logger.Error("failed to create preconf encryptor", "error", err)
+				return nil, errors.Join(err, nd.Close())
+			}
+
 			preconfProto := preconfirmation.New(
 				topo,
 				p2pSvc,
@@ -393,17 +409,6 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
-
-			aesKey, err := crypto.GenerateAESKey()
-			if err != nil {
-				opts.Logger.Error("failed to generate AES key", "error", err)
-				return nil, errors.Join(err, nd.Close())
-			}
-			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
-			if err != nil {
-				opts.Logger.Error("failed to set AES key", "error", err)
-				return nil, errors.Join(err, nd.Close())
-			}
 
 			keyexchange := keyexchange.New(
 				topo,
