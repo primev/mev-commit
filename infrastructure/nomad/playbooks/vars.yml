@@ -6,6 +6,7 @@ server_common_name: "mev-commit_{{ profile }}.mev-commit.primev.xyz"
 tls_crt_file: "{{ certificates_dir }}/{{ server_common_name }}.crt"
 tls_key_file: "{{ private_keys_dir }}/{{ server_common_name }}.key"
 tls_ca_crt_file: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
+goreleaser_dist_dir: "/tmp/goreleaser"
 
 profiles:
   ci:
@@ -54,6 +55,24 @@ profiles:
       - "mev-commit-oracle"
       - "datadog-agent-metrics-collector"
       - "mev-commit-faucet"
+
+artifacts:
+  - name: keystore-generator
+    path: infrastructure/tools/keystore-generator
+  - name: real-bidder
+    path: p2p/integrationtest/real-bidder
+  - name: provider
+    path: p2p/integrationtest/provider
+  - name: bridge-v1
+    path: bridge/standard/bridge-v1
+  - name: geth
+    path: external/geth
+  - name: contracts
+    path: contracts
+  - name: oracle
+    path: oracle
+  - name: p2p
+    path: p2p
 
 jobs:
   - name: datadog-agent-logs-collector

@@ -471,6 +471,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
                 blockNumber
             );
 
+            commitmentsCount[commiterAddress] += 1;
+
             emit CommitmentStored(
                 commitmentIndex,
                 bidderAddress,
@@ -528,8 +530,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
         // Store commitment
         encryptedCommitments[commitmentIndex] = newCommitment;
-
-        commitmentsCount[commiterAddress] += 1;
 
         emit EncryptedCommitmentStored(
             commitmentIndex,

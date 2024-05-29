@@ -113,50 +113,56 @@
         mode: "0744"
         recurse: yes
 
-    - name: Build Artifacts
+    - name: Build Artifacts Async
       ansible.builtin.shell: |
-        DESTINATION_DIR="/tmp/dist/{{ item }}-{{ version }}"
-        mkdir -p ${DESTINATION_DIR}
-        if [ "{{ item }}" == "contracts" ]; then
-          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
-        elif [ "{{ item }}" == "infrastructure/artifacts/faucet" ]; then
-          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./{{ item }} .
+        if [ "{{ item.name }}" == "contracts" ]; then
+          DESTINATION_DIR="{{ goreleaser_dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
+          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item.path }}
+        elif [ "{{ item.name }}" == "faucet-keystore" ]; then
+          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./{{ item.path }} .
         else
-          goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
-          mv ./dist/* ${DESTINATION_DIR}
+          goreleaser release --config=./{{ item.path }}/.goreleaser.yml --clean --snapshot
         fi
       environment:
         DIRTY_SUFFIX: "{{ version | regex_search('-.*') | default('') }}"
       args:
         chdir: "{{ playbook_dir }}/../../../"
         executable: bash
-      loop:
-        - infrastructure/tools/keystore-generator
-        - p2p/integrationtest/real-bidder
-        - p2p/integrationtest/provider
-        - bridge/standard/bridge-v1
-        - external/geth
-        - contracts
-        - oracle
-        - p2p
-        - infrastructure/artifacts/faucet
+      loop: "{{ artifacts }}"
       loop_control:
-        label: "{{ item }}"
+        label: "{{ item.name }}"
+      async: 600
+      poll: 0
+      delegate_to: localhost
+      run_once: true
+      register: build_artifacts_async
+      when: build_artifacts
+
+    - name: Wait for Build Artifacts Async to Complete
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: build_artifacts_async_result
+      until: build_artifacts_async_result.finished
+      retries: 200
+      delay: 3
+      loop: "{{ build_artifacts_async.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
       delegate_to: localhost
       run_once: true
       when: build_artifacts
 
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
-        paths: "/tmp/dist"
+        paths: "{{ goreleaser_dist_dir }}"
         patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt,faucet_keystore_{{ version }}.tar.gz"
         recurse: yes
-      register: artifacts
+      register: upload_artifacts
       delegate_to: localhost
       run_once: true
       when: build_artifacts
 
-    - name: Upload Artifacts to AWS S3
+    - name: Upload Artifacts Async
       amazon.aws.aws_s3:
         bucket: "{{ aws_s3_bucket }}"
         object: "{{ item.path | basename }}"
@@ -164,20 +170,37 @@
         mode: put
         tags:
           AutoDelete: "true"
-      loop: "{{ artifacts.files }}"
+      loop: "{{ upload_artifacts.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
+      async: 1000
+      poll: 0
       delegate_to: localhost
       run_once: true
-      when: (artifacts.files | default([])) | length > 0 and build_artifacts
+      register: upload_artifacts_async
+      when: (upload_artifacts.files | default([])) | length > 0 and build_artifacts
+
+    - name: Wait for Upload Artifacts Async to Complete
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: upload_artifacts_async_result
+      until: upload_artifacts_async_result.finished
+      retries: 200
+      delay: 5
+      loop: "{{ upload_artifacts_async.results }}"
+      loop_control:
+        label: "{{ item.item.path | basename }}"
+      delegate_to: localhost
+      run_once: true
+      when: (upload_artifacts.files | default([])) | length > 0 and build_artifacts
 
     - name: Cleanup Artifacts
       ansible.builtin.file:
-        path: "/tmp/dist"
+        path: "{{ goreleaser_dist_dir }}"
         state: absent
       delegate_to: localhost
       run_once: true
-      when: build_artifacts
+      when: (upload_artifacts.files | default([])) | length > 0 and build_artifacts
 
     - name: Delete "version.txt"
       file:
@@ -202,8 +225,9 @@
         dest: "{{ ansible_env.HOME }}/{{ profile }}/version.txt"
       when: build_templates is not defined or build_templates
 
-    - name: Cleanup System
+    - name: Purge Cluster
       ansible.builtin.shell: |
+        nomad var purge "nomad/jobs"
         nomad system gc
       args:
         executable: bash
