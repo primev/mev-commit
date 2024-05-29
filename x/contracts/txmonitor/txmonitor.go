@@ -123,6 +123,7 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 			}
 		}()
 
+		m.logger.Info("monitor started")
 		lastBlock := uint64(0)
 		for {
 			newTx := false
