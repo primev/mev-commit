@@ -11,8 +11,6 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/ut
 // TODO: separate out contract owner, and account that manages the whitelist
 contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
-    // TODO: add initializer and other init logic, also config params
-
     // TODO: Confirm this FSM makes point calcuations easy enough
     enum State { NotWhitelisted, Active, Frozen }
     struct WhitelistedEOAInfo {
@@ -31,6 +29,33 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // If for some reason an actor desires the full list of store validator cons addrs,
     // they could construct the set offchain via events.
     mapping(bytes => address) public storedConsAddrs;
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev Receive function is disabled for this contract to prevent unintended interactions.
+     */
+    receive() external payable {
+        revert("Invalid call");
+    }
+
+    function initialize(
+        address _owner
+        // TODO: config params here 
+    ) external initializer {
+        __Ownable_init(_owner);
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     function isWhitelistedEOA(address eoa) external view returns (bool) {
         return whitelistedEOAs[eoa].state != State.NotWhitelisted;
@@ -117,8 +142,7 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // TODO: make configurable
         require(block.number > whitelistedEOAs[msg.sender].freezeHeight + 1000, "EOA must have been frozen for at least 1000 blocks");
         // TODO: make configurable
-        require(msg.value >= 10 ether, "10 ether must be sent with txn");
-        // TODO: confirm eth received by contract
+        require(msg.value >= 10 ether, "10 ether must be sent with an unfreeze transaction.");
         whitelistedEOAs[msg.sender].state = State.Active;
         whitelistedEOAs[msg.sender].freezeHeight = 0;
     }
