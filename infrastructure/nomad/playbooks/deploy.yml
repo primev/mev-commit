@@ -115,8 +115,8 @@
 
     - name: Build Artifacts Async
       ansible.builtin.shell: |
+        DESTINATION_DIR="{{ goreleaser_dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
         if [ "{{ item.name }}" == "contracts" ]; then
-          DESTINATION_DIR="{{ goreleaser_dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
           tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item.path }}
         elif [ "{{ item.name }}" == "faucet-keystore" ]; then
           tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./{{ item.path }} .
