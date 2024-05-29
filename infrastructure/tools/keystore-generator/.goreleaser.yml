@@ -1,6 +1,7 @@
 version: 1
 
 project_name: keystore-generator
+dist: /tmp/goreleaser/keystore-generator
 
 builds:
   - env:

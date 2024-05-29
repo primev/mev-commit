@@ -3,11 +3,16 @@
   gather_facts: no
 
   tasks:
-    - name: Destroy All Jobs
+    - name: Stop and Purge Jobs
       ansible.builtin.shell: |
-        for job in $(nomad job status | awk 'NR > 1 {print $1}'); do
+        for job in $(nomad job status -json | jq -r '.[].Allocations[0].JobID'); do
           nomad stop -purge "${job}"
         done
+      args:
+        executable: bash
+
+    - name: Purge Cluster
+      ansible.builtin.shell: |
         nomad var purge "nomad/jobs"
         nomad system gc
       args:

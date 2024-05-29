@@ -23,8 +23,12 @@ on:
         description: 'Collect Logs'
         type: boolean
         default: false
+      debug:
+        description: 'Debug Deployment'
+        type: boolean
+        default: false
       target:
-        description: 'Target'
+        description: 'Target Machine'
         type: choice
         options:
           - lax1
@@ -38,7 +42,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.target }}
-  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+  cancel-in-progress: true
 
 jobs:
   cluster:
@@ -53,28 +57,19 @@ jobs:
           echo "${{ secrets.INFRASTRUCTURE_DNS_RECORDS }}" | sudo tee -a /etc/hosts
           sudo systemctl restart systemd-resolved
 
-          IS_MANUAL_DEPLOYMENT=$([ "${{ github.event_name }}" == 'workflow_dispatch' ] && echo true || echo false)
+          IS_MANUAL_DEPLOYMENT=$([ "${{ github.event_name }}" == "workflow_dispatch" ] && echo true || echo false)
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
-          CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == 'false' ] && echo "--no-logs-collection" || echo "")
+          CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
+          DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
           TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target }})" || echo "127.0.0.1")
 
           echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> ${GITHUB_ENV}
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> ${GITHUB_ENV}
+          echo "DEBUG_FLAG=${DEBUG_FLAG}" >> ${GITHUB_ENV}
           echo "TARGET_MACHINE_IP=${TARGET_MACHINE_IP}" >> ${GITHUB_ENV}
 
-#      - name: Check User Permissions
-#        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
-#        run: |
-#          USERNAME="${{ github.actor }}"
-#          ORG_NAME="${{ github.repository_owner }}"
-#          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/orgs/${ORG_NAME}/members/${USERNAME})
-#          if [ "${RESPONSE}" != "204" ]; then
-#            echo "User ${USERNAME} is not a member of the ${ORG_NAME} organization."
-#            exit 1
-#          fi
-
-      - name: Notify Channel - Deployment Initialized
+      - name: Notify - Deployment Initialized
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
         run: |
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -158,29 +153,27 @@ jobs:
       - name: Destroy Existing Cluster
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
         run: |
-          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} --debug
+          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} ${DEBUG_FLAG}
         working-directory: infrastructure/nomad
 
       - name: Initialize Cluster
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' || github.event.inputs.init == 'true'}}
         run: |
-          ./cluster.sh init ${CLUSTER_PROFILE_FLAG} --debug
+          ./cluster.sh init ${CLUSTER_PROFILE_FLAG} ${DEBUG_FLAG}
         working-directory: infrastructure/nomad
 
       - name: Deploy Cluster
         run: |
-          ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} --debug
+          ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${DEBUG_FLAG}
         working-directory: infrastructure/nomad
 
-      - name: Destroy Cluster
-        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' }}
-        run: |
-          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} --debug
-        working-directory: infrastructure/nomad
-
-      - name: Notify Channel - Deployment Successful
+      - name: Notify - Deployment Successful
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
         run: |
+          END_TIME=$(date +%s)
+          START_TIME=$(date +%s -r /proc/$(pgrep -o -x "runner")/stat)
+          DURATION=$((END_TIME - START_TIME))
+          DURATION_STRING=$(date -ud "@${DURATION}" +'%H:%M:%S')
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PAYLOAD=$(cat <<-EOH
           {
@@ -194,6 +187,11 @@ jobs:
                     "value": "<${WORKFLOW_URL}|View Workflow Run>",
                     "short": false
                   },
+                  {
+                    "title": "Deployment Duration",
+                    "value": "${DURATION_STRING}",
+                    "short": false
+                  }
                 ]
               }
             ]
@@ -202,7 +200,7 @@ jobs:
           )
           curl -X POST -H 'Content-type: application/json' --data "${PAYLOAD}" "${{ secrets.SLACK_CI_CHANNEL_WEBHOOK_URL }}"
 
-      - name: Notify Channel - Deployment Failed
+      - name: Notify - Deployment Failed
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && failure() }}
         run: |
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -233,7 +231,7 @@ jobs:
           DEBUG_SHELL="sh <(curl -sSf https://lets.tunshell.com/init.sh) L $(echo ${TUNSHELL_KEYS} | jq -r .peer2_key) \${TUNSHELL_SECRET} eu.relay.tunshell.com"
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PR_TITLE="$(jq -r .head_commit.message <<< '${{ toJson(github.event.workflow_run) }}')"
-          PR_URL="$(jq -r .head_commit.url <<< '${{ toJson(github.event.workflow_run) }}')"
+          PR_URL="$(jq -r '.head_commit.url // ""' <<< '${{ toJson(github.event.workflow_run) }}')"
           PAYLOAD=$(cat <<-EOH
           {
             "text": "<@${{ github.actor }}> infrastructure workflow has failed:",
@@ -246,11 +244,14 @@ jobs:
                     "value": "<${WORKFLOW_URL}|View Workflow Run>",
                     "short": false
                   },
+          $( [ -n "$PR_URL" ] && cat <<-PULL_REQUEST
                   {
                     "title": "Pull Request",
                     "value": "<${PR_URL}|${PR_TITLE}>",
                     "short": false
                   },
+          PULL_REQUEST
+          )
                   {
                     "title": "Debug Shell",
                     "value": "\`\`\`${DEBUG_SHELL}\`\`\`",
