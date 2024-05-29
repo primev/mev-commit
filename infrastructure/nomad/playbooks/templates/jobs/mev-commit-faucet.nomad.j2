@@ -63,18 +63,18 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
-          KEYSTORE_FILE=$(ls | grep -E '^UTC--.*--.*$')
+          KEYSTORE_FILE=$(ls local | grep -E '^UTC--.*--.*$')
           if [ -z "$KEYSTORE_FILE" ]; then
             echo "Keystore file not found"
             exit 1
           fi
-          chmod +x eth-faucet
-          ./eth-faucet \
+          chmod +x local/eth-faucet
+          ./local/eth-faucet \
             --httpport 80 \
             --faucet.amount 10 \
             --faucet.minutes 60 \
             --faucet.name "mev-commit chain" \
-            --wallet.keyjson $KEYSTORE_FILE \
+            --wallet.keyjson local/$KEYSTORE_FILE \
             --wallet.keypass secrets/password.txt \
             --wallet.provider $RPC_URL
         EOH
