@@ -65,7 +65,14 @@ job "{{ job.name }}" {
           fi
           echo $KEYSTORE_PASSWORD > password.txt
           chmod +x eth-faucet
-          ./eth-faucet --httpport 80 --wallet.keyjson $KEYSTORE_FILE --wallet.keypass password.txt --wallet.provider $RPC_URL
+          ./eth-faucet \
+            --httpport 80 \
+            --faucet.amount 10 \
+            --faucet.minutes 60 \
+            --faucet.name "mev-commit chain" \
+            --wallet.keyjson $KEYSTORE_FILE \
+            --wallet.keypass password.txt \
+            --wallet.provider $RPC_URL
         EOH
         destination = "local/run.sh"
         perms = "0755"
