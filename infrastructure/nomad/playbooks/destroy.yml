@@ -5,8 +5,10 @@
   tasks:
     - name: Stop and Purge Jobs
       ansible.builtin.shell: |
-        for job in $(nomad job status -json | jq -r '.[].Allocations[0].JobID'); do
-          nomad stop -purge "${job}"
+        for job in $(nomad job status -json | jq -r '.[].Summary.JobID'); do
+          if [ "${job}" != "null" ]; then
+            nomad stop -purge "${job}"
+          fi
         done
       args:
         executable: bash
