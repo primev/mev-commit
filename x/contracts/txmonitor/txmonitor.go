@@ -162,6 +162,7 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 			case m.blockUpdate <- waitCheck{lastNonce, currentBlock}:
 			default:
 			}
+			m.logger.Debug("checking for receipts", "block", currentBlock, "lastNonce", lastNonce)
 			lastBlock = currentBlock
 		}
 	}()

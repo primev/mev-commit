@@ -444,6 +444,14 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
+	for _, s := range startables {
+		nd.closers = append(nd.closers, channelCloserFunc(s.Start(ctx)))
+	}
+
+	nd.cancelFunc = cancel
+
 	started := make(chan struct{})
 	go func() {
 		// signal that the server has started
@@ -563,14 +571,6 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}()
 	nd.closers = append(nd.closers, server)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	for _, s := range startables {
-		nd.closers = append(nd.closers, channelCloserFunc(s.Start(ctx)))
-	}
-
-	nd.cancelFunc = cancel
 
 	return nd, nil
 }
