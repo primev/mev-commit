@@ -77,6 +77,9 @@ job "{{ job.name }}" {
                  --value 1000ether
               {{- end }}
             {{- end }}
+
+            {{- end }}
+          {{- end }}
           {% endraw %}
         EOH
         destination = "local/run.sh"
