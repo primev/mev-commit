@@ -36,11 +36,19 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         return whitelistedEOAs[eoa].state != State.NotWhitelisted;
     }
 
-    function isValidatorOptedIn(bytes memory consAddr) external view returns (bool) {
+    function isValidatorOptedIn(bytes memory consAddr) public view returns (bool) {
         address eoa = storedConsAddrs[consAddr];
         bool isConsAddrStored = eoa != address(0);
         bool isEoaActive = whitelistedEOAs[eoa].state == State.Active;
         return isConsAddrStored && isEoaActive;
+    }
+
+    function areValidatorsOptedIn(bytes[] memory consAddrs) external view returns (bool[] memory) {
+        bool[] memory results = new bool[](consAddrs.length);
+        for (uint i = 0; i < consAddrs.length; i++) {
+            results[i] = isValidatorOptedIn(consAddrs[i]);
+        }
+        return results;
     }
 
     event ConsAddrStored(bytes consAddr, address indexed eoa); // TODO: Index consAddr too?
