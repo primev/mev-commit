@@ -38,12 +38,19 @@ job "{{ job.name }}" {
 
       artifact {
         source = "https://github.com/chainflag/eth-faucet/releases/download/v1.1.0/eth-faucet_1.1.0_Linux_x86_64.tar.gz"
-        destination = "eth-faucet"
       }
 
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/faucet_keystore_{{ version }}.tar.gz"
-        destination = "eth-faucet"
+      }
+
+      template {
+        data = <<-EOH
+          {%- raw %}
+          {{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}
+          {%- endraw %}
+        EOH
+        destination = "secrets/password.txt"
       }
 
       template {
@@ -55,15 +62,12 @@ job "{{ job.name }}" {
           RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}"
           {% endraw %}
-          cd eth-faucet
           KEYSTORE_FILE=$(ls | grep -E '^UTC--.*--.*$')
           if [ -z "$KEYSTORE_FILE" ]; then
             echo "Keystore file not found"
             exit 1
           fi
-          echo $KEYSTORE_PASSWORD > password.txt
           chmod +x eth-faucet
           ./eth-faucet \
             --httpport 80 \
@@ -71,7 +75,7 @@ job "{{ job.name }}" {
             --faucet.minutes 60 \
             --faucet.name "mev-commit chain" \
             --wallet.keyjson $KEYSTORE_FILE \
-            --wallet.keypass password.txt \
+            --wallet.keypass secrets/password.txt \
             --wallet.provider $RPC_URL
         EOH
         destination = "local/run.sh"

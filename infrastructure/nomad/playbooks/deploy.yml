@@ -119,8 +119,8 @@
         mkdir -p ${DESTINATION_DIR}
         if [ "{{ item }}" == "contracts" ]; then
           tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item }}
-        elif [ "{{ item }}" == "infrastructure/faucet" ]; then
-          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./infrastructure/faucet .
+        elif [ "{{ item }}" == "infrastructure/artifacts/faucet" ]; then
+          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./{{ item }} .
         else
           goreleaser release --config=./{{ item }}/.goreleaser.yml --clean --snapshot
           mv ./dist/* ${DESTINATION_DIR}
@@ -139,7 +139,7 @@
         - contracts
         - oracle
         - p2p
-        - infrastructure/faucet
+        - infrastructure/artifacts/faucet
       loop_control:
         label: "{{ item }}"
       delegate_to: localhost
