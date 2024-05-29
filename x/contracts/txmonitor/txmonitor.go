@@ -157,6 +157,7 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 
 			m.lastConfirmedNonce.Store(lastNonce)
 			m.metrics.lastConfirmedNonce.Set(float64(lastNonce))
+			m.metrics.lastBlockNumber.Set(float64(currentBlock))
 			m.triggerNonceUpdate()
 
 			select {
