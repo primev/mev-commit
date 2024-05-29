@@ -32,7 +32,7 @@ import (
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
-var defaultMetricsNamespace = "mev_commit_oracle"
+const defaultMetricsNamespace = "mev_commit_oracle"
 
 func init() {
 	setupMetricsNamespace(defaultMetricsNamespace)
