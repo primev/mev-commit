@@ -73,6 +73,8 @@ artifacts:
     path: oracle
   - name: p2p
     path: p2p
+  - name: faucet-keystore
+    path: infrastructure/artifacts/faucet
 
 jobs:
   - name: datadog-agent-logs-collector
