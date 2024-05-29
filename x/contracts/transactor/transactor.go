@@ -47,7 +47,7 @@ func NewTransactor(
 	// We need to send a value to the channel so that the first transaction
 	// can be sent. The value is not important as the first transaction will
 	// get the nonce from the blockchain.
-	nonceChan <- 1
+	nonceChan <- 0
 	return &Transactor{
 		ContractBackend: backend,
 		watcher:         watcher,
@@ -88,17 +88,13 @@ func (t *Transactor) SendTransaction(ctx context.Context, tx *types.Transaction)
 		return ctx.Err()
 	}
 
-	tries := 0
 	delay := 1 * time.Second
-retry:
-	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	for tries := 0; tries <= txnRetriesLimit; tries++ {
+		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
 
-	if err := t.ContractBackend.SendTransaction(cctx, tx); err != nil {
-		if err == context.DeadlineExceeded {
-			tries++
-			if tries <= txnRetriesLimit {
-				// If the transaction fails due to a timeout, we can retry it.
+		if err := t.ContractBackend.SendTransaction(cctx, tx); err != nil {
+			if err == context.DeadlineExceeded {
 				delay *= 2
 				retryTimer := time.NewTimer(delay)
 				select {
@@ -106,11 +102,12 @@ retry:
 					return ctx.Err()
 				case <-retryTimer.C:
 					_ = retryTimer.Stop()
-					goto retry
 				}
+				continue
 			}
+			return err
 		}
-		return err
+		break
 	}
 
 	// If the transaction is successful, we need to update the nonce and notify the

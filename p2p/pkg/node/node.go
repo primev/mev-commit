@@ -292,7 +292,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 		blockTrackerCaller, err := blocktracker.NewBlocktrackerCaller(
 			common.HexToAddress(opts.BlockTrackerContract),
-			contractsBackend,
+			contractRPC,
 		)
 		if err != nil {
 			opts.Logger.Error("failed to instantiate block tracker contract", "error", err)

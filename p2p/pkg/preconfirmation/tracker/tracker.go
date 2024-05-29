@@ -282,7 +282,7 @@ func (t *Tracker) handleNewL1Block(
 	openDuration := time.Since(openStart)
 	t.metrics.totalCommitmentsToOpen.Add(float64(len(commitments)))
 	t.metrics.totalOpenedCommitments.Add(float64(settled))
-	t.metrics.blockCommitmentProcessTime.Set(float64(openDuration))
+	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
 
 	t.logger.Info("commitments opened",
 		"blockNumber", blockToProcess,

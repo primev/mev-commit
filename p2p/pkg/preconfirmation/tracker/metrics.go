@@ -1,12 +1,14 @@
 package preconftracker
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 type metrics struct {
-	totalEncryptedCommitments  prometheus.Counter
-	totalCommitmentsToOpen     prometheus.Counter
-	totalOpenedCommitments     prometheus.Counter
-	blockCommitmentProcessTime prometheus.Gauge
+	totalEncryptedCommitments      prometheus.Counter
+	totalCommitmentsToOpen         prometheus.Counter
+	totalOpenedCommitments         prometheus.Counter
+	blockCommitmentProcessDuration prometheus.Gauge
 }
 
 func newMetrics() *metrics {
@@ -29,11 +31,11 @@ func newMetrics() *metrics {
 			Name:      "total_opened_commitments",
 			Help:      "Total number of opened commitments",
 		}),
-		blockCommitmentProcessTime: prometheus.NewGauge(prometheus.GaugeOpts{
+		blockCommitmentProcessDuration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: "mev_commit",
 			Subsystem: "preconftracker",
-			Name:      "block_commitment_process_time",
-			Help:      "Time taken to process commitments in a block",
+			Name:      "block_commitment_process_duration",
+			Help:      "Time taken to process commitments for a block",
 		}),
 	}
 }
@@ -43,6 +45,6 @@ func (m *metrics) Metrics() []prometheus.Collector {
 		m.totalEncryptedCommitments,
 		m.totalCommitmentsToOpen,
 		m.totalOpenedCommitments,
-		m.blockCommitmentProcessTime,
+		m.blockCommitmentProcessDuration,
 	}
 }
