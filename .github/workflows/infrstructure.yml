@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   cluster:
-    name: Setup and Test Nomad devnet Cluster
+    name: Setup and Test Nomad Cluster
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
@@ -159,21 +159,26 @@ jobs:
       - name: Initialize Cluster
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' || github.event.inputs.init == 'true'}}
         run: |
+          START_TIME="$(date +%s)"
           ./cluster.sh init ${CLUSTER_PROFILE_FLAG} ${DEBUG_FLAG}
+          END_TIME="$(date +%s)"
+          echo "INIT_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
 
       - name: Deploy Cluster
         run: |
+          START_TIME="$(date +%s)"
           ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${DEBUG_FLAG}
+          END_TIME="$(date +%s)"
+          echo "DEPLOY_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
 
       - name: Notify - Deployment Successful
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
         run: |
-          END_TIME=$(date +%s)
-          START_TIME=$(date +%s -r /proc/$(pgrep -o -x "runner")/stat)
-          DURATION=$((END_TIME - START_TIME))
-          DURATION_STRING=$(date -ud "@${DURATION}" +'%H:%M:%S')
+          INIT_DURATION=${INIT_DURATION:-N/A}
+          DEPLOY_DURATION=${DEPLOY_DURATION:-N/A}
+          RUNNER_DURATION=$(date -ud "@$(( $(date +%s) - $(date +%s -r /proc/$(pgrep -o -x "runner")/stat) ))" +'%H:%M:%S')
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PAYLOAD=$(cat <<-EOH
           {
@@ -189,7 +194,7 @@ jobs:
                   },
                   {
                     "title": "Deployment Duration",
-                    "value": "${DURATION_STRING}",
+                    "value": "Init: ${INIT_DURATION}\nDeploy: ${DEPLOY_DURATION}\nRunner: ${RUNNER_DURATION}",
                     "short": false
                   }
                 ]
