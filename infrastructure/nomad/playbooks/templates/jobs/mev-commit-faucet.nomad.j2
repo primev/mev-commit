@@ -49,18 +49,20 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
+          {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}"
+          {% endraw %}
           cd eth-faucet
           KEYSTORE_FILE=$(ls | grep -E '^UTC--.*--.*$')
           if [ -z "$KEYSTORE_FILE" ]; then
             echo "Keystore file not found"
             exit 1
           fi
-          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}"
           echo $KEYSTORE_PASSWORD > password.txt
           chmod +x eth-faucet
           ./eth-faucet --httpport 80 --wallet.keyjson $KEYSTORE_FILE --wallet.keypass password.txt --wallet.provider $RPC_URL
