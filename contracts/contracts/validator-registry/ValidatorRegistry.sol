@@ -3,9 +3,11 @@ pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {EnumerableMap} from "./utils/EnumerableMap.sol";
+import {EnumerableMap} from "../utils/EnumerableMap.sol";
 
-/// @title Validator Registry
+// TODO: decide if we remove this altogether?? Or adjust files that ref this file
+
+/// @title Validator Registry to be deployed on the mev-commit chain.
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit via staking. 
 /// @dev Slashing is not yet implemented for this contract, hence it is upgradable to incorporate slashing in the future.
 /// @dev This contract is meant to be deployed via a proxy contract.
