@@ -22,6 +22,7 @@ profiles:
       - "mev-commit-bidder-node1-funder"
       - "mev-commit-provider-emulator-node1"
       - "mev-commit-bidder-emulator-node1"
+      - "mev-commit-faucet"
   devnet:
     job_names:
       - "datadog-agent-logs-collector"
@@ -38,6 +39,7 @@ profiles:
       - "mev-commit-provider-emulator-node1"
       - "mev-commit-bidder-emulator-node1"
       - "datadog-agent-metrics-collector"
+      - "mev-commit-faucet"
   testnet:
     job_names:
       - "datadog-agent-logs-collector"
@@ -51,6 +53,7 @@ profiles:
       - "mev-commit-provider-emulator-node1"
       - "mev-commit-oracle"
       - "datadog-agent-metrics-collector"
+      - "mev-commit-faucet"
 
 jobs:
   - name: datadog-agent-logs-collector
@@ -243,3 +246,11 @@ jobs:
     template: datadog-agent.nomad.j2
     count: 1
     type: metrics
+
+  - name: mev-commit-faucet
+    template: mev-commit-faucet.nomad.j2
+    count: 1
+    ports:
+      - http:
+          static: 80
+          to: 80

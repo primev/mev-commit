@@ -1,29 +1,40 @@
-job "eth-faucet" {
-  datacenters = ["dc1"]
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "{{ job.name }}" {
+  datacenters = ["{{ datacenter }}"]
 
-  group "eth-faucet-group" {
-    count = 1
+  group "{{ job.name }}-group" {
+    count = {{ job.count }}
 
     network {
       mode = "bridge"
 
       dns {
-        servers = ["1.1.1.1"]
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
       }
-      port "http" {
-        static = 80
+
+      {% for port_name, port_details in job.ports[0].items() %}
+      port "{{ port_name }}" {
+        {% if port_details.get('static') %}
+        static = {{ port_details['static'] }}
+        {% endif %}
+        {% if port_details.get('to') %}
+        to = {{ port_details['to'] }}
+        {% endif %}
       }
+      {% endfor %}
     }
+
+    {% for port_name in job.ports[0] %}
+    service {
+      name = "{{ job.name }}"
+      port = "{{ port_name }}"
+      tags = ["{{ port_name }}"]
+      provider = "nomad"
+    }
+    {% endfor %}
 
     task "eth-faucet" {
       driver = "exec"
-
-      service {
-        name = "eth-faucet"
-        port = "http"
-        tags = ["http"]
-        provider = "nomad"
-      }
 
       artifact {
         source = "https://github.com/chainflag/eth-faucet/releases/download/v1.1.0/eth-faucet_1.1.0_Linux_x86_64.tar.gz"
