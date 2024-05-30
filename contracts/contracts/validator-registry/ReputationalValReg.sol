@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 // ReputationalValReg manages the reputational opt-in for mev-commit validators. 
 // This contract is meant to be deployed on L1. Future contracts will implement 
@@ -10,7 +11,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 // TODO: Consider separating out contract owner, and account that manages the whitelist. This depends how exactly upgrades will work.
 // TODO: Determine need for reentrancy guard. Also determine if certain functions need to be external vs public for future integration.
 // TODO: Hash out and test upgrade process before deployment.
-contract ReputationalValReg is OwnableUpgradeable {
+contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
 
@@ -44,6 +45,10 @@ contract ReputationalValReg is OwnableUpgradeable {
     event EOAUnfrozen(address indexed eoa);
     event ConsAddrStored(bytes consAddr, address indexed eoa);
     event ConsAddrDeleted(bytes consAddr, address indexed eoa);
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
+        // TODO: Determine upgrade logic and test process
+    }
 
     function initialize(
         address _owner,

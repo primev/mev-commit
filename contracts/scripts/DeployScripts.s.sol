@@ -6,8 +6,7 @@ import "../contracts/ProviderRegistry.sol";
 import "../contracts/PreConfCommitmentStore.sol";
 import "../contracts/Oracle.sol";
 import "../contracts/Whitelist.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "../contracts/ValidatorRegistry.sol";
+import "../contracts/validator-registry/ValidatorRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import "../contracts/BlockTracker.sol";
 
