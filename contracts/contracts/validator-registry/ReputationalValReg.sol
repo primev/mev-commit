@@ -21,6 +21,8 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
     mapping(address => WhitelistedEOAInfo) private whitelistedEOAs;
 
+    uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
+
     // List of stored validator consensus addresses with O(1) lookup indexed by consensus address. 
     // These addresses were at some point stored by a whitelisted EOA.
     // 
@@ -69,6 +71,7 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function areValidatorsOptedIn(bytes[] memory consAddrs) external view returns (bool[] memory) {
+        require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         bool[] memory results = new bool[](consAddrs.length);
         for (uint i = 0; i < consAddrs.length; i++) {
             results[i] = isValidatorOptedIn(consAddrs[i]);
@@ -78,6 +81,7 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     event ConsAddrStored(bytes consAddr, address indexed eoa); // TODO: Index consAddr too?
     function storeConsAddrs(bytes[] memory consAddrs) external {
+        require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         require(whitelistedEOAs[msg.sender].state != State.NotWhitelisted, "sender must be whitelisted");
         for (uint i = 0; i < consAddrs.length; i++) {
             require(storedConsAddrs[consAddrs[i]] == address(0), "Consensus address is already stored");
@@ -90,6 +94,7 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function deleteConsAddrs(bytes[] memory consAddrs) external {
+        require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         for (uint i = 0; i < consAddrs.length; i++) {
             require(whitelistedEOAs[msg.sender].state != State.NotWhitelisted, "sender must be whitelisted");
             require(storedConsAddrs[consAddrs[i]] == msg.sender, "Consensus address must be stored by sender");
@@ -98,11 +103,12 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
     }
 
-    function deleteConsAddrsFromInactiveEOAs(bytes[] memory consAddrs) external onlyOwner {
+    function deleteConsAddrsFromNonWhitelistedEOAs(bytes[] memory consAddrs) external onlyOwner {
+        require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         for (uint i = 0; i < consAddrs.length; i++) {
             address eoa = storedConsAddrs[consAddrs[i]];
             require(eoa != address(0), "Consensus address must be stored");
-            require(whitelistedEOAs[eoa].state == State.NotWhitelisted, "EOA who originally stored cons addr must be inactive");
+            require(whitelistedEOAs[eoa].state == State.NotWhitelisted, "EOA who originally stored cons addr must not be whitelisted");
             _deleteConsAddr(eoa, consAddrs[i]);
         }
     }
