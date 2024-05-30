@@ -121,7 +121,6 @@ message WithdrawRequest {
     json_schema: {
       title: "Withdraw request"
       description: "Withdraw deposit from the bidder registry."
-      required: ["amount"]
     }
     example: "{\"window_number\": 1 }"
   };

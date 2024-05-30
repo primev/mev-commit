@@ -186,7 +186,10 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	bidderapiv1.RegisterBidderServer(baseServer, srvImpl)
 	go func() {
 		if err := baseServer.Serve(lis); err != nil {
-			t.Errorf("error serving server: %v", err)
+			// Ignore "use of closed network connection" error
+			if opErr, ok := err.(*net.OpError); !ok || !errors.Is(opErr.Err, net.ErrClosed) {
+				t.Errorf("error serving server: %v", err)
+			}
 		}
 	}()
 

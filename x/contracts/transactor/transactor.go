@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
+const txnRetriesLimit = 3
+
 // Watcher is an interface that is used to manage the lifecycle of a transaction.
 // The Allow method is used to determine if a transaction should be sent. The context
 // is passed to the method so that the watcher can determine this based on the context.
@@ -18,7 +20,7 @@ type Watcher interface {
 	Sent(ctx context.Context, tx *types.Transaction)
 }
 
-// Transactor is a wrapper around a bind.ContractTransactor that ensures that
+// Transactor is a wrapper around a bind.ContractBackend that ensures that
 // transactions are sent in nonce order and that the nonce is updated correctly.
 // It also uses rate-limiting to ensure that the transactions are sent at a
 // reasonable rate. The Watcher is used to manage the tx lifecycle. It is used to
@@ -32,24 +34,24 @@ type Watcher interface {
 // that the nonce is updated correctly and that the transactions are sent in order. In case
 // of an error, the nonce is put back into the channel so that it can be reused.
 type Transactor struct {
-	bind.ContractTransactor
+	bind.ContractBackend
 	nonceChan chan uint64
 	watcher   Watcher
 }
 
 func NewTransactor(
-	backend bind.ContractTransactor,
+	backend bind.ContractBackend,
 	watcher Watcher,
 ) *Transactor {
 	nonceChan := make(chan uint64, 1)
 	// We need to send a value to the channel so that the first transaction
 	// can be sent. The value is not important as the first transaction will
 	// get the nonce from the blockchain.
-	nonceChan <- 1
+	nonceChan <- 0
 	return &Transactor{
-		ContractTransactor: backend,
-		watcher:            watcher,
-		nonceChan:          nonceChan,
+		ContractBackend: backend,
+		watcher:         watcher,
+		nonceChan:       nonceChan,
 	}
 }
 
@@ -58,7 +60,7 @@ func (t *Transactor) PendingNonceAt(ctx context.Context, account common.Address)
 	case <-ctx.Done():
 		return 0, ctx.Err()
 	case nonce := <-t.nonceChan:
-		pendingNonce, err := t.ContractTransactor.PendingNonceAt(ctx, account)
+		pendingNonce, err := t.ContractBackend.PendingNonceAt(ctx, account)
 		if err != nil {
 			// this naked write is safe as only the SendTransaction writes to
 			// the channel. The goroutine which is trying to send the transaction
@@ -86,17 +88,13 @@ func (t *Transactor) SendTransaction(ctx context.Context, tx *types.Transaction)
 		return ctx.Err()
 	}
 
-	tries := 0
 	delay := 1 * time.Second
-retry:
-	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	for tries := 0; tries <= txnRetriesLimit; tries++ {
+		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
 
-	if err := t.ContractTransactor.SendTransaction(cctx, tx); err != nil {
-		if err == context.DeadlineExceeded {
-			tries++
-			if tries < 3 {
-				// If the transaction fails due to a timeout, we can retry it.
+		if err := t.ContractBackend.SendTransaction(cctx, tx); err != nil {
+			if err == context.DeadlineExceeded {
 				delay *= 2
 				retryTimer := time.NewTimer(delay)
 				select {
@@ -104,11 +102,12 @@ retry:
 					return ctx.Err()
 				case <-retryTimer.C:
 					_ = retryTimer.Stop()
-					goto retry
 				}
+				continue
 			}
+			return err
 		}
-		return err
+		break
 	}
 
 	// If the transaction is successful, we need to update the nonce and notify the

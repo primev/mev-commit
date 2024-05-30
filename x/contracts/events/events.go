@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // EventHandler is a stand-in for the generic event handlers that are used to subscribe
@@ -115,6 +117,7 @@ type Listener struct {
 	subMu       sync.RWMutex
 	subscribers map[common.Hash][]*storedEvent
 	contracts   []*abi.ABI
+	metrics     *metrics
 }
 
 func NewListener(
@@ -125,7 +128,12 @@ func NewListener(
 		logger:      logger,
 		subscribers: make(map[common.Hash][]*storedEvent),
 		contracts:   contracts,
+		metrics:     newMetrics(),
 	}
+}
+
+func (l *Listener) Metrics() []prometheus.Collector {
+	return l.metrics.Metrics()
 }
 
 type subscription struct {
@@ -210,14 +218,23 @@ func (l *Listener) PublishLogEvent(ctx context.Context, log types.Log) {
 	l.subMu.RLock()
 	defer l.subMu.RUnlock()
 
+	l.metrics.totalLogs.Inc()
+
 	wg := sync.WaitGroup{}
 	events := l.subscribers[log.Topics[0]]
 	for _, event := range events {
 		ev := event
+		l.metrics.totalEvents.Inc()
+		l.metrics.eventCounts.WithLabelValues(ev.evt.eventName()).Inc()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
+			defer func(start time.Time) {
+				l.metrics.eventHandlerDurations.
+					WithLabelValues(ev.evt.eventName()).
+					Set(float64(time.Since(start)))
+			}(time.Now())
 			if err := ev.evt.handle(log); err != nil {
 				l.logger.Error("failed to handle log", "error", err)
 				select {
