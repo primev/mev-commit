@@ -2,14 +2,14 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
-// To be deployed on L1 implementing reputational opt-in. 
-
-// Optimize this contract around reputational opt-in, then future contract aggregates this with other types 
-
-// TODO: separate out contract owner, and account that manages the whitelist
-contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+// ReputationalValReg manages the reputational opt-in for mev-commit validators. 
+// This contract is meant to be deployed on L1. Future contracts will implement 
+// other types of opt-in including restaked opt-in and simple stake opt-in. 
+//
+// TODO: consider separating out contract owner, and account that manages the whitelist. This depends how exactly upgrades will work.
+// TODO: Determine need for reentrancy guard. Also determine if certain functions need to be external vs public for future integration.
+contract ReputationalValReg is OwnableUpgradeable {
 
     uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
 
@@ -25,7 +25,8 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 freezeHeight;
     }
 
-    mapping(address => WhitelistedEOAInfo) private whitelistedEOAs;
+    // Mapping of whitelisted EOAs to their info struct
+    mapping(address => WhitelistedEOAInfo) public whitelistedEOAs;
 
     // List of stored validator consensus addresses with O(1) lookup indexed by consensus address. 
     // These addresses were at some point stored by a whitelisted EOA.
