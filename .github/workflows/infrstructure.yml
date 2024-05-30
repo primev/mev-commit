@@ -105,6 +105,8 @@ jobs:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
+            ~/.local/pipx
+            /usr/local/bin/goreleaser
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
@@ -115,15 +117,17 @@ jobs:
           check-latest: true
           cache-dependency-path: go.work.sum
 
-      - name: Install Required Dependencies and Configure Control Machine
+      - name: Install Required Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
           sudo apt-get update
           sudo apt-get install --yes goreleaser
-
           pip install boto3 botocore
           pipx inject ansible-core botocore boto3
 
+      - name: Configure Control Machine
+        run: |
           sudo useradd --create-home ubuntu && sudo usermod --append --groups sudo ubuntu
 
           ANSIBLE_CONNECTION="ansible_connection=local"
@@ -131,7 +135,7 @@ jobs:
             ANSIBLE_CONNECTION=""
             export ANSIBLE_HOST_KEY_CHECKING=false
 
-            mkdir ~/.ssh && \
+            mkdir -p ~/.ssh && \
             chmod 700 ~/.ssh && \
             echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519 && \
             chmod 600 ~/.ssh/id_ed25519
