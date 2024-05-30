@@ -21,13 +21,16 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     mapping(address => WhitelistedEOAInfo) private whitelistedEOAs;
 
     uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
+    uint256 public maxConsAddrsPerEOA;
+    uint256 public minFreezeBlocks;
+    uint256 public unfreezeFee;
 
     // List of stored validator consensus addresses with O(1) lookup indexed by consensus address. 
     // These addresses were at some point stored by a whitelisted EOA.
     // 
     // This mapping is intentionally not enumerable,
     // since actors should only need to query the 32 relevant proposers for an epoch at a time.
-    // If for some reason an actor desires the full list of store validator cons addrs,
+    // If for some reason an actor desires the full set of stored validator cons addrs,
     // they could construct the set offchain via events.
     mapping(bytes => address) public storedConsAddrs;
 
@@ -46,10 +49,15 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function initialize(
-        address _owner
-        // TODO: config params here 
+        address _owner,
+        uint256 _maxConsAddrsPerEOA,
+        uint256 _minFreezeBlocks,
+        uint256 _unfreezeFee
     ) external initializer {
         __Ownable_init(_owner);
+        maxConsAddrsPerEOA = _maxConsAddrsPerEOA;
+        minFreezeBlocks = _minFreezeBlocks;
+        unfreezeFee = _unfreezeFee;
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -84,8 +92,7 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(whitelistedEOAs[msg.sender].state != State.NotWhitelisted, "sender must be whitelisted");
         for (uint i = 0; i < consAddrs.length; i++) {
             require(storedConsAddrs[consAddrs[i]] == address(0), "Consensus address is already stored");
-            // TODO: Make configurable
-            require(whitelistedEOAs[msg.sender].numConsAddrsStored < 10000, "EOA must not store more than 10k cons addrs");
+            require(whitelistedEOAs[msg.sender].numConsAddrsStored < maxConsAddrsPerEOA, "EOA must not store more than max allowed cons addrs");
             storedConsAddrs[consAddrs[i]] = msg.sender;
             whitelistedEOAs[msg.sender].numConsAddrsStored++;
             emit ConsAddrStored(consAddrs[i], msg.sender);
@@ -149,12 +156,11 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event EOAUnfrozen(address indexed eoa);
     function unfreeze() external payable {
         require(whitelistedEOAs[msg.sender].state == State.Frozen, "sender must be frozen");
-        // TODO: make configurable
-        require(block.number > whitelistedEOAs[msg.sender].freezeHeight + 1000, "EOA must have been frozen for at least 1000 blocks");
-        // TODO: make configurable
-        require(msg.value >= 10 ether, "10 ether must be sent with an unfreeze transaction.");
+        require(block.number >= whitelistedEOAs[msg.sender].freezeHeight + minFreezeBlocks, "Freeze period has not elapsed");
+        require(msg.value >= unfreezeFee, "Insufficient unfreeze fee");
         whitelistedEOAs[msg.sender].state = State.Active;
         whitelistedEOAs[msg.sender].freezeHeight = 0;
         emit EOAUnfrozen(msg.sender);
     }
 }
+
