@@ -45,6 +45,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
+	"github.com/primev/mev-commit/x/contracts/transactor"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
@@ -136,6 +137,7 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.Logger.With("component", "events"),
 		abis...,
 	)
+	srv.RegisterMetricsCollectors(evtMgr.Metrics()...)
 
 	var startables []Startable
 	var evtPublisher PublisherStartable
@@ -173,10 +175,19 @@ func NewNode(opts *Options) (*Node, error) {
 		256,
 	)
 	startables = append(startables, monitor)
+	srv.RegisterMetricsCollectors(monitor.Metrics()...)
+
+	contractsBackend := transactor.NewMetricsWrapper(
+		transactor.NewTransactor(
+			contractRPC,
+			monitor,
+		),
+	)
+	srv.RegisterMetricsCollectors(contractsBackend.Metrics()...)
 
 	providerRegistry, err := providerregistry.NewProviderregistry(
 		common.HexToAddress(opts.ProviderRegistryContract),
-		contractRPC,
+		contractsBackend,
 	)
 	if err != nil {
 		opts.Logger.Error("failed to instantiate provider registry contract", "error", err)
@@ -185,7 +196,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	bidderRegistry, err := bidderregistry.NewBidderregistry(
 		common.HexToAddress(opts.BidderRegistryContract),
-		contractRPC,
+		contractsBackend,
 	)
 	if err != nil {
 		opts.Logger.Error("failed to instantiate bidder registry contract", "error", err)
@@ -297,7 +308,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 		commitmentDA, err := preconfcommitmentstore.NewPreconfcommitmentstore(
 			common.HexToAddress(opts.PreconfContract),
-			contractRPC,
+			contractsBackend,
 		)
 		if err != nil {
 			opts.Logger.Error("failed to instantiate preconf commitment store contract", "error", err)
@@ -314,6 +325,7 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.Logger.With("component", "tracker"),
 		)
 		startables = append(startables, tracker)
+		srv.RegisterMetricsCollectors(tracker.Metrics()...)
 
 		switch opts.PeerType {
 		case p2p.PeerTypeProvider.String():
@@ -431,6 +443,14 @@ func NewNode(opts *Options) (*Node, error) {
 			srv.RegisterMetricsCollectors(bidderAPI.Metrics()...)
 		}
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	for _, s := range startables {
+		nd.closers = append(nd.closers, channelCloserFunc(s.Start(ctx)))
+	}
+
+	nd.cancelFunc = cancel
 
 	started := make(chan struct{})
 	go func() {
@@ -551,14 +571,6 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}()
 	nd.closers = append(nd.closers, server)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	for _, s := range startables {
-		nd.closers = append(nd.closers, channelCloserFunc(s.Start(ctx)))
-	}
-
-	nd.cancelFunc = cancel
 
 	return nd, nil
 }
