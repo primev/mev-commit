@@ -198,6 +198,8 @@ jobs:
         http:
           static: 8080
           to: 8080
+        metrics:
+          to: 8080
     env:
       l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
 

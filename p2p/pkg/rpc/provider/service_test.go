@@ -94,8 +94,11 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 	baseServer := grpc.NewServer()
 	providerapiv1.RegisterProviderServer(baseServer, srvImpl)
 	go func() {
-		if err := baseServer.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
-			t.Errorf("error serving server: %v", err)
+		if err := baseServer.Serve(lis); err != nil {
+			// Ignore "use of closed network connection" error
+			if opErr, ok := err.(*net.OpError); !ok || !errors.Is(opErr.Err, net.ErrClosed) {
+				t.Errorf("error serving server: %v", err)
+			}
 		}
 	}()
 

@@ -113,6 +113,16 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
 
+          {{- range nomadService "mev-commit-oracle" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
+              service: "mev-commit-oracle"
+              metrics:
+                - mev_commit_oracle*
+                - go*
+            {{- end }}
+          {{- end }}
+
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "metrics" .Tags }}
             - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/debug/metrics/prometheus
