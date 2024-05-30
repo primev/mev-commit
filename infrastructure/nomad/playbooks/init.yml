@@ -16,7 +16,7 @@
   pre_tasks:
     - name: Determine the Architecture of the Target System
       ansible.builtin.set_fact:
-        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+        target_system_architecture: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
 
     - name: Check Operating System of the Target System
       assert:
@@ -316,7 +316,7 @@
 
     - name: Download CNI Plugins Package
       ansible.builtin.get_url:
-        url: "https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-{{ system_arch }}-v1.4.0.tgz"
+        url: "https://github.com/containernetworking/plugins/releases/download/v1.4.0/cni-plugins-linux-{{ target_system_architecture }}-v1.4.0.tgz"
         dest: "/tmp/cni-plugins.tgz"
 
     - name: Ensure "/opt/cni/bin" Directory Exists
