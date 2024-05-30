@@ -11,19 +11,21 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/ut
 // TODO: separate out contract owner, and account that manages the whitelist
 contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
-    // TODO: Confirm this FSM makes point calcuations easy enough
+    uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
+
+    uint256 public maxConsAddrsPerEOA;
+    uint256 public minFreezeBlocks;
+    uint256 public unfreezeFee;
+
     enum State { NotWhitelisted, Active, Frozen }
+
     struct WhitelistedEOAInfo {
         State state;
         uint numConsAddrsStored;
         uint256 freezeHeight;
     }
-    mapping(address => WhitelistedEOAInfo) private whitelistedEOAs;
 
-    uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
-    uint256 public maxConsAddrsPerEOA;
-    uint256 public minFreezeBlocks;
-    uint256 public unfreezeFee;
+    mapping(address => WhitelistedEOAInfo) private whitelistedEOAs;
 
     // List of stored validator consensus addresses with O(1) lookup indexed by consensus address. 
     // These addresses were at some point stored by a whitelisted EOA.
@@ -34,19 +36,12 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     // they could construct the set offchain via events.
     mapping(bytes => address) public storedConsAddrs;
 
-    /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
-     */
-    fallback() external payable {
-        revert("Invalid call");
-    }
-
-    /**
-     * @dev Receive function is disabled for this contract to prevent unintended interactions.
-     */
-    receive() external payable {
-        revert("Invalid call");
-    }
+    event WhitelistedEOAAdded(address indexed eoa);
+    event WhitelistedEOADeleted(address indexed eoa);
+    event EOAFrozen(address indexed eoa);
+    event EOAUnfrozen(address indexed eoa);
+    event ConsAddrStored(bytes consAddr, address indexed eoa);
+    event ConsAddrDeleted(bytes consAddr, address indexed eoa);
 
     function initialize(
         address _owner,
@@ -66,27 +61,40 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         _disableInitializers();
     }
 
-    function isWhitelistedEOA(address eoa) external view returns (bool) {
-        return whitelistedEOAs[eoa].state != State.NotWhitelisted;
+    function addWhitelistedEOA(address eoa) external onlyOwner {
+        require(eoa != address(0), "Invalid address");
+        require(whitelistedEOAs[eoa].state == State.NotWhitelisted, "EOA must not already be whitelisted");
+        whitelistedEOAs[eoa] = WhitelistedEOAInfo({
+            state: State.Active,
+            numConsAddrsStored: 0,
+            freezeHeight: 0
+        });
+        emit WhitelistedEOAAdded(eoa);
     }
 
-    function isValidatorOptedIn(bytes memory consAddr) public view returns (bool) {
-        address eoa = storedConsAddrs[consAddr];
-        bool isConsAddrStored = eoa != address(0);
-        bool isEoaActive = whitelistedEOAs[eoa].state == State.Active;
-        return isConsAddrStored && isEoaActive;
+    function deleteWhitelistedEOA(address eoa) external {
+        require(msg.sender == owner() || msg.sender == eoa, "Only owner or EOA itself can delete whitelisted EOA");
+        require(whitelistedEOAs[eoa].state != State.NotWhitelisted, "EOA must be whitelisted");
+        delete whitelistedEOAs[eoa];
+        emit WhitelistedEOADeleted(eoa);
     }
 
-    function areValidatorsOptedIn(bytes[] memory consAddrs) external view returns (bool[] memory) {
-        require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
-        bool[] memory results = new bool[](consAddrs.length);
-        for (uint i = 0; i < consAddrs.length; i++) {
-            results[i] = isValidatorOptedIn(consAddrs[i]);
-        }
-        return results;
+    function freeze(address eoa) onlyOwner external {
+        require(whitelistedEOAs[eoa].state == State.Active, "EOA must be active");
+        whitelistedEOAs[eoa].state = State.Frozen;
+        whitelistedEOAs[eoa].freezeHeight = block.number;
+        emit EOAFrozen(eoa);
     }
 
-    event ConsAddrStored(bytes consAddr, address indexed eoa);
+    function unfreeze() external payable {
+        require(whitelistedEOAs[msg.sender].state == State.Frozen, "sender must be frozen");
+        require(block.number >= whitelistedEOAs[msg.sender].freezeHeight + minFreezeBlocks, "Freeze period has not elapsed");
+        require(msg.value >= unfreezeFee, "Insufficient unfreeze fee");
+        whitelistedEOAs[msg.sender].state = State.Active;
+        whitelistedEOAs[msg.sender].freezeHeight = 0;
+        emit EOAUnfrozen(msg.sender);
+    }
+
     function storeConsAddrs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         require(whitelistedEOAs[msg.sender].state != State.NotWhitelisted, "sender must be whitelisted");
@@ -109,7 +117,7 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
     }
 
-    function deleteConsAddrsFromNonWhitelistedEOAs(bytes[] memory consAddrs) external onlyOwner {
+    function deleteConsAddrsFromNonWhitelistedEOAs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         for (uint i = 0; i < consAddrs.length; i++) {
             address eoa = storedConsAddrs[consAddrs[i]];
@@ -119,48 +127,37 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
     }
 
-    event ConsAddrDeleted(bytes consAddr, address indexed eoa);
+    function isEOAWhitelisted(address eoa) external view returns (bool) {
+        return whitelistedEOAs[eoa].state != State.NotWhitelisted;
+    }
+
+    function areValidatorsOptedIn(bytes[] memory consAddrs) external view returns (bool[] memory) {
+        require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
+        bool[] memory results = new bool[](consAddrs.length);
+        for (uint i = 0; i < consAddrs.length; i++) {
+            results[i] = _isValidatorOptedIn(consAddrs[i]);
+        }
+        return results;
+    }
+
     function _deleteConsAddr(address eoa, bytes memory consAddr) internal {
         delete storedConsAddrs[consAddr];
         emit ConsAddrDeleted(consAddr, eoa);
     }
 
-    event WhitelistedEOAAdded(address indexed eoa);
-    function addWhitelistedEOA(address eoa) external onlyOwner {
-        require(eoa != address(0), "Invalid address");
-        require(whitelistedEOAs[eoa].state == State.NotWhitelisted, "EOA must not already be whitelisted");
-        whitelistedEOAs[eoa] = WhitelistedEOAInfo({
-            state: State.Active,
-            numConsAddrsStored: 0,
-            freezeHeight: 0
-        });
-        emit WhitelistedEOAAdded(eoa);
+    function _isValidatorOptedIn(bytes memory consAddr) internal view returns (bool) {
+        address eoa = storedConsAddrs[consAddr];
+        bool isConsAddrStored = eoa != address(0);
+        bool isEoaActive = whitelistedEOAs[eoa].state == State.Active;
+        return isConsAddrStored && isEoaActive;
     }
 
-    event WhitelistedEOADeleted(address indexed eoa);
-    function deleteWhitelistedEOA(address eoa) external {
-        require(msg.sender == owner() || msg.sender == eoa, "Only owner or EOA itself can delete whitelisted EOA");
-        require(whitelistedEOAs[eoa].state != State.NotWhitelisted, "EOA must be whitelisted");
-        delete whitelistedEOAs[eoa];
-        emit WhitelistedEOADeleted(eoa);
+    fallback() external payable {
+        revert("Invalid call");
     }
 
-    event EOAFrozen(address indexed eoa);
-    function freeze(address eoa) onlyOwner external {
-        require(whitelistedEOAs[eoa].state == State.Active, "EOA must be active");
-        whitelistedEOAs[eoa].state = State.Frozen;
-        whitelistedEOAs[eoa].freezeHeight = block.number;
-        emit EOAFrozen(eoa);
-    }
-
-    event EOAUnfrozen(address indexed eoa);
-    function unfreeze() external payable {
-        require(whitelistedEOAs[msg.sender].state == State.Frozen, "sender must be frozen");
-        require(block.number >= whitelistedEOAs[msg.sender].freezeHeight + minFreezeBlocks, "Freeze period has not elapsed");
-        require(msg.value >= unfreezeFee, "Insufficient unfreeze fee");
-        whitelistedEOAs[msg.sender].state = State.Active;
-        whitelistedEOAs[msg.sender].freezeHeight = 0;
-        emit EOAUnfrozen(msg.sender);
+    receive() external payable {
+        revert("Invalid call");
     }
 }
 
