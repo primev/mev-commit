@@ -82,6 +82,7 @@ check_deps() {
     local missing_utils=()
     local required_utilities=(
         go
+        yq
         aws
         ansible
         goreleaser
@@ -113,6 +114,11 @@ check_deps() {
 
     if ! aws sts get-caller-identity &> /dev/null; then
         echo "Error: AWS is not configured properly. Please run 'aws configure' to set up your credentials."
+        exit 1
+    fi
+
+    if [[ ! -f ansible.cfg ]]; then
+        echo "Error: ansible.cfg file not found."
         exit 1
     fi
 
@@ -238,7 +244,7 @@ main() {
             ;;
     esac
 
-    ansible-playbook --inventory hosts.ini "${playbook}" "${flags[@]}"
+    ansible-playbook "${playbook}" "${flags[@]}"
 }
 
 main "$@"

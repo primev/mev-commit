@@ -1,0 +1,19 @@
+[defaults]
+inventory = ./hosts.ini
+stdout_callback = yaml
+callbacks_enabled = profile_tasks
+forks = 50
+retry_files_enabled = False
+timeout = 10
+connection = ssh
+pipelining = True
+host_key_checking = False
+ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o ForwardAgent=yes
+fact_caching = jsonfile
+fact_caching_connection = /tmp/ansible_facts_cache
+fact_caching_timeout = 86400
+module_defaults:
+    ansible.builtin.gather_facts:
+    gather_subset:
+    - '!all'
+    - 'min'

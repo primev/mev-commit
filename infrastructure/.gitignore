@@ -7,4 +7,5 @@
 
 # Ignore local config files.
 mev-commit-secrets.json
+ansible.cfg
 hosts.ini

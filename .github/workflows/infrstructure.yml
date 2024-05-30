@@ -141,6 +141,8 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region us-west-2
 
+          cp infrastructure/nomad/ansible.cfg.example infrastructure/nomad/ansible.cfg
+
           cat <<-EOH > infrastructure/nomad/hosts.ini
           [nomad_servers]
           ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=ubuntu
