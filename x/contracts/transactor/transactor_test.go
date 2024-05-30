@@ -153,7 +153,7 @@ func (w *testWatcher) Sent(ctx context.Context, tx *types.Transaction) {
 }
 
 type testBackend struct {
-	bind.ContractTransactor
+	bind.ContractBackend
 	nonce           uint64
 	errNonce        uint64
 	pendingNonceErr error
