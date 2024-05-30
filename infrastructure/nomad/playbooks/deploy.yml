@@ -11,7 +11,7 @@
   pre_tasks:
     - name: Determine the Architecture of the Target System
       ansible.builtin.set_fact:
-        system_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+        target_system_architecture: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
 
     - name: Check Operating System of the Target System
       assert:
@@ -105,7 +105,6 @@
           Build Artifacts: {{ 'yes' if build_artifacts | default(false) else 'no' }}
           Build Templates: {{ 'yes' if build_templates | default(false) else 'no' }}
 
-  tasks:
     - name: Ensure "{{ ansible_env.HOME }}/{{ profile }}" Directory Exists
       ansible.builtin.file:
         path: "{{ ansible_env.HOME }}/{{ profile }}"
@@ -113,6 +112,7 @@
         mode: "0744"
         recurse: yes
 
+  tasks:
     - name: Build Artifacts Async
       ansible.builtin.shell: |
         DESTINATION_DIR="{{ goreleaser_dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
@@ -121,9 +121,17 @@
         elif [ "{{ item.name }}" == "faucet-keystore" ]; then
           tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./{{ item.path }} .
         else
-          goreleaser release --config=./{{ item.path }}/.goreleaser.yml --clean --snapshot
+          cp ./{{ item.path }}/.goreleaser.yml ./{{ item.path }}/.goreleaser.tmp.yml
+          yq -i "
+            .builds[0].goos = [\"${GOOS}\"] |
+            .builds[0].goarch = [\"${GOARCH}\"]
+          " ./{{ item.path }}/.goreleaser.tmp.yml
+          goreleaser release --config=./{{ item.path }}/.goreleaser.tmp.yml --clean --snapshot
+          rm ./{{ item.path }}/.goreleaser.tmp.yml
         fi
       environment:
+        GOOS: linux
+        GOARCH: "{{ target_system_architecture }}"
         DIRTY_SUFFIX: "{{ version | regex_search('-.*') | default('') }}"
       args:
         chdir: "{{ playbook_dir }}/../../../"
@@ -155,7 +163,11 @@
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
         paths: "{{ goreleaser_dist_dir }}"
-        patterns: "*{{ version }}*_Linux_x86_64.tar.gz,contracts_{{ version }}.tar.gz,*{{ version }}_checksums.txt,faucet_keystore_{{ version }}.tar.gz"
+        patterns:
+          - "*{{ version }}*_Linux_{{ ansible_architecture }}.tar.gz"
+          - "contracts_{{ version }}.tar.gz"
+          - "*{{ version }}_checksums.txt"
+          - "faucet_keystore_{{ version }}.tar.gz"
         recurse: yes
       register: upload_artifacts
       delegate_to: localhost
