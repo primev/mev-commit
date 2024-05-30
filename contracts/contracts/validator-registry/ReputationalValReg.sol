@@ -17,7 +17,6 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         State state;
         uint numConsAddrsStored;
         uint256 freezeHeight;
-        string organizationName; // TODO: Consider removing for gas purposes. This info could be stored offchain.
     }
     mapping(address => WhitelistedEOAInfo) private whitelistedEOAs;
 
@@ -79,7 +78,7 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         return results;
     }
 
-    event ConsAddrStored(bytes consAddr, address indexed eoa); // TODO: Index consAddr too?
+    event ConsAddrStored(bytes consAddr, address indexed eoa);
     function storeConsAddrs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         require(whitelistedEOAs[msg.sender].state != State.NotWhitelisted, "sender must be whitelisted");
@@ -113,36 +112,41 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
     }
 
-    event ConsAddrDeleted(bytes consAddr, address indexed eoa); // TODO: Index consAddr too?
+    event ConsAddrDeleted(bytes consAddr, address indexed eoa);
     function _deleteConsAddr(address eoa, bytes memory consAddr) internal {
         delete storedConsAddrs[consAddr];
         emit ConsAddrDeleted(consAddr, eoa);
     }
 
-    function addWhitelistedEOA(address eoa, string memory organizationName) external onlyOwner {
+    event WhitelistedEOAAdded(address indexed eoa);
+    function addWhitelistedEOA(address eoa) external onlyOwner {
         require(eoa != address(0), "Invalid address");
-        require(bytes(organizationName).length > 0, "Organization name cannot be empty");
         require(whitelistedEOAs[eoa].state == State.NotWhitelisted, "EOA must not already be whitelisted");
         whitelistedEOAs[eoa] = WhitelistedEOAInfo({
             state: State.Active,
             numConsAddrsStored: 0,
-            freezeHeight: 0,
-            organizationName: organizationName
+            freezeHeight: 0
         });
+        emit WhitelistedEOAAdded(eoa);
     }
 
+    event WhitelistedEOADeleted(address indexed eoa);
     function deleteWhitelistedEOA(address eoa) external {
         require(msg.sender == owner() || msg.sender == eoa, "Only owner or EOA itself can delete whitelisted EOA");
         require(whitelistedEOAs[eoa].state != State.NotWhitelisted, "EOA must be whitelisted");
         delete whitelistedEOAs[eoa];
+        emit WhitelistedEOADeleted(eoa);
     }
 
+    event EOAFrozen(address indexed eoa);
     function freeze(address eoa) onlyOwner external {
         require(whitelistedEOAs[eoa].state == State.Active, "EOA must be active");
         whitelistedEOAs[eoa].state = State.Frozen;
         whitelistedEOAs[eoa].freezeHeight = block.number;
+        emit EOAFrozen(eoa);
     }
 
+    event EOAUnfrozen(address indexed eoa);
     function unfreeze() external payable {
         require(whitelistedEOAs[msg.sender].state == State.Frozen, "sender must be frozen");
         // TODO: make configurable
@@ -151,5 +155,6 @@ contract ReputationalValReg is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(msg.value >= 10 ether, "10 ether must be sent with an unfreeze transaction.");
         whitelistedEOAs[msg.sender].state = State.Active;
         whitelistedEOAs[msg.sender].freezeHeight = 0;
+        emit EOAUnfrozen(msg.sender);
     }
 }
