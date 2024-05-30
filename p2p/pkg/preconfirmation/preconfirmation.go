@@ -316,7 +316,6 @@ func (p *Preconfirmation) handleBid(
 			if err != nil {
 				return status.Errorf(codes.Internal, "failed to get transact opts: %v", err)
 			}
-
 			txn, err := p.commitmentDA.StoreEncryptedCommitment(
 				opts,
 				commitmentDigest,
@@ -327,7 +326,7 @@ func (p *Preconfirmation) handleBid(
 				p.logger.Error("storing commitment", "error", err)
 				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
 			}
-
+			p.logger.Info("sending transaction on-chain", "tx_hash", txn.Hash(), "dispatch_timestamp", st.DispatchTimestamp)
 			encryptedAndDecryptedPreconfirmation := &store.EncryptedPreConfirmationWithDecrypted{
 				TxnHash:                  txn.Hash(),
 				EncryptedPreConfirmation: encryptedPreConfirmation,
