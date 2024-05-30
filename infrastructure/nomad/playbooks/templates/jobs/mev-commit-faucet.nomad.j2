@@ -46,8 +46,10 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
-          {% raw %}{{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}
-          {% endraw %}EOH
+          {%- raw %}
+          {{ with secret "secret/data/mev-commit" }}{{ .Data.data.faucet_keystore_password }}{{ end }}
+          {% endraw %}
+        EOH
         destination = "secrets/password.txt"
       }
 
