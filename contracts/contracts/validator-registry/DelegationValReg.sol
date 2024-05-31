@@ -5,9 +5,13 @@ pragma solidity 0.8.20;
 import "./ReputationalValReg.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
     ReputationalValReg public reputationalValReg;
+    IERC20 public stETHToken;
+
+    address public constant DEFAULT_STETH_ADDRESS = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
 
     struct Delegation {
         address validatorEOA;
@@ -26,15 +30,18 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     function initialize(
         address _owner,
-        address _reputationalValReg
+        address _reputationalValReg,
+        address _stETHToken // Optional arg for testing and Holesky. Default address used for mainnet.
     ) external initializer {
         __Ownable_init(_owner);
         reputationalValReg = ReputationalValReg(payable(_reputationalValReg));
+        stETHToken = IERC20(_stETHToken == address(0) ? DEFAULT_STETH_ADDRESS : _stETHToken);
     }
 
     function delegate(address validatorEOA, uint256 amount) external {
         require(reputationalValReg.isEOAWhitelisted(validatorEOA), "Validator EOA must be whitelisted");
         require(delegations[msg.sender].amount == 0, "Already delegated");
+        require(stETHToken.transferFrom(msg.sender, address(this), amount), "Token transfer failed");
 
         delegations[msg.sender] = Delegation({
             validatorEOA: validatorEOA,
@@ -63,6 +70,7 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
         address validatorEOA = delegation.validatorEOA;
 
         delete delegations[msg.sender];
+        require(stETHToken.transfer(msg.sender, amount), "Token transfer failed");
 
         emit Withdrawn(msg.sender, validatorEOA, amount);
     }
@@ -74,5 +82,5 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
     receive() external payable {
         revert("Invalid call");
     }
+    // TODO: withdraw if the EOA becomes frozen or unwhitelisted, withdraw time, etc. 
 }
-// withdraw if the EOA becomes frozen or unwhitelisted, withdraw time, etc. 
