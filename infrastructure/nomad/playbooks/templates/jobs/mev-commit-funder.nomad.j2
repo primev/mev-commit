@@ -36,11 +36,6 @@ job "{{ job.name }}" {
           chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
           export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
 
-          nomad_alloc_index=$NOMAD_ALLOC_INDEX
-
-          index_plus_one=$((nomad_alloc_index + 1))
-          service_name="{{ job.target_name }}${index_plus_one}"
-          echo "Service name: $service_name"
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
@@ -48,7 +43,9 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          {{- range nomadService "${service_name}" }}
+          {{- $idx := env "NOMAD_ALLOC_INDEX" | parseInt }}
+          {{- $idx++ }}
+          {{- range nomadService (printf "%s%d" "{{ job.target_name }}" $idx) }}
             {{- if contains "http" .Tags }}
           START_TIME=$(date +%s)
           TIMEOUT=60
