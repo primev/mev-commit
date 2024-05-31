@@ -43,7 +43,7 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          {{- range nomadService "{% endraw %}{{ job.target_name }}{% raw %}" }}
+          {{- range nomadService (print "{% endraw %}{{ job.target_name }}{% raw %}" (env "NOMAD_ALLOC_INDEX")) }}
             {{- if contains "http" .Tags }}
           START_TIME=$(date +%s)
           TIMEOUT=60
