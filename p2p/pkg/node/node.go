@@ -133,6 +133,20 @@ func NewNode(opts *Options) (*Node, error) {
 		contractAddrs = append(contractAddrs, addr)
 	}
 
+	lastBlock, err := contractRPC.BlockNumber(context.Background())
+	if err != nil {
+		opts.Logger.Error("failed to get last block", "error", err)
+		return nil, errors.Join(err, nd.Close())
+	}
+
+	err = store.SetLastBlock(lastBlock)
+	if err != nil {
+		opts.Logger.Error("failed to set last block", "error", err)
+		return nil, errors.Join(err, nd.Close())
+	}
+
+	opts.Logger.Info("node set latest block", "lastBlock", lastBlock)
+
 	evtMgr := events.NewListener(
 		opts.Logger.With("component", "events"),
 		abis...,
