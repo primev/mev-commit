@@ -139,6 +139,8 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, errors.Join(err, nd.Close())
 	}
 
+	// TODO: Having this block setting here because the store is in-memory.
+	// Once we have a database, this should be removed.
 	err = store.SetLastBlock(lastBlock)
 	if err != nil {
 		opts.Logger.Error("failed to set last block", "error", err)
