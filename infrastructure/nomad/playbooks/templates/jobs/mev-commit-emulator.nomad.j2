@@ -54,7 +54,7 @@ job "{{ job.name }}" {
           index_plus_one=$((nomad_alloc_index + 1))
           service_name="{{ job.target_name }}${index_plus_one}"
           echo "Service name: $service_name"
-          {{% endraw %}}
+          {% endraw %}
           {%- raw %}
           {{- range nomadService "${service_name}" }}
             {{- if contains "rpc" .Tags }}
