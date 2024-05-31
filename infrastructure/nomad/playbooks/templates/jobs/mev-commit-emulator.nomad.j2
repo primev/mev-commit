@@ -52,7 +52,7 @@ job "{{ job.name }}" {
 
           {%- raw %}
           {{- $idx := add (env "NOMAD_ALLOC_INDEX" | parseInt) 1 }}
-          {{- range nomadService (printf "%s%d" "{{ job.target_name }}" $idx) }}
+          {{- range nomadService (printf "%s%d" "{% endraw %}{{ job.target_name }}{% raw %}" $idx) }}
             {{- if contains "rpc" .Tags }}
           EMULATOR_IP_PORT="{{ .Address }}:{{ .Port }}"
             {{- end }}
