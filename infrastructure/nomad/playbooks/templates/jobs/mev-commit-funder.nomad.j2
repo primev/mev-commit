@@ -43,8 +43,7 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          {{- $idx := env "NOMAD_ALLOC_INDEX" | parseInt }}
-          {{- $idx++ }}
+          {{- $idx := add (env "NOMAD_ALLOC_INDEX" | parseInt) 1 }}
           {{- range nomadService (printf "%s%d" "{{ job.target_name }}" $idx) }}
             {{- if contains "http" .Tags }}
           START_TIME=$(date +%s)
