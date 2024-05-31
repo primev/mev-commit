@@ -41,7 +41,7 @@ job "{{ job.name }}" {
           index_plus_one=$((nomad_alloc_index + 1))
           service_name="{{ job.target_name }}${index_plus_one}"
           echo "Service name: $service_name"
-
+          {% endraw %}
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
@@ -49,7 +49,7 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          {{- range nomadService $service_name }}
+          {{- range nomadService ${service_name} }}
             {{- if contains "http" .Tags }}
           START_TIME=$(date +%s)
           TIMEOUT=60
