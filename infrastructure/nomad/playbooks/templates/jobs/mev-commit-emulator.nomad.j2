@@ -49,13 +49,11 @@ job "{{ job.name }}" {
             if job.get('env') and job.env.get('log-tags')
             else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
           }}"
-          nomad_alloc_index=$NOMAD_ALLOC_INDEX
 
-          index_plus_one=$((nomad_alloc_index + 1))
-          service_name="{{ job.target_name }}${index_plus_one}"
-          echo "Service name: $service_name"
           {%- raw %}
-          {{- range nomadService "${service_name}" }}
+          {{- $idx := env "NOMAD_ALLOC_INDEX" | parseInt }}
+          {{- $idx++ }}
+          {{- range nomadService (printf "%s%d" "{{ job.target_name }}" $idx) }}
             {{- if contains "rpc" .Tags }}
           EMULATOR_IP_PORT="{{ .Address }}:{{ .Port }}"
             {{- end }}
