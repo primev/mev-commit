@@ -11,6 +11,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeab
 // TODO: Consider separating out contract owner, and account that manages the whitelist. This depends how exactly upgrades will work.
 // TODO: Determine need for reentrancy guard. Also determine if certain functions need to be external vs public for future integration.
 // TODO: Hash out and test upgrade process before deployment.
+// TODO: Talk to taylor about offchain db if needed to enable full list via events, include kant in convo
 contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
@@ -18,6 +19,8 @@ contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
     uint256 public maxConsAddrsPerEOA;
     uint256 public minFreezeBlocks;
     uint256 public unfreezeFee;
+
+    // TODO: Add stETH support here for delegators, also update notion doc accordingly
 
     enum State { NotWhitelisted, Active, Frozen }
 
@@ -70,7 +73,7 @@ contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     function addWhitelistedEOA(address eoa) external onlyOwner {
         require(eoa != address(0), "Invalid address");
-        require(whitelistedEOAs[eoa].state == State.NotWhitelisted, "EOA must not already be whitelisted");
+        require(!isEOAWhitelisted(eoa), "EOA must not already be whitelisted");
         whitelistedEOAs[eoa] = WhitelistedEOAInfo({
             state: State.Active,
             numConsAddrsStored: 0,
@@ -81,13 +84,15 @@ contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     function deleteWhitelistedEOA(address eoa) external {
         require(msg.sender == owner() || msg.sender == eoa, "Only owner or EOA itself can delete whitelisted EOA");
-        require(whitelistedEOAs[eoa].state != State.NotWhitelisted, "EOA must be whitelisted");
+        require(isEOAWhitelisted(eoa), "EOA must be whitelisted");
         delete whitelistedEOAs[eoa];
         emit WhitelistedEOADeleted(eoa);
     }
 
-    function freeze(address eoa) onlyOwner external {
-        require(whitelistedEOAs[eoa].state == State.Active, "EOA must be active");
+    function freeze(bytes memory validatorConsAddr) onlyOwner external {
+        address eoa = storedConsAddrs[validatorConsAddr];
+        require(eoa != address(0), "Validator consensus address must be stored");
+        require(whitelistedEOAs[eoa].state == State.Active, "EOA representing validator must be active");
         whitelistedEOAs[eoa].state = State.Frozen;
         whitelistedEOAs[eoa].freezeHeight = block.number;
         emit EOAFrozen(eoa);
@@ -104,7 +109,7 @@ contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     function storeConsAddrs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
-        require(whitelistedEOAs[msg.sender].state != State.NotWhitelisted, "sender must be whitelisted");
+        require(isEOAWhitelisted(msg.sender), "sender must be whitelisted");
         for (uint i = 0; i < consAddrs.length; i++) {
             require(storedConsAddrs[consAddrs[i]] == address(0), "Consensus address is already stored");
             require(whitelistedEOAs[msg.sender].numConsAddrsStored < maxConsAddrsPerEOA, "EOA must not store more than max allowed cons addrs");
@@ -117,7 +122,7 @@ contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
     function deleteConsAddrs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         for (uint i = 0; i < consAddrs.length; i++) {
-            require(whitelistedEOAs[msg.sender].state != State.NotWhitelisted, "sender must be whitelisted");
+            require(isEOAWhitelisted(msg.sender), "sender must be whitelisted");
             require(storedConsAddrs[consAddrs[i]] == msg.sender, "Consensus address must be stored by sender");
             _deleteConsAddr(msg.sender, consAddrs[i]);
             whitelistedEOAs[msg.sender].numConsAddrsStored--;
@@ -129,12 +134,12 @@ contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
         for (uint i = 0; i < consAddrs.length; i++) {
             address eoa = storedConsAddrs[consAddrs[i]];
             require(eoa != address(0), "Consensus address must be stored");
-            require(whitelistedEOAs[eoa].state == State.NotWhitelisted, "EOA who originally stored cons addr must not be whitelisted");
+            require(!isEOAWhitelisted(eoa), "EOA who originally stored cons addr must not be whitelisted");
             _deleteConsAddr(eoa, consAddrs[i]);
         }
     }
 
-    function isEOAWhitelisted(address eoa) external view returns (bool) {
+    function isEOAWhitelisted(address eoa) public view returns (bool) {
         return whitelistedEOAs[eoa].state != State.NotWhitelisted;
     }
 
