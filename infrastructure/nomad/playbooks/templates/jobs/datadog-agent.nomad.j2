@@ -26,13 +26,6 @@ job "{{ job.name }}" {
       {% endif %}
     }
 
-    meta {
-      providers = "mev-commit-provider-node1,mev-commit-provider-node2,mev-commit-provider-node3"
-      bidders = "mev-commit-bidder-node1,mev-commit-bidder-node2,mev-commit-bidder-node3,mev-commit-bidder-node4,mev-commit-bidder-node5"
-      provider_emulators = "mev-commit-provider-emulator-node1,mev-commit-provider-emulator-node2,mev-commit-provider-emulator-node3"
-      bidder_emulators = "mev-commit-bidder-emulator-node1,mev-commit-bidder-emulator-node2,mev-commit-bidder-emulator-node3,mev-commit-bidder-emulator-node4,mev-commit-bidder-emulator-node5"
-    }
-
     task "datadog-agent" {
       driver = "exec"
 
@@ -98,29 +91,25 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
 
-          {{- range split (env "NOMAD_META_PROVIDERS") "," }}
-            {{- range nomadService . }}
-              {{- if contains "metrics" .Tags }}
-              - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
-                service: {{ .Name }}
-                metrics:
-                  - mev_commit*
-                  - go*
-                  - libp2p*
-              {{- end }}
+          {{- range nomadService "mev-commit-provider-node1" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: "mev-commit-provider-node1"
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
             {{- end }}
-          {{- end}}
+          {{- end }}
 
-          {{- range split (env "NOMAD_META_BIDDERS") "," }}
-            {{- range nomadService . }}
-              {{- if contains "metrics" .Tags }}
-              - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
-                service: {{ .Name }}
-                metrics:
-                  - mev_commit*
-                  - go*
-                  - libp2p*
-              {{- end }}
+          {{- range nomadService "mev-commit-bidder-node1" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: "mev-commit-bidder-node1"
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
             {{- end }}
           {{- end }}
 
@@ -204,25 +193,21 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
 
-          {{- range split (env "NOMAD_META_PROVIDER_EMULATORS") "," }}
-            {{- range nomadService . }}
-              {{- if contains "metrics" .Tags }}
-              - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
-                service: {{ .Name }}
-                metrics:
-                  - mev_commit*
-              {{- end }}
+          {{- range nomadService "mev-commit-provider-emulator-node1" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
+              service: "mev-commit-provider-emulator-node1"
+              metrics:
+                - mev_commit*
             {{- end }}
           {{- end }}
 
-          {{- range split (env "NOMAD_META_BIDDER_EMULATORS") "," }}
-            {{- range nomadService . }}
-              {{- if contains "metrics" .Tags }}
-              - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
-                service: {{ .Name }}
-                metrics:
-                  - mev_commit*
-              {{- end }}
+          {{- range nomadService "mev-commit-bidder-emulator-node1" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
+              service: "mev-commit-bidder-emulator-node1"
+              metrics:
+                - mev_commit*
             {{- end }}
           {{- end }}
           {% endraw %}
