@@ -50,7 +50,7 @@ job "{{ job.name }}" {
             else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
           }}"
           {%- raw %}
-          {{- range nomadService "{% endraw %}{{ job.target_name }}{% raw %}" }}
+          {{- range nomadService (print "{% endraw %}{{ job.target_name }}{% raw %}" (env "NOMAD_ALLOC_INDEX")) }}
             {{- if contains "rpc" .Tags }}
           EMULATOR_IP_PORT="{{ .Address }}:{{ .Port }}"
             {{- end }}
