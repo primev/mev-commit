@@ -195,7 +195,7 @@ jobs:
       keystore: provider1
     ports:
       - metrics:
-          to: 13623
+          to: 13523
         http:
           static: 13623
           to: 13523
@@ -217,7 +217,7 @@ jobs:
       keystore: provider1
     ports:
       - metrics:
-          to: 13633
+          to: 13523
         http:
           static: 13633
           to: 13523
@@ -239,7 +239,7 @@ jobs:
       keystore: provider1
     ports:
       - metrics:
-          to: 13643
+          to: 13523
         http:
           static: 13643
           to: 13523
@@ -306,7 +306,7 @@ jobs:
       keystore: bidder1
     ports:
       - metrics:
-          to: 13723
+          to: 13523
         http:
           static: 13723
           to: 13523
@@ -348,7 +348,7 @@ jobs:
       keystore: bidder1
     ports:
       - metrics:
-          to: 13743
+          to: 13523
         http:
           static: 13743
           to: 13523
@@ -369,7 +369,7 @@ jobs:
       keystore: bidder1
     ports:
       - metrics:
-          to: 13753
+          to: 13523
         http:
           static: 13753
           to: 13523
@@ -390,7 +390,7 @@ jobs:
       keystore: bidder1
     ports:
       - metrics:
-          to: 13763
+          to: 13523
         http:
           static: 13763
           to: 13523
