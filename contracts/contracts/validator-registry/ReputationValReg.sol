@@ -12,15 +12,14 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeab
 // TODO: Determine need for reentrancy guard. Also determine if certain functions need to be external vs public for future integration.
 // TODO: Hash out and test upgrade process before deployment.
 // TODO: Talk to taylor about offchain db if needed to enable full list via events, include kant in convo
-contract ReputationalValReg is OwnableUpgradeable, UUPSUpgradeable {
+// TODO: generate go bindings for this contract, adapt existing binding creation script for v1 registry.
+contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;
 
     uint256 public maxConsAddrsPerEOA;
     uint256 public minFreezeBlocks;
     uint256 public unfreezeFee;
-
-    // TODO: Add stETH support here for delegators, also update notion doc accordingly
 
     enum State { NotWhitelisted, Active, Frozen }
 
