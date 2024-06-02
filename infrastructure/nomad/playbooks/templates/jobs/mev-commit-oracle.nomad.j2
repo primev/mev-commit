@@ -161,42 +161,40 @@ job "{{ job.name }}" {
           MEV_ORACLE_PG_DBNAME="{{env "NOMAD_META_DB_NAME"}}"
             {{- end }}
           {{- end }}
-          echo "Profile: {{ profile }}"
-          if [ "{{ profile }}" != "testnet" ]; then
-            ADDRESSES = ""
-            {{- range nomadService "mev-commit-provider-node1" }}
-              {{ if contains "http" .Tags }}
-            TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
-            PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
-            if [ -z "${ADDRESSES}" ]; then
-              ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
-            else
-              ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
-            fi
-              {{ end }}
-            {{- end }}
-            {{- range nomadService "mev-commit-provider-node2" }}
-              {{ if contains "http" .Tags }}
-            TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
-            PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
-            if [ -z "${ADDRESSES}" ]; then
-              ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
-            else
-              ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
-            fi
-              {{ end }}
-            {{- end }}
-            {{- range nomadService "mev-commit-provider-node3" }}
-              {{ if contains "http" .Tags }}
-            TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
-            PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
-            if [ -z "${ADDRESSES}" ]; then
-              ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
-            else
-              ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
-            fi
-              {{ end }}
-            {{- end }}
+          ADDRESSES = ""
+          {{- range nomadService "mev-commit-provider-node1" }}
+            {{ if contains "http" .Tags }}
+          TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
+          PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
+          if [ -z "${ADDRESSES}" ]; then
+            ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
+          else
+            ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
+          fi
+            {{ end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-provider-node2" }}
+            {{ if contains "http" .Tags }}
+          TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
+          PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
+          if [ -z "${ADDRESSES}" ]; then
+            ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
+          else
+            ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
+          fi
+            {{ end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-provider-node3" }}
+            {{ if contains "http" .Tags }}
+          TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
+          PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
+          if [ -z "${ADDRESSES}" ]; then
+            ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
+          else
+            ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
+          fi
+            {{ end }}
+          {{- end }}
           MEV_ORACLE_OVERRIDE_WINNERS=${ADDRESSES}
           fi
           {% endraw %}

@@ -224,8 +224,6 @@
       ansible.builtin.template:
         src: "templates/jobs/{{ item.template }}"
         dest: "{{ ansible_env.HOME }}/{{ profile }}/{{ item.name }}.nomad"
-        vars:
-          profile: "{{ profile }}"
       loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
