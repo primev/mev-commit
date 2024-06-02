@@ -36,7 +36,7 @@ contract BlockTracker is OwnableUpgradeable {
      */
     function initialize(address _owner) external initializer {
         currentWindow = 1;
-        blocksPerWindow = 10;
+        blocksPerWindow = 32;
         __Ownable_init(_owner);
     }
 

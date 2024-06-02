@@ -144,7 +144,7 @@ job "{{ job.name }}" {
           MEV_ORACLE_HTTP_PORT="{{ .Port }}"
             {{- end }}
           {{- end }}
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
+          {{- range nomadService "mev-commit-geth-member-node" }}
             {{- if contains "http" .Tags }}
           MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
