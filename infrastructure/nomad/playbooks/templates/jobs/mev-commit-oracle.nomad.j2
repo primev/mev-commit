@@ -196,7 +196,6 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
           MEV_ORACLE_OVERRIDE_WINNERS=${ADDRESSES}
-          fi
           {% endraw %}
         EOH
         destination = "secrets/.env"

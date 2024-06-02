@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -244,7 +245,7 @@ func RetreivedBlock(rpcClient *ethclient.Client) ([]string, int64, error) {
 	blockTxns := []string{}
 	txns := fullBlock.Transactions()
 	for _, txn := range txns {
-		blockTxns = append(blockTxns, txn.Hash().Hex()[2:])
+		blockTxns = append(blockTxns, strings.TrimPrefix(txn.Hash().Hex(), "0x"))
 	}
 
 	return blockTxns, int64(blkNum), nil
