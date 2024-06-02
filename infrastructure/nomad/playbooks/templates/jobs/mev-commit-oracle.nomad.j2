@@ -162,7 +162,7 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           echo "Profile: {{ profile }}"
-          if [ {{ profile }} != "testnet" ]; then
+          if [ "{{ profile }}" != "testnet" ]; then
             ADDRESSES = ""
             {{- range nomadService "mev-commit-provider-node1" }}
               {{ if contains "http" .Tags }}
