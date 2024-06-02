@@ -55,7 +55,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "sleep 30 && local/run.sh && sleep 30"]
       }
     }
 
