@@ -23,6 +23,13 @@ job "{{ job.name }}" {
 
       lifecycle {
         hook = "prestart"
+        sidecar = false
+        prestart {
+          exec {
+            command = "/bin/sleep"
+            args = ["30"]
+          }
+        }
       }
 
       artifact {
