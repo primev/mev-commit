@@ -23,13 +23,6 @@ job "{{ job.name }}" {
 
       lifecycle {
         hook = "prestart"
-        sidecar = false
-        prestart {
-          exec {
-            command = "/bin/sleep"
-            args = ["30"]
-          }
-        }
       }
 
       artifact {
@@ -56,14 +49,13 @@ job "{{ job.name }}" {
           {% endraw %}
 
         EOH
-        sleep 30
         destination = "local/run.sh"
         perms = "0755"
       }
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "sleep 30 && local/run.sh && sleep 30"]
       }
     }
 
