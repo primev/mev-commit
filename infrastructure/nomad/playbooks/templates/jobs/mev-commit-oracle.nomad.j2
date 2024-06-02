@@ -161,6 +161,16 @@ job "{{ job.name }}" {
           MEV_ORACLE_PG_DBNAME="{{env "NOMAD_META_DB_NAME"}}"
             {{- end }}
           {{- end }}
+          {% endraw %}
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+          {%- raw %}
           ADDRESSES = ""
           {{- range nomadService "mev-commit-provider-node1" }}
             {{ if contains "http" .Tags }}
@@ -194,18 +204,8 @@ job "{{ job.name }}" {
             ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
           fi
             {{ end }}
-          {{- end }}
-          MEV_ORACLE_OVERRIDE_WINNERS=${ADDRESSES}
-          {% endraw %}
-        EOH
-        destination = "secrets/.env"
-        env = true
-      }
+          {{- end }}  
 
-      template {
-        data = <<-EOH
-          #!/usr/bin/env bash
-          {%- raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
@@ -213,8 +213,9 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
-          if [ ! -d "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
-            echo "starting mev-oracle with override winners ${MEV_ORACLE_OVERRIDE_WINNERS}"
+          if [ ! -z "${ADDRESSES}" ]; then
+            echo "starting mev-oracle with override winners ${ADDRESSES}"
+            export MEV_ORACLE_OVERRIDE_WINNERS=${ADDRESSES}
           fi
 
           if [ ! -d "${MEV_ORACLE_KEYSTORE_PATH}" ]; then
