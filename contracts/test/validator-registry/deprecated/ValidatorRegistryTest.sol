@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/ValidatorRegistry.sol";
+import "../../../contracts/validator-registry/deprecated/ValidatorRegistry.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
