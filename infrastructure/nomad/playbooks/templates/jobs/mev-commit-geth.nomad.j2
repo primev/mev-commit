@@ -36,6 +36,10 @@ job "{{ job.name }}" {
       }
       {% endfor %}
 
+      resources {
+        memory = 16384
+      }
+
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_x86_64.tar.gz"
       }
