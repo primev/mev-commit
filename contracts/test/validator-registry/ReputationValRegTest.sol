@@ -158,6 +158,11 @@ contract ReputationValRegTest is Test {
         assertFalse(reputationValReg.isEOAWhitelisted(user2));
     }
 
+    function testWhitelistCycle() public {
+        testDeleteWhitelistedEOA();
+        testAddWhitelistedEOA();
+    }
+
     function testFreeze() public {
         testAddWhitelistedEOA();
 
@@ -196,5 +201,80 @@ contract ReputationValRegTest is Test {
         reputationValReg.freeze(exampleConsAddr1);
         vm.stopPrank();
     }
+
+    function testUnfreeze() public {
+        testFreeze();
+
+        vm.startPrank(user2);
+        vm.expectRevert("sender must be frozen");
+        reputationValReg.unfreeze();
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectRevert("sender must be frozen");
+        reputationValReg.unfreeze();
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        vm.expectRevert("Freeze period has not elapsed");
+        reputationValReg.unfreeze();
+        vm.stopPrank();
+
+        vm.roll(95);
+        vm.startPrank(user1);
+        vm.expectRevert("Freeze period has not elapsed");
+        reputationValReg.unfreeze();
+        vm.stopPrank();
+
+        vm.roll(110);
+        vm.startPrank(user1);
+        vm.expectRevert("Insufficient unfreeze fee");
+        reputationValReg.unfreeze();
+        vm.stopPrank();
+
+        assertEq(reputationValReg.isEOAWhitelisted(user1), true); // frozen EOAs are still whitelisted
+        (ReputationValReg.State state, uint256 numConsAddrsStored, 
+            uint256 freezeHeight, string memory moniker) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(uint256(state), uint256(ReputationValReg.State.Frozen));
+        assertEq(numConsAddrsStored, 1);
+        assertEq(freezeHeight, 5);
+        assertEq(moniker, "bob");
+
+        vm.deal(user1, 2 ether);
+        vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit EOAUnfrozen(user1, "bob");
+        reputationValReg.unfreeze{value: 1 ether}();
+        vm.stopPrank();
+
+        (ReputationValReg.State state2, uint256 numConsAddrsStored2, 
+            uint256 freezeHeight2, string memory moniker2) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(uint256(state2), uint256(ReputationValReg.State.Active));
+        assertEq(numConsAddrsStored2, 1);
+        assertEq(freezeHeight2, 0);
+        assertEq(moniker2, "bob");
+    }
+
+    function testFreezeCycle() public {
+        testUnfreeze();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit EOAFrozen(user1, "bob");
+        reputationValReg.freeze(exampleConsAddr1);
+        vm.stopPrank();
+
+        assertEq(reputationValReg.isEOAWhitelisted(user1), true); // frozen EOAs are still whitelisted
+        (ReputationValReg.State state, uint256 numConsAddrsStored, 
+            uint256 freezeHeight, string memory moniker) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(uint256(state), uint256(ReputationValReg.State.Frozen));
+        assertEq(numConsAddrsStored, 1);
+        assertEq(freezeHeight, 110);
+        assertEq(moniker, "bob");
+    }
+    
+    // test on add cons addr -> remove -> add again
+
+
 
 }
