@@ -36,6 +36,10 @@ func NewKeystoreSigner(path, password string) (*KeystoreSigner, error) {
 		account = ksAccounts[0]
 	}
 
+	if err := keystore.Unlock(account, password); err != nil {
+		return nil, err
+	}
+
 	return &KeystoreSigner{
 		keystore: keystore,
 		password: password,
@@ -73,10 +77,6 @@ func (kss *KeystoreSigner) String() string {
 }
 
 func (kss *KeystoreSigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
-	if err := kss.keystore.Unlock(kss.account, kss.password); err != nil {
-		return nil, err
-	}
-
 	return bind.NewKeyStoreTransactorWithChainID(kss.keystore, kss.account, chainID)
 }
 
