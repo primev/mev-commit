@@ -299,7 +299,7 @@ func (t *Tracker) handleNewL1Block(
 			return nil
 		}
 		for i, receipt := range receipts {
-			t.logger.Debug("receipt for failed commitment",
+			t.logger.Info("receipt for failed commitment",
 				"tx_hash", failedCommitments[i],
 				"error", receipt.Err,
 			)
