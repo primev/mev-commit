@@ -7,7 +7,6 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-// TODO: Update notion doc accordingly to include this contract
 // TODO: hash out plan on how this and/or other contract could eventually be upgraded to incorporate slashing
 // TODO: determine should use reentrancy guard
 contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
