@@ -37,10 +37,7 @@ job "{{ job.name }}" {
       {% endfor %}
 
       resources {
-        memory {
-          reserved = 16000
-          limit    = 32000
-        }
+        memory = 16000
       }
 
       artifact {
