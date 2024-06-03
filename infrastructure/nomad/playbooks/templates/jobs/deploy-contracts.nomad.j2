@@ -18,64 +18,12 @@ job "{{ job.name }}" {
       }
     }
 
-    task "deploy-create2" {
-      driver = "exec"
-
-      lifecycle {
-        hook = "prestart"
-      }
-
-      artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_x86_64.tar.gz"
-      }
-
-      template {
-        data = <<-EOH
-          #!/usr/bin/env bash
-
-          {% raw %}
-          {{- range nomadService "datadog-agent-logs-collector" }}
-            {{ if contains "tcp" .Tags }}
-          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
-            {{ end }}
-          {{- end }}
-
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
-            {{ if contains "http" .Tags }}
-          chmod +x local/deploy_create2.sh
-          local/deploy_create2.sh "http://{{ .Address }}:{{ .Port }}"
-            {{ end }}
-          {{- end }}
-          {% endraw %}
-
-        EOH
-        destination = "local/run.sh"
-        perms = "0755"
-      }
-
-      config {
-        command = "bash"
-        args = ["-c", "local/run.sh"]
-      }
-    }
-
     task "deploy-contracts" {
       driver = "exec"
 
       artifact {
-        source = "https://nodejs.org/dist/v18.16.1/node-v18.16.1-linux-x64.tar.xz"
-        options {
-          archive = false
-        }
-      }
-
-      artifact {
-        source = "https://foundry.paradigm.xyz"
-        destination = "local/foundry.sh"
-      }
-
-      artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/contracts_{{ version }}.tar.gz"
+        destination = "local/"
       }
 
       template {
@@ -91,7 +39,6 @@ job "{{ job.name }}" {
           {% endraw %}
           CHAIN_ID="{{ job['chain-id'] }}"
           DEPLOY_TYPE="core"
-          SCRIPT_PATH_PREFIX="local/contracts/scripts/"
           CONTRACT_REPO_ROOT_PATH="local/contracts"
         EOH
         destination = "secrets/.env"
@@ -110,18 +57,24 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
-          tar \
-            --extract \
-            --file local/node-v18.16.1-linux-x64.tar.xz \
-            --directory /usr/local \
-            --strip-components=1
+          # Get the keystore file
+          KEYSTORE_DIR=$CONTRACT_REPO_ROOT_PATH/deployer_keystore
+          KEYSTORE_FILE=$(ls $KEYSTORE_DIR/* 2>/dev/null)
 
-          chmod +x local/foundry.sh && local/foundry.sh
-          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
-          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
+          if [ -z "$KEYSTORE_FILE" ]; then
+            echo "No keystore file found in $KEYSTORE_DIR. Terminating job."
+            exit 1
+          fi
 
-          forge clean
-          chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh && ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
+          # Run the deployment script
+          python3 $CONTRACT_REPO_ROOT_PATH/deploy.py \
+            --keystore $KEYSTORE_FILE \
+            --password "$KEYSTORE_PASSWORD" \
+            --rpc-url "$RPC_URL" \
+            --contracts BidderRegistry.sol PreConfCommitmentStore.sol BlockTracker.sol Oracle.sol ProviderRegistry.sol \
+            --gas-limit 3000000 \
+            --chain-id "$CHAIN_ID" \
+            --out-dir $CONTRACT_REPO_ROOT_PATH/out
         EOH
         destination = "local/run.sh"
         perms = "0755"

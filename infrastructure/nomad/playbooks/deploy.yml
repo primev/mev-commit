@@ -117,7 +117,9 @@
       ansible.builtin.shell: |
         DESTINATION_DIR="{{ goreleaser_dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
         if [ "{{ item.name }}" == "contracts" ]; then
-          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item.path }}
+          cd ./{{ item.path }}
+          forge build
+          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./out ./deployer_keystore
         elif [ "{{ item.name }}" == "faucet-keystore" ]; then
           tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./{{ item.path }} .
         else
