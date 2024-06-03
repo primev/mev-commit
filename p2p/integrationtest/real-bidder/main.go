@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,6 +58,11 @@ var (
 		"http-port",
 		8080,
 		"The port to serve the HTTP metrics endpoint on",
+	)
+	bidWorkers = flag.Int(
+		"bid-workers",
+		3,
+		"Number of workers to send bids",
 	)
 )
 
@@ -161,7 +167,10 @@ func main() {
 		txns     []string
 	}
 
-	newBlockChan := make(chan blockWithTxns, 1)
+	blockChans := make([]chan blockWithTxns, *bidWorkers)
+	for i := 0; i < *bidWorkers; i++ {
+		blockChans[i] = make(chan blockWithTxns, 1)
+	}
 
 	wg.Add(1)
 	go func(logger *slog.Logger) {
@@ -180,54 +189,58 @@ func main() {
 			}
 
 			currentBlkNum = blkNum
-			newBlockChan <- blockWithTxns{
-				blockNum: blkNum,
-				txns:     block,
+			for _, ch := range blockChans {
+				ch <- blockWithTxns{
+					blockNum: blkNum,
+					txns:     slices.Clone(block),
+				}
 			}
 		}
 	}(logger)
 
-	wg.Add(1)
-	go func(logger *slog.Logger) {
-		defer wg.Done()
-		ticker := time.NewTicker(200 * time.Millisecond)
-		currentBlock := blockWithTxns{}
-		for {
-			select {
-			case block := <-newBlockChan:
-				currentBlock = block
-			case <-ticker.C:
-			}
+	for i := 0; i < *bidWorkers; i++ {
+		wg.Add(1)
+		go func(logger *slog.Logger, newBlockChan <-chan blockWithTxns) {
+			defer wg.Done()
+			ticker := time.NewTicker(100 * time.Millisecond)
+			currentBlock := blockWithTxns{}
+			for {
+				select {
+				case block := <-newBlockChan:
+					currentBlock = block
+				case <-ticker.C:
+				}
 
-			if len(currentBlock.txns) == 0 {
-				continue
-			}
+				if len(currentBlock.txns) == 0 {
+					continue
+				}
 
-			bundleLen := rand.Intn(10)
-			bundleStart := rand.Intn(len(currentBlock.txns) - 1)
-			bundleEnd := bundleStart + bundleLen
-			if bundleEnd > len(currentBlock.txns) {
-				bundleEnd = len(currentBlock.txns) - 1
-			}
+				bundleLen := rand.Intn(10)
+				bundleStart := rand.Intn(len(currentBlock.txns) - 1)
+				bundleEnd := bundleStart + bundleLen
+				if bundleEnd > len(currentBlock.txns) {
+					bundleEnd = len(currentBlock.txns) - 1
+				}
 
-			min := 5000
-			max := 10000
-			startTimeDiff := rand.Intn(max-min+1) + min
-			endTimeDiff := rand.Intn(max-min+1) + min
-			err = sendBid(
-				bidderClient,
-				logger,
-				rpcClient,
-				currentBlock.txns[bundleStart:bundleEnd],
-				currentBlock.blockNum,
-				(time.Now().UnixMilli())-int64(startTimeDiff),
-				(time.Now().UnixMilli())+int64(endTimeDiff),
-			)
-			if err != nil {
-				logger.Error("failed to send bid", "err", err)
+				min := 5000
+				max := 10000
+				startTimeDiff := rand.Intn(max-min+1) + min
+				endTimeDiff := rand.Intn(max-min+1) + min
+				err = sendBid(
+					bidderClient,
+					logger,
+					rpcClient,
+					currentBlock.txns[bundleStart:bundleEnd],
+					currentBlock.blockNum,
+					(time.Now().UnixMilli())-int64(startTimeDiff),
+					(time.Now().UnixMilli())+int64(endTimeDiff),
+				)
+				if err != nil {
+					logger.Error("failed to send bid", "err", err)
+				}
 			}
-		}
-	}(logger)
+		}(logger, blockChans[i])
+	}
 
 	wg.Wait()
 }
