@@ -42,12 +42,12 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
     // they could construct the set offchain via events.
     mapping(bytes => address) public storedConsAddrs;
 
-    event WhitelistedEOAAdded(address indexed eoa);
-    event WhitelistedEOADeleted(address indexed eoa);
-    event EOAFrozen(address indexed eoa);
-    event EOAUnfrozen(address indexed eoa);
-    event ConsAddrStored(bytes consAddr, address indexed eoa);
-    event ConsAddrDeleted(bytes consAddr, address indexed eoa);
+    event WhitelistedEOAAdded(address indexed eoa, string moniker);
+    event WhitelistedEOADeleted(address indexed eoa, string moniker);
+    event EOAFrozen(address indexed eoa, string moniker);
+    event EOAUnfrozen(address indexed eoa, string moniker);
+    event ConsAddrStored(bytes consAddr, address indexed eoa, string moniker);
+    event ConsAddrDeleted(bytes consAddr, address indexed eoa, string moniker);
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
         // TODO: Determine upgrade logic and test process
@@ -80,14 +80,15 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
             freezeHeight: 0,
             moniker: moniker
         });
-        emit WhitelistedEOAAdded(eoa);
+        emit WhitelistedEOAAdded(eoa, moniker);
     }
 
     function deleteWhitelistedEOA(address eoa) external {
         require(msg.sender == owner() || msg.sender == eoa, "Only owner or EOA itself can delete whitelisted EOA");
         require(isEOAWhitelisted(eoa), "EOA must be whitelisted");
+        string memory moniker = whitelistedEOAs[eoa].moniker;
         delete whitelistedEOAs[eoa];
-        emit WhitelistedEOADeleted(eoa);
+        emit WhitelistedEOADeleted(eoa, moniker);
     }
 
     function freeze(bytes memory validatorConsAddr) onlyOwner external {
@@ -96,7 +97,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         require(whitelistedEOAs[eoa].state == State.Active, "EOA representing validator must be active");
         whitelistedEOAs[eoa].state = State.Frozen;
         whitelistedEOAs[eoa].freezeHeight = block.number;
-        emit EOAFrozen(eoa);
+        emit EOAFrozen(eoa, whitelistedEOAs[eoa].moniker);
     }
 
     function unfreeze() external payable {
@@ -105,7 +106,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         require(msg.value >= unfreezeFee, "Insufficient unfreeze fee");
         whitelistedEOAs[msg.sender].state = State.Active;
         whitelistedEOAs[msg.sender].freezeHeight = 0;
-        emit EOAUnfrozen(msg.sender);
+        emit EOAUnfrozen(msg.sender, whitelistedEOAs[msg.sender].moniker);
     }
 
     function storeConsAddrs(bytes[] memory consAddrs) external {
@@ -116,7 +117,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
             require(whitelistedEOAs[msg.sender].numConsAddrsStored < maxConsAddrsPerEOA, "EOA must not store more than max allowed cons addrs");
             storedConsAddrs[consAddrs[i]] = msg.sender;
             whitelistedEOAs[msg.sender].numConsAddrsStored++;
-            emit ConsAddrStored(consAddrs[i], msg.sender);
+            emit ConsAddrStored(consAddrs[i], msg.sender, whitelistedEOAs[msg.sender].moniker);
         }
     }
 
@@ -125,7 +126,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         for (uint i = 0; i < consAddrs.length; i++) {
             require(isEOAWhitelisted(msg.sender), "sender must be whitelisted");
             require(storedConsAddrs[consAddrs[i]] == msg.sender, "Consensus address must be stored by sender");
-            _deleteConsAddr(msg.sender, consAddrs[i]);
+            _deleteConsAddr(msg.sender, consAddrs[i], whitelistedEOAs[msg.sender].moniker);
             whitelistedEOAs[msg.sender].numConsAddrsStored--;
         }
     }
@@ -136,7 +137,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
             address eoa = storedConsAddrs[consAddrs[i]];
             require(eoa != address(0), "Consensus address must be stored");
             require(!isEOAWhitelisted(eoa), "EOA who originally stored cons addr must not be whitelisted");
-            _deleteConsAddr(eoa, consAddrs[i]);
+            _deleteConsAddr(eoa, consAddrs[i], "unknown");
         }
     }
 
@@ -153,9 +154,14 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         return results;
     }
 
-    function _deleteConsAddr(address eoa, bytes memory consAddr) internal {
+    function getWhitelistedEOAInfo(address eoa) external view returns (ReputationValReg.State, uint, uint256, string memory) {
+        return (whitelistedEOAs[eoa].state, whitelistedEOAs[eoa].numConsAddrsStored,
+            whitelistedEOAs[eoa].freezeHeight, whitelistedEOAs[eoa].moniker);
+    }
+
+    function _deleteConsAddr(address eoa, bytes memory consAddr, string memory moniker) internal {
         delete storedConsAddrs[consAddr];
-        emit ConsAddrDeleted(consAddr, eoa);
+        emit ConsAddrDeleted(consAddr, eoa, moniker);
     }
 
     function _isValidatorOptedIn(bytes memory consAddr) internal view returns (bool) {
