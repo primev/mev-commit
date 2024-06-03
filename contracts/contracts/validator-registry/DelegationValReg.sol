@@ -10,7 +10,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // TODO: Update notion doc accordingly to include this contract
 // TODO: hash out plan on how this and/or other contract could eventually be upgraded to incorporate slashing
 // TODO: determine should use reentrancy guard
-// TODO: create public functions for things like "activeDelegationExists" and use those in existing funcs.
 contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     ReputationValReg public reputationValReg;
