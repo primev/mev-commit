@@ -27,6 +27,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         State state;
         uint numConsAddrsStored;
         uint256 freezeHeight;
+        string moniker; // Neccessary for delegators to identify the EOA
     }
 
     // Mapping of whitelisted EOAs to their info struct
@@ -70,13 +71,14 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    function addWhitelistedEOA(address eoa) external onlyOwner {
+    function addWhitelistedEOA(address eoa, string memory moniker) external onlyOwner {
         require(eoa != address(0), "Invalid address");
         require(!isEOAWhitelisted(eoa), "EOA must not already be whitelisted");
         whitelistedEOAs[eoa] = WhitelistedEOAInfo({
             state: State.Active,
             numConsAddrsStored: 0,
-            freezeHeight: 0
+            freezeHeight: 0,
+            moniker: moniker
         });
         emit WhitelistedEOAAdded(eoa);
     }
