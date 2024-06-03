@@ -65,11 +65,6 @@
           - msr-tools
         state: present
 
-    - name: Install Foundry Tools
-      shell: |
-        curl -L https://foundry.paradigm.xyz | bash
-        ~/.foundry/bin/foundryup
-
     - name: Install Python Web3 Package
       pip:
         name: web3

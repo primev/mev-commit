@@ -84,6 +84,7 @@ check_deps() {
         go
         yq
         aws
+        forge
         ansible
         goreleaser
     )

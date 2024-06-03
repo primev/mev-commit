@@ -117,6 +117,9 @@ jobs:
           check-latest: true
           cache-dependency-path: go.work.sum
 
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install Required Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
