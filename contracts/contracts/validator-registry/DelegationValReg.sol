@@ -55,7 +55,7 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function delegate(address validatorEOA, uint256 amount) external {
-        require(delegations[msg.sender].state == State.nonExistant, "Delegation must not exist for sender");
+        require(getSenderDelegationState() == State.nonExistant, "Delegation must not exist for sender");
         require(reputationValReg.isEOAWhitelisted(validatorEOA), "Validator EOA must be whitelisted");
         require(amount > 0, "Amount must be greater than 0");
         require(stETHToken.transferFrom(msg.sender, address(this), amount), "stETH transfer failed");
@@ -71,7 +71,7 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function changeDelegation(address newValidatorEOA) external {
-        require(delegations[msg.sender].state == State.active, "Active delegation must exist");
+        require(getSenderDelegationState() == State.active, "Active delegation must exist for sender");
         require(reputationValReg.isEOAWhitelisted(newValidatorEOA), "New validator EOA must be whitelisted");
         DelegationInfo storage delegation = delegations[msg.sender];
 
@@ -82,13 +82,13 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function requestWithdraw() external {
-        require(delegations[msg.sender].state == State.active, "Active delegation must exist");
+        require(getSenderDelegationState() == State.active, "Active delegation must exist for sender");
         delegations[msg.sender].withdrawHeight = block.number + withdrawPeriod;
         delegations[msg.sender].state = State.withdrawRequested;
     }
 
     function withdraw() external {
-        require(delegations[msg.sender].state == State.withdrawRequested, "Withdrawal must be requested");
+        require(getSenderDelegationState() == State.withdrawRequested, "Withdrawal must be requested by sender");
         require(block.number >= delegations[msg.sender].withdrawHeight, "Withdraw period must be elapsed");
 
         uint256 amount = delegations[msg.sender].amount;
@@ -97,6 +97,10 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
         require(stETHToken.transfer(msg.sender, amount), "stETH transfer failed");
         emit Withdrawn(msg.sender, validatorEOA, amount);
+    }
+
+    function getSenderDelegationState() public view returns (State) {
+        return delegations[msg.sender].state;
     }
 
     fallback() external payable {
