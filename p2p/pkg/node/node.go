@@ -75,6 +75,7 @@ type Options struct {
 	BidderRegistryContract   string
 	RPCEndpoint              string
 	WSRPCEndpoint            string
+	SettlementConnType       string
 	NatAddr                  string
 	TLSCertificateFile       string
 	TLSPrivateKeyFile        string
@@ -97,7 +98,8 @@ func NewNode(opts *Options) (*Node, error) {
 		contractRPC *ethclient.Client
 		err         error
 	)
-	if opts.WSRPCEndpoint != "" {
+
+	if opts.SettlementConnType == "ws" {
 		contractRPC, err = ethclient.Dial(opts.WSRPCEndpoint)
 		if err != nil {
 			opts.Logger.Error("failed to connect to ws rpc", "error", err)
@@ -142,7 +144,7 @@ func NewNode(opts *Options) (*Node, error) {
 	var startables []Startable
 	var evtPublisher PublisherStartable
 
-	if opts.WSRPCEndpoint != "" {
+	if opts.SettlementConnType == "ws" {
 		// Use WS publisher if WSRPCEndpoint is set
 		evtPublisher = publisher.NewWSPublisher(
 			store,

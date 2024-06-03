@@ -28,6 +28,9 @@ const (
 	defaultKeyFile   = "key"
 	defaultSecret    = "secret"
 	defaultKeystore  = "keystore"
+
+	defaultSettlementRPC   = "http://localhost:8545"
+	defaultSettlementWSRPC = "ws://localhost:8546"
 )
 
 var (
@@ -203,14 +206,14 @@ var (
 		Name:    "settlement-rpc-endpoint",
 		Usage:   "rpc endpoint of the settlement layer",
 		EnvVars: []string{"MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT"},
-		Value:   "http://localhost:8545",
+		Value:   defaultSettlementRPC,
 	})
 
 	optionSettlementWSRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "settlement-ws-rpc-endpoint",
 		Usage:   "ws rpc endpoint of the settlement layer",
 		EnvVars: []string{"MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT"},
-		Value:   "ws://localhost:8546",
+		Value:   defaultSettlementWSRPC,
 	})
 
 	optionNATAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -333,6 +336,14 @@ func launchNodeWithConfig(c *cli.Context) error {
 		return fmt.Errorf("both -%s and -%s must be provided to enable TLS", optionServerTLSCert.Name, optionServerTLSPrivateKey.Name)
 	}
 
+	settlementConnType := "http"
+	if c.String(optionSettlementRPCEndpoint.Name) != defaultSettlementRPC {
+		settlementConnType = "http"
+	}
+	if c.String(optionSettlementWSRPCEndpoint.Name) != defaultSettlementWSRPC {
+		settlementConnType = "ws"
+	}
+
 	nd, err := node.NewNode(&node.Options{
 		KeySigner:                keysigner,
 		Secret:                   c.String(optionSecret.Name),
@@ -349,6 +360,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
+		SettlementConnType:       settlementConnType,
 		NatAddr:                  natAddr,
 		TLSCertificateFile:       crtFile,
 		TLSPrivateKeyFile:        keyFile,
