@@ -214,7 +214,7 @@ func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.D
 	}
 	// Default to two windows ahead of the current window if no specific block or window is given.
 	// This is for the case where the oracle works 2 windows behind the current window.
-	return new(big.Int).SetUint64(currentWindow + 2), nil
+	return new(big.Int).SetUint64(currentWindow + 3), nil
 }
 
 func (s *Service) GetDeposit(
@@ -231,7 +231,7 @@ func (s *Service) GetDeposit(
 			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 		}
 		// as oracle working 2 windows behind the current window, we add + 2 here
-		window = new(big.Int).Add(window, big.NewInt(2))
+		window = new(big.Int).Add(window, big.NewInt(3))
 	} else {
 		window = new(big.Int).SetUint64(r.WindowNumber.Value)
 	}
