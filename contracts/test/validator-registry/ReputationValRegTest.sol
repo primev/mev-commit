@@ -158,4 +158,43 @@ contract ReputationValRegTest is Test {
         assertFalse(reputationValReg.isEOAWhitelisted(user2));
     }
 
+    function testFreeze() public {
+        testAddWhitelistedEOA();
+
+        vm.startPrank(user3);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user3));
+        reputationValReg.freeze(exampleConsAddr1);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectRevert("Validator consensus address must be stored");
+        reputationValReg.freeze(exampleConsAddr1);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        bytes[] memory consAddrs = new bytes[](1);
+        consAddrs[0] = exampleConsAddr1;
+        reputationValReg.storeConsAddrs(consAddrs);
+        vm.stopPrank();
+
+        vm.roll(5);
+        assertEq(block.number, 5);
+        assertTrue(reputationValReg.isEOAWhitelisted(user1));
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit EOAFrozen(user1, "bob");
+        reputationValReg.freeze(exampleConsAddr1);
+        vm.stopPrank();
+
+        (ReputationValReg.State state, , uint256 freezeHeight, ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(uint256(state), uint256(ReputationValReg.State.Frozen));
+        assertEq(freezeHeight, 5);
+
+        vm.startPrank(owner);
+        vm.expectRevert("EOA representing validator must be active");
+        reputationValReg.freeze(exampleConsAddr1);
+        vm.stopPrank();
+    }
+
 }
