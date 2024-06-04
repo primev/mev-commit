@@ -111,7 +111,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         address commiter,
         bytes32 commitmentDigest,
         bytes commitmentSignature,
-        uint64 dispatchTimestamp
+        uint64 dispatchTimestamp,
+        uint256 blockTimestamp
     );
 
     /// @dev Event to log successful verifications
@@ -505,11 +506,11 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        require(
-            dispatchTimestamp >= block.timestamp ||
-                block.timestamp - dispatchTimestamp < commitmentDispatchWindow,
-            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-        );
+        // require(
+        //     dispatchTimestamp >= block.timestamp ||
+        //         block.timestamp - dispatchTimestamp < commitmentDispatchWindow,
+        //     "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+        // );
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
@@ -536,7 +537,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             commiterAddress,
             commitmentDigest,
             commitmentSignature,
-            dispatchTimestamp
+            dispatchTimestamp,
+            block.timestamp // Emitting the current block timestamp
         );
 
         return commitmentIndex;
