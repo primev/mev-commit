@@ -122,4 +122,33 @@ contract DelegationValRegTest is Test {
         vm.expectRevert("Delegation must not exist for sender");
         delegationValReg.delegate(user2, 1 ether);
     }
+
+    function testChangeDelegation() public {
+        testDelegate();
+
+        vm.prank(delegator2); 
+        vm.expectRevert("Active delegation must exist for sender");
+        delegationValReg.changeDelegation(user1);
+
+        vm.prank(delegator1);
+        vm.expectRevert("New validator EOA must be whitelisted");
+        delegationValReg.changeDelegation(user3);
+
+        DelegationValReg.DelegationInfo memory delegationInfo = delegationValReg.getDelegationInfo(delegator1);
+        assertEq(uint256(delegationInfo.state), uint256(DelegationValReg.State.active));
+        assertEq(delegationInfo.validatorEOA, user1);
+        assertEq(delegationInfo.amount, 10 ether);
+        assertEq(delegationInfo.withdrawHeight, 0);
+
+        vm.prank(delegator1);
+        vm.expectEmit(true, true, true, true);
+        emit DelegationChanged(delegator1, user1, user2, 10 ether);
+        delegationValReg.changeDelegation(user2);
+
+        delegationInfo = delegationValReg.getDelegationInfo(delegator1);
+        assertEq(uint256(delegationInfo.state), uint256(DelegationValReg.State.active));
+        assertEq(delegationInfo.validatorEOA, user2);
+        assertEq(delegationInfo.amount, 10 ether);
+        assertEq(delegationInfo.withdrawHeight, 0);
+    }
 }
