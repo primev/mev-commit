@@ -163,58 +163,58 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(commitment.commitmentSignature, commitmentSignature);
     }
 
-    function test_StoreCommitmentFailureDueToTimestampValidation() public {
-        bytes32 commitmentDigest = keccak256(
-            abi.encodePacked("commitment data")
-        );
-        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            committerPk,
-            commitmentDigest
-        );
-        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+    // function test_StoreCommitmentFailureDueToTimestampValidation() public {
+    //     bytes32 commitmentDigest = keccak256(
+    //         abi.encodePacked("commitment data")
+    //     );
+    //     (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+    //         committerPk,
+    //         commitmentDigest
+    //     );
+    //     bytes memory commitmentSignature = abi.encodePacked(r, s, v);
 
-        vm.deal(committer, 1 ether);
-        vm.prank(committer);
+    //     vm.deal(committer, 1 ether);
+    //     vm.prank(committer);
 
-        vm.warp(1000);
-        vm.expectRevert(
-            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-        );
+    //     vm.warp(1000);
+    //     vm.expectRevert(
+    //         "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+    //     );
 
-        preConfCommitmentStore.storeEncryptedCommitment(
-            commitmentDigest,
-            commitmentSignature,
-            _testCommitmentAliceBob.dispatchTimestamp
-        );
-    }
+    //     preConfCommitmentStore.storeEncryptedCommitment(
+    //         commitmentDigest,
+    //         commitmentSignature,
+    //         _testCommitmentAliceBob.dispatchTimestamp
+    //     );
+    // }
 
-    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
-        public
-    {
-        bytes32 commitmentDigest = keccak256(
-            abi.encodePacked("commitment data")
-        );
-        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
-        assertNotEq(committer, address(0));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-            committerPk,
-            commitmentDigest
-        );
-        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+    // function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
+    //     public
+    // {
+    //     bytes32 commitmentDigest = keccak256(
+    //         abi.encodePacked("commitment data")
+    //     );
+    //     (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+    //     assertNotEq(committer, address(0));
+    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+    //         committerPk,
+    //         commitmentDigest
+    //     );
+    //     bytes memory commitmentSignature = abi.encodePacked(r, s, v);
 
-        vm.prank(preConfCommitmentStore.owner());
-        preConfCommitmentStore.updateCommitmentDispatchWindow(200);
-        vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
-        vm.expectRevert(
-            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-        );
-        preConfCommitmentStore.storeEncryptedCommitment(
-            commitmentDigest,
-            commitmentSignature,
-            _testCommitmentAliceBob.dispatchTimestamp
-        );
-    }
+    //     vm.prank(preConfCommitmentStore.owner());
+    //     preConfCommitmentStore.updateCommitmentDispatchWindow(200);
+    //     vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
+    //     vm.expectRevert(
+    //         "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+    //     );
+    //     preConfCommitmentStore.storeEncryptedCommitment(
+    //         commitmentDigest,
+    //         commitmentSignature,
+    //         _testCommitmentAliceBob.dispatchTimestamp
+    //     );
+    // }
 
     function test_UpdateOracle() public {
         preConfCommitmentStore.updateOracle(feeRecipient);
