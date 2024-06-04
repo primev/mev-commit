@@ -101,6 +101,10 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
         return delegations[msg.sender].state;
     }
 
+    function getDelegationInfo(address delegator) public view returns (DelegationInfo memory) {
+        return delegations[delegator];
+    }
+
     fallback() external payable {
         revert("Invalid call");
     }

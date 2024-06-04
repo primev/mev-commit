@@ -62,10 +62,6 @@ contract ReputationValRegTest is Test {
         assertEq(moniker, "");
     }
 
-    function testNonExistantConsAddr() public view{
-        // TODO
-    }
-
     function testAddWhitelistedEOA() public {
 
         vm.startPrank(user1);
