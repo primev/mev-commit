@@ -126,14 +126,6 @@ func TestDepositManager(t *testing.T) {
 	<-done
 }
 
-type testBlockTracker struct {
-	value *big.Int
-}
-
-func (tbt *testBlockTracker) GetBlocksPerWindow() (*big.Int, error) {
-	return tbt.value, nil
-}
-
 func publishNewWindow(
 	evtMgr events.EventManager,
 	btABI *abi.ABI,
