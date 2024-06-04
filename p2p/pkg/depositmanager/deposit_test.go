@@ -36,11 +36,10 @@ func TestDepositManager(t *testing.T) {
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 
 	st := store.NewStore()
-	bt := &testBlockTracker{value: big.NewInt(10)}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	dm := depositmanager.NewDepositManager(bt, st, evtMgr, logger)
+	dm := depositmanager.NewDepositManager(10, st, evtMgr, logger)
 	done := dm.Start(ctx)
 
 	// no deposit
@@ -125,14 +124,6 @@ func TestDepositManager(t *testing.T) {
 
 	cancel()
 	<-done
-}
-
-type testBlockTracker struct {
-	value *big.Int
-}
-
-func (tbt *testBlockTracker) GetBlocksPerWindow() (*big.Int, error) {
-	return tbt.value, nil
 }
 
 func publishNewWindow(

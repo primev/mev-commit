@@ -149,10 +149,6 @@ func (btc *testBlockTrackerContract) GetCurrentWindow() (*big.Int, error) {
 	return big.NewInt(int64(btc.lastBlockNumber / btc.blocksPerWindow)), nil
 }
 
-func (btx *testBlockTrackerContract) GetBlocksPerWindow() (*big.Int, error) {
-	return big.NewInt(int64(btx.blocksPerWindow)), nil
-}
-
 func startServer(t *testing.T) bidderapiv1.BidderClient {
 	lis := bufconn.Listen(bufferSize)
 
@@ -168,6 +164,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
 	srvImpl := bidderapi.NewService(
 		owner,
+		blockTrackerContract.blocksPerWindow,
 		sender,
 		registryContract,
 		blockTrackerContract,

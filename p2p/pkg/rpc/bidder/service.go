@@ -3,7 +3,6 @@ package bidderapi
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"log/slog"
 	"math/big"
 	"strings"
@@ -24,6 +23,7 @@ import (
 type Service struct {
 	bidderapiv1.UnimplementedBidderServer
 	owner                common.Address
+	blocksPerWindow      uint64
 	sender               PreconfSender
 	registryContract     BidderRegistryContract
 	blockTrackerContract BlockTrackerContract
@@ -36,6 +36,7 @@ type Service struct {
 
 func NewService(
 	owner common.Address,
+	blocksPerWindow uint64,
 	sender PreconfSender,
 	registryContract BidderRegistryContract,
 	blockTrackerContract BlockTrackerContract,
@@ -46,6 +47,7 @@ func NewService(
 ) *Service {
 	return &Service{
 		owner:                owner,
+		blocksPerWindow:      blocksPerWindow,
 		sender:               sender,
 		registryContract:     registryContract,
 		blockTrackerContract: blockTrackerContract,
@@ -72,7 +74,6 @@ type BidderRegistryContract interface {
 
 type BlockTrackerContract interface {
 	GetCurrentWindow() (*big.Int, error)
-	GetBlocksPerWindow() (*big.Int, error)
 }
 
 type TxWatcher interface {
@@ -205,12 +206,7 @@ func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.D
 		// Directly use the specified window number if available.
 		return new(big.Int).SetUint64(r.WindowNumber.Value), nil
 	} else if r.BlockNumber != nil {
-		// Calculate the window based on the block number.
-		blocksPerWindow, err := s.blockTrackerContract.GetBlocksPerWindow()
-		if err != nil {
-			return nil, fmt.Errorf("getting window for block: %w", err)
-		}
-		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/blocksPerWindow.Uint64() + 1), nil
+		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/s.blocksPerWindow + 1), nil
 	}
 	// Default to two windows ahead of the current window if no specific block or window is given.
 	// This is for the case where the oracle works 2 windows behind the current window.

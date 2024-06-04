@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
@@ -39,34 +38,28 @@ type Store interface {
 	ClearBalances(windowNumber *big.Int) ([]*big.Int, error)
 }
 
-type BlockTracker interface {
-	GetBlocksPerWindow() (*big.Int, error)
-}
-
 type DepositManager struct {
-	blockTracker    BlockTracker
 	store           Store
 	evtMgr          events.EventManager
-	blocksPerWindow atomic.Uint64 // todo: move to the store
-	currentWindow   atomic.Int64  // todo: move to the store
+	blocksPerWindow uint64
 	bidderRegs      chan *bidderregistry.BidderregistryBidderRegistered
 	windowChan      chan *blocktracker.BlocktrackerNewWindow
 	logger          *slog.Logger
 }
 
 func NewDepositManager(
-	blockTracker BlockTracker,
+	blocksPerWindow uint64,
 	store Store,
 	evtMgr events.EventManager,
 	logger *slog.Logger,
 ) *DepositManager {
 	return &DepositManager{
-		blockTracker: blockTracker,
-		store:        store,
-		bidderRegs:   make(chan *bidderregistry.BidderregistryBidderRegistered),
-		windowChan:   make(chan *blocktracker.BlocktrackerNewWindow),
-		evtMgr:       evtMgr,
-		logger:       logger,
+		store:           store,
+		blocksPerWindow: blocksPerWindow,
+		bidderRegs:      make(chan *bidderregistry.BidderregistryBidderRegistered),
+		windowChan:      make(chan *blocktracker.BlocktrackerNewWindow),
+		evtMgr:          evtMgr,
+		logger:          logger,
 	}
 }
 
@@ -78,7 +71,6 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 	ev1 := events.NewEventHandler(
 		"NewWindow",
 		func(window *blocktracker.BlocktrackerNewWindow) {
-			dm.currentWindow.Store(window.Window.Int64())
 			select {
 			case <-egCtx.Done():
 			case dm.windowChan <- window:
@@ -127,13 +119,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 				}
 				dm.logger.Info("cleared balances", "windows", windows)
 			case bidderReg := <-dm.bidderRegs:
-				blocksPerWindow, err := dm.getOrSetBlocksPerWindow()
-				if err != nil {
-					dm.logger.Error("failed to get blocks per window", "error", err)
-					return err
-				}
-
-				effectiveStake := new(big.Int).Div(bidderReg.DepositedAmount, new(big.Int).SetUint64(blocksPerWindow))
+				effectiveStake := new(big.Int).Div(bidderReg.DepositedAmount, new(big.Int).SetUint64(dm.blocksPerWindow))
 				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, effectiveStake); err != nil {
 					return err
 				}
@@ -157,19 +143,13 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 	bidAmountStr string,
 	blockNumber int64,
 ) (func() error, error) {
-	blocksPerWindow, err := dm.getOrSetBlocksPerWindow()
-	if err != nil {
-		dm.logger.Error("failed to get blocks per window", "error", err)
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
 	bidAmount, ok := new(big.Int).SetString(bidAmountStr, 10)
 	if !ok {
 		dm.logger.Error("parsing bid amount", "amount", bidAmountStr)
 		return nil, status.Errorf(codes.InvalidArgument, "failed to parse bid amount")
 	}
 
-	windowToCheck := new(big.Int).SetUint64((uint64(blockNumber)-1)/blocksPerWindow + 1)
+	windowToCheck := new(big.Int).SetUint64((uint64(blockNumber)-1)/dm.blocksPerWindow + 1)
 
 	balanceForBlock, err := dm.store.GetBalanceForBlock(address, windowToCheck, blockNumber)
 	if err != nil {
@@ -218,22 +198,4 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 	return func() error {
 		return dm.store.RefundBalanceForBlock(address, windowToCheck, bidAmount, blockNumber)
 	}, nil
-}
-
-func (dm *DepositManager) getOrSetBlocksPerWindow() (uint64, error) {
-	bpwCache := dm.blocksPerWindow.Load()
-
-	if bpwCache != 0 {
-		return bpwCache, nil
-	}
-
-	blocksPerWindow, err := dm.blockTracker.GetBlocksPerWindow()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get blocks per window: %w", err)
-	}
-
-	blocksPerWindowUint64 := blocksPerWindow.Uint64()
-	dm.blocksPerWindow.Store(blocksPerWindowUint64)
-
-	return blocksPerWindowUint64, nil
 }
