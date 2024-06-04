@@ -327,6 +327,14 @@ func NewNode(opts *Options) (*Node, error) {
 		startables = append(startables, tracker)
 		srv.RegisterMetricsCollectors(tracker.Metrics()...)
 
+		bpwBigInt, err := blockTrackerSession.GetBlocksPerWindow()
+		if err != nil {
+			opts.Logger.Error("failed to get blocks per window", "error", err)
+			return nil, err
+		}
+
+		blocksPerWindow := bpwBigInt.Uint64()
+
 		switch opts.PeerType {
 		case p2p.PeerTypeProvider.String():
 			providerAPI := providerapi.NewService(
@@ -341,7 +349,7 @@ func NewNode(opts *Options) (*Node, error) {
 			bidProcessor = providerAPI
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(
-				blockTrackerSession,
+				blocksPerWindow,
 				store,
 				evtMgr,
 				opts.Logger.With("component", "depositmanager"),
@@ -412,6 +420,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
+				blocksPerWindow,
 				preconfProto,
 				bidderRegistry,
 				blockTrackerSession,
