@@ -206,12 +206,12 @@ contract ReputationValRegTest is Test {
         testFreeze();
 
         vm.startPrank(user2);
-        vm.expectRevert("sender must be frozen");
+        vm.expectRevert("Sender must be frozen");
         reputationValReg.unfreeze();
         vm.stopPrank();
 
         vm.startPrank(owner);
-        vm.expectRevert("sender must be frozen");
+        vm.expectRevert("Sender must be frozen");
         reputationValReg.unfreeze();
         vm.stopPrank();
 
@@ -272,8 +272,160 @@ contract ReputationValRegTest is Test {
         assertEq(freezeHeight, 110);
         assertEq(moniker, "bob");
     }
+
+    function testStoreConsAddrs() public {
+        testAddWhitelistedEOA();
+        
+        bytes[] memory consAddrs = new bytes[](101);
+        for (uint256 i = 0; i < 101; i++) {
+            bytes memory consAddr = exampleConsAddr1;
+            consAddr[consAddr.length - 1] = bytes1(uint8(i % 256));
+            consAddrs[i] = consAddr;
+        }
+        vm.expectRevert("Too many cons addrs in request. Try batching");
+        reputationValReg.storeConsAddrs(consAddrs);
+
+        bytes[] memory consAddrsSmaller = new bytes[](1);
+        consAddrsSmaller[0] = exampleConsAddr1;
+        vm.prank(user3);
+        vm.expectRevert("Sender must be whitelisted");
+        reputationValReg.storeConsAddrs(consAddrsSmaller);
+        vm.stopPrank();
+
+        bytes[] memory consAddrsDuplicate = new bytes[](2);
+        consAddrsDuplicate[0] = exampleConsAddr1;
+        consAddrsDuplicate[1] = exampleConsAddr1;
+        vm.prank(user1);
+        vm.expectRevert("Duplicate consensus address is already stored");
+        reputationValReg.storeConsAddrs(consAddrsDuplicate);
+        vm.stopPrank();
+
+        bytes[] memory consAddrsExceedingMax = new bytes[](MAX_CONS_ADDRS_PER_EOA + 1);
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA + 1; i++) {
+            consAddrsExceedingMax[i] = exampleConsAddr1;
+            consAddrsExceedingMax[i][consAddrsExceedingMax[i].length - 1] = bytes1(uint8(i % 256));
+        }
+        vm.prank(user1);
+        vm.expectRevert("EOA must not store more than max allowed cons addrs");
+        reputationValReg.storeConsAddrs(consAddrsExceedingMax);
+        vm.stopPrank();
+
+        bytes[] memory consAddrsValid = new bytes[](MAX_CONS_ADDRS_PER_EOA);
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            consAddrsValid[i] = exampleConsAddr1;
+            consAddrsValid[i][consAddrsValid[i].length - 1] = bytes1(uint8(i % 256));
+        }
+
+        (, uint256 numConsAddrsStored, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStored, 0);
+
+        vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrStored(consAddrsValid[0], user1, "bob");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrStored(consAddrsValid[1], user1, "bob");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrStored(consAddrsValid[2], user1, "bob");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrStored(consAddrsValid[3], user1, "bob");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrStored(consAddrsValid[4], user1, "bob");
+        reputationValReg.storeConsAddrs(consAddrsValid);
+        vm.stopPrank();
+
+        (, uint256 numConsAddrsStored2, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStored2, 5);
+    }
+
+    function testDeleteConsAddrs() public {
+        testStoreConsAddrs();
+
+        bytes[] memory consAddrs = new bytes[](101);
+        for (uint256 i = 0; i < 101; i++) {
+            consAddrs[i] = exampleConsAddr1;
+            consAddrs[i][consAddrs[i].length - 1] = bytes1(uint8(i % 256));
+        }
+        vm.expectRevert("Too many cons addrs in request. Try batching");
+        reputationValReg.deleteConsAddrs(consAddrs);
+
+        bytes[] memory consAddrsValid = new bytes[](MAX_CONS_ADDRS_PER_EOA);
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            consAddrsValid[i] = exampleConsAddr1;
+            consAddrsValid[i][consAddrsValid[i].length - 1] = bytes1(uint8(i % 256));
+        }
+
+        vm.prank(user3);
+        vm.expectRevert("Sender must be whitelisted");
+        reputationValReg.deleteConsAddrs(consAddrsValid);
+        vm.stopPrank();
+
+        bytes[] memory consAddrNotStored = new bytes[](1);
+        consAddrNotStored[0] = exampleConsAddr2;
+        vm.prank(user1);
+        vm.expectRevert("Consensus address must be stored by sender");
+        reputationValReg.deleteConsAddrs(consAddrNotStored);
+        vm.stopPrank();
+
+        (, uint256 numConsAddrsStored, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStored, 5);
+
+        bytes[] memory consAddrSubset = new bytes[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            consAddrSubset[i] = consAddrsValid[i];
+        }
+        vm.prank(user1);
+        reputationValReg.deleteConsAddrs(consAddrSubset);
+        vm.stopPrank();
+
+        (, uint256 numConsAddrsStoredAfterDeletion, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStoredAfterDeletion, 2);
+
+        bytes[] memory remainingConsAddrs = new bytes[](2);
+        remainingConsAddrs[0] = consAddrsValid[3];
+        remainingConsAddrs[1] = consAddrsValid[4];
+
+        vm.prank(user1);
+        reputationValReg.deleteConsAddrs(remainingConsAddrs);
+        vm.stopPrank();
+
+        (, uint256 numConsAddrsStoredAfterDeletion2, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStoredAfterDeletion2, 0);
+    }
+
+    // TODO: test on add cons addr -> remove -> add again
+
+    function testAreValidatorsOptedIn() public {
+        testStoreConsAddrs();
+
+        bytes[] memory consAddrsValid = new bytes[](MAX_CONS_ADDRS_PER_EOA);
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            consAddrsValid[i] = exampleConsAddr1;
+            consAddrsValid[i][consAddrsValid[i].length - 1] = bytes1(uint8(i % 256));
+        }
+        bool[] memory optedIn = reputationValReg.areValidatorsOptedIn(consAddrsValid);
+        for (uint256 i = 0; i < 5; i++) {
+            assertTrue(optedIn[i]);
+        }
+
+        bytes[] memory consAddrsSubset = new bytes[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            consAddrsSubset[i] = consAddrsValid[i];
+        }
+        bool[] memory optedInSubset = reputationValReg.areValidatorsOptedIn(consAddrsSubset);
+        for (uint256 i = 0; i < 3; i++) {
+            assertTrue(optedInSubset[i]);
+        }
+        
+        vm.prank(owner);
+        reputationValReg.freeze(consAddrsValid[0]);
+        vm.stopPrank();
+        optedIn = reputationValReg.areValidatorsOptedIn(consAddrsValid);
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            assertFalse(optedIn[i]);
+        }
+    }
     
-    // test on add cons addr -> remove -> add again
+    
 
 
 

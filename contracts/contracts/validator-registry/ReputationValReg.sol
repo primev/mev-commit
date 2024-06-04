@@ -101,7 +101,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function unfreeze() external payable {
-        require(whitelistedEOAs[msg.sender].state == State.Frozen, "sender must be frozen");
+        require(whitelistedEOAs[msg.sender].state == State.Frozen, "Sender must be frozen");
         require(block.number >= whitelistedEOAs[msg.sender].freezeHeight + minFreezeBlocks, "Freeze period has not elapsed");
         require(msg.value >= unfreezeFee, "Insufficient unfreeze fee");
         whitelistedEOAs[msg.sender].state = State.Active;
@@ -111,9 +111,9 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     function storeConsAddrs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
-        require(isEOAWhitelisted(msg.sender), "sender must be whitelisted");
+        require(isEOAWhitelisted(msg.sender), "Sender must be whitelisted");
         for (uint i = 0; i < consAddrs.length; i++) {
-            require(storedConsAddrs[consAddrs[i]] == address(0), "Consensus address is already stored");
+            require(storedConsAddrs[consAddrs[i]] == address(0), "Duplicate consensus address is already stored");
             require(whitelistedEOAs[msg.sender].numConsAddrsStored < maxConsAddrsPerEOA, "EOA must not store more than max allowed cons addrs");
             storedConsAddrs[consAddrs[i]] = msg.sender;
             whitelistedEOAs[msg.sender].numConsAddrsStored++;
@@ -124,7 +124,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
     function deleteConsAddrs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         for (uint i = 0; i < consAddrs.length; i++) {
-            require(isEOAWhitelisted(msg.sender), "sender must be whitelisted");
+            require(isEOAWhitelisted(msg.sender), "Sender must be whitelisted");
             require(storedConsAddrs[consAddrs[i]] == msg.sender, "Consensus address must be stored by sender");
             _deleteConsAddr(msg.sender, consAddrs[i], whitelistedEOAs[msg.sender].moniker);
             whitelistedEOAs[msg.sender].numConsAddrsStored--;
