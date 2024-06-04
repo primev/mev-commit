@@ -34,6 +34,7 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     event Delegated(address indexed delegator, address indexed validatorEOA, uint256 amount);
     event DelegationChanged(address indexed delegator, address indexed oldValidatorEOA, address indexed newValidatorEOA, uint256 amount);
+    event WithdrawRequested(address indexed delegator);
     event Withdrawn(address indexed delegator, address indexed validatorEOA, uint256 amount);
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
@@ -83,6 +84,7 @@ contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
         require(getSenderDelegationState() == State.active, "Active delegation must exist for sender");
         delegations[msg.sender].withdrawHeight = block.number + withdrawPeriod;
         delegations[msg.sender].state = State.withdrawRequested;
+        emit WithdrawRequested(msg.sender);
     }
 
     function withdraw() external {

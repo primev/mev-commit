@@ -35,6 +35,7 @@ contract DelegationValRegTest is Test {
 
     event Delegated(address indexed delegator, address indexed validatorEOA, uint256 amount);
     event DelegationChanged(address indexed delegator, address indexed oldValidatorEOA, address indexed newValidatorEOA, uint256 amount);
+    event WithdrawRequested(address indexed delegator);
     event Withdrawn(address indexed delegator, address indexed validatorEOA, uint256 amount);
 
     function setUp() public {
@@ -150,5 +151,62 @@ contract DelegationValRegTest is Test {
         assertEq(delegationInfo.validatorEOA, user2);
         assertEq(delegationInfo.amount, 10 ether);
         assertEq(delegationInfo.withdrawHeight, 0);
+    }
+
+    function testWithdraw() public {
+        testDelegate();
+
+        vm.prank(delegator2);
+        vm.expectRevert("Withdrawal must be requested by sender");
+        delegationValReg.withdraw();
+
+        vm.prank(delegator2);
+        vm.expectRevert("Active delegation must exist for sender");
+        delegationValReg.requestWithdraw();
+
+        vm.prank(delegator1);
+        vm.expectRevert("Withdrawal must be requested by sender");
+        delegationValReg.withdraw();
+
+        vm.roll(17);
+
+        DelegationValReg.DelegationInfo memory delegationInfo = delegationValReg.getDelegationInfo(delegator1);
+        assertEq(uint256(delegationInfo.state), uint256(DelegationValReg.State.active));
+        assertEq(delegationInfo.validatorEOA, user1);
+        assertEq(delegationInfo.amount, 10 ether);
+        assertEq(delegationInfo.withdrawHeight, 0);
+
+        vm.prank(delegator1);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRequested(delegator1);
+        delegationValReg.requestWithdraw();
+
+        delegationInfo = delegationValReg.getDelegationInfo(delegator1);
+        assertEq(uint256(delegationInfo.state), uint256(DelegationValReg.State.withdrawRequested));
+        assertEq(delegationInfo.validatorEOA, user1);
+        assertEq(delegationInfo.amount, 10 ether);
+        assertEq(delegationInfo.withdrawHeight, 17 + WITHDRAW_PERIOD);
+
+        vm.prank(delegator1);
+        vm.expectRevert("Withdraw period must be elapsed");
+        delegationValReg.withdraw();
+
+        vm.roll(17 + WITHDRAW_PERIOD);
+
+        assertEq(mockERC20.balanceOf(delegator1), 0 ether);
+        assertEq(mockERC20.balanceOf(address(delegationValReg)), 10 ether);
+
+        vm.prank(delegator1);
+        vm.expectEmit(true, true, true, true);
+        emit Withdrawn(delegator1, user1, 10 ether);
+        delegationValReg.withdraw();
+        
+        assertEq(mockERC20.balanceOf(delegator1), 10 ether);
+        assertEq(mockERC20.balanceOf(address(delegationValReg)), 0 ether);
+    }
+
+    function testDelegationCycle() public {
+        testWithdraw();
+        testChangeDelegation();
     }
 }
