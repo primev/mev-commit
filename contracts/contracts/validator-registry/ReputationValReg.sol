@@ -4,15 +4,9 @@ pragma solidity ^0.8.20;
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
-// ReputationalValReg manages the reputational opt-in for mev-commit validators. 
+// ReputationValReg manages the reputational opt-in for mev-commit validators. 
 // This contract is meant to be deployed on L1. Future contracts will implement 
 // other types of opt-in including restaked opt-in and simple stake opt-in. 
-//
-// TODO: Consider separating out contract owner, and account that manages the whitelist. This depends how exactly upgrades will work.
-// TODO: Determine need for reentrancy guard. Also determine if certain functions need to be external vs public for future integration.
-// TODO: Hash out and test upgrade process before deployment.
-// TODO: Talk to taylor about offchain db if needed to enable full list via events, include kant in convo
-// TODO: generate go bindings for this contract, adapt existing binding creation script for v1 registry.
 contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     uint256 constant FUNC_ARG_ARRAY_LIMIT = 100;

@@ -1,14 +1,13 @@
-// SPDX-License-Identifier: MIT
-
-pragma solidity 0.8.20;
+// SPDX-License-Identifier: BSL 1.1
+pragma solidity ^0.8.20;
 
 import "./ReputationValReg.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-// TODO: hash out plan on how this and/or other contract could eventually be upgraded to incorporate slashing
-// TODO: determine should use reentrancy guard
+// DelegationValReg manages the delegation of stETH to groups of validators opted-in to mev-commit.
+// This delegation is achieved by grouping validators by the whitelisted EOA that represents an organization.
 contract DelegationValReg is OwnableUpgradeable, UUPSUpgradeable {
 
     ReputationValReg public reputationValReg;
