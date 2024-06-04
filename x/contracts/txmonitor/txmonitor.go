@@ -359,7 +359,6 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 			if r.Receipt.Status != types.ReceiptStatusSuccessful {
 				tt, err := m.helper.TraceTransaction(ctx, txHashes[start+i])
 				if err != nil {
-					m.logger.Error("retrieving transaction trace failed", "error", err)
 					m.logger.Error(
 						"retrieving transaction trace failed",
 						"error", err,
