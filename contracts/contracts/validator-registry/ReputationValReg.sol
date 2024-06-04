@@ -33,8 +33,9 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
     // Mapping of whitelisted EOAs to their info struct
     mapping(address => WhitelistedEOAInfo) public whitelistedEOAs;
 
-    // List of stored validator consensus addresses with O(1) lookup indexed by consensus address. 
-    // These addresses were at some point stored by a whitelisted EOA.
+    // Set of stored validator consensus addresses with O(1) lookup, mapped to the whitelisted EOA
+    // that originally stored the consensus address. The 'address' value may or may not correspond to 
+    // an actively whitelisted EOA.
     // 
     // This mapping is intentionally not enumerable,
     // since actors should only need to query the 32 relevant proposers for an epoch at a time.
@@ -124,20 +125,15 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
     function deleteConsAddrs(bytes[] memory consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         for (uint i = 0; i < consAddrs.length; i++) {
-            require(isEOAWhitelisted(msg.sender), "Sender must be whitelisted");
-            require(storedConsAddrs[consAddrs[i]] == msg.sender, "Consensus address must be stored by sender");
-            _deleteConsAddr(msg.sender, consAddrs[i], whitelistedEOAs[msg.sender].moniker);
-            whitelistedEOAs[msg.sender].numConsAddrsStored--;
-        }
-    }
-
-    function deleteConsAddrsFromNonWhitelistedEOAs(bytes[] memory consAddrs) external {
-        require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
-        for (uint i = 0; i < consAddrs.length; i++) {
             address eoa = storedConsAddrs[consAddrs[i]];
             require(eoa != address(0), "Consensus address must be stored");
-            require(!isEOAWhitelisted(eoa), "EOA who originally stored cons addr must not be whitelisted");
-            _deleteConsAddr(eoa, consAddrs[i], "unknown");
+            if (isEOAWhitelisted(eoa)) {
+                require(eoa == msg.sender, "Consensus address must be originally stored by sender");
+                whitelistedEOAs[eoa].numConsAddrsStored--;
+                _deleteConsAddr(consAddrs[i], eoa, whitelistedEOAs[eoa].moniker);
+            } else {
+                _deleteConsAddr(consAddrs[i], eoa, "non-whitelisted EOA");
+            }
         }
     }
 
@@ -159,7 +155,7 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
             whitelistedEOAs[eoa].freezeHeight, whitelistedEOAs[eoa].moniker);
     }
 
-    function _deleteConsAddr(address eoa, bytes memory consAddr, string memory moniker) internal {
+    function _deleteConsAddr(bytes memory consAddr, address eoa, string memory moniker) internal {
         delete storedConsAddrs[consAddr];
         emit ConsAddrDeleted(consAddr, eoa, moniker);
     }

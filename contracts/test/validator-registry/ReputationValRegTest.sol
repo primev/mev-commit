@@ -354,16 +354,16 @@ contract ReputationValRegTest is Test {
             consAddrsValid[i][consAddrsValid[i].length - 1] = bytes1(uint8(i % 256));
         }
 
-        vm.prank(user3);
-        vm.expectRevert("Sender must be whitelisted");
-        reputationValReg.deleteConsAddrs(consAddrsValid);
-        vm.stopPrank();
-
         bytes[] memory consAddrNotStored = new bytes[](1);
         consAddrNotStored[0] = exampleConsAddr2;
         vm.prank(user1);
-        vm.expectRevert("Consensus address must be stored by sender");
+        vm.expectRevert("Consensus address must be stored");
         reputationValReg.deleteConsAddrs(consAddrNotStored);
+        vm.stopPrank();
+
+        vm.prank(user3);
+        vm.expectRevert("Consensus address must be originally stored by sender");
+        reputationValReg.deleteConsAddrs(consAddrsValid);
         vm.stopPrank();
 
         (, uint256 numConsAddrsStored, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
@@ -400,6 +400,68 @@ contract ReputationValRegTest is Test {
 
         (, uint256 numConsAddrsStoredAfterDeletion2, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
         assertEq(numConsAddrsStoredAfterDeletion2, 0);
+    }
+
+    function testDeleteConsAddrsFromNonWhitelistedEOAs() public {
+        testStoreConsAddrs(); 
+        assertTrue(reputationValReg.isEOAWhitelisted(user1));
+        (, uint256 numConsAddrsStored, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStored, 5);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WhitelistedEOADeleted(user1, "bob");
+        reputationValReg.deleteWhitelistedEOA(user1);
+        vm.stopPrank();
+
+        assertFalse(reputationValReg.isEOAWhitelisted(user1));
+        (, uint256 numConsAddrsStored2, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStored2, 0); // Counter is no longer stored, orphaned cons addrs still exist
+
+        bytes[] memory orphanedConsAddrs = new bytes[](MAX_CONS_ADDRS_PER_EOA);
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            orphanedConsAddrs[i] = exampleConsAddr1;
+            orphanedConsAddrs[i][orphanedConsAddrs[i].length - 1] = bytes1(uint8(i % 256));
+        }
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            address eoa = reputationValReg.storedConsAddrs(orphanedConsAddrs[i]);
+            assertEq(eoa, user1);
+        }
+
+        bytes[] memory firstConsAddr = new bytes[](1);
+        firstConsAddr[0] = orphanedConsAddrs[0];
+        vm.prank(user2);
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(firstConsAddr[0], user1, "non-whitelisted EOA");
+        reputationValReg.deleteConsAddrs(firstConsAddr);
+        vm.stopPrank();
+
+        bytes[] memory secondTwo = new bytes[](2);
+        secondTwo[0] = orphanedConsAddrs[1];
+        secondTwo[1] = orphanedConsAddrs[2];
+        vm.prank(user3);
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(secondTwo[0], user1, "non-whitelisted EOA");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(secondTwo[1], user1, "non-whitelisted EOA");
+        reputationValReg.deleteConsAddrs(secondTwo);
+        vm.stopPrank();
+
+        bytes[] memory lastTwo = new bytes[](2);
+        lastTwo[0] = orphanedConsAddrs[3];
+        lastTwo[1] = orphanedConsAddrs[4];
+        vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(lastTwo[0], user1, "non-whitelisted EOA");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(lastTwo[1], user1, "non-whitelisted EOA");
+        reputationValReg.deleteConsAddrs(lastTwo);
+        vm.stopPrank();
+        
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            address eoa = reputationValReg.storedConsAddrs(orphanedConsAddrs[i]);
+            assertEq(eoa, address(0));
+        }
     }
 
     function testConsAddrsCycle() public {
@@ -452,9 +514,4 @@ contract ReputationValRegTest is Test {
             assertFalse(optedIn[i]);
         }
     }
-    
-    
-
-
-
 }
