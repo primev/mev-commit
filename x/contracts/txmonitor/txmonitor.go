@@ -22,6 +22,7 @@ var (
 
 var (
 	ErrTxnCancelled  = errors.New("transaction was cancelled")
+	ErrTxnFailed     = errors.New("transaction failed")
 	ErrMonitorClosed = errors.New("monitor was closed")
 )
 
@@ -222,7 +223,6 @@ func (m *Monitor) Sent(ctx context.Context, tx *types.Transaction) {
 		r := <-res
 		status := "success"
 		if r.Err != nil {
-			m.logger.Error("transaction failed", "err", r.Err)
 			status = fmt.Sprintf("failed: %v", r.Err)
 		}
 		if err := m.saver.Update(context.Background(), tx.Hash(), status); err != nil {
@@ -353,13 +353,29 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 					m.notify(nonce, txHashes[start+i], Result{nil, ErrTxnCancelled})
 					continue
 				}
+				m.logger.Error("failed to get receipt", "error", r.Err, "txHash", txHashes[start+i])
+				continue
+			}
+			if r.Receipt.Status != types.ReceiptStatusSuccessful {
 				tt, err := m.helper.TraceTransaction(ctx, txHashes[start+i])
 				if err != nil {
 					m.logger.Error("retrieving transaction trace failed", "error", err)
+					m.logger.Error(
+						"retrieving transaction trace failed",
+						"error", err,
+						"txHash", txHashes[start+i],
+					)
+				} else {
+					m.logger.Error("transaction failed",
+						"transaction_trace", tt,
+						"txHash", txHashes[start+i],
+					)
 				}
 				m.logger.Error("failed to get receipt", "error", r.Err, "transaction_trace", tt)
+				m.notify(nonce, txHashes[start+i], Result{r.Receipt, ErrTxnFailed})
 				continue
 			}
+
 			m.notify(nonce, txHashes[start+i], Result{r.Receipt, nil})
 		}
 	}
