@@ -374,6 +374,12 @@ contract ReputationValRegTest is Test {
             consAddrSubset[i] = consAddrsValid[i];
         }
         vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(consAddrSubset[0], user1, "bob");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(consAddrSubset[1], user1, "bob");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(consAddrSubset[2], user1, "bob");
         reputationValReg.deleteConsAddrs(consAddrSubset);
         vm.stopPrank();
 
@@ -385,6 +391,10 @@ contract ReputationValRegTest is Test {
         remainingConsAddrs[1] = consAddrsValid[4];
 
         vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(remainingConsAddrs[0], user1, "bob");
+        vm.expectEmit(true, true, true, true);
+        emit ConsAddrDeleted(remainingConsAddrs[1], user1, "bob");
         reputationValReg.deleteConsAddrs(remainingConsAddrs);
         vm.stopPrank();
 
@@ -392,7 +402,25 @@ contract ReputationValRegTest is Test {
         assertEq(numConsAddrsStoredAfterDeletion2, 0);
     }
 
-    // TODO: test on add cons addr -> remove -> add again
+    function testConsAddrsCycle() public {
+        testDeleteConsAddrs();
+
+        bytes[] memory consAddrsValid = new bytes[](MAX_CONS_ADDRS_PER_EOA);
+        for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
+            consAddrsValid[i] = exampleConsAddr1;
+            consAddrsValid[i][consAddrsValid[i].length - 1] = bytes1(uint8(i % 256));
+        }
+
+        (, uint256 numConsAddrsStored, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStored, 0);
+
+        vm.prank(user1);
+        reputationValReg.storeConsAddrs(consAddrsValid);
+        vm.stopPrank();
+
+        (, uint256 numConsAddrsStored2, , ) = reputationValReg.getWhitelistedEOAInfo(user1);
+        assertEq(numConsAddrsStored2, 5);
+    }
 
     function testAreValidatorsOptedIn() public {
         testStoreConsAddrs();
