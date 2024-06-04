@@ -5,8 +5,6 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {EnumerableMap} from "../../utils/EnumerableMap.sol";
 
-// TODO: adjust existing scripts/infra that ref where this file has been moved to.
-
 /// @title "phase 1" validator registry meant to be deployed on mev-commit chain.
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit via staking. 
 /// @dev Slashing is not yet implemented for this contract, hence it is upgradable to incorporate slashing in the future.
