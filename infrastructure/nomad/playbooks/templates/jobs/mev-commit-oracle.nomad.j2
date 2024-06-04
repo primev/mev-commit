@@ -47,6 +47,10 @@ job "{{ job.name }}" {
         sidecar = true
       }
 
+      resources {
+        memory = 4096
+      }
+
       template {
         data = <<-EOH
           {%- raw %}

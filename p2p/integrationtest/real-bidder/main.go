@@ -150,11 +150,25 @@ func main() {
 
 	wg.Add(1)
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(10 * time.Minute)
 		defer ticker.Stop()
 
+		minDepositResp, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
+		if err != nil {
+			logger.Error("failed to get min deposit", "err", err)
+			return
+		}
+
+		minDeposit, set := big.NewInt(0).SetString(minDepositResp.Amount, 10)
+		if !set {
+			logger.Error("failed to parse min deposit amount")
+			return
+		}
+
+		minDepositAmt := new(big.Int).Mul(minDeposit, big.NewInt(10))
+
 		for {
-			err = checkOrDeposit(bidderClient, logger)
+			err = checkOrDeposit(bidderClient, logger, minDepositAmt)
 			if err != nil {
 				logger.Error("failed to check or stake", "err", err)
 			}
@@ -267,6 +281,7 @@ func RetreivedBlock(rpcClient *ethclient.Client) ([]string, int64, error) {
 func checkOrDeposit(
 	bidderClient pb.BidderClient,
 	logger *slog.Logger,
+	minDeposit *big.Int,
 ) error {
 	deposit, err := bidderClient.GetDeposit(context.Background(), &pb.GetDepositRequest{})
 	if err != nil {
@@ -274,47 +289,38 @@ func checkOrDeposit(
 		return err
 	}
 
-	logger.Info("initial deposit", "amount", deposit.Amount, "window", deposit.WindowNumber.Value)
+	for i := deposit.WindowNumber.Value; i < deposit.WindowNumber.Value+64; i++ {
+		if _, ok := deposits[i]; !ok {
+			deposit, err = bidderClient.GetDeposit(context.Background(), &pb.GetDepositRequest{
+				WindowNumber: wrapperspb.UInt64(i),
+			})
+			if err != nil {
+				logger.Error("failed to get deposit", "err", err)
+				return err
+			}
+			depositAmount, set := big.NewInt(0).SetString(deposit.Amount, 10)
+			if !set {
+				logger.Error("failed to parse deposit amount")
+				return errors.New("failed to parse deposit amount")
+			}
 
-	minDeposit, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
-	if err != nil {
-		logger.Error("failed to get min deposit", "err", err)
-		return err
+			if depositAmount.Cmp(minDeposit) < 0 {
+				newDeposit, err := bidderClient.Deposit(context.Background(), &pb.DepositRequest{
+					Amount:       new(big.Int).Sub(minDeposit, depositAmount).String(),
+					WindowNumber: wrapperspb.UInt64(i),
+				})
+				if err != nil {
+					logger.Error("failed to deposit", "err", err)
+					return err
+				}
+				logger.Info("deposit", "amount", newDeposit.Amount, "window", newDeposit.WindowNumber.Value)
+				deposits[newDeposit.WindowNumber.Value] = struct{}{}
+			}
+		}
 	}
-
-	depositAmt, set := big.NewInt(0).SetString(deposit.Amount, 10)
-	if !set {
-		logger.Error("failed to parse deposit amount")
-		return errors.New("failed to parse deposit amount")
-	}
-
-	minDepositAmt, set := big.NewInt(0).SetString(minDeposit.Amount, 10)
-	if !set {
-		logger.Error("failed to parse min deposit amount")
-		return errors.New("failed to parse min deposit amount")
-	}
-
-	if depositAmt.Cmp(minDepositAmt) > 0 {
-		logger.Error("bidder already has balance")
-		return nil
-	}
-
-	topup := big.NewInt(0).Mul(minDepositAmt, big.NewInt(10))
-
-	deposit, err = bidderClient.Deposit(context.Background(), &pb.DepositRequest{
-		Amount: topup.String(),
-	})
-	if err != nil {
-		logger.Error("failed to deposit", "err", err)
-		return err
-	}
-
-	logger.Info("deposit after topup", "amount", topup.String(), "window", deposit.WindowNumber.Value)
-
-	deposits[deposit.WindowNumber.Value] = struct{}{}
 
 	for window := range deposits {
-		if window < deposit.WindowNumber.Value-2 {
+		if window < deposit.WindowNumber.Value-3 {
 			resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{
 				WindowNumber: wrapperspb.UInt64(window),
 			})
