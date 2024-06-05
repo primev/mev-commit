@@ -516,18 +516,19 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        // require(
-        //     dispatchTimestamp >= block.timestamp ||
-        //         block.timestamp - dispatchTimestamp < commitmentDispatchWindow,
-        //     "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-        // );
+        uint256 dt = uint256(dispatchTimestamp);
+        require(
+            dt >= block.timestamp ||
+                block.timestamp - dt < uint256(commitmentDispatchWindow),
+            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+        );
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
-        // require(
-        //     commiterAddress == msg.sender,
-        //     "Commiter address is different from the sender address"
-        // );
+        require(
+            commiterAddress == msg.sender,
+            "Commiter address is different from the sender address"
+        );
 
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
