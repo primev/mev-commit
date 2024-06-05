@@ -96,6 +96,9 @@ jobs:
           to: 8546
         p2p:
           to: 30301
+        http:
+          static: 8545
+          to: 8545
     env:
       ip: 0.0.0.0
       public_ip: 0.0.0.0
@@ -110,9 +113,6 @@ jobs:
           to: 6060
         p2p:
           to: 30311
-        http:
-          static: 8545
-          to: 8545
     env:
       ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
