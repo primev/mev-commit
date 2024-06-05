@@ -30,6 +30,8 @@ type Tracker struct {
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
+	dtis            chan *preconfcommstore.PreconfcommitmentstoreDispatchTimestampInfo
+	cais            chan *preconfcommstore.PreconfcommitmentstoreCommiterAddressInfo
 	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
 	metrics         *metrics
 	logger          *slog.Logger
@@ -109,6 +111,24 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				}
 			},
 		),
+		events.NewEventHandler(
+			"DispatchTimestampInfo",
+			func(dti *preconfcommstore.PreconfcommitmentstoreDispatchTimestampInfo) {
+				select {
+				case <-egCtx.Done():
+				case t.dtis <- dti:
+				}
+			},
+		),
+		events.NewEventHandler(
+			"CommiterAddressInfo",
+			func(ca *preconfcommstore.PreconfcommitmentstoreCommiterAddressInfo) {
+				select {
+				case <-egCtx.Done():
+				case t.cais <- ca:
+				}
+			},
+		),
 	}
 
 	if t.peerType == p2p.PeerTypeBidder {
@@ -156,6 +176,21 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				if err := t.handleCommitmentStored(egCtx, cs); err != nil {
 					return err
 				}
+			case dti := <-t.dtis:
+				t.logger.Info(
+					"dispatch timestamp info",
+					"isValidTimestamp", dti.IsValidTimestamp,
+					"dispatchTimestamp", dti.DispatchTimestamp,
+					"blockTimestamp", dti.BlockTimestamp,
+					"commitmentDispatchWindow", dti.CommitmentDispatchWindow,
+				)
+			case ca := <-t.cais:
+				t.logger.Info(
+					"commiter address info",
+					"isValidAddress", ca.IsCommiterAddressValid,
+					"senderAddress", ca.SenderAddress,
+					"commiterAddress", ca.CommiterAddress,
+				)
 			}
 		}
 	})

@@ -122,6 +122,19 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         uint64 blockNumber
     );
 
+    event DispatchTimestampInfo(
+        bool isValidTimestamp,
+        uint64 dispatchTimestamp,
+        uint256 blockTimestamp,
+        uint256 commitmentDispatchWindow
+    );
+
+    event CommiterAddressInfo(
+        bool isCommiterAddressValid,
+        address senderAddress,
+        address commiterAddress
+    );
+
     /**
      * @dev fallback to revert all the calls.
      */
@@ -505,18 +518,24 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        require(
-            dispatchTimestamp >= block.timestamp ||
-                block.timestamp - dispatchTimestamp < commitmentDispatchWindow,
-            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-        );
+        // require(
+        //     dispatchTimestamp >= block.timestamp ||
+        //         block.timestamp - dispatchTimestamp < commitmentDispatchWindow,
+        //     "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+        // );
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
-        require(
-            commiterAddress == msg.sender,
-            "Commiter address is different from the sender address"
-        );
+        // require(
+        //     commiterAddress == msg.sender,
+        //     "Commiter address is different from the sender address"
+        // );
+        uint256 currentBlockTimestamp = block.timestamp;
+
+        bool isValidTimestamp = dispatchTimestamp >= currentBlockTimestamp ||
+            currentBlockTimestamp - dispatchTimestamp <
+            commitmentDispatchWindow;
+        bool isCommiterAddressValid = commiterAddress == msg.sender;
 
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
@@ -530,6 +549,20 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
         // Store commitment
         encryptedCommitments[commitmentIndex] = newCommitment;
+
+        // Emit events for each condition
+        emit DispatchTimestampInfo(
+            isValidTimestamp,
+            dispatchTimestamp,
+            currentBlockTimestamp,
+            commitmentDispatchWindow
+        );
+
+        emit CommiterAddressInfo(
+            isCommiterAddressValid,
+            msg.sender,
+            commiterAddress
+        );
 
         emit EncryptedCommitmentStored(
             commitmentIndex,

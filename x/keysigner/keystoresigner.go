@@ -48,11 +48,11 @@ func NewKeystoreSigner(path, password string) (*KeystoreSigner, error) {
 }
 
 func (kss *KeystoreSigner) SignHash(hash []byte) ([]byte, error) {
-	return kss.keystore.SignHashWithPassphrase(kss.account, kss.password, hash)
+	return kss.keystore.SignHash(kss.account, hash)
 }
 
 func (kss *KeystoreSigner) SignTx(tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	return kss.keystore.SignTxWithPassphrase(kss.account, kss.password, tx, chainID)
+	return kss.keystore.SignTx(kss.account, tx, chainID)
 }
 
 func (kss *KeystoreSigner) GetAddress() common.Address {

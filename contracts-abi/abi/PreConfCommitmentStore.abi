@@ -1051,6 +1051,31 @@
   },
   {
     "type": "event",
+    "name": "CommiterAddressInfo",
+    "inputs": [
+      {
+        "name": "isCommiterAddressValid",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "senderAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "commiterAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "CommitmentStored",
     "inputs": [
       {
@@ -1136,6 +1161,37 @@
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DispatchTimestampInfo",
+    "inputs": [
+      {
+        "name": "isValidTimestamp",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "blockTimestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "commitmentDispatchWindow",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
