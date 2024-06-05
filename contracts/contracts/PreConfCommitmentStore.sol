@@ -513,11 +513,11 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        uint256 dt = uint256(dispatchTimestamp);
-        require(
-            dt >= block.timestamp,
-            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-        );
+        // uint256 dt = uint256(dispatchTimestamp);
+        // require(
+        //     dt >= block.timestamp,
+        //     "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+        // );
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
