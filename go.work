@@ -8,4 +8,5 @@ use (
 	./oracle
 	./p2p
 	./x
+	./monitoring/go-tx-tracker
 )
