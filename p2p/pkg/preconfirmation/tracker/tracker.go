@@ -181,7 +181,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case dti := <-t.dtis:
 				t.logger.Info(
 					"dispatch timestamp info",
-					"isValidTimestamp", dti.IsValidTimestamp,
 					"dispatchTimestamp", dti.DispatchTimestamp,
 					"blockTimestamp", dti.BlockTimestamp,
 					"commitmentDispatchWindow", dti.CommitmentDispatchWindow,
@@ -189,7 +188,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case ca := <-t.cais:
 				t.logger.Info(
 					"commiter address info",
-					"isValidAddress", ca.IsCommiterAddressValid,
 					"senderAddress", ca.SenderAddress,
 					"commiterAddress", ca.CommiterAddress,
 				)

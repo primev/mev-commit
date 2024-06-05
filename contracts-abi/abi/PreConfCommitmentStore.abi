@@ -1054,12 +1054,6 @@
     "name": "CommiterAddressInfo",
     "inputs": [
       {
-        "name": "isCommiterAddressValid",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
-      },
-      {
         "name": "senderAddress",
         "type": "address",
         "indexed": false,
@@ -1169,12 +1163,6 @@
     "type": "event",
     "name": "DispatchTimestampInfo",
     "inputs": [
-      {
-        "name": "isValidTimestamp",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
-      },
       {
         "name": "dispatchTimestamp",
         "type": "uint64",
