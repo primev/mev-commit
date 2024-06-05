@@ -1051,25 +1051,6 @@
   },
   {
     "type": "event",
-    "name": "CommiterAddressInfo",
-    "inputs": [
-      {
-        "name": "senderAddress",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "commiterAddress",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "CommitmentStored",
     "inputs": [
       {

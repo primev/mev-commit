@@ -128,8 +128,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         uint256 commitmentDispatchWindow
     );
 
-    event CommiterAddressInfo(address senderAddress, address commiterAddress);
-
     /**
      * @dev fallback to revert all the calls.
      */
@@ -513,12 +511,15 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        // uint256 dt = uint256(dispatchTimestamp);
-        // require(
-        //     dt >= block.timestamp,
-        //     "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-        // );
-
+        uint256 minTime = block.timestamp - commitmentDispatchWindow;
+        if (dispatchTimestamp < minTime) {
+            emit DispatchTimestampInfo(
+                dispatchTimestamp,
+                block.timestamp,
+                commitmentDispatchWindow
+            );
+            return 0x0;
+        }
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
         require(
@@ -538,15 +539,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
         // Store commitment
         encryptedCommitments[commitmentIndex] = newCommitment;
-
-        // Emit events for each condition
-        emit DispatchTimestampInfo(
-            dispatchTimestamp,
-            block.timestamp,
-            commitmentDispatchWindow
-        );
-
-        emit CommiterAddressInfo(msg.sender, commiterAddress);
 
         emit EncryptedCommitmentStored(
             commitmentIndex,

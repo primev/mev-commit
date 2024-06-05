@@ -31,7 +31,6 @@ type Tracker struct {
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
 	dtis            chan *preconfcommstore.PreconfcommitmentstoreDispatchTimestampInfo
-	cais            chan *preconfcommstore.PreconfcommitmentstoreCommiterAddressInfo
 	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
 	metrics         *metrics
 	logger          *slog.Logger
@@ -82,7 +81,6 @@ func NewTracker(
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
 		dtis:            make(chan *preconfcommstore.PreconfcommitmentstoreDispatchTimestampInfo),
-		cais:            make(chan *preconfcommstore.PreconfcommitmentstoreCommiterAddressInfo),
 		winners:         make(map[int64]*blocktracker.BlocktrackerNewL1Block),
 		metrics:         newMetrics(),
 		logger:          logger,
@@ -119,15 +117,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				select {
 				case <-egCtx.Done():
 				case t.dtis <- dti:
-				}
-			},
-		),
-		events.NewEventHandler(
-			"CommiterAddressInfo",
-			func(ca *preconfcommstore.PreconfcommitmentstoreCommiterAddressInfo) {
-				select {
-				case <-egCtx.Done():
-				case t.cais <- ca:
 				}
 			},
 		),
@@ -184,12 +173,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					"dispatchTimestamp", dti.DispatchTimestamp,
 					"blockTimestamp", dti.BlockTimestamp,
 					"commitmentDispatchWindow", dti.CommitmentDispatchWindow,
-				)
-			case ca := <-t.cais:
-				t.logger.Info(
-					"commiter address info",
-					"senderAddress", ca.SenderAddress,
-					"commiterAddress", ca.CommiterAddress,
 				)
 			}
 		}
