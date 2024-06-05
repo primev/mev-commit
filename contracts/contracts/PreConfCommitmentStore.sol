@@ -508,7 +508,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     ) public returns (bytes32 commitmentIndex) {
         require(
             dispatchTimestamp >= block.timestamp ||
-                block.timestamp - dispatchTimestamp < 500,
+                block.timestamp - dispatchTimestamp < 350,
             "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
         );
 
