@@ -203,13 +203,13 @@ func (t *Tracker) handleNewL1Block(
 		// of bidder or provider should open the commitment as 1 of the txns would
 		// fail. This delay is to ensure this.
 		t.winners[newL1Block.BlockNumber.Int64()] = newL1Block
-		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-1]
+		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-2]
 		if !ok {
 			return nil
 		}
 		blockToProcess = pastBlock.BlockNumber
 		for k := range t.winners {
-			if k < blockToProcess.Int64() {
+			if k < blockToProcess.Int64()-1 {
 				delete(t.winners, k)
 			}
 		}

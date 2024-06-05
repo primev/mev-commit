@@ -238,6 +238,11 @@ func TestTracker(t *testing.T) {
 		Winner:      winnerProvider,
 		Window:      big.NewInt(1),
 	})
+	publishNewWinner(evtMgr, &btABI, blocktracker.BlocktrackerNewL1Block{
+		BlockNumber: big.NewInt(7),
+		Winner:      winnerProvider,
+		Window:      big.NewInt(1),
+	})
 
 	opened = []*store.EncryptedPreConfirmationWithDecrypted{
 		commitments[8],

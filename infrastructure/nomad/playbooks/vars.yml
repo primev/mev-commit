@@ -55,6 +55,29 @@ profiles:
       - "mev-commit-oracle"
       - "datadog-agent-metrics-collector"
       - "mev-commit-faucet"
+  stressnet:
+    job_names:
+      - "datadog-agent-logs-collector"
+      - "mev-commit-geth-bootnode1"
+      - "mev-commit-geth-signer-node1"
+      - "mev-commit-geth-member-node"
+      - "deploy-contracts"
+      - "mev-commit-bootnode1"
+      - "mev-commit-provider-node1"
+      - "mev-commit-provider-node2"
+      - "mev-commit-provider-node3"
+      - "mev-commit-provider-node-funders"
+      - "mev-commit-provider-emulator-nodes"
+      - "mev-commit-oracle"
+      - "mev-commit-bidder-node1"
+      - "mev-commit-bidder-node2"
+      - "mev-commit-bidder-node3"
+      - "mev-commit-bidder-node4"
+      - "mev-commit-bidder-node5"
+      - "mev-commit-bidder-node-funders"
+      - "mev-commit-bidder-emulator-nodes"
+      - "datadog-agent-metrics-collector"
+      - "mev-commit-faucet"
 
 artifacts:
   - name: keystore-generator
@@ -174,12 +197,56 @@ jobs:
       - metrics:
           to: 13523
         http:
-          static: 13533
+          static: 13623
           to: 13523
         p2p:
           to: 13522
         rpc:
-          static: 13534
+          static: 13624
+          to: 13524
+    env:
+      type: provider
+      nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  - name: mev-commit-provider-node2
+    template: mev-commit.nomad.j2
+    count: 1
+    secrets:
+      keystore: provider1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13633
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13634
+          to: 13524
+    env:
+      type: provider
+      nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  - name: mev-commit-provider-node3
+    template: mev-commit.nomad.j2
+    count: 1
+    secrets:
+      keystore: provider1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13643
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13644
           to: 13524
     env:
       type: provider
@@ -191,7 +258,31 @@ jobs:
     template: mev-commit-funder.nomad.j2
     count: 1
     target_type: provider
-    target_name: mev-commit-provider-node1
+    target_name: mev-commit-provider-node
+
+  - name: mev-commit-provider-emulator-node1
+    template: mev-commit-emulator.nomad.j2
+    count: 1
+    target_type: provider
+    target_name: mev-commit-provider-node
+    ports:
+      - metrics:
+          to: 8080
+
+  - name: mev-commit-provider-node-funders
+    template: mev-commit-funder.nomad.j2
+    count: 3
+    target_type: provider
+    target_name: mev-commit-provider-node
+
+  - name: mev-commit-provider-emulator-nodes
+    template: mev-commit-emulator.nomad.j2
+    count: 3
+    target_type: provider
+    target_name: mev-commit-provider-node
+    ports:
+      - metrics:
+          to: 8080
 
   - name: mev-commit-oracle
     template: mev-commit-oracle.nomad.j2
@@ -217,12 +308,96 @@ jobs:
       - metrics:
           to: 13523
         http:
-          static: 13532
+          static: 13723
           to: 13523
         p2p:
           to: 13522
         rpc:
-          static: 13544
+          static: 13724
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  - name: mev-commit-bidder-node2
+    template: mev-commit.nomad.j2
+    count: 1
+    secrets:
+      keystore: bidder1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13733
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13734
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  - name: mev-commit-bidder-node3
+    template: mev-commit.nomad.j2
+    count: 1
+    secrets:
+      keystore: bidder1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13743
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13744
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  - name: mev-commit-bidder-node4
+    template: mev-commit.nomad.j2
+    count: 1
+    secrets:
+      keystore: bidder1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13753
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13754
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  - name: mev-commit-bidder-node5
+    template: mev-commit.nomad.j2
+    count: 1
+    secrets:
+      keystore: bidder1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13763
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13764
           to: 13524
     env:
       type: bidder
@@ -233,22 +408,30 @@ jobs:
     template: mev-commit-funder.nomad.j2
     count: 1
     target_type: bidder
-    target_name: mev-commit-bidder-node1
-
-  - name: mev-commit-provider-emulator-node1
-    template: mev-commit-emulator.nomad.j2
-    count: 1
-    target_type: provider
-    target_name: mev-commit-provider-node1
-    ports:
-      - metrics:
-          to: 8080
+    target_name: mev-commit-bidder-node
 
   - name: mev-commit-bidder-emulator-node1
     template: mev-commit-emulator.nomad.j2
     count: 1
     target_type: bidder
-    target_name: mev-commit-bidder-node1
+    target_name: mev-commit-bidder-node
+    ports:
+      - metrics:
+          to: 8080
+    env:
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
+
+  - name: mev-commit-bidder-node-funders
+    template: mev-commit-funder.nomad.j2
+    count: 5
+    target_type: bidder
+    target_name: mev-commit-bidder-node
+
+  - name: mev-commit-bidder-emulator-nodes
+    template: mev-commit-emulator.nomad.j2
+    count: 5
+    target_type: bidder
+    target_name: mev-commit-bidder-node
     ports:
       - metrics:
           to: 8080

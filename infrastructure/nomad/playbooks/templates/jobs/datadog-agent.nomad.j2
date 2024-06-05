@@ -94,7 +94,27 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-provider-node1" }}
             {{- if contains "metrics" .Tags }}
             - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
-              service: "mev-commit-provider-node1"
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-provider-node2" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-provider-node3" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
               metrics:
                 - mev_commit*
                 - go*
@@ -105,7 +125,47 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-bidder-node1" }}
             {{- if contains "metrics" .Tags }}
             - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
-              service: "mev-commit-bidder-node1"
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-bidder-node2" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-bidder-node3" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-bidder-node4" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+                - go*
+                - libp2p*
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-bidder-node5" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: https://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
               metrics:
                 - mev_commit*
                 - go*
@@ -196,7 +256,7 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-provider-emulator-node1" }}
             {{- if contains "metrics" .Tags }}
             - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
-              service: "mev-commit-provider-emulator-node1"
+              service: {{ .Name }}
               metrics:
                 - mev_commit*
             {{- end }}
@@ -205,7 +265,24 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-bidder-emulator-node1" }}
             {{- if contains "metrics" .Tags }}
             - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
-              service: "mev-commit-bidder-emulator-node1"
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+            {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-provider-emulator-nodes" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
+              metrics:
+                - mev_commit*
+            {{- end }}
+          {{- end }}
+
+          {{- range nomadService "mev-commit-bidder-emulator-nodes" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/metrics
+              service: {{ .Name }}
               metrics:
                 - mev_commit*
             {{- end }}

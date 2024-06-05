@@ -44,6 +44,12 @@ job "{{ job.name }}" {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/keystore-generator_{{ version }}_Linux_x86_64.tar.gz"
       }
 
+      {% if profile == 'stressnet' %}
+      resources {
+        memory = 1024
+      }
+      {% endif %}
+
       template {
         data = <<-EOH
           KEYSTOREGEN_LOG_FMT="{{ job.env.get('log-format', 'json') }}"

@@ -229,6 +229,7 @@
         label: "{{ item.name }}"
       vars:
         job: "{{ item }}"
+        profile: "{{ profile }}"
       when: build_templates is not defined or build_templates
 
     - name: Create "version.txt"

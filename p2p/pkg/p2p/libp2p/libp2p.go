@@ -224,6 +224,8 @@ func (s *Service) handleConnectReq(streamlibp2p network.Stream) {
 	peerID := streamlibp2p.Conn().RemotePeer()
 
 	stream := newStream(streamlibp2p, nil, nil)
+	defer stream.Close()
+
 	peer, err := s.hsSvc.Handle(s.baseCtx, stream, peerID)
 	if err != nil {
 		s.logger.Error("error handling handshake", "err", err)
@@ -425,6 +427,8 @@ func (s *Service) Connect(ctx context.Context, info []byte) (p2p.Peer, error) {
 		return p2p.Peer{}, err
 	}
 	stream := newStream(streamlibp2p, nil, nil)
+
+	defer stream.Close()
 
 	p, err := s.hsSvc.Handshake(ctx, addrInfo.ID, stream)
 	if err != nil {
