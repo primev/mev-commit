@@ -27,6 +27,10 @@ job "{{ job.name }}" {
     task "node" {
       driver = "exec"
 
+      resources {
+        memory = 2048
+      }
+
       {% for port_name in job.ports[0] %}
       service {
         name = "{{ job.name }}"
