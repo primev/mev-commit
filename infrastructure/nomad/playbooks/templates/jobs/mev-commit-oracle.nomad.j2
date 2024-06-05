@@ -216,7 +216,7 @@ job "{{ job.name }}" {
             ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
           fi
             {{ end }}
-          {{- end }}  
+          {{- end }}
 
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
@@ -225,10 +225,12 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
+          {% if profile != 'testnet' %}
           if [ ! -z "${ADDRESSES}" ]; then
             echo "starting mev-oracle with override winners ${ADDRESSES}"
             export MEV_ORACLE_OVERRIDE_WINNERS=${ADDRESSES}
           fi
+          {% endif %}
 
           if [ ! -d "${MEV_ORACLE_KEYSTORE_PATH}" ]; then
             mkdir -p "${MEV_ORACLE_KEYSTORE_PATH}" > /dev/null 2>&1
