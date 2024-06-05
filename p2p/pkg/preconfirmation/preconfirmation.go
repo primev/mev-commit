@@ -323,7 +323,7 @@ func (p *Preconfirmation) handleBid(
 				uint64(st.DispatchTimestamp),
 			)
 			if err != nil {
-				p.logger.Error("storing commitment", "error", err)
+				p.logger.Error("failed to storing commitment on chain", "error", err)
 				return status.Errorf(codes.Internal, "failed to store commitments: %v", err)
 			}
 			p.logger.Info("transaction was sent on-chain", "tx_hash", txn.Hash(), "dispatch_timestamp", st.DispatchTimestamp)
