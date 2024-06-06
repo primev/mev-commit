@@ -105,7 +105,7 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         // Sets fake block timestamp
-        vm.warp(16);
+        vm.warp(500);
         bidderRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
@@ -439,7 +439,6 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
         );
-
         vm.startPrank(commiter);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
@@ -820,6 +819,7 @@ contract TestPreConfCommitmentStore is Test {
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
+
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
                 _testCommitmentAliceBob.bid,
