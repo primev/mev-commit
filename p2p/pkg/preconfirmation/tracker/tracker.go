@@ -305,7 +305,11 @@ func (t *Tracker) handleNewL1Block(
 			continue
 		}
 		duration := time.Since(startTime)
-		t.logger.Info("opened commitment", "txHash", txHash, "duration", duration)
+		t.logger.Info("opened commitment",
+			"txHash", txHash, "duration", duration,
+			"blockNumber", blockToProcess,
+			"commiter", common.Bytes2Hex(commitment.ProviderAddress),
+		)
 		settled++
 	}
 

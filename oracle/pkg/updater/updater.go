@@ -298,8 +298,9 @@ func (u *Updater) handleOpenedCommitment(
 		u.logger.Info(
 			"winner is not the committer",
 			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-			"winner", winner.Winner,
+			"winner", common.Bytes2Hex(winner.Winner),
 			"committer", update.Commiter.Hex(),
+			"blockNumber", update.BlockNumber,
 		)
 		return nil
 	}
