@@ -37,12 +37,6 @@ contract TestPreConfCommitmentStore is Test {
 
     BidderRegistry internal bidderRegistry;
 
-    event DispatchTimestampInfo(
-        uint64 dispatchTimestamp,
-        uint256 blockTimestamp,
-        uint256 commitmentDispatchWindow
-    );
-
     function setUp() public {
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -184,13 +178,8 @@ contract TestPreConfCommitmentStore is Test {
         vm.prank(committer);
 
         vm.warp(1000);
-        uint64 commitmentDispatchWindow = 500;
-        // Expect the DispatchTimestampInfo event
-        vm.expectEmit(true, true, true, true);
-        emit DispatchTimestampInfo(
-            _testCommitmentAliceBob.dispatchTimestamp,
-            block.timestamp,
-            commitmentDispatchWindow
+        vm.expectRevert(
+            "Invalid dispatch timestamp"
         );
 
         preConfCommitmentStore.storeEncryptedCommitment(
@@ -212,21 +201,12 @@ contract TestPreConfCommitmentStore is Test {
         );
         bytes memory commitmentSignature = abi.encodePacked(r, s, v);
 
-        // Update the commitment dispatch window
         vm.prank(preConfCommitmentStore.owner());
         preConfCommitmentStore.updateCommitmentDispatchWindow(200);
-
-        // Warp to a time outside the new commitment dispatch window
-        vm.warp(201 + _testCommitmentAliceBob.dispatchTimestamp);
-
-        // Expect the DispatchTimestampInfo event
-        vm.expectEmit(true, true, true, true);
-        emit DispatchTimestampInfo(
-            _testCommitmentAliceBob.dispatchTimestamp,
-            block.timestamp,
-            preConfCommitmentStore.commitmentDispatchWindow()
+        vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
+        vm.expectRevert(
+            "Invalid dispatch timestamp"
         );
-
         preConfCommitmentStore.storeEncryptedCommitment(
             commitmentDigest,
             commitmentSignature,

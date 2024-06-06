@@ -1142,31 +1142,6 @@
   },
   {
     "type": "event",
-    "name": "DispatchTimestampInfo",
-    "inputs": [
-      {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      },
-      {
-        "name": "blockTimestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "commitmentDispatchWindow",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "EncryptedCommitmentStored",
     "inputs": [
       {

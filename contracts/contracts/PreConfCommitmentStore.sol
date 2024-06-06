@@ -122,12 +122,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         uint64 blockNumber
     );
 
-    event DispatchTimestampInfo(
-        uint64 dispatchTimestamp,
-        uint256 blockTimestamp,
-        uint256 commitmentDispatchWindow
-    );
-
     /**
      * @dev fallback to revert all the calls.
      */
@@ -516,15 +510,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
 
         // Check if the dispatch timestamp is within the allowed dispatch window
-        if (dispatchTimestamp < minTime) {
-            // Emit an event if the dispatch timestamp is too old
-            emit DispatchTimestampInfo(
-                dispatchTimestamp,
-                block.timestamp,
-                commitmentDispatchWindow
-            );
-            return 0x0; // Return 0x0 if the dispatch timestamp is invalid
-        }
+        require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
