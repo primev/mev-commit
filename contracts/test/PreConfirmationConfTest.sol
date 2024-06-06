@@ -37,6 +37,12 @@ contract TestPreConfCommitmentStore is Test {
 
     BidderRegistry internal bidderRegistry;
 
+    event DispatchTimestampInfo(
+        uint64 dispatchTimestamp,
+        uint256 blockTimestamp,
+        uint256 commitmentDispatchWindow
+    );
+
     function setUp() public {
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -163,58 +169,70 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(commitment.commitmentSignature, commitmentSignature);
     }
 
-    // function test_StoreCommitmentFailureDueToTimestampValidation() public {
-    //     bytes32 commitmentDigest = keccak256(
-    //         abi.encodePacked("commitment data")
-    //     );
-    //     (address committer, uint256 committerPk) = makeAddrAndKey("committer");
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-    //         committerPk,
-    //         commitmentDigest
-    //     );
-    //     bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+    function test_StoreCommitmentFailureDueToTimestampValidation() public {
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
 
-    //     vm.deal(committer, 1 ether);
-    //     vm.prank(committer);
+        vm.deal(committer, 1 ether);
+        vm.prank(committer);
 
-    //     vm.warp(1000);
-    //     vm.expectRevert(
-    //         "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-    //     );
+        vm.warp(1000);
+        uint64 commitmentDispatchWindow = 500;
+        // Expect the DispatchTimestampInfo event
+        vm.expectEmit(true, true, true, true);
+        emit DispatchTimestampInfo(
+            _testCommitmentAliceBob.dispatchTimestamp,
+            block.timestamp,
+            commitmentDispatchWindow
+        );
 
-    //     preConfCommitmentStore.storeEncryptedCommitment(
-    //         commitmentDigest,
-    //         commitmentSignature,
-    //         _testCommitmentAliceBob.dispatchTimestamp
-    //     );
-    // }
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            _testCommitmentAliceBob.dispatchTimestamp
+        );
+    }
 
-    // function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
-    //     public
-    // {
-    //     bytes32 commitmentDigest = keccak256(
-    //         abi.encodePacked("commitment data")
-    //     );
-    //     (address committer, uint256 committerPk) = makeAddrAndKey("committer");
-    //     assertNotEq(committer, address(0));
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-    //         committerPk,
-    //         commitmentDigest
-    //     );
-    //     bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow() public {
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        assertNotEq(committer, address(0));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
 
-    //     vm.prank(preConfCommitmentStore.owner());
-    //     preConfCommitmentStore.updateCommitmentDispatchWindow(200);
-    //     vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
-    //     vm.expectRevert(
-    //         "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
-    //     );
-    //     preConfCommitmentStore.storeEncryptedCommitment(
-    //         commitmentDigest,
-    //         commitmentSignature,
-    //         _testCommitmentAliceBob.dispatchTimestamp
-    //     );
-    // }
+        // Update the commitment dispatch window
+        vm.prank(preConfCommitmentStore.owner());
+        preConfCommitmentStore.updateCommitmentDispatchWindow(200);
+
+        // Warp to a time outside the new commitment dispatch window
+        vm.warp(201 + _testCommitmentAliceBob.dispatchTimestamp);
+
+        // Expect the DispatchTimestampInfo event
+        vm.expectEmit(true, true, true, true);
+        emit DispatchTimestampInfo(
+            _testCommitmentAliceBob.dispatchTimestamp,
+            block.timestamp,
+            preConfCommitmentStore.commitmentDispatchWindow()
+        );
+
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            _testCommitmentAliceBob.dispatchTimestamp
+        );
+    }
 
     function test_UpdateOracle() public {
         preConfCommitmentStore.updateOracle(feeRecipient);
@@ -389,21 +407,8 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
-        (
-            bool isUsed,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-        ) = preConfCommitmentStore.commitments(preConfHash);
+        (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            .commitments(preConfHash);
         assertEq(isUsed, false);
 
         return bidHash;
@@ -611,21 +616,8 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been set before
-            (
-                bool isUsed,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-            ) = preConfCommitmentStore.commitments(preConfHash);
+            (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
@@ -664,7 +656,7 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateSlash(index, 100);
 
-            (isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
+            (isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .commitments(index);
             // Verify that the commitment has been deleted
             assert(isUsed == true);
@@ -706,21 +698,8 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (
-                bool isUsed,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-            ) = preConfCommitmentStore.commitments(preConfHash);
+            (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
@@ -800,22 +779,8 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (
-                bool isUsed,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-
-            ) = preConfCommitmentStore.commitments(preConfHash);
+            (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);

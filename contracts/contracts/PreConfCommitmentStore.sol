@@ -504,6 +504,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
      * @dev Store an encrypted commitment.
      * @param commitmentDigest The digest of the commitment.
      * @param commitmentSignature The signature of the commitment.
+     * @param dispatchTimestamp The timestamp at which the commitment is dispatched.
      * @return commitmentIndex The index of the stored commitment
      */
     function storeEncryptedCommitment(
@@ -511,15 +512,20 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
+        // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
+
+        // Check if the dispatch timestamp is within the allowed dispatch window
         if (dispatchTimestamp < minTime) {
+            // Emit an event if the dispatch timestamp is too old
             emit DispatchTimestampInfo(
                 dispatchTimestamp,
                 block.timestamp,
                 commitmentDispatchWindow
             );
-            return 0x0;
+            return 0x0; // Return 0x0 if the dispatch timestamp is invalid
         }
+
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
         require(
@@ -537,7 +543,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
         commitmentIndex = getEncryptedCommitmentIndex(newCommitment);
 
-        // Store commitment
         encryptedCommitments[commitmentIndex] = newCommitment;
 
         emit EncryptedCommitmentStored(
