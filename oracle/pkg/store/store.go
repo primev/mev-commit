@@ -160,11 +160,15 @@ func (s *Store) AddEncryptedCommitment(
 		commitmentSignatureBase64,
 		dispatchTimestamp,
 	}
+	placeholder := make([]string, len(values))
+	for i := range columns {
+		placeholder[i] = fmt.Sprintf("$%d", i+1)
+	}
 
 	insertStr := fmt.Sprintf(
 		"INSERT INTO commitments (%s) VALUES (%s)",
 		strings.Join(columns, ", "),
-		strings.Repeat("?, ", len(values)-1)+"?",
+		strings.Join(placeholder, ", "),
 	)
 
 	_, err := s.db.ExecContext(ctx, insertStr, values...)
