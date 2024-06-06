@@ -213,7 +213,6 @@ func (t *Tracker) handleNewL1Block(
 
 	openStart := time.Now()
 
-	blockToProcess := newL1Block.BlockNumber
 	if t.peerType == p2p.PeerTypeBidder {
 		// Bidders should process the block 1 behind the current one. Ideally the
 		// provider should open the commitment as they get the reward, so the incentive
@@ -225,15 +224,15 @@ func (t *Tracker) handleNewL1Block(
 		if !ok {
 			return nil
 		}
-		blockToProcess = pastBlock.BlockNumber
+		newL1Block = pastBlock
 		for k := range t.winners {
-			if k < blockToProcess.Int64()-1 {
+			if k < pastBlock.BlockNumber.Int64() {
 				delete(t.winners, k)
 			}
 		}
 	}
 
-	commitments, err := t.store.GetCommitmentsByBlockNumber(blockToProcess.Int64())
+	commitments, err := t.store.GetCommitmentsByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
 		return err
 	}
@@ -289,13 +288,13 @@ func (t *Tracker) handleNewL1Block(
 		duration := time.Since(startTime)
 		t.logger.Info("opened commitment",
 			"txHash", txHash, "duration", duration,
-			"blockNumber", blockToProcess,
+			"blockNumber", newL1Block.BlockNumber,
 			"commiter", common.Bytes2Hex(commitment.ProviderAddress),
 		)
 		settled++
 	}
 
-	err = t.store.DeleteCommitmentByBlockNumber(blockToProcess.Int64())
+	err = t.store.DeleteCommitmentByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
 		t.logger.Error("failed to delete commitments by block number", "error", err)
 		return err
@@ -307,7 +306,7 @@ func (t *Tracker) handleNewL1Block(
 	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
 
 	t.logger.Info("commitments opened",
-		"blockNumber", blockToProcess,
+		"blockNumber", newL1Block.BlockNumber,
 		"total", len(commitments),
 		"settled", settled,
 		"failed", len(failedCommitments),
