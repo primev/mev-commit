@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -20,14 +21,14 @@ END $$;`
 
 var settlementsTable = `
 CREATE TABLE IF NOT EXISTS settlements (
-	commitment_index BYTEA PRIMARY KEY,
+	commitment_index TEXT PRIMARY KEY,
 	transaction TEXT,
 	block_number BIGINT,
-	builder_address BYTEA,
+	builder_address TEXT,
 	type settlement_type,
 	amount NUMERIC(24, 0),
-	bid_id BYTEA,
-	chainhash BYTEA,
+	bid_id TEXT,
+	chainhash TEXT,
 	nonce BIGINT,
 	settled BOOLEAN,
 	decay_percentage BIGINT,
@@ -36,23 +37,23 @@ CREATE TABLE IF NOT EXISTS settlements (
 
 var encryptedCommitmentsTable = `
 CREATE TABLE IF NOT EXISTS encrypted_commitments (
-	commitment_index BYTEA PRIMARY KEY,
-	committer BYTEA,
-	commitment_hash BYTEA,
-	commitment_signature BYTEA,
+	commitment_index TEXT PRIMARY KEY,
+	committer TEXT,
+	commitment_hash TEXT,
+	commitment_signature TEXT,
 	dispatch_timestamp BIGINT
 );`
 
 var winnersTable = `
 CREATE TABLE IF NOT EXISTS winners (
 	block_number BIGINT PRIMARY KEY,
-	builder_address BYTEA,
+	builder_address TEXT,
 	settlement_window BIGINT
 );`
 
 var transactionsTable = `
 CREATE TABLE IF NOT EXISTS sent_transactions (
-	hash BYTEA PRIMARY KEY,
+	hash TEXT PRIMARY KEY,
 	nonce BIGINT,
 	settled BOOLEAN,
 	status TEXT
@@ -96,7 +97,10 @@ func (s *Store) RegisterWinner(
 ) error {
 	insertStr := "INSERT INTO winners (block_number, builder_address, settlement_window) VALUES ($1, $2, $3)"
 
-	_, err := s.db.ExecContext(ctx, insertStr, blockNum, winner, window)
+	// Convert winner to base64 string for storage
+	winnerBase64 := base64.StdEncoding.EncodeToString(winner)
+
+	_, err := s.db.ExecContext(ctx, insertStr, blockNum, winnerBase64, window)
 	if err != nil {
 		return err
 	}
@@ -108,14 +112,22 @@ func (s *Store) GetWinner(
 	blockNum int64,
 ) (updater.Winner, error) {
 	winner := updater.Winner{}
+	var winnerBase64 string
 	err := s.db.QueryRowContext(
 		ctx,
 		"SELECT builder_address, settlement_window FROM winners WHERE block_number = $1",
 		blockNum,
-	).Scan(&winner.Winner, &winner.Window)
+	).Scan(&winnerBase64, &winner.Window)
 	if err != nil {
 		return winner, err
 	}
+
+	// Convert winner from base64 string to raw bytes
+	winner.Winner, err = base64.StdEncoding.DecodeString(winnerBase64)
+	if err != nil {
+		return winner, err
+	}
+
 	return winner, nil
 }
 
@@ -134,22 +146,25 @@ func (s *Store) AddEncryptedCommitment(
 		"commitment_signature",
 		"dispatch_timestamp",
 	}
+
+	// Convert byte slices to base64 strings for storage
+	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
+	committerBase64 := base64.StdEncoding.EncodeToString(committer)
+	commitmentHashBase64 := base64.StdEncoding.EncodeToString(commitmentHash)
+	commitmentSignatureBase64 := base64.StdEncoding.EncodeToString(commitmentSignature)
+
 	values := []interface{}{
-		commitmentIdx,
-		committer,
-		commitmentHash,
-		commitmentSignature,
+		commitmentIdxBase64,
+		committerBase64,
+		commitmentHashBase64,
+		commitmentSignatureBase64,
 		dispatchTimestamp,
-	}
-	placeholder := make([]string, len(values))
-	for i := range columns {
-		placeholder[i] = fmt.Sprintf("$%d", i+1)
 	}
 
 	insertStr := fmt.Sprintf(
-		"INSERT INTO encrypted_commitments (%s) VALUES (%s)",
+		"INSERT INTO commitments (%s) VALUES (%s)",
 		strings.Join(columns, ", "),
-		strings.Join(placeholder, ", "),
+		strings.Repeat("?, ", len(values)-1)+"?",
 	)
 
 	_, err := s.db.ExecContext(ctx, insertStr, values...)
@@ -187,16 +202,23 @@ func (s *Store) AddSettlement(
 		"decay_percentage",
 		"settlement_window",
 	}
+
+	// Convert byte slices to base64 strings for storage
+	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
+	builderBase64 := base64.StdEncoding.EncodeToString(builder)
+	bidIDBase64 := base64.StdEncoding.EncodeToString(bidID)
+	postingTxnHashBase64 := base64.StdEncoding.EncodeToString(postingTxnHash)
+
 	values := []interface{}{
-		commitmentIdx,
+		commitmentIdxBase64,
 		txHash,
 		blockNum,
-		builder,
+		builderBase64,
 		settlementType,
 		amount,
-		bidID,
+		bidIDBase64,
 		false,
-		postingTxnHash,
+		postingTxnHashBase64,
 		postingTxnNonce,
 		decayPercentage,
 		window,
@@ -224,10 +246,11 @@ func (s *Store) IsSettled(
 	commitmentIdx []byte,
 ) (bool, error) {
 	var settled bool
+	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
 	err := s.db.QueryRowContext(
 		ctx,
 		"SELECT EXISTS(SELECT 1 FROM settlements WHERE commitment_index = $1)",
-		commitmentIdx,
+		commitmentIdxBase64,
 	).Scan(&settled)
 	if err != nil {
 		return false, err
@@ -240,7 +263,13 @@ func (s *Store) Settlement(
 	ctx context.Context,
 	commitmentIdx []byte,
 ) (updater.Settlement, error) {
-	var st updater.Settlement
+	var (
+		st            updater.Settlement
+		builderBase64 string
+		bidIDBase64   string
+	)
+	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
+
 	err := s.db.QueryRowContext(
 		ctx,
 		`
@@ -249,27 +278,43 @@ func (s *Store) Settlement(
 			decay_percentage
 		FROM settlements
 		WHERE commitment_index = $1`,
-		commitmentIdx,
+		commitmentIdxBase64,
 	).Scan(
 		&st.TxHash,
 		&st.BlockNum,
-		&st.Builder,
+		&builderBase64,
 		&st.Amount,
-		&st.BidID,
+		&bidIDBase64,
 		&st.Type,
 		&st.DecayPercentage,
 	)
 	if err != nil {
 		return st, err
 	}
+
+	// Convert base64 strings to raw bytes
+	builder, err := base64.StdEncoding.DecodeString(builderBase64)
+	if err != nil {
+		return st, err
+	}
+	st.Builder = builder
+
+	bidID, err := base64.StdEncoding.DecodeString(bidIDBase64)
+	if err != nil {
+		return st, err
+	}
+	st.BidID = bidID
+	st.CommitmentIdx = commitmentIdx
+
 	return st, nil
 }
 
 func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) error {
+	txHashBase64 := base64.StdEncoding.EncodeToString(txHash.Bytes())
 	_, err := s.db.ExecContext(
 		ctx,
 		"INSERT INTO sent_transactions (hash, nonce, settled) VALUES ($1, $2, false)",
-		txHash.Bytes(),
+		txHashBase64,
 		nonce,
 	)
 	if err != nil {
@@ -284,11 +329,13 @@ func (s *Store) Update(ctx context.Context, txHash common.Hash, status string) e
 		return err
 	}
 
+	txHashBase64 := base64.StdEncoding.EncodeToString(txHash.Bytes())
+
 	_, err = tx.ExecContext(
 		ctx,
 		"UPDATE sent_transactions SET status = $1, settled = true WHERE hash = $2",
 		status,
-		txHash.Bytes(),
+		txHashBase64,
 	)
 	if err != nil {
 		_ = tx.Rollback()
@@ -298,7 +345,7 @@ func (s *Store) Update(ctx context.Context, txHash common.Hash, status string) e
 	_, err = tx.ExecContext(
 		ctx,
 		"UPDATE settlements SET settled = true WHERE chainhash = $1",
-		txHash.Bytes(),
+		txHashBase64,
 	)
 	if err != nil {
 		_ = tx.Rollback()
