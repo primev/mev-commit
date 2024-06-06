@@ -298,6 +298,7 @@ func TestStore(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(s, updater.Settlement{
+				CommitmentIdx:   settlement.CommitmentIdx,
 				TxHash:          settlement.TxHash,
 				BlockNum:        settlement.BlockNum,
 				Builder:         settlement.Builder,
