@@ -292,7 +292,7 @@ contract BidderRegistry is
         uint64 blockNumber
     ) external onlyPreConfirmationEngine {
         BidState memory bidState = BidPayment[commitmentDigest];
-        if (bidState.state == State.Undefined) {
+        if (bidState.state != State.Undefined) {
             return;
         }
         uint256 currentWindow = blockTrackerContract.getWindowFromBlockNumber(
