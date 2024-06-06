@@ -108,7 +108,7 @@ func NewNode(opts *Options) (*Node, error) {
 		txmonitor.NewEVMHelper(settlementClient.Client()),
 		st,
 		nd.logger.With("component", "tx_monitor"),
-		128,
+		1024,
 	)
 
 	monitorClosed := monitor.Start(ctx)
