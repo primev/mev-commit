@@ -104,7 +104,7 @@ func TestStore(t *testing.T) {
 		}
 
 		for i := 6; i <= 10; i++ {
-			err := st.DeleteCommitmentByIndex(2, common.BigToHash(big.NewInt(int64(i))))
+			err := st.DeleteCommitmentByDigest(2, common.BigToHash(big.NewInt(int64(i))))
 			if err != nil {
 				t.Fatal(err)
 			}
