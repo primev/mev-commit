@@ -271,6 +271,13 @@ contract BidderRegistry is
         emit FundsRetrieved(bidID, bidState.bidder, window, amt);
     }
 
+    /**
+     * @dev Open a bid and update the used funds for the block.
+     * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
+     * @param bid The bid amount.
+     * @param bidder The address of the bidder.
+     * @param blockNumber The block number.
+     */
     function OpenBid(
         bytes32 commitmentDigest,
         uint64 bid,
