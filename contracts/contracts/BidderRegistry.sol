@@ -46,6 +46,9 @@ contract BidderRegistry is
     // Mapping from bidder addresses and window numbers to their locked funds
     mapping(address => mapping(uint256 => uint256)) public lockedFunds;
 
+    // Mapping from bidder addresses and blocks to their used funds
+    mapping(address => mapping(uint64 => uint256)) public usedFunds;
+
     /// @dev Mapping from bidder addresses to their locked amount based on bidID (commitmentDigest)
     mapping(bytes32 => BidState) public BidPayment;
 
@@ -268,12 +271,6 @@ contract BidderRegistry is
         emit FundsRetrieved(bidID, bidState.bidder, window, amt);
     }
 
-    /**
-     * @dev Open a bid (only callable by the pre-confirmations contract).
-     * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
-     * @param bid The bid amount.
-     * @param bidder The address of the bidder.
-     */
     function OpenBid(
         bytes32 commitmentDigest,
         uint64 bid,
@@ -284,20 +281,37 @@ contract BidderRegistry is
         if (bidState.state == State.Undefined) {
             uint256 currentWindow = blockTrackerContract
                 .getWindowFromBlockNumber(blockNumber);
-            // @todo delete this, when oracle will do the calculation
-            // bidder cannot bid more than allowed for the round
             uint256 numberOfRounds = blockTrackerContract.getBlocksPerWindow();
             uint256 windowAmount = lockedFunds[bidder][currentWindow] /
                 numberOfRounds;
-            if (windowAmount < bid) {
-                bid = uint64(windowAmount);
+
+            // Calculate the available amount for this block
+            uint256 availableAmount = windowAmount >
+                usedFunds[bidder][blockNumber]
+                ? windowAmount - usedFunds[bidder][blockNumber]
+                : 0;
+
+            // Check if bid exceeds the available amount for the block
+            if (availableAmount == 0 || availableAmount < bid) {
+                if (availableAmount > 0) {
+                    // todo: burn it, until oracle we do the calculation and transfers
+                    bid = uint64(availableAmount);
+                } else {
+                    bid = 0;
+                }
             }
+
+            // Update the used funds for the block if bid is greater than 0
+            if (bid > 0) {
+                usedFunds[bidder][blockNumber] += bid;
+                lockedFunds[bidder][currentWindow] -= bid;
+            }
+
             BidPayment[commitmentDigest] = BidState({
                 state: State.PreConfirmed,
                 bidder: bidder,
                 bidAmt: bid
             });
-            lockedFunds[bidder][currentWindow] -= bid;
         }
     }
 
