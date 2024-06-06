@@ -49,6 +49,9 @@ contract BidderRegistry is
     // Mapping from bidder addresses and blocks to their used funds
     mapping(address => mapping(uint64 => uint256)) public usedFunds;
 
+    /// Mapping from bidder addresses and window numbers to their funds per window
+    mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
+
     /// @dev Mapping from bidder addresses to their locked amount based on bidID (commitmentDigest)
     mapping(bytes32 => BidState) public BidPayment;
 
@@ -176,14 +179,18 @@ contract BidderRegistry is
     function depositForSpecificWindow(uint256 window) external payable {
         require(msg.value >= minDeposit, "Insufficient deposit");
 
-        bidderRegistered[msg.sender] = true;
-        lockedFunds[msg.sender][window] += msg.value;
+        if (!bidderRegistered[msg.sender]) {
+            bidderRegistered[msg.sender] = true;
+        }
 
-        emit BidderRegistered(
-            msg.sender,
-            lockedFunds[msg.sender][window],
-            window
-        );
+        uint256 newLockedFunds = lockedFunds[msg.sender][window] + msg.value;
+        lockedFunds[msg.sender][window] = newLockedFunds;
+
+        // Calculate the maximum bid per block for the given window
+        uint256 numberOfRounds = blockTrackerContract.getBlocksPerWindow();
+        maxBidPerBlock[msg.sender][window] = newLockedFunds / numberOfRounds;
+
+        emit BidderRegistered(msg.sender, newLockedFunds, window);
     }
 
     /**
@@ -291,9 +298,8 @@ contract BidderRegistry is
         uint256 currentWindow = blockTrackerContract.getWindowFromBlockNumber(
             blockNumber
         );
-        uint256 numberOfRounds = blockTrackerContract.getBlocksPerWindow();
-        uint256 windowAmount = lockedFunds[bidder][currentWindow] /
-            numberOfRounds;
+
+        uint256 windowAmount = maxBidPerBlock[bidder][currentWindow];
 
         // Calculate the available amount for this block
         uint256 availableAmount = windowAmount > usedFunds[bidder][blockNumber]
