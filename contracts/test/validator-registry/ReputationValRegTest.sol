@@ -168,6 +168,12 @@ contract ReputationValRegTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner);
+        vm.expectRevert("Invalid BLS public key length. Must be 48 bytes");
+        bytes memory consAddrInvalid = new bytes(474324);
+        reputationValReg.freeze(consAddrInvalid);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
         vm.expectRevert("Validator consensus address must be stored");
         reputationValReg.freeze(exampleConsAddr1);
         vm.stopPrank();
@@ -288,6 +294,13 @@ contract ReputationValRegTest is Test {
         reputationValReg.storeConsAddrs(consAddrsSmaller);
         vm.stopPrank();
 
+        bytes[] memory consAddrsInvalid = new bytes[](1);
+        consAddrsInvalid[0] = new bytes(474324);
+        vm.startPrank(user1);
+        vm.expectRevert("Invalid BLS public key length. Must be 48 bytes");
+        reputationValReg.storeConsAddrs(consAddrsInvalid);
+        vm.stopPrank();
+
         bytes[] memory consAddrsDuplicate = new bytes[](2);
         consAddrsDuplicate[0] = exampleConsAddr1;
         consAddrsDuplicate[1] = exampleConsAddr1;
@@ -343,6 +356,13 @@ contract ReputationValRegTest is Test {
         }
         vm.expectRevert("Too many cons addrs in request. Try batching");
         reputationValReg.deleteConsAddrs(consAddrs);
+
+        bytes[] memory consAddrsInvalid = new bytes[](1);
+        consAddrsInvalid[0] = new bytes(474324);
+        vm.startPrank(user1);
+        vm.expectRevert("Invalid BLS public key length. Must be 48 bytes");
+        reputationValReg.deleteConsAddrs(consAddrsInvalid);
+        vm.stopPrank();
 
         bytes[] memory consAddrsValid = new bytes[](MAX_CONS_ADDRS_PER_EOA);
         for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {
@@ -482,6 +502,13 @@ contract ReputationValRegTest is Test {
 
     function testAreValidatorsOptedIn() public {
         testStoreConsAddrs();
+
+        bytes[] memory consAddrsInvalid = new bytes[](1);
+        consAddrsInvalid[0] = new bytes(474324);
+        vm.startPrank(owner);
+        vm.expectRevert("Invalid BLS public key length. Must be 48 bytes");
+        reputationValReg.areValidatorsOptedIn(consAddrsInvalid);
+        vm.stopPrank();
 
         bytes[] memory consAddrsValid = new bytes[](MAX_CONS_ADDRS_PER_EOA);
         for (uint256 i = 0; i < MAX_CONS_ADDRS_PER_EOA; i++) {

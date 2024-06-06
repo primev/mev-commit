@@ -86,7 +86,8 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         emit WhitelistedEOADeleted(eoa, moniker);
     }
 
-    function freeze(bytes memory validatorConsAddr) onlyOwner external {
+    function freeze(bytes calldata validatorConsAddr) onlyOwner external {
+        _validateBLSPubKey(validatorConsAddr);
         address eoa = storedConsAddrs[validatorConsAddr];
         require(eoa != address(0), "Validator consensus address must be stored");
         require(whitelistedEOAs[eoa].state == State.Active, "EOA representing validator must be active");
@@ -104,10 +105,11 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         emit EOAUnfrozen(msg.sender, whitelistedEOAs[msg.sender].moniker);
     }
 
-    function storeConsAddrs(bytes[] memory consAddrs) external {
+    function storeConsAddrs(bytes[] calldata consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         require(isEOAWhitelisted(msg.sender), "Sender must be whitelisted");
         for (uint i = 0; i < consAddrs.length; i++) {
+            _validateBLSPubKey(consAddrs[i]);
             require(storedConsAddrs[consAddrs[i]] == address(0), "Duplicate consensus address is already stored");
             require(whitelistedEOAs[msg.sender].numConsAddrsStored < maxConsAddrsPerEOA, "EOA must not store more than max allowed cons addrs");
             storedConsAddrs[consAddrs[i]] = msg.sender;
@@ -116,9 +118,10 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
-    function deleteConsAddrs(bytes[] memory consAddrs) external {
+    function deleteConsAddrs(bytes[] calldata consAddrs) external {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         for (uint i = 0; i < consAddrs.length; i++) {
+            _validateBLSPubKey(consAddrs[i]);
             address eoa = storedConsAddrs[consAddrs[i]];
             require(eoa != address(0), "Consensus address must be stored");
             if (isEOAWhitelisted(eoa)) {
@@ -135,10 +138,11 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         return whitelistedEOAs[eoa].state != State.NotWhitelisted;
     }
 
-    function areValidatorsOptedIn(bytes[] memory consAddrs) external view returns (bool[] memory) {
+    function areValidatorsOptedIn(bytes[] calldata consAddrs) external view returns (bool[] memory) {
         require(consAddrs.length <= FUNC_ARG_ARRAY_LIMIT, "Too many cons addrs in request. Try batching");
         bool[] memory results = new bool[](consAddrs.length);
         for (uint i = 0; i < consAddrs.length; i++) {
+            _validateBLSPubKey(consAddrs[i]);
             results[i] = _isValidatorOptedIn(consAddrs[i]);
         }
         return results;
@@ -149,16 +153,20 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
             whitelistedEOAs[eoa].freezeHeight, whitelistedEOAs[eoa].moniker);
     }
 
-    function _deleteConsAddr(bytes memory consAddr, address eoa, string memory moniker) internal {
+    function _deleteConsAddr(bytes calldata consAddr, address eoa, string memory moniker) internal {
         delete storedConsAddrs[consAddr];
         emit ConsAddrDeleted(consAddr, eoa, moniker);
     }
 
-    function _isValidatorOptedIn(bytes memory consAddr) internal view returns (bool) {
+    function _isValidatorOptedIn(bytes calldata consAddr) internal view returns (bool) {
         address eoa = storedConsAddrs[consAddr];
         bool isConsAddrStored = eoa != address(0);
         bool isEoaActive = whitelistedEOAs[eoa].state == State.Active;
         return isConsAddrStored && isEoaActive;
+    }
+
+    function _validateBLSPubKey(bytes calldata valBLSPubKey) internal pure {
+        require(valBLSPubKey.length == 48, "Invalid BLS public key length. Must be 48 bytes");
     }
 
     fallback() external payable {
@@ -169,4 +177,3 @@ contract ReputationValReg is OwnableUpgradeable, UUPSUpgradeable {
         revert("Invalid call");
     }
 }
-
