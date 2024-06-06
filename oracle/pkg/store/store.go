@@ -166,7 +166,7 @@ func (s *Store) AddEncryptedCommitment(
 	}
 
 	insertStr := fmt.Sprintf(
-		"INSERT INTO commitments (%s) VALUES (%s)",
+		"INSERT INTO encrypted_commitments (%s) VALUES (%s)",
 		strings.Join(columns, ", "),
 		strings.Join(placeholder, ", "),
 	)
