@@ -41,7 +41,7 @@ type CommitmentStore interface {
 	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
 	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
 	DeleteCommitmentByBlockNumber(blockNum int64) error
-	DeleteCommitmentByIndex(blockNum int64, index [32]byte) error
+	DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error
 	SetCommitmentIndexByCommitmentDigest(commitmentDigest, commitmentIndex [32]byte) error
 }
 
@@ -148,10 +148,28 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				if err := t.handleNewL1Block(egCtx, newL1Block); err != nil {
 					return err
 				}
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return nil
 			case ec := <-t.enryptedCmts:
 				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
 					return err
 				}
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return nil
 			case cs := <-t.commitments:
 				if err := t.handleCommitmentStored(egCtx, cs); err != nil {
 					return err
@@ -195,7 +213,6 @@ func (t *Tracker) handleNewL1Block(
 
 	openStart := time.Now()
 
-	blockToProcess := newL1Block.BlockNumber
 	if t.peerType == p2p.PeerTypeBidder {
 		// Bidders should process the block 1 behind the current one. Ideally the
 		// provider should open the commitment as they get the reward, so the incentive
@@ -207,15 +224,15 @@ func (t *Tracker) handleNewL1Block(
 		if !ok {
 			return nil
 		}
-		blockToProcess = pastBlock.BlockNumber
+		newL1Block = pastBlock
 		for k := range t.winners {
-			if k < blockToProcess.Int64()-1 {
+			if k < pastBlock.BlockNumber.Int64() {
 				delete(t.winners, k)
 			}
 		}
 	}
 
-	commitments, err := t.store.GetCommitmentsByBlockNumber(blockToProcess.Int64())
+	commitments, err := t.store.GetCommitmentsByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
 		return err
 	}
@@ -227,7 +244,7 @@ func (t *Tracker) handleNewL1Block(
 			failedCommitments = append(failedCommitments, commitment.TxnHash)
 			continue
 		}
-		if common.BytesToAddress(commitment.ProviderAddress) != newL1Block.Winner {
+		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
 			t.logger.Debug(
 				"provider address does not match the winner",
 				"providerAddress", commitment.ProviderAddress,
@@ -269,11 +286,15 @@ func (t *Tracker) handleNewL1Block(
 			continue
 		}
 		duration := time.Since(startTime)
-		t.logger.Info("opened commitment", "txHash", txHash, "duration", duration)
+		t.logger.Info("opened commitment",
+			"txHash", txHash, "duration", duration,
+			"blockNumber", newL1Block.BlockNumber,
+			"commiter", common.Bytes2Hex(commitment.ProviderAddress),
+		)
 		settled++
 	}
 
-	err = t.store.DeleteCommitmentByBlockNumber(blockToProcess.Int64())
+	err = t.store.DeleteCommitmentByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
 		t.logger.Error("failed to delete commitments by block number", "error", err)
 		return err
@@ -285,7 +306,7 @@ func (t *Tracker) handleNewL1Block(
 	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
 
 	t.logger.Info("commitments opened",
-		"blockNumber", blockToProcess,
+		"blockNumber", newL1Block.BlockNumber,
 		"total", len(commitments),
 		"settled", settled,
 		"failed", len(failedCommitments),
@@ -323,5 +344,5 @@ func (t *Tracker) handleCommitmentStored(
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
-	return t.store.DeleteCommitmentByIndex(int64(cs.BlockNumber), cs.CommitmentIndex)
+	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
 }

@@ -105,7 +105,7 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         // Sets fake block timestamp
-        vm.warp(16);
+        vm.warp(500);
         bidderRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
@@ -179,7 +179,7 @@ contract TestPreConfCommitmentStore is Test {
 
         vm.warp(1000);
         vm.expectRevert(
-            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+            "Invalid dispatch timestamp"
         );
 
         preConfCommitmentStore.storeEncryptedCommitment(
@@ -189,9 +189,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
-        public
-    {
+    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow() public {
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
         );
@@ -207,7 +205,7 @@ contract TestPreConfCommitmentStore is Test {
         preConfCommitmentStore.updateCommitmentDispatchWindow(200);
         vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
         vm.expectRevert(
-            "Invalid dispatch timestamp, block.timestamp - dispatchTimestamp < commitmentDispatchWindow"
+            "Invalid dispatch timestamp"
         );
         preConfCommitmentStore.storeEncryptedCommitment(
             commitmentDigest,
@@ -389,21 +387,8 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
-        (
-            bool isUsed,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-            ,
-        ) = preConfCommitmentStore.commitments(preConfHash);
+        (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            .commitments(preConfHash);
         assertEq(isUsed, false);
 
         return bidHash;
@@ -439,7 +424,6 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
         );
-
         vm.startPrank(commiter);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
@@ -612,21 +596,8 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been set before
-            (
-                bool isUsed,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-            ) = preConfCommitmentStore.commitments(preConfHash);
+            (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
@@ -665,7 +636,7 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateSlash(index, 100);
 
-            (isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
+            (isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .commitments(index);
             // Verify that the commitment has been deleted
             assert(isUsed == true);
@@ -707,21 +678,8 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (
-                bool isUsed,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-            ) = preConfCommitmentStore.commitments(preConfHash);
+            (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
@@ -801,25 +759,12 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (
-                bool isUsed,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-                ,
-
-            ) = preConfCommitmentStore.commitments(preConfHash);
+            (bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
             vm.deal(commiter, 5 ether);
+
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
                 _testCommitmentAliceBob.bid,

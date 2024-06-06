@@ -188,7 +188,7 @@ func NewNode(opts *Options) (*Node, error) {
 		txmonitor.NewEVMHelper(contractRPC.Client()),
 		store,
 		opts.Logger.With("component", "txmonitor"),
-		256,
+		1024,
 	)
 	startables = append(startables, monitor)
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
