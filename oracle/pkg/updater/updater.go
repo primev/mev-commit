@@ -185,6 +185,15 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
 					return err
 				}
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return nil
 			case oc := <-u.openedCmts:
 				if err := u.handleOpenedCommitment(egCtx, oc); err != nil {
 					return err

@@ -42,7 +42,7 @@ type CommitmentStore interface {
 	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
 	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
 	DeleteCommitmentByBlockNumber(blockNum int64) error
-	DeleteCommitmentByIndex(blockNum int64, index [32]byte) error
+	DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error
 	SetCommitmentIndexByCommitmentDigest(commitmentDigest, commitmentIndex [32]byte) error
 }
 
@@ -159,10 +159,28 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				if err := t.handleNewL1Block(egCtx, newL1Block); err != nil {
 					return err
 				}
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return nil
 			case ec := <-t.enryptedCmts:
 				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
 					return err
 				}
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return nil
 			case cs := <-t.commitments:
 				if err := t.handleCommitmentStored(egCtx, cs); err != nil {
 					return err
@@ -245,7 +263,7 @@ func (t *Tracker) handleNewL1Block(
 			failedCommitments = append(failedCommitments, commitment.TxnHash)
 			continue
 		}
-		if common.BytesToAddress(commitment.ProviderAddress) != newL1Block.Winner {
+		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
 			t.logger.Debug(
 				"provider address does not match the winner",
 				"providerAddress", commitment.ProviderAddress,
@@ -341,5 +359,5 @@ func (t *Tracker) handleCommitmentStored(
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
-	return t.store.DeleteCommitmentByIndex(int64(cs.BlockNumber), cs.CommitmentIndex)
+	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
 }

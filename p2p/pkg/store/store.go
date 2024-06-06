@@ -123,11 +123,11 @@ func (s *Store) DeleteCommitmentByBlockNumber(blockNum int64) error {
 	return nil
 }
 
-func (s *Store) DeleteCommitmentByIndex(blockNum int64, index [32]byte) error {
+func (s *Store) DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	key := commitmentKey(blockNum, index[:])
+	key := commitmentKey(blockNum, digest[:])
 	_, _ = s.Tree.Delete(key)
 	return nil
 }
