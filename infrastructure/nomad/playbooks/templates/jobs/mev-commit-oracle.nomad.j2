@@ -182,7 +182,7 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
-          ADDRESSES = ""
+          ADDRESSES=""
           {%- raw %}
           {{- range nomadService "mev-commit-provider-node1" }}
             {{ if contains "http" .Tags }}
