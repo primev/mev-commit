@@ -209,6 +209,8 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 		}
 	}()
 
+	u.logger.Info("updater started")
+
 	return doneChan
 }
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -65,53 +64,46 @@ func (l *L1Listener) Start(ctx context.Context) <-chan struct{} {
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	startWg := sync.WaitGroup{}
-	startWg.Add(2)
-
 	eg.Go(func() error {
-		startWg.Done()
-
 		return l.watchL1Block(egCtx)
 	})
 
-	eg.Go(func() error {
-
-		evt := events.NewEventHandler(
-			"NewL1Block",
-			func(update *blocktracker.BlocktrackerNewL1Block) {
-				l.logger.Info(
-					"new L1 block event",
+	evt := events.NewEventHandler(
+		"NewL1Block",
+		func(update *blocktracker.BlocktrackerNewL1Block) {
+			l.logger.Info(
+				"new L1 block event",
+				"block", update.BlockNumber,
+				"winner", update.Winner.String(),
+				"window", update.Window,
+			)
+			err := l.winnerRegister.RegisterWinner(
+				ctx,
+				update.BlockNumber.Int64(),
+				update.Winner.Bytes(),
+				update.Window.Int64(),
+			)
+			if err != nil {
+				l.logger.Error(
+					"failed to register winner",
 					"block", update.BlockNumber,
 					"winner", update.Winner.String(),
-					"window", update.Window,
+					"error", err,
 				)
-				err := l.winnerRegister.RegisterWinner(
-					ctx,
-					update.BlockNumber.Int64(),
-					update.Winner.Bytes(),
-					update.Window.Int64(),
-				)
-				if err != nil {
-					l.logger.Error(
-						"failed to register winner",
-						"block", update.BlockNumber,
-						"winner", update.Winner.String(),
-						"error", err,
-					)
-					return
-				}
-				l.metrics.WinnerCount.Inc()
-				l.metrics.WinnerRoundCount.WithLabelValues(update.Winner.String()).Inc()
-			},
-		)
+				return
+			}
+			l.metrics.WinnerCount.Inc()
+			l.metrics.WinnerRoundCount.WithLabelValues(update.Winner.String()).Inc()
+		},
+	)
 
-		sub, err := l.eventMgr.Subscribe(evt)
-		if err != nil {
-			startWg.Done()
-			return err
-		}
-		startWg.Done()
+	sub, err := l.eventMgr.Subscribe(evt)
+	if err != nil {
+		close(doneChan)
+		return doneChan
+	}
 
+	eg.Go(func() error {
 		defer sub.Unsubscribe()
 
 		select {
@@ -129,7 +121,7 @@ func (l *L1Listener) Start(ctx context.Context) <-chan struct{} {
 		}
 	}()
 
-	startWg.Wait()
+	l.logger.Info("L1Listener started")
 
 	return doneChan
 }

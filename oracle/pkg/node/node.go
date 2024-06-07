@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net/url"
 	"strings"
 	"time"
 
@@ -139,12 +140,22 @@ func NewNode(opts *Options) (*Node, error) {
 		abis...,
 	)
 
-	httpPub := publisher.NewHTTPPublisher(
-		st,
-		nd.logger.With("component", "http_publisher"),
-		settlementClient,
-		evtMgr,
-	)
+	var eventsPublisher publisherStartable
+	if u, err := url.Parse(opts.SettlementRPCUrl); err == nil && u.Scheme == "ws" {
+		eventsPublisher = publisher.NewWSPublisher(
+			st,
+			nd.logger.With("component", "ws_publisher"),
+			settlementClient,
+			evtMgr,
+		)
+	} else {
+		eventsPublisher = publisher.NewHTTPPublisher(
+			st,
+			nd.logger.With("component", "http_publisher"),
+			settlementClient,
+			evtMgr,
+		)
+	}
 
 	var listenerL1Client l1Listener.EthClient
 
@@ -199,6 +210,7 @@ func NewNode(opts *Options) (*Node, error) {
 				settlementClient,
 				winner,
 				winner,
+				nd.logger,
 			)
 			if err != nil {
 				nd.logger.Error("failed to set builder mapping", "error", err)
@@ -238,7 +250,7 @@ func NewNode(opts *Options) (*Node, error) {
 		st,
 	)
 
-	httpPubDone := httpPub.Start(ctx, contractAddrs...)
+	pubDone := eventsPublisher.Start(ctx, contractAddrs...)
 
 	srv.RegisterMetricsCollectors(l1Lis.Metrics()...)
 	srv.RegisterMetricsCollectors(updtr.Metrics()...)
@@ -260,7 +272,7 @@ func NewNode(opts *Options) (*Node, error) {
 			<-l1LisClosed
 			<-updtrClosed
 			<-srvClosed
-			<-httpPubDone
+			<-pubDone
 			<-monitorClosed
 		}()
 
@@ -396,7 +408,10 @@ func setBuilderMapping(
 	client *ethclient.Client,
 	builderName string,
 	builderAddress string,
+	logger *slog.Logger,
 ) error {
+	logger.Info("setting builder mapping", "builderName", builderName, "builderAddress", builderAddress)
+
 	txn, err := bt.AddBuilderAddress(builderName, common.HexToAddress(builderAddress))
 	if err != nil {
 		return err
@@ -414,4 +429,8 @@ func setupMetricsNamespace(ns string) {
 	transactor.Namespace = ns
 	txmonitor.Namespace = ns
 	events.Namespace = ns
+}
+
+type publisherStartable interface {
+	Start(context.Context, ...common.Address) <-chan struct{}
 }
