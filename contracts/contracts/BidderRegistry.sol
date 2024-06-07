@@ -46,6 +46,12 @@ contract BidderRegistry is
     // Mapping from bidder addresses and window numbers to their locked funds
     mapping(address => mapping(uint256 => uint256)) public lockedFunds;
 
+    // Mapping from bidder addresses and blocks to their used funds
+    mapping(address => mapping(uint64 => uint256)) public usedFunds;
+
+    /// Mapping from bidder addresses and window numbers to their funds per window
+    mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
+
     /// @dev Mapping from bidder addresses to their locked amount based on bidID (commitmentDigest)
     mapping(bytes32 => BidState) public BidPayment;
 
@@ -173,14 +179,18 @@ contract BidderRegistry is
     function depositForSpecificWindow(uint256 window) external payable {
         require(msg.value >= minDeposit, "Insufficient deposit");
 
-        bidderRegistered[msg.sender] = true;
-        lockedFunds[msg.sender][window] += msg.value;
+        if (!bidderRegistered[msg.sender]) {
+            bidderRegistered[msg.sender] = true;
+        }
 
-        emit BidderRegistered(
-            msg.sender,
-            lockedFunds[msg.sender][window],
-            window
-        );
+        uint256 newLockedFunds = lockedFunds[msg.sender][window] + msg.value;
+        lockedFunds[msg.sender][window] = newLockedFunds;
+
+        // Calculate the maximum bid per block for the given window
+        uint256 numberOfRounds = blockTrackerContract.getBlocksPerWindow();
+        maxBidPerBlock[msg.sender][window] = newLockedFunds / numberOfRounds;
+
+        emit BidderRegistered(msg.sender, newLockedFunds, window);
     }
 
     /**
@@ -269,10 +279,11 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Open a bid (only callable by the pre-confirmations contract).
+     * @dev Open a bid and update the used funds for the block (only callable by the pre-confirmations contract).
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      * @param bid The bid amount.
      * @param bidder The address of the bidder.
+     * @param blockNumber The block number.
      */
     function OpenBid(
         bytes32 commitmentDigest,
@@ -281,24 +292,37 @@ contract BidderRegistry is
         uint64 blockNumber
     ) external onlyPreConfirmationEngine {
         BidState memory bidState = BidPayment[commitmentDigest];
-        if (bidState.state == State.Undefined) {
-            uint256 currentWindow = blockTrackerContract
-                .getWindowFromBlockNumber(blockNumber);
-            // @todo delete this, when oracle will do the calculation
-            // bidder cannot bid more than allowed for the round
-            uint256 numberOfRounds = blockTrackerContract.getBlocksPerWindow();
-            uint256 windowAmount = lockedFunds[bidder][currentWindow] /
-                numberOfRounds;
-            if (windowAmount < bid) {
-                bid = uint64(windowAmount);
-            }
-            BidPayment[commitmentDigest] = BidState({
-                state: State.PreConfirmed,
-                bidder: bidder,
-                bidAmt: bid
-            });
+        if (bidState.state != State.Undefined) {
+            return;
+        }
+        uint256 currentWindow = blockTrackerContract.getWindowFromBlockNumber(
+            blockNumber
+        );
+
+        uint256 windowAmount = maxBidPerBlock[bidder][currentWindow];
+
+        // Calculate the available amount for this block
+        uint256 availableAmount = windowAmount > usedFunds[bidder][blockNumber]
+            ? windowAmount - usedFunds[bidder][blockNumber]
+            : 0;
+
+        // Check if bid exceeds the available amount for the block
+        if (availableAmount < bid) {
+            // todo: burn it, until oracle will do the calculation and transfers
+            bid = uint64(availableAmount);
+        }
+
+        // Update the used funds for the block and locked funds if bid is greater than 0
+        if (bid > 0) {
+            usedFunds[bidder][blockNumber] += bid;
             lockedFunds[bidder][currentWindow] -= bid;
         }
+
+        BidPayment[commitmentDigest] = BidState({
+            state: State.PreConfirmed,
+            bidder: bidder,
+            bidAmt: bid
+        });
     }
 
     /**
