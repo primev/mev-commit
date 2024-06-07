@@ -208,9 +208,8 @@ var (
 
 	optionSettlementWSRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "settlement-ws-rpc-endpoint",
-		Usage:   "ws rpc endpoint of the settlement layer",
+		Usage:   "WebSocket rpc endpoint of the settlement layer",
 		EnvVars: []string{"MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT"},
-		Value:   "ws://localhost:8546",
 	})
 
 	optionNATAddr = altsrc.NewStringFlag(&cli.StringFlag{

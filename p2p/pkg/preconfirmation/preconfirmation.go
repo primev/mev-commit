@@ -197,10 +197,11 @@ func (p *Preconfirmation) SendBid(
 			p.metrics.VerifyPreconfDurationSummary.Observe(verifyDuration)
 
 			preConfirmation := &preconfpb.PreConfirmation{
-				Bid:          bid,
-				SharedSecret: sharedSecretKey,
-				Digest:       encryptedPreConfirmation.Commitment,
-				Signature:    encryptedPreConfirmation.Signature,
+				Bid:               bid,
+				SharedSecret:      sharedSecretKey,
+				Digest:            encryptedPreConfirmation.Commitment,
+				Signature:         encryptedPreConfirmation.Signature,
+				DispatchTimestamp: encryptedPreConfirmation.DispatchTimestamp,
 			}
 
 			preConfirmation.ProviderAddress = make([]byte, len(providerAddress))
@@ -304,6 +305,8 @@ func (p *Preconfirmation) handleBid(
 			}
 			constructDuration := time.Since(constructStartTime).Seconds()
 			p.metrics.ConstructPreconfDurationSummary.Observe(constructDuration)
+
+			encryptedPreConfirmation.DispatchTimestamp = st.DispatchTimestamp
 
 			err = stream.WriteMsg(ctx, encryptedPreConfirmation)
 			if err != nil {

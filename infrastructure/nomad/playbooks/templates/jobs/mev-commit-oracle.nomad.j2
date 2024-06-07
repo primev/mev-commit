@@ -216,7 +216,7 @@ job "{{ job.name }}" {
             ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
           fi
             {{ end }}
-          {{- end }}  
+          {{- end }}
 
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
