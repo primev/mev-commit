@@ -182,8 +182,8 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
-          {%- raw %}
           ADDRESSES = ""
+          {%- raw %}
           {{- range nomadService "mev-commit-provider-node1" }}
             {{ if contains "http" .Tags }}
           TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
