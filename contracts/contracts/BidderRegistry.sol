@@ -279,7 +279,7 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Open a bid and update the used funds for the block.
+     * @dev Open a bid and update the used funds for the block (only callable by the pre-confirmations contract).
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      * @param bid The bid amount.
      * @param bidder The address of the bidder.
@@ -312,7 +312,7 @@ contract BidderRegistry is
             bid = uint64(availableAmount);
         }
 
-        // Update the used funds for the block if bid is greater than 0
+        // Update the used funds for the block and locked funds if bid is greater than 0
         if (bid > 0) {
             usedFunds[bidder][blockNumber] += bid;
             lockedFunds[bidder][currentWindow] -= bid;
