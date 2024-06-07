@@ -70,12 +70,12 @@ profiles:
       - "mev-commit-provider-emulator-nodes"
       - "mev-commit-oracle"
       - "mev-commit-bidder-node1"
-      # - "mev-commit-bidder-node2"
-      # - "mev-commit-bidder-node3"
-      # - "mev-commit-bidder-node4"
-      # - "mev-commit-bidder-node5"
+      - "mev-commit-bidder-node2"
+      - "mev-commit-bidder-node3"
+      - "mev-commit-bidder-node4"
+      - "mev-commit-bidder-node5"
       - "mev-commit-bidder-node-funders"
-      # - "mev-commit-bidder-emulator-nodes"
+      - "mev-commit-bidder-emulator-nodes"
       - "datadog-agent-metrics-collector"
       - "mev-commit-faucet"
 
@@ -423,7 +423,7 @@ jobs:
 
   - name: mev-commit-bidder-node-funders
     template: mev-commit-funder.nomad.j2
-    count: 1
+    count: 5
     target_type: bidder
     target_name: mev-commit-bidder-node
 
