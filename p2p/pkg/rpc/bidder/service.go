@@ -126,6 +126,7 @@ func (s *Service) SendBid(
 			ProviderAddress:      common.Bytes2Hex(resp.ProviderAddress),
 			DecayStartTimestamp:  b.DecayStartTimestamp,
 			DecayEndTimestamp:    b.DecayEndTimestamp,
+			DispatchTimestamp:    resp.DispatchTimestamp,
 		})
 		if err != nil {
 			s.logger.Error("sending preConfirmation", "error", err)

@@ -142,6 +142,8 @@ func (s *Service) Start(addr string) <-chan struct{} {
 		}
 	}()
 
+	s.logger.Info("api server started", "addr", addr)
+
 	return done
 }
 

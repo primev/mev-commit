@@ -23,10 +23,12 @@ message PreConfirmation {
   bytes signature = 3;
   bytes provider_address = 4;
   bytes shared_secret = 5;
+  int64 dispatch_timestamp = 6;
 };
 
 message EncryptedPreConfirmation {
   bytes commitment = 1;
   bytes signature = 2;
-  bytes commitmentIndex = 3;
+  bytes commitment_index = 3;
+  int64 dispatch_timestamp = 4;
 }
