@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
@@ -22,6 +23,7 @@ import (
 
 type Tracker struct {
 	peerType        p2p.PeerType
+	self            common.Address
 	evtMgr          events.EventManager
 	store           CommitmentStore
 	preconfContract PreconfContract
@@ -41,8 +43,14 @@ type CommitmentStore interface {
 	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
 	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
 	DeleteCommitmentByBlockNumber(blockNum int64) error
-	DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error
-	SetCommitmentIndexByCommitmentDigest(commitmentDigest, commitmentIndex [32]byte) error
+	DeleteCommitmentByDigest(
+		blockNum int64,
+		digest [32]byte,
+	) (*store.EncryptedPreConfirmationWithDecrypted, bool)
+	SetCommitmentIndexByCommitmentDigest(
+		commitmentDigest,
+		commitmentIndex [32]byte,
+	) (*store.EncryptedPreConfirmationWithDecrypted, bool)
 }
 
 type PreconfContract interface {
@@ -62,6 +70,7 @@ type PreconfContract interface {
 
 func NewTracker(
 	peerType p2p.PeerType,
+	self common.Address,
 	evtMgr events.EventManager,
 	store CommitmentStore,
 	preconfContract PreconfContract,
@@ -71,6 +80,7 @@ func NewTracker(
 ) *Tracker {
 	return &Tracker{
 		peerType:        peerType,
+		self:            self,
 		evtMgr:          evtMgr,
 		store:           store,
 		preconfContract: preconfContract,
@@ -109,18 +119,48 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				}
 			},
 		),
+		events.NewEventHandler(
+			"FundsRewarded",
+			func(fr *bidderregistry.BidderregistryFundsRewarded) {
+				if fr.Bidder.Cmp(t.self) == 0 || fr.Provider.Cmp(t.self) == 0 {
+					t.logger.Info("funds settled for bid",
+						"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
+						"window", fr.Window,
+						"amount", fr.Amount,
+						"bidder", fr.Bidder,
+						"provider", fr.Provider,
+					)
+				}
+			},
+		),
 	}
 
 	if t.peerType == p2p.PeerTypeBidder {
-		evts = append(evts, events.NewEventHandler(
-			"CommitmentStored",
-			func(cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored) {
-				select {
-				case <-egCtx.Done():
-				case t.commitments <- cs:
-				}
-			},
-		))
+		evts = append(
+			evts,
+			events.NewEventHandler(
+				"CommitmentStored",
+				func(cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored) {
+					select {
+					case <-egCtx.Done():
+					case t.commitments <- cs:
+					}
+				},
+			),
+			events.NewEventHandler(
+				"FundsRetrieved",
+				func(fr *bidderregistry.BidderregistryFundsRetrieved) {
+					if fr.Bidder.Cmp(t.self) == 0 {
+						t.logger.Info("funds returned for bid",
+							"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
+							"amount", fr.Amount,
+							"window", fr.Window,
+							"bidder", fr.Bidder,
+						)
+					}
+				},
+			),
+		)
 	}
 
 	sub, err := t.evtMgr.Subscribe(evts...)
@@ -165,18 +205,20 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		}
 	})
 
-	eg.Go(func() error {
-		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			case cs := <-t.commitments:
-				if err := t.handleCommitmentStored(egCtx, cs); err != nil {
-					return err
+	if t.peerType == p2p.PeerTypeBidder {
+		eg.Go(func() error {
+			for {
+				select {
+				case <-egCtx.Done():
+					return nil
+				case cs := <-t.commitments:
+					if err := t.handleCommitmentStored(egCtx, cs); err != nil {
+						return err
+					}
 				}
 			}
-		}
-	})
+		})
+	}
 
 	go func() {
 		defer close(doneChan)
@@ -335,7 +377,18 @@ func (t *Tracker) handleEncryptedCommitmentStored(
 	ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored,
 ) error {
 	t.metrics.totalEncryptedCommitments.Inc()
-	return t.store.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
+	cmt, set := t.store.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
+	if set {
+		t.logger.Info("encrypted commitment stored on-chain",
+			"commitmentDigest", common.BytesToHash(ec.CommitmentDigest[:]),
+			"commitmentIndex", common.BytesToHash(ec.CommitmentIndex[:]),
+			"blockNumber", cmt.Bid.BlockNumber,
+			"txnHash", cmt.TxnHash,
+			"commiter", cmt.ProviderAddress,
+			"amount", cmt.Bid.BidAmount,
+		)
+	}
+	return nil
 }
 
 func (t *Tracker) handleCommitmentStored(
@@ -344,5 +397,15 @@ func (t *Tracker) handleCommitmentStored(
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
-	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
+	cmt, deleted := t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
+	if deleted {
+		t.logger.Info("commitment opened on-chain",
+			"commitmentDigest", common.BytesToHash(cs.CommitmentHash[:]),
+			"commitmentIndex", common.BytesToHash(cmt.CommitmentIndex[:]),
+			"blockNumber", cmt.Bid.BlockNumber,
+			"txnHash", cmt.TxnHash,
+			"commiter", cmt.ProviderAddress,
+		)
+	}
+	return nil
 }

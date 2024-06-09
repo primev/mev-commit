@@ -333,6 +333,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 		tracker := preconftracker.NewTracker(
 			peerType,
+			opts.KeySigner.GetAddress(),
 			evtMgr,
 			store,
 			commitmentDA,
