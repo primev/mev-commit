@@ -65,11 +65,11 @@ func TestStore(t *testing.T) {
 		}
 
 		for i := 1; i <= 10; i++ {
-			_, set := st.SetCommitmentIndexByCommitmentDigest(
+			err := st.SetCommitmentIndexByCommitmentDigest(
 				common.BigToHash(big.NewInt(int64(i))),
 				common.BigToHash(big.NewInt(int64(i))),
 			)
-			if !set {
+			if err != nil {
 				t.Fatal("failed to set commitment index")
 			}
 		}
@@ -104,8 +104,8 @@ func TestStore(t *testing.T) {
 		}
 
 		for i := 6; i <= 10; i++ {
-			_, deleted := st.DeleteCommitmentByDigest(2, common.BigToHash(big.NewInt(int64(i))))
-			if !deleted {
+			err := st.DeleteCommitmentByDigest(2, common.BigToHash(big.NewInt(int64(i))))
+			if err != nil {
 				t.Fatal("failed to delete commitment")
 			}
 		}

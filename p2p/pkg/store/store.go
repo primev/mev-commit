@@ -123,32 +123,29 @@ func (s *Store) DeleteCommitmentByBlockNumber(blockNum int64) error {
 	return nil
 }
 
-func (s *Store) DeleteCommitmentByDigest(blockNum int64, digest [32]byte) (*EncryptedPreConfirmationWithDecrypted, bool) {
+func (s *Store) DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	key := commitmentKey(blockNum, digest[:])
-	val, deleted := s.Tree.Delete(key)
-	return val.(*EncryptedPreConfirmationWithDecrypted), deleted
+	_, _ = s.Tree.Delete(key)
+	return nil
 }
 
-func (s *Store) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex [32]byte) (*EncryptedPreConfirmationWithDecrypted, bool) {
+func (s *Store) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex [32]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	var commitmentToReturn *EncryptedPreConfirmationWithDecrypted
 
 	s.Tree.WalkPrefix(commitmentNS, func(key string, value interface{}) bool {
 		commitment := value.(*EncryptedPreConfirmationWithDecrypted)
 		if bytes.Equal(commitment.EncryptedPreConfirmation.Commitment, cDigest[:]) {
 			commitment.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
-			commitmentToReturn = commitment
 			return true
 		}
 		return false
 	})
 
-	return commitmentToReturn, commitmentToReturn != nil
+	return nil
 }
 
 func (s *Store) SetAESKey(bidder common.Address, key []byte) error {

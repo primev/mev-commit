@@ -48,11 +48,11 @@ type CommitmentStore interface {
 	DeleteCommitmentByDigest(
 		blockNum int64,
 		digest [32]byte,
-	) (*store.EncryptedPreConfirmationWithDecrypted, bool)
+	) error
 	SetCommitmentIndexByCommitmentDigest(
 		commitmentDigest,
 		commitmentIndex [32]byte,
-	) (*store.EncryptedPreConfirmationWithDecrypted, bool)
+	) error
 }
 
 type PreconfContract interface {
@@ -145,7 +145,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					case t.commitments <- cs:
 					}
 				},
-			),	
+			),
 			events.NewEventHandler(
 				"FundsRetrieved",
 				func(fr *bidderregistry.BidderregistryFundsRetrieved) {
@@ -200,18 +200,20 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		}
 	})
 
-	eg.Go(func() error {
-		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			case cs := <-t.commitments:
-				if err := t.handleCommitmentStored(egCtx, cs); err != nil {
-					return err
+	if t.peerType == p2p.PeerTypeBidder {
+		eg.Go(func() error {
+			for {
+				select {
+				case <-egCtx.Done():
+					return nil
+				case cs := <-t.commitments:
+					if err := t.handleCommitmentStored(egCtx, cs); err != nil {
+						return err
+					}
 				}
 			}
-		}
-	})
+		})
+	}
 
 	eg.Go(func() error {
 		for {
@@ -407,18 +409,7 @@ func (t *Tracker) handleEncryptedCommitmentStored(
 	ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored,
 ) error {
 	t.metrics.totalEncryptedCommitments.Inc()
-	cmt, set := t.store.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
-	if set {
-		t.logger.Info("encrypted commitment stored on-chain",
-			"commitmentDigest", common.BytesToHash(ec.CommitmentDigest[:]),
-			"commitmentIndex", common.BytesToHash(ec.CommitmentIndex[:]),
-			"blockNumber", cmt.Bid.BlockNumber,
-			"txnHash", cmt.TxnHash,
-			"commiter", cmt.ProviderAddress,
-			"amount", cmt.Bid.BidAmount,
-		)
-	}
-	return nil
+	return t.store.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
 }
 
 func (t *Tracker) handleCommitmentStored(
@@ -427,15 +418,5 @@ func (t *Tracker) handleCommitmentStored(
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
-	cmt, deleted := t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
-	if deleted {
-		t.logger.Info("commitment opened on-chain",
-			"commitmentDigest", common.BytesToHash(cs.CommitmentHash[:]),
-			"commitmentIndex", common.BytesToHash(cmt.CommitmentIndex[:]),
-			"blockNumber", cmt.Bid.BlockNumber,
-			"txnHash", cmt.TxnHash,
-			"commiter", cmt.ProviderAddress,
-		)
-	}
-	return nil
+	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
 }
