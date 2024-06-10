@@ -132,20 +132,20 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				}
 			},
 		),
-		events.NewEventHandler(
-			"CommitmentStored",
-			func(cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored) {
-				select {
-				case <-egCtx.Done():
-				case t.commitments <- cs:
-				}
-			},
-		),
 	}
 
 	if t.peerType == p2p.PeerTypeBidder {
 		evts = append(
 			evts,
+			events.NewEventHandler(
+				"CommitmentStored",
+				func(cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored) {
+					select {
+					case <-egCtx.Done():
+					case t.commitments <- cs:
+					}
+				},
+			),	
 			events.NewEventHandler(
 				"FundsRetrieved",
 				func(fr *bidderregistry.BidderregistryFundsRetrieved) {
