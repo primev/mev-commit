@@ -32,11 +32,11 @@ type Tracker struct {
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
-	frew            chan *bidderregistry.BidderregistryFundsRewarded
-	fret            chan *bidderregistry.BidderregistryFundsRetrieved
-	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
-	metrics         *metrics
-	logger          *slog.Logger
+	// frew            chan *bidderregistry.BidderregistryFundsRewarded
+	// fret            chan *bidderregistry.BidderregistryFundsRetrieved
+	winners map[int64]*blocktracker.BlocktrackerNewL1Block
+	metrics *metrics
+	logger  *slog.Logger
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -91,11 +91,11 @@ func NewTracker(
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
-		frew:            make(chan *bidderregistry.BidderregistryFundsRewarded),
-		fret:            make(chan *bidderregistry.BidderregistryFundsRetrieved),
-		winners:         make(map[int64]*blocktracker.BlocktrackerNewL1Block),
-		metrics:         newMetrics(),
-		logger:          logger,
+		// frew:            make(chan *bidderregistry.BidderregistryFundsRewarded),
+		// fret:            make(chan *bidderregistry.BidderregistryFundsRetrieved),
+		winners: make(map[int64]*blocktracker.BlocktrackerNewL1Block),
+		metrics: newMetrics(),
+		logger:  logger,
 	}
 }
 
@@ -126,9 +126,18 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		events.NewEventHandler(
 			"FundsRewarded",
 			func(fr *bidderregistry.BidderregistryFundsRewarded) {
-				select {
-				case <-egCtx.Done():
-				case t.frew <- fr:
+				// select {
+				// case <-egCtx.Done():
+				// case t.frew <- fr:
+				// }
+				if fr.Bidder.Cmp(t.self) == 0 || fr.Provider.Cmp(t.self) == 0 {
+					t.logger.Info("funds settled for bid",
+						"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
+						"window", fr.Window,
+						"amount", fr.Amount,
+						"bidder", fr.Bidder,
+						"provider", fr.Provider,
+					)
 				}
 			},
 		),
@@ -149,9 +158,13 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			events.NewEventHandler(
 				"FundsRetrieved",
 				func(fr *bidderregistry.BidderregistryFundsRetrieved) {
-					select {
-					case <-egCtx.Done():
-					case t.fret <- fr:
+					if fr.Bidder.Cmp(t.self) == 0 {
+						t.logger.Info("funds returned for bid",
+							"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
+							"amount", fr.Amount,
+							"window", fr.Window,
+							"bidder", fr.Bidder,
+						)
 					}
 				},
 			),
@@ -214,43 +227,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			}
 		})
 	}
-
-	eg.Go(func() error {
-		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			case fr := <-t.fret:
-				if fr.Bidder.Cmp(t.self) == 0 {
-					t.logger.Info("funds returned for bid",
-						"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
-						"amount", fr.Amount,
-						"window", fr.Window,
-						"bidder", fr.Bidder,
-					)
-				}
-			}
-		}
-	})
-
-	eg.Go(func() error {
-		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			case fr := <-t.frew:
-				if fr.Bidder.Cmp(t.self) == 0 || fr.Provider.Cmp(t.self) == 0 {
-					t.logger.Info("funds settled for bid",
-						"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),
-						"window", fr.Window,
-						"amount", fr.Amount,
-						"bidder", fr.Bidder,
-						"provider", fr.Provider,
-					)
-				}
-			}
-		}
-	})
 
 	go func() {
 		defer close(doneChan)
