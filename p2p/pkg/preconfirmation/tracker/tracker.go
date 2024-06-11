@@ -32,8 +32,6 @@ type Tracker struct {
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
-	// frew            chan *bidderregistry.BidderregistryFundsRewarded
-	// fret            chan *bidderregistry.BidderregistryFundsRetrieved
 	winners map[int64]*blocktracker.BlocktrackerNewL1Block
 	metrics *metrics
 	logger  *slog.Logger
@@ -91,8 +89,6 @@ func NewTracker(
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
-		// frew:            make(chan *bidderregistry.BidderregistryFundsRewarded),
-		// fret:            make(chan *bidderregistry.BidderregistryFundsRetrieved),
 		winners: make(map[int64]*blocktracker.BlocktrackerNewL1Block),
 		metrics: newMetrics(),
 		logger:  logger,
@@ -126,10 +122,6 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		events.NewEventHandler(
 			"FundsRewarded",
 			func(fr *bidderregistry.BidderregistryFundsRewarded) {
-				// select {
-				// case <-egCtx.Done():
-				// case t.frew <- fr:
-				// }
 				if fr.Bidder.Cmp(t.self) == 0 || fr.Provider.Cmp(t.self) == 0 {
 					t.logger.Info("funds settled for bid",
 						"commitmentDigest", common.BytesToHash(fr.CommitmentDigest[:]),

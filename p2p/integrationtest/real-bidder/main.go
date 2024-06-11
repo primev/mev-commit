@@ -216,7 +216,7 @@ func main() {
 		wg.Add(1)
 		go func(logger *slog.Logger, newBlockChan <-chan blockWithTxns) {
 			defer wg.Done()
-			ticker := time.NewTicker(200 * time.Millisecond)
+			ticker := time.NewTicker(400 * time.Millisecond)
 			currentBlock := blockWithTxns{}
 			for {
 				select {
