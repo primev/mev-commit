@@ -2,11 +2,20 @@
 pragma solidity ^0.8.20;
 
 abstract contract MevCommitAVSStorage {
-    // Mapping from address who opted in a set of validators to the Keccak-256 hash over that set.
-    mapping(address => bytes32) public addressToValSetHash;
+    mapping(address => bool) public operators;
 
-    mapping(address => bool) public whitelist;
+    // TODO: Put in interface
+    struct ValidatorRecord {
+        ValidatorStatus status;
+        address podAddress;
+    }
 
-    // TODO: Determine if stored on L1 or our chain. 
-    mapping(bytes => bool) public frozenSet;
+    // TODO: Put in interface
+    enum ValidatorStatus{
+        NULL,
+        STORED,
+        FROZEN,
+        WITHDRAWING
+    }
+    mapping(bytes => ValidatorRecord) public validatorRecords;
 }
