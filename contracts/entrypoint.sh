@@ -20,9 +20,7 @@ if [ "$DEPLOY_TYPE" = "core" ]; then
         --priority-gas-price 2000000000 \
         --with-gas-price 5000000000 \
         --rpc-url "$RPC_URL" \
-        --keystores "$CONTRACT_REPO_ROOT_PATH"/deployer_keystore/* \
-        --password "$KEYSTORE_PASSWORD" \
-        --sender "a51f13769d1466e0b5483cb719e89add8d615052" \
+        --private-key "$PRIVATE_KEY" \
         --broadcast \
         --chain-id "$CHAIN_ID" \
         -vvvv \
