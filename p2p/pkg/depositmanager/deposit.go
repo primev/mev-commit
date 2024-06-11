@@ -73,6 +73,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 		func(window *blocktracker.BlocktrackerNewWindow) {
 			select {
 			case <-egCtx.Done():
+				dm.logger.Info("new window context done")
 			case dm.windowChan <- window:
 			}
 		},
@@ -83,6 +84,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 		func(bidderReg *bidderregistry.BidderregistryBidderRegistered) {
 			select {
 			case <-egCtx.Done():
+				dm.logger.Info("bidder registered context done")
 			case dm.bidderRegs <- bidderReg:
 			}
 		},
@@ -99,6 +101,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 
 		select {
 		case <-egCtx.Done():
+			dm.logger.Info("event subscription context done")
 			return nil
 		case err := <-sub.Err():
 			return fmt.Errorf("error in event subscription: %w", err)
@@ -109,6 +112,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 		for {
 			select {
 			case <-egCtx.Done():
+				dm.logger.Info("clear balances set balances context done")
 				return nil
 			case window := <-dm.windowChan:
 				windowToClear := new(big.Int).Sub(window.Window, big.NewInt(2))
