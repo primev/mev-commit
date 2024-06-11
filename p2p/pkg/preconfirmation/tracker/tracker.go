@@ -106,6 +106,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			func(newL1Block *blocktracker.BlocktrackerNewL1Block) {
 				select {
 				case <-egCtx.Done():
+					t.logger.Info("NewL1Block context done")
 				case t.newL1Blocks <- newL1Block:
 				}
 			},
@@ -115,6 +116,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			func(ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored) {
 				select {
 				case <-egCtx.Done():
+					t.logger.Info("EncryptedCommitmentStored context done")
 				case t.enryptedCmts <- ec:
 				}
 			},
@@ -143,6 +145,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				func(cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored) {
 					select {
 					case <-egCtx.Done():
+						t.logger.Info("CommitmentStored context done")
 					case t.commitments <- cs:
 					}
 				},
@@ -173,6 +176,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	eg.Go(func() error {
 		select {
 		case <-egCtx.Done():
+			t.logger.Info("err listener context done")
 			return nil
 		case err := <-sub.Err():
 			return fmt.Errorf("event subscription error: %w", err)
@@ -183,6 +187,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		for {
 			select {
 			case <-egCtx.Done():
+				t.logger.Info("handleNewL1Block context done")
 				return nil
 			case newL1Block := <-t.newL1Blocks:
 				if err := t.handleNewL1Block(egCtx, newL1Block); err != nil {
@@ -196,6 +201,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		for {
 			select {
 			case <-egCtx.Done():
+				t.logger.Info("handleEncryptedCommitmentStored context done")
 				return nil
 			case ec := <-t.enryptedCmts:
 				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
@@ -210,6 +216,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			for {
 				select {
 				case <-egCtx.Done():
+					t.logger.Info("handleCommitmentStored context done")
 					return nil
 				case cs := <-t.commitments:
 					if err := t.handleCommitmentStored(egCtx, cs); err != nil {
