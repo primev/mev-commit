@@ -31,8 +31,6 @@ import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISi
 // Slashing operators in this scheme would require social intervention as it could
 // be pretty clear off chain of malicous actions and/or malicious off-chain validation
 // of eigenpod conditions, delegation conditions, etc. 
-
-// TODO: Allow owner account to opt out any hash in case keys are lost
 contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeable {
 
     IDelegationManager internal delegationManager;
@@ -64,13 +62,13 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
     }
 
     function registerOperator(
-        bytes calldata pubkey,
         ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
     ) external {
         address operator = msg.sender;
         require(delegationManager.isOperator(operator), "sender must be an operator");
         require(!_isOperatorRegistered(operator), "operator must not already be registered with MevCommitAVS");
         eigenAVSDirectory.registerOperatorToAVS(operator, operatorSignature);
+        operators[operator] = true;
         emit OperatorAdded(operator);
     }
 
@@ -78,36 +76,12 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
         require(msg.sender == operator || msg.sender == owner(), "sender must be operator or owner");
         require(_isOperatorRegistered(operator), "operator must already be registered with MevCommitAVS");
         eigenAVSDirectory.deregisterOperatorFromAVS(operator);
+        delete operators[operator];
         emit OperatorRemoved(operator);
     }
 
-
-    // TODO: Incorporate the below enum into this contract. 
-    // Note opt-in status will truly reside on mev-commit chain. However,
-    // if one of the calling EOAs tries to opt-in validators that are not a part
-    // of their eigenpod OR are not delegated to a registered operator, the off-chain
-    // process post a tx that REJECTS the val set. 
-    // (will also need to consider duplicate opt-in. Likely freeze in that scenario too)
-    // (also got to decide if we freeze whitelisted account in duplicate scenario, if actual
-    // (will likely have to enforce that a whitelisted address has to opt in entire
-    // eigenpods, not certain vals. This way we could tell eigenpods with dup req,
-    // "sorry, a whitelisted account has already opted in the vals from your pod)
-    // eigenpod opted-in right before them.. Likely not. But this can be impl detail of oracle)
-    // For both REJECTED AND FROZEN valsets, the user has to pay a fee to the oracle
-    // to opt-in once again. Note can prob consolidate frozen and rejected.
-
-
-    // TODO: Oracle reject function
-
     // TODO: Oracle Freeze function
-
-
-    
-    // TODO: Now we freeze by group of validators! Not vals themselves. This simplifies implementation. 
-    // Note for v1 no freeze duration will need to exist. Any account can unfreeze itself immediately for fee. 
-
-    // TODO: No requirement will exist that hash has to include all vals from pod. Adds to much complexity
-    // Instead let a user know on frontend (before sending tx) that they cannot opt-in a key that's already opted in. 
+    // For FROZEN valsets, the user has to pay a fee to the oracle to opt-in once again. 
 
     // TODO: Whitelist is now just operators! Every large org seems to have its own operator.
     // Note this can be what "operators do" for now. ie. they have the ability to opt-in their users. 
@@ -117,46 +91,61 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
     // blindly frozen. When opting in as a part of step 2, the sender should be running the validators
     // its opting in (st. relay requirement is met).
 
-    // TODO: Determine if we have a function to let some accounts bypass pod requirement.
-    // Update yes operators can do this.
-
-    function storeValidatorsByPods(bytes[][] calldata valPubKeys, address[] calldata podAddrs) external {
-        for (uint256 i = 0; i < podAddrs.length; i++) {
-            _storeValidatorsByPod(valPubKeys[i], podAddrs[i]);
+    function storeValidatorsByPodOwners(bytes[][] calldata valPubKeys, address[] calldata podOwners) external {
+        for (uint256 i = 0; i < podOwners.length; i++) {
+            _storeValidatorsByPodOwner(valPubKeys[i], podOwners[i]);
         }
     }
 
-    function storeValidatorsByPod(bytes[] calldata valPubKeys, address podAddr) external {
-        _storeValidatorsByPod(valPubKeys, podAddr);
-    }
+    function _storeValidatorsByPodOwner(bytes[] calldata valPubKeys, address podOwner) internal {
+        address operator = delegationManager.delegatedTo(podOwner);
+        require(operator != address(0), "operator must be set for pod owner");
+        require(_isOperatorRegistered(operator),
+            "delegated operator must be registered with MevCommitAVS");
+        require(msg.sender == podOwner || msg.sender == operator,
+            "sender must be pod owner or delegated operator");
+        IEigenPod pod = eigenPodManager.getPod(podOwner);
 
-    function _storeValidatorsByPod(bytes[] calldata valPubKeys, address podAddr) internal {
-        IEigenPod pod = IEigenPod(podAddr);
-        address delegatedTo = delegationManager.delegatedTo(podAddr); // TODO: Confirm delegatedTo takes pod address
-        require(msg.sender == pod.podOwner() || msg.sender == delegatedTo, "sender must be pod owner or operator that a pod is delegated to");
         for (uint256 i = 0; i < valPubKeys.length; i++) {
-            require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE, "validator must be active under pod");
-            require(validatorRecords[valPubKeys[i]].status == ValidatorStatus.NULL, "validator record must not already exist");
+            require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
+                "validator must be active under pod");
+            require(validatorRecords[valPubKeys[i]].status == VALIDATOR_RECORD_STATUS.NULL,
+                "record must not already exist for relevant validator");
             validatorRecords[valPubKeys[i]] = ValidatorRecord({
-                status: ValidatorStatus.STORED,
-                podAddress: podAddr
+                status: VALIDATOR_RECORD_STATUS.STORED,
+                podOwner: podOwner
             });
         }
     }
 
+    function deleteValidators(bytes[] calldata valPubKeys) external {
+        for (uint256 i = 0; i < valPubKeys.length; i++) {
+            require(validatorRecords[valPubKeys[i]].status == VALIDATOR_RECORD_STATUS.STORED,
+                "validator record must be stored");
+            address podOwner = validatorRecords[valPubKeys[i]].podOwner;
+            address operator = delegationManager.delegatedTo(podOwner);
+            require(msg.sender == owner() || msg.sender == podOwner || msg.sender == operator,
+                "sender must be MevCommitAVS owner, pod owner, or delegated operator");
+            _deleteValidator(valPubKeys[i]);
+        }
+    }
+
+    function _deleteValidator(bytes calldata valPubKey) internal {
+        delete validatorRecords[valPubKey];
+    }
 
     // TODO: Implement "request withdraw" type deal with block enforcement.
     // Use existing code and tests from other PR. Also likely will need to define a FSM struct. 
 
+    // TODO: Pull some CRUD from other PR? 
 
-
-    // TODO: Pull whitelisting CRUD from other PR
-
-    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (ValidatorStatus) {
-        // TODO: Check two things: validator is stored in this contract AND
-        // Validator is active with eigenlayer (still associated to same pod).
-        // Also check that validator still has delegation to registered operator. 
-        // TODO: Anything else to check? Make sure no edge cases in eigenlayer state changes that happen async. 
+    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool) {
+        bool isStored = validatorRecords[valPubKey].status == VALIDATOR_RECORD_STATUS.STORED;
+        IEigenPod pod = eigenPodManager.getPod(validatorRecords[valPubKey].podOwner);
+        bool isActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
+        address operator = delegationManager.delegatedTo(validatorRecords[valPubKey].podOwner);
+        bool isOperatorRegistered = _isOperatorRegistered(operator);
+        return isStored && isActive && isOperatorRegistered;
     }
 
     function _isOperatorRegistered(address operator) internal view returns (bool) {

@@ -6,12 +6,12 @@ abstract contract MevCommitAVSStorage {
 
     // TODO: Put in interface
     struct ValidatorRecord {
-        ValidatorStatus status;
-        address podAddress;
+        VALIDATOR_RECORD_STATUS status;
+        address podOwner;
     }
 
     // TODO: Put in interface
-    enum ValidatorStatus{
+    enum VALIDATOR_RECORD_STATUS{
         NULL,
         STORED,
         FROZEN,
