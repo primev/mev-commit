@@ -99,7 +99,7 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
 
     function _storeValidatorsByPodOwner(bytes[] calldata valPubKeys, address podOwner) internal {
         address operator = delegationManager.delegatedTo(podOwner);
-        require(operator != address(0), "operator must be set for pod owner");
+        require(operator != address(0), "pod owner must be delegated to operator");
         require(_isOperatorRegistered(operator),
             "delegated operator must be registered with MevCommitAVS");
         require(msg.sender == podOwner || msg.sender == operator,
