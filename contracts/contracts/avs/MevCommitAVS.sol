@@ -22,28 +22,40 @@ import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 
-
-// Write about how v2 (or future version with more decentralization) will 
-// give operators the task of doing the pubkey relaying to the mev-commit chain. 
-// That is the off-chain process is replaced by operators, who all look for the 
-// valset lists posted to some DA layer (eigenDA?), and then race/attest to post
-// this to the mev-commit chain. The operator accounts could be auto funded on our chain. 
-// Slashing operators in this scheme would require social intervention as it could
-// be pretty clear off chain of malicous actions and/or malicious off-chain validation
-// of eigenpod conditions, delegation conditions, etc. 
+// TODO: documentation and overall gas optimization
+// TODO: modifiers, pattern match prod contracts, order of funcs, interfaces etc.
+// TODO: use tests from other PR? 
 contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeable {
 
     IDelegationManager internal delegationManager;
     IEigenPodManager internal eigenPodManager;
     IAVSDirectory internal eigenAVSDirectory;
-    
-    event OperatorAdded(address indexed operator);
-    event OperatorRemoved(address indexed operator);
+
+    address public freezeOracle;
+    uint256 public unfreezeFee;
+    uint256 public minUnfreezeBlocks; // Optional, as we can allow frozen validators to pay fee immediately
+    uint256 public operatorDeregistrationPeriodBlocks;
+    uint256 public validatorDeregistrationPeriodBlocks;
+
+    // TODO: address if val pub keys need to be indexed
+    event OperatorRegistered(address indexed operator);
+    event OperatorDeregistrationRequested(address indexed operator);
+    event OperatorDeregistered(address indexed operator);
+    event ValidatorRegistered(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorFrozen(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorUnfrozen(bytes indexed validatorPubKey, address indexed podOwner);
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 
     function initialize(
         address _owner,
+        address _freezeOracle,
+        uint256 _unfreezeFee,
+        uint256 _minUnfreezeBlocks,
+        uint256 _operatorDeregistrationPeriodBlocks,
+        uint256 _validatorDeregistrationPeriodBlocks,
         IDelegationManager _delegationManager,
         IEigenPodManager _eigenPodManager,
         IAVSDirectory _avsDirectory
@@ -51,8 +63,46 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
         delegationManager = _delegationManager;
         eigenPodManager = _eigenPodManager;
         _avsDirectory = _avsDirectory;
+        freezeOracle = _freezeOracle;
+        unfreezeFee = _unfreezeFee;
+        minUnfreezeBlocks = _minUnfreezeBlocks;
+        operatorDeregistrationPeriodBlocks = _operatorDeregistrationPeriodBlocks;
+        validatorDeregistrationPeriodBlocks = _validatorDeregistrationPeriodBlocks;
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
+    }
+
+    modifier onlyFreezeOracle() {
+        require(msg.sender == freezeOracle, "sender must be freeze oracle");
+        _;
+    }
+
+    modifier onlyEigenlayerRegisteredOperator() {
+        require(delegationManager.isOperator(msg.sender), "sender must be an eigenlayer operator");
+        _;
+    }
+    
+    modifier onlyOperatorDeregistrar(address operator) {
+        require(msg.sender == operator || msg.sender == owner(), "sender must be operator or MevCommitAVS owner");
+        _;
+    }
+
+    modifier onlyValidatorRegistrarWithOperatorRegistered(address podOwner) {
+        address delegatedOperator = delegationManager.delegatedTo(podOwner);
+        require(msg.sender == podOwner || msg.sender == delegatedOperator, 
+            "sender must be podOwner or delegated operator");
+        require(operatorRegistrations[delegatedOperator].status == OPERATOR_REGISTRATION_STATUS.REGISTERED,
+            "delegated operator must be registered with MevCommitAVS");
+        _;
+    }
+
+    modifier onlyValidatorDeregistrar(bytes calldata valPubKey) {
+        address podOwner = validatorRegistrations[valPubKey].podOwner;
+        require(msg.sender == podOwner ||
+            msg.sender == delegationManager.delegatedTo(podOwner) ||
+            msg.sender == owner(),
+            "sender must be podOwner, delegated operator, or MevCommitAVS owner");
+        _;
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -61,95 +111,138 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
         _disableInitializers();
     }
 
-    function registerOperator(
+    function registerOperator (
         ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
-    ) external {
-        address operator = msg.sender;
-        require(delegationManager.isOperator(operator), "sender must be an operator");
-        require(!_isOperatorRegistered(operator), "operator must not already be registered with MevCommitAVS");
-        eigenAVSDirectory.registerOperatorToAVS(operator, operatorSignature);
-        operators[operator] = true;
-        emit OperatorAdded(operator);
+    ) external onlyEigenlayerRegisteredOperator() {
+        require(operatorRegistrations[msg.sender].status == OPERATOR_REGISTRATION_STATUS.NOT_REGISTERED,
+            "operator must not already be registered with MevCommitAVS");
+        eigenAVSDirectory.registerOperatorToAVS(msg.sender, operatorSignature);
+        operatorRegistrations[msg.sender] = OperatorRegistrationInfo({
+            status: OPERATOR_REGISTRATION_STATUS.REGISTERED,
+            deregistrationRequestHeight: 0
+        });
+        emit OperatorRegistered(msg.sender);
     }
 
-    function deregisterOperator(address operator) external {
-        require(msg.sender == operator || msg.sender == owner(), "sender must be operator or owner");
-        require(_isOperatorRegistered(operator), "operator must already be registered with MevCommitAVS");
+    function requestOperatorDeregistration(address operator) external onlyOperatorDeregistrar(operator) {
+        require(operatorRegistrations[operator].status == OPERATOR_REGISTRATION_STATUS.REGISTERED,
+            "operator must be registered with MevCommitAVS");
+        operatorRegistrations[operator].status = OPERATOR_REGISTRATION_STATUS.REQ_DEREGISTRATION;
+        operatorRegistrations[operator].deregistrationRequestHeight = block.number;
+        emit OperatorDeregistrationRequested(operator);
+    }
+
+    function deregisterOperator(address operator) external onlyOperatorDeregistrar(operator) {
+        require(operatorRegistrations[operator].status == OPERATOR_REGISTRATION_STATUS.REQ_DEREGISTRATION,
+            "operator must have requested deregistration");
+        require(block.number >= operatorRegistrations[operator].deregistrationRequestHeight + operatorDeregistrationPeriodBlocks,
+            "deregistration must happen at least operatorDeregistrationPeriodBlocks after deregistration request height");
         eigenAVSDirectory.deregisterOperatorFromAVS(operator);
-        delete operators[operator];
-        emit OperatorRemoved(operator);
+        delete operatorRegistrations[operator];
+        emit OperatorDeregistered(operator);
     }
 
-    // TODO: Oracle Freeze function
-    // For FROZEN valsets, the user has to pay a fee to the oracle to opt-in once again. 
-
-    // TODO: Whitelist is now just operators! Every large org seems to have its own operator.
-    // Note this can be what "operators do" for now. ie. they have the ability to opt-in their users. 
-    // But we still allow home stakers to opt-in themselves too. 
-    // Make it very clear that part 2 of opt-in is neccessary to explicitly communicate to 
-    // the opter-inner that they must follow the relay connection requirement. Otherwise delegators may be 
-    // blindly frozen. When opting in as a part of step 2, the sender should be running the validators
-    // its opting in (st. relay requirement is met).
-
-    function storeValidatorsByPodOwners(bytes[][] calldata valPubKeys, address[] calldata podOwners) external {
+    function registerValidatorsByPodOwners(bytes[][] calldata valPubKeys, address[] calldata podOwners) external {
         for (uint256 i = 0; i < podOwners.length; i++) {
-            _storeValidatorsByPodOwner(valPubKeys[i], podOwners[i]);
+            _registerValidatorsByPodOwner(valPubKeys[i], podOwners[i]);
         }
     }
 
-    function _storeValidatorsByPodOwner(bytes[] calldata valPubKeys, address podOwner) internal {
-        address operator = delegationManager.delegatedTo(podOwner);
-        require(operator != address(0), "pod owner must be delegated to operator");
-        require(_isOperatorRegistered(operator),
-            "delegated operator must be registered with MevCommitAVS");
-        require(msg.sender == podOwner || msg.sender == operator,
-            "sender must be pod owner or delegated operator");
+    function _registerValidatorsByPodOwner(
+        bytes[] calldata valPubKeys,
+        address podOwner
+    ) internal onlyValidatorRegistrarWithOperatorRegistered(podOwner) {
         IEigenPod pod = eigenPodManager.getPod(podOwner);
-
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
                 "validator must be active under pod");
-            require(validatorRecords[valPubKeys[i]].status == VALIDATOR_RECORD_STATUS.NULL,
-                "record must not already exist for relevant validator");
-            validatorRecords[valPubKeys[i]] = ValidatorRecord({
-                status: VALIDATOR_RECORD_STATUS.STORED,
-                podOwner: podOwner
-            });
+            require(validatorRegistrations[valPubKeys[i]].status == VALIDATOR_REGISTRATION_STATUS.NOT_REGISTERED,
+                "validator must not already be registered");
+            _registerValidator(valPubKeys[i], podOwner);
         }
     }
 
-    function deleteValidators(bytes[] calldata valPubKeys) external {
+    function _registerValidator(bytes calldata valPubKey, address podOwner) internal {
+        validatorRegistrations[valPubKey] = ValidatorRegistrationInfo({
+            status: VALIDATOR_REGISTRATION_STATUS.REGISTERED,
+            podOwner: podOwner,
+            freezeHeight: 0,
+            deregistrationRequestHeight: 0
+        });
+        emit ValidatorRegistered(valPubKey, podOwner);
+    }
+
+    function requestValidatorsDeregistration(bytes[] calldata valPubKeys) external {
         for (uint256 i = 0; i < valPubKeys.length; i++) {
-            require(validatorRecords[valPubKeys[i]].status == VALIDATOR_RECORD_STATUS.STORED,
-                "validator record must be stored");
-            address podOwner = validatorRecords[valPubKeys[i]].podOwner;
-            address operator = delegationManager.delegatedTo(podOwner);
-            require(msg.sender == owner() || msg.sender == podOwner || msg.sender == operator,
-                "sender must be MevCommitAVS owner, pod owner, or delegated operator");
-            _deleteValidator(valPubKeys[i]);
+            _requestValidatorDeregistration(valPubKeys[i]);
+        }
+    }
+    
+    function _requestValidatorDeregistration(bytes calldata valPubKey) internal onlyValidatorDeregistrar(valPubKey) {
+        require(validatorRegistrations[valPubKey].status == VALIDATOR_REGISTRATION_STATUS.REGISTERED,
+            "validator must be currently registered");
+        validatorRegistrations[valPubKey].status = VALIDATOR_REGISTRATION_STATUS.REQ_DEREGISTRATION;
+        validatorRegistrations[valPubKey].deregistrationRequestHeight = block.number;
+        emit ValidatorDeregistrationRequested(valPubKey, validatorRegistrations[valPubKey].podOwner);
+    }
+
+    function deregisterValidators(bytes[] calldata valPubKeys) external {
+        for (uint256 i = 0; i < valPubKeys.length; i++) {
+            _deregisterValidator(valPubKeys[i]);
         }
     }
 
-    function _deleteValidator(bytes calldata valPubKey) internal {
-        delete validatorRecords[valPubKey];
+    function _deregisterValidator(bytes calldata valPubKey) internal onlyValidatorDeregistrar(valPubKey) {
+        require(validatorRegistrations[valPubKey].status == VALIDATOR_REGISTRATION_STATUS.REQ_DEREGISTRATION,
+            "validator must have requested deregistration");
+        require(block.number >= validatorRegistrations[valPubKey].deregistrationRequestHeight + validatorDeregistrationPeriodBlocks,
+            "deletion must happen at least validatorDeregistrationPeriodBlocks after deletion request height");
+        address podOwner = validatorRegistrations[valPubKey].podOwner;
+        delete validatorRegistrations[valPubKey];
+        emit ValidatorDeregistered(valPubKey, podOwner);
     }
 
-    // TODO: Implement "request withdraw" type deal with block enforcement.
-    // Use existing code and tests from other PR. Also likely will need to define a FSM struct. 
+    function freeze(bytes calldata valPubKey) onlyFreezeOracle external {
+        require(validatorRegistrations[valPubKey].status == VALIDATOR_REGISTRATION_STATUS.REGISTERED ||
+            validatorRegistrations[valPubKey].status == VALIDATOR_REGISTRATION_STATUS.REQ_DEREGISTRATION,
+            "validator must be registered or requested for deregistration");
+        validatorRegistrations[valPubKey].status = VALIDATOR_REGISTRATION_STATUS.FROZEN;
+        validatorRegistrations[valPubKey].freezeHeight = block.number;
+        // If validator was requested for deregistration, they must become unfrozen and request again 
+        validatorRegistrations[valPubKey].deregistrationRequestHeight = 0;
+        emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
+    }
 
-    // TODO: Pull some CRUD from other PR? 
+    function unfreeze(bytes calldata valPubKey) payable external {
+        require(validatorRegistrations[valPubKey].status == VALIDATOR_REGISTRATION_STATUS.FROZEN,
+            "validator must be frozen");
+        require(block.number >= validatorRegistrations[valPubKey].freezeHeight + minUnfreezeBlocks,
+            "unfreeze must be happen at least minUnfreezeBlocks after freeze height");
+        require(msg.value >= unfreezeFee, "sender must pay unfreeze fee");
+        validatorRegistrations[valPubKey].status = VALIDATOR_REGISTRATION_STATUS.REGISTERED;
+        validatorRegistrations[valPubKey].freezeHeight = 0;
+        emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
+    }
+
+    function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory) {
+        bool[] memory result = new bool[](valPubKeys.length);
+        for (uint256 i = 0; i < valPubKeys.length; i++) {
+            result[i] = _isValidatorOptedIn(valPubKeys[i]);
+        }
+        return result;
+    }
 
     function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool) {
-        bool isStored = validatorRecords[valPubKey].status == VALIDATOR_RECORD_STATUS.STORED;
-        IEigenPod pod = eigenPodManager.getPod(validatorRecords[valPubKey].podOwner);
-        bool isActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
-        address operator = delegationManager.delegatedTo(validatorRecords[valPubKey].podOwner);
-        bool isOperatorRegistered = _isOperatorRegistered(operator);
-        return isStored && isActive && isOperatorRegistered;
+        return _isValidatorOptedIn(valPubKey);
     }
 
-    function _isOperatorRegistered(address operator) internal view returns (bool) {
-        return operators[operator];
+    function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
+        bool isRegistered = validatorRegistrations[valPubKey].status == VALIDATOR_REGISTRATION_STATUS.REGISTERED;
+        IEigenPod pod = eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
+        bool isActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
+        address delegatedOperator = delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
+        bool isOperatorRegistered = operatorRegistrations[delegatedOperator].status == OPERATOR_REGISTRATION_STATUS.REGISTERED;
+        return isRegistered && isActive && isOperatorRegistered;
     }
 
     function avsDirectory() external view returns (address) {
@@ -164,5 +257,3 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
         revert("Invalid call");
     }
 }
-
-
