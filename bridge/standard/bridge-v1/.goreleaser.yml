@@ -1,7 +1,7 @@
 version: 1
 
 project_name: mev-commit-bridge
-dist: /tmp/goreleaser/mev-commit-bridge
+dist: /tmp/dist/mev-commit-bridge
 
 builds:
   - id: relayer

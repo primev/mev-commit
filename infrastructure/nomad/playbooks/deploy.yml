@@ -3,7 +3,8 @@
   gather_facts: yes
 
   vars:
-    datacenter: "dc1"
+    root_dir: "{{ playbook_dir }}/../../../"
+    dist_dir: "/tmp/dist"
     build_artifacts: false
     build_templates: false
     aws_s3_bucket: "primev-infrastructure-artifacts"
@@ -11,7 +12,7 @@
   pre_tasks:
     - name: Determine the Architecture of the Target System
       ansible.builtin.set_fact:
-        target_system_architecture: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+        target_system_architecture: "{{ 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
 
     - name: Check Operating System of the Target System
       assert:
@@ -20,9 +21,9 @@
         fail_msg: "This playbook only supports Debian systems."
         success_msg: "Operating system is supported."
 
-    - name: Include Variables
+    - name: Include Common Variables
       include_vars:
-        file: vars.yml
+        file: variables/common.yml
 
     - name: Load AWS Caller Information
       amazon.aws.aws_caller_info:
@@ -43,23 +44,16 @@
         success_msg: "AWS caller information is valid."
       when: version is not defined or version == ''
 
-    - name: Check Profile
-      ansible.builtin.assert:
-        that:
-          - profile is defined
-          - profile != ''
-          - profile in profiles
-        fail_msg: "The profile variable is not set correctly."
-        success_msg: "The profile variable is set to: {{ profile }}."
+    - name: Load Vault Initialization File
+      slurp:
+        src: "{{ vault_init_file }}"
+      register: vault_init
+      no_log: true
 
-    - name: Determine "{{ profile }}" Jobs Profile
-      set_fact:
-        jobs: >-
-          {{
-            lookup('vars', 'jobs')
-            | selectattr('name', 'in', (profiles[profile].job_names | difference(['datadog-agent-logs-collector'] if no_logs_collection | default(false) else [])))
-            | list
-          }}
+    - name: Parse Vault Initialization File
+      ansible.builtin.set_fact:
+        vault_init: "{{ vault_init | combine({'json': (vault_init['content'] | b64decode | from_json) }) }}"
+      no_log: true
 
     - name: Determine Artifacts Build Version
       ansible.builtin.shell: |
@@ -78,65 +72,266 @@
         version: "{{ artifacts_build_version.stdout }}"
       when: version is not defined or version == ''
 
-    - name: Determine Existing Scripts Artifact Version
-      ansible.builtin.shell: |
-        cat "{{ ansible_env.HOME }}/{{ profile }}/version.txt" 2>/dev/null || echo ""
-      args:
-        executable: bash
-      register: existing_scripts_artifacts_version
+    - name: Check Version
+      ansible.builtin.assert:
+        that:
+          - version is defined
+          - version | length > 0
+        fail_msg: "The version is not set correctly."
+        success_msg: "The version is set to: {{ version }}."
 
-    - name: Set Existing Scripts Artifact Version as Stale
-      set_fact:
-        build_templates: "{{ (existing_scripts_artifacts_version.stdout | trim) != version }}"
-      when: existing_scripts_artifacts_version.stdout is defined
+    - name: Include Environment Definitions
+      include_vars:
+        file: variables/environments.yml
 
-    - name: Deployment Info
+    - name: Check Environment Name
+      ansible.builtin.assert:
+        that:
+          - env is defined
+          - env | length > 0
+          - env in environments
+        fail_msg: "The environment name is not set correctly."
+        success_msg: "The environment name is set to: {{ env }}."
+
+    - name: Include Profile Definitions
+      include_vars:
+        file: variables/profiles.yml
+
+    - name: Check Profile Name
       ansible.builtin.assert:
         that:
           - profile is defined
-          - profile != ''
-          - version is defined
-          - version != ''
-        fail_msg: |
-          Invalid profile or version.
-        success_msg: |
-          Profile: {{ profile }}
-          Version: {{ version }}
-          Build Artifacts: {{ 'yes' if build_artifacts | default(false) else 'no' }}
-          Build Templates: {{ 'yes' if build_templates | default(false) else 'no' }}
+          - profile | length > 0
+          - profile in profiles
+        fail_msg: "The profile name is not set correctly."
+        success_msg: "The profile name is set to: {{ profile }}."
 
-    - name: Ensure "{{ ansible_env.HOME }}/{{ profile }}" Directory Exists
+    - name: Determine Logs Collection
+      set_fact:
+        jobs: >-
+          {{
+            profiles[profile].jobs
+            | selectattr('name', 'ne', 'datadog-agent-logs-collector')
+            | list
+            if no_logs_collection | default(false) | bool
+            else profiles[profile].jobs
+           }}
+
+    - name: Ensure "{{ ansible_env.HOME }}/{{ env }}" Directory Exists
       ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/{{ profile }}"
+        path: "{{ ansible_env.HOME }}/{{ env }}"
         state: directory
         mode: "0744"
         recurse: yes
 
+    - name: Read Existing "meta.json"
+      ansible.builtin.shell: |
+        cat "{{ ansible_env.HOME }}/{{ env }}/meta.json" 2>/dev/null || true
+      register: existing_environment
+
+    - name: Set Existing Scripts Artifact Version as Stale
+      set_fact:
+        build_templates: >-
+          {{
+            (existing_environment.stdout | from_json) != environments[env]
+            if existing_environment.stdout | trim
+            else true
+          }}
+
+    - name: Pre Deployment Info
+      ansible.builtin.debug:
+        msg: |
+          Environment:     {{ env }}
+          Chain ID:        {{ environments[env].chain_id }}
+          Profile:         {{ environments[env].profile }}
+          Version:         {{ environments[env].version }}
+          Secrets:         {{ environments[env].secrets }}
+          Build Artifacts: {{ 'yes' if build_artifacts | default(false) else 'no' }}
+          Build Templates: {{ 'yes' if build_templates | default(false) else 'no' }}
+
   tasks:
+    - name: Build keystore-generator
+      ansible.builtin.shell: |
+        BINARY_PATH="{{ dist_dir }}/keystore-generator-{{ environments[env].version }}"
+        go build -o "${BINARY_PATH}" ./infrastructure/tools/keystore-generator/cmd/main.go
+        echo "${BINARY_PATH}"
+      args:
+        chdir: "{{ root_dir }}"
+        executable: bash
+      delegate_to: localhost
+      run_once: true
+      register: keystore_generator
+      when: build_artifacts
+
     - name: Build Artifacts Async
       ansible.builtin.shell: |
-        DESTINATION_DIR="{{ goreleaser_dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
-        if [ "{{ item.name }}" == "contracts" ]; then
-          tar -czvf "${DESTINATION_DIR}/contracts_{{ version }}.tar.gz" ./{{ item.path }}
-        elif [ "{{ item.name }}" == "faucet-keystore" ]; then
-          tar -czvf "${DESTINATION_DIR}/faucet_keystore_{{ version }}.tar.gz" -C ./{{ item.path }} .
-        else
-          cp ./{{ item.path }}/.goreleaser.yml ./{{ item.path }}/.goreleaser.tmp.yml
-          yq -i "
-            .builds[0].goos = [\"${GOOS}\"] |
-            .builds[0].goarch = [\"${GOARCH}\"]
-          " ./{{ item.path }}/.goreleaser.tmp.yml
-          goreleaser release --config=./{{ item.path }}/.goreleaser.tmp.yml --clean --snapshot
-          rm ./{{ item.path }}/.goreleaser.tmp.yml
-        fi
+        SIGNERS="{{ dist_dir }}/signers.txt"
+        SECRETS="{{ dist_dir }}/secrets.json"
+        INVENTORY="{{ dist_dir }}/artifacts.txt"
+        ALLOCATIONS="{{ dist_dir }}/allocations.txt"
+        DESTINATION_DIR="{{ dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
+    
+        [ ! -f "${SIGNERS}" ] && touch "${SIGNERS}"
+        [ ! -f "${SECRETS}" ] && echo '{"version":"{{ environments[env].version }}"}' > "${SECRETS}"
+        [ ! -f "${INVENTORY}" ] && touch "${INVENTORY}"
+        [ ! -f "${ALLOCATIONS}" ] && touch "${ALLOCATIONS}"
+
+        exec 190>>"${SIGNERS}"
+        exec 191<>"${SECRETS}"
+        exec 192<>"${INVENTORY}"
+        exec 193>>"${ALLOCATIONS}"
+
+        {% for artifact in item.artifacts | default([]) %}
+
+          {% if artifact.type is defined and artifact.type == 'binary' %}
+            flock -v -x 192
+            if ! grep -qxF "{{ artifact.path }}" "${INVENTORY}"; then
+              echo "{{ artifact.path }}" >> "${INVENTORY}"
+              flock -v -u 192
+              cp ./{{ artifact.path }}/.goreleaser.yml ./{{ artifact.path }}/.goreleaser.tmp.yml
+              yq eval -i "
+                .builds[0].goos = [\"${GOOS}\"] |
+                .builds[0].goarch = [\"${GOARCH}\"]
+              " ./{{ artifact.path }}/.goreleaser.tmp.yml
+              goreleaser release --snapshot --config=./{{ artifact.path }}/.goreleaser.tmp.yml
+              rm ./{{ artifact.path }}/.goreleaser.tmp.yml
+            fi
+            flock -v -u 192
+          {% elif artifact.type is defined and artifact.type == 'archive' %}
+            ARTIFACT="${DESTINATION_DIR}/{{ artifact.name | default(item.name) }}_{{ environments[env].version }}.tar.gz"
+            if [ ! -f "${ARTIFACT}" ]; then
+              flock -v -x 192
+              echo "${ARTIFACT}" >> "${INVENTORY}"
+              flock -v -u 192
+              tar -czvf "${ARTIFACT}" ./{{ artifact.path }}
+            fi
+          {% endif %}
+
+          {% if artifact.keystore is defined %}
+            case "{{ environments[env].secrets }}" in
+              "generate")
+                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024) }}"
+
+                RESULT=$(
+                  {{ keystore_generator.stdout }} generate \
+                    --keystore-dir="${DESTINATION_DIR}" \
+                    --passphrase="${PASSPHRASE}" \
+                    --log-fmt="json"
+                )
+                ARTIFACT_PATH="$(echo ${RESULT} | jq -e -r '.path // empty' 2>/dev/null)"
+                flock -v -x 192
+                echo "${ARTIFACT_PATH}" >> "${INVENTORY}"
+                flock -v -u 192
+
+                flock -v -x 191
+                cat "${SECRETS}" | jq \
+                  --arg keystore "$(cat ${ARTIFACT_PATH} | jq -c .)" \
+                  --arg keystore_filename "$(basename ${ARTIFACT_PATH})" \
+                  --arg keystore_password "${PASSPHRASE}" \
+                  '. + {
+                    "{{ artifact.keystore.name }}": $keystore,
+                    "{{ artifact.keystore.name }}_filename": $keystore_filename,
+                    "{{ artifact.keystore.name }}_password": $keystore_password
+                  }' \
+                > "${SECRETS}"
+                flock -v -u 191
+
+                ADDRESS="$(cat ${ARTIFACT_PATH} | jq -r '.address')"
+                {% if artifact.keystore.allocation | default(false) %}
+                  flock -v -x 193
+                  echo "${ADDRESS}" >> "${ALLOCATIONS}"
+                  flock -v -u 193
+                {% endif %}
+                {% if item.env is defined and item.env.type | default('') == 'signer' %}
+                  flock -v -x 190
+                  echo "${ADDRESS}" >> "${SIGNERS}"
+                  flock -v -u 190
+                {% endif %}
+                ;;
+              "fetch")
+                RESPONSE=$(curl \
+                  --silent \
+                  --insecure \
+                  --header "X-Vault-Token: {{ vault_init.json.root_token }}" \
+                  {{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}
+                )
+                if [ -z "${RESPONSE}" ]; then
+                  echo "Error: No secrets found."
+                  exit 1
+                fi
+
+                KEYSTORE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}')
+                if [ -z "${KEYSTORE}" ]; then
+                  echo "Error: No keystore found for {{ artifact.keystore.name }}."
+                  exit 1
+                fi
+                PASSPHRASE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}_password')
+                if [ -z "${PASSPHRASE}" ]; then
+                  echo "Error: No passphrase found for {{ artifact.keystore.name }}."
+                  exit 1
+                fi
+
+                flock -v -x 191
+                cat "${SECRETS}" | jq \
+                  --arg keystore "$(echo $KEYSTORE | jq -c .)" \
+                  --arg keystore_filename "$(basename ${KEYSTORE})" \
+                  --arg keystore_password "${PASSPHRASE}" \
+                  '. + {
+                    "{{ artifact.keystore.name }}": $keystore,
+                    "{{ artifact.keystore.name }}_filename": $keystore_filename,
+                    "{{ artifact.keystore.name }}_password": $keystore_password
+                  }' \
+                > "${SECRETS}"
+                flock -v -u 191
+
+                ADDRESS=$(echo "${KEYSTORE}" | jq -r '.address')
+                {% if artifact.keystore.allocation | default(false) %}
+                  flock -v -x 193
+                  echo "${ADDRESS}" >> "${ALLOCATIONS}"
+                  flock -v -u 193
+                {% endif %}
+                {% if item.env is defined and item.env.type | default('') == 'signer' %}
+                  flock -v -x 190
+                  echo "${ADDRESS}" >> "${SIGNERS}"
+                  flock -v -u 190
+                {% endif %}
+                ;;
+              *)
+                echo "Error: Unknown secrets type: {{ environments[env].secrets }}."
+                exit 1
+                ;;
+            esac
+          {% endif %}
+          {% if artifact.boot_key | default(false) and environments[env].secrets == 'generate' %}
+            bootnode -genkey "${DESTINATION_DIR}/boot.key"
+
+            flock -v -x 191
+            cat "${SECRETS}" | jq \
+              --arg item_name "{{ (item.name | regex_replace('^mev-commit-', '') | replace('-', '_')) }}" \
+              --arg boot_key "$(cat ${DESTINATION_DIR}/boot.key)" \
+              --arg boot_key_address "$(bootnode -nodekey ${DESTINATION_DIR}/boot.key -writeaddress)" \
+              '. + {
+                ($item_name + "_boot_key"): $boot_key,
+                ($item_name + "_boot_key_address"): $boot_key_address
+              }' \
+            > "${SECRETS}"
+            flock -v -u 191
+
+          {% endif %}
+        {% endfor %}
+
+        exec 190>&-
+        exec 191>&-
+        exec 192>&-
+        exec 193>&-
       environment:
         GOOS: linux
-        GOARCH: "{{ target_system_architecture }}"
-        DIRTY_SUFFIX: "{{ version | regex_search('-.*') | default('') }}"
+        GOARCH: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+        DIRTY_SUFFIX: "{{ environments[env].version | regex_search('-.*') | default('') }}"
       args:
-        chdir: "{{ playbook_dir }}/../../../"
+        chdir: "{{ root_dir }}"
         executable: bash
-      loop: "{{ artifacts }}"
+      loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
       async: 600
@@ -160,14 +355,84 @@
       run_once: true
       when: build_artifacts
 
+    - name: Assemble Genesis File
+      ansible.builtin.shell: |
+        ALLOCATIONS="$(cat {{ dist_dir }}/allocations.txt 2>/dev/null)"
+        SIGNERS="$(cat {{ dist_dir }}/signers.txt 2>/dev/null)"
+        if [ -z "${SIGNERS}" ]; then
+          echo "Error: No signers found."
+          exit 1
+        fi
+
+        ALLOC=$(echo '{}' | jq '.')
+        for ADDRESS in ${ALLOCATIONS}; do
+          ALLOC=$(
+            echo "${ALLOC}" | jq --arg address "0x${ADDRESS}" '
+              . + {
+                ($address): {
+                    "balance": "0x10000000000000000000000000000"
+                }
+              }
+            '
+         )
+        done
+
+        ADDRESS_COUNT=0
+        EXTRADATA="0x$(printf '0%.0s' {1..64})"
+        for ADDRESS in ${SIGNERS}; do
+          if [ ${ADDRESS_COUNT} -lt 3 ]; then
+            ADDRESS_COUNT=$((ADDRESS_COUNT + 1))
+            EXTRADATA+=${ADDRESS}
+          else
+            echo "Error: Maximum number of signers (3) reached."
+          fi
+        done
+        EXTRADATA+="$(printf '0%.0s' {1..130})"
+
+        echo $(cat <<-EOH
+        {
+          "config": {
+            "chainId": {{ environments[env].chain_id }},
+            "homesteadBlock": 0,
+            "eip150Block": 0,
+            "eip155Block": 0,
+            "eip158Block": 0,
+            "byzantiumBlock": 0,
+            "constantinopleBlock": 0,
+            "petersburgBlock": 0,
+            "istanbulBlock": 0,
+            "muirGlacierBlock": 0,
+            "berlinBlock": 0,
+            "londonBlock": 0,
+            "arrowGlacierBlock": 0,
+            "grayGlacierBlock": 0,
+            "clique": {
+              "period": 200,
+              "epoch": 30000
+            }
+          },
+          "nonce": "0x0",
+          "timestamp": "0x$(printf "%x" "$(date +%s)")",
+          "difficulty": "0x1",
+          "gasLimit": "0x1c9c380",
+          "coinbase": "0x0000000000000000000000000000000000000000",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "alloc": ${ALLOC},
+          "extradata": "${EXTRADATA}"
+        }
+        EOH
+        ) | jq -c '.' > "{{ dist_dir }}/genesis_{{ environments[env].version }}.json"
+      args:
+        executable: bash
+      register: genesis_facts
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts
+
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
-        paths: "{{ goreleaser_dist_dir }}"
-        patterns:
-          - "*{{ version }}*_Linux_{{ ansible_architecture }}.tar.gz"
-          - "contracts_{{ version }}.tar.gz"
-          - "*{{ version }}_checksums.txt"
-          - "faucet_keystore_{{ version }}.tar.gz"
+        paths: "{{ dist_dir }}"
+        patterns: "*{{ environments[env].version }}*.*"
         recurse: yes
       register: upload_artifacts
       delegate_to: localhost
@@ -190,53 +455,67 @@
       delegate_to: localhost
       run_once: true
       register: upload_artifacts_async
-      when: (upload_artifacts.files | default([])) | length > 0 and build_artifacts
+      when: build_artifacts and (upload_artifacts.files | default([])) | length > 0
 
     - name: Wait for Upload Artifacts Async to Complete
       ansible.builtin.async_status:
         jid: "{{ item.ansible_job_id }}"
       register: upload_artifacts_async_result
       until: upload_artifacts_async_result.finished
-      retries: 200
-      delay: 5
+      retries: 600
+      delay: 1
       loop: "{{ upload_artifacts_async.results }}"
       loop_control:
         label: "{{ item.item.path | basename }}"
       delegate_to: localhost
       run_once: true
-      when: (upload_artifacts.files | default([])) | length > 0 and build_artifacts
+      when: build_artifacts and (upload_artifacts.files | default([])) | length > 0
+
+    - name: Push Generated Secrets to Vault
+      ansible.builtin.uri:
+        url: "{{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}"
+        method: POST
+        body_format: json
+        headers:
+          X-Vault-Token: "{{ vault_init.json.root_token }}"
+          Content-Type: "application/json"
+        body: "{{ {'data': (lookup('file', dist_dir + '/secrets.json') | from_json)} | to_json }}"
+        status_code: [200, 204]
+        validate_certs: no
+      when: build_artifacts and environments[env].secrets == 'generate'
+      delegate_to: localhost
+      no_log: true
 
     - name: Cleanup Artifacts
       ansible.builtin.file:
-        path: "{{ goreleaser_dist_dir }}"
+        path: "{{ dist_dir }}"
         state: absent
       delegate_to: localhost
       run_once: true
-      when: (upload_artifacts.files | default([])) | length > 0 and build_artifacts
+      when: build_artifacts and (upload_artifacts.files | default([])) | length > 0
 
-    - name: Delete "version.txt"
+    - name: Delete "meta.json"
       file:
-        path: "{{ ansible_env.HOME }}/{{ profile }}/version.txt"
+        path: "{{ ansible_env.HOME }}/{{ env }}/meta.json"
         state: absent
-      when: build_templates is defined and build_templates
+      when: build_templates
 
     - name: Build Templates
       ansible.builtin.template:
         src: "templates/jobs/{{ item.template }}"
-        dest: "{{ ansible_env.HOME }}/{{ profile }}/{{ item.name }}.nomad"
+        dest: "{{ ansible_env.HOME }}/{{ env }}/{{ item.name }}.nomad"
       loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
       vars:
         job: "{{ item }}"
-        profile: "{{ profile }}"
-      when: build_templates is not defined or build_templates
+      when: build_templates
 
-    - name: Create "version.txt"
+    - name: Create "meta.json"
       copy:
-        content: "{{ version }}"
-        dest: "{{ ansible_env.HOME }}/{{ profile }}/version.txt"
-      when: build_templates is not defined or build_templates
+        content: "{{ environments[env] | to_json }}"
+        dest: "{{ ansible_env.HOME }}/{{ env }}/meta.json"
+      when: build_templates
 
     - name: Purge Cluster
       ansible.builtin.shell: |
@@ -247,7 +526,7 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        nomad run {{ ansible_env.HOME }}/{{ profile }}/{{ job.name }}.nomad
+        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
         JOB_TYPE=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].JobType')
         if [ "${JOB_TYPE}" = "batch" ]; then
           TIMEOUT=300
@@ -275,3 +554,15 @@
         label: "{{ item.name }}"
       vars:
         job: "{{ item }}"
+
+    - name: Post Deployment Info
+      ansible.builtin.debug:
+        msg: |
+          Environment: {{ env }}
+          Chain ID:    {{ environments[env].chain_id }}
+          Profile:     {{ environments[env].profile }}
+          Version:     {{ environments[env].version }}
+          Secrets:     {{ {'generate': 'generated', 'fetch': 'fetched'}.get(environments[env].secrets, 'unknown') }}
+          Artifacts:   {{ 'built' if build_artifacts | default(false) else 'skipped' }}
+          Templates:   {{ 'built' if build_templates | default(false) else 'skipped' }}
+          Timestamp:   {{ now(utc=true, fmt='%a %Y-%m-%d %H:%M:%S UTC') }}

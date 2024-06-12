@@ -10,69 +10,71 @@ no_logs_collection_flag=false
 force_build_templates_flag=false
 skip_certificates_setup_flag=false
 deploy_version="HEAD"
+environment_name="devenv"
 profile_name="devnet"
+datadog_key=""
 
 help() {
     echo "Usage:"
-    echo "$0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]]"
+    echo "$0 [init [--environment <name=devenv>] [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--debug]]"
     echo "$0 [destroy [--debug]] [--help]"
     echo "$0 --help"
     echo
     echo "Parameters:"
     echo "  init                            Initialize the environment."
+    echo "    --environment <name=devenv>   Specify the environment to use (default is devenv)."
     echo "    --profile <name=devnet>       Specify the profile to use (default is devnet)."
     echo "    --skip-certificates-setup     Skip the certificates installation and setup."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
     echo "  deploy [version=HEAD]           Deploy the specified artifact version (a git commit hash or an existing AWS S3 tag). If not specified or set to HEAD, a local build is triggered."
+    echo "    --environment <name=devenv>   Specify the environment to use (default is devenv)."
     echo "    --profile <name=devnet>       Specify the profile to use (default is devnet)."
     echo "    --force-build-templates       Force the build of all job templates before deployment."
     echo "    --no-logs-collection          Disable the collection of logs from deployed jobs."
+    echo "    --datadog-key <key>           Datadog API key."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
-    echo "  destroy                         Destroy the environment."
+    echo "  destroy                         Destroy the whole cluster."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
     echo "  --help                          Display this help message."
     echo
     echo "Examples:"
-    echo "  Initialize with default profile:"
+    echo "  Initialize with default environment and profile:"
     echo "    $0 init"
     echo
-    echo "  Initialize with a specific profile:"
-    echo "    $0 init --profile testnet"
+    echo "  Initialize with a specific environment and profile:"
+    echo "    $0 init --environment devenv --profile testnet"
     echo
-    echo "  Initialize with a specific profile and skip certificates setup:"
-    echo "    $0 init --profile testnet --skip-certificates-setup"
+    echo "  Initialize with a specific environment, profile and skip certificates setup:"
+    echo "    $0 init --environment devenv --profile testnet --skip-certificates-setup"
     echo
-    echo "  Initialize with a specific profile in debug mode:"
-    echo "    $0 init --profile testnet --debug"
+    echo "  Initialize with a specific environment, profile in debug mode:"
+    echo "    $0 init --environment devenv --profile testnet --debug"
     echo
-    echo "  Deploy the current vcs version and profile:"
+    echo "  Deploy the current vcs version, environment and profile:"
     echo "    $0 deploy"
     echo
-    echo "  Deploy with a specific version:"
-    echo "    $0 deploy 5266b68"
+    echo "  Deploy with a specific version, environment and profile:"
+    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet"
     echo
-    echo "  Deploy with a specific version and profile:"
-    echo "    $0 deploy v0.1.0 --profile testnet"
+    echo "  Deploy with a specific version, environment, profile and force to build all job templates:"
+    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --force-build-templates"
     echo
-    echo "  Deploy with a specific version and profile and force to build all job templates:"
-    echo "    $0 deploy v0.1.0 --profile testnet --force-build-templates"
+    echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection and Datadog API key:"
+    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --debug"
     echo
-    echo "  Deploy with a specific version and profile in debug mode with disabled logs collection:"
-    echo "    $0 deploy v0.1.0 --profile testnet --no-logs-collection --debug"
-    echo
-    echo "  Destroy with debug mode:"
-    echo "    $0 destroy --debug"
+    echo "  Destroy with specific environment and debug mode:"
+    echo "    $0 destroy --environment devenv --debug"
     exit 1
 }
 
 usage() {
     echo "Usage:"
-    echo "$0 [init [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--debug]]"
+    echo "$0 [init [--environment <name=devenv>] [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--debug]]"
     echo "$0 [destroy [--debug]] [--help]"
     echo "$0 --help"
     exit 1
@@ -84,7 +86,9 @@ check_deps() {
         go
         yq
         aws
+        flock
         ansible
+        bootnode
         goreleaser
     )
     for util in "${required_utilities[@]}"; do
@@ -140,6 +144,15 @@ parse_args() {
             init)
                 init_flag=true
                 shift
+                if [[ $# -gt 0 && $1 == "--environment" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        environment_name="$2"
+                        shift 2
+                    else
+                        echo "Error: --environment requires a value."
+                        usage
+                    fi
+                fi
                 if [[ $# -gt 0 && $1 == "--profile" ]]; then
                     if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                         profile_name="$2"
@@ -165,6 +178,15 @@ parse_args() {
                     shift
                 fi
                 shift
+                if [[ $# -gt 0 && $1 == "--environment" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        environment_name="$2"
+                        shift 2
+                    else
+                        echo "Error: --environment requires a value."
+                        usage
+                    fi
+                fi
                 if [[ $# -gt 0 && $1 == "--profile" ]]; then
                     if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                         profile_name="$2"
@@ -182,6 +204,15 @@ parse_args() {
                     no_logs_collection_flag=true
                     shift
                 fi
+                if [[ $# -gt 0 && $1 == "--datadog-key" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        datadog_key="$2"
+                        shift 2
+                    else
+                        echo "Error: --datadog-key requires a value."
+                        usage
+                    fi
+                fi
                 if [[ $# -gt 0 && $1 == "--debug" ]]; then
                     debug_flag=true
                     shift
@@ -189,16 +220,6 @@ parse_args() {
                 ;;
             destroy)
                 destroy_flag=true
-                shift
-                if [[ $# -gt 0 && $1 == "--profile" ]]; then
-                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
-                        profile_name="$2"
-                        shift 2
-                    else
-                        echo "Error: --profile requires a value."
-                        usage
-                    fi
-                fi
                 shift
                 if [[ $# -gt 0 && $1 == "--debug" ]]; then
                     debug_flag=true
@@ -219,10 +240,13 @@ parse_args() {
 main() {
     check_deps
     parse_args "$@"
-    rm -rf /tmp/goreleaser &> /dev/null
+    rm -rf /tmp/dist &> /dev/null
 
     local playbook="playbooks/"
-    local flags=("--extra-vars" "profile=${profile_name}")
+    local flags=(
+        "--extra-vars" "env=${environment_name}"
+        "--extra-vars" "profile=${profile_name}"
+    )
     [[ "${debug_flag}" == true ]] && flags+=("-vvv")
 
     case true in
@@ -235,6 +259,7 @@ main() {
             [[ "${deploy_version}" != "HEAD" ]] && flags+=("--extra-vars" "version=${deploy_version}")
             [[ "${no_logs_collection_flag}" == true ]] && flags+=("--extra-vars" "no_logs_collection=true")
             [[ "${force_build_templates_flag}" == true ]] && flags+=("--extra-vars" "build_templates=true")
+            [[ -n "${datadog_key}" ]] && flags+=("--extra-vars" "datadog_key=${datadog_key}")
             ;;
         "${destroy_flag}")
             playbook+="destroy.yml"

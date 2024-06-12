@@ -5,13 +5,10 @@
   gather_facts: yes
 
   vars:
+    version: "unknown"
     nomad_server_ip: "{{ (hostvars[groups['nomad_servers'][0]]['ansible_default_ipv4']['address'] if groups['nomad_servers'] | default([]) | length > 0 else '127.0.0.1') }}"
     nomad_clients_defined: "{{ groups['nomad_clients'] | length > 0 }}"
     nomad_servers_defined: "{{ groups['nomad_servers'] | length > 0 }}"
-    vault_init_file: "~/.vault_init.json"
-    vault_address: "https://127.0.0.1:8200"
-    vault_kv_engine_path: "secret"
-    vault_secret_path: "mev-commit"
 
   pre_tasks:
     - name: Determine the Architecture of the Target System
@@ -34,6 +31,7 @@
           - tree
           - unzip
           - gnupg
+          - httping
           - iptables
           - apt-transport-https
           - python3
@@ -65,9 +63,9 @@
           - msr-tools
         state: present
 
-    - name: Include Variables
+    - name: Include Common Variables
       include_vars:
-        file: vars.yml
+        file: variables/common.yml
 
     - name: Load AWS Caller Information
       amazon.aws.aws_caller_info:
@@ -86,14 +84,18 @@
         fail_msg: "AWS caller information is invalid or empty."
         success_msg: "AWS caller information is valid."
 
-    - name: Check Profile
+    - name: Include Environment Definitions
+      include_vars:
+        file: variables/environments.yml
+
+    - name: Check Environment Name
       ansible.builtin.assert:
         that:
-          - profile is defined
-          - profile != ''
-          - profile in profiles
-        fail_msg: "The profile variable is not set correctly."
-        success_msg: "The profile variable is set to: {{ profile }}."
+          - env is defined
+          - env | length > 0
+          - env in environments
+        fail_msg: "The environment name is not set correctly."
+        success_msg: "The environment name is set to: {{ env }}."
 
   tasks:
     - name: Add DataDog Repository Key
@@ -268,7 +270,7 @@
 
     - name: Fetch Secrets
       ansible.builtin.set_fact:
-        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', 'devnet/' ~ vault_secret_path) }}"
+        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', env ~ '/' ~ vault_secret_path) }}"
       when: unseal_result.json.sealed == false
       delegate_to: localhost
       run_once: true

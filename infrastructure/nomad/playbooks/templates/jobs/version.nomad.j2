@@ -1,0 +1,40 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+
+# This job exists only to provide deployment information to the Nomad UI.
+job "{{ environments[env].version }}" {
+  datacenters = ["{{ datacenter }}"]
+  type = "batch"
+  priority = 1
+
+  # The cron corresponds to January 1st, 2100 and
+  # it prevents the job from being run and cleaned up.
+  periodic {
+    cron = "0 0 1 1 6"
+  }
+
+  meta {
+    CHAIN_ID = "{{ environments[env].chain_id }}"
+    PROFILE = "{{ environments[env].profile }}"
+    SECRETS = "{{ {'generate': 'generated', 'fetch': 'fetched'}.get(environments[env].secrets, 'unknown') }}"
+    VERSION = "{{ environments[env].version }}"
+    ARTIFACTS = "{{ 'built' if build_artifacts | default(false) else 'skipped' }}"
+    TEMPLATES = "{{ 'built' if build_templates | default(false) else 'skipped' }}"
+    TIMESTAMP = "{{ now(utc=true, fmt='%a %Y-%m-%d %H:%M:%S UTC') }}"
+  }
+
+  group "info" {
+    task "dummy" {
+      driver = "exec"
+
+      # Minimal resource allocation.
+      resources {
+        cpu = 1
+        memory = 10
+      }
+
+      config {
+        command = "true"
+      }
+    }
+  }
+}

@@ -52,9 +52,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           site: datadoghq.com
           logs_enabled: true
-          {%- raw %}
-          api_key: {{ with secret "secret/data/mev-commit" }}{{ .Data.data.datadog_api_key }}{{ end }}
-          {% endraw %}
+          api_key: {{ datadog_key }}
           tags:
             - env:{{ profile }}
             - version:{{ version }}

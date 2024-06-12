@@ -37,11 +37,7 @@ job "{{ job.name }}" {
       driver = "exec"
 
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit_{{ version }}_Linux_x86_64.tar.gz"
-      }
-
-      artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/keystore-generator_{{ version }}_Linux_x86_64.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
 
       {% if profile == 'stressnet' %}
@@ -65,8 +61,9 @@ job "{{ job.name }}" {
             else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
           }}"
           {%- raw %}
-          MEV_COMMIT_KEYSTORE_PATH="/local/data-{{env "NOMAD_ALLOC_INDEX"}}/keystore"
-          MEV_COMMIT_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.secrets['keystore'] }}{% raw %}_keystore_password }}{{ end }}"
+          MEV_COMMIT_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          MEV_COMMIT_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
+          MEV_COMMIT_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
@@ -109,34 +106,47 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
+          mkdir -p "${MEV_COMMIT_KEYSTORE_PATH}" > /dev/null 2>&1
+          {%- raw %}
+            {{- with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${MEV_COMMIT_KEYSTORE_PATH}/${MEV_COMMIT_KEYSTORE_FILENAME}"
+            {{ end }}
+          {% endraw %}
+
           {% if job.env['type'] != 'bootnode' %}
           {%- raw %}
           {{- range nomadService "mev-commit-bootnode1" }}
             {{- if contains "http" .Tags }}
-
-          # Fetch topology data
-          TOPOLOGY=$(curl https://{{ .Address }}:{{ .Port }}/v1/debug/topology)
-
-          # Extract peerId (assuming the response format is JSON and jq is available)
-          PEER_ID=$(echo $TOPOLOGY | jq -r '.topology.self.Underlay')
-
+          URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
+          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable endpoint: ${URL}"
+            exit 1
+          fi
+          PEER_ID=$(echo $(curl -sk "${URL}") | jq -r '.topology.self.Underlay')
             {{- else if contains "p2p" .Tags }}
-
-          # Set the MEV_COMMIT_BOOTNODES environment variable
           export MEV_COMMIT_BOOTNODES="/ip4/{{ .Address }}/tcp/{{ .Port }}/p2p/${PEER_ID}"
-
             {{- end }}
           {{- end }}
           {% endraw %}
           {% endif %}
 
-          if [ ! -d "${MEV_COMMIT_KEYSTORE_PATH}" ]; then
-            mkdir -p "${MEV_COMMIT_KEYSTORE_PATH}" > /dev/null 2>&1
-            chmod +x local/keystore-generator
-            local/keystore-generator generate \
-              --keystore-dir "${MEV_COMMIT_KEYSTORE_PATH}" \
-              --passphrase "${MEV_COMMIT_KEYSTORE_PASSWORD}"
+          {% raw %}
+          {{- range nomadService "contracts-deployer" }}
+            {{ if contains "http" .Tags }}
+          URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
+          CONTRACTS_FILE="/local/contracts.json"
+          if ! timeout 5m bash -c 'until httping -sq -c 1 "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable endpoint: ${URL}"
+            exit 1
           fi
+          curl -s -o "${CONTRACTS_FILE}" "${URL}"
+          export MEV_COMMIT_PROVIDER_REGISTRY_ADDR="$(jq -r '.ProviderRegistry' ${CONTRACTS_FILE})"
+          export MEV_COMMIT_BIDDER_REGISTRY_ADDR="$(jq -r '.BidderRegistry' ${CONTRACTS_FILE})"
+          export MEV_COMMIT_BLOCK_TRACKER_ADDR="$(jq -r '.BlockTracker' ${CONTRACTS_FILE})"
+          export MEV_COMMIT_PRECONF_ADDR="$(jq -r '.PreConfCommitmentStore' ${CONTRACTS_FILE})"
+            {{ end }}
+          {{- end }}
+          {% endraw %}
 
           chmod +x local/mev-commit
           local/mev-commit

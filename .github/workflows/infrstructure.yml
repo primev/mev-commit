@@ -59,15 +59,19 @@ jobs:
           sudo systemctl restart systemd-resolved
 
           IS_MANUAL_DEPLOYMENT=$([ "${{ github.event_name }}" == "workflow_dispatch" ] && echo true || echo false)
+          CLUSTER_ENVIRONMENT_FLAG="--environment devenv"
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
-          DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
+          CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
+          CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
           TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target }})" || echo "127.0.0.1")
 
           echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> ${GITHUB_ENV}
+          echo "CLUSTER_ENVIRONMENT_FLAG=${CLUSTER_ENVIRONMENT_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> ${GITHUB_ENV}
-          echo "DEBUG_FLAG=${DEBUG_FLAG}" >> ${GITHUB_ENV}
+          echo "CLUSTER_DATADOG_KEY_FLAG=${CLUSTER_DATADOG_KEY_FLAG}" >> ${GITHUB_ENV}
+          echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> ${GITHUB_ENV}
           echo "TARGET_MACHINE_IP=${TARGET_MACHINE_IP}" >> ${GITHUB_ENV}
 
       - name: Notify - Deployment Initialized
@@ -122,8 +126,9 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
+          sudo add-apt-repository --yes ppa:ethereum/ethereum
           sudo apt-get update
-          sudo apt-get install --yes goreleaser
+          sudo apt-get install --yes goreleaser ethereum
           pip install boto3 botocore
           pipx inject ansible-core botocore boto3
 
@@ -160,14 +165,14 @@ jobs:
       - name: Destroy Existing Cluster
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
         run: |
-          ./cluster.sh destroy ${CLUSTER_PROFILE_FLAG} ${DEBUG_FLAG}
+          ./cluster.sh destroy ${CLUSTER_DEBUG_FLAG}
         working-directory: infrastructure/nomad
 
       - name: Initialize Cluster
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' || github.event.inputs.init == 'true'}}
         run: |
           START_TIME="$(date +%s)"
-          ./cluster.sh init ${CLUSTER_PROFILE_FLAG} ${DEBUG_FLAG}
+          ./cluster.sh init ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
           echo "INIT_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
@@ -175,7 +180,7 @@ jobs:
       - name: Deploy Cluster
         run: |
           START_TIME="$(date +%s)"
-          ./cluster.sh deploy ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${DEBUG_FLAG}
+          ./cluster.sh deploy ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${CLUSTER_DATADOG_KEY_FLAG} ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
           echo "DEPLOY_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad

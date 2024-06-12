@@ -29,57 +29,71 @@ contract DeployScript is Script {
             abi.encodeCall(BlockTracker.initialize, (msg.sender))
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
-        console.log("BlockTracker deployed to:", address(blockTracker));
+        console.log("BlockTracker:", address(blockTracker));
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, address(blockTracker)))
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
-        console.log("BidderRegistry deployed to:", address(bidderRegistry));
+        console.log("BidderRegistry:", address(bidderRegistry));
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender))
         );
         ProviderRegistry providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
-        console.log("ProviderRegistry deployed to:", address(providerRegistry));
+        console.log("ProviderRegistry:", address(providerRegistry));
 
         address preconfCommitmentStoreProxy = Upgrades.deployUUPSProxy(
             "PreConfCommitmentStore.sol",
             abi.encodeCall(PreConfCommitmentStore.initialize, (address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender, address(blockTracker), commitmentDispatchWindow))
         );
         PreConfCommitmentStore preConfCommitmentStore = PreConfCommitmentStore(payable(preconfCommitmentStoreProxy));
-        console.log("PreConfCommitmentStore deployed to:", address(preConfCommitmentStore));
+        console.log("PreConfCommitmentStore:", address(preConfCommitmentStore));
 
         providerRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
-        console.log(
-            "ProviderRegistry updated with PreConfCommitmentStore address:",
-            address(preConfCommitmentStore)
-        );
+        console.log("ProviderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
 
         bidderRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
-        console.log(
-            "BidderRegistry updated with PreConfCommitmentStore address:",
-            address(preConfCommitmentStore)
-        );
+        console.log("BidderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
             abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), msg.sender))
         );
         Oracle oracle = Oracle(payable(oracleProxy));
-        console.log("Oracle deployed to:", address(oracle));
+        console.log("Oracle:", address(oracle));
 
         preConfCommitmentStore.updateOracle(address(oracle));
-        console.log(
-            "PreConfCommitmentStore updated with Oracle address:",
-            address(oracle)
-        );
+        console.log("PreConfCommitmentStoreWithOracle:", address(oracle));
+
+        vm.stopBroadcast();
+    }
+}
+
+contract TransferOwnership is Script {
+    function run() external {
+        vm.startBroadcast();
+
+        address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
+        require(oracleKeystoreAddress != address(0), "Oracle keystore address not provided");
+
+        address blockTrackerProxy = vm.envAddress("BLOCK_TRACKER_ADDRESS");
+        require(blockTrackerProxy != address(0), "Block tracker not provided");
+        BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
+        blockTracker.transferOwnership(oracleKeystoreAddress);
+        console.log("BlockTracker owner:", blockTracker.owner());
+
+        address oracleProxy = vm.envAddress("ORACLE_ADDRESS");
+        require(oracleProxy != address(0), "Oracle proxy not provided");
+        Oracle oracle = Oracle(payable(oracleProxy));
+        oracle.transferOwnership(oracleKeystoreAddress);
+        console.log("Oracle owner:", oracle.owner());
 
         vm.stopBroadcast();
     }

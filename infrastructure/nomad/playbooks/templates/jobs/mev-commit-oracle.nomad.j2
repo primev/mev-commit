@@ -2,12 +2,6 @@
 job "{{ job.name }}" {
   datacenters = ["{{ datacenter }}"]
 
-  meta {
-    POSTGRESQL_MAIN_VERSION = "15"
-    DB_NAME="mev_oracle"
-    DB_USER="mev_oracle"
-  }
-
   group "{{ job.name }}-group" {
     count = {{ job.count }}
 
@@ -55,12 +49,13 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
-          {%- raw %}
-          PATH="/usr/lib/postgresql/{{env "NOMAD_META_POSTGRESQL_MAIN_VERSION"}}/bin:{{env "PATH"}}"
-          PG_DATA="/local/pgdata-{{env "NOMAD_ALLOC_INDEX"}}"
-          {% endraw %}
+          POSTGRES_VERSION="15"
+          POSTGRES_DB="mev_oracle"
+          POSTGRES_USERNAME="mev_oracle"
+          POSTGRES_PASSWORD="{{ lookup('password', '/dev/null', length=64) }}"
+          POSTGRES_DATA="/local/pgdata-{% raw %}{{ env "NOMAD_ALLOC_INDEX" }}{% endraw %}"
         EOH
-        destination = "secrets/.env"
+        destination = "alloc/data/postgres.env"
         env = true
       }
 
@@ -75,34 +70,41 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          if [ -d "${PG_DATA}" ]; then
-              "Initialized and configured database found"
-              postgres -D ${PG_DATA}
-              exit $?
+          if [ -d "${POSTGRES_DATA}" ]; then
+            echo "Initialized and configured database found."
+            cp "${POSTGRES_DATA}/.env" /alloc/data/postgres.env
+            source "${POSTGRES_DATA}/.env"
+            postgres -D ${POSTGRES_DATA}
+            exit $?
           fi
 
+          export PATH="/usr/lib/postgresql/${POSTGRES_VERSION}/bin:${PATH}"
           mkdir -p /var/run/postgresql > /dev/null 2>&1
-          pg_ctl initdb --silent --pgdata=${PG_DATA}
-          postgres -D ${PG_DATA} &
+          pg_ctl initdb --silent --pgdata="${POSTGRES_DATA}"
+          if [ $? -ne 0 ]; then
+            echo "Failed to initialize database."
+            exit 1
+          fi
+          cp /alloc/data/postgres.env "${POSTGRES_DATA}/.env"
+          postgres -D "${POSTGRES_DATA}" &
           pid=$!
-          until pg_isready --quiet --username=$USER --dbname=postgres; do
+
+          until pg_isready --quiet --username="${USER}" --dbname=postgres; do
             echo "Waiting for PostgreSQL to start..."
             sleep 1
           done
 
-          PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_db_password }}{{ end }}"
-          createuser --username=$USER --createdb ${NOMAD_META_DB_USER}
-          createdb --username=${NOMAD_META_DB_USER} ${NOMAD_META_DB_NAME}
+          createuser --username="${USER}" --createdb "${POSTGRES_USERNAME}"
+          createdb --username="${POSTGRES_USERNAME}" "${POSTGRES_DB}"
           psql --quiet \
-               --username=${NOMAD_META_DB_USERNAME} \
-               --dbname=${NOMAD_META_DB_NAME} \
-               --command="ALTER USER ${NOMAD_META_DB_USER} WITH PASSWORD '${PASSWORD}'; \
-                          GRANT ALL PRIVILEGES ON DATABASE ${NOMAD_META_DB_NAME} TO ${NOMAD_META_DB_USER};"
-          echo "Database initialized and configured successfully"
+               --username="${POSTGRES_USERNAME}" \
+               --dbname="${POSTGRES_DB}" \
+               --command="ALTER USER ${POSTGRES_USERNAME} WITH PASSWORD '${POSTGRES_PASSWORD}'; \
+                          GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USERNAME};"
+          echo "Database initialized and configured successfully."
 
           wait $pid
           {% endraw %}
-
         EOH
         destination = "local/run.sh"
         perms = "0755"
@@ -118,7 +120,7 @@ job "{{ job.name }}" {
       driver = "exec"
 
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-oracle_{{ version }}_Linux_x86_64.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-oracle_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
 
       artifact {
@@ -149,14 +151,15 @@ job "{{ job.name }}" {
           MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '20') }}"
           MEV_ORACLE_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           {%- raw %}
-          MEV_ORACLE_KEYSTORE_PATH="/local/data-{{env "NOMAD_ALLOC_INDEX"}}/keystore"
-          MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_keystore_password }}{{ end }}"
+          MEV_ORACLE_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          MEV_ORACLE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
+          MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
           {{- range nomadService "mev-commit-oracle" }}
             {{- if contains "http" .Tags }}
           MEV_ORACLE_HTTP_PORT="{{ .Port }}"
             {{- end }}
           {{- end }}
-          {{- range nomadService "mev-commit-geth-member-node" }}
+          {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
@@ -168,9 +171,6 @@ job "{{ job.name }}" {
             {{- if contains "db" .Tags }}
           MEV_ORACLE_PG_HOST="localhost"
           MEV_ORACLE_PG_PORT="{{ .Port }}"
-          MEV_ORACLE_PG_USER="{{env "NOMAD_META_DB_USER"}}"
-          MEV_ORACLE_PG_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_db_password }}{{ end }}"
-          MEV_ORACLE_PG_DBNAME="{{env "NOMAD_META_DB_NAME"}}"
             {{- end }}
           {{- end }}
           {% endraw %}
@@ -182,62 +182,105 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
-          ADDRESSES=""
-          {%- raw %}
-          {{- range nomadService "mev-commit-provider-node1" }}
-            {{ if contains "http" .Tags }}
-          TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
-          PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
-          if [ -z "${ADDRESSES}" ]; then
-            ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
-          else
-            ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
-          fi
-            {{ end }}
-          {{- end }}
-          {{- range nomadService "mev-commit-provider-node2" }}
-            {{ if contains "http" .Tags }}
-          TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
-          PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
-          if [ -z "${ADDRESSES}" ]; then
-            ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
-          else
-            ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
-          fi
-            {{ end }}
-          {{- end }}
-          {{- range nomadService "mev-commit-provider-node3" }}
-            {{ if contains "http" .Tags }}
-          TOPOLOGY=$(curl https://{{ .Address}}:{{ .Port }}/v1/debug/topology)
-          PROVIDER_ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
-          if [ -z "${ADDRESSES}" ]; then
-            ADDRESSES="${PROVIDER_ETHEREUM_ADDRESS}"
-          else
-            ADDRESSES="${ADDRESSES},${PROVIDER_ETHEREUM_ADDRESS}"
-          fi
-            {{ end }}
-          {{- end }}
 
+          {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
             {{ end }}
           {{- end }}
-          {% endraw %}
 
-          if [ ! -z "${ADDRESSES}" ]; then
-            echo "starting mev-oracle with override winners ${ADDRESSES}"
-            export MEV_ORACLE_OVERRIDE_WINNERS=${ADDRESSES}
+          mkdir -p "${MEV_ORACLE_KEYSTORE_PATH}" > /dev/null 2>&1
+            {{- with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${MEV_ORACLE_KEYSTORE_PATH}/${MEV_ORACLE_KEYSTORE_FILENAME}"
+            {{ end }}
+
+          MEV_ORACLE_OVERRIDE_WINNERS=""
+
+          {{- range nomadService "mev-commit-provider-node1" }}
+            {{- if contains "http" .Tags }}
+          URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
+          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable {{ .Name }} endpoint: ${URL}"
+            exit 1
+          fi
+          ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
+          if [ -n "${ETH_ADDRESS}" ]; then
+            if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
+              MEV_ORACLE_OVERRIDE_WINNERS="${ETH_ADDRESS}"
+            else
+              MEV_ORACLE_OVERRIDE_WINNERS="${MEV_ORACLE_OVERRIDE_WINNERS},${ETH_ADDRESS}"
+            fi
+          fi
+            {{ end }}
+          {{- end }}
+
+          {{- range nomadService "mev-commit-provider-node2" }}
+            {{- if contains "http" .Tags }}
+          URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
+          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable {{ .Name }} endpoint: ${URL}"
+            exit 1
+          fi
+          ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
+          if [ -n "${ETH_ADDRESS}" ]; then
+            if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
+              MEV_ORACLE_OVERRIDE_WINNERS="${ETH_ADDRESS}"
+            else
+              MEV_ORACLE_OVERRIDE_WINNERS="${MEV_ORACLE_OVERRIDE_WINNERS},${ETH_ADDRESS}"
+            fi
+          fi
+            {{ end }}
+          {{- end }}
+
+          {{- range nomadService "mev-commit-provider-node3" }}
+            {{- if contains "http" .Tags }}
+          URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
+          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable {{ .Name }} endpoint: ${URL}"
+            exit 1
+          fi
+          ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
+          if [ -n "${ETH_ADDRESS}" ]; then
+            if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
+              MEV_ORACLE_OVERRIDE_WINNERS="${ETH_ADDRESS}"
+            else
+              MEV_ORACLE_OVERRIDE_WINNERS="${MEV_ORACLE_OVERRIDE_WINNERS},${ETH_ADDRESS}"
+            fi
+          fi
+            {{ end }}
+          {{- end }}
+
+          if [ ! -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
+            echo "Overriding winners: ${MEV_ORACLE_OVERRIDE_WINNERS}"
+           export MEV_ORACLE_OVERRIDE_WINNERS
           fi
 
-          if [ ! -d "${MEV_ORACLE_KEYSTORE_PATH}" ]; then
-            mkdir -p "${MEV_ORACLE_KEYSTORE_PATH}" > /dev/null 2>&1
-            mv local/contracts/deployer_keystore/* "${MEV_ORACLE_KEYSTORE_PATH}/"
-            rm -rf local/contracts
+          {{- range nomadService "contracts-deployer" }}
+            {{ if contains "http" .Tags }}
+          URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
+          CONTRACTS_FILE="/local/contracts.json"
+          if ! timeout 5m bash -c 'until httping -sq -c 1 "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable endpoint: ${URL}"
+            exit 1
           fi
+          curl -s -o "${CONTRACTS_FILE}" "${URL}"
+          export MEV_ORACLE_PROVIDERREGISTRY_CONTRACT_ADDR="$(jq -r '.ProviderRegistry' ${CONTRACTS_FILE})"
+          export MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR="$(jq -r '.BidderRegistry' ${CONTRACTS_FILE})"
+          export MEV_ORACLE_ORACLE_CONTRACT_ADDR="$(jq -r '.Oracle' ${CONTRACTS_FILE})"
+          export MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR="$(jq -r '.BlockTracker' ${CONTRACTS_FILE})"
+          export MEV_ORACLE_PRECONF_CONTRACT_ADDR="$(jq -r '.PreConfCommitmentStore' ${CONTRACTS_FILE})"
+            {{ end }}
+          {{- end }}
+
+          source alloc/data/postgres.env
+          export MEV_ORACLE_PG_USER="${POSTGRES_USERNAME}"
+          export MEV_ORACLE_PG_PASSWORD="${POSTGRES_PASSWORD}"
+          export MEV_ORACLE_PG_DBNAME="${POSTGRES_DB}"
 
           chmod +x local/mev-commit-oracle
           local/mev-commit-oracle start
+          {% endraw %}
         EOH
         destination = "local/run.sh"
         perms = "0755"

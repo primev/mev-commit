@@ -1,0 +1,583 @@
+datacenter: "dc1"
+
+artifacts:
+  bidder_emulator: &bidder_emulator_artifact
+    type: binary
+    path: p2p/integrationtest/real-bidder
+  provider_emulator: &provider_emulator_artifact
+    type: binary
+    path: p2p/integrationtest/provider
+  bridge_v1: &bridge_v1_artifact
+    type: binary
+    path: bridge/standard/bridge-v1
+  geth: &geth_artifact
+    type: binary
+    path: external/geth
+  contracts: &contracts_artifact
+    name: contracts
+    type: archive
+    path: contracts
+  oracle: &oracle_artifact
+    type: binary
+    path: oracle
+  p2p: &p2p_artifact
+    type: binary
+    path: p2p
+
+jobs:
+  version: &version_job
+    name: version
+    template: version.nomad.j2
+
+  datadog_agent_logs_collector: &datadog_agent_logs_collector_job
+    name: datadog-agent-logs-collector
+    template: datadog-agent.nomad.j2
+    count: 1
+    type: logs
+    ports:
+      - tcp:
+          to: 10500
+
+  mev_commit_geth_bootnode1: &mev_commit_geth_bootnode1_job
+    name: mev-commit-geth-bootnode1
+    template: mev-commit-geth.nomad.j2
+    count: 1
+    artifacts:
+      - *geth_artifact
+      - boot_key: true
+    ports:
+      - metrics:
+          to: 6060
+        http:
+          static: 8545
+          to: 8545
+        ws:
+          static: 8546
+          to: 8546
+        p2p:
+          to: 30301
+    env:
+      ip: 0.0.0.0
+      public_ip: 0.0.0.0
+      net_restrict: 0.0.0.0/0
+      type: bootnode
+
+  mev_commit_geth_signer_node1: &mev_commit_geth_signer_node1_job
+    name: mev-commit-geth-signer-node1
+    template: mev-commit-geth.nomad.j2
+    artifacts:
+      - *geth_artifact
+      - keystore:
+          name: geth_signer1_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 6060
+        p2p:
+          to: 30311
+    env:
+      ip: 0.0.0.0
+      net_restrict: 0.0.0.0/0
+      type: signer
+      sync_mode: snap
+
+  mev_commit_geth_member_node: &mev_commit_geth_member_node_job
+    name: mev-commit-geth-member-node
+    template: mev-commit-geth.nomad.j2
+    artifacts:
+      - *geth_artifact
+    count: 1
+    ports:
+      - metrics:
+          to: 6060
+        http:
+          static: 8555
+          to: 8545
+        ws:
+          static: 8556
+          to: 8546
+        p2p:
+          to: 30311
+    env:
+      ip: 0.0.0.0
+      public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      net_restrict: 0.0.0.0/0
+      type: member
+      sync_mode: snap
+
+  contracts_deployer: &contracts_deployer_job
+    name: contracts-deployer
+    template: contracts-deployer.nomad.j2
+    artifacts:
+      - *contracts_artifact
+      - keystore:
+          name: contract_deployer_keystore
+          allocation: true
+    count: 1
+    ports:
+      - http:
+          static: 1010
+          to: 8080
+    env:
+      chain-id: "{{ environments[env].chain_id }}"
+
+  mev_commit_bootnode1: &mev_commit_bootnode1_job
+    name: mev-commit-bootnode1
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: bootnode1_keystore
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13523
+          to: 13523
+        p2p:
+          static: 13522
+          to: 13522
+    env:
+      type: bootnode
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_provider_node1: &mev_commit_provider_node1_job
+    name: mev-commit-provider-node1
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: provider1_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13623
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13624
+          to: 13524
+    env:
+      type: provider
+      nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_provider_node2: &mev_commit_provider_node2_job
+    name: mev-commit-provider-node2
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: provider2_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13633
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13634
+          to: 13524
+    env:
+      type: provider
+      nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_provider_node3: &mev_commit_provider_node3_job
+    name: mev-commit-provider-node3
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: provider3_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13643
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13644
+          to: 13524
+    env:
+      type: provider
+      nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_provider_node1_funder: &mev_commit_provider_node1_funder_job
+    name: mev-commit-provider-node1-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_provider_node1_job
+
+  mev_commit_provider_node2_funder: &mev_commit_provider_node2_funder_job
+    name: mev-commit-provider-node2-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_provider_node2_job
+
+  mev_commit_provider_node3_funder: &mev_commit_provider_node3_funder_job
+    name: mev-commit-provider-node3-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_provider_node3_job
+
+  mev_commit_provider_emulator_node1: &mev_commit_provider_emulator_node1_job
+    name: mev-commit-provider-emulator-node1
+    template: mev-commit-emulator.nomad.j2
+    artifacts:
+      - *provider_emulator_artifact
+    count: 1
+    target_type: provider
+    target_name: mev-commit-provider-node
+    ports:
+      - metrics:
+          to: 8080
+
+  mev-commit-provider-emulator-nodes: &mev_commit_provider_emulator_nodes_job
+    name: mev-commit-provider-emulator-nodes
+    template: mev-commit-emulator.nomad.j2
+    artifacts:
+      - *provider_emulator_artifact
+    count: 3
+    target_type: provider
+    target_name: mev-commit-provider-node
+    ports:
+      - metrics:
+          to: 8080
+
+  mev_commit_bidder_node1: &mev_commit_bidder_node1_job
+    name: mev-commit-bidder-node1
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: bidder1_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13723
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13724
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_bidder_node2: &mev_commit_bidder_node2_job
+    name: mev-commit-bidder-node2
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: bidder2_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13733
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13734
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_bidder_node3: &mev_commit_bidder_node3_job
+    name: mev-commit-bidder-node3
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: bidder3_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13743
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13744
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_bidder_node4: &mev_commit_bidder_node4_job
+    name: mev-commit-bidder-node4
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: bidder4_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13753
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13754
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_bidder_node5: &mev_commit_bidder_node5_job
+    name: mev-commit-bidder-node5
+    template: mev-commit.nomad.j2
+    artifacts:
+      - *p2p_artifact
+      - keystore:
+          name: bidder5_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 13523
+        http:
+          static: 13763
+          to: 13523
+        p2p:
+          to: 13522
+        rpc:
+          static: 13764
+          to: 13524
+    env:
+      type: bidder
+      tls_crt_file: "{{ tls_crt_file }}"
+      tls_key_file: "{{ tls_key_file }}"
+
+  mev_commit_bidder_node1_funder: &mev_commit_bidder_node1_funder_job
+    name: mev-commit-bidder-node1-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_bidder_node1_job
+
+  mev_commit_bidder_node2_funder: &mev_commit_bidder_node2_funder_job
+    name: mev-commit-bidder-node2-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_bidder_node2_job
+
+  mev_commit_bidder_node3_funder: &mev_commit_bidder_node3_funder_job
+    name: mev-commit-bidder-node3-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_bidder_node3_job
+
+  mev_commit_bidder_node4_funder: &mev_commit_bidder_node4_funder_job
+    name: mev-commit-bidder-node4-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_bidder_node4_job
+
+  mev_commit_bidder_node5_funder: &mev_commit_bidder_node5_funder_job
+    name: mev-commit-bidder-node5-funder
+    template: mev-commit-funder.nomad.j2
+    count: 1
+    target: *mev_commit_bidder_node5_job
+
+  mev_commit_bidder_emulator_node1: &mev_commit_bidder_emulator_node1_job
+    name: mev-commit-bidder-emulator-node1
+    template: mev-commit-emulator.nomad.j2
+    artifacts:
+      - *bidder_emulator_artifact
+    count: 1
+    target_type: bidder
+    target_name: mev-commit-bidder-node
+    ports:
+      - metrics:
+          to: 8080
+    env:
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
+
+  mev_commit_bidder_emulator_nodes: &mev_commit_bidder_emulator_nodes_job
+    name: mev-commit-bidder-emulator-nodes
+    template: mev-commit-emulator.nomad.j2
+    artifacts:
+      - *bidder_emulator_artifact
+    count: 1
+    target_type: bidder
+    target_name: mev-commit-bidder-node
+    ports:
+      - metrics:
+          to: 8080
+    env:
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
+
+  mev_commit_oracle: &mev_commit_oracle_job
+    name: mev-commit-oracle
+    template: mev-commit-oracle.nomad.j2
+    artifacts:
+      - *oracle_artifact
+      - keystore:
+          name: oracle_keystore
+          allocation: true
+    dependencies:
+      contracts_deployer: *contracts_deployer_job
+    count: 1
+    ports:
+      - db:
+          static: 5432
+          to: 5432
+        http:
+          static: 8080
+          to: 8080
+        metrics:
+          to: 8080
+    env:
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
+
+  mev_commit_bridge: &mev_commit_bridge_job
+    name: mev-commit-bridge
+    template: mev-commit-bridge.nomad.j2
+    count: 1
+    ports:
+      - metrics:
+          to: 8080
+    env:
+      l1_chain_id: 11155111
+      l1_rpc_url: https://eth-sepolia.g.alchemy.com/v2/ui86u7ZUgpn2e-WHFbHQHk2s-6Odjggx
+
+  mev_commit_faucet: &mev_commit_faucet_job
+    name: mev-commit-faucet
+    template: mev-commit-faucet.nomad.j2
+    artifacts:
+      - keystore:
+          name: faucet_keystore
+          allocation: true
+    count: 1
+    ports:
+      - http:
+          static: 80
+          to: 80
+
+  datadog_agent_metrics_collector: &datadog_agent_metrics_collector_job
+    name: datadog-agent-metrics-collector
+    template: datadog-agent.nomad.j2
+    count: 1
+    type: metrics
+
+profiles:
+  ci:
+    jobs:
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *contracts_deployer_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_oracle_job
+      - *mev_commit_bidder_node1_job
+      - *mev_commit_bidder_node1_funder_job
+      - *mev_commit_provider_emulator_node1_job
+      - *mev_commit_bidder_emulator_node1_job
+      - *mev_commit_faucet_job
+
+  devnet:
+    jobs:
+      - *version_job
+      - *datadog_agent_logs_collector_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *contracts_deployer_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_oracle_job
+      - *mev_commit_bidder_node1_job
+      - *mev_commit_bidder_node1_funder_job
+      - *mev_commit_provider_emulator_node1_job
+      - *mev_commit_bidder_emulator_node1_job
+      - *mev_commit_faucet_job
+      - *datadog_agent_metrics_collector_job
+
+  testnet:
+    jobs:
+      - *datadog_agent_logs_collector_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *contracts_deployer_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_oracle_job
+      - *mev_commit_provider_emulator_node1_job
+      - *mev_commit_faucet_job
+      - *datadog_agent_metrics_collector_job
+
+  stressnet:
+    jobs:
+      - *version_job
+      - *datadog_agent_logs_collector_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *contracts_deployer_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_provider_node2_job
+      - *mev_commit_provider_node2_funder_job
+      - *mev_commit_provider_node3_job
+      - *mev_commit_provider_node3_funder_job
+      - *mev_commit_provider_emulator_nodes_job
+      - *mev_commit_oracle_job
+      - *mev_commit_bidder_node1_job
+      - *mev_commit_bidder_node1_funder_job
+      - *mev_commit_bidder_node2_job
+      - *mev_commit_bidder_node2_funder_job
+      - *mev_commit_bidder_node3_job
+      - *mev_commit_bidder_node3_funder_job
+      - *mev_commit_bidder_node4_job
+      - *mev_commit_bidder_node4_funder_job
+      - *mev_commit_bidder_node5_job
+      - *mev_commit_bidder_node5_funder_job
+      - *mev_commit_bidder_emulator_nodes_job
+      - *mev_commit_faucet_job
+      - *datadog_agent_metrics_collector_job
