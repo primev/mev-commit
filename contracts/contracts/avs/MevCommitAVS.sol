@@ -1,18 +1,6 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
-// Path forward: Get DUNE chart working and likely go with eigenpod opt-in + whitelist
-// (as long as there's evidence that eigenpods are quite dispersed / diverse)
-// Otherwise just stick to eigen opt-in
-
-// AddtoWhitelist(account)
-// RemoveFromwhitelist instead of using "EOA"
-
-// Still build out everything with "hash to L1" idea.. For now. 
-
-/// Get started by just developing contracts, with associated doc at top-level which fully explains
-// idea to external team. 
-
 import {MevCommitAVSStorage} from "./MevCommitAVSStorage.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -21,11 +9,15 @@ import {IEigenPodManager} from "eigenlayer-contracts/src/contracts/interfaces/IE
 import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod.sol";
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
+import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 
-// TODO: documentation and overall gas optimization
-// TODO: modifiers, pattern match prod contracts, order of funcs, interfaces etc.
+// TODO: overall gas optimization
+// TODO: order of funcs, finish interfaces, comments for everything etc.
 // TODO: use tests from other PR? 
-contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeable {
+// TODO: test upgradability before Holesky deploy
+// TODO: Do all this strategy param stuff, and decide of LST delegation is v1 or next version. See chooseValidator in doc
+// TODO: Note and document everything from https://docs.eigenlayer.xyz/eigenlayer/avs-guides/avs-dashboard-onboarding
+contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeable {
 
     IDelegationManager internal delegationManager;
     IEigenPodManager internal eigenPodManager;
@@ -33,41 +25,37 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
 
     address public freezeOracle;
     uint256 public unfreezeFee;
-    uint256 public minUnfreezeBlocks; // Optional, as we can allow frozen validators to pay fee immediately
+    uint256 public unfreezePeriodBlocks; // Optional, as we can allow frozen validators to pay fee immediately
     uint256 public operatorDeregistrationPeriodBlocks;
     uint256 public validatorDeregistrationPeriodBlocks;
-
-    // TODO: address if val pub keys need to be indexed
-    event OperatorRegistered(address indexed operator);
-    event OperatorDeregistrationRequested(address indexed operator);
-    event OperatorDeregistered(address indexed operator);
-    event ValidatorRegistered(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorFrozen(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorUnfrozen(bytes indexed validatorPubKey, address indexed podOwner);
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
 
     function initialize(
         address _owner,
-        address _freezeOracle,
-        uint256 _unfreezeFee,
-        uint256 _minUnfreezeBlocks,
-        uint256 _operatorDeregistrationPeriodBlocks,
-        uint256 _validatorDeregistrationPeriodBlocks,
         IDelegationManager _delegationManager,
         IEigenPodManager _eigenPodManager,
-        IAVSDirectory _avsDirectory
+        IAVSDirectory _avsDirectory,
+        address _freezeOracle,
+        uint256 _unfreezeFee,
+        uint256 _unfreezePeriodBlocks,
+        uint256 _operatorDeregistrationPeriodBlocks,
+        uint256 _validatorDeregistrationPeriodBlocks,
+        string calldata metadataURI_
     ) external initializer {
-        delegationManager = _delegationManager;
-        eigenPodManager = _eigenPodManager;
-        _avsDirectory = _avsDirectory;
-        freezeOracle = _freezeOracle;
-        unfreezeFee = _unfreezeFee;
-        minUnfreezeBlocks = _minUnfreezeBlocks;
-        operatorDeregistrationPeriodBlocks = _operatorDeregistrationPeriodBlocks;
-        validatorDeregistrationPeriodBlocks = _validatorDeregistrationPeriodBlocks;
+        _setDelegationManager(_delegationManager);
+        _setEigenPodManager(_eigenPodManager);
+        _setAVSDirectory(_avsDirectory);
+        _setFreezeOracle(_freezeOracle);
+        _setUnfreezeFee(_unfreezeFee);
+        _setUnfreezePeriodBlocks(_unfreezePeriodBlocks);
+        _setOperatorDeregistrationPeriodBlocks(_operatorDeregistrationPeriodBlocks);
+        _setValidatorDeregistrationPeriodBlocks(_validatorDeregistrationPeriodBlocks);
+
+        if (bytes(metadataURI_).length > 0) {
+            _avsDirectory.updateAVSMetadataURI(metadataURI_);
+        }
+
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
     }
@@ -208,7 +196,6 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
             "validator must be registered or requested for deregistration");
         validatorRegistrations[valPubKey].status = VALIDATOR_REGISTRATION_STATUS.FROZEN;
         validatorRegistrations[valPubKey].freezeHeight = block.number;
-        // If validator was requested for deregistration, they must become unfrozen and request again 
         validatorRegistrations[valPubKey].deregistrationRequestHeight = 0;
         emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
@@ -216,13 +203,24 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
     function unfreeze(bytes calldata valPubKey) payable external {
         require(validatorRegistrations[valPubKey].status == VALIDATOR_REGISTRATION_STATUS.FROZEN,
             "validator must be frozen");
-        require(block.number >= validatorRegistrations[valPubKey].freezeHeight + minUnfreezeBlocks,
-            "unfreeze must be happen at least minUnfreezeBlocks after freeze height");
+        require(block.number >= validatorRegistrations[valPubKey].freezeHeight + unfreezePeriodBlocks,
+            "unfreeze must be happen at least unfreezePeriodBlocks after freeze height");
         require(msg.value >= unfreezeFee, "sender must pay unfreeze fee");
         validatorRegistrations[valPubKey].status = VALIDATOR_REGISTRATION_STATUS.REGISTERED;
         validatorRegistrations[valPubKey].freezeHeight = 0;
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
+
+    // function getOperatorRestakedStrategies(address operator) external view returns (address[] memory) {
+    //     if (operatorRegistrations[operator].status != OPERATOR_REGISTRATION_STATUS.REGISTERED) {
+    //         return new address[](0);
+    //     }
+    //     return _getRestakeableStrategies();
+    // }
+
+    // function getRestakeableStrategies() external view returns (address[] memory) {
+    //     return _getRestakeableStrategies();
+    // }
 
     function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory) {
         bool[] memory result = new bool[](valPubKeys.length);
@@ -245,8 +243,85 @@ contract MevCommitAVS is MevCommitAVSStorage, OwnableUpgradeable, UUPSUpgradeabl
         return isRegistered && isActive && isOperatorRegistered;
     }
 
+    /// @notice Returns eigenlayer AVS directory contract address to abide by IServiceManager interface.
     function avsDirectory() external view returns (address) {
         return address(eigenAVSDirectory);
+    }
+
+    function setMetadataURI(string memory metadataURI) external onlyOwner {
+        eigenAVSDirectory.updateAVSMetadataURI(metadataURI);
+    }
+
+    function setAVSDirectory(IAVSDirectory _avsDirectory) external onlyOwner {
+        _setAVSDirectory(_avsDirectory);
+    }
+
+    function setDelegationManager(IDelegationManager _delegationManager) external onlyOwner {
+        _setDelegationManager(_delegationManager);
+    }
+
+    function setEigenPodManager(IEigenPodManager _eigenPodManager) external onlyOwner {
+        _setEigenPodManager(_eigenPodManager);
+    }
+
+    function setFreezeOracle(address _freezeOracle) external onlyOwner {
+        _setFreezeOracle(_freezeOracle);
+    }
+
+    function setUnfreezeFee(uint256 _unfreezeFee) external onlyOwner {
+        _setUnfreezeFee(_unfreezeFee);
+    }
+
+    function setUnfreezePeriodBlocks(uint256 _unfreezePeriodBlocks) external onlyOwner {
+        _setUnfreezePeriodBlocks(_unfreezePeriodBlocks);
+    }
+
+    function setOperatorDeregistrationPeriodBlocks(uint256 _operatorDeregistrationPeriodBlocks) external onlyOwner {
+        _setOperatorDeregistrationPeriodBlocks(_operatorDeregistrationPeriodBlocks);
+    }
+
+    function setValidatorDeregistrationPeriodBlocks(uint256 _validatorDeregistrationPeriodBlocks) external onlyOwner {
+        _setValidatorDeregistrationPeriodBlocks(_validatorDeregistrationPeriodBlocks);
+    }
+
+    function _setAVSDirectory(IAVSDirectory _avsDirectory) private {
+        eigenAVSDirectory = _avsDirectory;
+        emit AVSDirectorySet(address(_avsDirectory));
+    }
+
+    function _setDelegationManager(IDelegationManager _delegationManager) private {
+        delegationManager = _delegationManager;
+        emit DelegationManagerSet(address(_delegationManager));
+    }
+
+    function _setEigenPodManager(IEigenPodManager _eigenPodManager) private {
+        eigenPodManager = _eigenPodManager;
+        emit EigenPodManagerSet(address(_eigenPodManager));
+    }
+
+    function _setFreezeOracle(address _freezeOracle) private {
+        freezeOracle = _freezeOracle;
+        emit FreezeOracleSet(_freezeOracle);
+    }
+
+    function _setUnfreezeFee(uint256 _unfreezeFee) private {
+        unfreezeFee = _unfreezeFee;
+        emit UnfreezeFeeSet(_unfreezeFee);
+    }
+
+    function _setUnfreezePeriodBlocks(uint256 _unfreezePeriodBlocks) private {
+        unfreezePeriodBlocks = _unfreezePeriodBlocks;
+        emit UnfreezePeriodBlocksSet(_unfreezePeriodBlocks);
+    }
+    
+    function _setOperatorDeregistrationPeriodBlocks(uint256 _operatorDeregistrationPeriodBlocks) private {
+        operatorDeregistrationPeriodBlocks = _operatorDeregistrationPeriodBlocks;
+        emit OperatorDeregistrationPeriodBlocksSet(_operatorDeregistrationPeriodBlocks);
+    }
+
+    function _setValidatorDeregistrationPeriodBlocks(uint256 _validatorDeregistrationPeriodBlocks) private {
+        validatorDeregistrationPeriodBlocks = _validatorDeregistrationPeriodBlocks;
+        emit ValidatorDeregistrationPeriodBlocksSet(_validatorDeregistrationPeriodBlocks);
     }
 
     fallback() external payable {
