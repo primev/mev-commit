@@ -9,3 +9,4 @@ environments:
     profile: "{{ profile }}"
     version: "{{ version }}"
     secrets: fetch
+    domain: testnet.mev-commit.xyz

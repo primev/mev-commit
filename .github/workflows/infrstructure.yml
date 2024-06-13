@@ -16,10 +16,6 @@ on:
           - testnet
           - stressnet
         default: 'devnet'
-      init:
-        description: 'Initialize'
-        type: boolean
-        default: false
       logs:
         description: 'Collect Logs'
         type: boolean
@@ -169,7 +165,7 @@ jobs:
         working-directory: infrastructure/nomad
 
       - name: Initialize Cluster
-        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' || github.event.inputs.init == 'true'}}
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' }}
         run: |
           START_TIME="$(date +%s)"
           ./cluster.sh init ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
@@ -188,7 +184,6 @@ jobs:
       - name: Notify - Deployment Successful
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
         run: |
-          INIT_DURATION=${INIT_DURATION:-N/A}
           DEPLOY_DURATION=${DEPLOY_DURATION:-N/A}
           RUNNER_DURATION=$(date -ud "@$(( $(date +%s) - $(date +%s -r /proc/$(pgrep -o -x "runner")/stat) ))" +'%H:%M:%S')
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -206,7 +201,7 @@ jobs:
                   },
                   {
                     "title": "Deployment Duration",
-                    "value": "Init: ${INIT_DURATION}\nDeploy: ${DEPLOY_DURATION}\nRunner: ${RUNNER_DURATION}",
+                    "value": "Deploy: ${DEPLOY_DURATION}\nRunner: ${RUNNER_DURATION}",
                     "short": false
                   }
                 ]

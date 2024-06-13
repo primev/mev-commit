@@ -45,9 +45,13 @@ archives:
     name_template: >-
       {{ .ProjectName }}-
       {{- .Binary }}_
-      {{- if .IsSnapshot }}{{ .ShortCommit }}
-      {{- else }}{{ .Version }}
-      {{ end }}
+      {{- with index .Env "RELEASE_VERSION" -}}
+        {{ . }}
+      {{- else -}}
+        {{- if .IsSnapshot }}{{ .ShortCommit }}
+        {{- else }}{{ .Version }}
+        {{- end }}
+      {{- end -}}
       {{- with index .Env "DIRTY_SUFFIX" -}}
       {{ . }}
       {{- end -}}_
@@ -71,9 +75,13 @@ archives:
     name_template: >-
       {{ .ProjectName }}-
       {{- .Binary }}_
-      {{- if .IsSnapshot }}{{ .ShortCommit }}
-      {{- else }}{{ .Version }}
-      {{ end }}
+      {{- with index .Env "RELEASE_VERSION" -}}
+        {{ . }}
+      {{- else -}}
+        {{- if .IsSnapshot }}{{ .ShortCommit }}
+        {{- else }}{{ .Version }}
+        {{- end }}
+      {{- end -}}
       {{- with index .Env "DIRTY_SUFFIX" -}}
       {{ . }}
       {{- end -}}_
@@ -90,9 +98,13 @@ archives:
 checksum:
   name_template: >-
     {{ .ProjectName }}_
-    {{- if .IsSnapshot }}{{ .ShortCommit }}
-    {{- else }}{{ .Version }}
-    {{- end }}
+    {{- with index .Env "RELEASE_VERSION" -}}
+      {{ . }}
+    {{- else -}}
+      {{- if .IsSnapshot }}{{ .ShortCommit }}
+      {{- else }}{{ .Version }}
+      {{- end }}
+    {{- end -}}
     {{- with index .Env "DIRTY_SUFFIX" -}}
     {{ . }}
     {{- end -}}
