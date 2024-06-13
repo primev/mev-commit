@@ -5,6 +5,7 @@
   vars:
     root_dir: "{{ playbook_dir }}/../../../"
     dist_dir: "/tmp/dist"
+    release: false
     build_artifacts: false
     build_templates: false
     aws_s3_bucket: "primev-infrastructure-artifacts"
@@ -48,6 +49,8 @@
       slurp:
         src: "{{ vault_init_file }}"
       register: vault_init
+      become: true
+      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
       no_log: true
 
     - name: Parse Vault Initialization File
@@ -57,20 +60,35 @@
 
     - name: Determine Artifacts Build Version
       ansible.builtin.shell: |
-        echo "$(git rev-parse --short HEAD)$(git diff --quiet && echo '-'$(date +%s) || echo '-dirty-'$(date +%s))"
+        if [ "{{ release | lower }}" = "false" ]; then
+          echo "$(git rev-parse --short HEAD)$(git diff --quiet && echo '-'$(date +%s) || echo '-dirty-'$(date +%s))"
+          exit 0
+        fi
+
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "Uncommitted changes detected."
+          exit 1
+        fi
+
+        VERSION="$(git describe --tags --exact-match 2>/dev/null)"
+        if [ -z "${VERSION}" ]; then
+          echo "Failed to get version tag."
+          exit 1
+        fi
+        echo "${VERSION}"
       args:
         executable: bash
       register: artifacts_build_version
       delegate_to: localhost
       run_once: true
       changed_when: false
-      when: version is not defined or version == ''
+      when: version is not defined or version == '' or release
 
     - name: Set Artifacts Build Version
       set_fact:
         build_artifacts: true
         version: "{{ artifacts_build_version.stdout }}"
-      when: version is not defined or version == ''
+      when: version is not defined or version == '' or release
 
     - name: Check Version
       ansible.builtin.assert:
@@ -328,6 +346,7 @@
         GOOS: linux
         GOARCH: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
         DIRTY_SUFFIX: "{{ environments[env].version | regex_search('-.*') | default('') }}"
+        RELEASE_VERSION: "{{ environments[env].version if release else '' }}"
       args:
         chdir: "{{ root_dir }}"
         executable: bash
@@ -445,8 +464,7 @@
         object: "{{ item.path | basename }}"
         src: "{{ item.path }}"
         mode: put
-        tags:
-          AutoDelete: "true"
+        tags: "{{ {'AutoDelete': 'true'} if env == 'devenv' else {} }}"
       loop: "{{ upload_artifacts.files }}"
       loop_control:
         label: "{{ item.path | basename }}"

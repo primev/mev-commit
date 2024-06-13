@@ -9,6 +9,7 @@ debug_flag=false
 no_logs_collection_flag=false
 force_build_templates_flag=false
 skip_certificates_setup_flag=false
+release_flag=false
 deploy_version="HEAD"
 environment_name="devenv"
 profile_name="devnet"
@@ -17,7 +18,7 @@ datadog_key=""
 help() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--release] [--debug]]"
     echo "$0 [destroy [--debug]] [--help]"
     echo "$0 --help"
     echo
@@ -34,6 +35,7 @@ help() {
     echo "    --force-build-templates       Force the build of all job templates before deployment."
     echo "    --no-logs-collection          Disable the collection of logs from deployed jobs."
     echo "    --datadog-key <key>           Datadog API key."
+    echo "    --release                     It will ignore the specified deployment version and use the current HEAD tag as the build version."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
     echo "  destroy                         Destroy the whole cluster."
@@ -74,7 +76,7 @@ help() {
 usage() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--release] [--debug]]"
     echo "$0 [destroy [--debug]] [--help]"
     echo "$0 --help"
     exit 1
@@ -213,6 +215,14 @@ parse_args() {
                         usage
                     fi
                 fi
+                if [[ $# -gt 0 && $1 == "--release" ]]; then
+                    release_flag=true
+                    shift
+                     if [[ "$deploy_version" != "HEAD" ]]; then
+                        echo "Warning: deploy version ignored, using current HEAD."
+                        deploy_version="HEAD"
+                    fi
+                fi
                 if [[ $# -gt 0 && $1 == "--debug" ]]; then
                     debug_flag=true
                     shift
@@ -260,6 +270,7 @@ main() {
             [[ "${no_logs_collection_flag}" == true ]] && flags+=("--extra-vars" "no_logs_collection=true")
             [[ "${force_build_templates_flag}" == true ]] && flags+=("--extra-vars" "build_templates=true")
             [[ -n "${datadog_key}" ]] && flags+=("--extra-vars" "datadog_key=${datadog_key}")
+            [[ "${release_flag}" == true ]] && flags+=("--extra-vars" "release=true")
             ;;
         "${destroy_flag}")
             playbook+="destroy.yml"
