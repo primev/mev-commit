@@ -19,6 +19,8 @@ import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 // TODO: Decide of LST delegation is v1 or next version. See chooseValidator in doc
 // TODO: Note and document everything from https://docs.eigenlayer.xyz/eigenlayer/avs-guides/avs-dashboard-onboarding
 // TODO: Confirm all setters are present and in right order, confirm interface is fully populated
+// TODO: Non reentrant or is this not relevant? 
+// TODO: Decide how multisig will tie into this contract, likely use gnosis safe? 
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     IDelegationManager internal _delegationManager;
