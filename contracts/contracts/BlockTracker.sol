@@ -118,9 +118,6 @@ contract BlockTracker is OwnableUpgradeable {
         // Check if the block number is valid (not 0)
         require(blockNumber != 0, "Invalid block number");
 
-        // Check if the winner address is valid (not the zero address)
-        require(winner != address(0), "Invalid winner address");
-
         blockWinners[blockNumber] = winner;
     }
 
