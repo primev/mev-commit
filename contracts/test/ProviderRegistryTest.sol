@@ -19,6 +19,7 @@ contract ProviderRegistryTest is Test {
     BidderRegistry bidderRegistry;
     PreConfCommitmentStore preConfCommitmentStore;
     BlockTracker blockTracker;
+    uint256 blocksPerWindow;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount);
 
     function setUp() public {
@@ -26,6 +27,7 @@ contract ProviderRegistryTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
+        blocksPerWindow = 10;
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
@@ -40,7 +42,7 @@ contract ProviderRegistryTest is Test {
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, 
-            (address(this))) 
+            (address(this), blocksPerWindow)) 
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
@@ -51,7 +53,8 @@ contract ProviderRegistryTest is Test {
             feeRecipient, 
             feePercent, 
             address(this), 
-            address(blockTracker))) 
+            address(blockTracker),
+            blocksPerWindow)) 
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
@@ -63,7 +66,8 @@ contract ProviderRegistryTest is Test {
             address(blockTracker), // Block Tracker
             feeRecipient, // Oracle
             address(this),
-            500))
+            500,
+            blocksPerWindow))
         );
         preConfCommitmentStore = PreConfCommitmentStore(payable(preconfStoreProxy));
 

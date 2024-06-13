@@ -77,15 +77,6 @@ contract BlockTracker is OwnableUpgradeable {
     }
 
     /**
-     * @dev Returns the window number corresponding to a given block number.
-     * @param blockNumber The block number.
-     * @return The window number.
-     */
-    function getWindowFromBlockNumber(uint256 blockNumber) external view returns (uint256) {
-        return (blockNumber - 1) / blocksPerWindow + 1;
-    }
-
-    /**
      * @dev Returns the number of blocks per window.
      * @return The number of blocks per window.
      */

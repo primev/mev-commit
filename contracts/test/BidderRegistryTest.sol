@@ -14,6 +14,7 @@ contract BidderRegistryTest is Test {
     uint256 internal minStake;
     address internal bidder;
     address internal feeRecipient;
+    uint256 blocksPerWindow;
     BlockTracker internal blockTracker;
 
     /// @dev Event emitted when a bidder is registered with their staked amount
@@ -24,16 +25,16 @@ contract BidderRegistryTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-
+        blocksPerWindow = 10;
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (address(this)))
+            abi.encodeCall(BlockTracker.initialize, (address(this), blocksPerWindow))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
-            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, address(this), address(blockTracker)))
+            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, address(this), address(blockTracker), blocksPerWindow))
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
@@ -157,7 +158,6 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForSpecificWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
@@ -188,7 +188,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForSpecificWindow{value: 64 ether}(nextWindow);
 
         address provider = vm.addr(4);
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
@@ -245,7 +244,6 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 bidID = keccak256("1234");
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
@@ -273,7 +271,6 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         uint256 balanceBefore = address(provider).balance;
         bytes32 bidID = keccak256("1234");
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
@@ -307,7 +304,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForSpecificWindow{value: 128 ether}(nextWindow);
         uint256 balanceBefore = address(bidder).balance;
         bytes32 bidID = keccak256("1234");
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");

@@ -103,6 +103,19 @@
   },
   {
     "type": "function",
+    "name": "blocksPerWindow",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "depositForSpecificWindow",
     "inputs": [
       {
@@ -237,6 +250,11 @@
         "name": "_blockTracker",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_blocksPerWindow",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
