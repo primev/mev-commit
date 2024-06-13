@@ -16,7 +16,7 @@ import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 // TODO: order of funcs, finish interfaces, comments for everything etc.
 // TODO: use tests from other PR? 
 // TODO: test upgradability before Holesky deploy
-// TODO: Do all this strategy param stuff, and decide of LST delegation is v1 or next version. See chooseValidator in doc
+// TODO: Decide of LST delegation is v1 or next version. See chooseValidator in doc
 // TODO: Note and document everything from https://docs.eigenlayer.xyz/eigenlayer/avs-guides/avs-dashboard-onboarding
 // TODO: Confirm all setters are present and in right order, confirm interface is fully populated
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
@@ -199,6 +199,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         delete validatorRegistrations[valPubKey];
         emit ValidatorDeregistered(valPubKey, podOwner);
     }
+
+    // TODO: Implement LST restakers having to choose validator. 
+    // There will be additional storage field for this. 
+    // Make sure to check supported strategies for this. 
+
+    // function chooseValidator() // includes choosing new val
+    // function removeValidatorChoice()
 
     function freeze(
         bytes calldata valPubKey
