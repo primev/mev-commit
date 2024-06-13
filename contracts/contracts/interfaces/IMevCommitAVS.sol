@@ -6,7 +6,7 @@ import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISi
 interface IMevCommitAVS {
 
     /// @notice Enum for operator registration status with MevCommitAVS
-    enum OPERATOR_REGISTRATION_STATUS {
+    enum OperatorRegistrationStatus {
         // Operator is not registered with MevCommitAVS
         NOT_REGISTERED,
         // Operator is registered with MevCommitAVS
@@ -16,7 +16,7 @@ interface IMevCommitAVS {
     }
 
     /// @notice Enum for validator registration status with MevCommitAVS
-    enum VALIDATOR_REGISTRATION_STATUS {
+    enum ValidatorRegistrationStatus {
         // Validator is not registered with MevCommitAVS
         NOT_REGISTERED,
         // Validator is registered with MevCommitAVS
@@ -30,7 +30,7 @@ interface IMevCommitAVS {
     /// @notice Struct representing MevCommitAVS registration info for an operator
     struct OperatorRegistrationInfo {
         // Status of the operator's registration with MevCommitAVS
-        OPERATOR_REGISTRATION_STATUS status;
+        OperatorRegistrationStatus status;
         // Height at which the operator requested deregistration. Only non-zero if status is REQ_DEREGISTRATION
         uint256 deregistrationRequestHeight;
     }
@@ -38,7 +38,7 @@ interface IMevCommitAVS {
     /// @notice Struct representing MevCommitAVS registration info for a validator
     struct ValidatorRegistrationInfo {
         // Status of the validator's registration with MevCommitAVS
-        VALIDATOR_REGISTRATION_STATUS status;
+        ValidatorRegistrationStatus status;
         // Address of the pod owner of the validator
         address podOwner;
         // Height at which the validator was frozen. Only non-zero if status is FROZEN
@@ -79,6 +79,9 @@ interface IMevCommitAVS {
 
     /// @notice Emitted when the EigenPod manager is set
     event EigenPodManagerSet(address indexed eigenPodManager);
+
+    /// @notice Emitted when the restakeable strategies are set
+    event RestakeableStrategiesSet(address[] indexed restakeableStrategies);
 
     /// @notice Emitted when the freeze oracle is set
     event FreezeOracleSet(address indexed freezeOracle);
