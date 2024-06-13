@@ -23,10 +23,11 @@ contract DeployScript is Script {
         );
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
+        uint256 blocksPerWindow = 10;
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (msg.sender))
+            abi.encodeCall(BlockTracker.initialize, (msg.sender, blocksPerWindow))
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
         console.log("BlockTracker:", address(blockTracker));

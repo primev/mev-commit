@@ -34,9 +34,9 @@ contract BlockTracker is OwnableUpgradeable {
      * @dev Initializes the BlockTracker contract with the specified owner.
      * @param _owner The address of the contract owner.
      */
-    function initialize(address _owner) external initializer {
+    function initialize(address _owner, uint256 _blocksPerWindow) external initializer {
         currentWindow = 1;
-        blocksPerWindow = 10;
+        blocksPerWindow = _blocksPerWindow;
         __Ownable_init(_owner);
     }
 
