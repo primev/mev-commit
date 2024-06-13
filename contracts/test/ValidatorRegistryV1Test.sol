@@ -2,12 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/ValidatorRegistry.sol";
+import "../contracts/ValidatorRegistryV1.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-contract ValidatorRegistryTest is Test {
-    ValidatorRegistry public validatorRegistry;
+contract ValidatorRegistryV1Test is Test {
+    ValidatorRegistryV1 public validatorRegistry;
     address public owner;
     address public user1;
     address public user2;
@@ -32,10 +32,10 @@ contract ValidatorRegistryTest is Test {
         assertEq(user2BLSKey.length, 48);
         
         address proxy = Upgrades.deployUUPSProxy(
-            "ValidatorRegistry.sol",
-            abi.encodeCall(ValidatorRegistry.initialize, (MIN_STAKE, UNSTAKE_PERIOD, owner))
+            "ValidatorRegistryV1.sol",
+            abi.encodeCall(ValidatorRegistryV1.initialize, (MIN_STAKE, UNSTAKE_PERIOD, owner))
         );
-        validatorRegistry = ValidatorRegistry(payable(proxy));
+        validatorRegistry = ValidatorRegistryV1(payable(proxy));
     }
 
     function testSecondInitialize() public {
@@ -106,7 +106,7 @@ contract ValidatorRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user2);
-        vm.expectRevert("Not authorized to unstake validator. Must be stake originator");
+        vm.expectRevert("Not authorized to unstake validator. Must be stake originator or owner");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }

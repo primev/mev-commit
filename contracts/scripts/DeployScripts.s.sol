@@ -6,8 +6,7 @@ import "../contracts/ProviderRegistry.sol";
 import "../contracts/PreConfCommitmentStore.sol";
 import "../contracts/Oracle.sol";
 import "../contracts/Whitelist.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "../contracts/ValidatorRegistry.sol";
+import "../contracts/ValidatorRegistryV1.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import "../contracts/BlockTracker.sol";
 
@@ -132,7 +131,7 @@ contract DeployWhitelist is Script {
 }
 
 // Deploys ValidatorRegistry contract via UUPS proxy
-contract DeployValidatorRegistry is Script {
+contract DeployValidatorRegistryV1 is Script {
     function run() external {
         vm.startBroadcast();
 
@@ -142,19 +141,19 @@ contract DeployValidatorRegistry is Script {
 
         // Can later be upgraded with https://docs.openzeppelin.com/upgrades-plugins/1.x/api-foundry-upgrades#Upgrades-upgradeProxy-address-string-bytes-
         address proxy = Upgrades.deployUUPSProxy(
-            "ValidatorRegistry.sol",
+            "ValidatorRegistryV1.sol",
             abi.encodeCall(
-                ValidatorRegistry.initialize,
+                ValidatorRegistryV1.initialize,
                 (3 ether, unstakePeriodBlocks, msg.sender)
             )
         );
         console.log(
-            "ValidatorRegistry UUPS proxy deployed to:",
+            "ValidatorRegistryV1 UUPS proxy deployed to:",
             address(proxy)
         );
 
-        ValidatorRegistry validatorRegistry = ValidatorRegistry(payable(proxy));
-        console.log("ValidatorRegistry owner:", validatorRegistry.owner());
+        ValidatorRegistryV1 validatorRegistry = ValidatorRegistryV1(payable(proxy));
+        console.log("ValidatorRegistryV1 owner:", validatorRegistry.owner());
 
         vm.stopBroadcast();
     }

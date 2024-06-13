@@ -3,11 +3,11 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import "../contracts/ValidatorRegistry.sol";
+import "../contracts/ValidatorRegistryV1.sol";
 
 abstract contract ExampleScript is Script {
 
-    ValidatorRegistry internal _validatorRegistry = ValidatorRegistry(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512);
+    ValidatorRegistryV1 internal _validatorRegistry = ValidatorRegistryV1(payable(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512));
     address public defaultEOA = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     function checkStaking(bytes[] memory blsKeys) public view {

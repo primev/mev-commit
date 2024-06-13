@@ -6,11 +6,12 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/ut
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {EnumerableMap} from "./utils/EnumerableMap.sol";
 
-/// @title Validator Registry
-/// @notice Logic contract enabling L1 validators to opt-in to mev-commit via staking. 
+/// @title Validator Registry v1
+/// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
+/// via simply staking ETH outside what's staked with the beacon chain.
 /// @dev Slashing is not yet implemented for this contract, hence it is upgradable to incorporate slashing in the future.
-/// @dev This contract is meant to be deployed via a proxy contract.
-contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
+/// @dev This contract is meant to be deployed via UUPS proxy contract on mainnet.
+contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
 
     /// @dev Index tracking changes in the set of staked (opted-in) validators.
     /// This enables optimistic locking for batch queries.
