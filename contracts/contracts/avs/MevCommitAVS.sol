@@ -209,6 +209,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
     // function chooseValidator() // includes choosing new val
     // function removeValidatorChoice()
 
+    // TODO: will need DelegationManager.getDelegatableShares, and/or strategyManager.getDeposits and/or eigenPodManager.podOwnerShares
+    // TODO: Do we also want to check/record shares for native ETH staking?
+
     function freeze(
         bytes calldata valPubKey
     ) external onlyFreezeOracle() whenNotPaused() {
