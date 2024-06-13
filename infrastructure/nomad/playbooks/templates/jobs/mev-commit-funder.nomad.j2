@@ -22,7 +22,12 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
+          {%- raw %}
           XDG_CONFIG_HOME="local/.config"
+          KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
+          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          {% endraw %}
         EOH
         destination = "secrets/.env"
         env = true
@@ -33,7 +38,12 @@ job "{{ job.name }}" {
           #!/usr/bin/env bash
 
           chmod +x local/foundry.sh && local/foundry.sh
-          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          ${XDG_CONFIG_HOME}/.foundry/bin/foundryup 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to install foundry tools"
+            exit 1
+          fi
           export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
 
           {% raw %}
@@ -43,41 +53,40 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          {{- $idx := add (env "NOMAD_ALLOC_INDEX" | parseInt) 1 }}
-          {{- range nomadService (printf "%s%d" "{% endraw %}{{ job.target_name }}{% raw %}" $idx) }}
+          mkdir -p "${KEYSTORE_PATH}" > /dev/null 2>&1
+          {{- with secret "secret/data/mev-commit" }}
+          KEYSTORE_FILE="${KEYSTORE_PATH}/${KEYSTORE_FILENAME}"
+          echo '{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${KEYSTORE_FILE}"
+          {{ end }}
+
+          {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
             {{- if contains "http" .Tags }}
-          START_TIME=$(date +%s)
-          TIMEOUT=60
+          URL="https://{{ .Address }}:{{ .Port }}/health"
+          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable endpoint: ${URL}"
+            exit 1
+          fi
 
-          while : ; do
-              STATUS_CODE=$(curl -o /dev/null -s -w "%%{http_code}\n" https://{{ .Address }}:{{ .Port }}/health)
-              if [ "${STATUS_CODE}" -eq 200 ]; then
-                  break
-              else
-                  CURRENT_TIME=$(date +%s)
-                  ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+              {{- range nomadService "mev-commit-geth-bootnode1" }}
+                {{- if contains "http" .Tags }}
+          ADDRESS=$(cat "${KEYSTORE_FILE}" | jq -r '.address')
+          cast send \
+            --keystore "${KEYSTORE_FILE}" \
+            --password "${KEYSTORE_PASSWORD}" \
+            --priority-gas-price 2000000000 \
+            --gas-price 5000000000 \
+            --value 1000ether \
+            --rpc-url http://{{ .Address }}:{{ .Port }} \
+            "${ADDRESS}"
 
-                  if [ "${ELAPSED_TIME}" -ge "${TIMEOUT}" ]; then
-                      echo "Timeout reached; the node is unreachable."
-                      exit 1
-                  fi
-                  sleep 1
-              fi
-          done
-
-          TOPOLOGY=$(curl -s https://{{ .Address }}:{{ .Port }}/v1/debug/topology)
-          ETHEREUM_ADDRESS=$(echo ${TOPOLOGY} | jq -r '.topology.self["Ethereum Address"]')
-
-            {{- range nomadService "mev-commit-geth-bootnode1" }}
-              {{- if contains "http" .Tags }}
-            cast send \
-                 --priority-gas-price 2000000000 \
-                 --gas-price 5000000000 \
-                 --rpc-url http://{{ .Address }}:{{ .Port }} \
-                 --private-key 0x7c9bf0f015874594d321c1c01ada3166c3509bbd91f76f9e4d7380c2df269c55 ${ETHEREUM_ADDRESS} \
-                 --value 1000ether
+            if [ $? -eq 0 ]; then
+              echo "Funds successfully sent to: ${ADDRESS}"
+            else
+              echo "Failed to send funds to: ${ADDRESS}"
+              exit 1
+            fi
+                {{- end }}
               {{- end }}
-            {{- end }}
 
             {{- end }}
           {{- end }}

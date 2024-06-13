@@ -213,7 +213,7 @@ func (c *command) importPrivateKey(ctx *cli.Context) error {
 		return fmt.Errorf("failed to import private key: %v", err)
 	}
 
-	c.logger.Info("account imported successfully", "address", account.Address.Hex())
+	c.logger.Info("account imported successfully", "address", account.Address.Hex(), "path", account.URL.Path)
 	return nil
 }
 

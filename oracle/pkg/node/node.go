@@ -204,6 +204,7 @@ func NewNode(opts *Options) (*Node, error) {
 	if opts.OverrideWinners != nil && len(opts.OverrideWinners) > 0 {
 		listenerL1Client = &winnerOverrideL1Client{EthClient: listenerL1Client, winners: opts.OverrideWinners}
 		for _, winner := range opts.OverrideWinners {
+			nd.logger.Info("setting builder mapping", "builderName", winner, "builderAddress", winner)
 			err := setBuilderMapping(
 				ctx,
 				blockTrackerTransactor,
@@ -414,12 +415,13 @@ func setBuilderMapping(
 
 	txn, err := bt.AddBuilderAddress(builderName, common.HexToAddress(builderAddress))
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to add builder address: %w", err)
 	}
 
+	logger.Info("waiting for tx to be mined", "txHash", txn.Hash().Hex(), "nonce", txn.Nonce())
 	_, err = bind.WaitMined(ctx, client, txn)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to wait for tx to be minted: %w", err)
 	}
 
 	return nil

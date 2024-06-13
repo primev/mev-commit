@@ -1,0 +1,11 @@
+environments:
+  devenv:
+    chain_id: 17864
+    profile: "{{ profile }}"
+    version: "{{ version }}"
+    secrets: generate
+  testenv:
+    chain_id: 17864
+    profile: "{{ profile }}"
+    version: "{{ version }}"
+    secrets: fetch

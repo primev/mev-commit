@@ -1,7 +1,7 @@
 version: 1
 
 project_name: provider-emulator
-dist: /tmp/goreleaser/provider-emulator
+dist: /tmp/dist/provider-emulator
 
 builds:
   - env:

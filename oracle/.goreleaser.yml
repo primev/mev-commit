@@ -1,7 +1,7 @@
 version: 1
 
 project_name: mev-commit-oracle
-dist: /tmp/goreleaser/mev-commit-oracle
+dist: /tmp/dist/mev-commit-oracle
 
 builds:
   - env:

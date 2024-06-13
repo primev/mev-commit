@@ -43,7 +43,11 @@ job "{{ job.name }}" {
       {% endif %}
 
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_x86_64.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_{{ version }}.json"
+      }
+
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
 
       template {
@@ -51,7 +55,7 @@ job "{{ job.name }}" {
           {%- raw %}
           GETH_DATA_DIR="local/data-{{ env "NOMAD_ALLOC_INDEX" }}"
           {% endraw %}
-          GENESIS_L1_PATH="local/genesis.json"
+          GENESIS_L1_PATH="local/genesis_{{ version }}.json"
           GETH_BIN_PATH="local/mev-commit-geth"
           NODE_IP="{{ job.env['ip'] }}"
           {% if job.env['type'] != 'signer' %}
@@ -71,8 +75,11 @@ job "{{ job.name }}" {
           BOOT_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key }}{{ end }}"
           {% endraw %}
           {% elif job.env['type'] == 'signer' %}
-          MEV_COMMIT_GETH_PASSWORD="{% raw %}{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_signer{% endraw %}{{ job.name[-1] }}{% raw %}_keystore_password }}{{ end }}{% endraw %}"
-          BLOCK_SIGNER_ADDRESS="{{ job.env['block_address'] }}"
+          {%- raw %}
+          GETH_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
+          GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          {% endraw %}
           {% elif job.env['type'] == 'member' %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
           {% endif %}
@@ -80,7 +87,7 @@ job "{{ job.name }}" {
           {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "p2p" .Tags }}
-          BOOTNODE_ENDPOINT="enode://34a2a388ad31ca37f127bb9ffe93758ee711c5c2277dff6aff2e359bcf2c9509ea55034196788dbd59ed70861f523c1c03d54f1eabb2b4a5c1c129d966fe1e65@{{ .Address }}:{{ .Port }}"
+          BOOTNODE_ENDPOINT="enode://{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key_address }}{{ end }}@{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {% endraw %}
@@ -94,7 +101,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           #!/usr/bin/env bash
 
-          {% raw %}
+          {%- raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
@@ -103,11 +110,19 @@ job "{{ job.name }}" {
           {% endraw %}
 
           mkdir -p "${GETH_DATA_DIR}" > /dev/null 2>&1
-          {% if job.env['type'] == 'signer' %}
-          if [ -z "$(ls -A ${GETH_DATA_DIR}/keystore 2> /dev/null)" ]; then
-            mv local/signer-node{{ job.name[-1] }}/keystore "${GETH_DATA_DIR}"
-          fi
+
+          {% if job.artifacts | selectattr('keystore', 'defined') | list | length > 0 %}
+          mkdir -p "${GETH_KEYSTORE_DIR}" > /dev/null 2>&1
+          {%- raw %}
+            {{- with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME}"
+            {{ end }}
+          {% endraw %}
+            {% if job.env['type'] == 'signer' %}
+          export BLOCK_SIGNER_ADDRESS="$(cat ${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME} | jq -r '.address')"
+            {% endif %}
           {% endif %}
+
           chmod +x local/mev-commit-geth local/entrypoint.sh
           local/entrypoint.sh
         EOH
