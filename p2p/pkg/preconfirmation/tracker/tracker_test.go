@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
@@ -40,10 +41,16 @@ func TestTracker(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	evtMgr := events.NewListener(
 		util.NewTestLogger(os.Stdout),
 		&btABI,
 		&pcABI,
+		&brABI,
 	)
 
 	st := store.NewStore()
@@ -54,6 +61,7 @@ func TestTracker(t *testing.T) {
 
 	tracker := preconftracker.NewTracker(
 		p2p.PeerTypeBidder,
+		common.HexToAddress("0x1234"),
 		evtMgr,
 		st,
 		contract,

@@ -70,7 +70,7 @@ func TestStore(t *testing.T) {
 				common.BigToHash(big.NewInt(int64(i))),
 			)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatal("failed to set commitment index")
 			}
 		}
 
@@ -106,7 +106,7 @@ func TestStore(t *testing.T) {
 		for i := 6; i <= 10; i++ {
 			err := st.DeleteCommitmentByDigest(2, common.BigToHash(big.NewInt(int64(i))))
 			if err != nil {
-				t.Fatal(err)
+				t.Fatal("failed to delete commitment")
 			}
 		}
 
