@@ -41,6 +41,17 @@ job "{{ job.name }}" {
         sidecar = true
       }
 
+      {% if profile == 'testnet' %}
+      resources {
+        cores = 4
+        memory = 8192
+      }
+      {% elif profile == 'stressnet' %}
+      resources {
+        memory = 4096
+      }
+      {% endif %}
+
       {% if profile == 'stressnet' %}
       resources {
         memory = 4096
@@ -122,7 +133,7 @@ job "{{ job.name }}" {
       {% if profile == 'testnet' %}
       resources {
         cores = 4
-        memory = 16384
+        memory = 8192
       }
       {% elif profile == 'stressnet' %}
       resources {
