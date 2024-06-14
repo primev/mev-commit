@@ -119,6 +119,17 @@ job "{{ job.name }}" {
     task "oracle" {
       driver = "exec"
 
+      {% if profile == 'testnet' %}
+      resources {
+        cores = 4
+        memory = 16384
+      }
+      {% elif profile == 'stressnet' %}
+      resources {
+        memory = 1024
+      }
+      {% endif %}
+
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-oracle_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
@@ -126,12 +137,6 @@ job "{{ job.name }}" {
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/contracts_{{ version }}.tar.gz"
       }
-
-      {% if profile == 'stressnet' %}
-      resources {
-        memory = 1024
-      }
-      {% endif %}
 
       template {
         data = <<-EOH
