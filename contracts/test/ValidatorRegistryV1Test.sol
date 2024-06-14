@@ -89,6 +89,32 @@ contract ValidatorRegistryV1Test is Test {
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
     }
 
+    function testDelegateStake() public {
+        vm.deal(owner, 9 ether);
+        assertEq(address(owner).balance, 9 ether);
+
+        bytes[] memory validators = new bytes[](2);
+        validators[0] = user1BLSKey;
+        validators[1] = user2BLSKey;
+
+        vm.startPrank(owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user1BLSKey, MIN_STAKE);
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user2BLSKey, MIN_STAKE);
+        validatorRegistry.delegateStake{value: 2*MIN_STAKE}(validators, user1); // Both validators are opted-in on user1's behalf
+
+        vm.stopPrank();
+
+        assertEq(address(owner).balance, 7 ether);
+        
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertEq(validatorRegistry.getStakedAmount(user2BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isStaked(user1BLSKey));
+        assertTrue(validatorRegistry.isStaked(user2BLSKey));
+    }
+
     function testUnstakeInsufficientFunds() public {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user2BLSKey;

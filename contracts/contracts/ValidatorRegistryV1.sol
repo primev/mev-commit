@@ -78,8 +78,7 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
         _stake(valBLSPubKeys, msg.sender);
     }
 
-    // TODO: Add unit tests for this function
-    function delegateStake(bytes[] calldata valBLSPubKeys, address stakeOriginator) external onlyOwner {
+    function delegateStake(bytes[] calldata valBLSPubKeys, address stakeOriginator) external payable onlyOwner {
         _stake(valBLSPubKeys, stakeOriginator);
     }
 
