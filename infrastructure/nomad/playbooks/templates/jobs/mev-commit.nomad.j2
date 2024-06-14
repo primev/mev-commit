@@ -36,15 +36,20 @@ job "{{ job.name }}" {
     task "node" {
       driver = "exec"
 
-      artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      {% if profile == 'testnet' %}
+      resources {
+        cores = 4
+        memory = 8192
       }
-
-      {% if profile == 'stressnet' %}
+      {% elif profile == 'stressnet' %}
       resources {
         memory = 4096
       }
       {% endif %}
+
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
 
       template {
         data = <<-EOH
