@@ -126,11 +126,8 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
 
 elif [ "${DEPLOY_TYPE}" = "validator-registry" ]; then
     echo "Deploying validator registry contract"
-    # Setting gas params manually ensures inclusion to mev-commit chain, recent bug in forge sets priority fee to 0.
     "${FORGE_BIN_PATH}" script \
-        --priority-gas-price 2000000000 \
-        --with-gas-price 5000000000 \
-        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployValidatorRegistry \
+        "${SCRIPT_PATH_PREFIX}"DeployValidatorRegistryV1.s.sol:Deploy \
         --rpc-url "${RPC_URL}" \
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \
@@ -140,5 +137,9 @@ elif [ "${DEPLOY_TYPE}" = "validator-registry" ]; then
         -vvvv \
         --use 0.8.23 \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
-        --via-ir
+        --via-ir \
+        --skip-simulation \
+        --force \
+        --json \
+        --legacy
 fi 
