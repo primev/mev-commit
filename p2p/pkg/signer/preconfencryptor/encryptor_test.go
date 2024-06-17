@@ -165,15 +165,15 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "a0327970258c49b922969af74d60299a648c50f69a2d98d6ab43f32f64ac2100"
+		expHash := "56c06a13be335eba981b780ea45dff258a7c429d0e9d993235ef2d3a7e435df8"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "a0327970258c49b922969af74d60299a648c50f69a2d98d6ab43f32f64ac2100"
-		bidSignature := "876c1216c232828be9fabb14981c8788cebdf6ed66e563c4a2ccc82a577d052543207aeeb158a32d8977736797ae250c63ef69a82cd85b727da21e20d030fb311b"
+		bidHash := "56c06a13be335eba981b780ea45dff258a7c429d0e9d993235ef2d3a7e435df8"
+		bidSignature := "2e7df27808c72d7d5b2543bb63b06c0ae2144e021593b8d2a7cca6a3fb2d9c4b1a82dd2a07266de9364d255bdb709476ad96b826ec855efb528eaff66682997e1c"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
 		if err != nil {
@@ -207,7 +207,7 @@ func TestHashing(t *testing.T) {
 		}
 
 		hashStr := hex.EncodeToString(hash)
-		expHash := "65618f8f9e46b8f0790c621ca2989cfe4c949594a4a3a81261baa682e8883840"
+		expHash := "9d954942ad3f6cb41ccd029869be7b28036270b4754665a3783c2d6bf0ef7d08"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}

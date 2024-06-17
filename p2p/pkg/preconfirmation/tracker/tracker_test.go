@@ -8,7 +8,6 @@ import (
 	"io"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -144,11 +143,10 @@ func TestTracker(t *testing.T) {
 		}
 	}
 
-	amount, err := strconv.ParseUint(commitments[4].PreConfirmation.Bid.BidAmount, 10, 64)
-	if err != nil {
-		t.Fatal(err)
+	amount, ok := new(big.Int).SetString(commitments[4].PreConfirmation.Bid.BidAmount, 10)
+	if !ok {
+		t.Fatalf("failed to parse bid amount %s", commitments[4].PreConfirmation.Bid.BidAmount)
 	}
-
 	// this commitment should not be opened again
 	err = publishCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
@@ -193,7 +191,7 @@ func TestTracker(t *testing.T) {
 				oc.encryptedCommitmentIndex,
 			)
 		}
-		if c.PreConfirmation.Bid.BidAmount != strconv.Itoa(int(oc.bid)) {
+		if c.PreConfirmation.Bid.BidAmount != oc.bid.String() {
 			t.Fatalf("expected bid %s, got %d", c.PreConfirmation.Bid.BidAmount, oc.bid)
 		}
 		if c.PreConfirmation.Bid.BlockNumber != int64(oc.blockNumber) {
@@ -266,7 +264,7 @@ func TestTracker(t *testing.T) {
 				oc.encryptedCommitmentIndex,
 			)
 		}
-		if c.PreConfirmation.Bid.BidAmount != strconv.Itoa(int(oc.bid)) {
+		if c.PreConfirmation.Bid.BidAmount != oc.bid.String() {
 			t.Fatalf("expected bid %s, got %d", c.PreConfirmation.Bid.BidAmount, oc.bid)
 		}
 		if c.PreConfirmation.Bid.BlockNumber != int64(oc.blockNumber) {
@@ -315,7 +313,7 @@ func TestTracker(t *testing.T) {
 
 type openedCommitment struct {
 	encryptedCommitmentIndex [32]byte
-	bid                      uint64
+	bid                      *big.Int
 	blockNumber              uint64
 	txnHash                  string
 	decayStartTimeStamp      uint64
@@ -332,7 +330,7 @@ type testPreconfContract struct {
 func (t *testPreconfContract) OpenCommitment(
 	_ *bind.TransactOpts,
 	encryptedCommitmentIndex [32]byte,
-	bid uint64,
+	bid *big.Int,
 	blockNumber uint64,
 	txnHash string,
 	decayStartTimeStamp uint64,

@@ -292,7 +292,7 @@ contract BidderRegistry is
      */
     function OpenBid(
         bytes32 commitmentDigest,
-        uint64 bid,
+        uint256 bid,
         address bidder,
         uint64 blockNumber
     ) external onlyPreConfirmationEngine {
