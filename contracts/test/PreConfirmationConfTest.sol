@@ -10,6 +10,7 @@ import "../contracts/BlockTracker.sol";
 import "forge-std/console.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
 
 contract TestPreConfCommitmentStore is Test {
     struct TestCommitment {
@@ -34,7 +35,7 @@ contract TestPreConfCommitmentStore is Test {
     address internal feeRecipient;
     ProviderRegistry internal providerRegistry;
     BlockTracker internal blockTracker;
-
+    uint256 internal blocksPerWindow;
     BidderRegistry internal bidderRegistry;
 
     function setUp() public {
@@ -55,6 +56,7 @@ contract TestPreConfCommitmentStore is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
+        blocksPerWindow = 10;
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
@@ -67,7 +69,10 @@ contract TestPreConfCommitmentStore is Test {
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (address(this)))
+            abi.encodeCall(
+                BlockTracker.initialize,
+                (address(this), blocksPerWindow)
+            )
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
@@ -80,7 +85,8 @@ contract TestPreConfCommitmentStore is Test {
                     feeRecipient,
                     feePercent,
                     address(this),
-                    address(blockTracker)
+                    address(blockTracker),
+                    blocksPerWindow
                 )
             )
         );
@@ -96,7 +102,8 @@ contract TestPreConfCommitmentStore is Test {
                     feeRecipient, // Oracle
                     address(this),
                     address(blockTracker), // Block Tracker
-                    500
+                    500,
+                    blocksPerWindow
                 )
             ) // Commitment Dispatch Window
         );
@@ -178,9 +185,7 @@ contract TestPreConfCommitmentStore is Test {
         vm.prank(committer);
 
         vm.warp(1000);
-        vm.expectRevert(
-            "Invalid dispatch timestamp"
-        );
+        vm.expectRevert("Invalid dispatch timestamp");
 
         preConfCommitmentStore.storeEncryptedCommitment(
             commitmentDigest,
@@ -189,7 +194,9 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow() public {
+    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
+        public
+    {
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
         );
@@ -204,9 +211,7 @@ contract TestPreConfCommitmentStore is Test {
         vm.prank(preConfCommitmentStore.owner());
         preConfCommitmentStore.updateCommitmentDispatchWindow(200);
         vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
-        vm.expectRevert(
-            "Invalid dispatch timestamp"
-        );
+        vm.expectRevert("Invalid dispatch timestamp");
         preConfCommitmentStore.storeEncryptedCommitment(
             commitmentDigest,
             commitmentSignature,
@@ -517,9 +522,9 @@ contract TestPreConfCommitmentStore is Test {
     function test_GetCommitment() public {
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
-        vm.prank(bidder);
-        uint256 window = blockTracker.getWindowFromBlockNumber(
-            _testCommitmentAliceBob.blockNumber
+        uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(
+            _testCommitmentAliceBob.blockNumber,
+            blocksPerWindow
         );
         vm.prank(bidder);
         bidderRegistry.depositForSpecificWindow{value: 2 ether}(window);
@@ -567,9 +572,11 @@ contract TestPreConfCommitmentStore is Test {
             (address bidder, ) = makeAddrAndKey("alice");
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            uint256 depositWindow = blockTracker.getWindowFromBlockNumber(
-                _testCommitmentAliceBob.blockNumber
-            );
+            uint256 depositWindow = WindowFromBlockNumber
+                .getWindowFromBlockNumber(
+                    _testCommitmentAliceBob.blockNumber,
+                    blocksPerWindow
+                );
             bidderRegistry.depositForSpecificWindow{value: 2 ether}(
                 depositWindow
             );
@@ -650,9 +657,11 @@ contract TestPreConfCommitmentStore is Test {
             (address bidder, ) = makeAddrAndKey("alice");
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            uint256 depositWindow = blockTracker.getWindowFromBlockNumber(
-                _testCommitmentAliceBob.blockNumber
-            );
+            uint256 depositWindow = WindowFromBlockNumber
+                .getWindowFromBlockNumber(
+                    _testCommitmentAliceBob.blockNumber,
+                    blocksPerWindow
+                );
             bidderRegistry.depositForSpecificWindow{value: 2 ether}(
                 depositWindow
             );
@@ -729,9 +738,11 @@ contract TestPreConfCommitmentStore is Test {
         // Assuming you have a stored commitment
         {
             (address bidder, ) = makeAddrAndKey("alice");
-            uint256 depositWindow = blockTracker.getWindowFromBlockNumber(
-                _testCommitmentAliceBob.blockNumber
-            );
+            uint256 depositWindow = WindowFromBlockNumber
+                .getWindowFromBlockNumber(
+                    _testCommitmentAliceBob.blockNumber,
+                    blocksPerWindow
+                );
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
             bidderRegistry.depositForSpecificWindow{value: 2 ether}(

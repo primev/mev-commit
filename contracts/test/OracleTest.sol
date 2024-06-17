@@ -10,6 +10,7 @@ import "../contracts/BidderRegistry.sol";
 import "../contracts/BlockTracker.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
 
 contract OracleTest is Test {
     address internal owner;
@@ -27,6 +28,7 @@ contract OracleTest is Test {
     TestCommitment internal _testCommitmentAliceBob;
     uint64 internal dispatchTimestampTesting;
     bytes internal sharedSecretKey;
+    uint256 internal blocksPerWindow;
 
     struct TestCommitment {
         uint64 bid;
@@ -75,6 +77,7 @@ contract OracleTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
+        blocksPerWindow = 10;
 
         address proxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
@@ -89,7 +92,7 @@ contract OracleTest is Test {
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (ownerInstance))
+            abi.encodeCall(BlockTracker.initialize, (ownerInstance, blocksPerWindow))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
@@ -102,7 +105,8 @@ contract OracleTest is Test {
                     feeRecipient,
                     feePercent,
                     address(this),
-                    address(blockTracker)
+                    address(blockTracker),
+                    blocksPerWindow
                 )
             )
         );
@@ -118,7 +122,8 @@ contract OracleTest is Test {
                     feeRecipient,
                     address(this),
                     address(blockTracker),
-                    500
+                    500,
+                    blocksPerWindow
                 )
             )
         );
@@ -160,7 +165,6 @@ contract OracleTest is Test {
     function test_process_commitment_payment_payout() public {
         string
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 2;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -255,7 +259,6 @@ contract OracleTest is Test {
             memory txn1 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory txn2 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d09";
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 100;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -337,7 +340,7 @@ contract OracleTest is Test {
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
 
         vm.deal(bidder, 200000 ether);
-        uint256 window = blockTracker.getWindowFromBlockNumber(blockNumber);
+        uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(blockNumber, blocksPerWindow);
         vm.startPrank(bidder);
         bidderRegistry.depositForSpecificWindow{value: 250 ether}(window);
         vm.stopPrank();
@@ -441,7 +444,6 @@ contract OracleTest is Test {
         txnHashes[
             3
         ] = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d11";
-        uint256 blocksPerWindow = blockTracker.blocksPerWindow();
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 5;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");

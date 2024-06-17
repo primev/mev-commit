@@ -7,6 +7,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
+import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
 
 /**
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
@@ -35,6 +36,9 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
 
     /// @dev The last block that was processed by the Oracle
     uint256 public lastProcessedBlock;
+
+    /// @dev The number of blocks per window
+    uint256 public blocksPerWindow;
 
     // EIP-712 Domain Separator
     bytes32 public DOMAIN_SEPARATOR_PRECONF;
@@ -158,12 +162,14 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         address _oracle,
         address _owner,
         address _blockTracker,
-        uint64 _commitmentDispatchWindow
+        uint64 _commitmentDispatchWindow,
+        uint256 _blocksPerWindow
     ) external initializer {
         oracle = _oracle;
         blockTracker = IBlockTracker(_blockTracker);
         providerRegistry = IProviderRegistry(_providerRegistry);
         bidderRegistry = IBidderRegistry(_bidderRegistry);
+        blocksPerWindow = _blocksPerWindow;
         __Ownable_init(_owner);
 
         // EIP-712 domain separator
@@ -589,8 +595,9 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             "Commitment already used"
         );
 
-        uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(
-            commitment.blockNumber
+        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
+            commitment.blockNumber,
+            blocksPerWindow
         );
 
         commitments[commitmentIndex].isUsed = true;
@@ -620,8 +627,9 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
             "Commitment already used"
         );
 
-        uint256 windowToSettle = blockTracker.getWindowFromBlockNumber(
-            commitment.blockNumber
+        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
+            commitment.blockNumber,
+            blocksPerWindow
         );
 
         commitments[commitmentIndex].isUsed = true;

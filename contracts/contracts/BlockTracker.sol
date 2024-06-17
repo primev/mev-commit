@@ -34,9 +34,9 @@ contract BlockTracker is OwnableUpgradeable {
      * @dev Initializes the BlockTracker contract with the specified owner.
      * @param _owner The address of the contract owner.
      */
-    function initialize(address _owner) external initializer {
+    function initialize(address _owner, uint256 _blocksPerWindow) external initializer {
         currentWindow = 1;
-        blocksPerWindow = 10;
+        blocksPerWindow = _blocksPerWindow;
         __Ownable_init(_owner);
     }
 
@@ -74,15 +74,6 @@ contract BlockTracker is OwnableUpgradeable {
         string calldata builderNameGrafiti
     ) external view returns (address) {
         return blockBuilderNameToAddress[builderNameGrafiti];
-    }
-
-    /**
-     * @dev Returns the window number corresponding to a given block number.
-     * @param blockNumber The block number.
-     * @return The window number.
-     */
-    function getWindowFromBlockNumber(uint256 blockNumber) external view returns (uint256) {
-        return (blockNumber - 1) / blocksPerWindow + 1;
     }
 
     /**
