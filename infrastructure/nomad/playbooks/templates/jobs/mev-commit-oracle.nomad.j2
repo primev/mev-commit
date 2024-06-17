@@ -100,12 +100,13 @@ job "{{ job.name }}" {
           postgres -D "${POSTGRES_DATA}" &
           pid=$!
 
-          until pg_isready --quiet --username="${USER}" --dbname=postgres; do
+          if ! timeout 5m bash -c 'until pg_ctl status --pgdata="${POSTGRES_DATA}" --silent --no-wait; do sleep 1; done'; then
             echo "Waiting for PostgreSQL to start..."
             sleep 1
-          done
+          fi
 
-          createuser --username="${USER}" --createdb "${POSTGRES_USERNAME}"
+          createuser --superuser postgres > /dev/null 2>&1
+          createuser --username=postgres --createdb "${POSTGRES_USERNAME}"
           createdb --username="${POSTGRES_USERNAME}" "${POSTGRES_DB}"
           psql --quiet \
                --username="${POSTGRES_USERNAME}" \
