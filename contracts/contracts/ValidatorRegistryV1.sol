@@ -3,13 +3,15 @@ pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {EnumerableMap} from "./utils/EnumerableMap.sol";
 
-/// @title Validator Registry
-/// @notice Logic contract enabling L1 validators to opt-in to mev-commit via staking. 
+/// @title Validator Registry v1
+/// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
+/// via simply staking ETH outside what's staked with the beacon chain.
 /// @dev Slashing is not yet implemented for this contract, hence it is upgradable to incorporate slashing in the future.
-/// @dev This contract is meant to be deployed via a proxy contract.
-contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+/// @dev This contract is meant to be deployed via UUPS proxy contract on mainnet.
+contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
 
     /// @dev Index tracking changes in the set of staked (opted-in) validators.
     /// This enables optimistic locking for batch queries.
@@ -34,6 +36,8 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     receive() external payable {
         revert("Invalid call");
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function initialize(
         uint256 _minStake, 
@@ -71,6 +75,14 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     event StakeWithdrawn(address indexed txOriginator, bytes valBLSPubKey, uint256 amount);
 
     function stake(bytes[] calldata valBLSPubKeys) external payable {
+        _stake(valBLSPubKeys, msg.sender);
+    }
+
+    function delegateStake(bytes[] calldata valBLSPubKeys, address stakeOriginator) external payable onlyOwner {
+        _stake(valBLSPubKeys, stakeOriginator);
+    }
+
+    function _stake(bytes[] calldata valBLSPubKeys, address stakeOriginator) internal {
 
         require(valBLSPubKeys.length > 0, "There must be at least one recipient");
         uint256 splitAmount = msg.value / valBLSPubKeys.length;
@@ -86,8 +98,8 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             require(!exists, "Validator already staked");
 
             stakedBalances.set(valBLSPubKeys[i], splitAmount);
-            stakeOriginators[valBLSPubKeys[i]] = msg.sender;
-            emit Staked(msg.sender, valBLSPubKeys[i], splitAmount);
+            stakeOriginators[valBLSPubKeys[i]] = stakeOriginator;
+            emit Staked(stakeOriginator, valBLSPubKeys[i], splitAmount);
         }
         ++stakedValsetVersion;
     }
@@ -103,7 +115,8 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             require(exists, "Validator not staked");
             require(balance >= minStake, "No staked balance over min stake");
 
-            require(stakeOriginators[blsPubKeys[i]] == msg.sender, "Not authorized to unstake validator. Must be stake originator"); 
+            require(stakeOriginators[blsPubKeys[i]] == msg.sender || owner() == msg.sender,
+                "Not authorized to unstake validator. Must be stake originator or owner"); 
 
             bool removed = stakedBalances.remove(blsPubKeys[i]);
             require(removed, "Failed to remove staked balance");
@@ -123,7 +136,8 @@ contract ValidatorRegistry is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             require(unstakeBlockNums[blsPubKeys[i]] > 0, "Unstake must be initiated before withdrawal");
             require(unstakingBalances[blsPubKeys[i]] >= minStake, "No unstaking balance over min stake");
 
-            require(stakeOriginators[blsPubKeys[i]] == msg.sender , "Not authorized to withdraw stake. Must be stake originator");
+            require(stakeOriginators[blsPubKeys[i]] == msg.sender || owner() == msg.sender,
+                "Not authorized to withdraw stake. Must be stake originator or owner");
             require(block.number >= unstakeBlockNums[blsPubKeys[i]] + unstakePeriodBlocks, "withdrawal not allowed yet. Blocks requirement not met.");
 
             stakeOriginators[blsPubKeys[i]] = address(0);

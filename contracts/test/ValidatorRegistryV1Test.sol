@@ -2,12 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/ValidatorRegistry.sol";
+import "../contracts/ValidatorRegistryV1.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-contract ValidatorRegistryTest is Test {
-    ValidatorRegistry public validatorRegistry;
+contract ValidatorRegistryV1Test is Test {
+    ValidatorRegistryV1 public validatorRegistry;
     address public owner;
     address public user1;
     address public user2;
@@ -32,10 +32,10 @@ contract ValidatorRegistryTest is Test {
         assertEq(user2BLSKey.length, 48);
         
         address proxy = Upgrades.deployUUPSProxy(
-            "ValidatorRegistry.sol",
-            abi.encodeCall(ValidatorRegistry.initialize, (MIN_STAKE, UNSTAKE_PERIOD, owner))
+            "ValidatorRegistryV1.sol",
+            abi.encodeCall(ValidatorRegistryV1.initialize, (MIN_STAKE, UNSTAKE_PERIOD, owner))
         );
-        validatorRegistry = ValidatorRegistry(payable(proxy));
+        validatorRegistry = ValidatorRegistryV1(payable(proxy));
     }
 
     function testSecondInitialize() public {
@@ -89,6 +89,32 @@ contract ValidatorRegistryTest is Test {
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
     }
 
+    function testDelegateStake() public {
+        vm.deal(owner, 9 ether);
+        assertEq(address(owner).balance, 9 ether);
+
+        bytes[] memory validators = new bytes[](2);
+        validators[0] = user1BLSKey;
+        validators[1] = user2BLSKey;
+
+        vm.startPrank(owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user1BLSKey, MIN_STAKE);
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user2BLSKey, MIN_STAKE);
+        validatorRegistry.delegateStake{value: 2*MIN_STAKE}(validators, user1); // Both validators are opted-in on user1's behalf
+
+        vm.stopPrank();
+
+        assertEq(address(owner).balance, 7 ether);
+        
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertEq(validatorRegistry.getStakedAmount(user2BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isStaked(user1BLSKey));
+        assertTrue(validatorRegistry.isStaked(user2BLSKey));
+    }
+
     function testUnstakeInsufficientFunds() public {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user2BLSKey;
@@ -106,7 +132,7 @@ contract ValidatorRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user2);
-        vm.expectRevert("Not authorized to unstake validator. Must be stake originator");
+        vm.expectRevert("Not authorized to unstake validator. Must be stake originator or owner");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
