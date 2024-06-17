@@ -6,6 +6,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/ut
 
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
+import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
 
 /// @title Bidder Registry
 /// @author Kartik Chopra
@@ -57,6 +58,9 @@ contract BidderRegistry is
 
     /// @dev Amount assigned to bidders
     mapping(address => uint256) public providerAmount;
+
+    /// @dev Amount assigned to bidders
+    uint256 public blocksPerWindow;
 
     /// @dev Event emitted when a bidder is registered with their deposited amount
     event BidderRegistered(
@@ -116,12 +120,14 @@ contract BidderRegistry is
         address _feeRecipient,
         uint16 _feePercent,
         address _owner,
-        address _blockTracker
+        address _blockTracker,
+        uint256 _blocksPerWindow
     ) external initializer {
         minDeposit = _minDeposit;
         feeRecipient = _feeRecipient;
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
+        blocksPerWindow = _blocksPerWindow;
         __Ownable_init(_owner);
     }
 
@@ -187,8 +193,7 @@ contract BidderRegistry is
         lockedFunds[msg.sender][window] = newLockedFunds;
 
         // Calculate the maximum bid per block for the given window
-        uint256 numberOfRounds = blockTrackerContract.getBlocksPerWindow();
-        maxBidPerBlock[msg.sender][window] = newLockedFunds / numberOfRounds;
+        maxBidPerBlock[msg.sender][window] = newLockedFunds / blocksPerWindow;
 
         emit BidderRegistered(msg.sender, newLockedFunds, window);
     }
@@ -295,8 +300,9 @@ contract BidderRegistry is
         if (bidState.state != State.Undefined) {
             return;
         }
-        uint256 currentWindow = blockTrackerContract.getWindowFromBlockNumber(
-            blockNumber
+        uint256 currentWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
+            blockNumber,
+            blocksPerWindow
         );
 
         uint256 windowAmount = maxBidPerBlock[bidder][currentWindow];

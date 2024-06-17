@@ -160,31 +160,17 @@
   },
   {
     "type": "function",
-    "name": "getWindowFromBlockNumber",
-    "inputs": [
-      {
-        "name": "blockNumber",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "initialize",
     "inputs": [
       {
         "name": "_owner",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_blocksPerWindow",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],

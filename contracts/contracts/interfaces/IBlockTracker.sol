@@ -12,11 +12,6 @@ interface IBlockTracker {
     /// @return The current window number.
     function getCurrentWindow() external view returns (uint256);
 
-    /// @notice Gets the window number for a given block number.
-    /// @param blockNumber The block number.
-    /// @return The window number.
-    function getWindowFromBlockNumber(uint256 blockNumber) external view returns (uint256);
-
     /// @notice Retrieves the number of blocks per window.
     /// @return The number of blocks per window.
     function getBlocksPerWindow() external view returns (uint256);
