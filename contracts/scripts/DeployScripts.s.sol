@@ -22,17 +22,18 @@ contract DeployScript is Script {
         );
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
+        uint256 blocksPerWindow = 10;
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (msg.sender))
+            abi.encodeCall(BlockTracker.initialize, (msg.sender, blocksPerWindow))
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
         console.log("BlockTracker:", address(blockTracker));
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
-            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, address(blockTracker)))
+            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, address(blockTracker), blocksPerWindow))
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry:", address(bidderRegistry));
@@ -46,7 +47,7 @@ contract DeployScript is Script {
 
         address preconfCommitmentStoreProxy = Upgrades.deployUUPSProxy(
             "PreConfCommitmentStore.sol",
-            abi.encodeCall(PreConfCommitmentStore.initialize, (address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender, address(blockTracker), commitmentDispatchWindow))
+            abi.encodeCall(PreConfCommitmentStore.initialize, (address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender, address(blockTracker), commitmentDispatchWindow, blocksPerWindow))
         );
         PreConfCommitmentStore preConfCommitmentStore = PreConfCommitmentStore(payable(preconfCommitmentStoreProxy));
         console.log("PreConfCommitmentStore:", address(preConfCommitmentStore));
