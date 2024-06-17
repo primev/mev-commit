@@ -39,7 +39,7 @@ type Settlement struct {
 	TxHash          string
 	BlockNum        int64
 	Builder         []byte
-	Amount          uint64
+	Amount          *big.Int
 	BidID           []byte
 	Type            SettlementType
 	DecayPercentage int64
@@ -61,7 +61,7 @@ type WinnerRegister interface {
 		commitmentIdx []byte,
 		txHash string,
 		blockNum int64,
-		amount uint64,
+		amount *big.Int,
 		builder []byte,
 		bidID []byte,
 		settlementType SettlementType,
