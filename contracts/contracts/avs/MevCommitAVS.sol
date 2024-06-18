@@ -13,18 +13,6 @@ import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISi
 import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
 
-// TODO: overall gas optimization
-// TODO: order of funcs, finish interfaces, comments for everything etc.
-// TODO: use tests from other PR? 
-// TODO: test upgradability before Holesky deploy
-// TODO: Note and document everything from https://docs.eigenlayer.xyz/eigenlayer/avs-guides/avs-dashboard-onboarding
-// TODO: Confirm all setters are present and in right order, confirm interface is fully populated
-// TODO: Non reentrant or is this not relevant? 
-// TODO: Decide how multisig will tie into this contract, likely use gnosis safe? 
-
-// TODO; open questions section in design doc.. do we need to have operators? Or will eigen support rewards/slashing directly to stakers?
-// where stakers could be eigenpod owners themselves or LST restakers.
-// Make sure to ask/address whether we'll be able to slash validators specifically! Not an entire operator group. 
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     IDelegationManager internal _delegationManager;
@@ -104,6 +92,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
             msg.sender == _delegationManager.delegatedTo(podOwner) ||
             msg.sender == owner(),
             "sender must be podOwner, delegated operator, or MevCommitAVS owner");
+        _;
+    }
+
+    modifier onlyProperlyDelegatedLSTRestaker() {
+        address delegatedOperator = _delegationManager.delegatedTo(msg.sender);
+        require(operatorRegistrations[delegatedOperator].status == OperatorRegistrationStatus.REGISTERED,
+            "delegated operator must be registered with MevCommitAVS");
         _;
     }
 
@@ -214,9 +209,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         emit ValidatorDeregistered(valPubKey, podOwner);
     }
 
-    // TODO: Look into edge cases around validators being like nah dawg I hit the 10 limit but never got to delegate myself!
-    // ^ solution to above is likely to always allow self LST delegation from podOwner, limit is only for rando acconts
-    function registerLSTRestaker(bytes calldata chosenValidator) external {
+    function registerLSTRestaker(bytes calldata chosenValidator) external onlyProperlyDelegatedLSTRestaker() {
         require(lstRestakerRegistrations[msg.sender].status == LSTRestakerRegistrationStatus.NOT_REGISTERED,
             "LST restaker must not already be registered");
         require(_isValidatorOptedIn(chosenValidator), "chosen validator must be opted in");
@@ -262,8 +255,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         delete lstRestakerRegistrations[msg.sender];
         emit LSTRestakerDeregistered(chosenValidator, msg.sender);
     }
-
-    // TODO: Make sure to check supported strategies for LST restakers, how does this tie into rewards? 
 
     function freeze(
         bytes calldata valPubKey
@@ -325,19 +316,32 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         return isValReg && isValActive && isOperatorReg;
     }
 
-    // TODO: see if possible to launch with rewards, you're using correct branch
-    // TODO: add to docs the importance of association of operators/restakers to valAddrs
-    function reward(bytes calldata valPubKey) external {
-        require(_isValidatorOptedIn(valPubKey), "validator must be opted in to mev-commit for anyone to receive rewards");
-        payable(validatorRegistrations[valPubKey].podOwner).transfer(10000000000000000); // some fraction of 32 ETH
-        payable(_delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner)).transfer(10000000000000000); // some fraction of 32 ETH
-        // iterate through LST restakers and pay them 0.01 ETH each
-        for (uint256 i = 0; i < validatorRegistrations[valPubKey].lstRestakers.length; i++) {
-            payable(validatorRegistrations[valPubKey].lstRestakers[i]).transfer(1000000000000000); // 0.01 ETH
-        }
+    function _isValidatorOptedInStorage(bytes storage valPubKey) internal view returns (bool) {
+        bool isValReg = validatorRegistrations[valPubKey].status == ValidatorRegistrationStatus.REGISTERED;
+        IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
+        bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
+        address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
+        bool isOperatorReg = operatorRegistrations[delegatedOperator].status == OperatorRegistrationStatus.REGISTERED;
+        return isValReg && isValActive && isOperatorReg;
     }
 
-    /// @notice Returns eigenlayer AVS directory contract address to abide by IServiceManager interface.
+    function _isLSTRestakerOptedIn(address lstRestaker) internal view returns (bool) {
+        bytes storage chosenValidator = lstRestakerRegistrations[lstRestaker].chosenValidator;
+        bool isValOptedIn = _isValidatorOptedInStorage(chosenValidator);
+        bool isLSTRestakerReg = lstRestakerRegistrations[lstRestaker].status == LSTRestakerRegistrationStatus.REGISTERED;
+        return isValOptedIn && isLSTRestakerReg;
+    }
+
+    // function reward(bytes calldata valPubKey) external {
+    //     require(_isValidatorOptedIn(valPubKey), "validator must be opted in to mev-commit for anyone to receive rewards");
+    //     uint256 arbitraryAmount = 10000000000000000; // 0.01 ETH
+    //     payable(validatorRegistrations[valPubKey].podOwner).transfer(arbitraryAmount);
+    //     payable(_delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner)).transfer(arbitraryAmount);
+    //     for (uint256 i = 0; i < validatorRegistrations[valPubKey].lstRestakers.length; i++) {
+    //         payable(validatorRegistrations[valPubKey].lstRestakers[i]).transfer(arbitraryAmount);
+    //     }
+    // }
+
     function avsDirectory() external view returns (address) {
         return address(_eigenAVSDirectory);
     }
