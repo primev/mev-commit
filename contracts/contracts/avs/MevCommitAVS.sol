@@ -11,20 +11,25 @@ import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
+import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
 
 // TODO: overall gas optimization
 // TODO: order of funcs, finish interfaces, comments for everything etc.
 // TODO: use tests from other PR? 
 // TODO: test upgradability before Holesky deploy
-// TODO: Decide of LST delegation is v1 or next version. See chooseValidator in doc
 // TODO: Note and document everything from https://docs.eigenlayer.xyz/eigenlayer/avs-guides/avs-dashboard-onboarding
 // TODO: Confirm all setters are present and in right order, confirm interface is fully populated
 // TODO: Non reentrant or is this not relevant? 
 // TODO: Decide how multisig will tie into this contract, likely use gnosis safe? 
+
+// TODO; open questions section in design doc.. do we need to have operators? Or will eigen support rewards/slashing directly to stakers?
+// where stakers could be eigenpod owners themselves or LST restakers.
+// Make sure to ask/address whether we'll be able to slash validators specifically! Not an entire operator group. 
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     IDelegationManager internal _delegationManager;
     IEigenPodManager internal _eigenPodManager;
+    IStrategyManager internal _strategyManager;
     IAVSDirectory internal _eigenAVSDirectory;
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
@@ -35,6 +40,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         address owner_,
         IDelegationManager delegationManager_,
         IEigenPodManager eigenPodManager_,
+        IStrategyManager strategyManager_,
         IAVSDirectory avsDirectory_,
         address[] calldata restakeableStrategies_,
         address freezeOracle_,
@@ -42,10 +48,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         uint256 unfreezePeriodBlocks_,
         uint256 operatorDeregistrationPeriodBlocks_,
         uint256 validatorDeregistrationPeriodBlocks_,
+        uint256 lstRestakerDeregistrationPeriodBlocks_,
+        uint256 maxLstRestakersPerValidator_,
         string calldata metadataURI_
     ) external initializer {
         _setDelegationManager(delegationManager_);
         _setEigenPodManager(eigenPodManager_);
+        _setStrategyManager(strategyManager_);
         _setAVSDirectory(avsDirectory_);
         _setRestakeableStrategies(restakeableStrategies_);
         _setFreezeOracle(freezeOracle_);
@@ -53,6 +62,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         _setUnfreezePeriodBlocks(unfreezePeriodBlocks_);
         _setOperatorDeregistrationPeriodBlocks(operatorDeregistrationPeriodBlocks_);
         _setValidatorDeregistrationPeriodBlocks(validatorDeregistrationPeriodBlocks_);
+        _setLstRestakerDeregistrationPeriodBlocks(lstRestakerDeregistrationPeriodBlocks_);
+        _setMaxLstRestakersPerValidator(maxLstRestakersPerValidator_);
 
         if (bytes(metadataURI_).length > 0) {
             _eigenAVSDirectory.updateAVSMetadataURI(metadataURI_);
@@ -163,7 +174,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
             status: ValidatorRegistrationStatus.REGISTERED,
             podOwner: podOwner,
             freezeHeight: 0,
-            deregistrationRequestHeight: 0
+            deregistrationRequestHeight: 0,
+            lstRestakers: new address[](0)
         });
         emit ValidatorRegistered(valPubKey, podOwner);
     }
@@ -202,15 +214,56 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         emit ValidatorDeregistered(valPubKey, podOwner);
     }
 
-    // TODO: Implement LST restakers having to choose validator. 
-    // There will be additional storage field for this. 
-    // Make sure to check supported strategies for this. 
+    // TODO: Look into edge cases around validators being like nah dawg I hit the 10 limit but never got to delegate myself!
+    // ^ solution to above is likely to always allow self LST delegation from podOwner, limit is only for rando acconts
+    function registerLSTRestaker(bytes calldata chosenValidator) external {
+        require(lstRestakerRegistrations[msg.sender].status == LSTRestakerRegistrationStatus.NOT_REGISTERED,
+            "LST restaker must not already be registered");
+        require(_isValidatorOptedIn(chosenValidator), "chosen validator must be opted in");
+        uint256 stratLen = _strategyManager.stakerStrategyListLength(msg.sender);
+        require(stratLen > 0, "LST restaker must have deposited into at least one strategy");
 
-    // function chooseValidator() // includes choosing new val
-    // function removeValidatorChoice()
+        validatorRegistrations[chosenValidator].lstRestakers.push(msg.sender);
+        lstRestakerRegistrations[msg.sender] = LSTRestakerRegistrationInfo({
+            status: LSTRestakerRegistrationStatus.REGISTERED,
+            chosenValidator: chosenValidator,
+            deregistrationRequestHeight: 0
+        });
+        emit LSTRestakerRegistered(chosenValidator, msg.sender);
+    }
 
-    // TODO: will need DelegationManager.getDelegatableShares, and/or strategyManager.getDeposits and/or eigenPodManager.podOwnerShares
-    // TODO: Do we also want to check/record shares for native ETH staking?
+    function requestLSTRestakerDeregistration() external {
+        require(lstRestakerRegistrations[msg.sender].status == LSTRestakerRegistrationStatus.REGISTERED,
+            "LST restaker must be registered");
+        lstRestakerRegistrations[msg.sender].status = LSTRestakerRegistrationStatus.REQ_DEREGISTRATION;
+        lstRestakerRegistrations[msg.sender].deregistrationRequestHeight = block.number;
+        emit LSTRestakerDeregistrationRequested(lstRestakerRegistrations[msg.sender].chosenValidator, msg.sender);
+    }
+
+    function deregisterLSTRestaker() external {
+        require(lstRestakerRegistrations[msg.sender].status == LSTRestakerRegistrationStatus.REQ_DEREGISTRATION,
+            "LST restaker must have requested deregistration");
+        require(block.number >= lstRestakerRegistrations[msg.sender].deregistrationRequestHeight + lstRestakerDeregistrationPeriodBlocks,
+            "deregistration must happen at least lstRestakerDeregistrationPeriodBlocks after deletion request height");
+
+        bytes storage chosenValidator = lstRestakerRegistrations[msg.sender].chosenValidator;
+        address[] storage restakersForVal = validatorRegistrations[chosenValidator].lstRestakers;
+        bool found = false;
+        for (uint256 i = 0; i < restakersForVal.length; i++) {
+            if (restakersForVal[i] == msg.sender) {
+                address lastElement = restakersForVal[restakersForVal.length - 1];
+                restakersForVal[i] = lastElement;
+                restakersForVal.pop();
+                found = true;
+                break;
+            }
+        }
+        require(found, "LST restaker must have been deleted from validator's restaker list");
+        delete lstRestakerRegistrations[msg.sender];
+        emit LSTRestakerDeregistered(chosenValidator, msg.sender);
+    }
+
+    // TODO: Make sure to check supported strategies for LST restakers, how does this tie into rewards? 
 
     function freeze(
         bytes calldata valPubKey
@@ -264,12 +317,24 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
     }
 
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
-        bool isRegistered = validatorRegistrations[valPubKey].status == ValidatorRegistrationStatus.REGISTERED;
+        bool isValReg = validatorRegistrations[valPubKey].status == ValidatorRegistrationStatus.REGISTERED;
         IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
-        bool isActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
+        bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
         address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
-        bool isOperatorRegistered = operatorRegistrations[delegatedOperator].status == OperatorRegistrationStatus.REGISTERED;
-        return isRegistered && isActive && isOperatorRegistered;
+        bool isOperatorReg = operatorRegistrations[delegatedOperator].status == OperatorRegistrationStatus.REGISTERED;
+        return isValReg && isValActive && isOperatorReg;
+    }
+
+    // TODO: see if possible to launch with rewards, you're using correct branch
+    // TODO: add to docs the importance of association of operators/restakers to valAddrs
+    function reward(bytes calldata valPubKey) external {
+        require(_isValidatorOptedIn(valPubKey), "validator must be opted in to mev-commit for anyone to receive rewards");
+        payable(validatorRegistrations[valPubKey].podOwner).transfer(10000000000000000); // some fraction of 32 ETH
+        payable(_delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner)).transfer(10000000000000000); // some fraction of 32 ETH
+        // iterate through LST restakers and pay them 0.01 ETH each
+        for (uint256 i = 0; i < validatorRegistrations[valPubKey].lstRestakers.length; i++) {
+            payable(validatorRegistrations[valPubKey].lstRestakers[i]).transfer(1000000000000000); // 0.01 ETH
+        }
     }
 
     /// @notice Returns eigenlayer AVS directory contract address to abide by IServiceManager interface.
@@ -283,6 +348,10 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
 
     function setAVSDirectory(IAVSDirectory avsDirectory_) external onlyOwner {
         _setAVSDirectory(avsDirectory_);
+    }
+
+    function setStrategyManager(IStrategyManager strategyManager_) external onlyOwner {
+        _setStrategyManager(strategyManager_);
     }
 
     function setDelegationManager(IDelegationManager delegationManager_) external onlyOwner {
@@ -317,9 +386,22 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         _setValidatorDeregistrationPeriodBlocks(validatorDeregistrationPeriodBlocks_);
     }
 
+    function setLstRestakerDeregistrationPeriodBlocks(uint256 lstRestakerDeregistrationPeriodBlocks_) external onlyOwner {
+        _setLstRestakerDeregistrationPeriodBlocks(lstRestakerDeregistrationPeriodBlocks_);
+    }
+
+    function setMaxLstRestakersPerValidator(uint256 maxLstRestakersPerValidator_) external onlyOwner {
+        _setMaxLstRestakersPerValidator(maxLstRestakersPerValidator_);
+    }
+
     function _setAVSDirectory(IAVSDirectory avsDirectory_) private {
         _eigenAVSDirectory = avsDirectory_;
         emit AVSDirectorySet(address(_eigenAVSDirectory));
+    }
+
+    function _setStrategyManager(IStrategyManager strategyManager_) private {
+        _strategyManager = strategyManager_;
+        emit StrategyManagerSet(address(strategyManager_));
     }
 
     function _setDelegationManager(IDelegationManager delegationManager_) private {
@@ -360,6 +442,16 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
     function _setValidatorDeregistrationPeriodBlocks(uint256 _validatorDeregistrationPeriodBlocks) private {
         validatorDeregistrationPeriodBlocks = _validatorDeregistrationPeriodBlocks;
         emit ValidatorDeregistrationPeriodBlocksSet(_validatorDeregistrationPeriodBlocks);
+    }
+
+    function _setLstRestakerDeregistrationPeriodBlocks(uint256 _lstRestakerDeregistrationPeriodBlocks) private {
+        lstRestakerDeregistrationPeriodBlocks = _lstRestakerDeregistrationPeriodBlocks;
+        emit LSTRestakerDeregistrationPeriodBlocksSet(_lstRestakerDeregistrationPeriodBlocks);
+    }
+
+    function _setMaxLstRestakersPerValidator(uint256 _maxLstRestakersPerValidator) private {
+        maxLstRestakersPerValidator = _maxLstRestakersPerValidator;
+        emit MaxLSTRestakersPerValidatorSet(_maxLstRestakersPerValidator);
     }
 
     fallback() external payable {
