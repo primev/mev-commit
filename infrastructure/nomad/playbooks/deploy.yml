@@ -384,6 +384,13 @@
         fi
 
         ALLOC=$(echo '{}' | jq '.')
+        ALLOC=$(echo "${ALLOC}" | jq --arg address "0xADB4257612d45f12570533308b20AC77DBfeB85a" '
+          . + {
+            ($address): {
+                "balance": "0x10000000000000000000000000000"
+            }
+          }
+        ')
         for ADDRESS in ${ALLOCATIONS}; do
           ALLOC=$(
             echo "${ALLOC}" | jq --arg address "0x${ADDRESS}" '
