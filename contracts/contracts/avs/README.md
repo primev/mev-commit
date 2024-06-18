@@ -71,11 +71,11 @@ Freezing is the mechanism that punishes a validator prior to eigenlayer core con
 
 ## Design Intentions
 
-When looking through this design doc one may ask _why do validators and LST restakers have to delegate to an Operator through the eigenlayer core contracts, AND separately register with the AVS contract?_
+When looking through this design doc one may ask, _why do validators and LST restakers have to delegate to an Operator through the eigenlayer core contracts, AND separately register with the AVS contract?_
 
-The answer is that *validators* are the entities that enable credible commitments in our protocol. It would be challenging to reward or slash/freeze entirely through Operators, in that an Operator can potentially represent thousands of validators from different organizations, home-staking setups, etc.
+The answer is that **validators** are the entities that enable credible commitments in our protocol. It would be challenging to slash/freeze entirely through Operators, in that an Operator can potentially represent thousands of validators from different organizations, home-staking setups, etc.
 
-Further, we need some sort of explicit mechanism for *validators* (not Operators) to attest to following the rules of mev-commit, and generate additional revenue at the risk of being slashed. Eigenlayer's current design does not offer this on a per-AVS basis.
+Further, we need some sort of explicit mechanism for **validators** (not Operators) to attest to following the rules of mev-commit, at the risk of being slashed. Eigenlayer's current design does not offer this on a per-AVS basis.
 
 ## Future Upgrades 
 
