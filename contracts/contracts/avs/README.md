@@ -59,7 +59,7 @@ A permissioned oracle account is able to `freeze` any registered validator for a
 function freeze(bytes calldata valPubKey) external onlyFreezeOracle();
 ```
 
-To exit the frozen state, a configurable unfreeze period amount of blocks must first pass. Then any account can call `unfreeze`:
+To exit the frozen state, a configurable unfreeze period must first pass. Then any account can call `unfreeze`:
 
 ```solidity
 function unfreeze(bytes calldata valPubKey) payable external;
