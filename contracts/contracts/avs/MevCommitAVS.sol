@@ -256,9 +256,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         emit LSTRestakerDeregistered(chosenValidator, msg.sender);
     }
 
-    function freeze(
-        bytes calldata valPubKey
-    ) external onlyFreezeOracle() whenNotPaused() {
+    function freeze(bytes[] calldata valPubKeys) external onlyFreezeOracle() whenNotPaused() {
+        for (uint256 i = 0; i < valPubKeys.length; i++) {
+            _freeze(valPubKeys[i]);
+        }
+    }
+
+    function _freeze(bytes calldata valPubKey) internal {
         require(validatorRegistrations[valPubKey].status == ValidatorRegistrationStatus.REGISTERED ||
             validatorRegistrations[valPubKey].status == ValidatorRegistrationStatus.REQ_DEREGISTRATION,
             "validator must be registered or requested for deregistration");
