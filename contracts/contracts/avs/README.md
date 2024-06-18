@@ -49,7 +49,7 @@ function registerLSTRestaker(bytes calldata chosenValidator) onlyProperlyDelegat
 
 LST restakers who register in this way will receive points or rewards when their chosen validator correctly follows the protocol.
 
-Deregistration requires calling `requestLSTRestakerDeregistration`, waiting a configurable amount of blocks, then calling `deregisterLSTRestaker`. These functions are callable by the LST restaker or delegated operator.
+Deregistration requires the restaker calling `requestLSTRestakerDeregistration`, waiting a configurable amount of blocks, then calling `deregisterLSTRestaker`.
 
 ## Freezing
 
