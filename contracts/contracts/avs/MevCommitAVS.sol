@@ -272,8 +272,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable,
         emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 
-    function unfreeze(bytes calldata valPubKey
-    ) payable external whenNotPaused() {
+    function unfreeze(bytes calldata valPubKey) payable external whenNotPaused() {
         require(validatorRegistrations[valPubKey].status == ValidatorRegistrationStatus.FROZEN,
             "validator must be frozen");
         require(block.number >= validatorRegistrations[valPubKey].freezeHeight + unfreezePeriodBlocks,

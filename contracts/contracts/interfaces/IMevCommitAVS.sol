@@ -151,7 +151,7 @@ interface IMevCommitAVS {
 
     function deregisterValidators(bytes[] calldata valPubKeys) external;
 
-    function freeze(bytes calldata valPubKey) external;
+    function freeze(bytes[] calldata valPubKey) external;
 
     function unfreeze(bytes calldata valPubKey) payable external;
 
