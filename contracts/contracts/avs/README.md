@@ -59,7 +59,7 @@ Further, we need some sort of explicit mechanism for validators to confirm on-ch
 
 ## Open Questions
 
-* Will upcoming Eigenlayer upgrades allow for rewarding and slashing validators directly? Or will Operators be the only rewardable/slashable entities? If the latter is true, this design will need to change.
+* Will upcoming Eigenlayer upgrades allow for rewarding and slashing validators directly? Or will Operators be the only rewardable/slashable entities? If the latter is true, this design will need to drastically change, and may neccessitate more complexity.
 
 
 // Write about how v2 (or future version with more decentralization) will 
