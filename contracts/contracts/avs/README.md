@@ -2,11 +2,11 @@
 
 ## Overview
 
-The `MevCommitAVS` contract(s) will be deployed on L1 to act a tie-in to the eigenlayer core contracts, enabling validators to opt-in to the mev-commit protocol via restaking. It serves as the next iteration of our validator registry. Notion has a more detailed protocol design doc, whereas this doc is specific to the implementation.
+The `MevCommitAVS` contract(s) will be deployed on L1 to act as a tie-in to the eigenlayer core contracts, enabling validators to opt-in to the mev-commit protocol via restaking. It serves as the next iteration of our validator registry. Notion has a more detailed protocol design doc, whereas this doc is specific to the implementation. See the following files for current implementation:
 
-[IMevCommitAVS.sol](../interfaces/IMevCommitAVS.sol)
-[MevCommitAVS.sol](./MevCommitAVS.sol)
-[MevCommitAVSStorage.sol](./MevCommitAVSStorage.sol)
+* [IMevCommitAVS.sol](../interfaces/IMevCommitAVS.sol)
+* [MevCommitAVS.sol](./MevCommitAVS.sol)
+* [MevCommitAVSStorage.sol](./MevCommitAVSStorage.sol)
 
 ## Operator registration
 
