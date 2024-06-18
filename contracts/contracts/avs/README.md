@@ -40,12 +40,14 @@ Deregistration requires calling `requestValidatorsDeregistration`, waiting a con
 
 LST restakers are also able to register with our avs by:
 
-1. Delegating to to an Operator who's registered with the mev-commit AVS.
-2. Calling `registerLSTRestaker` with a chosen validator pubkey, taking on the reward or freeze risk of the chosen validator.
+1. Delegating to an Operator who's registered with the mev-commit AVS.
+2. Calling `registerLSTRestaker` with a chosen validator pubkey, taking on the freeze risk of the chosen validator.
 
 ```solidity
 function registerLSTRestaker(bytes calldata chosenValidator) onlyProperlyDelegatedLSTRestaker();
 ```
+
+LST restakers who register in this way will receive rewards when their chosen validator correctly follows the protocol and creates additional revenue.
 
 Deregistration requires calling `requestLSTRestakerDeregistration`, waiting a configurable amount of blocks, then calling `deregisterLSTRestaker`. These functions are callable by the LST restaker or delegated operator.
 
