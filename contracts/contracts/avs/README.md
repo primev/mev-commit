@@ -10,7 +10,7 @@ The `MevCommitAVS` contract(s) will be deployed on L1 to act as a tie-in to the 
 
 ## Operator registration
 
-Operators will not yet be assigned concrete tasks as a part of our AVS, however they are nonetheless able to register with our AVS to abide by the `IAVSDirectory.registerOperatorToAVS` and `IAVSDirectory.deregisterOperatorFromAVS` functions that any AVS must implement. Registration is simple for operators and only requires providing a valid signature. To deregister, operators must first `requestOperatorDeregistration`, wait a configurable amount of blocks, then call `deregisterOperator`, with no staking required.
+Operators will not yet be assigned concrete tasks as a part of our AVS, however they are nonetheless able to register with our AVS to abide by the `IAVSDirectory.registerOperatorToAVS` and `IAVSDirectory.deregisterOperatorFromAVS` functions that any AVS must implement. Registration is simple for Operators and only requires providing a valid signature. To deregister, Operators must first `requestOperatorDeregistration`, wait a configurable amount of blocks, then call `deregisterOperator`. No staking is required of Operators.
 
 Operators mainly serve the purpose of (optionally) being able to register validators on their behalf, if the relevant validator is delegated to them. Future iterations of our AVS can assign Operators required oracle tasks, as further discussed in the _Future Upgrades_ section.
 
