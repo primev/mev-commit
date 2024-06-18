@@ -2,8 +2,9 @@
 
 ## Overview
 
-The `MevCommitAVS` contract will be deployed to L1 to act a tie-in to the eigenlayer core contracts, enabling validators to opt-in to the mev-commit protocol via restaking. It serves as the next iteration of our validator registry. Notion has a more detailed protocol design doc, whereas this doc is specific to the implementation.
+The `MevCommitAVS` contract(s) will be deployed on L1 to act a tie-in to the eigenlayer core contracts, enabling validators to opt-in to the mev-commit protocol via restaking. It serves as the next iteration of our validator registry. Notion has a more detailed protocol design doc, whereas this doc is specific to the implementation.
 
+[IMevCommitAVS.sol](../interfaces/IMevCommitAVS.sol)
 [MevCommitAVS.sol](./MevCommitAVS.sol)
 [MevCommitAVSStorage.sol](./MevCommitAVSStorage.sol)
 
@@ -11,7 +12,7 @@ The `MevCommitAVS` contract will be deployed to L1 to act a tie-in to the eigenl
 
 Operators will not yet be assigned concrete tasks as a part of our AVS, however they are nonetheless able to register with our AVS to abide by the `IAVSDirectory.registerOperatorToAVS` and `IAVSDirectory.deregisterOperatorFromAVS` functions that any AVS must implement. Registration is simple for operators and only requires providing a valid signature. To deregister, operators must first `requestOperatorDeregistration`, wait a configurable amount of blocks, then call `deregisterOperator`, with no staking required.
 
-Operators simply act as a (required) placeholder for now, but future iterations can assign them concrete tasks as further discussed in the _Open Questions_ section.
+Operators mainly serve the purpose of (optionally) being able to register validators on their behalf, if the relevant validator is delegated to them. Future iterations of our AVS can assign Operators required oracle tasks, as further discussed in the _Future Upgrades_ section.
 
 ## Validator Opt-in
 
@@ -29,7 +30,9 @@ function registerValidatorsByPodOwner(bytes[] calldata valPubKeys, address podOw
 This function stores relevant state and ensures that the provided pubkeys are indeed actively restaked with `podOwner`'s eigenPod. Note two entities are able to register validator pub keys in this way:
 
 1. The eigenpod owner account itself.
-2. An operator account, so long as the relevant eigenpod is delegated to that operator.
+2. An Operator account, so long as the relevant eigenpod is delegated to that Operator.
+
+Note if an Operator is registering pubkeys on behalf of validators, it's expected that the Operator manages those validators itself, or represents the validators to an extent that the Operator can realistically attest to the validator following the rules of mev-commit (staking-as-a-service providers for example). This trustful relationship between validators and their delegated Operator piggybacks off already agreed upon trust assumptions with eigenlayer delegation.
 
 Deregistration requires calling `requestValidatorsDeregistration`, waiting a configurable amount of blocks, then calling `deregisterValidators`. These functions are similarly callable by the eigenpod owner OR delegated operator.
 
@@ -47,57 +50,36 @@ function registerLSTRestaker(bytes calldata chosenValidator) onlyProperlyDelegat
 Deregistration requires calling `requestLSTRestakerDeregistration`, waiting a configurable amount of blocks, then calling `deregisterLSTRestaker`. These functions are callable by the LST restaker or delegated operator.
 
 ## Freezing
-... replaces slashing for now
+
+A permissioned oracle account is able to `freeze` any registered validator for acting maliciously against agreements to the mev-commit protocol:
+
+```solidity
+function freeze(bytes calldata valPubKey) external onlyFreezeOracle();
+```
+
+To exit the frozen state, a configurable unfreeze period amount of blocks must first pass. Then any account can call `unfreeze`:
+
+```solidity
+function unfreeze(bytes calldata valPubKey) payable external;
+```
+
+where a minimum of `unfreezeFee` must be included in the transaction. If the validator was in the `REQUESTED_DEREGISTRATION` state prior to being frozen, the validator will be returned to the `REGISTERED` state. That is, a validator must *not* be frozen for a full deregistration period, before it's able to deregister.
+
+Freezing is the mechanism that punishes a validator prior to eigenlayer core contracts having slashing. For now freezing corresponds to a public, reputational slash for the validator (and relevant LST restakers), and a lack of potential points accrual.
 
 ## Design Intentions
 
 When looking through this design doc one may ask _why do validators and LST restakers have to delegate to an Operator through the eigenlayer core contracts, AND separately register with the AVS contract?_
 
-The answer is that *validators* are the entities that enable credible commitments in our protocol. It would be challenging to reward or slash/freeze entirely through Operator delegation, in that an Operator can potentially represent thousands of validators from different organizations, home-staking setups, etc.
+The answer is that *validators* are the entities that enable credible commitments in our protocol. It would be challenging to reward or slash/freeze entirely through Operators, in that an Operator can potentially represent thousands of validators from different organizations, home-staking setups, etc.
 
-Further, we need some sort of explicit mechanism for validators to confirm on-chain that they wish to participate in our protocol via restaking, and generate additional revenue at the risk of being slashed. Eigenlayer's current design does not offer this.
+Further, we need some sort of explicit mechanism for *validators* (not Operators) to attest to following the rules of mev-commit, and generate additional revenue at the risk of being slashed. Eigenlayer's current design does not offer this on a per-AVS basis.
+
+## Future Upgrades 
+
+* Operators could be given the task of replacing the oracle service that currently freezes (or will eventually slash) validators. This could rely on honest Operator majority, or a multi-tier slashing system where EIGEN holders are able to slash Operators, while the Operator set is able to slash validators.
+* Operators could further be required to be validators of the existing mev-commit chain, an evm sidechain which manages preconf settlement. 
 
 ## Open Questions
 
-* Will upcoming Eigenlayer upgrades allow for rewarding and slashing validators directly? Or will Operators be the only rewardable/slashable entities? If the latter is true, this design will need to drastically change, and may neccessitate more complexity.
-
-
-// Write about how v2 (or future version with more decentralization) will 
-// give operators the task of doing the pubkey relaying to the mev-commit chain. 
-// That is the off-chain process is replaced by operators, who all look for the 
-// valset lists posted to some DA layer (eigenDA?), and then race/attest to post
-// this to the mev-commit chain. The operator accounts could be auto funded on our chain. 
-// Slashing operators in this scheme would require social intervention as it could
-// be pretty clear off chain of malicous actions and/or malicious off-chain validation
-// of eigenpod conditions, delegation conditions, etc. 
-
-// TODO: Whitelist is now just operators! Every large org seems to have its own operator.
-// Note this can be what "operators do" for now. ie. they have the ability to opt-in their users. 
-// But we still allow home stakers to opt-in themselves too. 
-// Make it very clear that part 2 of opt-in is neccessary to explicitly communicate to 
-// the opter-inner that they must follow the relay connection requirement. Otherwise delegators may be 
-// blindly frozen. When opting in as a part of step 2, the sender should be running the validators
-// its opting in (st. relay requirement is met).
-
-// TODO: overall gas optimization
-// TODO: order of funcs, finish interfaces, comments for everything etc.
-// TODO: use tests from other PR? 
-// TODO: test upgradability before Holesky deploy
-// TODO: Note and document everything from https://docs.eigenlayer.xyz/eigenlayer/avs-guides/avs-dashboard-onboarding
-// TODO: Confirm all setters are present and in right order, confirm interface is fully populated
-// TODO: Non reentrant or is this not relevant? 
-// TODO: Decide how multisig will tie into this contract, likely use gnosis safe? 
-// TODO: worth adding validator blacklist?
-
-// TODO; open questions section in design doc.. do we need to have operators? Or will eigen support rewards/slashing directly to stakers?
-// where stakers could be eigenpod owners themselves or LST restakers.
-// Make sure to ask/address whether we'll be able to slash validators specifically! Not an entire operator group. 
-
-// TODO: Look into edge cases around validators being like nah dawg I hit the 10 limit but never got to delegate myself!
-// ^ solution to above is likely to always allow self LST delegation from podOwner, limit is only for rando acconts
-
-// TODO: Look into edge cases around validators being like nah dawg I hit the 10 limit but never got to delegate myself!
-// ^ solution to above is likely to always allow self LST delegation from podOwner, limit is only for rando acconts
-
-// TODO: see if possible to launch with rewards, you're using correct branch
-// TODO: add to docs the importance of association of operators/restakers to valAddrs
+* Will upcoming Eigenlayer upgrades allow for slashing stakers (validators or LST restakers) directly? Or will Operators be the only slashable entities? If the latter is true, our AVS design will need to drastically change, and may necessitate more complexity.
