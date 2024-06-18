@@ -21,7 +21,7 @@ Recall that a native-restaking enabled validator opting-in to mev-commit require
 1. The validator must delegate their native stake to an Operator who's registered with the mev-commit AVS.
 2. The validator must separately *register* with the mev-commit AVS, confirming their attestation to follow the rules of the protocol.
 
-Since each eigenpod owner account possibly represents one or many restaked validators, any number of validator public keys can be registered, as long as an associated eigenpod owner `podOwner` is provided:
+Any number of validator public keys can be registered, as long as an associated eigenpod owner `podOwner` is provided. Note each eigenpod owner account can represent one or many restaked validators:
 
 ```solidity
 function registerValidatorsByPodOwner(bytes[] calldata valPubKeys, address podOwner);
