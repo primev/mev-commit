@@ -80,7 +80,7 @@ Further, we need some sort of explicit mechanism for **stakers** (not Operators)
 ## Future Upgrades 
 
 * Operators could be given the task of replacing the oracle service that currently freezes (or will eventually slash) validators. This could rely on honest Operator majority, or a multi-tier slashing system where EIGEN holders are able to slash Operators, while the Operator set is able to slash validators.
-* Operators could further be required to be validators of the existing mev-commit chain, an evm sidechain which manages preconf settlement. 
+* Operators could further be required to run a validator node for the existing mev-commit chain, an evm sidechain which manages preconf settlement. Thus decentralizing preconf settlement.
 
 ## Open Questions
 
