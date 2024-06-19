@@ -52,12 +52,6 @@ job "{{ job.name }}" {
       }
       {% endif %}
 
-      {% if profile == 'stressnet' %}
-      resources {
-        memory = 4096
-      }
-      {% endif %}
-
       template {
         data = <<-EOH
           POSTGRES_VERSION="15"
