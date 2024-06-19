@@ -163,8 +163,8 @@
       },
       {
         "name": "bid",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "blockNumber",
@@ -288,8 +288,8 @@
       },
       {
         "name": "_bid",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "_blockNumber",
@@ -349,8 +349,8 @@
           },
           {
             "name": "bid",
-            "type": "uint64",
-            "internalType": "uint64"
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "blockNumber",
@@ -433,8 +433,8 @@
           },
           {
             "name": "bid",
-            "type": "uint64",
-            "internalType": "uint64"
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "blockNumber",
@@ -601,8 +601,8 @@
       },
       {
         "name": "_bid",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "_blockNumber",
@@ -766,8 +766,8 @@
       },
       {
         "name": "bid",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "blockNumber",
@@ -960,8 +960,8 @@
     "inputs": [
       {
         "name": "bid",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "blockNumber",
@@ -1014,8 +1014,8 @@
       },
       {
         "name": "bid",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "blockNumber",
@@ -1091,9 +1091,9 @@
       },
       {
         "name": "bid",
-        "type": "uint64",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "uint64"
+        "internalType": "uint256"
       },
       {
         "name": "blockNumber",
@@ -1245,9 +1245,9 @@
       },
       {
         "name": "bid",
-        "type": "uint64",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "uint64"
+        "internalType": "uint256"
       },
       {
         "name": "blockNumber",

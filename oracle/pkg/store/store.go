@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -183,7 +184,7 @@ func (s *Store) AddSettlement(
 	commitmentIdx []byte,
 	txHash string,
 	blockNum int64,
-	amount uint64,
+	amount *big.Int,
 	builder []byte,
 	bidID []byte,
 	settlementType updater.SettlementType,
@@ -219,7 +220,7 @@ func (s *Store) AddSettlement(
 		blockNum,
 		builderBase64,
 		settlementType,
-		amount,
+		amount.String(),
 		bidIDBase64,
 		false,
 		postingTxnHashBase64,
@@ -271,6 +272,8 @@ func (s *Store) Settlement(
 		st            updater.Settlement
 		builderBase64 string
 		bidIDBase64   string
+		amountStr     string
+		ok            bool
 	)
 	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
 
@@ -287,7 +290,7 @@ func (s *Store) Settlement(
 		&st.TxHash,
 		&st.BlockNum,
 		&builderBase64,
-		&st.Amount,
+		&amountStr,
 		&bidIDBase64,
 		&st.Type,
 		&st.DecayPercentage,
@@ -310,6 +313,10 @@ func (s *Store) Settlement(
 	st.BidID = bidID
 	st.CommitmentIdx = commitmentIdx
 
+	st.Amount, ok = new(big.Int).SetString(amountStr, 10)
+	if !ok {
+		return st, fmt.Errorf("failed to parse amount: %s", amountStr)
+	}
 	return st, nil
 }
 

@@ -19,13 +19,13 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "PreConfCommitment(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "PreConfCommitment(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+            "PreConfBid(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
         );
 
     // Represents the dispatch window in milliseconds
@@ -69,7 +69,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bool isUsed;
         address bidder;
         address commiter;
-        uint64 bid;
+        uint256 bid;
         uint64 blockNumber;
         bytes32 bidHash;
         uint64 decayStartTimeStamp;
@@ -87,7 +87,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         bytes32 indexed commitmentIndex,
         address bidder,
         address commiter,
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         bytes32 bidHash,
         uint64 decayStartTimeStamp,
@@ -122,7 +122,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
     event SignatureVerified(
         address indexed signer,
         string txnHash,
-        uint64 indexed bid,
+        uint256 indexed bid,
         uint64 blockNumber
     );
 
@@ -216,7 +216,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
      */
     function getBidHash(
         string memory _txnHash,
-        uint64 _bid,
+        uint256 _bid,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp
@@ -247,7 +247,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
      */
     function getPreConfHash(
         string memory _txnHash,
-        uint64 _bid,
+        uint256 _bid,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
@@ -286,7 +286,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
      * @return recoveredAddress the address from the bid hash.
      */
     function verifyBid(
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
@@ -316,7 +316,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
      */
     function verifyPreConfCommitment(
         string memory txnHash,
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
@@ -388,7 +388,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
      */
     function openCommitment(
         bytes32 encryptedCommitmentIndex,
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
         uint64 decayStartTimeStamp,

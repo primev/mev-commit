@@ -307,7 +307,7 @@ func GetBidHash(bid *preconfpb.Bid) ([]byte, error) {
 
 	// EIP712_MESSAGE_TYPEHASH
 	eip712MessageTypeHash := crypto.Keccak256Hash(
-		[]byte("PreConfBid(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"),
+		[]byte("PreConfBid(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"),
 	)
 
 	// Convert the txnHash to a byte array and hash it
@@ -350,7 +350,7 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 
 	// EIP712_MESSAGE_TYPEHASH
 	eip712MessageTypeHash := crypto.Keccak256Hash(
-		[]byte("PreConfCommitment(string txnHash,uint64 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"),
+		[]byte("PreConfCommitment(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"),
 	)
 
 	// Convert the txnHash to a byte array and hash it

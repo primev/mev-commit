@@ -113,7 +113,7 @@ func (s *Service) configureDashboard() error {
 				if !ok {
 					currentAmount = big.NewInt(0)
 				}
-				currentAmount = big.NewInt(0).Add(currentAmount, big.NewInt(0).SetUint64(cmt.Amount))
+				currentAmount = big.NewInt(0).Add(currentAmount, cmt.Amount)
 				existing.TotalAmount = currentAmount.String()
 				_ = s.blockStats.Add(uint64(cmt.BlockNum), existing)
 			},

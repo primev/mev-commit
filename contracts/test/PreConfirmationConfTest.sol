@@ -14,7 +14,7 @@ import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.so
 
 contract TestPreConfCommitmentStore is Test {
     struct TestCommitment {
-        uint64 bid;
+        uint256 bid;
         uint64 blockNumber;
         string txnHash;
         uint64 decayStartTimestamp;
@@ -45,10 +45,10 @@ contract TestPreConfCommitmentStore is Test {
             "0xkartik",
             10,
             20,
-            0xa0327970258c49b922969af74d60299a648c50f69a2d98d6ab43f32f64ac2100,
-            0x65618f8f9e46b8f0790c621ca2989cfe4c949594a4a3a81261baa682e8883840,
-            hex"876c1216c232828be9fabb14981c8788cebdf6ed66e563c4a2ccc82a577d052543207aeeb158a32d8977736797ae250c63ef69a82cd85b727da21e20d030fb311b",
-            hex"bfea9167927707ae7586ed3bba8565999f8b7ad874b2dd4f175caf81084c0d0a17f9599daf5b3f2773757408aa4b44875c95df0f4150cfb295f95273e1fefdd01b",
+            0x56c06a13be335eba981b780ea45dff258a7c429d0e9d993235ef2d3a7e435df8,
+            0x9d954942ad3f6cb41ccd029869be7b28036270b4754665a3783c2d6bf0ef7d08,
+            hex"2e7df27808c72d7d5b2543bb63b06c0ae2144e021593b8d2a7cca6a3fb2d9c4b1a82dd2a07266de9364d255bdb709476ad96b826ec855efb528eaff66682997e1c",
+            hex"682a1bc8659a0d2616f579ca0e0944d4e21911e65561b7d9ae7dba36c5a5b699248f1c93e8e6f52492ee6c3cb0f34f20f5a97fb2653c5a67200e1de9254389e11c",
             15,
             bytes("0xsecret")
         );
@@ -264,8 +264,8 @@ contract TestPreConfCommitmentStore is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bytes memory signature = abi.encodePacked(r, s, v);
+        console.logBytes(signature);
         bytes memory sharedSecretKey = bytes("0xsecret");
-
         bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.bid,
@@ -367,7 +367,7 @@ contract TestPreConfCommitmentStore is Test {
 
     function verifyCommitmentNotUsed(
         string memory txnHash,
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
@@ -401,7 +401,7 @@ contract TestPreConfCommitmentStore is Test {
 
     function storeCommitment(
         address commiter,
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
         uint64 decayStartTimestamp,
@@ -443,7 +443,7 @@ contract TestPreConfCommitmentStore is Test {
     function openCommitment(
         address msgSender,
         bytes32 encryptedCommitmentIndex,
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
         uint64 decayStartTimestamp,
@@ -470,7 +470,7 @@ contract TestPreConfCommitmentStore is Test {
 
     function verifyStoredCommitment(
         bytes32 index,
-        uint64 bid,
+        uint256 bid,
         uint64 blockNumber,
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
