@@ -13,7 +13,7 @@ interface IPreConfCommitmentStore {
         bool isUsed;
         address bidder;
         address commiter;
-        uint64 bid;
+        uint256 bid;
         uint64 blockNumber;
         bytes32 bidHash;
         uint64 decayStartTimeStamp;
@@ -28,7 +28,7 @@ interface IPreConfCommitmentStore {
     event SignatureVerified(
         address indexed signer,
         string txnHash,
-        uint64 indexed bid,
+        uint256 indexed bid,
         uint64 blockNumber
     );
 
@@ -36,7 +36,7 @@ interface IPreConfCommitmentStore {
 
     function getBidHash(
         string memory _txnHash,
-        uint64 _bid,
+        uint256 _bid,
         uint64 _blockNumber
     ) external view returns (bytes32);
 

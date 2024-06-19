@@ -57,7 +57,7 @@ type PreconfContract interface {
 	OpenCommitment(
 		opts *bind.TransactOpts,
 		encryptedCommitmentIndex [32]byte,
-		bid uint64,
+		bid *big.Int,
 		blockNumber uint64,
 		txnHash string,
 		decayStartTimeStamp uint64,
@@ -321,7 +321,7 @@ func (t *Tracker) handleNewL1Block(
 		txHash, err := t.preconfContract.OpenCommitment(
 			opts,
 			commitmentIdx,
-			bidAmt.Uint64(),
+			bidAmt,
 			uint64(commitment.PreConfirmation.Bid.BlockNumber),
 			commitment.PreConfirmation.Bid.TxHash,
 			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),

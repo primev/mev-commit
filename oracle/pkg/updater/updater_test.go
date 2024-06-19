@@ -101,6 +101,7 @@ func TestUpdater(t *testing.T) {
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
+			Bid:                 big.NewInt(10),
 			BlockNumber:         5,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -141,6 +142,7 @@ func TestUpdater(t *testing.T) {
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Commiter:            builderAddr,
+			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -285,7 +287,7 @@ func TestUpdater(t *testing.T) {
 			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
 				t.Fatal("wrong builder")
 			}
-			if settlement.amount != 0 {
+			if settlement.amount.Uint64() != 10 {
 				t.Fatal("wrong amount")
 			}
 			if settlement.settlementType != updater.SettlementTypeReward {
@@ -348,6 +350,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Commiter:            builderAddr,
+			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -460,7 +463,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
 				t.Fatal("wrong builder")
 			}
-			if settlement.amount != 0 {
+			if settlement.amount.Uint64() != 10 {
 				t.Fatal("wrong amount")
 			}
 			if settlement.settlementType != updater.SettlementTypeSlash {
@@ -528,6 +531,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Commiter:            builderAddr,
+			Bid:                 big.NewInt(10),
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			BlockNumber:         blockNum,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -664,7 +668,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
 				t.Fatal("wrong builder")
 			}
-			if settlement.amount != 0 {
+			if settlement.amount.Uint64() != 10 {
 				t.Fatal("wrong amount")
 			}
 			if settlement.settlementType != updater.SettlementTypeReward {
@@ -692,7 +696,7 @@ type testSettlement struct {
 	txHash          string
 	blockNum        int64
 	builder         []byte
-	amount          uint64
+	amount          *big.Int
 	settlementType  updater.SettlementType
 	decayPercentage int64
 	window          int64
@@ -747,7 +751,7 @@ func (t *testWinnerRegister) AddSettlement(
 	commitmentIdx []byte,
 	txHash string,
 	blockNum int64,
-	amount uint64,
+	amount *big.Int,
 	builder []byte,
 	_ []byte,
 	settlementType updater.SettlementType,

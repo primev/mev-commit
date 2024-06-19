@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ type testSettlement struct {
 	TxHash          string
 	BlockNum        int64
 	Builder         []byte
-	Amount          uint64
+	Amount          *big.Int
 	BidID           []byte
 	Type            updater.SettlementType
 	DecayPercentage int64
@@ -102,7 +103,7 @@ func TestStore(t *testing.T) {
 			CommitmentIdx: []byte{1},
 			TxHash:        common.HexToHash("0x01").String(),
 			BlockNum:      1,
-			Amount:        2000000,
+			Amount:        big.NewInt(2000000),
 			Builder:       winners[0].Winner,
 			BidID:         common.HexToHash("0x01").Bytes(),
 			Type:          updater.SettlementTypeReward,
@@ -113,7 +114,7 @@ func TestStore(t *testing.T) {
 			CommitmentIdx: []byte{2},
 			TxHash:        common.HexToHash("0x02").String(),
 			BlockNum:      1,
-			Amount:        1000000,
+			Amount:        big.NewInt(1000000),
 			Builder:       winners[0].Winner,
 			BidID:         common.HexToHash("0x02").Bytes(),
 			Type:          updater.SettlementTypeSlash,
@@ -124,7 +125,7 @@ func TestStore(t *testing.T) {
 			CommitmentIdx: []byte{3},
 			TxHash:        common.HexToHash("0x03").String(),
 			BlockNum:      1,
-			Amount:        1000000,
+			Amount:        big.NewInt(1000000),
 			Builder:       winners[1].Winner,
 			BidID:         common.HexToHash("0x03").Bytes(),
 			Type:          updater.SettlementTypeReward,
@@ -135,7 +136,7 @@ func TestStore(t *testing.T) {
 			CommitmentIdx: []byte{4},
 			TxHash:        common.HexToHash("0x04").String(),
 			BlockNum:      2,
-			Amount:        2000000,
+			Amount:        big.NewInt(2000000),
 			Builder:       winners[1].Winner,
 			BidID:         common.HexToHash("0x04").Bytes(),
 			Type:          updater.SettlementTypeSlash,
@@ -146,7 +147,7 @@ func TestStore(t *testing.T) {
 			CommitmentIdx: []byte{5},
 			TxHash:        common.HexToHash("0x05").String(),
 			BlockNum:      2,
-			Amount:        1000000,
+			Amount:        big.NewInt(1000000),
 			Builder:       winners[1].Winner,
 			BidID:         common.HexToHash("0x05").Bytes(),
 			Type:          updater.SettlementTypeReward,
@@ -157,7 +158,7 @@ func TestStore(t *testing.T) {
 			CommitmentIdx: []byte{6},
 			TxHash:        common.HexToHash("0x06").String(),
 			BlockNum:      2,
-			Amount:        1000000,
+			Amount:        big.NewInt(1000000),
 			Builder:       winners[0].Winner,
 			BidID:         common.HexToHash("0x04").Bytes(),
 			Type:          updater.SettlementTypeSlash,
@@ -297,6 +298,10 @@ func TestStore(t *testing.T) {
 				t.Fatalf("Failed to get settlement: %s", err)
 			}
 
+			opt := cmp.Comparer(func(x, y *big.Int) bool {
+				return x.Cmp(y) == 0
+			})
+
 			if diff := cmp.Diff(s, updater.Settlement{
 				CommitmentIdx:   settlement.CommitmentIdx,
 				TxHash:          settlement.TxHash,
@@ -306,7 +311,7 @@ func TestStore(t *testing.T) {
 				BidID:           settlement.BidID,
 				Type:            settlement.Type,
 				DecayPercentage: settlement.DecayPercentage,
-			}); diff != "" {
+			}, opt); diff != "" {
 				t.Fatalf("Unexpected settlement: (-want +have):\n%s", diff)
 			}
 		}

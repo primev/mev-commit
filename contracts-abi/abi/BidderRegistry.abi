@@ -30,8 +30,8 @@
       },
       {
         "name": "bidAmt",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "state",
@@ -52,8 +52,8 @@
       },
       {
         "name": "bid",
-        "type": "uint64",
-        "internalType": "uint64"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "bidder",
