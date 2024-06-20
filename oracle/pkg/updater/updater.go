@@ -335,7 +335,7 @@ func (u *Updater) handleOpenedCommitment(
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
 		txnDetails, found := txns[commitmentTxnHashes[i]]
-		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i {
+		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || !txnDetails.Succeeded {
 			u.logger.Info(
 				"bundle is not atomic",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
