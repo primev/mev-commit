@@ -92,6 +92,7 @@ type Oracle interface {
 
 type EVMClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 type Updater struct {
