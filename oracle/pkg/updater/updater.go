@@ -24,6 +24,12 @@ import (
 
 type SettlementType string
 
+type TxMetadata struct {
+	PosInBlock int
+	Succeeded  bool
+	// Add other metadata fields here as needed
+}
+
 const (
 	SettlementTypeReward SettlementType = "reward"
 	SettlementTypeSlash  SettlementType = "slash"
@@ -84,6 +90,7 @@ type Oracle interface {
 
 type EVMClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 type Updater struct {
@@ -92,7 +99,7 @@ type Updater struct {
 	winnerRegister WinnerRegister
 	oracle         Oracle
 	evtMgr         events.EventManager
-	l1BlockCache   *lru.Cache[uint64, map[string]int]
+	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
 	encryptedCmts  chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored
 	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
 	currentWindow  atomic.Int64
@@ -106,7 +113,7 @@ func NewUpdater(
 	evtMgr events.EventManager,
 	oracle Oracle,
 ) (*Updater, error) {
-	l1BlockCache, err := lru.New[uint64, map[string]int](1024)
+	l1BlockCache, err := lru.New[uint64, map[string]TxMetadata](1024)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create L1 block cache: %w", err)
 	}
@@ -327,16 +334,17 @@ func (u *Updater) handleOpenedCommitment(
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
-		posInBlock, found := txns[commitmentTxnHashes[i]]
-		if !found || posInBlock != txns[commitmentTxnHashes[0]]+i {
+		txnDetails, found := txns[commitmentTxnHashes[i]]
+		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i {
 			u.logger.Info(
 				"bundle is not atomic",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 				"txnHash", update.TxnHash,
 				"blockNumber", update.BlockNumber,
 				"found", found,
-				"posInBlock", posInBlock,
-				"expectedPosInBlock", txns[commitmentTxnHashes[0]]+i,
+				"posInBlock", txnDetails.PosInBlock,
+				"succeeded", txnDetails.Succeeded,
+				"expectedPosInBlock", txns[commitmentTxnHashes[0]].PosInBlock+i,
 			)
 			// The committer did not include the transactions in the block
 			// correctly, so this is a slash to be processed
@@ -450,8 +458,7 @@ func (u *Updater) addSettlement(
 
 	return nil
 }
-
-func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]int, error) {
+func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]TxMetadata, error) {
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
 		u.metrics.BlockTxnCacheHits.Inc()
@@ -465,9 +472,15 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]in
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
 
-	txnsInBlock := make(map[string]int)
+	txnsInBlock := make(map[string]TxMetadata)
 	for posInBlock, tx := range blk.Transactions() {
-		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = posInBlock
+		receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
+		if err != nil {
+			u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
+			return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
+		}
+		txSucceeded := receipt.Status == 1
+		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
 	}
 	_ = u.l1BlockCache.Add(blockNum, txnsInBlock)
 

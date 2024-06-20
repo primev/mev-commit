@@ -809,6 +809,10 @@ func (t *testEVMClient) BlockByNumber(ctx context.Context, blkNum *big.Int) (*ty
 	return blk, nil
 }
 
+func (t *testEVMClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	return &types.Receipt{Status: 1}, nil
+}
+
 type processedCommitment struct {
 	commitmentIdx [32]byte
 	blockNum      *big.Int
