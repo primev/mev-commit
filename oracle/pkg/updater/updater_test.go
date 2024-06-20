@@ -1128,7 +1128,11 @@ func (t *testEVMClient) BlockByNumber(ctx context.Context, blkNum *big.Int) (*ty
 }
 
 func (t *testEVMClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return &types.Receipt{Status: 1}, nil
+	receipt, found := t.receipts[txHash.Hex()]
+	if !found {
+		return nil, fmt.Errorf("receipt for transaction hash %s not found", txHash.Hex())
+	}
+	return receipt, nil
 }
 
 type processedCommitment struct {
