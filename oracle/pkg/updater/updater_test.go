@@ -173,6 +173,14 @@ func TestUpdater(t *testing.T) {
 		blocks: map[int64]*types.Block{
 			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 		},
+		receipts: make(map[string]*types.Receipt),
+	}
+	for _, txn := range txns {
+		receipt := &types.Receipt{
+			Status: types.ReceiptStatusSuccessful,
+			TxHash: txn.Hash(),
+		}
+		l1Client.receipts[txn.Hash().Hex()] = receipt
 	}
 
 	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
@@ -380,6 +388,14 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		blocks: map[int64]*types.Block{
 			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 		},
+		receipts: make(map[string]*types.Receipt),
+	}
+	for _, txn := range txns {
+		receipt := &types.Receipt{
+			Status: types.ReceiptStatusSuccessful,
+			TxHash: txn.Hash(),
+		}
+		l1Client.receipts[txn.Hash().Hex()] = receipt
 	}
 
 	oracle := &testOracle{
