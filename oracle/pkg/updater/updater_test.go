@@ -576,6 +576,14 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			8:  types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 			10: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
 		},
+		receipts: make(map[string]*types.Receipt),
+	}
+	for _, txn := range txns {
+		receipt := &types.Receipt{
+			Status: types.ReceiptStatusSuccessful,
+			TxHash: txn.Hash(),
+		}
+		l1Client.receipts[txn.Hash().Hex()] = receipt
 	}
 
 	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
@@ -798,7 +806,8 @@ func (t *testWinnerRegister) AddEncryptedCommitment(
 }
 
 type testEVMClient struct {
-	blocks map[int64]*types.Block
+	blocks   map[int64]*types.Block
+	receipts map[string]*types.Receipt
 }
 
 func (t *testEVMClient) BlockByNumber(ctx context.Context, blkNum *big.Int) (*types.Block, error) {
@@ -810,7 +819,11 @@ func (t *testEVMClient) BlockByNumber(ctx context.Context, blkNum *big.Int) (*ty
 }
 
 func (t *testEVMClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return &types.Receipt{Status: 1}, nil
+	receipt, found := t.receipts[txHash.Hex()]
+	if !found {
+		return nil, fmt.Errorf("receipt for transaction hash %s not found", txHash.Hex())
+	}
+	return receipt, nil
 }
 
 type processedCommitment struct {
