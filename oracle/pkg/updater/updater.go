@@ -27,7 +27,6 @@ type SettlementType string
 type TxMetadata struct {
 	PosInBlock int
 	Succeeded  bool
-	// Add other metadata fields here as needed
 }
 
 const (
