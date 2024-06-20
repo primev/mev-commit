@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -472,15 +473,24 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	}
 
 	txnsInBlock := make(map[string]TxMetadata)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for posInBlock, tx := range blk.Transactions() {
-		receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
-		if err != nil {
-			u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
-			return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
-		}
-		txSucceeded := receipt.Status == 1
-		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
+		wg.Add(1)
+		go func(posInBlock int, tx *types.Transaction) {
+			defer wg.Done()
+			receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
+			if err != nil {
+				u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
+				return
+			}
+			txSucceeded := receipt.Status == 1
+			mu.Lock()
+			txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
+			mu.Unlock()
+		}(posInBlock, tx)
 	}
+	wg.Wait()
 	_ = u.l1BlockCache.Add(blockNum, txnsInBlock)
 
 	return txnsInBlock, nil
