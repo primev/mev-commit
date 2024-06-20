@@ -146,38 +146,41 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				continue
 			}
 
-			header, err := l.l1Client.HeaderByNumber(ctx, big.NewInt(int64(blockNum)))
-			if err != nil {
-				l.logger.Error("failed to get header", "block", blockNum, "error", err)
-				continue
+			for b := uint64(currentBlockNo) + 1; b <= blockNum; b++ {
+				header, err := l.l1Client.HeaderByNumber(ctx, big.NewInt(int64(b)))
+				if err != nil {
+					l.logger.Error("failed to get header", "block", b, "error", err)
+					continue
+				}
+
+				winner := string(bytes.ToValidUTF8(header.Extra, []byte("�")))
+
+				l.logger.Info(
+					"new L1 winner",
+					"winner", winner,
+					"block", header.Number.Int64(),
+				)
+
+				winnerPostingTxn, err := l.recorder.RecordL1Block(
+					big.NewInt(0).SetUint64(b),
+					winner,
+				)
+				if err != nil {
+					l.logger.Error("failed to register winner for block", "block", b, "error", err)
+					continue
+				}
+
+				l.metrics.WinnerPostedCount.Inc()
+				l.metrics.LastSentNonce.Set(float64(winnerPostingTxn.Nonce()))
+
+				l.logger.Info(
+					"registered winner",
+					"winner", winner,
+					"block", header.Number.Int64(),
+					"txn", winnerPostingTxn.Hash().String(),
+				)
 			}
 
-			winner := string(bytes.ToValidUTF8(header.Extra, []byte("�")))
-
-			l.logger.Info(
-				"new L1 winner",
-				"winner", winner,
-				"block", header.Number.Int64(),
-			)
-
-			winnerPostingTxn, err := l.recorder.RecordL1Block(
-				big.NewInt(0).SetUint64(blockNum),
-				winner,
-			)
-			if err != nil {
-				l.logger.Error("failed to register winner for block", "block", blockNum, "error", err)
-				return err
-			}
-
-			l.metrics.WinnerPostedCount.Inc()
-			l.metrics.LastSentNonce.Set(float64(winnerPostingTxn.Nonce()))
-
-			l.logger.Info(
-				"registered winner",
-				"winner", winner,
-				"block", header.Number.Int64(),
-				"txn", winnerPostingTxn.Hash().String(),
-			)
 			currentBlockNo = int(blockNum)
 		}
 	}
