@@ -51,6 +51,7 @@ jobs:
     steps:
       - name: Setup Environment
         run: |
+          RUNNER_START_TIME="$(date +%s)"
           echo "${{ secrets.INFRASTRUCTURE_DNS_RECORDS }}" | sudo tee -a /etc/hosts
           sudo systemctl restart systemd-resolved
 
@@ -62,6 +63,7 @@ jobs:
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
           TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target }})" || echo "127.0.0.1")
 
+          echo "RUNNER_START_TIME=${RUNNER_START_TIME}" >> ${GITHUB_ENV}
           echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> ${GITHUB_ENV}
           echo "CLUSTER_ENVIRONMENT_FLAG=${CLUSTER_ENVIRONMENT_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> ${GITHUB_ENV}
@@ -185,7 +187,7 @@ jobs:
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
         run: |
           DEPLOY_DURATION=${DEPLOY_DURATION:-N/A}
-          RUNNER_DURATION=$(date -ud "@$(( $(date +%s) - $(date +%s -r /proc/$(pgrep -o -x "runner")/stat) ))" +'%H:%M:%S')
+          RUNNER_DURATION=$(date -ud "@$(( $(date +%s) - ${RUNNER_START_TIME} ))" +'%H:%M:%S')
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PAYLOAD=$(cat <<-EOH
           {
