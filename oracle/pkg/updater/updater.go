@@ -464,6 +464,7 @@ func (u *Updater) addSettlement(
 
 	return nil
 }
+
 func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]TxMetadata, error) {
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
@@ -487,22 +488,35 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	txnsInBlock := make(map[string]TxMetadata)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	for posInBlock, tx := range blk.Transactions() {
-		wg.Add(1)
-		go func(posInBlock int, tx *types.Transaction) {
-			defer wg.Done()
-			receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
-			if err != nil {
-				u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
-				return
-			}
-			txSucceeded := receipt.Status == 1
+	var receiptErr error
+
+	processTransactionMetadata := func(posInBlock int, tx *types.Transaction) {
+		defer wg.Done()
+		receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
+		if err != nil {
+			u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
 			mu.Lock()
-			txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
+			receiptErr = err
 			mu.Unlock()
-		}(posInBlock, tx)
+			return
+		}
+		txSucceeded := receipt.Status == 1
+		mu.Lock()
+		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
+		mu.Unlock()
 	}
+
+	for posInBlock, tx := range block.Transactions() {
+		wg.Add(1)
+		go processTransactionMetadata(posInBlock, tx)
+	}
+
 	wg.Wait()
+
+	if receiptErr != nil {
+		return nil, receiptErr
+	}
+
 	_ = u.l1BlockCache.Add(blockNum, txnsInBlock)
 >>>>>>> e18f314 (feat: request receipts concurrently)
 
