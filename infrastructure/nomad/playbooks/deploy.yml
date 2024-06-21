@@ -544,27 +544,44 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
-        JOB_TYPE=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].JobType')
-        if [ "${JOB_TYPE}" = "batch" ]; then
-          TIMEOUT=300
-          START_TIME=$(date +%s)
+        RESULT="$(nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad 2>&1)"
+        if [ $? -ne 0 ]; then
+          echo "Failed to deploy {{ job.name }}: ${RESULT}"
+          exit 1
+        fi
 
-          while true; do
-            STATUS=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].ClientStatus')
-            case "${STATUS}" in
-              complete|dead|failed|stopped)
+        TIMEOUT=300
+        START_TIME=$(date +%s)
+        JOB_TYPE=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].JobType')
+
+        while true; do
+          STATUS=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].ClientStatus')
+
+          case "${JOB_TYPE}" in
+            service)
+              if [ "${STATUS}" = "running" ]; then
+                break
+              fi
+              ;;
+            batch)
+              if [ "${STATUS}" = "complete" ]; then
+                break
+              fi
+              ;;
+            *)
               break
               ;;
-            esac
+          esac
 
-            CURRENT_TIME="$(date +%s)"
-            ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
-            [ ${ELAPSED_TIME} -ge ${TIMEOUT} ] && exit 1
+          CURRENT_TIME="$(date +%s)"
+          ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
+          if [ ${ELAPSED_TIME} -ge ${TIMEOUT} ]; then
+            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}."
+            exit 1
+          fi
 
-            sleep 1
-          done
-        fi
+          sleep 1
+        done
       args:
         executable: bash
       loop: "{{ jobs }}"
@@ -572,6 +589,8 @@
         label: "{{ item.name }}"
       vars:
         job: "{{ item }}"
+      register: result
+      failed_when: result.rc != 0
 
     - name: Post Deployment Info
       ansible.builtin.debug:
