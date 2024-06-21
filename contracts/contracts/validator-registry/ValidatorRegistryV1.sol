@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {EnumerableMap} from "./utils/EnumerableMap.sol";
+import {EnumerableMap} from "../utils/EnumerableMap.sol";
 
 /// @title Validator Registry v1
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 

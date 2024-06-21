@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import "../contracts/ValidatorRegistryV1.sol";
+import "../../contracts/validator-registry/ValidatorRegistryV1.sol";
 
 abstract contract ExampleScript is Script {
 

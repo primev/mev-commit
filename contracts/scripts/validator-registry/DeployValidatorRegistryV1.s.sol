@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import {Script} from "forge-std/Script.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {ValidatorRegistryV1} from "../contracts/ValidatorRegistryV1.sol";
+import {ValidatorRegistryV1} from "../../contracts/validator-registry/ValidatorRegistryV1.sol";
 
 contract Deploy is Script {
     uint256 constant UNSTAKE_PERIOD_BLOCKS = 32 * 3; // 2 epoch finalization time + settlement buffer
