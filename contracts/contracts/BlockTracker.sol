@@ -2,12 +2,13 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title BlockTracker
  * @dev A contract that tracks Ethereum blocks and their winners.
  */
-contract BlockTracker is OwnableUpgradeable {
+contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when a new L1 block is tracked.
     event NewL1Block(
         uint256 indexed blockNumber,
@@ -29,6 +30,8 @@ contract BlockTracker is OwnableUpgradeable {
 
      /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the BlockTracker contract with the specified owner.

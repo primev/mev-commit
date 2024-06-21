@@ -2,14 +2,17 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 // Contract that allows an admin to add/remove addresses from the whitelist,
 // and allows whitelisted addresses to mint native tokens.
 //
 // The whitelist contract's create2 address must be funded on genesis.
-contract Whitelist is OwnableUpgradeable {
+contract Whitelist is OwnableUpgradeable, UUPSUpgradeable {
 
     mapping(address => bool) public whitelistedAddresses;
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function initialize(address _owner) external initializer {
         __Ownable_init(_owner);
