@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title Validator Registry v1
@@ -10,7 +9,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 /// via simply staking ETH outside what's staked with the beacon chain.
 /// @dev Slashing is not yet implemented for this contract, hence it is upgradable to incorporate slashing in the future.
 /// @dev This contract is meant to be deployed via UUPS proxy contract on mainnet.
-contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, UUPSUpgradeable {
+contract ValidatorRegistryV1 is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev Index tracking changes in the set of staked (opted-in) validators.
     /// This enables optimistic locking for batch queries.
@@ -99,7 +98,7 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
         ++stakedValsetVersion;
     }
 
-    function unstake(bytes[] calldata blsPubKeys) external nonReentrant {
+    function unstake(bytes[] calldata blsPubKeys) external {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
             _validateBLSPubKey(blsPubKeys[i]);
             require(unstakeBlockNums[blsPubKeys[i]] == 0, "Unstake already initiated for validator");
@@ -120,7 +119,7 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
         ++stakedValsetVersion;
     }
 
-    function withdraw(bytes[] calldata blsPubKeys) external nonReentrant {
+    function withdraw(bytes[] calldata blsPubKeys) external {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
             _validateBLSPubKey(blsPubKeys[i]);
 
