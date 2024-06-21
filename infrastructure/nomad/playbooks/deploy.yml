@@ -431,7 +431,11 @@
             }
           },
           "nonce": "0x0",
+          {% if environments[env].genesis_timestamp is defined %}
+          "timestamp": "{{ environments[env].genesis_timestamp }}",
+          {% else %}
           "timestamp": "0x$(printf "%x" "$(date +%s)")",
+          {% endif %}
           "difficulty": "0x1",
           "gasLimit": "0x1c9c380",
           "coinbase": "0x0000000000000000000000000000000000000000",
