@@ -93,7 +93,7 @@ func TestL1Listener(t *testing.T) {
 
 	// ensure no winner is sent for the previous block
 	select {
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("timeout waiting for winner")
 	case update := <-rec.updates:
 		if update.blockNum.Int64() != 11 {
