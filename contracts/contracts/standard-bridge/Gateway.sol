@@ -2,11 +2,12 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @dev Gateway contract for standard bridge. 
  */
-abstract contract Gateway is OwnableUpgradeable {   
+abstract contract Gateway is OwnableUpgradeable, UUPSUpgradeable {   
     
     // @dev index for tracking transfer initiations.
     // Also total number of transfers initiated from this gateway.
@@ -25,6 +26,8 @@ abstract contract Gateway is OwnableUpgradeable {
 
     // The counterparty's finalization fee (wei), included for UX purposes
     uint256 public counterpartyFee;
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function initiateTransfer(address _recipient, uint256 _amount
     ) external payable returns (uint256 returnIdx) {

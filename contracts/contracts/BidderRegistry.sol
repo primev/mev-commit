@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
@@ -14,7 +15,8 @@ import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
 contract BidderRegistry is
     IBidderRegistry,
     OwnableUpgradeable,
-    ReentrancyGuardUpgradeable
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
 {
     /// @dev For improved precision
     uint256 constant PRECISION = 10 ** 25;
@@ -107,6 +109,8 @@ contract BidderRegistry is
     receive() external payable {
         revert("Invalid call");
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with a minimum deposit requirement.

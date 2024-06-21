@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IPreConfCommitmentStore} from './interfaces/IPreConfCommitmentStore.sol';
@@ -16,7 +18,7 @@ import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
  * @title Oracle - A contract for Fetching L1 Block Builder Info and Block Data.
  * @dev This contract serves as an oracle to fetch and process Ethereum Layer 1 block data.
  */
-contract Oracle is OwnableUpgradeable {
+contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
 
@@ -38,6 +40,8 @@ contract Oracle is OwnableUpgradeable {
 
     /// @dev Reference to the BlockTracker contract interface.
     IBlockTracker private blockTrackerContract;
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with a PreConfirmations contract.

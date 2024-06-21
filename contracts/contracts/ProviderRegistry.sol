@@ -2,7 +2,9 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+
 import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 
@@ -12,6 +14,7 @@ import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 contract ProviderRegistry is
     IProviderRegistry,
     OwnableUpgradeable,
+    UUPSUpgradeable,
     ReentrancyGuardUpgradeable
 {
     /// @dev For improved precision
@@ -65,6 +68,8 @@ contract ProviderRegistry is
     receive() external payable {
         revert("Invalid call");
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with a minimum stake requirement.
