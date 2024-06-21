@@ -165,6 +165,10 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
         return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
     }
 
+    function getStakedValsetVersion() external view returns (uint256) {
+        return stakedValsetVersion;
+    }
+
     // TODO: Slashing
     
     // TODO: aggregator contract that exposes an isStaked func that'll call this and AVS contracts

@@ -29,19 +29,8 @@ abstract contract ExampleScript is Script {
             console.log("--------------------");
         }
 
-        (uint256 numStakedValidators, uint256 stakedValsetVersion) = _validatorRegistry.getNumberOfStakedValidators();
-        console.log("Num Staked Validators:", numStakedValidators);
-        console.log("Staked Valset Version from len query:", stakedValsetVersion);
-        if (numStakedValidators == 0) {
-            return;
-        }
-        bytes[] memory vals;
-        (vals, stakedValsetVersion) = _validatorRegistry.getStakedValidators(0, numStakedValidators);
-        for (uint i = 0; i < vals.length; i++) {
-            console.log("Staked validator from batch query: ");
-            console.logBytes(vals[i]);
-        }
-        console.log("Staked Valset Version from getStakedValidators query:", stakedValsetVersion);
+        uint256 stakedValsetVersion = _validatorRegistry.getStakedValsetVersion();
+        console.log("Staked Valset Version from getStakedValsetVersion query:", stakedValsetVersion);
     }
 
     function checkWithdrawal(bytes[] memory blsKeys) public view {
