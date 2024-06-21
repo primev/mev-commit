@@ -9,4 +9,5 @@ environments:
     profile: "{{ profile }}"
     version: "{{ version }}"
     secrets: fetch
+    genesis_timestamp: "0x66700e3f"
     domain: testnet.mev-commit.xyz
