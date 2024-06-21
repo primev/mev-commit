@@ -130,7 +130,12 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
-	currentBlockNo := 0
+	// TODO: change it to the store to not miss blocks, if oracle is down
+	currentBlockNo, err := l.l1Client.BlockNumber(ctx)
+	if err != nil {
+		l.logger.Error("failed to get block number", "error", err)
+		return err
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -181,7 +186,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				)
 			}
 
-			currentBlockNo = int(blockNum)
+			currentBlockNo = blockNum
 		}
 	}
 }
