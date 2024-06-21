@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
@@ -13,7 +14,7 @@ import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
  */
-contract PreConfCommitmentStore is OwnableUpgradeable {
+contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     using ECDSA for bytes32;
 
     /// @dev EIP-712 Type Hash for preconfirmation commitment
@@ -147,6 +148,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable {
         require(msg.sender == oracle, "Only the oracle can call this function");
         _;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
