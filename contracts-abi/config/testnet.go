@@ -12,9 +12,9 @@ var TestnetContracts = Contracts{
 	// If these addresses change for a testnet deployment,
 	// please also update snippets/testnet-addresses.mdx
 	// in https://github.com/primev/mev-commit-docs
-	BidderRegistry:         "0x2eEbF31f5c932D51556E70235FB98bB2237d065c",
-	ProviderRegistry:       "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D",
-	PreconfCommitmentStore: "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3",
-	Oracle:                 "0x6856Eb630C79D491886E104D328834643B3F69E3",
-	BlockTracker:           "0x2eEbF31f5c932D51556E70235FB98bB2237d065c",
+	BidderRegistry:         "0xC383f487A93eD43a0dC85f9f63069ce37767f875",
+	ProviderRegistry:       "0x1Ca3e5398228b4E6dA1f8b7f176b2a797b9B33bf",
+	PreconfCommitmentStore: "0x2Aa7b59E07A92908570b79f68addf2915e5586e5",
+	Oracle:                 "0xAaA1e7B1CE47910FA3CE79FC18c57cC12322991E",
+	BlockTracker:           "0xABa711EdEC215972d8Da0C65DDc3E092754e691c",
 }
