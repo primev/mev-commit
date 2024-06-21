@@ -10,7 +10,7 @@ import {IEigenPodManager} from "eigenlayer-contracts/src/contracts/interfaces/IE
 import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod.sol";
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
-import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
+import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
 
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage, OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {

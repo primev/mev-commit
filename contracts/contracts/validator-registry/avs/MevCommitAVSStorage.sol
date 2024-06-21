@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 
-import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
+import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 abstract contract MevCommitAVSStorage {
