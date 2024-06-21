@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {EnumerableMap} from "../utils/EnumerableMap.sol";
 
 /// @title Validator Registry v1
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
@@ -57,9 +56,8 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
         _disableInitializers();
     }
 
-    using EnumerableMap for EnumerableMap.BytesToUint256Map;
-    /// @dev Enumerable mapping of validator bls public key to staked balance. 
-    EnumerableMap.BytesToUint256Map internal stakedBalances;
+    /// @dev Mapping of validator bls public key to staked balance. 
+    mapping(bytes => uint256) internal stakedBalances;
 
     /// @dev Mapping of validator bls public key to EOA stake originator. 
     mapping(bytes => address) public stakeOriginators;
@@ -92,12 +90,9 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
             _validateBLSPubKey(valBLSPubKeys[i]);
             require(unstakeBlockNums[valBLSPubKeys[i]] == 0, "validator cannot be staked with in-progress unstake process");
 
-            bool exists;
-            uint256 value;
-            (exists, value) = stakedBalances.tryGet(valBLSPubKeys[i]);
-            require(!exists, "Validator already staked");
+            require(stakedBalances[valBLSPubKeys[i]] == 0, "Validator already staked");
 
-            stakedBalances.set(valBLSPubKeys[i], splitAmount);
+            stakedBalances[valBLSPubKeys[i]] = splitAmount;
             stakeOriginators[valBLSPubKeys[i]] = stakeOriginator;
             emit Staked(stakeOriginator, valBLSPubKeys[i], splitAmount);
         }
@@ -109,17 +104,13 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
             _validateBLSPubKey(blsPubKeys[i]);
             require(unstakeBlockNums[blsPubKeys[i]] == 0, "Unstake already initiated for validator");
 
-            bool exists;
-            uint256 balance;
-            (exists, balance) = stakedBalances.tryGet(blsPubKeys[i]);
-            require(exists, "Validator not staked");
-            require(balance >= minStake, "No staked balance over min stake");
+            require(stakedBalances[blsPubKeys[i]] >= minStake, "No staked balance over min stake");
 
             require(stakeOriginators[blsPubKeys[i]] == msg.sender || owner() == msg.sender,
                 "Not authorized to unstake validator. Must be stake originator or owner"); 
 
-            bool removed = stakedBalances.remove(blsPubKeys[i]);
-            require(removed, "Failed to remove staked balance");
+            uint256 balance = stakedBalances[blsPubKeys[i]];
+            delete stakedBalances[blsPubKeys[i]];
 
             unstakeBlockNums[blsPubKeys[i]] = block.number;
             unstakingBalances[blsPubKeys[i]] = balance;
@@ -157,16 +148,11 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
     }
 
     function getStakedAmount(bytes calldata valBLSPubKey) external view returns (uint256) {
-        bool exists;
-        uint256 balance;
-        (exists, balance) = stakedBalances.tryGet(valBLSPubKey);
-        return exists ? balance : 0;
+        return stakedBalances[valBLSPubKey];
     }
 
     function isStaked(bytes calldata valBLSPubKey) external view returns (bool) {
-        bool exists;
-        (exists,) = stakedBalances.tryGet(valBLSPubKey);
-        return exists;
+        return stakedBalances[valBLSPubKey] >= minStake;
     }
 
     function getUnstakingAmount(bytes calldata valBLSPubKey) external view returns (uint256) {
@@ -179,31 +165,7 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, ReentrancyGuardUpgradeable, 
         return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
     }
 
-    /// @return numStakedValidators uint number of currently staked validators. 
-    /// @return stakedValsetVersion uint version of the staked valset at the time of query.
-    function getNumberOfStakedValidators() external view returns (uint256, uint256) {
-        return (stakedBalances.length(), stakedValsetVersion);
-    }
-
-    /// @dev Returns an array of staked validator BLS pubkeys within the specified range. Ordering is unspecified.
-    /// We require users to query in batches, with knowledge from getNumberOfStakedValidators().
-    ///
-    /// Note Only 1000 validator pubkeys can be queried per batch, as an application-level rate limiting 
-    /// mechanism preventing a user from overwhelming a node with a large query.
-    /// TODO: Research if this neccessary rate limiting can be, or is, enforced at a node level.
-    ///
-    /// @return set of staked validator BLS pubkeys.
-    /// @return stakedValsetVersion uint version of the staked valset at the time of query.
-    function getStakedValidators(uint256 start, uint256 end) external view returns (bytes[] memory, uint256) {
-        require(start < end, "Invalid range");
-        require(end <= stakedBalances.length(), "Range exceeds staked balances length");
-        require(end - start <= 1000, "Range must be less than or equal to 1000");
-
-        bytes[] memory keys = new bytes[](end - start);
-        for (uint256 i = start; i < end; i++) {
-            (bytes memory key,) = stakedBalances.at(i);
-            keys[i - start] = key;
-        }
-        return (keys, stakedValsetVersion);
-    }
+    // TODO: Slashing
+    
+    // TODO: aggregator contract that exposes an isStaked func that'll call this and AVS contracts
 }

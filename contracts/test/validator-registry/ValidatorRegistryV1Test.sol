@@ -121,7 +121,7 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
 
         vm.startPrank(user2);
-        vm.expectRevert("Validator not staked");
+        vm.expectRevert("No staked balance over min stake");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
@@ -259,98 +259,7 @@ contract ValidatorRegistryV1Test is Test {
         assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) == 0, "User1s unstake block number should be reset after withdrawal");
         assertTrue(validatorRegistry.getUnstakingAmount(user1BLSKey) == 0, "User1s unstaking balance should be reset after withdrawal");
     }
-    
-    function testGetStakedValidators() public {
-        testMultiStake();
-
-        (bytes[] memory validators, uint256 stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 2);
-        assertEq(stakedValsetVersion, 1);
-        assertEq(validators.length, 2);
-        uint256 numStakedValidators;
-        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
-        assertEq(stakedValsetVersion, 1);
-        assertEq(numStakedValidators, 2);
-        assertEq(validators[0], user1BLSKey);
-        assertEq(validators[1], user2BLSKey);
-
-        vm.deal(user1, 1000 ether);
-
-        for (uint256 i = 0; i < 100; i++) {
-            bytes memory key = new bytes(48);
-            for (uint256 j = 0; j < 48; j++) {
-                key[j] = bytes1(uint8(i));
-            }
-            bytes[] memory keys = new bytes[](1);
-            keys[0] = key;
-            vm.prank(user1);
-            validatorRegistry.stake{value: MIN_STAKE}(keys);
-            vm.stopPrank();
-        }
-        
-        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 102);
-        assertEq(stakedValsetVersion, 1 + 100);
-        assertEq(validators.length, 102);
-        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
-        assertEq(stakedValsetVersion, 1 + 100);
-        assertEq(numStakedValidators, 102);
-
-        assertEq(validators[0], user1BLSKey);
-        assertEq(validators[1], user2BLSKey);
-
-        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, 20);
-        assertEq(stakedValsetVersion, 1 + 100);
-        assertEq(validators.length, 20);
-
-        for (uint256 i = 0; i < 20; i++) {
-            assertEq(validators[i].length, 48);
-        }
-    } 
-
-    function testGetStakedValidatorsWithUnstakingInProgress() public {
-        testMultiStake();
-
-        (uint256 numStakedValidators, uint256 stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
-        assertEq(numStakedValidators, 2);
-        assertEq(stakedValsetVersion, 1);
-        bytes[] memory validators;
-        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
-        assertEq(validators.length, 2);
-        assertEq(stakedValsetVersion, 1);
-
-        bytes[] memory keys = new bytes[](1);
-        keys[0] = user1BLSKey;
-
-        vm.startPrank(user1);
-        vm.expectEmit(true, true, true, true);
-        emit Unstaked(user1, user1BLSKey, MIN_STAKE);
-        validatorRegistry.unstake(keys);
-        assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) > 0);
-        vm.stopPrank();
-
-        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
-        assertEq(numStakedValidators, 1);
-        assertEq(stakedValsetVersion, 2);
-        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
-        assertEq(validators.length, 1);
-        assertEq(stakedValsetVersion, 2);
-
-        vm.roll(500);
-
-        vm.startPrank(user1);
-        vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
-        keys = new bytes[](1);
-        keys[0] = user1BLSKey;
-        validatorRegistry.withdraw(keys);
-        vm.stopPrank();
-        (numStakedValidators, stakedValsetVersion) = validatorRegistry.getNumberOfStakedValidators();
-        assertEq(numStakedValidators, 1);
-        assertEq(stakedValsetVersion, 2);
-        (validators, stakedValsetVersion) = validatorRegistry.getStakedValidators(0, numStakedValidators);
-        assertEq(validators.length, 1);
-        assertEq(stakedValsetVersion, 2); 
-    }
-
+   
     function testGetBlocksTillWithdrawAllowed() public {
         testSelfStake();
 
