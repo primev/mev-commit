@@ -13,18 +13,21 @@ contract ValidatorRegistryV1Test is Test {
     address public user2;
 
     uint256 public constant MIN_STAKE = 1 ether;
+    uint256 public constant SLASH_AMOUNT = 0.1 ether;
     uint256 public constant UNSTAKE_PERIOD = 10;
+    address public constant SLASH_ORACLE = address(0x78888);
+    address public constant SLASH_RECEIVER = address(0x78886);
 
     bytes public constant user1BLSKey = hex"96db1884af7bf7a1b57c77222723286a8ce3ef9a16ab6c5542ec5160662d450a1b396b22fc519679adae6ad741547268";
     bytes public constant user2BLSKey = hex"a5c99dfdfc69791937ac5efc5d33316cd4e0698be24ef149bbc18f0f25ad92e5e11aafd39701dcdab6d3205ad38c307b";
 
-    event Staked(address indexed staker, bytes valBLSPubKey, uint256 amount);
-    event Unstaked(address indexed staker, bytes valBLSPubKey, uint256 amount);
-    event StakeWithdrawn(address indexed staker, bytes valBLSPubKey, uint256 amount);
+    event Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
+    event Unstaked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
+    event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
+    event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
     function setUp() public {
         owner = address(this);
-
         user1 = address(0x123);
         user2 = address(0x456);
 
@@ -33,7 +36,7 @@ contract ValidatorRegistryV1Test is Test {
         
         address proxy = Upgrades.deployUUPSProxy(
             "ValidatorRegistryV1.sol",
-            abi.encodeCall(ValidatorRegistryV1.initialize, (MIN_STAKE, UNSTAKE_PERIOD, owner))
+            abi.encodeCall(ValidatorRegistryV1.initialize, (MIN_STAKE, SLASH_AMOUNT, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner))
         );
         validatorRegistry = ValidatorRegistryV1(payable(proxy));
     }
@@ -41,7 +44,7 @@ contract ValidatorRegistryV1Test is Test {
     function testSecondInitialize() public {
         vm.prank(owner);
         vm.expectRevert();
-        validatorRegistry.initialize(MIN_STAKE, UNSTAKE_PERIOD, owner);
+        validatorRegistry.initialize(MIN_STAKE, SLASH_AMOUNT, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner);
         vm.stopPrank();
     }
 
@@ -55,13 +58,13 @@ contract ValidatorRegistryV1Test is Test {
         vm.startPrank(user1);
 
         vm.expectEmit(true, true, true, true);
-        emit Staked(user1, user1BLSKey, MIN_STAKE);
+        emit Staked(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.stake{value: MIN_STAKE}(validators);
 
         vm.stopPrank();
 
         assertEq(address(user1).balance, 8 ether);
-        
+        assertEq(validatorRegistry.withdrawalAddresses(user1BLSKey), user1);
         assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
     }
@@ -77,8 +80,8 @@ contract ValidatorRegistryV1Test is Test {
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit Staked(user1, user1BLSKey, 1 ether);
-        emit Staked(user1, user2BLSKey, 1 ether);
+        emit Staked(user1, user1, user1BLSKey, 1 ether);
+        emit Staked(user1, user2, user2BLSKey, 1 ether);
         validatorRegistry.stake{value: totalAmount}(validators);
         vm.stopPrank();
 
@@ -100,15 +103,17 @@ contract ValidatorRegistryV1Test is Test {
         vm.startPrank(owner);
 
         vm.expectEmit(true, true, true, true);
-        emit Staked(user1, user1BLSKey, MIN_STAKE);
+        emit Staked(owner, user1, user1BLSKey, MIN_STAKE);
         vm.expectEmit(true, true, true, true);
-        emit Staked(user1, user2BLSKey, MIN_STAKE);
+        emit Staked(owner, user1, user2BLSKey, MIN_STAKE);
         validatorRegistry.delegateStake{value: 2*MIN_STAKE}(validators, user1); // Both validators are opted-in on user1's behalf
 
         vm.stopPrank();
 
         assertEq(address(owner).balance, 7 ether);
         
+        assertEq(validatorRegistry.withdrawalAddresses(user1BLSKey), user1);
+        assertEq(validatorRegistry.withdrawalAddresses(user2BLSKey), user1);
         assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), MIN_STAKE);
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
@@ -121,7 +126,7 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
 
         vm.startPrank(user2);
-        vm.expectRevert("No staked balance over min stake");
+        vm.expectRevert("Validator must have staked balance");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 0);
@@ -132,7 +137,7 @@ contract ValidatorRegistryV1Test is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user2);
-        vm.expectRevert("Not authorized to unstake validator. Must be stake originator or owner");
+        vm.expectRevert("Only withdrawal address can call this function");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
@@ -145,7 +150,7 @@ contract ValidatorRegistryV1Test is Test {
         validators[0] = user1BLSKey;
 
         vm.startPrank(user1);
-        vm.expectRevert("Unstake must be initiated before withdrawal");
+        vm.expectRevert("Validator must have unstaking balance");
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
     }
@@ -157,19 +162,19 @@ contract ValidatorRegistryV1Test is Test {
         validators[0] = user1BLSKey;
 
         vm.startPrank(user1);
-        emit Unstaked(user1, user1BLSKey, MIN_STAKE);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
         vm.startPrank(user1);
-        vm.expectRevert("Unstake already initiated for validator");
+        vm.expectRevert("Validator must have staked balance");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
         vm.roll(500);
 
         vm.startPrank(user1);
-        vm.expectRevert("Unstake already initiated for validator");
+        vm.expectRevert("Validator must have staked balance");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
@@ -181,7 +186,7 @@ contract ValidatorRegistryV1Test is Test {
         validators[0] = user1BLSKey;
 
         vm.startPrank(user1);
-        emit Unstaked(user1, user1BLSKey, MIN_STAKE);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
@@ -211,13 +216,13 @@ contract ValidatorRegistryV1Test is Test {
         // Withdraw then try again
         assertEq(address(user1).balance, 8 ether);
         vm.startPrank(user1);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
         assertEq(address(user1).balance, 9 ether);
 
         vm.startPrank(user1);
-        emit Staked(user1, user1BLSKey, MIN_STAKE);
+        emit Staked(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.stake{value: MIN_STAKE}(validators);
         vm.stopPrank();
         assertTrue(validatorRegistry.isStaked(user1BLSKey));
@@ -233,7 +238,7 @@ contract ValidatorRegistryV1Test is Test {
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit Unstaked(user1, user1BLSKey, MIN_STAKE);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
@@ -247,7 +252,7 @@ contract ValidatorRegistryV1Test is Test {
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
 
@@ -255,7 +260,7 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(address(user1).balance, 9 ether, "User1 should have all 9 ether after withdrawal");
 
         assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 0, "User1s staked balance should be 0 after withdrawal");
-        assertTrue(validatorRegistry.stakeOriginators(user1BLSKey) == address(0), "User1s stake originator should be reset after withdrawal");
+        assertTrue(validatorRegistry.withdrawalAddresses(user1BLSKey) == address(0), "User1s withdrawal address should be reset after withdrawal");
         assertTrue(validatorRegistry.unstakeBlockNums(user1BLSKey) == 0, "User1s unstake block number should be reset after withdrawal");
         assertTrue(validatorRegistry.getUnstakingAmount(user1BLSKey) == 0, "User1s unstaking balance should be reset after withdrawal");
     }
@@ -271,7 +276,7 @@ contract ValidatorRegistryV1Test is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user1);
-        emit Unstaked(user1, user1BLSKey, MIN_STAKE);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
@@ -307,7 +312,7 @@ contract ValidatorRegistryV1Test is Test {
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
     }
