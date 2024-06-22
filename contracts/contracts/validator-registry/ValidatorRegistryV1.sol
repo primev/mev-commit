@@ -11,18 +11,17 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 /// @dev This contract is meant to be deployed via UUPS proxy contract on mainnet.
 contract ValidatorRegistryV1 is OwnableUpgradeable, UUPSUpgradeable {
 
-    /// @dev Index tracking changes in the set of staked (opted-in) validators.
-    /// This enables optimistic locking for batch queries.
-    uint256 public stakedValsetVersion;
-
     /// @dev Minimum stake required for validators. 
     uint256 public minStake;
     
-    uint256 public slashAmount; // TODO: test
+    /// @dev Amount of ETH to slash per validator pubkey when a slash is invoked.
+    uint256 public slashAmount;
 
-    address public slashOracle; // TODO: test
+    /// @dev Permissioned account that is able to invoke slashes.
+    address public slashOracle; 
 
-    address public slashReceiver; // TODO: test
+    /// @dev Account to receive all slashed ETH.
+    address public slashReceiver;
 
     /// @dev Number of blocks required between unstake initiation and withdrawal.
     uint256 public unstakePeriodBlocks;
@@ -52,18 +51,18 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, UUPSUpgradeable {
         address _owner
     ) external initializer {
         require(_minStake > 0, "Minimum stake must be greater than 0");
-        require(_slashAmount > 0, "Slash amount must be greater than 0");
+        require(_slashAmount >= 0, "Slash amount must be positive or 0");
         require(_slashAmount <= _minStake, "Slash amount must be less than or equal to minimum stake");
         require(_slashOracle != address(0), "Slash oracle must be set");
         require(_slashReceiver != address(0), "Slash receiver must be set");
         require(_unstakePeriodBlocks > 0, "Unstake period must be greater than 0");
+        require(_owner != address(0), "Owner must be set");
 
         minStake = _minStake;
         slashAmount = _slashAmount;
         slashOracle = _slashOracle;
         slashReceiver = _slashReceiver;
         unstakePeriodBlocks = _unstakePeriodBlocks;
-
         __Ownable_init(_owner);
     }
 
@@ -73,42 +72,36 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    /// @dev Mapping of validator bls public key to staked balance.
-    /// @dev Values in this mapping should always be greater than or equal to minStake.
-    mapping(bytes => uint256) internal stakedBalances;
+    struct StakedValidator {
+        uint256 balance;
+        address withdrawalAddress;
+        uint256 unstakeBlockNum;
+    }
 
-    /// @dev Mapping of validator bls public key to EOA withdrawal address. 
-    mapping(bytes => address) public withdrawalAddresses;
-
-    /// @dev Mapping of bls public key to block number of unstake initiation block.
-    mapping(bytes => uint256) public unstakeBlockNums;
-
-    /// @dev Mapping of bls public key to balance of currently unstaking ether.
-    /// @dev Values in this mapping can be any positive value depending on amount staked and amount possibly slashed.
-    mapping(bytes => uint256) public unstakingBalances;
+    mapping(bytes => StakedValidator) public stakedValidators;
 
     event Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event Unstaked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
-    modifier onlyHasStakedBalance(bytes[] calldata blsPubKeys) {
+    modifier onlyHasStakingBalance(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            require(stakedBalances[blsPubKeys[i]] > 0, "Validator must have staked balance");
-        }
-        _;
-    }
-
-    modifier onlyHasUnstakingBalance(bytes[] calldata blsPubKeys) {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            require(unstakingBalances[blsPubKeys[i]] > 0, "Validator must have unstaking balance");
+            require(stakedValidators[blsPubKeys[i]].balance > 0, "Validator must have staked balance");
         }
         _;
     }
 
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            require(withdrawalAddresses[blsPubKeys[i]] == msg.sender, "Only withdrawal address can call this function");
+            require(stakedValidators[blsPubKeys[i]].withdrawalAddress == msg.sender, "Only withdrawal address can call this function");
+        }
+        _;
+    }
+
+    modifier onlyValidBLSPubKeys(bytes[] calldata blsPubKeys) {
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            require(blsPubKeys[i].length == 48, "Invalid BLS public key length. Must be 48 bytes");
         }
         _;
     }
@@ -118,11 +111,13 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, UUPSUpgradeable {
         _;
     }
 
-    function stake(bytes[] calldata valBLSPubKeys) external payable {
+    function stake(bytes[] calldata valBLSPubKeys)
+        external payable onlyValidBLSPubKeys(valBLSPubKeys) {
         _stake(valBLSPubKeys, msg.sender);
     }
 
-    function delegateStake(bytes[] calldata valBLSPubKeys, address withdrawalAddress) external payable onlyOwner {
+    function delegateStake(bytes[] calldata valBLSPubKeys, address withdrawalAddress)
+        external payable onlyOwner onlyValidBLSPubKeys(valBLSPubKeys) {
         _stake(valBLSPubKeys, withdrawalAddress);
     }
 
@@ -134,103 +129,110 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, UUPSUpgradeable {
 
         for (uint256 i = 0; i < valBLSPubKeys.length; i++) {
 
-            _validateBLSPubKey(valBLSPubKeys[i]);
-            require(unstakeBlockNums[valBLSPubKeys[i]] == 0, "validator cannot be staked with in-progress unstake process");
-            require(stakedBalances[valBLSPubKeys[i]] == 0, "Validator already staked");
+            require(
+                stakedValidators[valBLSPubKeys[i]].balance == 0 &&
+                stakedValidators[valBLSPubKeys[i]].withdrawalAddress == address(0) &&
+                stakedValidators[valBLSPubKeys[i]].unstakeBlockNum == 0,
+                "Validator staking record must be empty"
+            );
 
-            stakedBalances[valBLSPubKeys[i]] = splitAmount;
-            withdrawalAddresses[valBLSPubKeys[i]] = withdrawalAddress;
+            stakedValidators[valBLSPubKeys[i]] = StakedValidator({
+                balance: splitAmount,
+                withdrawalAddress: withdrawalAddress,
+                unstakeBlockNum: 0
+            });
             emit Staked(msg.sender, withdrawalAddress, valBLSPubKeys[i], splitAmount);
         }
-        ++stakedValsetVersion;
     }
 
-    function unstake(bytes[] calldata blsPubKeys) external onlyHasStakedBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) {
+    function unstake(bytes[] calldata blsPubKeys) external 
+        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) {
         _unstake(blsPubKeys);
     }
 
     function _unstake(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-
-            _validateBLSPubKey(blsPubKeys[i]);
-            require(unstakeBlockNums[blsPubKeys[i]] == 0, "Unstake already initiated for validator");
-
-            uint256 balance = stakedBalances[blsPubKeys[i]];
-            delete stakedBalances[blsPubKeys[i]];
-
-            unstakeBlockNums[blsPubKeys[i]] = block.number;
-            unstakingBalances[blsPubKeys[i]] = balance;
-
-            emit Unstaked(msg.sender, withdrawalAddresses[blsPubKeys[i]], blsPubKeys[i], balance);
+            require(stakedValidators[blsPubKeys[i]].unstakeBlockNum == 0, "Unstake already initiated for validator");
+            stakedValidators[blsPubKeys[i]].unstakeBlockNum = block.number;
+            emit Unstaked(msg.sender, stakedValidators[blsPubKeys[i]].withdrawalAddress,
+                blsPubKeys[i], stakedValidators[blsPubKeys[i]].balance);
         }
-        ++stakedValsetVersion;
     }
 
-    function withdraw(bytes[] calldata blsPubKeys) external onlyHasUnstakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) {
+    function withdraw(bytes[] calldata blsPubKeys) external
+        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) {
         _withdraw(blsPubKeys);
     }
 
     function _withdraw(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
 
-            _validateBLSPubKey(blsPubKeys[i]);
-            require(unstakeBlockNums[blsPubKeys[i]] > 0, "Unstake must be initiated before withdrawal");
-            require(block.number >= unstakeBlockNums[blsPubKeys[i]] + unstakePeriodBlocks,
+            require(stakedValidators[blsPubKeys[i]].unstakeBlockNum > 0, "Unstake must be initiated before withdrawal");
+            require(block.number >= stakedValidators[blsPubKeys[i]].unstakeBlockNum + unstakePeriodBlocks,
                 "withdrawal not allowed yet. Blocks requirement not met.");
 
-            address withdrawalAddress = withdrawalAddresses[blsPubKeys[i]];
-            withdrawalAddresses[blsPubKeys[i]] = address(0);
-            unstakeBlockNums[blsPubKeys[i]] = 0;
+            uint256 balance = stakedValidators[blsPubKeys[i]].balance;
+            address withdrawalAddress = stakedValidators[blsPubKeys[i]].withdrawalAddress;
+            delete stakedValidators[blsPubKeys[i]];
 
-            uint256 balance = unstakingBalances[blsPubKeys[i]];
-            unstakingBalances[blsPubKeys[i]] = 0;
             payable(withdrawalAddress).transfer(balance);
 
             emit StakeWithdrawn(msg.sender, withdrawalAddress, blsPubKeys[i], balance);
         }
-        // No need to increment stakedValsetVersion here, as stakedBalances map is not modified.
     }
 
     // TODO: test
-    function slash(bytes[] calldata blsPubKeys) external onlyHasStakedBalance(blsPubKeys) onlySlashOracle {
+    function slash(bytes[] calldata blsPubKeys) external onlySlashOracle {
         _slash(blsPubKeys);
     }
 
     // TODO: test
     function _slash(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            stakedBalances[blsPubKeys[i]] -= slashAmount;
+            StakedValidator storage stakedValidator = stakedValidators[blsPubKeys[i]];
+            require(stakedValidator.balance >= slashAmount,
+                "Validator balance must be greater than or equal to slash amount");
+
+            stakedValidator.balance -= slashAmount;
             payable(slashReceiver).transfer(slashAmount);
-            emit Slashed(msg.sender, slashReceiver, withdrawalAddresses[blsPubKeys[i]], blsPubKeys[i], slashAmount);
-            _unstake(blsPubKeys);
+            if (_isUnstaking(blsPubKeys[i])) {
+                // If validator is already unstaking, reset their unstake block number
+                stakedValidator.unstakeBlockNum = block.number;
+            } else {
+                _unstake(blsPubKeys);
+            }
+            emit Slashed(msg.sender, slashReceiver, stakedValidator.withdrawalAddress, blsPubKeys[i], slashAmount);
         }
     }
 
-    function _validateBLSPubKey(bytes calldata valBLSPubKey) internal pure {
-        require(valBLSPubKey.length == 48, "Invalid BLS public key length. Must be 48 bytes");
+    function getStakedValidator(bytes calldata valBLSPubKey) external view returns (StakedValidator memory) {
+        return stakedValidators[valBLSPubKey];
     }
 
     function getStakedAmount(bytes calldata valBLSPubKey) external view returns (uint256) {
-        return stakedBalances[valBLSPubKey];
+        return stakedValidators[valBLSPubKey].balance;
     }
 
-    function isStaked(bytes calldata valBLSPubKey) external view returns (bool) {
-        return stakedBalances[valBLSPubKey] >= minStake;
+    function isValidatorOptedIn(bytes calldata valBLSPubKey) external view returns (bool) {
+        return _isValidatorOptedIn(valBLSPubKey);
     }
 
-    function getUnstakingAmount(bytes calldata valBLSPubKey) external view returns (uint256) {
-        return unstakingBalances[valBLSPubKey];
+    function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
+        return !_isUnstaking(valBLSPubKey) && stakedValidators[valBLSPubKey].balance >= minStake;
+    }
+
+    function isUnstaking(bytes calldata valBLSPubKey) external view returns (bool) {
+        return _isUnstaking(valBLSPubKey);
+    }
+
+    function _isUnstaking(bytes calldata valBLSPubKey) internal view returns (bool) {
+        return stakedValidators[valBLSPubKey].unstakeBlockNum > 0;
     }
 
     function getBlocksTillWithdrawAllowed(bytes calldata valBLSPubKey) external view returns (uint256) {
-        require(unstakeBlockNums[valBLSPubKey] > 0, "Unstake must be initiated to check withdrawal eligibility");
-        uint256 blocksSinceUnstakeInitiated = block.number - unstakeBlockNums[valBLSPubKey];
+        require(_isUnstaking(valBLSPubKey), "Unstake must be initiated to check withdrawal eligibility");
+        uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeBlockNum;
         return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
     }
-
-    function getStakedValsetVersion() external view returns (uint256) {
-        return stakedValsetVersion;
-    }
-
     // TODO: aggregator contract that exposes an isStaked func that'll call this and AVS contracts
 }
