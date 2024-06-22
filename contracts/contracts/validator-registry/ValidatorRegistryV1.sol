@@ -181,27 +181,24 @@ contract ValidatorRegistryV1 is OwnableUpgradeable, UUPSUpgradeable {
         }
     }
 
-    // TODO: test
     function slash(bytes[] calldata blsPubKeys) external onlySlashOracle {
         _slash(blsPubKeys);
     }
 
-    // TODO: test
     function _slash(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            StakedValidator storage stakedValidator = stakedValidators[blsPubKeys[i]];
-            require(stakedValidator.balance >= slashAmount,
+            require(stakedValidators[blsPubKeys[i]].balance >= slashAmount,
                 "Validator balance must be greater than or equal to slash amount");
 
-            stakedValidator.balance -= slashAmount;
+            stakedValidators[blsPubKeys[i]].balance -= slashAmount;
             payable(slashReceiver).transfer(slashAmount);
             if (_isUnstaking(blsPubKeys[i])) {
                 // If validator is already unstaking, reset their unstake block number
-                stakedValidator.unstakeBlockNum = block.number;
+                stakedValidators[blsPubKeys[i]].unstakeBlockNum = block.number;
             } else {
                 _unstake(blsPubKeys);
             }
-            emit Slashed(msg.sender, slashReceiver, stakedValidator.withdrawalAddress, blsPubKeys[i], slashAmount);
+            emit Slashed(msg.sender, slashReceiver, stakedValidators[blsPubKeys[i]].withdrawalAddress, blsPubKeys[i], slashAmount);
         }
     }
 

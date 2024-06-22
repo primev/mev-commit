@@ -286,12 +286,73 @@ contract ValidatorRegistryV1Test is Test {
         validatorRegistry.slash(validators);
     }
 
-    function testExpectedSlashFailures() public {
+    function testSlashingStakedValidator() public {
+        testSelfStake();
 
+        assertEq(address(user1).balance, 8 ether);
+        assertEq(address(SLASH_RECEIVER).balance, 0);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 0);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.roll(11);
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+
+        vm.prank(SLASH_ORACLE);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(SLASH_ORACLE, user1, user1BLSKey, 0.9 ether);
+        vm.expectEmit(true, true, true, true);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 0.1 ether);
+        validatorRegistry.slash(validators);
+
+        assertEq(address(user1).balance, 8.0 ether);
+        assertEq(address(SLASH_RECEIVER).balance, 0.1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 11);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
-    function testSlash() public {
+    function testSlashingUnstakingValidator() public {
+        testSelfStake();
 
+        vm.roll(11);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
+        validatorRegistry.unstake(validators);
+        vm.stopPrank();
+
+        assertEq(address(user1).balance, 8 ether);
+        assertEq(address(SLASH_RECEIVER).balance, 0);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 11);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.roll(22);
+
+        vm.prank(SLASH_ORACLE);
+        vm.expectEmit(true, true, true, true);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 0.1 ether);
+        validatorRegistry.slash(validators);
+
+        finalAssertions(); // See directly below
+    }
+
+    // Split final assertions into own func to avoid stack overflow
+    function finalAssertions() public view {
+        assertEq(address(user1).balance, 8 ether);
+        assertEq(address(SLASH_RECEIVER).balance, 0.1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 22);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
    
     function testGetBlocksTillWithdrawAllowed() public {
