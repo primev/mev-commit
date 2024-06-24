@@ -74,22 +74,22 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /* 
      * @dev Stakes ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param valBLSPubKeys The BLS public keys to stake.
+     * @param blsPubKeys The validator BLS public keys to stake.
      */
-    function stake(bytes[] calldata valBLSPubKeys)
-        external payable onlyValidBLSPubKeys(valBLSPubKeys) whenNotPaused() {
-        _stake(valBLSPubKeys, msg.sender);
+    function stake(bytes[] calldata blsPubKeys)
+        external payable onlyValidBLSPubKeys(blsPubKeys) whenNotPaused() {
+        _stake(blsPubKeys, msg.sender);
     }
 
     /* 
      * @dev Stakes ETH on behalf of one or multiple validators via their BLS pubkey,
      * and specifies an address other than msg.sender to be the withdrawal address.
-     * @param valBLSPubKeys The BLS public keys to stake.
+     * @param blsPubKeys The validator BLS public keys to stake.
      * @param withdrawalAddress The address to receive the staked ETH.
      */
-    function delegateStake(bytes[] calldata valBLSPubKeys, address withdrawalAddress)
-        external payable onlyValidBLSPubKeys(valBLSPubKeys) onlyOwner {
-        _stake(valBLSPubKeys, withdrawalAddress);
+    function delegateStake(bytes[] calldata blsPubKeys, address withdrawalAddress)
+        external payable onlyValidBLSPubKeys(blsPubKeys) onlyOwner {
+        _stake(blsPubKeys, withdrawalAddress);
     }
 
     /* 
@@ -155,30 +155,27 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /*
      * @dev Internal function to stake ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param valBLSPubKeys The BLS public keys to stake.
+     * @param blsPubKeys The validator BLS public keys to stake.
      * @param withdrawalAddress The address to receive the staked ETH.
      */
-    function _stake(bytes[] calldata valBLSPubKeys, address withdrawalAddress) internal {
-
-        require(valBLSPubKeys.length > 0, "There must be at least one recipient");
-        uint256 splitAmount = msg.value / valBLSPubKeys.length;
+    function _stake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
+        require(blsPubKeys.length > 0, "There must be at least one recipient");
+        uint256 splitAmount = msg.value / blsPubKeys.length;
         require(splitAmount >= minStake, "Split amount must meet the minimum requirement");
-
-        for (uint256 i = 0; i < valBLSPubKeys.length; i++) {
-
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            bytes calldata pubKey = blsPubKeys[i];
             require(
-                stakedValidators[valBLSPubKeys[i]].balance == 0 &&
-                stakedValidators[valBLSPubKeys[i]].withdrawalAddress == address(0) &&
-                stakedValidators[valBLSPubKeys[i]].unstakeBlockNum == 0,
+                stakedValidators[pubKey].balance == 0 &&
+                stakedValidators[pubKey].withdrawalAddress == address(0) &&
+                stakedValidators[pubKey].unstakeBlockNum == 0,
                 "Validator staking record must be empty"
             );
-
-            stakedValidators[valBLSPubKeys[i]] = StakedValidator({
+            stakedValidators[pubKey] = StakedValidator({
                 balance: splitAmount,
                 withdrawalAddress: withdrawalAddress,
                 unstakeBlockNum: 0
             });
-            emit Staked(msg.sender, withdrawalAddress, valBLSPubKeys[i], splitAmount);
+            emit Staked(msg.sender, withdrawalAddress, pubKey, splitAmount);
         }
     }
 
@@ -188,11 +185,21 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      */
     function _unstake(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            require(stakedValidators[blsPubKeys[i]].unstakeBlockNum == 0, "Unstake already initiated for validator");
-            stakedValidators[blsPubKeys[i]].unstakeBlockNum = block.number;
-            emit Unstaked(msg.sender, stakedValidators[blsPubKeys[i]].withdrawalAddress,
-                blsPubKeys[i], stakedValidators[blsPubKeys[i]].balance);
+            _unstakeSingle(blsPubKeys[i]);
         }
+    }
+
+    /* 
+     * @dev Internal function to unstake ETH on behalf of one validator via their BLS pubkey.
+     * This function is neccessary for slashing. 
+     * @param pubKey The single BLS public key to unstake.
+     */
+    function _unstakeSingle(bytes calldata pubKey) internal {
+        require(stakedValidators[pubKey].unstakeBlockNum == 0,
+            "Unstake already initiated for validator");
+        stakedValidators[pubKey].unstakeBlockNum = block.number;
+        emit Unstaked(msg.sender, stakedValidators[pubKey].withdrawalAddress,
+            pubKey, stakedValidators[pubKey].balance);
     }
 
     /* 
@@ -201,18 +208,15 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      */
     function _withdraw(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-
-            require(stakedValidators[blsPubKeys[i]].unstakeBlockNum > 0, "Unstake must be initiated before withdrawal");
-            require(block.number >= stakedValidators[blsPubKeys[i]].unstakeBlockNum + unstakePeriodBlocks,
+            bytes calldata pubKey = blsPubKeys[i];
+            require(stakedValidators[pubKey].unstakeBlockNum > 0, "Unstake must be initiated before withdrawal");
+            require(block.number >= stakedValidators[pubKey].unstakeBlockNum + unstakePeriodBlocks,
                 "withdrawal not allowed yet. Blocks requirement not met.");
-
-            uint256 balance = stakedValidators[blsPubKeys[i]].balance;
-            address withdrawalAddress = stakedValidators[blsPubKeys[i]].withdrawalAddress;
-            delete stakedValidators[blsPubKeys[i]];
-
+            uint256 balance = stakedValidators[pubKey].balance;
+            address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
+            delete stakedValidators[pubKey];
             payable(withdrawalAddress).transfer(balance);
-
-            emit StakeWithdrawn(msg.sender, withdrawalAddress, blsPubKeys[i], balance);
+            emit StakeWithdrawn(msg.sender, withdrawalAddress, pubKey, balance);
         }
     }
 
@@ -222,18 +226,19 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      */
     function _slash(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            require(stakedValidators[blsPubKeys[i]].balance >= slashAmount,
+            bytes calldata pubKey = blsPubKeys[i];
+            require(stakedValidators[pubKey].balance >= slashAmount,
                 "Validator balance must be greater than or equal to slash amount");
-
-            stakedValidators[blsPubKeys[i]].balance -= slashAmount;
+            stakedValidators[pubKey].balance -= slashAmount;
             payable(slashReceiver).transfer(slashAmount);
-            if (_isUnstaking(blsPubKeys[i])) {
+            if (_isUnstaking(pubKey)) {
                 // If validator is already unstaking, reset their unstake block number
-                stakedValidators[blsPubKeys[i]].unstakeBlockNum = block.number;
+                stakedValidators[pubKey].unstakeBlockNum = block.number;
             } else {
-                _unstake(blsPubKeys);
+                _unstakeSingle(pubKey);
             }
-            emit Slashed(msg.sender, slashReceiver, stakedValidators[blsPubKeys[i]].withdrawalAddress, blsPubKeys[i], slashAmount);
+            emit Slashed(msg.sender, slashReceiver,
+                stakedValidators[pubKey].withdrawalAddress, pubKey, slashAmount);
         }
     }
 
