@@ -337,6 +337,7 @@ func (u *Updater) handleOpenedCommitment(
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
+	// TODO(@ckartik): replace this with a set of revertable txns from the bidder
 	revertableTxnHashes := make(map[string]struct{})
 	// We want to temporarily emulate a skip list of transactions that can be either removed or not succeed and still have a valid commitment.
 	// There are three states: the txn is present and successful, the txn is present but reverted, or the txn is missing entirely.
