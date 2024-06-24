@@ -26,6 +26,12 @@ contract ValidatorRegistryV1Test is Test {
     event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
+    event MinStakeSet(address indexed owner, uint256 minStake);
+    event SlashAmountSet(address indexed owner, uint256 slashAmount);
+    event SlashOracleSet(address indexed owner, address slashOracle);
+    event SlashReceiverSet(address indexed owner, address slashReceiver);
+    event UnstakePeriodBlocksSet(address indexed owner, uint256 unstakePeriodBlocks);
+
     function setUp() public {
         owner = address(this);
         user1 = address(0x123);
@@ -418,5 +424,103 @@ contract ValidatorRegistryV1Test is Test {
         require(sent, "Failed to send Ether");
 
         testUnstakeWaitThenWithdraw();
+    }
+
+    function testOnlyOwnerCanMutateParams() public {
+
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.setMinStake(17 ether);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit MinStakeSet(owner, 17 ether);
+        validatorRegistry.setMinStake(17 ether);
+        vm.stopPrank();
+        assertEq(validatorRegistry.minStake(), 17 ether);
+
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.setSlashAmount(0.2 ether);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit SlashAmountSet(owner, 0.2 ether);
+        validatorRegistry.setSlashAmount(0.2 ether);
+        vm.stopPrank();
+        assertEq(validatorRegistry.slashAmount(), 0.2 ether);
+
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.setSlashOracle(user2);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit SlashOracleSet(owner, user2);
+        validatorRegistry.setSlashOracle(user2);
+        vm.stopPrank();
+        assertEq(validatorRegistry.slashOracle(), user2);
+
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.setSlashReceiver(user2);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit SlashReceiverSet(owner, user2);
+        validatorRegistry.setSlashReceiver(user2);
+        vm.stopPrank();
+        assertEq(validatorRegistry.slashReceiver(), user2);
+
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.setUnstakePeriodBlocks(20);
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit UnstakePeriodBlocksSet(owner, 20);
+        validatorRegistry.setUnstakePeriodBlocks(20);
+        vm.stopPrank();
+        assertEq(validatorRegistry.unstakePeriodBlocks(), 20);
+    }
+
+    function testPauseable() public {
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.pause();
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        validatorRegistry.pause();
+        vm.stopPrank();
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        vm.expectRevert();
+        validatorRegistry.unpause();
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        validatorRegistry.unpause();
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        vm.deal(user1, MIN_STAKE);
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+        vm.stopPrank();
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 }
