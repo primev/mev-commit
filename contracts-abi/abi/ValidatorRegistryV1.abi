@@ -35,7 +35,7 @@
         "internalType": "bytes[]"
       },
       {
-        "name": "stakeOriginator",
+        "name": "withdrawalAddress",
         "type": "address",
         "internalType": "address"
       }
@@ -54,24 +54,6 @@
       }
     ],
     "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getNumberOfStakedValidators",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
       {
         "name": "",
         "type": "uint256",
@@ -101,36 +83,7 @@
   },
   {
     "type": "function",
-    "name": "getStakedValidators",
-    "inputs": [
-      {
-        "name": "start",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "end",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getUnstakingAmount",
+    "name": "getStakedValidator",
     "inputs": [
       {
         "name": "valBLSPubKey",
@@ -141,8 +94,25 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "tuple",
+        "internalType": "struct IValidatorRegistryV1.StakedValidator",
+        "components": [
+          {
+            "name": "balance",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "withdrawalAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "unstakeBlockNum",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -155,6 +125,21 @@
         "name": "_minStake",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "_slashAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_slashOracle",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_slashReceiver",
+        "type": "address",
+        "internalType": "address"
       },
       {
         "name": "_unstakePeriodBlocks",
@@ -172,7 +157,26 @@
   },
   {
     "type": "function",
-    "name": "isStaked",
+    "name": "isUnstaking",
+    "inputs": [
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isValidatorOptedIn",
     "inputs": [
       {
         "name": "valBLSPubKey",
@@ -217,6 +221,26 @@
   },
   {
     "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "proxiableUUID",
     "inputs": [],
     "outputs": [
@@ -237,6 +261,123 @@
   },
   {
     "type": "function",
+    "name": "setMinStake",
+    "inputs": [
+      {
+        "name": "newMinStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSlashAmount",
+    "inputs": [
+      {
+        "name": "newSlashAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSlashOracle",
+    "inputs": [
+      {
+        "name": "newSlashOracle",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSlashReceiver",
+    "inputs": [
+      {
+        "name": "newSlashReceiver",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setUnstakePeriodBlocks",
+    "inputs": [
+      {
+        "name": "newUnstakePeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "slash",
+    "inputs": [
+      {
+        "name": "blsPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "slashAmount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "slashOracle",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "slashReceiver",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "stake",
     "inputs": [
       {
@@ -250,7 +391,7 @@
   },
   {
     "type": "function",
-    "name": "stakeOriginators",
+    "name": "stakedValidators",
     "inputs": [
       {
         "name": "",
@@ -260,20 +401,17 @@
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "withdrawalAddress",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "stakedValsetVersion",
-    "inputs": [],
-    "outputs": [
+      },
       {
-        "name": "",
+        "name": "unstakeBlockNum",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -295,6 +433,13 @@
   },
   {
     "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "unstake",
     "inputs": [
       {
@@ -308,46 +453,8 @@
   },
   {
     "type": "function",
-    "name": "unstakeBlockNums",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "unstakePeriodBlocks",
     "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "unstakingBalances",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
     "outputs": [
       {
         "name": "",
@@ -403,6 +510,25 @@
   },
   {
     "type": "event",
+    "name": "MinStakeSet",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newMinStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferred",
     "inputs": [
       {
@@ -422,10 +548,123 @@
   },
   {
     "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashAmountSet",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newSlashAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashOracleSet",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newSlashOracle",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashReceiverSet",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newSlashReceiver",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Slashed",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "slashReceiver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "StakeWithdrawn",
     "inputs": [
       {
-        "name": "txOriginator",
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawalAddress",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -450,7 +689,13 @@
     "name": "Staked",
     "inputs": [
       {
-        "name": "txOriginator",
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawalAddress",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -472,10 +717,48 @@
   },
   {
     "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "UnstakePeriodBlocksSet",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newUnstakePeriodBlocks",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unstaked",
     "inputs": [
       {
-        "name": "txOriginator",
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawalAddress",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -537,6 +820,16 @@
   },
   {
     "type": "error",
+    "name": "EnforcedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ExpectedPause",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "FailedInnerCall",
     "inputs": []
   },
@@ -571,11 +864,6 @@
         "internalType": "address"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "ReentrancyGuardReentrantCall",
-    "inputs": []
   },
   {
     "type": "error",
