@@ -89,7 +89,18 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      */
     function delegateStake(bytes[] calldata blsPubKeys, address withdrawalAddress)
         external payable onlyValidBLSPubKeys(blsPubKeys) onlyOwner {
+        require(withdrawalAddress != address(0), "Withdrawal address must be set");
         _stake(blsPubKeys, withdrawalAddress);
+    }
+
+    /* 
+     * @dev Adds ETH to the staked balance of one or multiple validators via their BLS pubkey.
+     * @dev A staking entry must already exist for each provided BLS pubkey.
+     * @param blsPubKeys The BLS public keys to add stake to.
+     */
+    function addStake(bytes[] calldata blsPubKeys)
+        external payable whenNotPaused() {
+        _addStake(blsPubKeys);
     }
 
     /* 
@@ -161,7 +172,6 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     function _stake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
         require(blsPubKeys.length > 0, "There must be at least one recipient");
         uint256 splitAmount = msg.value / blsPubKeys.length;
-        require(splitAmount >= minStake, "Split amount must meet the minimum requirement");
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
             bytes calldata pubKey = blsPubKeys[i];
             require(
@@ -176,6 +186,23 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
                 unstakeBlockNum: 0
             });
             emit Staked(msg.sender, withdrawalAddress, pubKey, splitAmount);
+        }
+    }
+
+    /* 
+     * @dev Internal function to add ETH to the staked balance of one or multiple validators via their BLS pubkey.
+     * @param blsPubKeys The BLS public keys to add stake to.
+     */
+    function _addStake(bytes[] calldata blsPubKeys) internal {
+        require(blsPubKeys.length > 0, "There must be at least one recipient");
+        uint256 splitAmount = msg.value / blsPubKeys.length;
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            bytes calldata pubKey = blsPubKeys[i];
+            require(stakedValidators[pubKey].withdrawalAddress != address(0),
+                "Validator staking record must exist. Call stake first");
+            stakedValidators[pubKey].balance += splitAmount;
+            emit StakeAdded(msg.sender, stakedValidators[pubKey].withdrawalAddress,
+                pubKey, splitAmount, stakedValidators[pubKey].balance);
         }
     }
 

@@ -22,6 +22,7 @@ contract ValidatorRegistryV1Test is Test {
     bytes public constant user2BLSKey = hex"a5c99dfdfc69791937ac5efc5d33316cd4e0698be24ef149bbc18f0f25ad92e5e11aafd39701dcdab6d3205ad38c307b";
 
     event Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
+    event StakeAdded(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount, uint256 newBalance);
     event Unstaked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
@@ -125,6 +126,30 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(validatorRegistry.getStakedAmount(user2BLSKey), MIN_STAKE);
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
         assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+    }
+
+    function testAddStake() public {
+        vm.deal(user1, 10 ether);
+        assertEq(user1.balance, 10 ether);
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+
+        vm.startPrank(user1);
+        validatorRegistry.stake{value: MIN_STAKE/2}(validators);
+        vm.stopPrank();
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE/2);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit StakeAdded(user1, user1, user1BLSKey, MIN_STAKE/2, MIN_STAKE);
+        validatorRegistry.addStake{value: MIN_STAKE/2}(validators);
+        vm.stopPrank();
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
     function testUnstakeInsufficientFunds() public {
@@ -274,10 +299,27 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 0, "User1s unstake block number should be reset after withdrawal");
     }
 
-    function testSlashWithoutStake() public {
+    function testSlashWithoutEnoughStake() public {
         vm.expectRevert("Validator balance must be greater than or equal to slash amount");
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
+        vm.prank(SLASH_ORACLE);
+        validatorRegistry.slash(validators);
+
+        vm.deal(user1, 1 ether);
+        vm.startPrank(user1);
+        validatorRegistry.stake{value: MIN_STAKE/2}(validators);
+        vm.stopPrank();
+
+        vm.prank(owner);
+        validatorRegistry.setSlashAmount(MIN_STAKE/2);
+
+        vm.prank(SLASH_ORACLE);
+        vm.expectEmit(true, true, true, true);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE/2);
+        validatorRegistry.slash(validators);
+
+        vm.expectRevert("Validator balance must be greater than or equal to slash amount");
         vm.prank(SLASH_ORACLE);
         validatorRegistry.slash(validators);
     }
@@ -458,6 +500,59 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(blocksTillWithdraw, 0);
 
         vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
+        validatorRegistry.withdraw(validators);
+        vm.stopPrank();
+    }
+
+    function testOwnerChangesSlashAmountAfterStaking() public {
+        testSelfStake();
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 1 ether);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.prank(owner);
+        validatorRegistry.setMinStake(10 ether);
+        assertEq(validatorRegistry.minStake(), 10 ether);
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 1 ether);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.deal(user1, 9 ether);
+        vm.startPrank(user1);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        validatorRegistry.addStake{value: 9 ether}(validators);
+        vm.stopPrank();
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 10 ether);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+    }
+
+    function testOwnerChangesUnstakingPeriodWhileValIsUnstaking() public {
+        testSelfStake();
+
+        vm.roll(25);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
+        validatorRegistry.unstake(validators);
+        vm.stopPrank();
+
+        vm.roll(30);
+        vm.prank(user1);
+        vm.expectRevert("withdrawal not allowed yet. Blocks requirement not met.");
+        validatorRegistry.withdraw(validators);
+        vm.stopPrank();
+
+        vm.prank(owner);
+        validatorRegistry.setUnstakePeriodBlocks(3);
+        assertEq(validatorRegistry.unstakePeriodBlocks(), 3);
+
+        vm.prank(user1);
         vm.expectEmit(true, true, true, true);
         emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
