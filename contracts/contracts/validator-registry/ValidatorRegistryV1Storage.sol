@@ -3,7 +3,10 @@ pragma solidity ^0.8.20;
 
 import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
 
+/// @title ValidatorRegistryV1Storage
+/// @notice Storage components of the ValidatorRegistryV1 contract.
 contract ValidatorRegistryV1Storage { 
+
     /// @dev Minimum stake required for validators. 
     uint256 public minStake;
     
@@ -19,5 +22,6 @@ contract ValidatorRegistryV1Storage {
     /// @dev Number of blocks required between unstake initiation and withdrawal.
     uint256 public unstakePeriodBlocks;
 
+    /// @dev Mapping of BLS pubkeys to stored staked validator structs. 
     mapping(bytes => IValidatorRegistryV1.StakedValidator) public stakedValidators;
 }
