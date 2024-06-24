@@ -1,15 +1,16 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
 data_dir  = "/opt/nomad/data"
 bind_addr = "0.0.0.0"
 
-{% if nomad_servers_defined -%}
+{% if nomad_servers_defined %}
 server {
-  enabled          = true
+  enabled = true
   bootstrap_expect = 1
-  raft_protocol    = 3
+  raft_protocol = 3
 }
 {% endif %}
 
-{% if nomad_clients_defined -%}
+{% if nomad_clients_defined %}
 client {
   enabled = true
   servers = ["{{ nomad_server_ip }}:4647"]
@@ -24,6 +25,11 @@ client {
     "/usr" = "/usr"
     "/opt" = "/opt"
   }
+  {% if env == "devenv" %}
+  host_volume "artifacts-volume" {
+    path = "/home/{{ hostvars[inventory_hostname].ansible_user }}/{{ env }}/artifacts"
+  }
+  {% endif %}
 }
 {% endif %}
 
@@ -37,7 +43,7 @@ log_level = "DEBUG"
 enable_syslog = true
 syslog_facility = "LOCAL0"
 
-{% if nomad_servers_defined -%}
+{% if nomad_servers_defined %}
 advertise {
   http = "{{ ansible_host }}:4646"
   rpc  = "{{ ansible_host }}:4647"

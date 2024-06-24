@@ -1,8 +1,8 @@
 #jinja2: trim_blocks:True, lstrip_blocks:True
-
-# This job exists only to provide deployment information to the Nomad UI.
-job "{{ environments[env].version }}" {
+job "{% if env != 'devenv' %}{{ environments[env].version }}{% else %}artifacts-{{ environments[env].version }}{% endif %}" {
   datacenters = ["{{ datacenter }}"]
+
+  {% if env != 'devenv' %}
   type = "batch"
   priority = 1
 
@@ -11,6 +11,7 @@ job "{{ environments[env].version }}" {
   periodic {
     cron = "0 0 1 1 6"
   }
+  {% endif %}
 
   meta {
     CHAIN_ID = "{{ environments[env].chain_id }}"
@@ -22,7 +23,10 @@ job "{{ environments[env].version }}" {
     TIMESTAMP = "{{ now(utc=true, fmt='%a %Y-%m-%d %H:%M:%S UTC') }}"
   }
 
+  {% if env != 'devenv' %}
   group "info" {
+    count = 1
+
     task "dummy" {
       driver = "exec"
 
@@ -37,4 +41,45 @@ job "{{ environments[env].version }}" {
       }
     }
   }
+  {% else %}
+  group "artifacts-group" {
+    count = 1
+
+    network {
+      mode = "bridge"
+
+      port "http" {
+        static = 1111
+      }
+    }
+
+    volume "artifacts-volume" {
+      type = "host"
+      source = "artifacts-volume"
+      read_only = true
+    }
+
+    task "artifacts" {
+      driver = "exec"
+
+      service {
+        name = "artifacts"
+        port = "http"
+        tags = ["http"]
+        provider = "nomad"
+      }
+
+      volume_mount {
+        volume = "artifacts-volume"
+        destination = "/local/artifacts"
+        read_only = true
+      }
+
+      config {
+        command = "python3"
+        args = ["-m", "http.server", "1111", "--directory", "/local/artifacts"]
+      }
+    }
+  }
+  {% endif %}
 }

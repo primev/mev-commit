@@ -135,12 +135,18 @@
             else profiles[profile].jobs
            }}
 
-    - name: Ensure "{{ ansible_env.HOME }}/{{ env }}" Directory Exists
-      ansible.builtin.file:
+    - name: Determine "{{ ansible_env.HOME }}/{{ env }}" Status
+      ansible.builtin.stat:
         path: "{{ ansible_env.HOME }}/{{ env }}"
-        state: directory
-        mode: "0744"
-        recurse: yes
+      register: env_dir
+
+    - name: Check "{{ ansible_env.HOME }}/{{ env }}" Directory Exists
+      assert:
+        that:
+          - env_dir.stat.isdir is defined
+          - env_dir.stat.isdir
+        fail_msg: "The directory {{ ansible_env.HOME }}/{{ env }} does not exist."
+        success_msg: "The directory {{ ansible_env.HOME }}/{{ env }} exists."
 
     - name: Read Existing "meta.json"
       ansible.builtin.shell: |
@@ -462,13 +468,12 @@
       run_once: true
       when: build_artifacts
 
-    - name: Upload Artifacts Async
+    - name: Upload Artifacts Async to AWS S3
       amazon.aws.aws_s3:
         bucket: "{{ aws_s3_bucket }}"
         object: "{{ item.path | basename }}"
         src: "{{ item.path }}"
         mode: put
-        tags: "{{ {'AutoDelete': 'true'} if env == 'devenv' else {} }}"
       loop: "{{ upload_artifacts.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
@@ -477,7 +482,7 @@
       delegate_to: localhost
       run_once: true
       register: upload_artifacts_async
-      when: build_artifacts and (upload_artifacts.files | default([])) | length > 0
+      when: build_artifacts and upload_artifacts.matched > 0 and env != 'devenv'
 
     - name: Wait for Upload Artifacts Async to Complete
       ansible.builtin.async_status:
@@ -491,7 +496,23 @@
         label: "{{ item.item.path | basename }}"
       delegate_to: localhost
       run_once: true
-      when: build_artifacts and (upload_artifacts.files | default([])) | length > 0
+      when: build_artifacts and upload_artifacts.matched > 0 and env != 'devenv'
+
+    - name: Ensure Target Directory Exists and is Empty
+      ansible.builtin.shell: |
+        rm -rf {{ ansible_env.HOME }}/{{ env }}/artifacts/ && mkdir {{ ansible_env.HOME }}/{{ env }}/artifacts/
+      args:
+        executable: bash
+      when: build_artifacts and upload_artifacts.matched > 0 and env == 'devenv'
+
+    - name: Copy Artifacts to Target Machine
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ ansible_env.HOME }}/{{ env }}/artifacts/{{ item.path | basename }}"
+      loop: "{{ upload_artifacts.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      when: build_artifacts and upload_artifacts.matched > 0 and env == 'devenv'
 
     - name: Push Generated Secrets to Vault
       ansible.builtin.uri:
@@ -508,13 +529,13 @@
       delegate_to: localhost
       no_log: true
 
-    - name: Cleanup Artifacts
+    - name: Cleanup Built Artifacts
       ansible.builtin.file:
         path: "{{ dist_dir }}"
         state: absent
       delegate_to: localhost
       run_once: true
-      when: build_artifacts and (upload_artifacts.files | default([])) | length > 0
+      when: build_artifacts and upload_artifacts.matched > 0
 
     - name: Delete "meta.json"
       file:
@@ -550,16 +571,21 @@
       ansible.builtin.shell: |
         RESULT="$(nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad 2>&1)"
         if [ $? -ne 0 ]; then
-          echo "Failed to deploy {{ job.name }}: ${RESULT}"
+          echo "Failed to deploy {{ job.name }}: ${RESULT}."
           exit 1
         fi
 
         TIMEOUT=300
         START_TIME=$(date +%s)
-        JOB_TYPE=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].JobType')
+        RESULT=$(nomad job status -json "{{ job.name }}")
+        if [ $? -ne 0 ]; then
+          echo "Failed to get job status for {{ job.name }}: ${RESULT}."
+          exit 1
+        fi
+        JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
 
         while true; do
-          STATUS=$(nomad job status -json "{{ job.name }}" | jq -r '.[0].Allocations[0].ClientStatus')
+          STATUS=$(echo "${RESULT}"  | jq -r '.[0].Allocations[0].ClientStatus')
 
           case "${JOB_TYPE}" in
             service)
@@ -573,7 +599,12 @@
               fi
               ;;
             *)
+              {% if env != 'devenv' %}
               break
+              {% else %}
+              echo "Unknown job type: ${JOB_TYPE}"
+              exit 1
+              {% endif %}
               ;;
           esac
 
@@ -585,6 +616,11 @@
           fi
 
           sleep 1
+          RESULT=$(nomad job status -json "{{ job.name }}")
+          if [ $? -ne 0 ]; then
+            echo "Failed to get job status for {{ job.name }}: ${RESULT}."
+            exit 1
+          fi
         done
       args:
         executable: bash

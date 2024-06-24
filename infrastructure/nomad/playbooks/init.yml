@@ -113,6 +113,15 @@
         fail_msg: "The profile name is not set correctly."
         success_msg: "The profile name is set to: {{ profile }}."
 
+    - name: Ensure "{{ env }}" Directory Exists
+      ansible.builtin.file:
+        path: "~{{ hostvars[inventory_hostname].ansible_user }}/{{ env }}"
+        state: directory
+        mode: "0744"
+        recurse: yes
+      become: true
+      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
+
   tasks:
     - name: Add DataDog Repository Key
       ansible.builtin.apt_key:

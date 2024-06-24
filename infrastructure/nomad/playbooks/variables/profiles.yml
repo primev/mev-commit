@@ -26,9 +26,9 @@ artifacts:
     path: p2p
 
 jobs:
-  version: &version_job
-    name: version
-    template: version.nomad.j2
+  artifacts: &artifacts_job
+    name: artifacts
+    template: artifacts.nomad.j2
 
   datadog_agent_logs_collector: &datadog_agent_logs_collector_job
     name: datadog-agent-logs-collector
@@ -504,6 +504,7 @@ jobs:
 profiles:
   ci:
     jobs:
+      - *artifacts_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
@@ -520,7 +521,7 @@ profiles:
 
   devnet:
     jobs:
-      - *version_job
+      - *artifacts_job
       - *datadog_agent_logs_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
@@ -539,6 +540,7 @@ profiles:
 
   testnet:
     jobs:
+      - *artifacts_job
       - *datadog_agent_logs_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
@@ -554,7 +556,7 @@ profiles:
 
   stressnet:
     jobs:
-      - *version_job
+      - *artifacts_job
       - *datadog_agent_logs_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
