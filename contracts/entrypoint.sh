@@ -127,7 +127,7 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
 elif [ "${DEPLOY_TYPE}" = "validator-registry" ]; then
     echo "Deploying validator registry contract"
     "${FORGE_BIN_PATH}" script \
-        "${SCRIPT_PATH_PREFIX}"DeployValidatorRegistryV1.s.sol:Deploy \
+        "${SCRIPT_PATH_PREFIX}"validator-registry/DeployValidatorRegistryV1.s.sol:DeployHolesky \
         --rpc-url "${RPC_URL}" \
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \
