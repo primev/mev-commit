@@ -88,6 +88,11 @@ func (t *testRegistryContract) DepositForSpecificWindow(opts *bind.TransactOpts,
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
+func (t *testRegistryContract) DepositForNWindows(opts *bind.TransactOpts, _ *big.Int, _ uint16) (*types.Transaction, error) {
+	t.deposit = opts.Value
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
 func (t *testRegistryContract) WithdrawBidderAmountFromWindow(
 	opts *bind.TransactOpts,
 	address common.Address,
@@ -116,6 +121,24 @@ func (t *testRegistryContract) ParseBidderWithdrawal(_ types.Log) (*bidderregist
 		Amount: t.deposit,
 		Window: big.NewInt(1),
 	}, nil
+}
+
+type testAutoDepositTracker struct {
+	deposits map[uint64]bool
+}
+
+func (t *testAutoDepositTracker) DoAutoMoveToAnotherWindow(ads []*bidderapiv1.AutoDeposit) <-chan struct{} {
+	for _, ad := range ads {
+		t.deposits[ad.WindowNumber.Value] = true
+	}
+
+	doneChan := make(chan struct{})
+	close(doneChan)
+
+	return doneChan
+}
+
+func (t *testAutoDepositTracker) Stop() {
 }
 
 type testTxWatcher struct {
@@ -162,6 +185,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	registryContract := &testRegistryContract{minDeposit: big.NewInt(100000000000000000)}
 	sender := &testSender{noOfPreconfs: 2}
 	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
+	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
 	srvImpl := bidderapi.NewService(
 		owner,
 		blockTrackerContract.blocksPerWindow,
@@ -176,6 +200,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 				Context: ctx,
 			}, nil
 		},
+		testAutoDepositTracker,
 		logger,
 	)
 

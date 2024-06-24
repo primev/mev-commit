@@ -34,6 +34,21 @@ service Bidder {
   rpc Deposit(DepositRequest) returns (DepositResponse) {
     option (google.api.http) = {post: "/v1/bidder/deposit/{amount}"};
   }
+
+  // AutoDeposit
+  //
+  // AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+  rpc AutoDeposit(DepositRequest) returns (AutoDepositResponse) {
+    option (google.api.http) = {post: "/v1/bidder/auto_deposit/{amount}"};
+  }
+
+  // CancelAutoDeposit
+  //
+  // CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+  rpc CancelAutoDeposit(EmptyMessage) returns (EmptyMessage) {
+    option (google.api.http) = {post: "/v1/bidder/cancel_auto_deposit"};
+  }
+
   // GetDeposit
   //
   // GetDeposit is called by the bidder to get its deposit in the bidder registry.
@@ -103,6 +118,21 @@ message DepositResponse {
   google.protobuf.UInt64Value window_number = 2;
 };
 
+message AutoDepositResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "AutoDeposit response"
+      description: "AutoDeposit deposit from the bidder registry."
+    }
+    example: "[{\"amount\": \"1000000000000000000\", \"window_number\": 1}, {\"amount\": \"1000000000000000000\", \"window_number\": 2}, {\"amount\": \"1000000000000000000\", \"window_number\": 3}]"
+  };
+  repeated AutoDeposit amounts_and_window_numbers = 1;
+};
+
+message AutoDeposit {
+  string amount = 1;
+  google.protobuf.UInt64Value window_number = 2;
+}
 message EmptyMessage {};
 
 message GetDepositRequest {

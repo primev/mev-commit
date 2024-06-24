@@ -148,34 +148,60 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		ticker := time.NewTicker(10 * time.Minute)
-		defer ticker.Stop()
+	// wg.Add(1)
+	// go func() {
+	// 	ticker := time.NewTicker(10 * time.Minute)
+	// 	defer ticker.Stop()
 
-		minDepositResp, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
-		if err != nil {
-			logger.Error("failed to get min deposit", "err", err)
-			return
-		}
+	// 	minDepositResp, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
+	// 	if err != nil {
+	// 		logger.Error("failed to get min deposit", "err", err)
+	// 		return
+	// 	}
 
-		minDeposit, set := big.NewInt(0).SetString(minDepositResp.Amount, 10)
-		if !set {
-			logger.Error("failed to parse min deposit amount")
-			return
-		}
+	// 	minDeposit, set := big.NewInt(0).SetString(minDepositResp.Amount, 10)
+	// 	if !set {
+	// 		logger.Error("failed to parse min deposit amount")
+	// 		return
+	// 	}
 
-		minDepositAmt := new(big.Int).Mul(minDeposit, big.NewInt(10))
+	// 	minDepositAmt := new(big.Int).Mul(minDeposit, big.NewInt(10))
 
-		for {
-			err = checkOrDeposit(bidderClient, logger, minDepositAmt)
-			if err != nil {
-				logger.Error("failed to check or stake", "err", err)
-			}
-			<-ticker.C
-		}
-	}()
+	// 	for {
+	// 		err = checkOrDeposit(bidderClient, logger, minDepositAmt)
+	// 		if err != nil {
+	// 			logger.Error("failed to check or stake", "err", err)
+	// 		}
+	// 		<-ticker.C
+	// 	}
+	// }()
 
+	minDepositResp, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
+	if err != nil {
+		logger.Error("failed to get min deposit", "err", err)
+		return
+	}
+
+	minDeposit, set := big.NewInt(0).SetString(minDepositResp.Amount, 10)
+	if !set {
+		logger.Error("failed to parse min deposit amount")
+		return
+	}
+
+	minDepositAmt := new(big.Int).Mul(minDeposit, big.NewInt(10))
+
+	minDepositAmt = new(big.Int).Mul(minDepositAmt, big.NewInt(3))
+
+	resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
+		Amount: minDepositAmt.String(),
+	})
+	if err != nil {
+		logger.Error("failed to auto deposit", "err", err)
+		return
+	}
+	for _, v := range resp.AmountsAndWindowNumbers {
+		logger.Info("auto deposit", "amount", v.Amount, "window", v.WindowNumber)
+	}
 	type blockWithTxns struct {
 		blockNum int64
 		txns     []string

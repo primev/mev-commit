@@ -337,4 +337,73 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForSpecificWindow{value: 5 ether}(nextWindow);
         bidderRegistry.withdrawProtocolFee(payable(address(bidder)));
     }
-}
+
+    function test_MoveDepositToWindow() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        vm.prank(bidder);
+        bidderRegistry.depositForSpecificWindow{value: 1 ether}(currentWindow);
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        blockTracker.recordL1Block(blockNumber, "test");
+
+        vm.prank(bidder);
+        bidderRegistry.moveDepositToWindow(currentWindow, nextWindow);
+        uint256 oldWindowDeposit = bidderRegistry.getDeposit(bidder, currentWindow);
+        uint256 newWindowDeposit = bidderRegistry.getDeposit(bidder, nextWindow);
+        assertEq(oldWindowDeposit, 0);
+        assertEq(newWindowDeposit, 1 ether);
+    }
+
+    function testFail_MoveDepositToWindowUnregisteredBidder() public {
+        address unregisteredBidder = vm.addr(2);
+        vm.startPrank(unregisteredBidder);
+        bidderRegistry.moveDepositToWindow(1, 2);
+    }
+
+    function testFail_MoveDepositToWindowNoDeposit() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        vm.startPrank(bidder);
+        bidderRegistry.moveDepositToWindow(currentWindow, nextWindow);
+    }
+
+    function testFail_MoveDepositToWindowInvalidToWindow() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 previousWindow = currentWindow - 1;
+        vm.startPrank(bidder);
+        bidderRegistry.depositForSpecificWindow{value: 1 ether}(currentWindow);
+        bidderRegistry.moveDepositToWindow(currentWindow, previousWindow);
+    }
+
+    function test_DepositForNWindows() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint16 n = 3;
+        uint256 depositAmount = minStake * n;
+
+        vm.startPrank(bidder);
+        vm.expectEmit(true, false, false, true);
+        for (uint16 i = 0; i < n; i++) {
+            emit BidderRegistered(bidder, depositAmount / n, currentWindow + i);
+        }
+
+        bidderRegistry.depositForNWindows{value: depositAmount}(currentWindow, n);
+
+        for (uint16 i = 0; i < n; i++) {
+            uint256 lockedFunds = bidderRegistry.lockedFunds(bidder, currentWindow + i);
+            assertEq(lockedFunds, depositAmount / n);
+
+            uint256 maxBid = bidderRegistry.maxBidPerBlock(bidder, currentWindow + i);
+            assertEq(maxBid, (depositAmount / n) / blocksPerWindow);
+        }
+
+        bool isBidderRegistered = bidderRegistry.bidderRegistered(bidder);
+        assertEq(isBidderRegistered, true);
+    }
+
+    function testFail_DepositForNWindows_InsufficientDeposit() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint16 n = 3;
+
+        vm.startPrank(bidder);
+        bidderRegistry.depositForNWindows{value: (minStake * n) - 1}(currentWindow, n);
+}}
