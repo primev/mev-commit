@@ -360,6 +360,56 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 22);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
+
+    function testBatchedSlashing() public {
+        testMultiStake();
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 1 ether);
+
+        vm.roll(14);
+
+        bytes[] memory vals = new bytes[](1);
+        vals[0] = user1BLSKey;
+        vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user1, user1, user1BLSKey, 1 ether);
+        validatorRegistry.unstake(vals);
+        vm.stopPrank();
+
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 14);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeBlockNum, 0);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+
+        vm.roll(78);
+
+        bytes[] memory toSlash = new bytes[](2);
+        toSlash[0] = user1BLSKey;
+        toSlash[1] = user2BLSKey;
+        vm.prank(SLASH_ORACLE);
+        vm.expectEmit(true, true, true, true);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 0.1 ether);
+        vm.expectEmit(true, true, true, true);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user2BLSKey, 0.1 ether);
+        validatorRegistry.slash(toSlash);
+
+        assertEq(address(SLASH_RECEIVER).balance, 0.2 ether);
+
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeBlockNum, 78);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 0.9 ether);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeBlockNum, 78);
+        assertFalse(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+    }
    
     function testGetBlocksTillWithdrawAllowed() public {
         testSelfStake();
