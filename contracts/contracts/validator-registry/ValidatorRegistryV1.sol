@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
 import {ValidatorRegistryV1Storage} from "./ValidatorRegistryV1Storage.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title Validator Registry v1
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
 /// via simply staking ETH outside what's staked with the beacon chain.
-contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage, OwnableUpgradeable, UUPSUpgradeable {
+contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage,
+    OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     /// @dev Modifier to confirm all BLS pubkeys have a staked balance.
     modifier onlyHasStakingBalance(bytes[] calldata blsPubKeys) {
@@ -56,19 +58,11 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         uint256 _unstakePeriodBlocks, 
         address _owner
     ) external initializer {
-        require(_minStake > 0, "Minimum stake must be greater than 0");
-        require(_slashAmount >= 0, "Slash amount must be positive or 0");
-        require(_slashAmount <= _minStake, "Slash amount must be less than or equal to minimum stake");
-        require(_slashOracle != address(0), "Slash oracle must be set");
-        require(_slashReceiver != address(0), "Slash receiver must be set");
-        require(_unstakePeriodBlocks > 0, "Unstake period must be greater than 0");
-        require(_owner != address(0), "Owner must be set");
-
-        minStake = _minStake;
-        slashAmount = _slashAmount;
-        slashOracle = _slashOracle;
-        slashReceiver = _slashReceiver;
-        unstakePeriodBlocks = _unstakePeriodBlocks;
+        _setMinStake(_minStake);
+        _setSlashAmount(_slashAmount);
+        _setSlashOracle(_slashOracle);
+        _setSlashReceiver(_slashReceiver);
+        _setUnstakePeriodBlocks(_unstakePeriodBlocks);
         __Ownable_init(_owner);
     }
 
@@ -83,7 +77,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param valBLSPubKeys The BLS public keys to stake.
      */
     function stake(bytes[] calldata valBLSPubKeys)
-        external payable onlyValidBLSPubKeys(valBLSPubKeys) {
+        external payable onlyValidBLSPubKeys(valBLSPubKeys) whenNotPaused() {
         _stake(valBLSPubKeys, msg.sender);
     }
 
@@ -94,7 +88,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param withdrawalAddress The address to receive the staked ETH.
      */
     function delegateStake(bytes[] calldata valBLSPubKeys, address withdrawalAddress)
-        external payable onlyOwner onlyValidBLSPubKeys(valBLSPubKeys) {
+        external payable onlyValidBLSPubKeys(valBLSPubKeys) onlyOwner {
         _stake(valBLSPubKeys, withdrawalAddress);
     }
 
@@ -103,7 +97,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to unstake.
      */
     function unstake(bytes[] calldata blsPubKeys) external 
-        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) {
+        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
         _unstake(blsPubKeys);
     }
 
@@ -112,7 +106,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to withdraw.
      */
     function withdraw(bytes[] calldata blsPubKeys) external
-        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) {
+        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
         _withdraw(blsPubKeys);
     }
 
@@ -120,8 +114,43 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The BLS public keys to slash.
      */
-    function slash(bytes[] calldata blsPubKeys) external onlySlashOracle {
+    function slash(bytes[] calldata blsPubKeys) external onlySlashOracle whenNotPaused() {
         _slash(blsPubKeys);
+    }
+
+    /// @dev Enables the owner to pause the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Enables the owner to unpause the contract.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /// @dev Enables the owner to set the minimum stake parameter.
+    function setMinStake(uint256 newMinStake) external onlyOwner {
+        _setMinStake(newMinStake);
+    }
+
+    /// @dev Enables the owner to set the slash amount parameter.
+    function setSlashAmount(uint256 newSlashAmount) external onlyOwner {
+        _setSlashAmount(newSlashAmount);
+    }
+
+    /// @dev Enables the owner to set the slash oracle parameter.
+    function setSlashOracle(address newSlashOracle) external onlyOwner {
+        _setSlashOracle(newSlashOracle);
+    }
+
+    /// @dev Enables the owner to set the slash receiver parameter.
+    function setSlashReceiver(address newSlashReceiver) external onlyOwner {
+        _setSlashReceiver(newSlashReceiver);
+    }
+    
+    /// @dev Enables the owner to set the unstake period parameter.
+    function setUnstakePeriodBlocks(uint256 newUnstakePeriodBlocks) external onlyOwner {
+        _setUnstakePeriodBlocks(newUnstakePeriodBlocks);
     }
 
     /*
@@ -206,6 +235,42 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
             }
             emit Slashed(msg.sender, slashReceiver, stakedValidators[blsPubKeys[i]].withdrawalAddress, blsPubKeys[i], slashAmount);
         }
+    }
+
+    /// @dev Internal function to set the minimum stake parameter.
+    function _setMinStake(uint256 newMinStake) internal {
+        require(newMinStake > 0, "Minimum stake must be greater than 0");
+        minStake = newMinStake;
+        emit MinStakeSet(msg.sender, newMinStake);
+    }
+
+    /// @dev Internal function to set the slash amount parameter.
+    function _setSlashAmount(uint256 newSlashAmount) internal {
+        require(newSlashAmount >= 0, "Slash amount must be positive or 0");
+        require(newSlashAmount <= minStake, "Slash amount must be less than or equal to minimum stake");
+        slashAmount = newSlashAmount;
+        emit SlashAmountSet(msg.sender, newSlashAmount);
+    }
+
+    /// @dev Internal function to set the slash oracle parameter.
+    function _setSlashOracle(address newSlashOracle) internal {
+        require(newSlashOracle != address(0), "Slash oracle must be set");
+        slashOracle = newSlashOracle;
+        emit SlashOracleSet(msg.sender, newSlashOracle);
+    }
+
+    /// @dev Internal function to set the slash receiver parameter.
+    function _setSlashReceiver(address newSlashReceiver) internal {
+        require(newSlashReceiver != address(0), "Slash receiver must be set");
+        slashReceiver = newSlashReceiver;
+        emit SlashReceiverSet(msg.sender, newSlashReceiver);
+    }
+
+    /// @dev Internal function to set the unstake period parameter.
+    function _setUnstakePeriodBlocks(uint256 newUnstakePeriodBlocks) internal {
+        require(newUnstakePeriodBlocks > 0, "Unstake period must be greater than 0");
+        unstakePeriodBlocks = newUnstakePeriodBlocks;
+        emit UnstakePeriodBlocksSet(msg.sender, newUnstakePeriodBlocks);
     }
 
     /// @dev Returns true if a validator is considered "opted-in" to mev-commit via this registry.
