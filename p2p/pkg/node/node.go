@@ -437,6 +437,13 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
+			autoDeposit := depositmanager.NewAutoDepositTracker(
+				evtMgr,
+				bidderRegistry,
+				optsGetter,
+				opts.Logger.With("component", "auto_deposit_tracker"),
+			)
+
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
 				blocksPerWindow,
@@ -446,6 +453,7 @@ func NewNode(opts *Options) (*Node, error) {
 				validator,
 				monitor,
 				optsGetter,
+				autoDeposit,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)

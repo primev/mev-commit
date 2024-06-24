@@ -95,6 +95,14 @@ contract BidderRegistry is
         uint256 amount
     );
 
+    /// @dev Event emitted when a bidder moves their deposit from one window to another
+    event BidderMovedFunds(
+        address indexed bidder,
+        uint256 fromWindow,
+        uint256 toWindow,
+        uint256 amount
+    );
+
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
@@ -203,8 +211,69 @@ contract BidderRegistry is
     }
 
     /**
+     * @dev Move deposit from one window to another.
+     * @param fromWindow The window from which the deposit is being moved.
+     * @param toWindow The window to which the deposit is being moved.
+     */
+    function moveDepositToWindow(
+        uint256 fromWindow,
+        uint256 toWindow
+    ) external nonReentrant {
+        require(
+            fromWindow < toWindow,
+            "fromWindow should be less than toWindow"
+        );
+        uint256 currentWindow = blockTrackerContract.getCurrentWindow();
+        require(
+            fromWindow < currentWindow,
+            "funds can only be moved after the window is settled"
+        );
+        uint256 deposit = lockedFunds[msg.sender][fromWindow];
+        require(deposit > 0, "deposit amount is zero");
+
+        lockedFunds[msg.sender][fromWindow] = 0;
+        lockedFunds[msg.sender][toWindow] += deposit;
+
+        emit BidderMovedFunds(msg.sender, fromWindow, toWindow, deposit);
+    }
+
+    /**
+     * @dev Deposit for n windows.
+     * @param window The window for which the deposit is being made.
+     * @param n The number of windows for which the deposit is being made.
+     */
+    function depositForNWindows(
+        uint256 window,
+        uint16 n
+    ) external payable {
+        require(msg.value >= minDeposit * n, "Insufficient deposit");
+
+        if (!bidderRegistered[msg.sender]) {
+            bidderRegistered[msg.sender] = true;
+        }
+
+        uint256 amountToDeposit = msg.value / n;
+        uint256 remainingAmount = msg.value % n; // to handle rounding issues
+        
+        for (uint16 i = 0; i < n; i++) {
+            uint256 windowIndex = window + i;
+            uint256 currentLockedFunds = lockedFunds[msg.sender][windowIndex];
+            
+            uint256 newLockedFunds = currentLockedFunds + amountToDeposit;
+            if (i == n - 1) {
+                newLockedFunds += remainingAmount; // Add the remainder to the last window
+            }
+            
+            lockedFunds[msg.sender][windowIndex] = newLockedFunds;
+            maxBidPerBlock[msg.sender][windowIndex] = newLockedFunds / blocksPerWindow;
+
+            emit BidderRegistered(msg.sender, newLockedFunds, windowIndex);
+        }
+    }    
+    /**
      * @dev Check the deposit of a bidder.
      * @param bidder The address of the bidder.
+     * @param window The window for which the deposit is being checked.
      * @return The deposited amount for the bidder.
      */
     function getDeposit(
@@ -217,8 +286,10 @@ contract BidderRegistry is
     /**
      * @dev Retrieve funds from a bidder's deposit (only callable by the pre-confirmations contract).
      * @dev reenterancy not necessary but still putting here for precaution
+     * @param windowToSettle The window for which the funds are being retrieved.
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      * @param provider The address to transfer the retrieved funds to.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function retrieveFunds(
         uint256 windowToSettle,
@@ -267,6 +338,7 @@ contract BidderRegistry is
     /**
      * @dev Return funds to a bidder's deposit (only callable by the pre-confirmations contract).
      * @dev reenterancy not necessary but still putting here for precaution
+     * @param window The window for which the funds are being retrieved.
      * @param bidID is the Bid ID that allows us to identify the bid, and deposit
      */
     function unlockFunds(
