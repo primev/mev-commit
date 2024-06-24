@@ -30,7 +30,7 @@
     "name": "delegateStake",
     "inputs": [
       {
-        "name": "valBLSPubKeys",
+        "name": "blsPubKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
       },
@@ -381,7 +381,7 @@
     "name": "stake",
     "inputs": [
       {
-        "name": "valBLSPubKeys",
+        "name": "blsPubKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
       }
