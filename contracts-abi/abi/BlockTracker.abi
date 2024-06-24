@@ -286,19 +286,6 @@
   },
   {
     "type": "event",
-    "name": "NewBlocksPerWindow",
-    "inputs": [
-      {
-        "name": "blocksPerWindow",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "NewL1Block",
     "inputs": [
       {
