@@ -88,7 +88,7 @@ func (s *Service) configureDashboard() error {
 		events.NewEventHandler(
 			"CommitmentProcessed",
 			func(upd *oracle.OracleCommitmentProcessed) {
-				cmt, err := s.store.Settlement(context.Background(), upd.CommitmentHash[:])
+				cmt, err := s.store.Settlement(context.Background(), upd.CommitmentIndex[:])
 				if err != nil {
 					s.logger.Error("failed to get settlement", "error", err)
 					return

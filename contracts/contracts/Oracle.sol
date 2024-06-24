@@ -65,7 +65,7 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     /// @dev Event emitted when a commitment is processed.
-    event CommitmentProcessed(bytes32 commitmentHash, bool isSlash);
+    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
 
     // Function to receive and process the block data (this would be automated in a real-world scenario)
     /**
