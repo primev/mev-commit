@@ -4,8 +4,25 @@ pragma solidity ^0.8.20;
 
 import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {IDelegationManager} from "eigenlayer-contracts/src/contracts/interfaces/IDelegationManager.sol";
+import {IEigenPodManager} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPodManager.sol";
+import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
+import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 
 abstract contract MevCommitAVSStorage {
+
+    /// @notice reference to eigenlayer core delegation manager contract
+    IDelegationManager internal _delegationManager;
+
+    /// @notice reference to eigenlayer core eigenpod manager contract
+    IEigenPodManager internal _eigenPodManager;
+
+    /// @notice reference to eigenlayer core strategy manager contract
+    IStrategyManager internal _strategyManager;
+
+    /// @notice reference to eigenlayer core AVS directory contract
+    IAVSDirectory internal _eigenAVSDirectory;
+
     /// @notice Mapping of operator addresses to their registration info
     mapping(address => IMevCommitAVS.OperatorRegistrationInfo) public operatorRegistrations;
 

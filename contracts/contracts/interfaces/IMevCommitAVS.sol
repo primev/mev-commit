@@ -155,6 +155,10 @@ interface IMevCommitAVS {
 
     function unfreeze(bytes calldata valPubKey) payable external;
 
+    function pause() external;
+
+    function unpause() external;
+
     function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory);
 
     function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
