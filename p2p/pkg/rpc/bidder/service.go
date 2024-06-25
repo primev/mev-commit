@@ -99,6 +99,7 @@ func (s *Service) SendBid(
 	}
 
 	txnsStr := strings.Join(bid.TxHashes, ",")
+	revertingTxHashesStr := strings.Join(bid.RevertingTxHashes, ",")
 
 	respC, err := s.sender.SendBid(
 		ctx,
@@ -107,6 +108,7 @@ func (s *Service) SendBid(
 		bid.BlockNumber,
 		bid.DecayStartTimestamp,
 		bid.DecayEndTimestamp,
+		revertingTxHashesStr,
 	)
 	if err != nil {
 		s.logger.Error("sending bid", "error", err)
