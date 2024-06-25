@@ -50,6 +50,7 @@ job "{% if env != 'devenv' %}{{ environments[env].version }}{% else %}artifacts-
 
       port "http" {
         static = 1111
+        to = 1111
       }
     }
 

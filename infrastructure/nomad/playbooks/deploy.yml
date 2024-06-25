@@ -50,7 +50,7 @@
         src: "{{ vault_init_file }}"
       register: vault_init
       become: true
-      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
+      become_user: "{{ ansible_user }}"
       no_log: true
 
     - name: Parse Vault Initialization File
@@ -234,7 +234,7 @@
           {% if artifact.keystore is defined %}
             case "{{ environments[env].secrets }}" in
               "generate")
-                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024) }}"
+                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=["ascii_letters", "digits", ".,:_"]) }}"
 
                 RESULT=$(
                   {{ keystore_generator.stdout }} generate \
@@ -575,7 +575,7 @@
           exit 1
         fi
 
-        TIMEOUT=300
+        TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
         START_TIME=$(date +%s)
         RESULT=$(nomad job status -json "{{ job.name }}")
         if [ $? -ne 0 ]; then

@@ -27,7 +27,7 @@ client {
   }
   {% if env == "devenv" %}
   host_volume "artifacts-volume" {
-    path = "/home/{{ hostvars[inventory_hostname].ansible_user }}/{{ env }}/artifacts"
+    path = "{{ ansible_user_home }}/{{ env }}/artifacts"
   }
   {% endif %}
 }

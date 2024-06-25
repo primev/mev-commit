@@ -1,11 +1,11 @@
 - name: Initialize and Configure Cluster
   hosts: all
   become: yes
-  remote_user: "{{ hostvars[inventory_hostname].ansible_user }}"
   gather_facts: yes
 
   vars:
     version: "unknown"
+    ansible_user_home: "/home/{{ hostvars[inventory_hostname].ansible_user }}"
     nomad_server_ip: "{{ (hostvars[groups['nomad_servers'][0]]['ansible_default_ipv4']['address'] if groups['nomad_servers'] | default([]) | length > 0 else '127.0.0.1') }}"
     nomad_clients_defined: "{{ groups['nomad_clients'] | length > 0 }}"
     nomad_servers_defined: "{{ groups['nomad_servers'] | length > 0 }}"
@@ -113,14 +113,14 @@
         fail_msg: "The profile name is not set correctly."
         success_msg: "The profile name is set to: {{ profile }}."
 
-    - name: Ensure "{{ env }}" Directory Exists
+    - name: Ensure "{{ ansible_user_home }}/{{ env }}" Directory Exists
       ansible.builtin.file:
-        path: "~{{ hostvars[inventory_hostname].ansible_user }}/{{ env }}"
+        path: "{{ ansible_user_home }}/{{ env }}/artifacts"
         state: directory
         mode: "0744"
         recurse: yes
       become: true
-      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
+      become_user: "{{ ansible_user }}"
 
   tasks:
     - name: Add DataDog Repository Key
@@ -150,7 +150,7 @@
 
     - name: Add PostgreSQL Repository
       ansible.builtin.apt_repository:
-        repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+        repo: "deb https://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
         state: present
         filename: pgdg.list
 
@@ -240,7 +240,7 @@
         mode: "0400"
       when: vault_status.json.initialized == false
       become: true
-      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
+      become_user: "{{ ansible_user }}"
       no_log: true
 
     - name: Determine Vault Seal Status
@@ -259,7 +259,7 @@
         - vault_status.json.initialized == true
         - vault_seal_status.json.sealed == true
       become: true
-      become_user: "{{ hostvars[inventory_hostname].ansible_user }}"
+      become_user: "{{ ansible_user }}"
       no_log: true
 
     - name: Parse Vault Initialization File

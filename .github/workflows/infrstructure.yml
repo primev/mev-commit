@@ -132,8 +132,7 @@ jobs:
 
       - name: Configure Control Machine
         run: |
-          sudo useradd --create-home ubuntu && sudo usermod --append --groups sudo ubuntu
-
+          ANSIBLE_USER=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "ubuntu" || echo "${USER}")
           ANSIBLE_CONNECTION="ansible_connection=local"
           if [ "${IS_MANUAL_DEPLOYMENT}" == "true" ]; then
             ANSIBLE_CONNECTION=""
@@ -153,9 +152,9 @@ jobs:
 
           cat <<-EOH > infrastructure/nomad/hosts.ini
           [nomad_servers]
-          ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=ubuntu
+          ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=${ANSIBLE_USER}
           [nomad_clients]
-          ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=ubuntu
+          ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=${ANSIBLE_USER}
           EOH
 
           ansible all --inventory infrastructure/nomad/hosts.ini --module-name ping
