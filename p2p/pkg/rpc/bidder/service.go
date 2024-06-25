@@ -398,7 +398,7 @@ func (s *Service) AutoDeposit(
 	return nil, status.Errorf(codes.Internal, "missing log for deposit")
 }
 
-func (s *Service) CancelDeposit(
+func (s *Service) CancelAutoDeposit(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.EmptyMessage, error) {
