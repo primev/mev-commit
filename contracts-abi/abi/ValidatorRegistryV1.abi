@@ -111,6 +111,11 @@
         "internalType": "struct IValidatorRegistryV1.StakedValidator",
         "components": [
           {
+            "name": "exists",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
             "name": "balance",
             "type": "uint256",
             "internalType": "uint256"
@@ -121,9 +126,21 @@
             "internalType": "address"
           },
           {
-            "name": "unstakeBlockNum",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "unstakeHeight",
+            "type": "tuple",
+            "internalType": "struct EventHeightLib.EventHeight",
+            "components": [
+              {
+                "name": "exists",
+                "type": "bool",
+                "internalType": "bool"
+              },
+              {
+                "name": "height",
+                "type": "uint256",
+                "internalType": "uint256"
+              }
+            ]
           }
         ]
       }
@@ -414,6 +431,11 @@
     ],
     "outputs": [
       {
+        "name": "exists",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
         "name": "balance",
         "type": "uint256",
         "internalType": "uint256"
@@ -424,9 +446,21 @@
         "internalType": "address"
       },
       {
-        "name": "unstakeBlockNum",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "unstakeHeight",
+        "type": "tuple",
+        "internalType": "struct EventHeightLib.EventHeight",
+        "components": [
+          {
+            "name": "exists",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "height",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
       }
     ],
     "stateMutability": "view"

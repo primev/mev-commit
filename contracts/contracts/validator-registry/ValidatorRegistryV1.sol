@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
 import {ValidatorRegistryV1Storage} from "./ValidatorRegistryV1Storage.sol";
+import {EventHeightLib} from "../utils/EventHeight.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -13,14 +14,22 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage,
     OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
-    /// @dev Modifier to confirm all BLS pubkeys have a staked balance.
-    modifier onlyHasStakingBalance(bytes[] calldata blsPubKeys) {
+    /// @dev Modifier to confirm a validator record exists for all provided BLS pubkeys.
+    modifier onlyExistentValidatorRecords(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            require(stakedValidators[blsPubKeys[i]].balance > 0, "Validator must have staked balance");
+            require(stakedValidators[blsPubKeys[i]].exists, "Validator record must exist");
         }
         _;
     }
-    
+
+    /// @dev Modifier to confirm a validator record does not exist for all provided BLS pubkeys.
+    modifier onlyNonExistentValidatorRecords(bytes[] calldata blsPubKeys) {
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            require(!stakedValidators[blsPubKeys[i]].exists, "Validator record must NOT exist");
+        }
+        _;
+    }
+
     /// @dev Modifier to confirm the sender is the withdrawal address for all provided BLS pubkeys.
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
@@ -76,8 +85,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @dev Stakes ETH on behalf of one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The validator BLS public keys to stake.
      */
-    function stake(bytes[] calldata blsPubKeys)
-        external payable onlyValidBLSPubKeys(blsPubKeys) whenNotPaused() {
+    function stake(bytes[] calldata blsPubKeys) external payable
+        onlyNonExistentValidatorRecords(blsPubKeys) onlyValidBLSPubKeys(blsPubKeys) whenNotPaused() {
         _stake(blsPubKeys, msg.sender);
     }
 
@@ -87,8 +96,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The validator BLS public keys to stake.
      * @param withdrawalAddress The address to receive the staked ETH.
      */
-    function delegateStake(bytes[] calldata blsPubKeys, address withdrawalAddress)
-        external payable onlyValidBLSPubKeys(blsPubKeys) onlyOwner {
+    function delegateStake(bytes[] calldata blsPubKeys, address withdrawalAddress) external payable
+        onlyNonExistentValidatorRecords(blsPubKeys) onlyValidBLSPubKeys(blsPubKeys) onlyOwner {
         require(withdrawalAddress != address(0), "Withdrawal address must be set");
         _stake(blsPubKeys, withdrawalAddress);
     }
@@ -98,8 +107,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @dev A staking entry must already exist for each provided BLS pubkey.
      * @param blsPubKeys The BLS public keys to add stake to.
      */
-    function addStake(bytes[] calldata blsPubKeys)
-        external payable whenNotPaused() {
+    function addStake(bytes[] calldata blsPubKeys) external payable 
+        onlyExistentValidatorRecords(blsPubKeys) whenNotPaused() {
         _addStake(blsPubKeys);
     }
 
@@ -108,7 +117,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to unstake.
      */
     function unstake(bytes[] calldata blsPubKeys) external 
-        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
+        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
         _unstake(blsPubKeys);
     }
 
@@ -117,7 +126,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to withdraw.
      */
     function withdraw(bytes[] calldata blsPubKeys) external
-        onlyHasStakingBalance(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
+        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
         _withdraw(blsPubKeys);
     }
 
@@ -125,7 +134,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The BLS public keys to slash.
      */
-    function slash(bytes[] calldata blsPubKeys) external onlySlashOracle whenNotPaused() {
+    function slash(bytes[] calldata blsPubKeys) external
+        onlyExistentValidatorRecords(blsPubKeys) onlySlashOracle whenNotPaused() {
         _slash(blsPubKeys);
     }
 
@@ -174,16 +184,11 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         uint256 splitAmount = msg.value / blsPubKeys.length;
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(
-                stakedValidators[pubKey].balance == 0 &&
-                stakedValidators[pubKey].withdrawalAddress == address(0) &&
-                stakedValidators[pubKey].unstakeBlockNum == 0,
-                "Validator staking record must be empty"
-            );
             stakedValidators[pubKey] = StakedValidator({
+                exists: true,
                 balance: splitAmount,
                 withdrawalAddress: withdrawalAddress,
-                unstakeBlockNum: 0
+                unstakeHeight: EventHeightLib.EventHeight({ exists: false, blockHeight: 0 })
             });
             emit Staked(msg.sender, withdrawalAddress, pubKey, splitAmount);
         }
@@ -198,8 +203,6 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         uint256 splitAmount = msg.value / blsPubKeys.length;
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(stakedValidators[pubKey].withdrawalAddress != address(0),
-                "Validator staking record must exist. Call stake first");
             stakedValidators[pubKey].balance += splitAmount;
             emit StakeAdded(msg.sender, stakedValidators[pubKey].withdrawalAddress,
                 pubKey, splitAmount, stakedValidators[pubKey].balance);
@@ -222,9 +225,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param pubKey The single BLS public key to unstake.
      */
     function _unstakeSingle(bytes calldata pubKey) internal {
-        require(stakedValidators[pubKey].unstakeBlockNum == 0,
-            "Unstake already initiated for validator");
-        stakedValidators[pubKey].unstakeBlockNum = block.number;
+        require(!_isUnstaking(pubKey), "Unstake must NOT be initiated for validator");
+        EventHeightLib.set(stakedValidators[pubKey].unstakeHeight, block.number);
         emit Unstaked(msg.sender, stakedValidators[pubKey].withdrawalAddress,
             pubKey, stakedValidators[pubKey].balance);
     }
@@ -236,8 +238,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     function _withdraw(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(stakedValidators[pubKey].unstakeBlockNum > 0, "Unstake must be initiated before withdrawal");
-            require(block.number >= stakedValidators[pubKey].unstakeBlockNum + unstakePeriodBlocks,
+            require(_isUnstaking(pubKey), "Unstake must be initiated before withdrawal");
+            require(block.number >= stakedValidators[pubKey].unstakeHeight.blockHeight + unstakePeriodBlocks,
                 "withdrawal not allowed yet. Blocks requirement not met.");
             uint256 balance = stakedValidators[pubKey].balance;
             address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
@@ -260,7 +262,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
             payable(slashReceiver).transfer(slashAmount);
             if (_isUnstaking(pubKey)) {
                 // If validator is already unstaking, reset their unstake block number
-                stakedValidators[pubKey].unstakeBlockNum = block.number;
+                EventHeightLib.set(stakedValidators[pubKey].unstakeHeight, block.number);
             } else {
                 _unstakeSingle(pubKey);
             }
@@ -328,7 +330,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     /// @dev Returns the number of blocks remaining until an unstaking validator can withdraw their staked ETH.
     function getBlocksTillWithdrawAllowed(bytes calldata valBLSPubKey) external view returns (uint256) {
         require(_isUnstaking(valBLSPubKey), "Unstake must be initiated to check withdrawal eligibility");
-        uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeBlockNum;
+        uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeHeight.blockHeight;
         return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
     }
 
@@ -339,7 +341,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function to check if a validator is currently unstaking.
     function _isUnstaking(bytes calldata valBLSPubKey) internal view returns (bool) {
-        return stakedValidators[valBLSPubKey].unstakeBlockNum > 0;
+        return stakedValidators[valBLSPubKey].unstakeHeight.exists;
     }
 
     /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
