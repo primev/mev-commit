@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSL 1.1
+    // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
 import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
@@ -13,6 +13,7 @@ import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSD
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
 
+// TODO: confirm all this still conforms to README
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
@@ -158,6 +159,14 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         }
     }
 
+    // TODO: multiple validators, AND write up comments on how points/rewards are off-chain
+    // and restaked LST delegation gets split evenly between all vals. 
+    // Also, the restaker chooses a set of validators, so to choose a new set it must deregister,
+    // and register with a new set. Also make it clear somewhere that points will only accrue proportionally
+    // to stakers via a. the amount of LST delegated to correct eigenlayer operator AND b. only if that 
+    // staker has registered with our AVS via this func.
+    // Also make it clear that since rewards/points are calculated off-chain, we only care about indexed
+    // event that a restaker has registered, there doesn't need to be an onchain a reverse mapping from validator -> LST restakers.
     function registerLSTRestaker(bytes calldata chosenValidator) external onlyProperlyDelegatedLSTRestaker() {
         require(lstRestakerRegistrations[msg.sender].status == LSTRestakerRegistrationStatus.NOT_REGISTERED,
             "LST restaker must not already be registered");
@@ -165,7 +174,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         uint256 stratLen = _strategyManager.stakerStrategyListLength(msg.sender);
         require(stratLen > 0, "LST restaker must have deposited into at least one strategy");
 
-        validatorRegistrations[chosenValidator].lstRestakers.push(msg.sender);
         lstRestakerRegistrations[msg.sender] = LSTRestakerRegistrationInfo({
             status: LSTRestakerRegistrationStatus.REGISTERED,
             chosenValidator: chosenValidator,
@@ -187,22 +195,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             "LST restaker must have requested deregistration");
         require(block.number >= lstRestakerRegistrations[msg.sender].deregistrationRequestHeight + lstRestakerDeregistrationPeriodBlocks,
             "deregistration must happen at least lstRestakerDeregistrationPeriodBlocks after deletion request height");
-
-        bytes storage chosenValidator = lstRestakerRegistrations[msg.sender].chosenValidator;
-        address[] storage restakersForVal = validatorRegistrations[chosenValidator].lstRestakers;
-        bool found = false;
-        for (uint256 i = 0; i < restakersForVal.length; i++) {
-            if (restakersForVal[i] == msg.sender) {
-                address lastElement = restakersForVal[restakersForVal.length - 1];
-                restakersForVal[i] = lastElement;
-                restakersForVal.pop();
-                found = true;
-                break;
-            }
-        }
-        require(found, "LST restaker must have been deleted from validator's restaker list");
+        emit LSTRestakerDeregistered(lstRestakerRegistrations[msg.sender].chosenValidator, msg.sender);
         delete lstRestakerRegistrations[msg.sender];
-        emit LSTRestakerDeregistered(chosenValidator, msg.sender);
     }
 
     function freeze(bytes[] calldata valPubKeys) external onlyFreezeOracle() whenNotPaused() {
@@ -211,6 +205,10 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         }
     }
 
+    // TODO: send fee to specified account
+    // Write about how we restore the validator to REGISTERED since it has explicitly paid the protocol,
+    // and signaled intention to act correctly again. This is unlike the slashing functionality from ValidatorRegistryV1,
+    // where slashed validators are immediately unstaked, and must withdraw, then stake again to be once again "opted-in".
     function unfreeze(bytes calldata valPubKey) payable external whenNotPaused() {
         require(validatorRegistrations[valPubKey].status == ValidatorRegistrationStatus.FROZEN,
             "validator must be frozen");
@@ -301,8 +299,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             status: ValidatorRegistrationStatus.REGISTERED,
             podOwner: podOwner,
             freezeHeight: 0,
-            deregistrationRequestHeight: 0,
-            lstRestakers: new address[](0)
+            deregistrationRequestHeight: 0
         });
         emit ValidatorRegistered(valPubKey, podOwner);
     }
@@ -320,9 +317,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             "validator must have requested deregistration");
         require(block.number >= validatorRegistrations[valPubKey].deregistrationRequestHeight + validatorDeregistrationPeriodBlocks,
             "deletion must happen at least validatorDeregistrationPeriodBlocks after deletion request height");
-        address podOwner = validatorRegistrations[valPubKey].podOwner;
+        emit ValidatorDeregistered(valPubKey, validatorRegistrations[valPubKey].podOwner);
         delete validatorRegistrations[valPubKey];
-        emit ValidatorDeregistered(valPubKey, podOwner);
     }
 
     function _freeze(bytes calldata valPubKey) internal {
@@ -443,16 +439,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _getRestakeableStrategies() internal view returns (address[] memory) {
         return restakeableStrategies;
     }
-
-    // function reward(bytes calldata valPubKey) external {
-    //     require(_isValidatorOptedIn(valPubKey), "validator must be opted in to mev-commit for anyone to receive rewards");
-    //     uint256 arbitraryAmount = 10000000000000000; // 0.01 ETH
-    //     payable(validatorRegistrations[valPubKey].podOwner).transfer(arbitraryAmount);
-    //     payable(_delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner)).transfer(arbitraryAmount);
-    //     for (uint256 i = 0; i < validatorRegistrations[valPubKey].lstRestakers.length; i++) {
-    //         payable(validatorRegistrations[valPubKey].lstRestakers[i]).transfer(arbitraryAmount);
-    //     }
-    // }
 
     fallback() external payable {
         revert("Invalid call");

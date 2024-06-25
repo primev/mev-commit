@@ -54,8 +54,6 @@ interface IMevCommitAVS {
         address podOwner;
         // Height at which the validator was frozen. Only non-zero if status is FROZEN
         uint256 freezeHeight;
-        // LST restakers who've chosen this validator, and will eventually be on the hook for slashing alongside this validator.
-        address[] lstRestakers;
         // Height at which the validator requested deregistration. Only non-zero if status is REQ_DEREGISTRATION
         uint256 deregistrationRequestHeight;
     }
