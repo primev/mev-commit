@@ -60,7 +60,7 @@ func NewService(
 }
 
 type PreconfSender interface {
-	SendBid(context.Context, string, string, int64, int64, int64) (chan *preconfirmationv1.PreConfirmation, error)
+	SendBid(ctx context.Context, txnsStr string, amount string, blockNumber int64, decayStartTimestamp int64, decayEndTimestamp int64, revertingTxHashes string) (chan *preconfirmationv1.PreConfirmation, error)
 }
 
 type BidderRegistryContract interface {
