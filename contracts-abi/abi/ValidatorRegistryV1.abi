@@ -136,7 +136,7 @@
                 "internalType": "bool"
               },
               {
-                "name": "blockHeight",
+                "name": "height",
                 "type": "uint256",
                 "internalType": "uint256"
               }
@@ -456,7 +456,7 @@
             "internalType": "bool"
           },
           {
-            "name": "blockHeight",
+            "name": "height",
             "type": "uint256",
             "internalType": "uint256"
           }
