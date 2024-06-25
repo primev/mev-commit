@@ -92,7 +92,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _setMaxLstRestakersPerValidator(maxLstRestakersPerValidator_);
 
         if (bytes(metadataURI_).length > 0) {
-            _eigenAVSDirectory.updateAVSMetadataURI(metadataURI_);
+            _updateMetadataURI(metadataURI_);
         }
 
         __Ownable_init(owner_);
@@ -230,10 +230,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _unpause();
     }
 
-    function updateMetadataURI(string memory metadataURI) external onlyOwner {
-        _eigenAVSDirectory.updateAVSMetadataURI(metadataURI);
-    }
-
     function setAVSDirectory(IAVSDirectory avsDirectory_) external onlyOwner {
         _setAVSDirectory(avsDirectory_);
     }
@@ -280,6 +276,10 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     function setMaxLstRestakersPerValidator(uint256 maxLstRestakersPerValidator_) external onlyOwner {
         _setMaxLstRestakersPerValidator(maxLstRestakersPerValidator_);
+    }
+
+    function updateMetadataURI(string memory metadataURI_) external onlyOwner {
+        _updateMetadataURI(metadataURI_);
     }
 
     function _registerValidatorsByPodOwner(
@@ -395,19 +395,19 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         emit MaxLSTRestakersPerValidatorSet(_maxLstRestakersPerValidator);
     }
 
-    function getOperatorRestakedStrategies(address operator) external view returns (address[] memory) {
-        if (operatorRegistrations[operator].status != OperatorRegistrationStatus.REGISTERED) {
-            return new address[](0);
-        }
-        return _getRestakeableStrategies();
+    function _updateMetadataURI(string memory _metadataURI) internal {
+        _eigenAVSDirectory.updateAVSMetadataURI(_metadataURI);
     }
 
     function getRestakeableStrategies() external view returns (address[] memory) {
         return _getRestakeableStrategies();
     }
 
-    function _getRestakeableStrategies() internal view returns (address[] memory) {
-        return restakeableStrategies;
+    function getOperatorRestakedStrategies(address operator) external view returns (address[] memory) {
+        if (operatorRegistrations[operator].status != OperatorRegistrationStatus.REGISTERED) {
+            return new address[](0);
+        }
+        return _getRestakeableStrategies();
     }
 
     function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory) {
@@ -438,6 +438,10 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
         bool isOperatorReg = operatorRegistrations[delegatedOperator].status == OperatorRegistrationStatus.REGISTERED;
         return isValReg && isValActive && isOperatorReg;
+    }
+
+    function _getRestakeableStrategies() internal view returns (address[] memory) {
+        return restakeableStrategies;
     }
 
     // function reward(bytes calldata valPubKey) external {
