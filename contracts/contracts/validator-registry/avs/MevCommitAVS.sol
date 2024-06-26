@@ -113,6 +113,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         address[] calldata restakeableStrategies_,
         address freezeOracle_,
         uint256 unfreezeFee_,
+        address unfreezeReceiver_,
         uint256 unfreezePeriodBlocks_,
         uint256 operatorDeregPeriodBlocks_,
         uint256 validatorDeregPeriodBlocks_,
@@ -126,6 +127,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _setRestakeableStrategies(restakeableStrategies_);
         _setFreezeOracle(freezeOracle_);
         _setUnfreezeFee(unfreezeFee_);
+        _setUnfreezeReceiver(unfreezeReceiver_);
         _setUnfreezePeriodBlocks(unfreezePeriodBlocks_);
         _setOperatorDeregPeriodBlocks(operatorDeregPeriodBlocks_);
         _setValidatorDeregPeriodBlocks(validatorDeregPeriodBlocks_);
@@ -242,15 +244,14 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         }
     }
 
-    // TODO: send fee to specified account
-    // Write about how we restore the validator to REGISTERED since it has explicitly paid the protocol,
-    // and signaled intention to act correctly again. This is unlike the slashing functionality from ValidatorRegistryV1,
-    // where slashed validators are immediately unstaked, and must withdraw, then stake again to be once again "opted-in".
+    // TODO: test scenario where validator was req deregistered before being frozen, and goes back to registerd after unfreeze.
+    // TODO: Also confirm the unfreeze fee is fully given to reciever and not contract.
     function unfreeze(bytes calldata valPubKey) payable external onlyRegisteredValidator(valPubKey) whenNotPaused() {
         require(validatorRegistrations[valPubKey].freezeHeight.exists, "validator must be frozen");
         require(block.number >= validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
             "unfreeze must be happen at least unfreezePeriodBlocks after freeze height");
-        require(msg.value >= unfreezeFee, "sender must pay unfreeze fee");
+        require(msg.value >= unfreezeFee, "sender must pay at least the unfreeze fee with transaction");
+        payable(unfreezeReceiver).transfer(msg.value);
         EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
@@ -289,6 +290,10 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     function setUnfreezeFee(uint256 unfreezeFee_) external onlyOwner {
         _setUnfreezeFee(unfreezeFee_);
+    }
+
+    function setUnfreezeReceiver(address unfreezeReceiver_) external onlyOwner {
+        _setUnfreezeReceiver(unfreezeReceiver_);
     }
 
     function setUnfreezePeriodBlocks(uint256 unfreezePeriodBlocks_) external onlyOwner {
@@ -393,6 +398,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _setUnfreezeFee(uint256 _unfreezeFee) internal {
         unfreezeFee = _unfreezeFee;
         emit UnfreezeFeeSet(_unfreezeFee);
+    }
+
+    function _setUnfreezeReceiver(address _unfreezeReceiver) internal {
+        unfreezeReceiver = _unfreezeReceiver;
+        emit UnfreezeReceiverSet(_unfreezeReceiver);
     }
 
     function _setUnfreezePeriodBlocks(uint256 _unfreezePeriodBlocks) internal {

@@ -95,6 +95,9 @@ interface IMevCommitAVS {
     /// @notice Emitted when the unfreeze fee is set
     event UnfreezeFeeSet(uint256 unfreezeFee);
 
+    /// @notice Emitted when the unfreeze receiver is set
+    event UnfreezeReceiverSet(address indexed unfreezeReceiver);
+
     /// @notice Emitted when the unfreeze period is set
     event UnfreezePeriodBlocksSet(uint256 unfreezePeriodBlocks);
 

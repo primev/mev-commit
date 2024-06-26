@@ -41,6 +41,9 @@ abstract contract MevCommitAVSStorage {
     /// @notice Fee required to unfreeze a validator.
     uint256 public unfreezeFee;
 
+    /// @notice Address that will receive unfreeze fees from frozen validators.
+    address public unfreezeReceiver;
+
     /**
      * @notice Number of blocks a validator must remain frozen before it can be unfrozen.
      * This is param is optional to allow frozen validators to pay the fee immediately.
