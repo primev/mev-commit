@@ -44,7 +44,7 @@ func TestBids(t *testing.T) {
 		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
-		_, encryptedBid, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		_, encryptedBid, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -123,7 +123,7 @@ func TestBids(t *testing.T) {
 		start := time.Now().UnixMilli()
 		end := start + 100000
 
-		bid, encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		bid, encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -309,7 +309,7 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 	b.ResetTimer()
 	// Benchmark loop
 	for i := 0; i < b.N; i++ {
-		_, _, _, err := encryptor.ConstructEncryptedBid(bids[i].hash, bids[i].amount, bids[i].blocknumber, bids[i].start, bids[i].end)
+		_, _, _, err := encryptor.ConstructEncryptedBid(bids[i].hash, bids[i].amount, bids[i].blocknumber, bids[i].start, bids[i].end, "")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -368,7 +368,7 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		bids[i], _, _, err = bidderEncryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end)
+		bids[i], _, _, err = bidderEncryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end, "")
 		if err != nil {
 			b.Fatal(err)
 		}

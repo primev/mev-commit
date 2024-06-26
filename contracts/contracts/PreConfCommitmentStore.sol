@@ -222,7 +222,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint256 _bid,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp
+        uint64 _decayEndTimeStamp,
+        string memory _revertingTxHashes
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
@@ -234,7 +235,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                         _bid,
                         _blockNumber,
                         _decayStartTimeStamp,
-                        _decayEndTimeStamp
+                        _decayEndTimeStamp,
+                        _revertingTxHashes
                     )
                 )
             );
@@ -254,6 +256,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
+        string memory _revertingTxHashes,
         bytes32 _bidHash,
         string memory _bidSignature,
         string memory _sharedSecretKey
@@ -269,6 +272,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp,
+                        _revertingTxHashes,
                         keccak256(
                             abi.encodePacked(_bytes32ToHexString(_bidHash))
                         ),
