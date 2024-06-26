@@ -42,6 +42,20 @@ paths:
           required: false
           type: string
           format: uint64
+  /v1/bidder/auto_deposit_status:
+    get:
+      summary: AutoDepositStatus
+      description: AutoDepositStatus is called by the bidder node to get the status of the auto deposit.
+      operationId: Bidder_AutoDepositStatus
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1AutoDepositStatusResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/bid:
     post:
       summary: SendBid
@@ -69,6 +83,20 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/bidderapiv1Bid'
+  /v1/bidder/cancel_and_withdraw_auto_deposit:
+    post:
+      summary: CancelAndWithdrawAutoDeposit
+      description: CancelAndWithdrawAutoDeposit is called by the bidder node to cancel the auto deposit and withdraw the funds.
+      operationId: Bidder_CancelAndWithdrawAutoDeposit
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1CancelAutoDepositResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/cancel_auto_deposit:
     post:
       summary: CancelAutoDeposit
@@ -78,7 +106,7 @@ paths:
         "200":
           description: A successful response.
           schema:
-            $ref: '#/definitions/bidderapiv1EmptyMessage'
+            $ref: '#/definitions/v1CancelAutoDepositResponse'
         default:
           description: An unexpected error response.
           schema:
@@ -217,8 +245,6 @@ definitions:
       - txHashes
       - amount
       - blockNumber
-  bidderapiv1EmptyMessage:
-    type: object
   googlerpcStatus:
     type: object
     properties:
@@ -255,6 +281,42 @@ definitions:
           $ref: '#/definitions/bidderapiv1AutoDeposit'
     description: AutoDeposit deposit from the bidder registry.
     title: AutoDeposit response
+  v1AutoDepositStatusResponse:
+    type: object
+    example:
+      amounts_and_window_numbers:
+        - amount: "1000000000000000000"
+          window_number: 1
+        - amount: "1000000000000000000"
+          window_number: 2
+        - amount: "1000000000000000000"
+          window_number: 3
+      isWorking: true
+    properties:
+      amountsAndWindowNumbers:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/bidderapiv1AutoDeposit'
+      isWorking:
+        type: boolean
+    description: AutoDeposit deposit from the bidder registry.
+    title: AutoDeposit response
+  v1CancelAutoDepositResponse:
+    type: object
+    example:
+      window_numbers:
+        - 1
+        - 2
+        - 3
+    properties:
+      windowNumbers:
+        type: array
+        items:
+          type: string
+          format: uint64
+    description: CancelAutoDeposit deposit from the bidder registry.
+    title: CancelAutoDeposit response
   v1Commitment:
     type: object
     properties:
