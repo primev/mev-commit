@@ -97,6 +97,11 @@ contract MevCommitAVSTest is Test {
             salt: bytes32("salt"),
             expiry: block.timestamp + 1 days
         });
+
+        vm.expectRevert("sender must be an eigenlayer operator");
+        vm.prank(operator);
+        mevCommitAVS.registerOperator(operatorSignature);
+
         delegationManagerMock.setIsOperator(operator, true);
 
         vm.expectEmit(true, true, true, true);
@@ -107,5 +112,90 @@ contract MevCommitAVSTest is Test {
         IMevCommitAVS.OperatorRegistrationInfo memory reg = mevCommitAVS.getOperatorRegInfo(operator);
         assertTrue(reg.exists);
         assertFalse(reg.deregRequestHeight.exists);
+
+        vm.expectRevert("sender must not be registered operator");
+        vm.prank(operator);
+        mevCommitAVS.registerOperator(operatorSignature);
+    }
+
+    function testRequestOperatorDeregistration() public {
+        vm.roll(108);
+
+        address operator = address(0x888);
+        vm.expectRevert("operator must be registered");
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+
+        testRegisterOperator();
+
+        address otherAcct = address(0x777);
+        vm.expectRevert("sender must be operator or MevCommitAVS owner");
+        vm.prank(otherAcct);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+
+        IMevCommitAVS.OperatorRegistrationInfo memory reg = mevCommitAVS.getOperatorRegInfo(operator);
+        assertTrue(reg.exists);
+        assertFalse(reg.deregRequestHeight.exists);
+
+        vm.expectEmit(true, true, true, true);
+        emit OperatorDeregistrationRequested(operator);
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+
+        reg = mevCommitAVS.getOperatorRegInfo(operator);
+        assertTrue(reg.exists);
+        assertTrue(reg.deregRequestHeight.exists);
+        assertEq(reg.deregRequestHeight.blockHeight, 108);
+
+        vm.expectRevert("operator must not have already requested deregistration");
+        vm.prank(owner);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+    }
+
+    function testDeregisterOperator() public {
+        vm.roll(11);
+
+        address operator = address(0x888);
+        vm.expectRevert("operator must be registered");
+        vm.prank(operator);
+        mevCommitAVS.deregisterOperator(operator);
+
+        testRegisterOperator();
+
+        address otherAcct = address(0x777);
+        vm.expectRevert("sender must be operator or MevCommitAVS owner");
+        vm.prank(otherAcct);
+        mevCommitAVS.deregisterOperator(operator);
+
+        vm.expectRevert("operator must have requested deregistration");
+        vm.prank(owner);
+        mevCommitAVS.deregisterOperator(operator);
+
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+
+        vm.expectRevert("deregistration must happen at least operatorDeregPeriodBlocks after deregistration request height");
+        vm.prank(operator);
+        mevCommitAVS.deregisterOperator(operator);
+
+        IMevCommitAVS.OperatorRegistrationInfo memory operatorRegInfo = mevCommitAVS.getOperatorRegInfo(operator);
+        assertTrue(operatorRegInfo.exists);
+        assertTrue(operatorRegInfo.deregRequestHeight.exists);
+        assertEq(operatorRegInfo.deregRequestHeight.blockHeight, 11);
+
+        avsDirectoryMock.registerOperator(operator);
+
+        vm.roll(11 + operatorDeregPeriodBlocks);
+
+        vm.expectEmit(true, true, true, true);
+        emit OperatorDeregistered(operator);
+        vm.prank(operator);
+        mevCommitAVS.deregisterOperator(operator);
+        assertFalse(avsDirectoryMock.isRegisteredOperator(operator));
+
+        operatorRegInfo = mevCommitAVS.getOperatorRegInfo(operator);
+        assertFalse(operatorRegInfo.exists);
+        assertFalse(operatorRegInfo.deregRequestHeight.exists);
+        assertEq(operatorRegInfo.deregRequestHeight.blockHeight, 0);
     }
 }
