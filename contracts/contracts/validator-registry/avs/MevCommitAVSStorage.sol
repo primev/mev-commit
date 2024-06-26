@@ -48,14 +48,11 @@ abstract contract MevCommitAVSStorage {
     uint256 public unfreezePeriodBlocks;
 
     /// @notice Number of blocks an operator must wait after requesting deregistration before it is finalized.
-    uint256 public operatorDeregistrationPeriodBlocks;
+    uint256 public operatorDeregPeriodBlocks;
 
     /// @notice Number of blocks a validator must wait after requesting deregistration before it is finalized.
-    uint256 public validatorDeregistrationPeriodBlocks;
+    uint256 public validatorDeregPeriodBlocks;
 
     /// @notice Number of blocks a LST restaker must wait after requesting deregistration before it is finalized.
-    uint256 public lstRestakerDeregistrationPeriodBlocks;
-
-    /// @notice Maximum number of LST restakers that can be associated with a single validator.
-    uint256 public maxLstRestakersPerValidator;
+    uint256 public lstRestakerDeregPeriodBlocks;
 }

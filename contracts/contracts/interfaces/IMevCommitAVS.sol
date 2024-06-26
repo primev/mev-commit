@@ -2,70 +2,39 @@
 pragma solidity ^0.8.20;
 
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
-import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {EventHeightLib} from "../utils/EventHeight.sol";
 
 interface IMevCommitAVS {
 
-    /// @notice Enum for operator registration status with MevCommitAVS
-    enum OperatorRegistrationStatus {
-        // Operator is not registered with MevCommitAVS
-        NOT_REGISTERED,
-        // Operator is registered with MevCommitAVS
-        REGISTERED, 
-        // Operator has requested deregistration with MevCommitAVS
-        REQ_DEREGISTRATION
-    }
-
-    /// @notice Enum for validator registration status with MevCommitAVS
-    enum ValidatorRegistrationStatus {
-        // Validator is not registered with MevCommitAVS
-        NOT_REGISTERED,
-        // Validator is registered with MevCommitAVS
-        REGISTERED,
-        // Validator has requested deregistration with MevCommitAVS
-        REQ_DEREGISTRATION,
-        // Validator is frozen by MevCommitAVS
-        FROZEN
-    }
-
-    /// @notice Enum for LST restaker registration status with MevCommitAVS
-    enum LSTRestakerRegistrationStatus {
-        // LST restaker is not registered (hasn't chosen a validator) with MevCommitAVS
-        NOT_REGISTERED,
-        // LST restaker is registered (has chosen a validator) with MevCommitAVS
-        REGISTERED,
-        // LST restaker has requested deregistration with MevCommitAVS
-        REQ_DEREGISTRATION
-    }
-
     /// @notice Struct representing MevCommitAVS registration info for an operator
     struct OperatorRegistrationInfo {
-        // Status of the operator's registration with MevCommitAVS
-        OperatorRegistrationStatus status;
-        // Height at which the operator requested deregistration. Only non-zero if status is REQ_DEREGISTRATION
-        uint256 deregistrationRequestHeight;
+        /// @notice Whether the operator is registered with MevCommitAVS
+        bool exists;
+        /// @notice Height at which the operator possibly requested deregistration
+        EventHeightLib.EventHeight deregRequestHeight;
     }
 
     /// @notice Struct representing MevCommitAVS registration info for a validator
     struct ValidatorRegistrationInfo {
-        // Status of the validator's registration with MevCommitAVS
-        ValidatorRegistrationStatus status;
-        // Address of the pod owner of the validator
+        /// @notice Whether the validator is registered with MevCommitAVS
+        bool exists;
+        /// @notice Address of the pod owner for the validator
         address podOwner;
-        // Height at which the validator was frozen. Only non-zero if status is FROZEN
-        uint256 freezeHeight;
-        // Height at which the validator requested deregistration. Only non-zero if status is REQ_DEREGISTRATION
-        uint256 deregistrationRequestHeight;
+        /// @notice Height at which the validator was possibly frozen
+        EventHeightLib.EventHeight freezeHeight;
+        /// @notice Height at which the validator possibly requested deregistration
+        EventHeightLib.EventHeight deregRequestHeight;
     }
 
     /// @notice Struct representing MevCommitAVS registration info for a LST restaker
     struct LSTRestakerRegistrationInfo {
-        // Status of the LST restaker's registration with MevCommitAVS
-        LSTRestakerRegistrationStatus status;
-        // Address of the validator chosen by the LST restaker, to represent the restaker's delegation
+        /// @notice Whether the LST restaker is registered with MevCommitAVS
+        bool exists;
+        /// @notice Address of the validator chosen by the LST restaker, to represent the restaker's delegation
+        // TODO: make this an array
         bytes chosenValidator;
-        // Height at which the LST restaker requested deregistration. Only non-zero if status is REQ_DEREGISTRATION
-        uint256 deregistrationRequestHeight;
+        /// @notice Height at which the LST restaker possibly requested deregistration
+        EventHeightLib.EventHeight deregRequestHeight;
     }
 
     /// @notice Emmitted when an operator is registered with MevCommitAVS
@@ -126,13 +95,13 @@ interface IMevCommitAVS {
     event UnfreezePeriodBlocksSet(uint256 unfreezePeriodBlocks);
 
     /// @notice Emitted when the operator deregistration period is set
-    event OperatorDeregistrationPeriodBlocksSet(uint256 operatorDeregistrationPeriodBlocks);
+    event OperatorDeregPeriodBlocksSet(uint256 operatorDeregPeriodBlocks);
 
     /// @notice Emitted when the validator deregistration period is set
-    event ValidatorDeregistrationPeriodBlocksSet(uint256 validatorDeregistrationPeriodBlocks);
+    event ValidatorDeregPeriodBlocksSet(uint256 validatorDeregPeriodBlocks);
 
     /// @notice Emitted when the LST restaker deregistration period is set
-    event LSTRestakerDeregistrationPeriodBlocksSet(uint256 lstRestakerDeregistrationPeriodBlocks);
+    event LSTRestakerDeregPeriodBlocksSet(uint256 lstRestakerDeregPeriodBlocks);
 
     /// @notice Emitted when the max LST restakers per validator is set
     event MaxLSTRestakersPerValidatorSet(uint256 maxLSTRestakersPerValidator);
