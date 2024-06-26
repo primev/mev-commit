@@ -553,13 +553,14 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 			mu.Unlock()
 			return
 		}
-		txSucceeded := receipt.Status == 1
+		txSucceeded := receipt.Status == types.ReceiptStatusSuccessful
 		mu.Lock()
 		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
 		mu.Unlock()
 	}
 
 	for posInBlock, tx := range block.Transactions() {
+
 		wg.Add(1)
 		go processTransactionMetadata(posInBlock, tx)
 	}
