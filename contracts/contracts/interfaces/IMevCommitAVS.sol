@@ -114,9 +114,6 @@ interface IMevCommitAVS {
     /// @notice Emitted when the LST restaker deregistration period is set
     event LSTRestakerDeregPeriodBlocksSet(uint256 lstRestakerDeregPeriodBlocks);
 
-    /// @notice Emitted when the max LST restakers per validator is set
-    event MaxLSTRestakersPerValidatorSet(uint256 maxLSTRestakersPerValidator);
-
     /// @dev Registers an operator with the MevCommitAVS.
     function registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) external;
 
@@ -161,6 +158,12 @@ interface IMevCommitAVS {
 
     /// @dev Checks if a validator is opted-in.
     function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
+
+    /// @dev Returns operator registration info.
+    function getOperatorRegInfo(address operator) external view returns (OperatorRegistrationInfo memory);
+
+    /// @dev Returns validator registration info.
+    function getValidatorRegInfo(bytes calldata valPubKey) external view returns (ValidatorRegistrationInfo memory);
 
     /// @dev Returns LST restaker registration info.
     function getLSTRestakerRegInfo(address lstRestaker) external view returns (LSTRestakerRegistrationInfo memory);

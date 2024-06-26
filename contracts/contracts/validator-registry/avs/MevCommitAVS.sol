@@ -565,6 +565,16 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         return _isValidatorOptedIn(valPubKey);
     }
 
+    /// @dev Returns operator registration info.
+    function getOperatorRegInfo(address operator) external view returns (OperatorRegistrationInfo memory) {
+        return operatorRegistrations[operator];
+    }
+
+    /// @dev Returns validator registration info.
+    function getValidatorRegInfo(bytes calldata valPubKey) external view returns (ValidatorRegistrationInfo memory) {
+        return validatorRegistrations[valPubKey];
+    }
+
     /// @dev Returns LST restaker registration info.
     function getLSTRestakerRegInfo(address lstRestaker) 
         external view returns (LSTRestakerRegistrationInfo memory) {
