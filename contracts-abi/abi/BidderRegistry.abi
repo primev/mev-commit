@@ -615,6 +615,37 @@
   },
   {
     "type": "function",
+    "name": "withdrawFromNWindows",
+    "inputs": [
+      {
+        "name": "window",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "n",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawFromSpecificWindows",
+    "inputs": [
+      {
+        "name": "windows",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "withdrawProtocolFee",
     "inputs": [
       {

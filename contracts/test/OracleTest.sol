@@ -51,7 +51,7 @@ contract OracleTest is Test {
         uint256 blockNumber,
         string blockBuilderName
     );
-    event CommitmentProcessed(bytes32 commitmentHash, bool isSlash);
+    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
     event FundsRetrieved(
         bytes32 indexed commitmentDigest,
         uint256 window,
