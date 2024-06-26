@@ -114,28 +114,20 @@ interface IMevCommitAVS {
     event MaxLSTRestakersPerValidatorSet(uint256 maxLSTRestakersPerValidator);
 
     function registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) external;
-
     function requestOperatorDeregistration(address operator) external;
-
     function deregisterOperator(address operator) external;
-
     function registerValidatorsByPodOwners(bytes[][] calldata valPubKeys, address[] calldata podOwners) external;
-
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys) external;
-
     function deregisterValidators(bytes[] calldata valPubKeys) external;
-
-    function freeze(bytes[] calldata valPubKey) external;
-
-    function unfreeze(bytes calldata valPubKey) payable external;
-
+    function registerLSTRestaker(bytes[] calldata chosenValidators) external;
+    function requestLSTRestakerDeregistration() external;
+    function deregisterLSTRestaker() external;
+    function freeze(bytes[] calldata valPubKeys) external;
+    function unfreeze(bytes[] calldata valPubKeys) payable external;
     function pause() external;
-
     function unpause() external;
-
     function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory);
-
     function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
-
+    function getLSTRestakerRegInfo(address lstRestaker) external view returns (LSTRestakerRegistrationInfo memory);
     function avsDirectory() external view returns (address);
 }
