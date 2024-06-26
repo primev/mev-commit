@@ -47,7 +47,7 @@ abstract contract ExampleScript is Script {
             IValidatorRegistryV1.StakedValidator memory stakedValidator = _validatorRegistry.getStakedValidator(blsKeys[i]);
             console.log("Staked Validator balance: %s", stakedValidator.balance);
             console.log("Staked Validator withdrawalAddress: %s", stakedValidator.withdrawalAddress);
-            console.log("Staked Validator unstakeBlockNum: %s", stakedValidator.unstakeBlockNum);
+            console.log("Staked Validator unstakeBlockNum: %s", stakedValidator.unstakeHeight.blockHeight);
         }
     }
     function checkWithdrawal(bytes[] memory blsKeys) public view {

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
+import { EventHeightLib } from "../utils/EventHeight.sol";
+
 /// @title IValidatorRegistryV1
 /// @notice Interface for the ValidatorRegistryV1 contract.
 contract IValidatorRegistryV1 {
@@ -37,8 +39,9 @@ contract IValidatorRegistryV1 {
 
     /// @dev Struct representing a validator staked with the registry.
     struct StakedValidator {
+        bool exists;
         uint256 balance;
         address withdrawalAddress;
-        uint256 unstakeBlockNum;
+        EventHeightLib.EventHeight unstakeHeight;
     }
 }
