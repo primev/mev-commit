@@ -117,34 +117,93 @@ interface IMevCommitAVS {
     /// @notice Emitted when the max LST restakers per validator is set
     event MaxLSTRestakersPerValidatorSet(uint256 maxLSTRestakersPerValidator);
 
+    /// @dev Registers an operator with the MevCommitAVS.
     function registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) external;
+
+    /// @dev Allows an operator to request deregistration from the MevCommitAVS.
     function requestOperatorDeregistration(address operator) external;
+
+    /// @dev Allows an operator to deregister from the MevCommitAVS.
     function deregisterOperator(address operator) external;
+
+    /// @dev Registers sets of validator pubkeys associated to one or more pod owners.
     function registerValidatorsByPodOwners(bytes[][] calldata valPubKeys, address[] calldata podOwners) external;
+
+    /// @dev Allows a validator to request deregistration from the MevCommitAVS.
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys) external;
+
+    /// @dev Allows a validator to deregister from the MevCommitAVS.
     function deregisterValidators(bytes[] calldata valPubKeys) external;
+
+    /// @dev Registers sender as an LST restaker with chosen validators.
     function registerLSTRestaker(bytes[] calldata chosenValidators) external;
+
+    /// @dev Allows an LST restaker to request deregistration from the MevCommitAVS.
     function requestLSTRestakerDeregistration() external;
+
+    /// @dev Allows an LST restaker to deregister from the MevCommitAVS.
     function deregisterLSTRestaker() external;
+
+    /// @dev Allows the freeze oracle account to freeze validators which disobey the mev-commit protocol.
     function freeze(bytes[] calldata valPubKeys) external;
+
+    /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
     function unfreeze(bytes[] calldata valPubKeys) payable external;
+
+    /// @dev Pauses the contract, restricted to contract owner.
     function pause() external;
+
+    /// @dev Unpauses the contract, restricted to contract owner.
     function unpause() external;
+
+    /// @dev Checks if the provided validators are opted-in.
     function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory);
+
+    /// @dev Checks if a validator is opted-in.
     function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
+
+    /// @dev Returns LST restaker registration info.
     function getLSTRestakerRegInfo(address lstRestaker) external view returns (LSTRestakerRegistrationInfo memory);
+
+    /// @dev Returns the address of AVS directory.
     function avsDirectory() external view returns (address);
+
+    /// @dev Sets the AVS directory, restricted to contract owner.
     function setAVSDirectory(IAVSDirectory avsDirectory_) external;
+
+    /// @dev Sets the strategy manager, restricted to contract owner.
     function setStrategyManager(IStrategyManager strategyManager_) external;
+
+    /// @dev Sets the delegation manager, restricted to contract owner.
     function setDelegationManager(IDelegationManager delegationManager_) external;
+
+    /// @dev Sets the EigenPod manager, restricted to contract owner.
     function setEigenPodManager(IEigenPodManager eigenPodManager_) external;
+
+    /// @dev Sets the restakeable strategies, restricted to contract owner.
     function setRestakeableStrategies(address[] calldata restakeableStrategies_) external;
+
+    /// @dev Sets the freeze oracle account, restricted to contract owner.
     function setFreezeOracle(address freezeOracle_) external;
+
+    /// @dev Sets the unfreeze fee, restricted to contract owner.
     function setUnfreezeFee(uint256 unfreezeFee_) external;
+
+    /// @dev Sets the unfreeze receiver, restricted to contract owner.
     function setUnfreezeReceiver(address unfreezeReceiver_) external;
+
+    /// @dev Sets the unfreeze period in blocks, restricted to contract owner.
     function setUnfreezePeriodBlocks(uint256 unfreezePeriodBlocks_) external;
+
+    /// @dev Sets the operator deregistration period in blocks, restricted to contract owner.
     function setOperatorDeregPeriodBlocks(uint256 operatorDeregPeriodBlocks_) external;
+
+    /// @dev Sets the validator deregistration period in blocks, restricted to contract owner.
     function setValidatorDeregPeriodBlocks(uint256 validatorDeregPeriodBlocks_) external;
+
+    /// @dev Sets the LST restaker deregistration period in blocks, restricted to contract owner.
     function setLstRestakerDeregPeriodBlocks(uint256 lstRestakerDeregPeriodBlocks_) external;
+
+    /// @dev Updates the eigenlayer metadata URI, restricted to contract owner.
     function updateMetadataURI(string memory metadataURI_) external;
 }
