@@ -3,6 +3,10 @@ pragma solidity ^0.8.20;
 
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {EventHeightLib} from "../utils/EventHeight.sol";
+import {IDelegationManager} from "eigenlayer-contracts/src/contracts/interfaces/IDelegationManager.sol";
+import {IEigenPodManager} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPodManager.sol";
+import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
+import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 
 interface IMevCommitAVS {
 
@@ -130,4 +134,17 @@ interface IMevCommitAVS {
     function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
     function getLSTRestakerRegInfo(address lstRestaker) external view returns (LSTRestakerRegistrationInfo memory);
     function avsDirectory() external view returns (address);
+    function setAVSDirectory(IAVSDirectory avsDirectory_) external;
+    function setStrategyManager(IStrategyManager strategyManager_) external;
+    function setDelegationManager(IDelegationManager delegationManager_) external;
+    function setEigenPodManager(IEigenPodManager eigenPodManager_) external;
+    function setRestakeableStrategies(address[] calldata restakeableStrategies_) external;
+    function setFreezeOracle(address freezeOracle_) external;
+    function setUnfreezeFee(uint256 unfreezeFee_) external;
+    function setUnfreezeReceiver(address unfreezeReceiver_) external;
+    function setUnfreezePeriodBlocks(uint256 unfreezePeriodBlocks_) external;
+    function setOperatorDeregPeriodBlocks(uint256 operatorDeregPeriodBlocks_) external;
+    function setValidatorDeregPeriodBlocks(uint256 validatorDeregPeriodBlocks_) external;
+    function setLstRestakerDeregPeriodBlocks(uint256 lstRestakerDeregPeriodBlocks_) external;
+    function updateMetadataURI(string memory metadataURI_) external;
 }
