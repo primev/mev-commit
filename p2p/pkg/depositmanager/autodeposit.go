@@ -143,7 +143,7 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 
 func (adt *AutoDepositTracker) Stop() (*bidderapiv1.CancelAutoDepositResponse, error) {
 	if !adt.isWorking.Load() {
-		return nil, fmt.Errorf("auto deposit tracker is not working")
+		return nil, fmt.Errorf("auto deposit tracker is not running")
 	}
 	if adt.cancelFunc != nil {
 		adt.cancelFunc()
