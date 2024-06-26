@@ -364,6 +364,7 @@ func TestSendBid(t *testing.T) {
 				BlockNumber:         tc.blockNum,
 				DecayStartTimestamp: tc.decayStartTimestamp,
 				DecayEndTimestamp:   tc.decayEndTimestamp,
+				RevertingTxHashes:   []string{},
 			})
 			if err != nil {
 				t.Fatalf("error sending bid: %v", err)

@@ -197,7 +197,7 @@ message Bid {
   }, (buf.validate.field).cel = {
       id: "reverting_tx_hashes",
       message: "reverting_tx_hashes must be an array of valid transaction hashes.",
-      expression: "this == null || this.all(r, r.matches('^[a-fA-F0-9]{64}$'))"
+      expression: "this.all(r, r.matches('^[a-fA-F0-9]{64}$'))"
   }];
 };
 
