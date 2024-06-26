@@ -190,7 +190,6 @@ func TestPreconfBidSubmission(t *testing.T) {
 			encryptedPreConfirmation: encryptedPreConfirmation,
 			bidSigner:                common.HexToAddress("0x1"),
 			preConfirmationSigner:    common.HexToAddress("0x2"),
-			revertingTxHashes:        "",
 		}
 
 		depositMgr := &testDepositManager{}
