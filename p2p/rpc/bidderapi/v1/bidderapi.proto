@@ -45,8 +45,22 @@ service Bidder {
   // CancelAutoDeposit
   //
   // CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
-  rpc CancelAutoDeposit(EmptyMessage) returns (EmptyMessage) {
+  rpc CancelAutoDeposit(EmptyMessage) returns (CancelAutoDepositResponse) {
     option (google.api.http) = {post: "/v1/bidder/cancel_auto_deposit"};
+  }
+
+  // AutoDepositStatus
+  //
+  // AutoDepositStatus is called by the bidder node to get the status of the auto deposit.
+  rpc AutoDepositStatus(EmptyMessage) returns (AutoDepositStatusResponse) {
+    option (google.api.http) = {get: "/v1/bidder/auto_deposit_status"};
+  }
+
+  // CancelAndWithdrawAutoDeposit
+  //
+  // CancelAndWithdrawAutoDeposit is called by the bidder node to cancel the auto deposit and withdraw the funds.
+  rpc CancelAndWithdrawAutoDeposit(EmptyMessage) returns (CancelAutoDepositResponse) {
+    option (google.api.http) = {post: "/v1/bidder/cancel_and_withdraw_auto_deposit"};
   }
 
   // GetDeposit
@@ -127,6 +141,29 @@ message AutoDepositResponse {
     example: "[{\"amount\": \"1000000000000000000\", \"window_number\": 1}, {\"amount\": \"1000000000000000000\", \"window_number\": 2}, {\"amount\": \"1000000000000000000\", \"window_number\": 3}]"
   };
   repeated AutoDeposit amounts_and_window_numbers = 1;
+};
+
+message AutoDepositStatusResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "AutoDeposit response"
+      description: "AutoDeposit deposit from the bidder registry."
+    }
+    example: "{\"amounts_and_window_numbers\": [{\"amount\": \"1000000000000000000\", \"window_number\": 1}, {\"amount\": \"1000000000000000000\", \"window_number\": 2}, {\"amount\": \"1000000000000000000\", \"window_number\": 3}], \"isWorking\": true}"
+  };
+  repeated AutoDeposit amounts_and_window_numbers = 1;
+  bool isWorking = 2;
+};
+
+message CancelAutoDepositResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "CancelAutoDeposit response"
+      description: "CancelAutoDeposit deposit from the bidder registry."
+    }
+    example: "{\"window_numbers\": [1, 2, 3]}"
+  };
+  repeated google.protobuf.UInt64Value window_numbers = 1;
 };
 
 message AutoDeposit {

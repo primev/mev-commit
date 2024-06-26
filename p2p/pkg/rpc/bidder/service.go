@@ -63,8 +63,11 @@ func NewService(
 }
 
 type AutoDepositTracker interface {
-	DoAutoMoveToAnotherWindow([]*bidderapiv1.AutoDeposit) <-chan struct{}
-	Stop()
+	DoAutoMoveToAnotherWindow(context.Context, []*bidderapiv1.AutoDeposit) error
+	Stop() (*bidderapiv1.CancelAutoDepositResponse, error)
+	WithdrawAutoDeposit(context.Context, []*wrapperspb.UInt64Value) error
+	IsWorking() bool
+	GetStatus() (map[uint64]bool, bool)
 }
 
 type PreconfSender interface {
@@ -156,6 +159,10 @@ func (s *Service) Deposit(
 	err := s.validator.Validate(r)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "validating deposit request: %v", err)
+	}
+
+	if s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running")
 	}
 
 	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
@@ -386,8 +393,10 @@ func (s *Service) AutoDeposit(
 	}
 
 	if len(ads) > 0 {
-		s.autoDepositTracker.DoAutoMoveToAnotherWindow(ads)
-		return &bidderapiv1.AutoDepositResponse{AmountsAndWindowNumbers: ads}, nil
+		err := s.autoDepositTracker.DoAutoMoveToAnotherWindow(ctx, ads)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "auto deposit: %v", err)
+		}
 	}
 
 	s.logger.Error(
@@ -403,7 +412,57 @@ func (s *Service) AutoDeposit(
 func (s *Service) CancelAutoDeposit(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
-) (*bidderapiv1.EmptyMessage, error) {
-	s.autoDepositTracker.Stop()
-	return &bidderapiv1.EmptyMessage{}, nil
+) (*bidderapiv1.CancelAutoDepositResponse, error) {
+	cancelResponse, err := s.autoDepositTracker.Stop()
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
+	}
+	return &bidderapiv1.CancelAutoDepositResponse{
+		WindowNumbers: cancelResponse.WindowNumbers,
+	}, nil
+}
+
+func (s *Service) CancelAndWithdrawAutoDeposit(
+	ctx context.Context,
+	_ *bidderapiv1.EmptyMessage,
+) (*bidderapiv1.CancelAutoDepositResponse, error) {
+	cancelResponse, err := s.autoDepositTracker.Stop()
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
+	}
+	err = s.autoDepositTracker.WithdrawAutoDeposit(ctx, cancelResponse.WindowNumbers)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawal: %v", err)
+	}
+	return &bidderapiv1.CancelAutoDepositResponse{
+		WindowNumbers: cancelResponse.WindowNumbers,
+	}, nil
+}
+
+func (s *Service) AutoDepositStatus(
+	ctx context.Context,
+	_ *bidderapiv1.EmptyMessage,
+) (*bidderapiv1.AutoDepositStatusResponse, error) {
+	deposits, isWorking := s.autoDepositTracker.GetStatus()
+	var autoDeposits []*bidderapiv1.AutoDeposit
+	for window, ok := range deposits {
+		if ok {
+			stakeAmount, err := s.registryContract.GetDeposit(&bind.CallOpts{
+				From:    s.owner,
+				Context: ctx,
+			}, s.owner, new(big.Int).SetUint64(window))
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
+			}
+			autoDeposits = append(autoDeposits, &bidderapiv1.AutoDeposit{
+				WindowNumber: wrapperspb.UInt64(window),
+				Amount:       stakeAmount.String(),
+			})
+		}
+	}
+
+	return &bidderapiv1.AutoDepositStatusResponse{
+		AmountsAndWindowNumbers: autoDeposits,
+		IsWorking:               isWorking,
+	}, nil
 }
