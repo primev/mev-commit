@@ -124,21 +124,43 @@ func (t *testRegistryContract) ParseBidderWithdrawal(_ types.Log) (*bidderregist
 }
 
 type testAutoDepositTracker struct {
-	deposits map[uint64]bool
+	deposits  map[uint64]bool
+	isWorking bool
 }
 
-func (t *testAutoDepositTracker) DoAutoMoveToAnotherWindow(ads []*bidderapiv1.AutoDeposit) <-chan struct{} {
+func (t *testAutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ads []*bidderapiv1.AutoDeposit) error {
+	t.isWorking = true
 	for _, ad := range ads {
 		t.deposits[ad.WindowNumber.Value] = true
 	}
 
-	doneChan := make(chan struct{})
-	close(doneChan)
-
-	return doneChan
+	return nil
 }
 
-func (t *testAutoDepositTracker) Stop() {
+func (t *testAutoDepositTracker) IsWorking() bool {
+	return t.isWorking
+}
+
+func (t *testAutoDepositTracker) GetStatus() (map[uint64]bool, bool) {
+	return t.deposits, t.isWorking
+}
+
+func (t *testAutoDepositTracker) Stop() (*bidderapiv1.CancelAutoDepositResponse, error) {
+	t.isWorking = false
+	var windowNumbers []*wrapperspb.UInt64Value
+	for k := range t.deposits {
+		windowNumbers = append(windowNumbers, &wrapperspb.UInt64Value{Value: k})
+		delete(t.deposits, k)
+	}
+	return &bidderapiv1.CancelAutoDepositResponse{
+		WindowNumbers: windowNumbers,
+	}, nil
+}
+
+// func (t *testAutoDepositTracker) 
+
+func (t *testAutoDepositTracker) WithdrawAutoDeposit(ctx context.Context, windowNumbers []*wrapperspb.UInt64Value) error {
+	return nil
 }
 
 type testTxWatcher struct {
