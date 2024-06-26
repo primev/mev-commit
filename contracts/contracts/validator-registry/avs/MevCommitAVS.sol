@@ -195,41 +195,43 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         }
     }
 
-    // TODO: multiple validators, AND write up comments on how points/rewards are off-chain
-    // and restaked LST delegation gets split evenly between all vals. 
-    // Also, the restaker chooses a set of validators, so to choose a new set it must deregister,
-    // and register with a new set. Also make it clear somewhere that points will only accrue proportionally
-    // to stakers via a. the amount of LST delegated to correct eigenlayer operator AND b. only if that 
-    // staker has registered with our AVS via this func, c. only while the validator is opted in.
-    // Also make it clear that since rewards/points are calculated off-chain, we only care about indexed
-    // event that a restaker has registered, there doesn't need to be an onchain a reverse mapping from validator -> LST restakers.
-    function registerLSTRestaker(bytes calldata chosenValidator)
+    function registerLSTRestaker(bytes[] calldata chosenValidators)
         external onlyNonRegisteredLstRestaker() onlySenderWithRegisteredOperator() {
-        require(_isValidatorOptedIn(chosenValidator), "chosen validator must be opted in");
+        for (uint256 i = 0; i < chosenValidators.length; i++) {
+            require(_isValidatorOptedIn(chosenValidators[i]), "chosen validator must be opted in");
+        }
         uint256 stratLen = _strategyManager.stakerStrategyListLength(msg.sender);
         require(stratLen > 0, "LST restaker must have deposited into at least one strategy");
         lstRestakerRegistrations[msg.sender] = LSTRestakerRegistrationInfo({
             exists: true,
-            chosenValidator: chosenValidator,
+            chosenValidators: chosenValidators,
+            numChosen: chosenValidators.length,
             deregRequestHeight: EventHeightLib.EventHeight({
                 exists: false,
                 blockHeight: 0
             })
         });
-        emit LSTRestakerRegistered(chosenValidator, msg.sender);
+        for (uint256 i = 0; i < chosenValidators.length; i++) {
+            emit LSTRestakerRegistered(chosenValidators[i], chosenValidators.length, msg.sender);
+        }
     }
 
     function requestLSTRestakerDeregistration() external onlyRegisteredLstRestaker() {
-        EventHeightLib.set(lstRestakerRegistrations[msg.sender].deregRequestHeight, block.number);
-        emit LSTRestakerDeregistrationRequested(lstRestakerRegistrations[msg.sender].chosenValidator, msg.sender);
+        LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
+        EventHeightLib.set(reg.deregRequestHeight, block.number);
+        for (uint256 i = 0; i < reg.numChosen; i++) {
+            emit LSTRestakerDeregistrationRequested(reg.chosenValidators[i], reg.numChosen, msg.sender);
+        }
     }
 
     function deregisterLSTRestaker() external onlyRegisteredLstRestaker() {
-        require(lstRestakerRegistrations[msg.sender].deregRequestHeight.exists,
-            "LST restaker must have requested deregistration");
-        require(block.number >= lstRestakerRegistrations[msg.sender].deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
+        LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
+        require(reg.deregRequestHeight.exists, "LST restaker must have requested deregistration");
+        require(block.number >= reg.deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
             "deregistration must happen at least lstRestakerDeregPeriodBlocks after deletion request height");
-        emit LSTRestakerDeregistered(lstRestakerRegistrations[msg.sender].chosenValidator, msg.sender);
+        for (uint256 i = 0; i < reg.numChosen; i++) {
+            emit LSTRestakerDeregistered(reg.chosenValidators[i], reg.numChosen, msg.sender);
+        }
         delete lstRestakerRegistrations[msg.sender];
     }
 

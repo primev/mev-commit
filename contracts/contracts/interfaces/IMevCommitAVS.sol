@@ -30,9 +30,10 @@ interface IMevCommitAVS {
     struct LSTRestakerRegistrationInfo {
         /// @notice Whether the LST restaker is registered with MevCommitAVS
         bool exists;
-        /// @notice Address of the validator chosen by the LST restaker, to represent the restaker's delegation
-        // TODO: make this an array
-        bytes chosenValidator;
+        /// @notice Address of validator(s) chosen by the LST restaker, which equally represent the restaker
+        bytes[] chosenValidators;
+        /// @notice Total number of validators chosen by the LST restaker, where attribution is split evenly
+        uint256 numChosen;
         /// @notice Height at which the LST restaker possibly requested deregistration
         EventHeightLib.EventHeight deregRequestHeight;
     }
@@ -56,13 +57,16 @@ interface IMevCommitAVS {
     event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed podOwner);
 
     /// @notice Emmitted when a LST restaker registers (chooses a validator) with MevCommitAVS
-    event LSTRestakerRegistered(bytes indexed chosenValidator, address indexed lstRestaker);
+    /// @dev numChosen is the total number of validators chosen by the LST restaker, where attribution is split evenly.
+    event LSTRestakerRegistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
 
     /// @notice Emmitted when a deregistration request is made by an LST restaker
-    event LSTRestakerDeregistrationRequested(bytes indexed chosenValidator, address indexed lstRestaker);
+    /// @dev numChosen is the total number of validators chosen by the LST restaker, where attribution is split evenly.
+    event LSTRestakerDeregistrationRequested(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
 
     /// @notice Emmitted when a LST restaker is deregistered from MevCommitAVS
-    event LSTRestakerDeregistered(bytes indexed chosenValidator, address indexed lstRestaker);
+    /// @dev numChosen is the total number of validators chosen by the LST restaker, where attribution is split evenly.
+    event LSTRestakerDeregistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
 
     /// @notice Emmitted when a validator is frozen by the oracle
     event ValidatorFrozen(bytes indexed validatorPubKey, address indexed podOwner);

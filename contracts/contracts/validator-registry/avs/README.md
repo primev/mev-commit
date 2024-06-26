@@ -41,13 +41,25 @@ Deregistration requires calling `requestValidatorsDeregistration`, waiting a con
 LST restakers are also able to register with our avs by:
 
 1. Delegating to an Operator who's registered with the mev-commit AVS.
-2. Calling `registerLSTRestaker` with a chosen validator pubkey, taking on the freeze risk of the chosen validator.
+2. Calling `registerLSTRestaker` with one or more chosen validator pubkey(s). These chosen validators must be opted-in to the mev-commit protocol as described above.
 
-```solidity
-function registerLSTRestaker(bytes calldata chosenValidator) onlyProperlyDelegatedLSTRestaker();
+```solidity 
+function registerLSTRestaker(bytes[] calldata chosenValidators) external onlyNonRegisteredLstRestaker() onlySenderWithRegisteredOperator()
 ```
 
-LST restakers who register in this way will receive points or rewards when their chosen validator correctly follows the protocol.
+LST restakers who register in this way will receive points or rewards commensurate with their chosen validator(s) correctly following the protocol. Further, any one of these chosen validators being frozen will result in a corresponding freeze of points accrual for the LST restaker. When an LST restaker chooses multiple validators, attribution is split evenly between the validators.
+
+Since validators are chosen in sets, an LST restaker can only choose a new set of validators by deregistering, and registering again with the new set. This simplifies contract implementation and enforces an LST restaker is responsible for the actions of its chosen validator(s).
+
+Points/rewards for LST restakers would be computed off-chain, with heavy use of indexed events. As there is not an efficient on-chain mapping from each validator to the set of LST restakers who've chosen that validator. When a rewards/points system is introduced, it may consider the following information (and possibly more):
+
+* The block height when the LST restaker registered with the AVS, requested deregistration, and/or deregistered.
+* The amount and denomination of LST that the restaker has delegated to a mev-commit registered Operator. Changes in LST delegation via the eigenlayer core contracts will affect point/reward accrual.
+* Operator deregistration events, if for example an LST restaker's delegated Operator is deregistered with the mev-commit AVS.
+* Validator deregistration events, if for example an LST restaker's chosen validator is deregistered with the mev-commit AVS.
+* Validator eigenPod events, if for example an LST restaker's chosen validator's eigenPod status changes from `ACTIVE` to `WITHDRAWN`.
+* Freeze/Unfreeze events relevant to an LST restaker's chosen validator(s).
+* Correctly proposed blocks by the LST restaker's chosen validator(s).
 
 Deregistration requires the restaker calling `requestLSTRestakerDeregistration`, waiting a configurable amount of blocks, then calling `deregisterLSTRestaker`.
 
