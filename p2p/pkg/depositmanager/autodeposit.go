@@ -180,7 +180,7 @@ func (adt *AutoDepositTracker) WithdrawAutoDeposit(ctx context.Context, windowNu
 	})
 
 	lastWindowNumber := windows[len(windows)-1]
-	eg, egCtx := errgroup.WithContext(ctx)
+	eg, egCtx := errgroup.WithContext(context.Background())
 	egCtx, cancel := context.WithCancel(egCtx)
 
 	evt := events.NewEventHandler(
