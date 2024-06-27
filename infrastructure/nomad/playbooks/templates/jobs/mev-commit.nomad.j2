@@ -47,9 +47,15 @@ job "{{ job.name }}" {
       }
       {% endif %}
 
+      {% if env != 'devenv' %}
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
 
       template {
         data = <<-EOH
