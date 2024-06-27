@@ -72,9 +72,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _;
     }
     
-    /// @dev Modifier to ensure the sender is either the given operator or the contract owner.
-    modifier onlyOperatorOrContractOwner(address operator) {
-        require(msg.sender == operator || msg.sender == owner(), "sender must be operator or MevCommitAVS owner");
+    /// @dev Modifier to ensure the sender is either the given operator 
+    modifier onlyOperator(address operator) {
+        require(msg.sender == operator, "sender must be operator");
         _;
     }
 
@@ -86,13 +86,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _;
     }
 
-    /// @dev Modifier to ensure the sender is either the validator's pod owner, validator's delegated operator, or the contract owner.
-    modifier onlyPodOwnerOperatorOrContractOwner(bytes calldata valPubKey) {
-        address podOwner = validatorRegistrations[valPubKey].podOwner;
-        require(msg.sender == podOwner ||
-            msg.sender == _delegationManager.delegatedTo(podOwner) ||
-            msg.sender == owner(),
-            "sender must be podOwner, delegated operator, or MevCommitAVS owner");
+    /// @dev Modifier to ensure the sender is either the pod owner or operator of all the given validators.
+    modifier onlyPodOwnerOrOperatorOfValidators(bytes[] calldata valPubKeys) {
+        for (uint256 i = 0; i < valPubKeys.length; i++) {
+            IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
+            require(msg.sender == regInfo.podOwner || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
+                "sender must be podOwner or delegated operator of validator");
+        }
         _;
     }
 
@@ -159,13 +159,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Allows an operator to request deregistration from the MevCommitAVS.
     function requestOperatorDeregistration(address operator
-    ) external onlyRegisteredOperator(operator) onlyOperatorOrContractOwner(operator) whenNotPaused() {
+    ) external onlyRegisteredOperator(operator) onlyOperator(operator) whenNotPaused() {
         _requestOperatorDeregistration(operator);
     }
 
     /// @dev Allows an operator to deregister from the MevCommitAVS.
     function deregisterOperator(address operator
-    ) external onlyRegisteredOperator(operator) onlyOperatorOrContractOwner(operator) whenNotPaused() {
+    ) external onlyRegisteredOperator(operator) onlyOperator(operator) whenNotPaused() {
         _deregisterOperator(operator);
     }
 
@@ -185,7 +185,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @notice For each validator the underlying _requestValidatorDeregistration enforces the sender is either
     /// the podOwner, delegated operator, or the contract owner.
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys)
-        external onlyRegisteredValidators(valPubKeys) whenNotPaused() {
+        external onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) whenNotPaused() {
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             _requestValidatorDeregistration(valPubKeys[i]);
         }
@@ -195,7 +195,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @notice For each validator the underlying _deregisterValidator enforces the sender is either
     /// the podOwner, delegated operator, or the contract owner.
     function deregisterValidators(bytes[] calldata valPubKeys)
-        external onlyRegisteredValidators(valPubKeys) whenNotPaused() {
+        external onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) whenNotPaused() {
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             _deregisterValidator(valPubKeys[i]);
         }
@@ -373,7 +373,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to request deregistration of a validator.
-    function _requestValidatorDeregistration(bytes calldata valPubKey) internal onlyPodOwnerOperatorOrContractOwner(valPubKey) {
+    function _requestValidatorDeregistration(bytes calldata valPubKey) internal {
         require(!validatorRegistrations[valPubKey].deregRequestHeight.exists,
             "validator must not have already requested deregistration");
         EventHeightLib.set(validatorRegistrations[valPubKey].deregRequestHeight, block.number);
@@ -383,7 +383,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Internal function to deregister a validator.
     //
     // TODO: confirm frozen validators cannot deregister
-    function _deregisterValidator(bytes calldata valPubKey) internal onlyPodOwnerOperatorOrContractOwner(valPubKey) {
+    function _deregisterValidator(bytes calldata valPubKey) internal {
         require(!validatorRegistrations[valPubKey].freezeHeight.exists, "frozen validator cannot deregister");
         require(validatorRegistrations[valPubKey].deregRequestHeight.exists,
             "validator must have requested deregistration");

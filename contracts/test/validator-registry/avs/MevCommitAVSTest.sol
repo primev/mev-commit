@@ -292,4 +292,25 @@ contract MevCommitAVSTest is Test {
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
     }
+
+    function testRequestValidatorsDeregistration() public {
+        vm.roll(103);
+
+        address operator = address(0x888);
+        address podOwner = address(0x420);
+
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+
+        vm.expectRevert("validator must be registered");
+        vm.prank(podOwner);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
+
+        testRegisterValidatorsByPodOwners();
+
+        vm.expectRevert("validator must not have already requested deregistration");
+        vm.prank(podOwner);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
+    }
 }
