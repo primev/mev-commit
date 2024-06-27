@@ -415,16 +415,24 @@ contract MevCommitAVSTest is Test {
         vm.prank(lstRestaker);
         mevCommitAVS.registerLSTRestaker(chosenVals);
 
+        bytes[] memory chosenVals2 = new bytes[](2);
+        chosenVals2[0] = bytes("valPubkey1");
+        chosenVals2[1] = bytes("valPubkey2");
+        vm.expectRevert("LST restaker must have deposited into at least one strategy");
+        vm.prank(lstRestaker);
+        mevCommitAVS.registerLSTRestaker(chosenVals2);
 
-
-
-        // ""LST restaker must choose at least one validator""
-
-        // isOpted in stuff 
-
-        // "LST restaker must have deposited into at least one strategy"
+        strategyManagerMock.setStakerStrategyListLengthReturnValue(3);
+        vm.expectEmit(true, true, true, true);
+        emit LSTRestakerRegistered(chosenVals2[0], 2, lstRestaker);
+        vm.expectEmit(true, true, true, true);
+        emit LSTRestakerRegistered(chosenVals2[1], 2, lstRestaker);
+        vm.prank(lstRestaker);
+        mevCommitAVS.registerLSTRestaker(chosenVals2);
     
-        // TODO: "sender must not be registered LST restaker"
+        vm.expectRevert("sender must not be registered LST restaker");
+        vm.prank(lstRestaker);
+        mevCommitAVS.registerLSTRestaker(chosenVals2);
     }
 
     function testRequestLSTRestakerDeregistration() public {
@@ -439,7 +447,6 @@ contract MevCommitAVSTest is Test {
     }
 
     function testFrozenValidatorsCantDeregister() public {
-       // TODO: 
     }
 
     function testFrozenValidatorDoesntAffectLSTRestakerDeregistration() public {
