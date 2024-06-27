@@ -480,8 +480,54 @@ contract MevCommitAVSTest is Test {
     }
 
     function testDeregisterLSTRestaker() public {
-    }
 
+        address otherAcct = address(0x777);
+        vm.expectRevert("sender must be registered LST restaker");
+        vm.prank(otherAcct);
+        mevCommitAVS.deregisterLSTRestaker();
+
+        testRegisterLSTRestaker();
+
+        vm.roll(302);
+
+        address lstRestaker = address(0x34443);
+        vm.expectRevert("LST restaker must have requested deregistration");
+        vm.prank(lstRestaker);
+        mevCommitAVS.deregisterLSTRestaker();
+
+        vm.prank(lstRestaker);
+        mevCommitAVS.requestLSTRestakerDeregistration();
+
+        vm.expectRevert("deregistration must happen at least lstRestakerDeregPeriodBlocks after deregistration request height");
+        vm.prank(lstRestaker);
+        mevCommitAVS.deregisterLSTRestaker();
+
+        vm.roll(302 + lstRestakerDeregPeriodBlocks);
+
+        bytes[] memory chosenVals = new bytes[](2);
+        chosenVals[0] = bytes("valPubkey1");
+        chosenVals[1] = bytes("valPubkey2");
+
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 2);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 2);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[0], chosenVals[0]);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], chosenVals[1]);
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.blockHeight, 302);
+
+        vm.expectEmit(true, true, true, true);
+        emit LSTRestakerDeregistered(chosenVals[0], 2, lstRestaker);
+        vm.expectEmit(true, true, true, true);
+        emit LSTRestakerDeregistered(chosenVals[1], 2, lstRestaker);
+        vm.prank(lstRestaker);
+        mevCommitAVS.deregisterLSTRestaker();
+
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 0);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 0);
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+    }
 
     function testFreeze() public {
         // TODO: test multiple vals frozen in one tx.
