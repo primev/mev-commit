@@ -391,7 +391,6 @@ contract MevCommitAVSTest is Test {
         assertFalse(regInfo1.exists);
     }
 
-    // TODO: test that LST restakers cannot choose validators who're not registered / valid with eigen core
     function testRegisterLSTRestaker() public {
 
         address operator = address(0x888);
@@ -422,6 +421,11 @@ contract MevCommitAVSTest is Test {
         vm.prank(lstRestaker);
         mevCommitAVS.registerLSTRestaker(chosenVals2);
 
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 0);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 0);
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+
         strategyManagerMock.setStakerStrategyListLengthReturnValue(3);
         vm.expectEmit(true, true, true, true);
         emit LSTRestakerRegistered(chosenVals2[0], 2, lstRestaker);
@@ -429,6 +433,13 @@ contract MevCommitAVSTest is Test {
         emit LSTRestakerRegistered(chosenVals2[1], 2, lstRestaker);
         vm.prank(lstRestaker);
         mevCommitAVS.registerLSTRestaker(chosenVals2);
+
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 2);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 2);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[0], chosenVals2[0]);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], chosenVals2[1]);
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
     
         vm.expectRevert("sender must not be registered LST restaker");
         vm.prank(lstRestaker);
@@ -436,6 +447,36 @@ contract MevCommitAVSTest is Test {
     }
 
     function testRequestLSTRestakerDeregistration() public {
+        address otherAcct = address(0x777);
+        vm.expectRevert("sender must be registered LST restaker");
+        vm.prank(otherAcct);
+        mevCommitAVS.requestLSTRestakerDeregistration();
+
+        testRegisterLSTRestaker();
+        vm.roll(177);
+
+        address lstRestaker = address(0x34443);
+        bytes[] memory chosenVals = new bytes[](2);
+        chosenVals[0] = bytes("valPubkey1");
+        chosenVals[1] = bytes("valPubkey2");
+        vm.expectEmit(true, true, true, true);
+        emit LSTRestakerDeregistrationRequested(chosenVals[0], 2, lstRestaker);
+        vm.expectEmit(true, true, true, true);
+        emit LSTRestakerDeregistrationRequested(chosenVals[1], 2, lstRestaker);
+        vm.prank(lstRestaker);
+        mevCommitAVS.requestLSTRestakerDeregistration();
+
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 2);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 2);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[0], chosenVals[0]);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], chosenVals[1]);
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.blockHeight, 177);
+
+        vm.expectRevert("LST restaker must not have already requested deregistration");
+        vm.prank(lstRestaker);
+        mevCommitAVS.requestLSTRestakerDeregistration();
     }
 
     function testDeregisterLSTRestaker() public {
