@@ -394,14 +394,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to register an LST restaker.
-    /// @notice For UX purposes each chosen validator must be "opted-in" when an LST restaker first registers.
-    /// However a chosen validator may later become not "opted-in" as defined in _isValidatorOptedIn(),
-    /// which will affect rewards/points earned by the LST restaker.
     function _registerLSTRestaker(bytes[] calldata chosenValidators) internal {
         require(chosenValidators.length > 0, "LST restaker must choose at least one validator");
-        for (uint256 i = 0; i < chosenValidators.length; i++) {
-            require(_isValidatorOptedIn(chosenValidators[i]), "chosen validator must be opted in");
-        }
         uint256 stratLen = _strategyManager.stakerStrategyListLength(msg.sender);
         require(stratLen > 0, "LST restaker must have deposited into at least one strategy");
         lstRestakerRegistrations[msg.sender] = LSTRestakerRegistrationInfo({

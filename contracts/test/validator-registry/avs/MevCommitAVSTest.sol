@@ -131,7 +131,7 @@ contract MevCommitAVSTest is Test {
         testRegisterOperator();
 
         address otherAcct = address(0x777);
-        vm.expectRevert("sender must be operator or MevCommitAVS owner");
+        vm.expectRevert("sender must be operator");
         vm.prank(otherAcct);
         mevCommitAVS.requestOperatorDeregistration(operator);
 
@@ -150,7 +150,7 @@ contract MevCommitAVSTest is Test {
         assertEq(reg.deregRequestHeight.blockHeight, 108);
 
         vm.expectRevert("operator must not have already requested deregistration");
-        vm.prank(owner);
+        vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
     }
 
@@ -165,12 +165,12 @@ contract MevCommitAVSTest is Test {
         testRegisterOperator();
 
         address otherAcct = address(0x777);
-        vm.expectRevert("sender must be operator or MevCommitAVS owner");
+        vm.expectRevert("sender must be operator");
         vm.prank(otherAcct);
         mevCommitAVS.deregisterOperator(operator);
 
         vm.expectRevert("operator must have requested deregistration");
-        vm.prank(owner);
+        vm.prank(operator);
         mevCommitAVS.deregisterOperator(operator);
 
         vm.prank(operator);
@@ -393,6 +393,38 @@ contract MevCommitAVSTest is Test {
 
     // TODO: test that LST restakers cannot choose validators who're not registered / valid with eigen core
     function testRegisterLSTRestaker() public {
+
+        address operator = address(0x888);
+        address lstRestaker = address(0x34443);
+        address otherAcct = address(0x777);
+        bytes[] memory chosenVals = new bytes[](0);
+        vm.expectRevert("sender must be delegated to an operator that is registered with MevCommitAVS");
+        vm.prank(otherAcct);
+        mevCommitAVS.registerLSTRestaker(chosenVals);
+
+        testRegisterValidatorsByPodOwners();
+
+        ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
+            signature: bytes("signature"),
+            expiry: 10
+        });
+        vm.prank(lstRestaker);
+        delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
+
+        vm.expectRevert("LST restaker must choose at least one validator");
+        vm.prank(lstRestaker);
+        mevCommitAVS.registerLSTRestaker(chosenVals);
+
+
+
+
+        // ""LST restaker must choose at least one validator""
+
+        // isOpted in stuff 
+
+        // "LST restaker must have deposited into at least one strategy"
+    
+        // TODO: "sender must not be registered LST restaker"
     }
 
     function testRequestLSTRestakerDeregistration() public {
