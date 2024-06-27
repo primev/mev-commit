@@ -391,9 +391,9 @@ func (s *Service) AutoDeposit(
 			})
 		}
 	}
-	
+
 	if len(ads) > 0 {
-		err := s.autoDepositTracker.DoAutoMoveToAnotherWindow(ctx, ads)
+		err := s.autoDepositTracker.DoAutoMoveToAnotherWindow(context.Background(), ads)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "auto deposit: %v", err)
 		}
