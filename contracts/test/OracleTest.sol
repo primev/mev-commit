@@ -36,6 +36,8 @@ contract OracleTest is Test {
         string txnHash;
         uint64 decayStartTimestamp;
         uint64 decayEndTimestamp;
+        bytes sharedSecretKey;
+        string revertingTxHashes;
         bytes32 bidDigest;
         bytes32 commitmentDigest;
         bytes bidSignature;
@@ -432,6 +434,7 @@ contract OracleTest is Test {
 
     function test_process_commitment_reward_multiple() public {
         string[] memory txnHashes = new string[](4);
+        string memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         txnHashes[
             0
         ] = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
@@ -497,7 +500,8 @@ contract OracleTest is Test {
                 20,
                 bidSignatures[i],
                 commitmentSignatures[i],
-                sharedSecretKey
+                sharedSecretKey,
+                revertingTxHashes
             );
             vm.stopPrank();
         }
@@ -671,7 +675,8 @@ contract OracleTest is Test {
         uint64 decayEndTimestamp,
         uint256 bidderPk,
         uint256 signerPk,
-        uint64 dispatchTimestamp
+        uint64 dispatchTimestamp,
+        string memory revertingTxHashes
     )
         public
         returns (
@@ -699,7 +704,7 @@ contract OracleTest is Test {
             decayEndTimestamp,
             bidHash,
             _bytesToHexString(bidSignature),
-            _bytesToHexString(sharedSecretKey)
+            revertingTxHashes
         );
 
         (v, r, s) = vm.sign(signerPk, commitmentHash);
