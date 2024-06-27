@@ -381,22 +381,23 @@ func (s *Service) AutoDeposit(
 	var ads []*bidderapiv1.AutoDeposit
 
 	for _, log := range receipt.Logs {
-		registration, err := s.registryContract.ParseBidderRegistered(*log)
-		if err != nil {
-			s.logger.Error("failed to parse BidderRegistered event", "error", err, "log", log)
-			continue
+		if registration, err := s.registryContract.ParseBidderRegistered(*log); err == nil {
+			s.logger.Info("deposit successful", "amount", registration.DepositedAmount, "window", registration.WindowNumber)
+			ads = append(ads, &bidderapiv1.AutoDeposit{
+				Amount:       registration.DepositedAmount.String(),
+				WindowNumber: wrapperspb.UInt64(registration.WindowNumber.Uint64()),
+			})
 		}
-		s.logger.Info("deposit successful", "amount", registration.DepositedAmount, "window", registration.WindowNumber)
-		ads = append(ads, &bidderapiv1.AutoDeposit{
-			Amount:       registration.DepositedAmount.String(),
-			WindowNumber: wrapperspb.UInt64(registration.WindowNumber.Uint64()),
-		})
 	}
+	
 	if len(ads) > 0 {
 		err := s.autoDepositTracker.DoAutoMoveToAnotherWindow(ctx, ads)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "auto deposit: %v", err)
 		}
+		return &bidderapiv1.AutoDepositResponse{
+			AmountsAndWindowNumbers: ads,
+		}, nil
 	}
 
 	s.logger.Error(
