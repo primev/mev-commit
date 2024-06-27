@@ -294,7 +294,6 @@ contract MevCommitAVSTest is Test {
     }
 
     function testRequestValidatorsDeregistration() public {
-        vm.roll(103);
 
         address operator = address(0x888);
         address podOwner = address(0x420);
@@ -308,6 +307,34 @@ contract MevCommitAVSTest is Test {
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
 
         testRegisterValidatorsByPodOwners();
+        vm.roll(103);
+
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(valPubkeys[0], podOwner);
+        bytes[] memory valPubkeys2 = new bytes[](1);
+        valPubkeys2[0] = bytes("valPubkey1");
+        vm.prank(podOwner);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys2);
+
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(valPubkeys[1], podOwner);
+        bytes[] memory valPubkeys3 = new bytes[](1);
+        valPubkeys3[0] = bytes("valPubkey2");
+        vm.prank(operator);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys3);
+
+        IMevCommitAVS.ValidatorRegistrationInfo memory regInfo0 = mevCommitAVS.getValidatorRegInfo(valPubkeys[0]);
+        IMevCommitAVS.ValidatorRegistrationInfo memory regInfo1 = mevCommitAVS.getValidatorRegInfo(valPubkeys[1]);
+        assertTrue(regInfo0.exists);
+        assertTrue(regInfo1.exists);
+        assertEq(regInfo0.podOwner, podOwner);
+        assertEq(regInfo1.podOwner, podOwner);
+        assertTrue(regInfo0.deregRequestHeight.exists);
+        assertTrue(regInfo1.deregRequestHeight.exists);
+        assertEq(regInfo0.deregRequestHeight.blockHeight, 103);
+        assertEq(regInfo1.deregRequestHeight.blockHeight, 103);
+        assertFalse(regInfo0.freezeHeight.exists);
+        assertFalse(regInfo1.freezeHeight.exists);
 
         vm.expectRevert("validator must not have already requested deregistration");
         vm.prank(podOwner);
