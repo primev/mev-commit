@@ -51,12 +51,10 @@
       register: vault_init
       become: true
       become_user: "{{ ansible_user }}"
-      no_log: true
 
     - name: Parse Vault Initialization File
       ansible.builtin.set_fact:
         vault_init: "{{ vault_init | combine({'json': (vault_init['content'] | b64decode | from_json) }) }}"
-      no_log: true
 
     - name: Determine Artifacts Build Version
       ansible.builtin.shell: |
@@ -531,7 +529,6 @@
         validate_certs: no
       when: build_artifacts and environments[env].secrets == 'generate'
       delegate_to: localhost
-      no_log: true
 
     - name: Cleanup Built Artifacts
       ansible.builtin.file:
