@@ -340,6 +340,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to register validators by their pod owner.
+    /// @notice Invalid pubkeys should not correspond to VALIDATOR_STATUS.ACTIVE due to validations in EigenPod.sol
     function _registerValidatorsByPodOwner(
         bytes[] calldata valPubKeys,
         address podOwner
@@ -589,9 +590,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Internal function to check if a validator is opted-in.
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
         bool isValRegistered = validatorRegistrations[valPubKey].exists;
-        IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
         bool isFrozen = validatorRegistrations[valPubKey].freezeHeight.exists;
         bool isDeregRequested = validatorRegistrations[valPubKey].deregRequestHeight.exists;
+        IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
         bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
         address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
         bool isOperatorRegistered = operatorRegistrations[delegatedOperator].exists;

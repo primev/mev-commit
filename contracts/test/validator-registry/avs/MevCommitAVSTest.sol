@@ -7,7 +7,9 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {StrategyManagerMock} from "eigenlayer-contracts/src/test/mocks/StrategyManagerMock.sol";
 import {DelegationManagerMock} from "eigenlayer-contracts/src/test/mocks/DelegationManagerMock.sol";
-import {EigenPodManagerMock} from "eigenlayer-contracts/src/test/mocks/EigenPodManagerMock.sol";
+import {EigenPodManagerMock} from "./EigenPodManagerMock.sol";
+import {EigenPodMock} from "./EigenPodMock.sol";
+import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod.sol";
 import {AVSDirectoryMock} from "./AVSDirectoryMock.sol";
 
 contract MevCommitAVSTest is Test {
@@ -197,5 +199,97 @@ contract MevCommitAVSTest is Test {
         assertFalse(operatorRegInfo.exists);
         assertFalse(operatorRegInfo.deregRequestHeight.exists);
         assertEq(operatorRegInfo.deregRequestHeight.blockHeight, 0);
+    }
+
+    function testRegisterValidatorsByPodOwners() public {
+        vm.roll(55);
+
+        address operator = address(0x888);
+        address podOwner = address(0x420);
+        ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
+            signature: bytes("signature"),
+            expiry: 10
+        });
+        vm.prank(podOwner);
+        delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
+
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+        bytes[][] memory arrayValPubkeys = new bytes[][](1);
+        arrayValPubkeys[0] = valPubkeys;
+        address[] memory podOwners = new address[](1);
+        podOwners[0] = podOwner;
+
+        address otherAcct = address(0x777);
+        vm.expectRevert("sender must be podOwner or delegated operator");
+        vm.prank(otherAcct);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
+
+        vm.expectRevert("delegated operator must be registered with MevCommitAVS");
+        vm.prank(podOwner);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
+
+        testRegisterOperator();
+
+        EigenPodMock mockPod = new EigenPodMock();
+        mockPod.setMockValidatorInfo(valPubkeys[0], IEigenPod.ValidatorInfo({
+            validatorIndex: 1,
+            restakedBalanceGwei: 1,
+            mostRecentBalanceUpdateTimestamp: 1,
+            status: IEigenPod.VALIDATOR_STATUS.INACTIVE
+        }));
+        eigenPodManagerMock.setMockPod(podOwner, mockPod);
+
+        vm.expectRevert("validator must be active under pod");
+        vm.prank(podOwner);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
+
+        mockPod.setMockValidatorInfo(valPubkeys[0], IEigenPod.ValidatorInfo({
+            validatorIndex: 1,
+            restakedBalanceGwei: 1,
+            mostRecentBalanceUpdateTimestamp: 1,
+            status: IEigenPod.VALIDATOR_STATUS.ACTIVE
+        }));
+
+        mockPod.setMockValidatorInfo(valPubkeys[1], IEigenPod.ValidatorInfo({
+            validatorIndex: 2,
+            restakedBalanceGwei: 1,
+            mostRecentBalanceUpdateTimestamp: 1,
+            status: IEigenPod.VALIDATOR_STATUS.ACTIVE
+        }));
+
+        IMevCommitAVS.ValidatorRegistrationInfo memory regInfo0 = mevCommitAVS.getValidatorRegInfo(valPubkeys[0]);
+        IMevCommitAVS.ValidatorRegistrationInfo memory regInfo1 = mevCommitAVS.getValidatorRegInfo(valPubkeys[1]);
+        assertFalse(regInfo0.exists);
+        assertFalse(regInfo1.exists);
+        assertEq(regInfo0.podOwner, address(0));
+        assertEq(regInfo1.podOwner, address(0));
+        assertFalse(regInfo0.freezeHeight.exists);
+        assertFalse(regInfo1.freezeHeight.exists);
+        assertFalse(regInfo0.deregRequestHeight.exists);
+        assertFalse(regInfo1.deregRequestHeight.exists);
+
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorRegistered(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorRegistered(valPubkeys[1], podOwner);
+        vm.prank(podOwner);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
+
+        regInfo0 = mevCommitAVS.getValidatorRegInfo(valPubkeys[0]);
+        regInfo1 = mevCommitAVS.getValidatorRegInfo(valPubkeys[1]);
+        assertTrue(regInfo0.exists);
+        assertTrue(regInfo1.exists);
+        assertEq(regInfo0.podOwner, podOwner);
+        assertEq(regInfo1.podOwner, podOwner);
+        assertFalse(regInfo0.freezeHeight.exists);
+        assertFalse(regInfo1.freezeHeight.exists);
+        assertFalse(regInfo0.deregRequestHeight.exists);
+        assertFalse(regInfo1.deregRequestHeight.exists);
+
+        vm.expectRevert("validator must not be registered");
+        vm.prank(podOwner);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
     }
 }

@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 
+// Eigenlayer core does not define their own mock for AVSDirectory.sol, hence we define our own.
 contract AVSDirectoryMock is IAVSDirectory, Test {
     mapping(address => bool) public isOperatorRegistered;
 
