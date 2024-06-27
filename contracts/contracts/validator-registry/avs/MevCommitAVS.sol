@@ -72,7 +72,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _;
     }
     
-    /// @dev Modifier to ensure the sender is either the given operator 
+    /// @dev Modifier to ensure the sender is the given operator 
     modifier onlyOperator(address operator) {
         require(msg.sender == operator, "sender must be operator");
         _;
@@ -228,8 +228,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
     function unfreeze(bytes[] calldata valPubKey) payable external 
         onlyRegisteredValidators(valPubKey) whenNotPaused() {
+        uint256 feePerVal = msg.value / valPubKey.length;
         for (uint256 i = 0; i < valPubKey.length; i++) {
-            _unfreeze(valPubKey[i]);
+            _unfreeze(valPubKey[i], feePerVal);
         }
     }
 
@@ -451,12 +452,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     //
     // TODO: test scenario where validator was req deregistered before being frozen, and goes back to registerd after unfreeze.
     // TODO: Also confirm the unfreeze fee is fully given to reciever and not contract.
-    function _unfreeze(bytes calldata valPubKey) internal {
+    // TODO: test multiple vals unfrozen in one tx.
+    function _unfreeze(bytes calldata valPubKey, uint256 feeToPay) internal {
         require(validatorRegistrations[valPubKey].freezeHeight.exists, "validator must be frozen");
         require(block.number >= validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
             "unfreeze must happen at least unfreezePeriodBlocks after freeze height");
-        require(msg.value >= unfreezeFee, "sender must pay at least the unfreeze fee with transaction");
-        payable(unfreezeReceiver).transfer(msg.value);
+        require(feeToPay >= unfreezeFee, "sender must pay at least the unfreeze fee for each validator");
+        payable(unfreezeReceiver).transfer(feeToPay);
         EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
         EventHeightLib.del(validatorRegistrations[valPubKey].deregRequestHeight);
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
