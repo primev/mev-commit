@@ -38,6 +38,8 @@ extract_and_save_abi "$BASE_DIR/out/ValidatorRegistryV1.sol/ValidatorRegistryV1.
 
 extract_and_save_abi "$BASE_DIR/out/BlockTracker.sol/BlockTracker.json" "$ABI_DIR/BlockTracker.abi"
 
+extract_and_save_abi "$BASE_DIR/out/MevCommitAVS.sol/MevCommitAVS.json" "$ABI_DIR/MevCommitAVS.abi"
+
 echo "ABI files extracted successfully."
 
 
@@ -82,6 +84,8 @@ generate_go_code "$ABI_DIR/L1Gateway.abi" "L1Gateway" "l1gateway"
 generate_go_code "$ABI_DIR/ValidatorRegistryV1.abi" "ValidatorRegistryV1" "validatorregistryv1"
 
 generate_go_code "$ABI_DIR/BlockTracker.abi" "BlockTracker" "blocktracker"
+
+generate_go_code "$ABI_DIR/MevCommitAVS.abi" "MevCommitAVS" "mevcommitavs"
 
 echo "Go code generated successfully in separate folders."
 
