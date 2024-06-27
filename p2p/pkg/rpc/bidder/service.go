@@ -393,7 +393,7 @@ func (s *Service) AutoDeposit(
 	}
 
 	if len(ads) > 0 {
-		err := s.autoDepositTracker.DoAutoMoveToAnotherWindow(context.Background(), ads)
+		err := s.autoDepositTracker.DoAutoMoveToAnotherWindow(ctx, ads)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "auto deposit: %v", err)
 		}
@@ -433,7 +433,7 @@ func (s *Service) CancelAndWithdrawAutoDeposit(
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
 	}
-	err = s.autoDepositTracker.WithdrawAutoDeposit(context.Background(), cancelResponse.WindowNumbers)
+	err = s.autoDepositTracker.WithdrawAutoDeposit(ctx, cancelResponse.WindowNumbers)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "withdrawal: %v", err)
 	}
