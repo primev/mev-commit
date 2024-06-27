@@ -52,9 +52,6 @@ func NewAutoDepositTracker(
 }
 
 func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ads []*bidderapiv1.AutoDeposit) error {
-	if adt.isWorking.Load() {
-		return fmt.Errorf("auto deposit tracker is already working")
-	}
 	adt.isWorking.Store(true)
 
 	for _, ad := range ads {
@@ -81,6 +78,7 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 
 	sub, err := adt.eventMgr.Subscribe(evt)
 	if err != nil {
+		adt.isWorking.Store(false)
 		return fmt.Errorf("error subscribing to event: %w", err)
 	}
 
@@ -135,6 +133,7 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 	}()
 	select {
 	case <-ctx.Done():
+		adt.isWorking.Store(false)
 		return ctx.Err()
 	case <-started:
 	}
