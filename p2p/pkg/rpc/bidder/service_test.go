@@ -157,8 +157,6 @@ func (t *testAutoDepositTracker) Stop() (*bidderapiv1.CancelAutoDepositResponse,
 	}, nil
 }
 
-// func (t *testAutoDepositTracker) 
-
 func (t *testAutoDepositTracker) WithdrawAutoDeposit(ctx context.Context, windowNumbers []*wrapperspb.UInt64Value) error {
 	return nil
 }
