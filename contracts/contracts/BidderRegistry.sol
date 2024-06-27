@@ -25,9 +25,6 @@ contract BidderRegistry is
     /// @dev Fee percent that would be taken by protocol when provider is slashed
     uint16 public feePercent;
 
-    /// @dev Minimum deposit required for registration
-    uint256 public minDeposit;
-
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
 
@@ -95,14 +92,6 @@ contract BidderRegistry is
         uint256 amount
     );
 
-    /// @dev Event emitted when a bidder moves their deposit from one window to another
-    event BidderMovedFunds(
-        address indexed bidder,
-        uint256 fromWindow,
-        uint256 toWindow,
-        uint256 amount
-    );
-
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
@@ -122,20 +111,19 @@ contract BidderRegistry is
 
     /**
      * @dev Initializes the contract with a minimum deposit requirement.
-     * @param _minDeposit The minimum deposit required for bidder registration.
      * @param _feeRecipient The address that receives fee
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
+     * @param _blockTracker The address of the block tracker contract.
+     * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
-        uint256 _minDeposit,
         address _feeRecipient,
         uint16 _feePercent,
         address _owner,
         address _blockTracker,
         uint256 _blocksPerWindow
     ) external initializer {
-        minDeposit = _minDeposit;
         feeRecipient = _feeRecipient;
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
@@ -176,6 +164,7 @@ contract BidderRegistry is
 
     /**
      * @dev Get the amount assigned to a provider.
+     * @param provider The address of the provider.
      */
     function getProviderAmount(
         address provider
@@ -195,8 +184,6 @@ contract BidderRegistry is
      * @param window The window for which the deposit is being made.
      */
     function depositForSpecificWindow(uint256 window) external payable {
-        require(msg.value >= minDeposit, "Insufficient deposit");
-
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -240,7 +227,7 @@ contract BidderRegistry is
         maxBidPerBlock[msg.sender][toWindow] = newLockedFunds / blocksPerWindow;
 
         emit BidderRegistered(msg.sender, newLockedFunds, toWindow);
-        emit BidderMovedFunds(msg.sender, fromWindow, toWindow, deposit);
+        emit BidderWithdrawal(msg.sender, fromWindow, deposit);
     }
 
     /**
@@ -249,8 +236,6 @@ contract BidderRegistry is
      * @param n The number of windows for which the deposit is being made.
      */
     function depositForNWindows(uint256 window, uint16 n) external payable {
-        require(msg.value >= minDeposit * n, "Insufficient deposit");
-
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -276,6 +261,11 @@ contract BidderRegistry is
         }
     }
 
+    /**
+     * @dev Withdraw from n windows.
+     * @param window The window for which the deposit is being withdrawn.
+     * @param n The number of windows for which the deposit is being withdrawn.
+     */
     function withdrawFromNWindows(
         uint256 window,
         uint16 n
@@ -302,6 +292,10 @@ contract BidderRegistry is
         require(success, "couldn't transfer to bidder");
     }
 
+    /**
+     * @dev Withdraw from specific windows.
+     * @param windows The windows from which the deposit is being withdrawn.
+     */
     function withdrawFromSpecificWindows(
         uint256[] calldata windows
     ) external nonReentrant {
@@ -514,6 +508,7 @@ contract BidderRegistry is
     /**
      * @dev Withdraw funds to the bidder.
      * @param bidder The address of the bidder.
+     * @param window The window for which the funds are being withdrawn.
      */
     function withdrawBidderAmountFromWindow(
         address payable bidder,

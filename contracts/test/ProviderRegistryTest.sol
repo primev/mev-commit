@@ -50,8 +50,7 @@ contract ProviderRegistryTest is Test {
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(BidderRegistry.initialize, 
-            (minStake, 
-            feeRecipient, 
+            (feeRecipient, 
             feePercent, 
             address(this), 
             address(blockTracker),

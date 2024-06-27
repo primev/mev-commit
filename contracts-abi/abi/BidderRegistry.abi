@@ -258,11 +258,6 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "_minDeposit",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "_feeRecipient",
         "type": "address",
         "internalType": "address"
@@ -330,19 +325,6 @@
         "internalType": "uint256"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "minDeposit",
-    "inputs": [],
     "outputs": [
       {
         "name": "",
@@ -669,37 +651,6 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "event",
-    "name": "BidderMovedFunds",
-    "inputs": [
-      {
-        "name": "bidder",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "fromWindow",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "toWindow",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
   },
   {
     "type": "event",
