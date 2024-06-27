@@ -81,7 +81,6 @@ contract TestPreConfCommitmentStore is Test {
             abi.encodeCall(
                 BidderRegistry.initialize,
                 (
-                    minStake,
                     feeRecipient,
                     feePercent,
                     address(this),

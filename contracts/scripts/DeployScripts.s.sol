@@ -32,7 +32,7 @@ contract DeployScript is Script {
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
-            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, address(blockTracker), blocksPerWindow))
+            abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, msg.sender, address(blockTracker), blocksPerWindow))
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry:", address(bidderRegistry));
