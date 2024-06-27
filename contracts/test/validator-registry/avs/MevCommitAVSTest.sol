@@ -530,14 +530,112 @@ contract MevCommitAVSTest is Test {
     }
 
     function testFreeze() public {
-        // TODO: test multiple vals frozen in one tx.
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+        vm.expectRevert("validator must be registered");
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
+
+        testRegisterValidatorsByPodOwners();
+
+        vm.roll(403);
+
+        address operator = address(0x888);
+        bytes[] memory valPubkeys2 = new bytes[](1);
+        valPubkeys2[0] = bytes("valPubkey1");
+        vm.prank(operator);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys2);
+
+        address podOwner = address(0x420);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).podOwner, podOwner);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).podOwner, podOwner);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.blockHeight, 403);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+
+        vm.roll(461);
+
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorFrozen(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorFrozen(valPubkeys[1], podOwner);
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).podOwner, podOwner);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).podOwner, podOwner); 
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.blockHeight, 461);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.blockHeight, 461);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.blockHeight, 403);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
+
+        vm.expectRevert("validator must not already be frozen");
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
     }
 
     function testFrozenValidatorsCantDeregister() public {
+        testFreeze();
+
+        bytes[] memory valPubkeys = new bytes[](1);
+        valPubkeys[0] = bytes("valPubkey1");
+        IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = mevCommitAVS.getValidatorRegInfo(valPubkeys[0]);
+        assertTrue(regInfo.deregRequestHeight.exists);
+
+        vm.roll(block.number + validatorDeregPeriodBlocks);
+
+        address podOwner = address(0x420);
+        vm.expectRevert("frozen validator cannot deregister");
+        vm.prank(podOwner);
+        mevCommitAVS.deregisterValidators(valPubkeys);
     }
 
-    function testFrozenValidatorDoesntAffectLSTRestakerDeregistration() public {
-        // TODO: Confirm a chosen validator being frozen does not affect an LST restaker being able to deregister.
+    function testFrozenValidatorDoesntAffectLSTRestaker() public {
+        testFreeze();
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+
+        address lstRestaker = address(0x34443);
+        address operator = address(0x888);
+        ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
+            signature: bytes("signature"),
+            expiry: 10
+        });
+        vm.prank(lstRestaker);
+        delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
+        strategyManagerMock.setStakerStrategyListLengthReturnValue(3);
+
+        vm.prank(lstRestaker);
+        mevCommitAVS.registerLSTRestaker(valPubkeys);
+
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[0], valPubkeys[0]);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], valPubkeys[1]);
+
+        vm.prank(lstRestaker);
+        mevCommitAVS.requestLSTRestakerDeregistration();
+
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+
+        vm.roll(block.number + lstRestakerDeregPeriodBlocks);
+
+        vm.prank(lstRestaker);
+        mevCommitAVS.deregisterLSTRestaker();
+
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
     }
 
     function testUnfreeze() public {
