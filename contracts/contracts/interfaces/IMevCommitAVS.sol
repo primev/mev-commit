@@ -153,9 +153,6 @@ interface IMevCommitAVS {
     /// @dev Unpauses the contract, restricted to contract owner.
     function unpause() external;
 
-    /// @dev Checks if the provided validators are opted-in.
-    function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory);
-
     /// @dev Checks if a validator is opted-in.
     function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
 

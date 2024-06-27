@@ -382,8 +382,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to deregister a validator.
-    //
-    // TODO: confirm frozen validators cannot deregister
     function _deregisterValidator(bytes calldata valPubKey) internal {
         require(!validatorRegistrations[valPubKey].freezeHeight.exists, "frozen validator cannot deregister");
         require(validatorRegistrations[valPubKey].deregRequestHeight.exists,
@@ -396,6 +394,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to register an LST restaker.
+    /// @notice For UX purposes each chosen validator must be "opted-in" when an LST restaker first registers.
+    /// However a chosen validator may later become not "opted-in" as defined in _isValidatorOptedIn(),
+    /// which will affect rewards/points earned by the LST restaker.
     function _registerLSTRestaker(bytes[] calldata chosenValidators) internal {
         require(chosenValidators.length > 0, "LST restaker must choose at least one validator");
         for (uint256 i = 0; i < chosenValidators.length; i++) {
@@ -428,8 +429,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to deregister an LST restaker.
-    // 
-    // TODO: Confirm a chosen validator being frozen does not affect an LST restaker being able to deregister.
     function _deregisterLSTRestaker() internal {
         LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
         require(reg.deregRequestHeight.exists, "LST restaker must have requested deregistration");
@@ -449,10 +448,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to unfreeze a validator.
-    //
-    // TODO: test scenario where validator was req deregistered before being frozen, and goes back to registerd after unfreeze.
-    // TODO: Also confirm the unfreeze fee is fully given to reciever and not contract.
-    // TODO: test multiple vals unfrozen in one tx.
     function _unfreeze(bytes calldata valPubKey, uint256 feeToPay) internal {
         require(validatorRegistrations[valPubKey].freezeHeight.exists, "validator must be frozen");
         require(block.number >= validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
@@ -552,15 +547,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             return new address[](0);
         }
         return _getRestakeableStrategies();
-    }
-
-    /// @dev Checks if the provided validators are opted-in.
-    function areValidatorsOptedIn(bytes[] calldata valPubKeys) external view returns (bool[] memory) {
-        bool[] memory result = new bool[](valPubKeys.length);
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
-            result[i] = _isValidatorOptedIn(valPubKeys[i]);
-        }
-        return result;
     }
 
     /// @dev Checks if a validator is opted-in.

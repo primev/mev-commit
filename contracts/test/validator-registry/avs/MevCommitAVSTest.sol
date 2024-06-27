@@ -340,4 +340,95 @@ contract MevCommitAVSTest is Test {
         vm.prank(podOwner);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
     }
+
+    function testDeregisterValidator() public {
+
+        address operator = address(0x888);
+        address podOwner = address(0x420);
+        bytes[] memory valPubkeys = new bytes[](1);
+        valPubkeys[0] = bytes("valPubkey1");
+        vm.expectRevert("validator must be registered");
+        vm.prank(podOwner);
+        mevCommitAVS.deregisterValidators(valPubkeys);
+
+        testRegisterValidatorsByPodOwners();
+
+        address otherAcct = address(0x777);
+        vm.expectRevert("sender must be podOwner or delegated operator of validator");
+        vm.prank(otherAcct);
+        mevCommitAVS.deregisterValidators(valPubkeys);
+
+        vm.expectRevert("validator must have requested deregistration");
+        vm.prank(podOwner);
+        mevCommitAVS.deregisterValidators(valPubkeys);
+
+        bytes[] memory valPubkeys2 = new bytes[](2);
+        valPubkeys2[0] = bytes("valPubkey1");
+        valPubkeys2[1] = bytes("valPubkey2");
+        vm.prank(podOwner);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys2);
+
+        IMevCommitAVS.ValidatorRegistrationInfo memory regInfo0 = mevCommitAVS.getValidatorRegInfo(valPubkeys2[0]);
+        IMevCommitAVS.ValidatorRegistrationInfo memory regInfo1 = mevCommitAVS.getValidatorRegInfo(valPubkeys2[1]);
+        assertTrue(regInfo0.deregRequestHeight.exists);
+        assertTrue(regInfo1.deregRequestHeight.exists);
+
+        vm.expectRevert("deregistration must happen at least validatorDeregPeriodBlocks after deregistration request height");
+        vm.prank(operator);
+        mevCommitAVS.deregisterValidators(valPubkeys2);
+
+        vm.roll(103 + validatorDeregPeriodBlocks);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistered(valPubkeys2[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistered(valPubkeys2[1], podOwner);
+        vm.prank(operator);
+        mevCommitAVS.deregisterValidators(valPubkeys2);
+
+        regInfo0 = mevCommitAVS.getValidatorRegInfo(valPubkeys2[0]);
+        regInfo1 = mevCommitAVS.getValidatorRegInfo(valPubkeys2[1]);
+        assertFalse(regInfo0.exists);
+        assertFalse(regInfo1.exists);
+    }
+
+    // TODO: test that LST restakers cannot choose validators who're not registered / valid with eigen core
+    function testRegisterLSTRestaker() public {
+    }
+
+    function testRequestLSTRestakerDeregistration() public {
+    }
+
+    function testDeregisterLSTRestaker() public {
+    }
+
+
+    function testFreeze() public {
+        // TODO: test multiple vals frozen in one tx.
+    }
+
+    function testFrozenValidatorsCantDeregister() public {
+       // TODO: 
+    }
+
+    function testFrozenValidatorDoesntAffectLSTRestakerDeregistration() public {
+        // TODO: Confirm a chosen validator being frozen does not affect an LST restaker being able to deregister.
+    }
+
+    function testUnfreeze() public {
+        // TODO: test scenario where validator was req deregistered before being frozen, and goes back to registerd after unfreeze.
+        // TODO: Also confirm the unfreeze fee is fully given to reciever and not contract.
+        // TODO: test multiple vals unfrozen in one tx.
+    }
+
+    function testPause() public {
+        // TODO: list out all funcs that are affected
+    }
+
+    function testUnpause() public {
+        // TODO: list out all funcs that are affected
+    }
+
+    function testSetters() public {
+        // only owner for all
+    }
 }
