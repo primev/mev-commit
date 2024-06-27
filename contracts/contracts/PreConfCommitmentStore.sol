@@ -261,6 +261,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
         string memory _bidSignature,
+        string memory _sharedSecretKey,
         string memory _revertingTxHashes
     ) public view returns (bytes32) {
         return
@@ -278,6 +279,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                             abi.encodePacked(_bytes32ToHexString(_bidHash))
                         ),
                         keccak256(abi.encodePacked(_bidSignature)),
+                        keccak256(abi.encodePacked(_sharedSecretKey)),
                         keccak256(abi.encodePacked(_revertingTxHashes))
                     )
                 )

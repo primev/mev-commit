@@ -648,7 +648,9 @@ contract OracleTest is Test {
         uint64 blockNumber,
         string memory txnHash,
         bytes memory bidSignature,
-        bytes memory commitmentSignature
+        bytes memory commitmentSignature,
+        bytes32 sharedSecretKey,
+        string memory revertingTxHashes
     ) internal returns (bytes32) {
         vm.startPrank(provider);
         bytes32 commitmentIndex = preConfCommitmentStore.openCommitment(
@@ -660,7 +662,8 @@ contract OracleTest is Test {
             20,
             bidSignature,
             commitmentSignature,
-            sharedSecretKey
+            sharedSecretKey,
+            revertingTxHashes
         );
         vm.stopPrank();
         return commitmentIndex;
@@ -690,7 +693,8 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             decayStartTimestamp,
-            decayEndTimestamp
+            decayEndTimestamp,
+            revertingTxHashes
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
@@ -704,6 +708,7 @@ contract OracleTest is Test {
             decayEndTimestamp,
             bidHash,
             _bytesToHexString(bidSignature),
+            _bytesToHexString(sharedSecretKey),
             revertingTxHashes
         );
 
