@@ -61,7 +61,7 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 		adt.deposits[ad.WindowNumber.Value] = true
 	}
 
-	eg, egCtx := errgroup.WithContext(ctx)
+	eg, egCtx := errgroup.WithContext(context.Background())
 	egCtx, cancel := context.WithCancel(egCtx)
 	adt.cancelFunc = cancel
 
