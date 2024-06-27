@@ -162,7 +162,7 @@ func (s *Service) Deposit(
 	}
 
 	if s.autoDepositTracker.IsWorking() {
-		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running")
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running, stop and then deposit")
 	}
 
 	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
@@ -285,6 +285,10 @@ func (s *Service) Withdraw(
 		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw request: %v", err)
 	}
 
+	if s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running, stop and then withdraw")
+	}
+
 	var window *big.Int
 	if r.WindowNumber == nil {
 		window, err = s.blockTrackerContract.GetCurrentWindow()
@@ -342,6 +346,9 @@ func (s *Service) AutoDeposit(
 	err := s.validator.Validate(r)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "validating auto deposit request: %v", err)
+	}
+	if s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running")
 	}
 
 	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
@@ -416,6 +423,10 @@ func (s *Service) CancelAutoDeposit(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.CancelAutoDepositResponse, error) {
+	if !s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is not running")
+	}
+
 	cancelResponse, err := s.autoDepositTracker.Stop()
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
@@ -429,6 +440,9 @@ func (s *Service) CancelAndWithdrawAutoDeposit(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.CancelAutoDepositResponse, error) {
+	if !s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is not running")
+	}
 	cancelResponse, err := s.autoDepositTracker.Stop()
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
