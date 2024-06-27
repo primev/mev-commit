@@ -433,7 +433,7 @@ func (s *Service) CancelAndWithdrawAutoDeposit(
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
 	}
-	err = s.autoDepositTracker.WithdrawAutoDeposit(ctx, cancelResponse.WindowNumbers)
+	err = s.autoDepositTracker.WithdrawAutoDeposit(context.Background(), cancelResponse.WindowNumbers)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "withdrawal: %v", err)
 	}
