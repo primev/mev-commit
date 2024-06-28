@@ -5,6 +5,7 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,9 +23,9 @@ import (
 )
 
 type MockBidderRegistryContract struct {
-	MoveDepositToWindowFunc func(opts *bind.TransactOpts, fromWindow *big.Int, toWindow *big.Int) (*types.Transaction, error)
-	WithdrawFromSpecificWindowsFunc func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
-	WithdrawFromSpecificWindowsCalled bool
+	MoveDepositToWindowFunc           func(opts *bind.TransactOpts, fromWindow *big.Int, toWindow *big.Int) (*types.Transaction, error)
+	WithdrawFromSpecificWindowsFunc   func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
+	WithdrawFromSpecificWindowsCalled atomic.Bool
 }
 
 func (m *MockBidderRegistryContract) MoveDepositToWindow(opts *bind.TransactOpts, fromWindow *big.Int, toWindow *big.Int) (*types.Transaction, error) {
@@ -59,7 +60,7 @@ func TestAutoDepositTracker(t *testing.T) {
 		return types.NewTx(&types.LegacyTx{}), nil
 	}
 	mockContract.WithdrawFromSpecificWindowsFunc = func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-		mockContract.WithdrawFromSpecificWindowsCalled = true
+		mockContract.WithdrawFromSpecificWindowsCalled.Store(true)
 		return types.NewTx(&types.LegacyTx{}), nil
 	}
 
@@ -94,6 +95,8 @@ func TestAutoDepositTracker(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, big.NewInt(int64(ads[0].WindowNumber.Value+1)))
 	publishNewWindow(evtMgr, &btABI, big.NewInt(int64(ads[0].WindowNumber.Value+2)))
 
+	time.Sleep(100 * time.Millisecond)
+
 	deposits, status := adt.GetStatus()
 
 	if !status {
@@ -101,7 +104,6 @@ func TestAutoDepositTracker(t *testing.T) {
 	}
 
 	// need to wait for the goroutine to process the events
-	time.Sleep(100 * time.Millisecond)
 	for _, ad := range ads {
 		if !deposits[ad.WindowNumber.Value+2] {
 			t.Fatalf("expected deposit for window %d to be true, got %v", ad.WindowNumber.Value, deposits[ad.WindowNumber.Value+2])
@@ -124,12 +126,12 @@ func TestAutoDepositTracker(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	publishNewWindow(evtMgr, &btABI, big.NewInt(int64(cancelResponse.WindowNumbers[2].Value + 3)))
+	publishNewWindow(evtMgr, &btABI, big.NewInt(int64(cancelResponse.WindowNumbers[2].Value+3)))
 
 	// need to wait for the goroutine to process the events
 	time.Sleep(100 * time.Millisecond)
 
-	if !mockContract.WithdrawFromSpecificWindowsCalled {
+	if !mockContract.WithdrawFromSpecificWindowsCalled.Load() {
 		t.Fatalf("expected WithdrawFromSpecificWindows to be called")
 	}
 }
