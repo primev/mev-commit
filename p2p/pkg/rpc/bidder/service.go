@@ -79,7 +79,6 @@ type BidderRegistryContract interface {
 	DepositForNWindows(*bind.TransactOpts, *big.Int, uint16) (*types.Transaction, error)
 	WithdrawBidderAmountFromWindow(*bind.TransactOpts, common.Address, *big.Int) (*types.Transaction, error)
 	GetDeposit(*bind.CallOpts, common.Address, *big.Int) (*big.Int, error)
-	MinDeposit(*bind.CallOpts) (*big.Int, error)
 	ParseBidderRegistered(types.Log) (*bidderregistry.BidderregistryBidderRegistered, error)
 	ParseBidderWithdrawal(types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error)
 }
@@ -257,21 +256,6 @@ func (s *Service) GetDeposit(
 	}
 
 	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String(), WindowNumber: wrapperspb.UInt64(window.Uint64())}, nil
-}
-
-func (s *Service) GetMinDeposit(
-	ctx context.Context,
-	_ *bidderapiv1.EmptyMessage,
-) (*bidderapiv1.DepositResponse, error) {
-	stakeAmount, err := s.registryContract.MinDeposit(&bind.CallOpts{
-		From:    s.owner,
-		Context: ctx,
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getting min deposit: %v", err)
-	}
-
-	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String()}, nil
 }
 
 func (s *Service) Withdraw(
