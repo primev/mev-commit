@@ -89,8 +89,6 @@ var (
 	)
 )
 
-var deposits = map[uint64]struct{}{}
-
 func main() {
 	flag.Parse()
 
