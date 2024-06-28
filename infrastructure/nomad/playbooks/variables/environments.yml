@@ -4,6 +4,7 @@ environments:
     profile: "{{ profile }}"
     version: "{{ version }}"
     secrets: generate
+    domain: localhost
   testenv:
     chain_id: 17864
     profile: "{{ profile }}"

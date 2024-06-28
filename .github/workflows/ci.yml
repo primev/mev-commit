@@ -153,10 +153,10 @@ jobs:
         run: forge clean && forge test -vvv --via-ir
 
       - name: Run Snapshot
-        run: forge snapshot --via-ir
+        run: forge clean && forge snapshot --via-ir
 
       - name: Run Coverage
-        run: forge coverage --ir-minimum
+        run: forge clean && forge coverage --ir-minimum
 
   contracts:
     name: Test and Build Contracts Scripts

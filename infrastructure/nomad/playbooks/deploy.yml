@@ -51,12 +51,10 @@
       register: vault_init
       become: true
       become_user: "{{ ansible_user }}"
-      no_log: true
 
     - name: Parse Vault Initialization File
       ansible.builtin.set_fact:
         vault_init: "{{ vault_init | combine({'json': (vault_init['content'] | b64decode | from_json) }) }}"
-      no_log: true
 
     - name: Determine Artifacts Build Version
       ansible.builtin.shell: |
@@ -212,11 +210,15 @@
             if ! grep -qxF "{{ artifact.path }}" "${INVENTORY}"; then
               echo "{{ artifact.path }}" >> "${INVENTORY}"
               flock -v -u 192
+              set -x
               cp ./{{ artifact.path }}/.goreleaser.yml ./{{ artifact.path }}/.goreleaser.tmp.yml
-              yq eval -i "
-                .builds[0].goos = [\"${GOOS}\"] |
-                .builds[0].goarch = [\"${GOARCH}\"]
-              " ./{{ artifact.path }}/.goreleaser.tmp.yml
+              if [ -n "${ARTIFACTS_GOOS}" ]; then
+                yq eval -i ".builds[0].goos = [\"${ARTIFACTS_GOOS}\"]" ./{{ artifact.path }}/.goreleaser.tmp.yml
+              fi
+              if [ -n "${ARTIFACTS_GOARCH}" ]; then
+                yq eval -i ".builds[0].goarch = [\"${ARTIFACTS_GOARCH}\"]" ./{{ artifact.path }}/.goreleaser.tmp.yml
+              fi
+              set +x
               goreleaser release --snapshot --config=./{{ artifact.path }}/.goreleaser.tmp.yml
               rm ./{{ artifact.path }}/.goreleaser.tmp.yml
             fi
@@ -349,8 +351,8 @@
         exec 192>&-
         exec 193>&-
       environment:
-        GOOS: linux
-        GOARCH: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+        ARTIFACTS_GOOS: "{{ lookup('env', 'ARTIFACTS_GOOS') }}"
+        ARTIFACTS_GOARCH: "{{ lookup('env', 'ARTIFACTS_GOARCH') }}"
         DIRTY_SUFFIX: "{{ environments[env].version | regex_search('-.*') | default('') }}"
         RELEASE_VERSION: "{{ environments[env].version if release else '' }}"
       args:
@@ -527,7 +529,6 @@
         validate_certs: no
       when: build_artifacts and environments[env].secrets == 'generate'
       delegate_to: localhost
-      no_log: true
 
     - name: Cleanup Built Artifacts
       ansible.builtin.file:
