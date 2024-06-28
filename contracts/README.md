@@ -1,5 +1,7 @@
 # Contracts
 
+testing ci env
+
 ## Overview
 
 This repository contains Solidity contracts and tests for handling pre-confirmation commitments and bids. The system uses two separate registries to manage bidders and providers, where both parties must stake ETH to participate. Commitments are verified and stored in a contract.
