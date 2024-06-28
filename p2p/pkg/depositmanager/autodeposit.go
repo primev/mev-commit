@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/big"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -25,7 +26,7 @@ type BidderRegistryContract interface {
 }
 
 type AutoDepositTracker struct {
-	deposits   map[uint64]bool
+	deposits   sync.Map
 	windowChan chan *blocktracker.BlocktrackerNewWindow
 	eventMgr   events.EventManager
 	isWorking  atomic.Bool
@@ -42,7 +43,6 @@ func NewAutoDepositTracker(
 	logger *slog.Logger,
 ) *AutoDepositTracker {
 	return &AutoDepositTracker{
-		deposits:   make(map[uint64]bool),
 		eventMgr:   evtMgr,
 		brContract: brContract,
 		optsGetter: optsGetter,
@@ -55,7 +55,7 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 	adt.isWorking.Store(true)
 
 	for _, ad := range ads {
-		adt.deposits[ad.WindowNumber.Value] = true
+		adt.deposits.Store(ad.WindowNumber.Value, true)
 	}
 
 	eg, egCtx := errgroup.WithContext(context.Background())
@@ -101,9 +101,8 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 				adt.logger.Info("context done")
 				return nil
 			case window := <-adt.windowChan:
-				// logic for 3 windows for deposit
 				fromWindow := new(big.Int).Sub(window.Window, big.NewInt(1))
-				if _, ok := adt.deposits[fromWindow.Uint64()]; !ok {
+				if _, ok := adt.deposits.Load(fromWindow.Uint64()); !ok {
 					continue
 				}
 				toWindow := new(big.Int).Add(window.Window, big.NewInt(2))
@@ -117,8 +116,8 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 					return err
 				}
 				adt.logger.Info("move deposit to window", "hash", txn.Hash(), "from", fromWindow, "to", toWindow)
-				delete(adt.deposits, fromWindow.Uint64())
-				adt.deposits[toWindow.Uint64()] = true
+				adt.deposits.Delete(fromWindow.Uint64())
+				adt.deposits.Store(toWindow.Uint64(), true)
 			}
 		}
 	})
@@ -149,10 +148,12 @@ func (adt *AutoDepositTracker) Stop() (*bidderapiv1.CancelAutoDepositResponse, e
 	}
 	var windowNumbers []*wrapperspb.UInt64Value
 
-	for i := range adt.deposits {
-		windowNumbers = append(windowNumbers, &wrapperspb.UInt64Value{Value: i})
-		delete(adt.deposits, i)
-	}
+	adt.deposits.Range(func(key, value interface{}) bool {
+		windowNumbers = append(windowNumbers, &wrapperspb.UInt64Value{Value: key.(uint64)})
+		adt.deposits.Delete(key)
+		return true
+	})
+
 	adt.logger.Info("stop auto deposit tracker", "windows", windowNumbers)
 	return &bidderapiv1.CancelAutoDepositResponse{
 		WindowNumbers: windowNumbers,
@@ -255,5 +256,10 @@ func (adt *AutoDepositTracker) WithdrawAutoDeposit(ctx context.Context, windowNu
 }
 
 func (adt *AutoDepositTracker) GetStatus() (map[uint64]bool, bool) {
-	return adt.deposits, adt.isWorking.Load()
+	deposits := make(map[uint64]bool)
+	adt.deposits.Range(func(key, value interface{}) bool {
+		deposits[key.(uint64)] = value.(bool)
+		return true
+	})
+	return deposits, adt.isWorking.Load()
 }
