@@ -814,6 +814,128 @@ contract MevCommitAVSTest is Test {
     }
 
     function testSetters() public {
-        // only owner for all
+        IAVSDirectory newAVSDirectory = new AVSDirectoryMock();
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setAVSDirectory(newAVSDirectory);
+        vm.expectEmit(true, true, true, true);
+        emit AVSDirectorySet(address(newAVSDirectory));
+        vm.prank(owner);
+        mevCommitAVS.setAVSDirectory(newAVSDirectory);
+
+        IStrategyManager newStrategyManager = IStrategyManager(address(0x8));
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setStrategyManager(newStrategyManager);
+        vm.expectEmit(true, true, true, true);
+        emit StrategyManagerSet(address(newStrategyManager));
+        vm.prank(owner);
+        mevCommitAVS.setStrategyManager(newStrategyManager);
+
+        IDelegationManager newDelegationManager = IDelegationManager(address(0x9));
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setDelegationManager(newDelegationManager);
+        vm.expectEmit(true, true, true, true);
+        emit DelegationManagerSet(address(newDelegationManager));
+        vm.prank(owner);
+        mevCommitAVS.setDelegationManager(newDelegationManager);
+
+        IEigenPodManager newEigenPodManager = IEigenPodManager(address(0xA));
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setEigenPodManager(newEigenPodManager);
+        vm.expectEmit(true, true, true, true);
+        emit EigenPodManagerSet(address(newEigenPodManager));
+        vm.prank(owner);
+        mevCommitAVS.setEigenPodManager(newEigenPodManager);
+
+        address[] memory newRestakeableStrategies = new address[](2);
+        newRestakeableStrategies[0] = address(0xB);
+        newRestakeableStrategies[1] = address(0xC);
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setRestakeableStrategies(newRestakeableStrategies);
+        vm.expectEmit(true, true, true, true);
+        emit RestakeableStrategiesSet(newRestakeableStrategies);
+        vm.prank(owner);
+        mevCommitAVS.setRestakeableStrategies(newRestakeableStrategies);
+
+        address newFreezeOracle = address(0xD);
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setFreezeOracle(newFreezeOracle);
+        vm.expectEmit(true, true, true, true);
+        emit FreezeOracleSet(newFreezeOracle);
+        vm.prank(owner);
+        mevCommitAVS.setFreezeOracle(newFreezeOracle);
+        assertEq(mevCommitAVS.freezeOracle(), newFreezeOracle);
+
+        uint256 newUnfreezeFee = 2 ether;
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setUnfreezeFee(newUnfreezeFee);
+        vm.expectEmit(true, true, true, true);
+        emit UnfreezeFeeSet(newUnfreezeFee);
+        vm.prank(owner);
+        mevCommitAVS.setUnfreezeFee(newUnfreezeFee);
+        assertEq(mevCommitAVS.unfreezeFee(), newUnfreezeFee);
+
+        address newUnfreezeReceiver = address(0xE);
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setUnfreezeReceiver(newUnfreezeReceiver);
+        vm.expectEmit(true, true, true, true);
+        emit UnfreezeReceiverSet(newUnfreezeReceiver);
+        vm.prank(owner);
+        mevCommitAVS.setUnfreezeReceiver(newUnfreezeReceiver);
+        assertEq(mevCommitAVS.unfreezeReceiver(), newUnfreezeReceiver);
+
+        uint256 newUnfreezePeriodBlocks = 200;
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setUnfreezePeriodBlocks(newUnfreezePeriodBlocks);
+        vm.expectEmit(true, true, true, true);
+        emit UnfreezePeriodBlocksSet(newUnfreezePeriodBlocks);
+        vm.prank(owner);
+        mevCommitAVS.setUnfreezePeriodBlocks(newUnfreezePeriodBlocks);
+        assertEq(mevCommitAVS.unfreezePeriodBlocks(), newUnfreezePeriodBlocks);
+
+        uint256 newOperatorDeregPeriodBlocks = 300;
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setOperatorDeregPeriodBlocks(newOperatorDeregPeriodBlocks);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorDeregPeriodBlocksSet(newOperatorDeregPeriodBlocks);
+        vm.prank(owner);
+        mevCommitAVS.setOperatorDeregPeriodBlocks(newOperatorDeregPeriodBlocks);
+        assertEq(mevCommitAVS.operatorDeregPeriodBlocks(), newOperatorDeregPeriodBlocks);
+
+        uint256 newValidatorDeregPeriodBlocks = 400;
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setValidatorDeregPeriodBlocks(newValidatorDeregPeriodBlocks);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregPeriodBlocksSet(newValidatorDeregPeriodBlocks);
+        vm.prank(owner);
+        mevCommitAVS.setValidatorDeregPeriodBlocks(newValidatorDeregPeriodBlocks);
+        assertEq(mevCommitAVS.validatorDeregPeriodBlocks(), newValidatorDeregPeriodBlocks);
+
+        uint256 newLstRestakerDeregPeriodBlocks = 500;
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.setLstRestakerDeregPeriodBlocks(newLstRestakerDeregPeriodBlocks);
+        vm.expectEmit(true, true, true, true);
+        emit LSTRestakerDeregPeriodBlocksSet(newLstRestakerDeregPeriodBlocks);
+        vm.prank(owner);
+        mevCommitAVS.setLstRestakerDeregPeriodBlocks(newLstRestakerDeregPeriodBlocks);
+        assertEq(mevCommitAVS.lstRestakerDeregPeriodBlocks(), newLstRestakerDeregPeriodBlocks);
+
+        string memory newMetadataURI = "https://new-metadata-uri.com";
+        vm.prank(address(0x1));
+        vm.expectRevert();
+        mevCommitAVS.updateMetadataURI(newMetadataURI);
+        vm.prank(owner);
+        mevCommitAVS.updateMetadataURI(newMetadataURI);
     }
 }
