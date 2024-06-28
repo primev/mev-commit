@@ -71,12 +71,6 @@ service Bidder {
       get: "/v1/bidder/get_deposit"
     };
   }
-  // GetMinDeposit
-  //
-  // GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
-  rpc GetMinDeposit(EmptyMessage) returns (DepositResponse) {
-    option (google.api.http) = {get: "/v1/bidder/get_min_deposit"};
-  }
   // Withdraw
   //
   // Withdraw is called by the bidder to withdraw deposit from the bidder registry.
