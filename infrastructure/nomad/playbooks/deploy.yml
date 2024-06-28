@@ -556,9 +556,9 @@
       when: build_templates
 
     - name: Create "meta.json"
-      copy:
-        content: "{{ environments[env] | to_json }}"
-        dest: "{{ ansible_env.HOME }}/{{ env }}/meta.json"
+      ansible.builtin.shell: |
+        echo '{{ environments[env] | to_json }}' > {{ ansible_env.HOME }}/{{ env }}/meta.json
+        ln -f {{ ansible_env.HOME }}/{{ env }}/meta.json {{ ansible_env.HOME }}/{{ env }}/artifacts/meta.json
       when: build_templates
 
     - name: Purge Cluster
