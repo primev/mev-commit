@@ -231,7 +231,6 @@
         validate_certs: no
       register: vault_init
       when: vault_status.json.initialized == false
-      no_log: true
 
     - name: Save Vault Unseal Key and Root Token
       ansible.builtin.copy:
@@ -241,7 +240,6 @@
       when: vault_status.json.initialized == false
       become: true
       become_user: "{{ ansible_user }}"
-      no_log: true
 
     - name: Determine Vault Seal Status
       ansible.builtin.uri:
@@ -260,7 +258,6 @@
         - vault_seal_status.json.sealed == true
       become: true
       become_user: "{{ ansible_user }}"
-      no_log: true
 
     - name: Parse Vault Initialization File
       ansible.builtin.set_fact:
@@ -269,7 +266,6 @@
         - vault_init_content is defined
         - vault_status.json.initialized == true
         - vault_seal_status.json.sealed == true
-      no_log: true
 
     - name: Unseal Vault
       ansible.builtin.uri:
@@ -291,7 +287,6 @@
       retries: 5
       delay: 10
       when: vault_seal_status.json.sealed == true
-      no_log: true
 
     - name: Fetch Secrets
       ansible.builtin.set_fact:
@@ -299,7 +294,6 @@
       when: unseal_result.json.sealed == false and environments[env].secrets == "fetch"
       delegate_to: localhost
       run_once: true
-      no_log: true
 
     - name: Enable KV Secrets Engine
       ansible.builtin.uri:
@@ -320,7 +314,6 @@
       when:
         - vault_status.json.initialized == false
         - unseal_result.json.sealed == false
-      no_log: true
 
     - name: Write Retrieved Secret into Vault
       ansible.builtin.uri:
@@ -334,7 +327,6 @@
         status_code: [200, 204]
         validate_certs: no
       when: unseal_result.json.sealed == false and environments[env].secrets == "fetch"
-      no_log: true
 
     - name: Install Nomad
       ansible.builtin.apt:
@@ -386,7 +378,6 @@
         mode: "0644"
       vars:
         vault_token: "{{ vault_init.json.root_token }}"
-      no_log: true
 
     - name: Restart and Enable Nomad Service
       ansible.builtin.systemd:
@@ -404,9 +395,9 @@
 
     - name: Enable Nginx Domain Configuration
       ansible.builtin.file:
-          src: "/etc/nginx/sites-available/{{ environments[env].domain }}"
-          dest: "/etc/nginx/sites-enabled/{{ environments[env].domain }}"
-          state: link
+        src: "/etc/nginx/sites-available/{{ environments[env].domain }}"
+        dest: "/etc/nginx/sites-enabled/{{ environments[env].domain }}"
+        state: link
       when: env != "devenv"
 
     - name: Ensure "{{ openssl_dir }}" Directory Exists
@@ -423,27 +414,19 @@
       when: env != "devenv"
       delegate_to: localhost
       run_once: true
-      no_log: true
       tags:
         - certs
 
-    - name: Deploy Retrieved Certificates
+    - name: Deploy Retrieved Domain Certificates
       ansible.builtin.shell: |
-        {% for item in mev_commit_certificates | dict2items %}
-          {% if item.key.startswith('ca_') %}
-            echo "{{ item.value }}" > "{{ tls_ca_crt_file }}"
-            chmod 0644 "{{ tls_ca_crt_file }}"
-          {% elif item.key.endswith('_crt') %}
-            echo "{{ item.value }}" > "{{ tls_crt_file }}"
-            chmod 0644 "{{ tls_crt_file }}"
-          {% elif item.key.endswith('_key') %}
-            echo "{{ item.value }}" > "{{ tls_key_file }}"
-            chmod 0600 "{{ tls_key_file }}"
-          {% endif %}
-        {% endfor %}
-      notify: update ca-certificates
+        CRT_FILE_PATH="{{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.crt"
+        KEY_FILE_PATH="{{ private_keys_dir }}/{{ env }}.{{ environments[env].domain }}.key"
+        echo "{{ mev_commit_certificates['mev_commit_crt'] }}" > "${CRT_FILE_PATH}"
+        chmod 0644 "${CRT_FILE_PATH}"
+        echo "{{ mev_commit_certificates['mev_commit_key'] }}" > "${KEY_FILE_PATH}"
+        chmod 0600 "${KEY_FILE_PATH}"
       when: env != "devenv"
-      no_log: true
+      notify: update ca-certificates
       tags:
         - certs
 
@@ -451,7 +434,6 @@
       ansible.builtin.openssl_privatekey:
         path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
         size: 4096
-      when: env == "devenv"
       tags:
         - certs
 
@@ -459,7 +441,6 @@
       ansible.builtin.command:
         cmd: "openssl req -x509 -new -nodes -key {{ ca_certificates_dir }}/ca-{{ server_common_name }}.key -days 3650 -out {{ tls_ca_crt_file }} -subj '/C=US/ST=Delaware/L=Delaware City/O=Primev Inc/OU=Certificate Authority/CN={{ ansible_default_ipv4['address'] }}'"
       notify: update ca-certificates
-      when: env == "devenv"
       tags:
         - certs
 
@@ -467,7 +448,6 @@
       ansible.builtin.openssl_privatekey:
         path: "{{ tls_key_file }}"
         size: 4096
-      when: env == "devenv"
       tags:
         - certs
 
@@ -477,7 +457,6 @@
         privatekey_path: "{{ tls_key_file }}"
         common_name: "{{ ansible_default_ipv4['address'] }}"
         subject_alt_name: "DNS:localhost,IP:127.0.0.1,IP:{{ ansible_default_ipv4['address'] }}"
-      when: env == "devenv"
       tags:
         - certs
 
@@ -491,7 +470,6 @@
         ownca_privatekey_path: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.key"
         ownca_not_before: "-1d"
         ownca_not_after: "+365d"
-      when: env == "devenv"
       tags:
         - certs
 

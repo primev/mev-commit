@@ -1,10 +1,10 @@
 #jinja2: trim_blocks:True, lstrip_blocks:True
 server {
     listen 443 ssl http2;
-    
-    ssl_certificate {{ tls_crt_file }};
-    ssl_certificate_key {{ tls_key_file }};
-    
+
+    ssl_certificate {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.crt;
+    ssl_certificate_key {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.key;
+
     server_name bootnode.{{ environments[env].domain }};
 
     location / {
@@ -19,8 +19,8 @@ server {
 server {
     listen 443 ssl http2;
 
-    ssl_certificate {{ tls_crt_file }};
-    ssl_certificate_key {{ tls_key_file }};
+    ssl_certificate {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.crt;
+    ssl_certificate_key {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.key;
 
     server_name provider.{{ environments[env].domain }};
 
@@ -35,10 +35,49 @@ server {
 
 server {
     listen 443 ssl http2;
+
+    ssl_certificate {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.crt;
+    ssl_certificate_key {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.key;
+
     server_name chainrpc.{{ environments[env].domain }};
 
     location / {
-        proxy_pass http://localhost:8545;
+        proxy_pass http://{{ nomad_server_ip }}:8545;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+
+    ssl_certificate {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.crt;
+    ssl_certificate_key {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.key;
+
+    server_name faucet.{{ environments[env].domain }};
+
+    location / {
+        proxy_pass http://{{ nomad_server_ip }}:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+
+    ssl_certificate {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.crt;
+    ssl_certificate_key {{ certificates_dir }}/{{ env }}.{{ environments[env].domain }}.key;
+
+    server_name contracts.{{ environments[env].domain }};
+
+    location / {
+	rewrite ^/contracts.json$ /contracts.json break;
+        proxy_pass http://{{ nomad_server_ip }}:1010/contracts.json;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
