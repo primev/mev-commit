@@ -16,15 +16,19 @@ on:
           - testnet
           - stressnet
         default: 'devnet'
-      logs:
-        description: 'Collect Logs'
+      all_targets:
+        description: 'All Arch & Os Targets'
         type: boolean
         default: false
       debug:
         description: 'Debug Deployment'
         type: boolean
         default: false
-      target:
+      logs:
+        description: 'Collect Logs'
+        type: boolean
+        default: false
+      target_machine:
         description: 'Target Machine'
         type: choice
         options:
@@ -38,7 +42,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.target }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.inputs.target_machine }}
   cancel-in-progress: true
 
 jobs:
@@ -61,7 +65,12 @@ jobs:
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
           CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
-          TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target }})" || echo "127.0.0.1")
+          TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target_machine }})" || echo "127.0.0.1")
+
+          if [ "${{ github.event.inputs.all_targets }}" == "false" ]; then
+            echo "ARTIFACTS_GOOS=linux" >> ${GITHUB_ENV}
+            echo "ARTIFACTS_GOARCH=amd64" >> ${GITHUB_ENV}
+          fi
 
           echo "RUNNER_START_TIME=${RUNNER_START_TIME}" >> ${GITHUB_ENV}
           echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> ${GITHUB_ENV}
@@ -78,7 +87,7 @@ jobs:
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PAYLOAD=$(cat <<-EOH
           {
-            "text": "<@${{ github.actor }}> - deployment to <http://${TARGET_MACHINE_IP}:4646/ui|*${{ github.event.inputs.target }}*> has been initialized",
+            "text": "<@${{ github.actor }}> - deployment to <http://${TARGET_MACHINE_IP}:4646/ui|*${{ github.event.inputs.target_machine }}*> has been initialized",
             "attachments": [
               {
                 "color": "#0000FF",
@@ -190,7 +199,7 @@ jobs:
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PAYLOAD=$(cat <<-EOH
           {
-            "text": "<@${{ github.actor }}> - deployment to <http://${TARGET_MACHINE_IP}:4646/ui|*${{ github.event.inputs.target }}*> was successful",
+            "text": "<@${{ github.actor }}> - deployment to <http://${TARGET_MACHINE_IP}:4646/ui|*${{ github.event.inputs.target_machine }}*> was successful",
             "attachments": [
               {
                 "color": "#00FF00",
@@ -219,7 +228,7 @@ jobs:
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           PAYLOAD=$(cat <<-EOH
           {
-            "text": "<@${{ github.actor }}> - deployment to <http://${TARGET_MACHINE_IP}:4646/ui|*${{ github.event.inputs.target }}*> has failed",
+            "text": "<@${{ github.actor }}> - deployment to <http://${TARGET_MACHINE_IP}:4646/ui|*${{ github.event.inputs.target_machine }}*> has failed",
             "attachments": [
               {
                 "color": "#FF0000",
