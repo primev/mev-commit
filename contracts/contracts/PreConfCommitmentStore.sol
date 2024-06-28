@@ -20,13 +20,13 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "PreConfCommitment(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "PreConfCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
         );
 
     // Represents the dispatch window in milliseconds
@@ -76,6 +76,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
         string txnHash;
+        string revertingTxHashes;
         bytes32 commitmentHash;
         bytes bidSignature;
         bytes commitmentSignature;
@@ -94,6 +95,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         string txnHash,
+        string revertingTxHashes,
         bytes32 commitmentHash,
         bytes bidSignature,
         bytes commitmentSignature,
@@ -123,6 +125,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     event SignatureVerified(
         address indexed signer,
         string txnHash,
+        string revertingTxHashes,
         uint256 indexed bid,
         uint64 blockNumber
     );
@@ -219,11 +222,11 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      */
     function getBidHash(
         string memory _txnHash,
+        string memory _revertingTxHashes,
         uint256 _bid,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp,
-        string memory _revertingTxHashes
+        uint64 _decayEndTimeStamp
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
@@ -232,11 +235,11 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                     abi.encode(
                         EIP712_BID_TYPEHASH,
                         keccak256(abi.encodePacked(_txnHash)),
+                        keccak256(abi.encodePacked(_revertingTxHashes)),
                         _bid,
                         _blockNumber,
                         _decayStartTimeStamp,
-                        _decayEndTimeStamp,
-                        _revertingTxHashes
+                        _decayEndTimeStamp
                     )
                 )
             );
@@ -252,11 +255,11 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      */
     function getPreConfHash(
         string memory _txnHash,
+        string memory _revertingTxHashes,
         uint256 _bid,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
-        string memory _revertingTxHashes,
         bytes32 _bidHash,
         string memory _bidSignature,
         string memory _sharedSecretKey
@@ -268,6 +271,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                     abi.encode(
                         EIP712_COMMITMENT_TYPEHASH,
                         keccak256(abi.encodePacked(_txnHash)),
+                        keccak256(abi.encodePacked(_revertingTxHashes)),
                         _bid,
                         _blockNumber,
                         _decayStartTimeStamp,
@@ -298,10 +302,12 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         string memory txnHash,
+        string memory revertingTxHashes,
         bytes calldata bidSignature
     ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
             txnHash,
+            revertingTxHashes,
             bid,
             blockNumber,
             decayStartTimeStamp,
@@ -323,6 +329,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      */
     function verifyPreConfCommitment(
         string memory txnHash,
+        string memory revertingTxHashes,
         uint256 bid,
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
@@ -334,6 +341,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     ) public view returns (bytes32 preConfHash, address commiterAddress) {
         preConfHash = getPreConfHash(
             txnHash,
+            revertingTxHashes,
             bid,
             blockNumber,
             decayStartTimeStamp,
@@ -398,6 +406,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
+        string memory revertingTxHashes,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
@@ -410,6 +419,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
             decayStartTimeStamp,
             decayEndTimeStamp,
             txnHash,
+            revertingTxHashes,
             bidSignature
         );
 
@@ -417,6 +427,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         {
             bytes32 commitmentDigest = getPreConfHash(
                 txnHash,
+                revertingTxHashes,
                 bid,
                 blockNumber,
                 decayStartTimeStamp,
@@ -462,6 +473,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                 decayStartTimeStamp,
                 decayEndTimeStamp,
                 txnHash,
+                revertingTxHashes,
                 commitmentDigest,
                 bidSignature,
                 commitmentSignature,
@@ -496,6 +508,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                 decayStartTimeStamp,
                 decayEndTimeStamp,
                 txnHash,
+                revertingTxHashes,
                 commitmentDigest,
                 bidSignature,
                 commitmentSignature,

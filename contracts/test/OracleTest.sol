@@ -166,6 +166,8 @@ contract OracleTest is Test {
     function test_process_commitment_payment_payout() public {
         string
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
+        string
+            memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 2;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -186,6 +188,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -211,6 +214,8 @@ contract OracleTest is Test {
     function test_process_commitment_slash() public {
         string
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
+        string
+            memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = 200;
         uint64 bid = 200;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -231,6 +236,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -260,6 +266,8 @@ contract OracleTest is Test {
             memory txn1 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory txn2 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d09";
+        string
+            memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 100;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -282,6 +290,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn1,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -291,6 +300,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn2,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -335,6 +345,8 @@ contract OracleTest is Test {
             memory txn3 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d10";
         string
             memory txn4 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d11";
+        string
+            memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = 201;
         uint64 bid = 5;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -355,6 +367,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn1,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -364,6 +377,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn2,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -373,6 +387,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn3,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -382,6 +397,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txn4,
+            revertingTxHashes,
             bidderPk,
             providerPk,
             provider,
@@ -445,6 +461,7 @@ contract OracleTest is Test {
         txnHashes[
             3
         ] = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d11";
+        string memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
         uint64 blockNumber = uint64(blocksPerWindow + 2);
         uint64 bid = 5;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
@@ -474,6 +491,7 @@ contract OracleTest is Test {
                 bid,
                 blockNumber,
                 txnHashes[i],
+                revertingTxHashes,
                 10,
                 20,
                 bidderPk,
@@ -494,6 +512,7 @@ contract OracleTest is Test {
                 bid,
                 blockNumber,
                 txnHashes[i],
+                revertingTxHashes,
                 10,
                 20,
                 bidSignatures[i],
@@ -524,15 +543,17 @@ contract OracleTest is Test {
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
+        string memory revertingTxHashes,
         uint256 bidderPk,
         uint256 signerPk,
         address provider,
         uint64 dispatchTimestamp
     ) public returns (bytes32 commitmentIndex) {
-        bytes32 bidHash = getBidHash(txnHash, bid, blockNumber);
+        bytes32 bidHash = getBidHash(txnHash, revertingTxHashes, bid, blockNumber);
         bytes memory bidSignature = getBidSignature(bidderPk, bidHash);
         bytes32 commitmentHash = getCommitmentHash(
             txnHash,
+            revertingTxHashes,
             bid,
             blockNumber,
             bidHash,
@@ -557,6 +578,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txnHash,
+            revertingTxHashes,
             bidSignature,
             commitmentSignature
         );
@@ -565,12 +587,14 @@ contract OracleTest is Test {
 
     function getBidHash(
         string memory txnHash,
+        string memory revertingTxHashes,
         uint64 bid,
         uint64 blockNumber
     ) public view returns (bytes32) {
         return
             preConfCommitmentStore.getBidHash(
                 txnHash,
+                revertingTxHashes,
                 bid,
                 blockNumber,
                 10,
@@ -588,6 +612,7 @@ contract OracleTest is Test {
 
     function getCommitmentHash(
         string memory txnHash,
+        string memory revertingTxHashes,
         uint64 bid,
         uint64 blockNumber,
         bytes32 bidHash,
@@ -596,6 +621,7 @@ contract OracleTest is Test {
         return
             preConfCommitmentStore.getPreConfHash(
                 txnHash,
+                revertingTxHashes,
                 bid,
                 blockNumber,
                 10,
@@ -644,6 +670,7 @@ contract OracleTest is Test {
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
+        string memory revertingTxHashes,
         bytes memory bidSignature,
         bytes memory commitmentSignature
     ) public returns (bytes32) {
@@ -653,6 +680,7 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             txnHash,
+            revertingTxHashes,
             10,
             20,
             bidSignature,
@@ -668,6 +696,7 @@ contract OracleTest is Test {
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
+        string memory revertingTxHashes,
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         uint256 bidderPk,
@@ -683,6 +712,7 @@ contract OracleTest is Test {
     {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             txnHash,
+            revertingTxHashes,
             bid,
             blockNumber,
             decayStartTimestamp,
@@ -694,6 +724,7 @@ contract OracleTest is Test {
 
         bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
             txnHash,
+            revertingTxHashes,
             bid,
             blockNumber,
             decayStartTimestamp,
