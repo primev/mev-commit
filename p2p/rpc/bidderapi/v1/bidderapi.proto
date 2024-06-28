@@ -63,6 +63,13 @@ service Bidder {
     option (google.api.http) = {post: "/v1/bidder/cancel_and_withdraw_auto_deposit"};
   }
 
+  // WithdrawFromSpecificWindows
+  //
+  // WithdrawFromSpecificWindows is called by the bidder node to withdraw funds from specific windows.
+  rpc WithdrawFromSpecificWindows(WithdrawFromSpecificWindowsRequest) returns (AutoDepositResponse) {
+    option (google.api.http) = {post: "/v1/bidder/withdraw_from_specific_windows"};
+  }
+  
   // GetDeposit
   //
   // GetDeposit is called by the bidder to get its deposit in the bidder registry.
@@ -205,6 +212,25 @@ message WithdrawResponse {
   };
   string amount = 1;
   google.protobuf.UInt64Value window_number = 2;
+};
+
+message WithdrawFromSpecificWindowsRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Withdraw from N windows request"
+      description: "Withdraw deposit from the bidder registry."
+      required: ["window_numbers"]
+    }
+    example: "{\"window_numbers\": [1, 2, 3]}"
+  };
+  repeated google.protobuf.UInt64Value window_numbers = 1 [
+    (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Window numbers for withdrawing deposits."
+    }, (buf.validate.field).cel = {
+      id: "window_numbers",
+      message: "window_numbers must be a valid array of positive integers.",
+      expression: "this.all(r, r > 0) && size(this) > 0"
+    }];
 };
 
 message Bid {

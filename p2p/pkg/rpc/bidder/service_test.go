@@ -118,6 +118,10 @@ func (t *testRegistryContract) ParseBidderWithdrawal(_ types.Log) (*bidderregist
 	}, nil
 }
 
+func (t *testRegistryContract) WithdrawFromSpecificWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
+	return types.NewTransaction(3, common.Address{}, nil, 0, nil, nil), nil
+}
+
 type testAutoDepositTracker struct {
 	deposits  map[uint64]bool
 	isWorking bool

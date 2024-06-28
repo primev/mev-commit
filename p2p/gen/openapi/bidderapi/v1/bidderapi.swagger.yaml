@@ -185,6 +185,30 @@ paths:
           required: false
           type: string
           format: uint64
+  /v1/bidder/withdraw_from_specific_windows:
+    post:
+      summary: WithdrawFromSpecificWindows
+      description: WithdrawFromSpecificWindows is called by the bidder node to withdraw funds from specific windows.
+      operationId: Bidder_WithdrawFromSpecificWindows
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1AutoDepositResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: windowNumbers
+          description: Window numbers for withdrawing deposits.
+          in: query
+          required: true
+          type: array
+          items:
+            type: string
+            format: uint64
+          collectionFormat: multi
 definitions:
   bidderapiv1AutoDeposit:
     type: object
