@@ -67,11 +67,6 @@ jobs:
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
           TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target_machine }})" || echo "127.0.0.1")
 
-          if [ "${{ github.event.inputs.all_targets }}" == "false" ]; then
-            echo "ARTIFACTS_GOOS=linux" >> ${GITHUB_ENV}
-            echo "ARTIFACTS_GOARCH=amd64" >> ${GITHUB_ENV}
-          fi
-
           echo "RUNNER_START_TIME=${RUNNER_START_TIME}" >> ${GITHUB_ENV}
           echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> ${GITHUB_ENV}
           echo "CLUSTER_ENVIRONMENT_FLAG=${CLUSTER_ENVIRONMENT_FLAG}" >> ${GITHUB_ENV}
@@ -157,16 +152,29 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws configure set default.region us-west-2
 
-          cp infrastructure/nomad/ansible.cfg.example infrastructure/nomad/ansible.cfg
-
-          cat <<-EOH > infrastructure/nomad/hosts.ini
+          cp ansible.cfg.example ansible.cfg
+          cat <<-EOH > hosts.ini
           [nomad_servers]
           ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=${ANSIBLE_USER}
           [nomad_clients]
           ${TARGET_MACHINE_IP} ${ANSIBLE_CONNECTION} ansible_user=${ANSIBLE_USER}
           EOH
 
-          ansible all --inventory infrastructure/nomad/hosts.ini --module-name ping
+          STDOUT="$(ansible all -o -m command -a 'uname -sm' 2>&1)"
+          if [ $? -ne 0 ]; then
+            echo "Unable to connect to target machine: ${STDOUT}"
+            exit 1
+          fi
+          
+          if [ "${{ github.event.inputs.all_targets }}" == "false" ]; then
+            STDOUT="$(echo "${STDOUT}" | awk -F 'stdout\\) ' '{print $2}')"
+            OS="$(echo "${STDOUT}" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+            ARCH="$(echo "${STDOUT}" | awk '{print $2}' | tr '[:upper:]' '[:lower:]')"
+            [ "${ARCH}" == "x86_64" ] && ARCH="amd64"
+            echo "ARTIFACTS_GOOS=${OS}" >> ${GITHUB_ENV}
+            echo "ARTIFACTS_GOARCH=${ARCH}" >> ${GITHUB_ENV}
+          fi
+        working-directory: infrastructure/nomad
 
       - name: Destroy Existing Cluster
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
