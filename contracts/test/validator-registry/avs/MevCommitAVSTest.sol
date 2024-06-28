@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../contracts/validator-registry/avs/MevCommitAVS.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {StrategyManagerMock} from "eigenlayer-contracts/src/test/mocks/StrategyManagerMock.sol";
@@ -93,12 +94,21 @@ contract MevCommitAVSTest is Test {
     }
 
     function testRegisterOperator() public {
+
         address operator = address(0x888);
         ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature = ISignatureUtils.SignatureWithSaltAndExpiry({
             signature: bytes("signature"),
             salt: bytes32("salt"),
             expiry: block.timestamp + 1 days
         });
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(operator);
+        mevCommitAVS.registerOperator(operatorSignature);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
 
         vm.expectRevert("sender must be an eigenlayer operator");
         vm.prank(operator);
@@ -124,6 +134,15 @@ contract MevCommitAVSTest is Test {
         vm.roll(108);
 
         address operator = address(0x888);
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("operator must be registered");
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
@@ -158,6 +177,15 @@ contract MevCommitAVSTest is Test {
         vm.roll(11);
 
         address operator = address(0x888);
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(operator);
+        mevCommitAVS.deregisterOperator(operator);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("operator must be registered");
         vm.prank(operator);
         mevCommitAVS.deregisterOperator(operator);
@@ -222,6 +250,15 @@ contract MevCommitAVSTest is Test {
         podOwners[0] = podOwner;
 
         address otherAcct = address(0x777);
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(otherAcct);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("sender must be podOwner or delegated operator");
         vm.prank(otherAcct);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
@@ -302,6 +339,14 @@ contract MevCommitAVSTest is Test {
         valPubkeys[0] = bytes("valPubkey1");
         valPubkeys[1] = bytes("valPubkey2");
 
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(podOwner);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("validator must be registered");
         vm.prank(podOwner);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
@@ -347,6 +392,15 @@ contract MevCommitAVSTest is Test {
         address podOwner = address(0x420);
         bytes[] memory valPubkeys = new bytes[](1);
         valPubkeys[0] = bytes("valPubkey1");
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(podOwner);
+        mevCommitAVS.deregisterValidators(valPubkeys);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("validator must be registered");
         vm.prank(podOwner);
         mevCommitAVS.deregisterValidators(valPubkeys);
@@ -397,6 +451,15 @@ contract MevCommitAVSTest is Test {
         address lstRestaker = address(0x34443);
         address otherAcct = address(0x777);
         bytes[] memory chosenVals = new bytes[](0);
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(lstRestaker);
+        mevCommitAVS.registerLSTRestaker(chosenVals);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("sender must be delegated to an operator that is registered with MevCommitAVS");
         vm.prank(otherAcct);
         mevCommitAVS.registerLSTRestaker(chosenVals);
@@ -448,6 +511,15 @@ contract MevCommitAVSTest is Test {
 
     function testRequestLSTRestakerDeregistration() public {
         address otherAcct = address(0x777);
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(otherAcct);
+        mevCommitAVS.requestLSTRestakerDeregistration();
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("sender must be registered LST restaker");
         vm.prank(otherAcct);
         mevCommitAVS.requestLSTRestakerDeregistration();
@@ -482,6 +554,15 @@ contract MevCommitAVSTest is Test {
     function testDeregisterLSTRestaker() public {
 
         address otherAcct = address(0x777);
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(otherAcct);
+        mevCommitAVS.deregisterLSTRestaker();
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("sender must be registered LST restaker");
         vm.prank(otherAcct);
         mevCommitAVS.deregisterLSTRestaker();
@@ -533,6 +614,15 @@ contract MevCommitAVSTest is Test {
         bytes[] memory valPubkeys = new bytes[](2);
         valPubkeys[0] = bytes("valPubkey1");
         valPubkeys[1] = bytes("valPubkey2");
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("validator must be registered");
         vm.prank(freezeOracle);
         mevCommitAVS.freeze(valPubkeys);
@@ -645,6 +735,15 @@ contract MevCommitAVSTest is Test {
         valPubkeys[1] = bytes("valPubkey2");
 
         address newAccount = address(0x333333333);
+
+        vm.prank(owner);
+        mevCommitAVS.pause();
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze(valPubkeys);
+        vm.prank(owner);
+        mevCommitAVS.unpause();
+
         vm.expectRevert("validator must be registered");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze(valPubkeys);
@@ -712,14 +811,6 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
         assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
-    }
-
-    function testPause() public {
-        // TODO: list out all funcs that are affected
-    }
-
-    function testUnpause() public {
-        // TODO: list out all funcs that are affected
     }
 
     function testSetters() public {
