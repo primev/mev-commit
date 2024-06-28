@@ -45,7 +45,7 @@ type testEncryptor struct {
 	preConfirmationSigner    common.Address
 }
 
-func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
+func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64, _ string) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
 	return t.bid, t.encryptedBid, t.nikePrivateKey, nil
 }
 
@@ -211,7 +211,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 
 		svc.SetPeerHandler(server, p.Streams()[0])
 
-		respC, err := p.SendBid(context.Background(), bid.TxHash, bid.BidAmount, bid.BlockNumber, bid.DecayStartTimestamp, bid.DecayEndTimestamp)
+		respC, err := p.SendBid(context.Background(), bid.TxHash, bid.BidAmount, bid.BlockNumber, bid.DecayStartTimestamp, bid.DecayEndTimestamp, "")
 		if err != nil {
 			t.Fatal(err)
 		}

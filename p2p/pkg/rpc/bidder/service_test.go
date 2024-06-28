@@ -48,6 +48,7 @@ func (s *testSender) SendBid(
 	blockNum int64,
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
+	revertedTxns string,
 ) (chan *preconfpb.PreConfirmation, error) {
 	s.bids = append(s.bids, bid{
 		txHex:    txHex,
@@ -66,6 +67,7 @@ func (s *testSender) SendBid(
 				DecayEndTimestamp:   decayEndTimestamp,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
+				RevertingTxHashes:   revertedTxns,
 			},
 			Digest:          []byte("digest"),
 			Signature:       []byte("signature"),
@@ -362,6 +364,7 @@ func TestSendBid(t *testing.T) {
 				BlockNumber:         tc.blockNum,
 				DecayStartTimestamp: tc.decayStartTimestamp,
 				DecayEndTimestamp:   tc.decayEndTimestamp,
+				RevertingTxHashes:   []string{},
 			})
 			if err != nil {
 				t.Fatalf("error sending bid: %v", err)

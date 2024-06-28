@@ -63,6 +63,7 @@ interface IPreConfCommitmentStore {
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
+        string memory revertingTxHashes,
         string memory commitmentHash,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
