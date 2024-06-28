@@ -23,6 +23,8 @@ import (
 
 type MockBidderRegistryContract struct {
 	MoveDepositToWindowFunc func(opts *bind.TransactOpts, fromWindow *big.Int, toWindow *big.Int) (*types.Transaction, error)
+	WithdrawFromSpecificWindowsFunc func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
+	WithdrawFromSpecificWindowsCalled bool
 }
 
 func (m *MockBidderRegistryContract) MoveDepositToWindow(opts *bind.TransactOpts, fromWindow *big.Int, toWindow *big.Int) (*types.Transaction, error) {
@@ -30,8 +32,9 @@ func (m *MockBidderRegistryContract) MoveDepositToWindow(opts *bind.TransactOpts
 }
 
 func (m *MockBidderRegistryContract) WithdrawFromSpecificWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-	return m.WithdrawFromSpecificWindows(opts, windows)
+	return m.WithdrawFromSpecificWindowsFunc(opts, windows)
 }
+
 func TestAutoDepositTracker(t *testing.T) {
 	t.Parallel()
 
@@ -49,10 +52,15 @@ func TestAutoDepositTracker(t *testing.T) {
 	logger := util.NewTestLogger(io.Discard)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 
-	mockContract := &MockBidderRegistryContract{
-		MoveDepositToWindowFunc: func(opts *bind.TransactOpts, fromWindow *big.Int, toWindow *big.Int) (*types.Transaction, error) {
-			return types.NewTx(&types.LegacyTx{}), nil
-		},
+	mockContract := &MockBidderRegistryContract{}
+
+	// Assign the mock functions
+	mockContract.MoveDepositToWindowFunc = func(opts *bind.TransactOpts, fromWindow *big.Int, toWindow *big.Int) (*types.Transaction, error) {
+		return types.NewTx(&types.LegacyTx{}), nil
+	}
+	mockContract.WithdrawFromSpecificWindowsFunc = func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
+		mockContract.WithdrawFromSpecificWindowsCalled = true
+		return types.NewTx(&types.LegacyTx{}), nil
 	}
 
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
@@ -99,12 +107,29 @@ func TestAutoDepositTracker(t *testing.T) {
 			t.Fatalf("expected deposit for window %d to be true, got %v", ad.WindowNumber.Value, deposits[ad.WindowNumber.Value+2])
 		}
 	}
-	adt.Stop()
-
+	cancelResponse, err := adt.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
 	// need to wait for the goroutine to stop
 	time.Sleep(100 * time.Millisecond)
 	_, status = adt.GetStatus()
 	if status {
 		t.Fatalf("expected status to be false, got %v", status)
+	}
+
+	ctx = context.Background()
+	err = adt.WithdrawAutoDeposit(ctx, cancelResponse.WindowNumbers)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	publishNewWindow(evtMgr, &btABI, big.NewInt(int64(cancelResponse.WindowNumbers[2].Value + 3)))
+
+	// need to wait for the goroutine to process the events
+	time.Sleep(100 * time.Millisecond)
+
+	if !mockContract.WithdrawFromSpecificWindowsCalled {
+		t.Fatalf("expected WithdrawFromSpecificWindows to be called")
 	}
 }
