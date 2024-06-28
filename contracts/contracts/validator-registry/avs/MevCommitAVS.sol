@@ -104,6 +104,14 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _;
     }
 
+    /// @dev Modifier to ensure all provided validators are frozen.
+    modifier onlyFrozenValidators(bytes[] calldata valPubKeys) {
+        for (uint256 i = 0; i < valPubKeys.length; i++) {
+            require(validatorRegistrations[valPubKeys[i]].freezeHeight.exists, "validator must be frozen");
+        }
+        _;
+    }
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -227,10 +235,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
     function unfreeze(bytes[] calldata valPubKey) payable external 
-        onlyRegisteredValidators(valPubKey) whenNotPaused() {
+        onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) whenNotPaused() {
+        require(msg.value >= unfreezeFee * valPubKey.length,
+            "sender must pay at least the unfreeze fee for each validator");
         uint256 feePerVal = msg.value / valPubKey.length;
         for (uint256 i = 0; i < valPubKey.length; i++) {
-            _unfreeze(valPubKey[i], feePerVal);
+            _unfreeze(valPubKey[i]);
+            payable(unfreezeReceiver).transfer(feePerVal);
         }
     }
 
@@ -442,12 +453,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to unfreeze a validator.
-    function _unfreeze(bytes calldata valPubKey, uint256 feeToPay) internal {
-        require(validatorRegistrations[valPubKey].freezeHeight.exists, "validator must be frozen");
+    function _unfreeze(bytes calldata valPubKey) internal {
         require(block.number >= validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
             "unfreeze must happen at least unfreezePeriodBlocks after freeze height");
-        require(feeToPay >= unfreezeFee, "sender must pay at least the unfreeze fee for each validator");
-        payable(unfreezeReceiver).transfer(feeToPay);
         EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
         EventHeightLib.del(validatorRegistrations[valPubKey].deregRequestHeight);
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);

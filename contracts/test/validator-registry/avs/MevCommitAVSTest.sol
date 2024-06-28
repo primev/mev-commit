@@ -639,9 +639,79 @@ contract MevCommitAVSTest is Test {
     }
 
     function testUnfreeze() public {
-        // TODO: test scenario where validator was req deregistered before being frozen, and goes back to registerd after unfreeze.
-        // TODO: Also confirm the unfreeze fee is fully given to reciever and not contract.
-        // TODO: test multiple vals unfrozen in one tx.
+
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+
+        address newAccount = address(0x333333333);
+        vm.expectRevert("validator must be registered");
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze(valPubkeys);
+
+        testRegisterValidatorsByPodOwners();
+
+        vm.expectRevert("validator must be frozen");
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze(valPubkeys);
+
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
+
+        address podOwner = address(0x420);
+        bytes[] memory valPubkeysFirst = new bytes[](1);
+        valPubkeysFirst[0] = bytes("valPubkey1");
+        vm.prank(podOwner);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeysFirst);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
+
+        vm.expectRevert("sender must pay at least the unfreeze fee for each validator");
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze(valPubkeys);
+
+        vm.deal(newAccount, 2 * unfreezeFee);
+
+        uint256 singleUnfreezeFee = unfreezeFee;
+        vm.expectRevert("sender must pay at least the unfreeze fee for each validator");
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze{value: singleUnfreezeFee}(valPubkeys);
+
+        uint256 doubleUnfreezeFee = unfreezeFee * 2;
+        vm.expectRevert("unfreeze must happen at least unfreezePeriodBlocks after freeze height");
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze{value: doubleUnfreezeFee}(valPubkeys);
+
+        vm.roll(block.number + unfreezePeriodBlocks);
+
+        assertEq(address(mevCommitAVS).balance, 0);
+        assertEq(address(newAccount).balance, unfreezeFee * 2);
+        assertEq(address(unfreezeReceiver).balance, 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorUnfrozen(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorUnfrozen(valPubkeys[1], podOwner);
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze{value: doubleUnfreezeFee}(valPubkeys);
+
+        assertEq(address(mevCommitAVS).balance, 0);
+        assertEq(address(newAccount).balance, 0);
+        assertEq(address(unfreezeReceiver).balance, unfreezeFee * 2);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
     }
 
     function testPause() public {
