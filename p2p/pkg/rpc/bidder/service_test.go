@@ -82,7 +82,6 @@ func (s *testSender) SendBid(
 
 type testRegistryContract struct {
 	deposit    *big.Int
-	minDeposit *big.Int
 }
 
 func (t *testRegistryContract) DepositForSpecificWindow(opts *bind.TransactOpts, _ *big.Int) (*types.Transaction, error) {
@@ -105,10 +104,6 @@ func (t *testRegistryContract) WithdrawBidderAmountFromWindow(
 
 func (t *testRegistryContract) GetDeposit(_ *bind.CallOpts, _ common.Address, _ *big.Int) (*big.Int, error) {
 	return t.deposit, nil
-}
-
-func (t *testRegistryContract) MinDeposit(_ *bind.CallOpts) (*big.Int, error) {
-	return t.minDeposit, nil
 }
 
 func (t *testRegistryContract) ParseBidderRegistered(_ types.Log) (*bidderregistry.BidderregistryBidderRegistered, error) {
@@ -204,7 +199,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	}
 
 	owner := common.HexToAddress("0x00001")
-	registryContract := &testRegistryContract{minDeposit: big.NewInt(100000000000000000)}
+	registryContract := &testRegistryContract{}
 	sender := &testSender{noOfPreconfs: 2}
 	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
 	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
@@ -311,16 +306,6 @@ func TestDepositHandling(t *testing.T) {
 		}
 		if deposit.Amount != "1000000000000000000" {
 			t.Fatalf("expected amount to be 1000000000000000000, got %v", deposit.Amount)
-		}
-	})
-
-	t.Run("get min deposit", func(t *testing.T) {
-		deposit, err := client.GetMinDeposit(context.Background(), &bidderapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error getting min deposit: %v", err)
-		}
-		if deposit.Amount != "100000000000000000" {
-			t.Fatalf("expected amount to be 100000000000000000, got %v", deposit.Amount)
 		}
 	})
 

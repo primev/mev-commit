@@ -164,20 +164,6 @@ paths:
           required: false
           type: string
           format: uint64
-  /v1/bidder/get_min_deposit:
-    get:
-      summary: GetMinDeposit
-      description: GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
-      operationId: Bidder_GetMinDeposit
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1DepositResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/withdraw:
     post:
       summary: Withdraw

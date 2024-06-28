@@ -229,19 +229,14 @@ func checkOrDeposit(
 
 	logger.Info("deposited", "amount", deposit.Amount)
 
-	minDeposit, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
-	if err != nil {
-		logger.Error("failed to get min deposit", "error", err)
-		return err
-	}
-
 	depositAmt, set := big.NewInt(0).SetString(deposit.Amount, 10)
 	if !set {
 		logger.Error("failed to parse deposit amount")
 		return errors.New("failed to parse deposit amount")
 	}
 
-	minDepositAmt, set := big.NewInt(0).SetString(minDeposit.Amount, 10)
+	// set as 1 eth
+	minDepositAmt, set := big.NewInt(0).SetString("1000000000000000000", 10)
 	if !set {
 		logger.Error("failed to parse min deposit amount")
 		return errors.New("failed to parse min deposit amount")
