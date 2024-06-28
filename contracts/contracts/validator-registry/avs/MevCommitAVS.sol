@@ -161,19 +161,19 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Registers an operator with the MevCommitAVS.
     function registerOperator (
         ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
-    ) external onlyNonRegisteredOperator() onlyEigenCoreOperator() whenNotPaused() {
+    ) external whenNotPaused() onlyNonRegisteredOperator() onlyEigenCoreOperator() {
         _registerOperator(operatorSignature);
     }
 
     /// @dev Allows an operator to request deregistration from the MevCommitAVS.
     function requestOperatorDeregistration(address operator
-    ) external onlyRegisteredOperator(operator) onlyOperator(operator) whenNotPaused() {
+    ) external whenNotPaused() onlyRegisteredOperator(operator) onlyOperator(operator) {
         _requestOperatorDeregistration(operator);
     }
 
     /// @dev Allows an operator to deregister from the MevCommitAVS.
     function deregisterOperator(address operator
-    ) external onlyRegisteredOperator(operator) onlyOperator(operator) whenNotPaused() {
+    ) external whenNotPaused() onlyRegisteredOperator(operator) onlyOperator(operator) {
         _deregisterOperator(operator);
     }
 
@@ -193,7 +193,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @notice For each validator the underlying _requestValidatorDeregistration enforces the sender is either
     /// the podOwner, delegated operator, or the contract owner.
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys)
-        external onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) whenNotPaused() {
+        external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             _requestValidatorDeregistration(valPubKeys[i]);
         }
@@ -203,7 +203,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @notice For each validator the underlying _deregisterValidator enforces the sender is either
     /// the podOwner, delegated operator, or the contract owner.
     function deregisterValidators(bytes[] calldata valPubKeys)
-        external onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) whenNotPaused() {
+        external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             _deregisterValidator(valPubKeys[i]);
         }
@@ -211,23 +211,23 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Registers sender as an LST restaker with chosen validators.
     function registerLSTRestaker(bytes[] calldata chosenValidators)
-        external onlyNonRegisteredLstRestaker() onlySenderWithRegisteredOperator() whenNotPaused() {
+        external whenNotPaused() onlyNonRegisteredLstRestaker() onlySenderWithRegisteredOperator() {
         _registerLSTRestaker(chosenValidators);
     }
 
     /// @dev Allows an LST restaker to request deregistration from the MevCommitAVS.
-    function requestLSTRestakerDeregistration() external onlyRegisteredLstRestaker() whenNotPaused() {
+    function requestLSTRestakerDeregistration() external whenNotPaused() onlyRegisteredLstRestaker() {
         _requestLSTRestakerDeregistration();
     }
 
     /// @dev Allows an LST restaker to deregister from the MevCommitAVS.
-    function deregisterLSTRestaker() external onlyRegisteredLstRestaker() whenNotPaused() {
+    function deregisterLSTRestaker() external whenNotPaused() onlyRegisteredLstRestaker() {
         _deregisterLSTRestaker();
     }
 
     /// @dev Allows the freeze oracle account to freeze validators which disobey the mev-commit protocol.
     function freeze(bytes[] calldata valPubKeys) external
-        onlyRegisteredValidators(valPubKeys) onlyFreezeOracle() whenNotPaused() {
+        whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyFreezeOracle() {
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             _freeze(valPubKeys[i]);
         }
@@ -235,7 +235,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
     function unfreeze(bytes[] calldata valPubKey) payable external 
-        onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) whenNotPaused() {
+        whenNotPaused() onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) {
         require(msg.value >= unfreezeFee * valPubKey.length,
             "sender must pay at least the unfreeze fee for each validator");
         uint256 feePerVal = msg.value / valPubKey.length;
