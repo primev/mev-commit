@@ -757,19 +757,11 @@ contract MevCommitAVSTest is Test {
         vm.prank(freezeOracle);
         mevCommitAVS.freeze(valPubkeys);
 
-        address podOwner = address(0x420);
-        bytes[] memory valPubkeysFirst = new bytes[](1);
-        valPubkeysFirst[0] = bytes("valPubkey1");
-        vm.prank(podOwner);
-        mevCommitAVS.requestValidatorsDeregistration(valPubkeysFirst);
-
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
 
         vm.expectRevert("sender must pay at least the unfreeze fee for each validator");
         vm.prank(newAccount);
@@ -793,6 +785,7 @@ contract MevCommitAVSTest is Test {
         assertEq(address(newAccount).balance, unfreezeFee * 2);
         assertEq(address(unfreezeReceiver).balance, 0);
 
+        address podOwner = address(0x420);
         vm.expectEmit(true, true, true, true);
         emit ValidatorUnfrozen(valPubkeys[0], podOwner);
         vm.expectEmit(true, true, true, true);
@@ -806,11 +799,9 @@ contract MevCommitAVSTest is Test {
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
         assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
     }
 
     function testSetters() public {

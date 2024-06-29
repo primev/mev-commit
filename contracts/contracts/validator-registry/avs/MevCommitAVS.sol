@@ -457,7 +457,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         require(block.number >= validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
             "unfreeze must happen at least unfreezePeriodBlocks after freeze height");
         EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
-        EventHeightLib.del(validatorRegistrations[valPubKey].deregRequestHeight);
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 

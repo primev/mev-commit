@@ -90,7 +90,7 @@ While frozen, a validator will not accrue points or rewards. A validator cannot 
 To exit the frozen state, a configurable unfreeze period must first pass. Then any account can call `unfreeze`:
 
 ```solidity
-function unfreeze(bytes calldata valPubKey) payable external;
+function unfreeze(bytes[] calldata valPubKey) payable external;
 ```
 
 where a minimum of `unfreezeFee` must be included in the transaction. If the validator was in the `REQUESTED_DEREGISTRATION` state prior to being frozen, the validator will be returned to the `REGISTERED` state. That is, a validator must *not* be frozen for a full deregistration period, before it's able to deregister.
