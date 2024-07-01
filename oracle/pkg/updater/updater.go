@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,11 +19,17 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
 type SettlementType string
+
+type TxMetadata struct {
+	PosInBlock int
+	Succeeded  bool
+}
 
 const (
 	SettlementTypeReward SettlementType = "reward"
@@ -84,6 +91,7 @@ type Oracle interface {
 
 type EVMClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 type Updater struct {
@@ -92,11 +100,12 @@ type Updater struct {
 	winnerRegister WinnerRegister
 	oracle         Oracle
 	evtMgr         events.EventManager
-	l1BlockCache   *lru.Cache[uint64, map[string]int]
+	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
 	encryptedCmts  chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored
 	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
 	currentWindow  atomic.Int64
 	metrics        *metrics
+	receiptBatcher txmonitor.BatchReceiptGetter
 }
 
 func NewUpdater(
@@ -105,8 +114,9 @@ func NewUpdater(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	oracle Oracle,
+	receiptBatcher txmonitor.BatchReceiptGetter,
 ) (*Updater, error) {
-	l1BlockCache, err := lru.New[uint64, map[string]int](1024)
+	l1BlockCache, err := lru.New[uint64, map[string]TxMetadata](1024)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create L1 block cache: %w", err)
 	}
@@ -117,6 +127,7 @@ func NewUpdater(
 		winnerRegister: winnerRegister,
 		evtMgr:         evtMgr,
 		oracle:         oracle,
+		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
 		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
 		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
@@ -316,7 +327,6 @@ func (u *Updater) handleOpenedCommitment(
 		)
 		return err
 	}
-
 	// Compute the decay percentage
 	decayPercentage := u.computeDecayPercentage(
 		update.DecayStartTimeStamp,
@@ -327,17 +337,19 @@ func (u *Updater) handleOpenedCommitment(
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
-		posInBlock, found := txns[commitmentTxnHashes[i]]
-		if !found || posInBlock != txns[commitmentTxnHashes[0]]+i {
+		txnDetails, found := txns[commitmentTxnHashes[i]]
+		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || !txnDetails.Succeeded {
 			u.logger.Info(
-				"bundle is not atomic",
+				"bundle does not satsify commited requirements",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 				"txnHash", update.TxnHash,
 				"blockNumber", update.BlockNumber,
 				"found", found,
-				"posInBlock", posInBlock,
-				"expectedPosInBlock", txns[commitmentTxnHashes[0]]+i,
+				"posInBlock", txnDetails.PosInBlock,
+				"succeeded", txnDetails.Succeeded,
+				"expectedPosInBlock", txns[commitmentTxnHashes[0]].PosInBlock+i,
 			)
+
 			// The committer did not include the transactions in the block
 			// correctly, so this is a slash to be processed
 			return u.settle(
@@ -451,7 +463,7 @@ func (u *Updater) addSettlement(
 	return nil
 }
 
-func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]int, error) {
+func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]TxMetadata, error) {
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
 		u.metrics.BlockTxnCacheHits.Inc()
@@ -460,18 +472,65 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]in
 
 	u.metrics.BlockTxnCacheMisses.Inc()
 
-	blk, err := u.l1Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
+	block, err := u.l1Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
 
-	txnsInBlock := make(map[string]int)
-	for posInBlock, tx := range blk.Transactions() {
-		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = posInBlock
-	}
-	_ = u.l1BlockCache.Add(blockNum, txnsInBlock)
+	var txnReceipts sync.Map
+	eg, ctx := errgroup.WithContext(ctx)
 
-	return txnsInBlock, nil
+	txnsArray := make([]common.Hash, len(block.Transactions()))
+	for i, tx := range block.Transactions() {
+		txnsArray[i] = tx.Hash()
+	}
+
+	bucketSize := (len(txnsArray) + 3) / 4 // Calculate the size of each bucket, rounding up
+	buckets := make([][]common.Hash, 4)
+	for i := 0; i < 4; i++ {
+		start := i * bucketSize
+		end := start + bucketSize
+		if end > len(txnsArray) {
+			end = len(txnsArray)
+		}
+		buckets[i] = txnsArray[start:end]
+	}
+
+	for _, bucket := range buckets {
+		bucket := bucket // closure for each errorgroup
+		eg.Go(func() error {
+			results, err := u.receiptBatcher.BatchReceipts(ctx, bucket)
+			if err != nil {
+				return fmt.Errorf("failed to get batch receipts: %w", err)
+			}
+			for _, result := range results {
+				if result.Err != nil {
+					return fmt.Errorf("failed to get receipt for txn: %s", result.Err)
+				}
+
+				txnReceipts.Store(result.Receipt.TxHash.Hex(), *result.Receipt)
+			}
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	txnsMap := make(map[string]TxMetadata)
+	for i, tx := range txnsArray {
+		receipt, ok := txnReceipts.Load(tx.Hex())
+		if !ok {
+			return nil, fmt.Errorf("receipt not found for txn: %s", tx)
+		}
+		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(types.Receipt).Status == types.ReceiptStatusSuccessful}
+	}
+
+	_ = u.l1BlockCache.Add(blockNum, txnsMap)
+
+	return txnsMap, nil
 }
 
 // computeDecayPercentage takes startTimestamp, endTimestamp, commitTimestamp and computes a linear decay percentage
