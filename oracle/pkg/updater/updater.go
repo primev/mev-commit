@@ -472,42 +472,40 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
+	var txnsInBlock sync.Map
+	eg, ctx := errgroup.WithContext(ctx)
 
-	txnsInBlock := make(map[string]TxMetadata)
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var receiptErr error
-
-	processTransactionMetadata := func(posInBlock int, tx *types.Transaction) {
-		defer wg.Done()
+	processTransactionMetadata := func(posInBlock int, tx *types.Transaction) error {
 		receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
 		if err != nil {
 			u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
-			mu.Lock()
-			receiptErr = err
-			mu.Unlock()
-			return
+			return err
 		}
 		txSucceeded := receipt.Status == 1
-		mu.Lock()
-		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
-		mu.Unlock()
+		txnsInBlock.Store(strings.TrimPrefix(tx.Hash().Hex(), "0x"), TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded})
+		return nil
 	}
 
 	for posInBlock, tx := range block.Transactions() {
-		wg.Add(1)
-		go processTransactionMetadata(posInBlock, tx)
+		posInBlock, tx := posInBlock, tx // capture loop variables
+		eg.Go(func() error {
+			return processTransactionMetadata(posInBlock, tx)
+		})
 	}
 
-	wg.Wait()
-
-	if receiptErr != nil {
-		return nil, receiptErr
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
-	_ = u.l1BlockCache.Add(blockNum, txnsInBlock)
+	txnsMap := make(map[string]TxMetadata)
+	txnsInBlock.Range(func(key, value interface{}) bool {
+		txnsMap[key.(string)] = value.(TxMetadata)
+		return true
+	})
 
-	return txnsInBlock, nil
+	_ = u.l1BlockCache.Add(blockNum, txnsMap)
+
+	return txnsMap, nil
 }
 
 // computeDecayPercentage takes startTimestamp, endTimestamp, commitTimestamp and computes a linear decay percentage
