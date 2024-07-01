@@ -22,6 +22,7 @@ import (
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
 	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/primev/mev-commit/x/util"
 	"golang.org/x/crypto/sha3"
 )
@@ -30,6 +31,28 @@ func getIdxBytes(idx int64) [32]byte {
 	var idxBytes [32]byte
 	big.NewInt(idx).FillBytes(idxBytes[:])
 	return idxBytes
+}
+
+type testBatcher struct {
+	failedReceipts map[common.Hash]bool
+}
+
+func (t *testBatcher) BatchReceipts(ctx context.Context, txns []common.Hash) ([]txmonitor.Result, error) {
+	var results []txmonitor.Result
+	for _, txn := range txns {
+		status := types.ReceiptStatusSuccessful
+		if t.failedReceipts[txn] {
+			status = types.ReceiptStatusFailed
+		}
+		results = append(results, txmonitor.Result{
+			Receipt: &types.Receipt{
+				TxHash: txn,
+				Status: status,
+			},
+			Err: nil,
+		})
+	}
+	return results, nil
 }
 
 type testHasher struct {
@@ -209,6 +232,7 @@ func TestUpdater(t *testing.T) {
 		register,
 		evtMgr,
 		oracle,
+		&testBatcher{},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -462,6 +486,12 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	oracle := &testOracle{
 		commitments: make(chan processedCommitment, 1),
 	}
+	testBatcher := &testBatcher{
+		failedReceipts: make(map[common.Hash]bool),
+	}
+	for _, txn := range txns {
+		testBatcher.failedReceipts[txn.Hash()] = true
+	}
 
 	updtr, err := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -469,6 +499,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		register,
 		evtMgr,
 		oracle,
+		testBatcher,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -684,6 +715,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		register,
 		evtMgr,
 		oracle,
+		&testBatcher{},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -888,6 +920,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		register,
 		evtMgr,
 		oracle,
+		&testBatcher{},
 	)
 	if err != nil {
 		t.Fatal(err)

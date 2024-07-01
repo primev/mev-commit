@@ -236,6 +236,7 @@ func NewNode(opts *Options) (*Node, error) {
 		st,
 		evtMgr,
 		oracleTransactorSession,
+		txmonitor.NewEVMHelper(l1Client.Client()),
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate updater", "error", err)
