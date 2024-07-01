@@ -19,6 +19,7 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -104,6 +105,7 @@ type Updater struct {
 	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
 	currentWindow  atomic.Int64
 	metrics        *metrics
+	receiptBatcher txmonitor.BatchReceiptGetter
 }
 
 func NewUpdater(
@@ -112,6 +114,7 @@ func NewUpdater(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	oracle Oracle,
+	receiptBatcher txmonitor.BatchReceiptGetter,
 ) (*Updater, error) {
 	l1BlockCache, err := lru.New[uint64, map[string]TxMetadata](1024)
 	if err != nil {
@@ -124,6 +127,7 @@ func NewUpdater(
 		winnerRegister: winnerRegister,
 		evtMgr:         evtMgr,
 		oracle:         oracle,
+		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
 		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
 		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
@@ -323,7 +327,6 @@ func (u *Updater) handleOpenedCommitment(
 		)
 		return err
 	}
-
 	// Compute the decay percentage
 	decayPercentage := u.computeDecayPercentage(
 		update.DecayStartTimeStamp,
@@ -337,7 +340,7 @@ func (u *Updater) handleOpenedCommitment(
 		txnDetails, found := txns[commitmentTxnHashes[i]]
 		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || !txnDetails.Succeeded {
 			u.logger.Info(
-				"bundle is not atomic",
+				"bundle does not satsify commited requirements",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 				"txnHash", update.TxnHash,
 				"blockNumber", update.BlockNumber,
@@ -346,6 +349,7 @@ func (u *Updater) handleOpenedCommitment(
 				"succeeded", txnDetails.Succeeded,
 				"expectedPosInBlock", txns[commitmentTxnHashes[0]].PosInBlock+i,
 			)
+
 			// The committer did not include the transactions in the block
 			// correctly, so this is a slash to be processed
 			return u.settle(
@@ -472,24 +476,42 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
-	var txnsInBlock sync.Map
+
+	var txnReceipts sync.Map
 	eg, ctx := errgroup.WithContext(ctx)
 
-	processTransactionMetadata := func(posInBlock int, tx *types.Transaction) error {
-		receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
-		if err != nil {
-			u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
-			return err
-		}
-		txSucceeded := receipt.Status == 1
-		txnsInBlock.Store(strings.TrimPrefix(tx.Hash().Hex(), "0x"), TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded})
-		return nil
+	txnsArray := make([]common.Hash, len(block.Transactions()))
+	for i, tx := range block.Transactions() {
+		txnsArray[i] = tx.Hash()
 	}
 
-	for posInBlock, tx := range block.Transactions() {
-		posInBlock, tx := posInBlock, tx // capture loop variables
+	bucketSize := (len(txnsArray) + 3) / 4 // Calculate the size of each bucket, rounding up
+	buckets := make([][]common.Hash, 4)
+	for i := 0; i < 4; i++ {
+		start := i * bucketSize
+		end := start + bucketSize
+		if end > len(txnsArray) {
+			end = len(txnsArray)
+		}
+		buckets[i] = txnsArray[start:end]
+	}
+
+	for _, bucket := range buckets {
+		bucket := bucket // closure for each errorgroup
 		eg.Go(func() error {
-			return processTransactionMetadata(posInBlock, tx)
+			results, err := u.receiptBatcher.BatchReceipts(ctx, bucket)
+			if err != nil {
+				return fmt.Errorf("failed to get batch receipts: %w", err)
+			}
+			for _, result := range results {
+				if result.Err != nil {
+					return fmt.Errorf("failed to get receipt for txn: %s", result.Err)
+				}
+
+				txnReceipts.Store(result.Receipt.TxHash.Hex(), *result.Receipt)
+			}
+
+			return nil
 		})
 	}
 
@@ -498,10 +520,13 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	}
 
 	txnsMap := make(map[string]TxMetadata)
-	txnsInBlock.Range(func(key, value interface{}) bool {
-		txnsMap[key.(string)] = value.(TxMetadata)
-		return true
-	})
+	for i, tx := range txnsArray {
+		receipt, ok := txnReceipts.Load(tx.Hex())
+		if !ok {
+			return nil, fmt.Errorf("receipt not found for txn: %s", tx)
+		}
+		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(types.Receipt).Status == types.ReceiptStatusSuccessful}
+	}
 
 	_ = u.l1BlockCache.Add(blockNum, txnsMap)
 
