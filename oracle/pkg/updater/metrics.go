@@ -156,5 +156,6 @@ func (m *metrics) Collectors() []prometheus.Collector {
 		m.BlockTimeCacheHits,
 		m.BlockTimeCacheMisses,
 		m.LastSentNonce,
+		m.TxnReceiptRequestDuration,
 	}
 }
