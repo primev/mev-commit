@@ -484,10 +484,11 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	for i, tx := range block.Transactions() {
 		txnsArray[i] = tx.Hash()
 	}
+	const bucketSize = 50 // Arbitrary number for bucket size
 
-	bucketSize := (len(txnsArray) + 3) / 4 // Calculate the size of each bucket, rounding up
-	buckets := make([][]common.Hash, 4)
-	for i := 0; i < 4; i++ {
+	numBuckets := (len(txnsArray) + bucketSize - 1) / bucketSize // Calculate the number of buckets needed, rounding up
+	buckets := make([][]common.Hash, numBuckets)
+	for i := 0; i < numBuckets; i++ {
 		start := i * bucketSize
 		end := start + bucketSize
 		if end > len(txnsArray) {
