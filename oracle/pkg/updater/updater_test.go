@@ -99,7 +99,7 @@ func TestUpdater(t *testing.T) {
 
 	signer := types.NewLondonSigner(big.NewInt(5))
 	var txns []*types.Transaction
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		txns = append(txns, types.MustSignNewTx(key, signer, &types.DynamicFeeTx{
 			Nonce:     uint64(i + 1),
 			Gas:       1000000,
@@ -147,7 +147,7 @@ func TestUpdater(t *testing.T) {
 	}
 
 	// constructing bundles
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		idxBytes := getIdxBytes(int64(i + 10))
 
 		bundle := strings.TrimPrefix(txns[i].Hash().Hex(), "0x")
@@ -360,7 +360,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 
 	signer := types.NewLondonSigner(big.NewInt(5))
 	var txns []*types.Transaction
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		txns = append(txns, types.MustSignNewTx(key, signer, &types.DynamicFeeTx{
 			Nonce:     uint64(i + 1),
 			Gas:       1000000,
@@ -408,7 +408,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	}
 
 	// constructing bundles
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		idxBytes := getIdxBytes(int64(i + 10))
 
 		bundle := strings.TrimPrefix(txns[i].Hash().Hex(), "0x")
@@ -625,7 +625,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 
 	signer := types.NewLondonSigner(big.NewInt(5))
 	var txns []*types.Transaction
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		txns = append(txns, types.MustSignNewTx(key, signer, &types.DynamicFeeTx{
 			Nonce:     uint64(i + 1),
 			Gas:       1000000,
@@ -811,7 +811,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 
 	signer := types.NewLondonSigner(big.NewInt(5))
 	var txns []*types.Transaction
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		txns = append(txns, types.MustSignNewTx(key, signer, &types.DynamicFeeTx{
 			Nonce:     uint64(i + 1),
 			Gas:       1000000,
