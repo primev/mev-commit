@@ -81,7 +81,6 @@ jobs:
       ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
       type: signer
-      sync_mode: snap
 
   mev_commit_geth_member_node: &mev_commit_geth_member_node_job
     name: mev-commit-geth-member-node
@@ -507,7 +506,6 @@ profiles:
       - *artifacts_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
-      - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job

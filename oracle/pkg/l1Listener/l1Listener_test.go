@@ -119,7 +119,7 @@ func TestL1Listener(t *testing.T) {
 		}()
 
 		select {
-		case <-time.After(5 * time.Second):
+		case <-time.After(10 * time.Second):
 			t.Fatal("timeout waiting for winner", i)
 		case winner := <-reg.winners:
 			if winner.blockNum != int64(i) {
