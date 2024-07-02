@@ -136,9 +136,10 @@ jobs:
 
       - name: Configure Control Machine
         run: |
-          ANSIBLE_USER=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "ubuntu" || echo "${USER}")
+          ANSIBLE_USER="${USER}"
           ANSIBLE_CONNECTION="ansible_connection=local"
           if [ "${IS_MANUAL_DEPLOYMENT}" == "true" ]; then
+            ANSIBLE_USER="ubuntu"
             ANSIBLE_CONNECTION=""
             export ANSIBLE_HOST_KEY_CHECKING=false
 
@@ -166,7 +167,7 @@ jobs:
             exit 1
           fi
           
-          if [ "${{ github.event.inputs.all_targets }}" == "false" ]; then
+          if [ "${IS_MANUAL_DEPLOYMENT}" == "false" ] || [ "${{ github.event.inputs.all_targets }}" == "false" ]; then
             STDOUT="$(echo "${STDOUT}" | awk -F 'stdout\\) ' '{print $2}')"
             OS="$(echo "${STDOUT}" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
             ARCH="$(echo "${STDOUT}" | awk '{print $2}' | tr '[:upper:]' '[:lower:]')"
