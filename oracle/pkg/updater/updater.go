@@ -497,7 +497,6 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	}
 
 	for _, bucket := range buckets {
-		bucket := bucket // closure for each errorgroup
 		eg.Go(func() error {
 			results, err := u.receiptBatcher.BatchReceipts(ctx, bucket)
 			if err != nil {
