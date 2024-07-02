@@ -129,6 +129,24 @@
   },
   {
     "type": "function",
+    "name": "depositForNWindows",
+    "inputs": [
+      {
+        "name": "window",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "n",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "depositForSpecificWindow",
     "inputs": [
       {
@@ -240,11 +258,6 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "_minDeposit",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "_feeRecipient",
         "type": "address",
         "internalType": "address"
@@ -323,16 +336,21 @@
   },
   {
     "type": "function",
-    "name": "minDeposit",
-    "inputs": [],
-    "outputs": [
+    "name": "moveDepositToWindow",
+    "inputs": [
       {
-        "name": "",
+        "name": "fromWindow",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "toWindow",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -574,6 +592,37 @@
     "type": "function",
     "name": "withdrawFeeRecipientAmount",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawFromNWindows",
+    "inputs": [
+      {
+        "name": "window",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "n",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawFromSpecificWindows",
+    "inputs": [
+      {
+        "name": "windows",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },

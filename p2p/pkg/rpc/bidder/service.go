@@ -29,6 +29,7 @@ type Service struct {
 	blockTrackerContract BlockTrackerContract
 	watcher              TxWatcher
 	optsGetter           OptsGetter
+	autoDepositTracker   AutoDepositTracker
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
@@ -43,6 +44,7 @@ func NewService(
 	validator *protovalidate.Validator,
 	watcher TxWatcher,
 	optsGetter OptsGetter,
+	autoDepositTracker AutoDepositTracker,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -55,8 +57,17 @@ func NewService(
 		optsGetter:           optsGetter,
 		logger:               logger,
 		metrics:              newMetrics(),
+		autoDepositTracker:   autoDepositTracker,
 		validator:            validator,
 	}
+}
+
+type AutoDepositTracker interface {
+	DoAutoMoveToAnotherWindow(context.Context, []*bidderapiv1.AutoDeposit) error
+	Stop() (*bidderapiv1.CancelAutoDepositResponse, error)
+	WithdrawAutoDeposit(context.Context, []*wrapperspb.UInt64Value) error
+	IsWorking() bool
+	GetStatus() (map[uint64]bool, bool)
 }
 
 type PreconfSender interface {
@@ -65,9 +76,10 @@ type PreconfSender interface {
 
 type BidderRegistryContract interface {
 	DepositForSpecificWindow(*bind.TransactOpts, *big.Int) (*types.Transaction, error)
+	DepositForNWindows(*bind.TransactOpts, *big.Int, uint16) (*types.Transaction, error)
 	WithdrawBidderAmountFromWindow(*bind.TransactOpts, common.Address, *big.Int) (*types.Transaction, error)
 	GetDeposit(*bind.CallOpts, common.Address, *big.Int) (*big.Int, error)
-	MinDeposit(*bind.CallOpts) (*big.Int, error)
+	WithdrawFromSpecificWindows(*bind.TransactOpts, []*big.Int) (*types.Transaction, error)
 	ParseBidderRegistered(types.Log) (*bidderregistry.BidderregistryBidderRegistered, error)
 	ParseBidderWithdrawal(types.Log) (*bidderregistry.BidderregistryBidderWithdrawal, error)
 }
@@ -145,6 +157,10 @@ func (s *Service) Deposit(
 	err := s.validator.Validate(r)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "validating deposit request: %v", err)
+	}
+
+	if s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running, stop and then deposit")
 	}
 
 	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
@@ -243,21 +259,6 @@ func (s *Service) GetDeposit(
 	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String(), WindowNumber: wrapperspb.UInt64(window.Uint64())}, nil
 }
 
-func (s *Service) GetMinDeposit(
-	ctx context.Context,
-	_ *bidderapiv1.EmptyMessage,
-) (*bidderapiv1.DepositResponse, error) {
-	stakeAmount, err := s.registryContract.MinDeposit(&bind.CallOpts{
-		From:    s.owner,
-		Context: ctx,
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getting min deposit: %v", err)
-	}
-
-	return &bidderapiv1.DepositResponse{Amount: stakeAmount.String()}, nil
-}
-
 func (s *Service) Withdraw(
 	ctx context.Context,
 	r *bidderapiv1.WithdrawRequest,
@@ -265,6 +266,10 @@ func (s *Service) Withdraw(
 	err := s.validator.Validate(r)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw request: %v", err)
+	}
+
+	if s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running, stop and then withdraw")
 	}
 
 	var window *big.Int
@@ -315,4 +320,213 @@ func (s *Service) Withdraw(
 	)
 
 	return nil, status.Errorf(codes.Internal, "missing log for withdrawal")
+}
+
+func (s *Service) AutoDeposit(
+	ctx context.Context,
+	r *bidderapiv1.DepositRequest,
+) (*bidderapiv1.AutoDepositResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "validating auto deposit request: %v", err)
+	}
+	if s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running")
+	}
+
+	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
+	}
+
+	windowToDeposit, err := s.calculateWindowToDeposit(ctx, r, currentWindow.Uint64())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "calculating window to deposit: %v", err)
+	}
+
+	amount, success := big.NewInt(0).SetString(r.Amount, 10)
+	if !success {
+		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", r.Amount)
+	}
+
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+	opts.Value = amount
+
+	// Deposit for 3 windows
+	tx, err := s.registryContract.DepositForNWindows(opts, windowToDeposit, 3)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "deposit: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	var ads []*bidderapiv1.AutoDeposit
+
+	for _, log := range receipt.Logs {
+		if registration, err := s.registryContract.ParseBidderRegistered(*log); err == nil {
+			s.logger.Info("deposit successful", "amount", registration.DepositedAmount, "window", registration.WindowNumber)
+			ads = append(ads, &bidderapiv1.AutoDeposit{
+				Amount:       registration.DepositedAmount.String(),
+				WindowNumber: wrapperspb.UInt64(registration.WindowNumber.Uint64()),
+			})
+		}
+	}
+
+	if len(ads) > 0 {
+		err := s.autoDepositTracker.DoAutoMoveToAnotherWindow(ctx, ads)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "auto deposit: %v", err)
+		}
+		return &bidderapiv1.AutoDepositResponse{
+			AmountsAndWindowNumbers: ads,
+		}, nil
+	}
+
+	s.logger.Error(
+		"deposit successful but missing log",
+		"txHash", receipt.TxHash.Hex(),
+		"window", windowToDeposit,
+		"logs", receipt.Logs,
+	)
+
+	return nil, status.Errorf(codes.Internal, "missing log for deposit")
+}
+
+func (s *Service) CancelAutoDeposit(
+	ctx context.Context,
+	_ *bidderapiv1.EmptyMessage,
+) (*bidderapiv1.CancelAutoDepositResponse, error) {
+	if !s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is not running")
+	}
+
+	cancelResponse, err := s.autoDepositTracker.Stop()
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
+	}
+	return &bidderapiv1.CancelAutoDepositResponse{
+		WindowNumbers: cancelResponse.WindowNumbers,
+	}, nil
+}
+
+func (s *Service) CancelAndWithdrawAutoDeposit(
+	ctx context.Context,
+	_ *bidderapiv1.EmptyMessage,
+) (*bidderapiv1.CancelAutoDepositResponse, error) {
+	if !s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is not running")
+	}
+	cancelResponse, err := s.autoDepositTracker.Stop()
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
+	}
+	err = s.autoDepositTracker.WithdrawAutoDeposit(ctx, cancelResponse.WindowNumbers)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawal: %v", err)
+	}
+	return &bidderapiv1.CancelAutoDepositResponse{
+		WindowNumbers: cancelResponse.WindowNumbers,
+	}, nil
+}
+
+func (s *Service) WithdrawFromSpecificWindows(
+	ctx context.Context,
+	r *bidderapiv1.WithdrawFromSpecificWindowsRequest,
+) (*bidderapiv1.AutoDepositResponse, error) {
+	err := s.validator.Validate(r)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw from n windows request: %v", err)
+	}
+
+	if s.autoDepositTracker.IsWorking() {
+		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running, stop and then withdraw")
+	}
+
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	windows := make([]*big.Int, len(r.WindowNumbers))
+	for i, w := range r.WindowNumbers {
+		windows[i] = new(big.Int).SetUint64(w.Value)
+	}
+
+	tx, err := s.registryContract.WithdrawFromSpecificWindows(opts, windows)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	var amountsAndWindows []*bidderapiv1.AutoDeposit
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.registryContract.ParseBidderWithdrawal(*log); err == nil {
+			s.logger.Info("withdrawal successful", "amount", withdrawal.Amount.String(), "window", withdrawal.Window.String())
+			amountsAndWindows = append(amountsAndWindows, &bidderapiv1.AutoDeposit{
+				Amount:       withdrawal.Amount.String(),
+				WindowNumber: wrapperspb.UInt64(withdrawal.Window.Uint64()),
+			})
+		}
+	}
+
+	if len(amountsAndWindows) > 0 {
+		return &bidderapiv1.AutoDepositResponse{
+			AmountsAndWindowNumbers: amountsAndWindows,
+		}, nil
+	}
+
+	s.logger.Error(
+		"withdraw successful but missing log",
+		"txHash", receipt.TxHash.Hex(),
+		"window", r.WindowNumbers,
+		"logs", receipt.Logs,
+	)
+
+	return nil, status.Errorf(codes.Internal, "missing log for withdrawal")
+}
+
+func (s *Service) AutoDepositStatus(
+	ctx context.Context,
+	_ *bidderapiv1.EmptyMessage,
+) (*bidderapiv1.AutoDepositStatusResponse, error) {
+	deposits, isWorking := s.autoDepositTracker.GetStatus()
+	var autoDeposits []*bidderapiv1.AutoDeposit
+	for window, ok := range deposits {
+		if ok {
+			stakeAmount, err := s.registryContract.GetDeposit(&bind.CallOpts{
+				From:    s.owner,
+				Context: ctx,
+			}, s.owner, new(big.Int).SetUint64(window))
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
+			}
+			autoDeposits = append(autoDeposits, &bidderapiv1.AutoDeposit{
+				WindowNumber: wrapperspb.UInt64(window),
+				Amount:       stakeAmount.String(),
+			})
+		}
+	}
+
+	return &bidderapiv1.AutoDepositStatusResponse{
+		AmountsAndWindowNumbers: autoDeposits,
+		IsWorking:               isWorking,
+	}, nil
 }

@@ -19,11 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion8
 
 const (
-	Bidder_SendBid_FullMethodName       = "/bidderapi.v1.Bidder/SendBid"
-	Bidder_Deposit_FullMethodName       = "/bidderapi.v1.Bidder/Deposit"
-	Bidder_GetDeposit_FullMethodName    = "/bidderapi.v1.Bidder/GetDeposit"
-	Bidder_GetMinDeposit_FullMethodName = "/bidderapi.v1.Bidder/GetMinDeposit"
-	Bidder_Withdraw_FullMethodName      = "/bidderapi.v1.Bidder/Withdraw"
+	Bidder_SendBid_FullMethodName                      = "/bidderapi.v1.Bidder/SendBid"
+	Bidder_Deposit_FullMethodName                      = "/bidderapi.v1.Bidder/Deposit"
+	Bidder_AutoDeposit_FullMethodName                  = "/bidderapi.v1.Bidder/AutoDeposit"
+	Bidder_CancelAutoDeposit_FullMethodName            = "/bidderapi.v1.Bidder/CancelAutoDeposit"
+	Bidder_AutoDepositStatus_FullMethodName            = "/bidderapi.v1.Bidder/AutoDepositStatus"
+	Bidder_CancelAndWithdrawAutoDeposit_FullMethodName = "/bidderapi.v1.Bidder/CancelAndWithdrawAutoDeposit"
+	Bidder_WithdrawFromSpecificWindows_FullMethodName  = "/bidderapi.v1.Bidder/WithdrawFromSpecificWindows"
+	Bidder_GetDeposit_FullMethodName                   = "/bidderapi.v1.Bidder/GetDeposit"
+	Bidder_Withdraw_FullMethodName                     = "/bidderapi.v1.Bidder/Withdraw"
 )
 
 // BidderClient is the client API for Bidder service.
@@ -38,14 +42,30 @@ type BidderClient interface {
 	//
 	// Deposit is called by the bidder node to add deposit in the bidder registry.
 	Deposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*DepositResponse, error)
+	// AutoDeposit
+	//
+	// AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+	AutoDeposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*AutoDepositResponse, error)
+	// CancelAutoDeposit
+	//
+	// CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+	CancelAutoDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*CancelAutoDepositResponse, error)
+	// AutoDepositStatus
+	//
+	// AutoDepositStatus is called by the bidder node to get the status of the auto deposit.
+	AutoDepositStatus(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*AutoDepositStatusResponse, error)
+	// CancelAndWithdrawAutoDeposit
+	//
+	// CancelAndWithdrawAutoDeposit is called by the bidder node to cancel the auto deposit and withdraw the funds.
+	CancelAndWithdrawAutoDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*CancelAutoDepositResponse, error)
+	// WithdrawFromSpecificWindows
+	//
+	// WithdrawFromSpecificWindows is called by the bidder node to withdraw funds from specific windows.
+	WithdrawFromSpecificWindows(ctx context.Context, in *WithdrawFromSpecificWindowsRequest, opts ...grpc.CallOption) (*AutoDepositResponse, error)
 	// GetDeposit
 	//
 	// GetDeposit is called by the bidder to get its deposit in the bidder registry.
 	GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*DepositResponse, error)
-	// GetMinDeposit
-	//
-	// GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
-	GetMinDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*DepositResponse, error)
 	// Withdraw
 	//
 	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
@@ -103,20 +123,60 @@ func (c *bidderClient) Deposit(ctx context.Context, in *DepositRequest, opts ...
 	return out, nil
 }
 
-func (c *bidderClient) GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*DepositResponse, error) {
+func (c *bidderClient) AutoDeposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*AutoDepositResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DepositResponse)
-	err := c.cc.Invoke(ctx, Bidder_GetDeposit_FullMethodName, in, out, cOpts...)
+	out := new(AutoDepositResponse)
+	err := c.cc.Invoke(ctx, Bidder_AutoDeposit_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *bidderClient) GetMinDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*DepositResponse, error) {
+func (c *bidderClient) CancelAutoDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*CancelAutoDepositResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelAutoDepositResponse)
+	err := c.cc.Invoke(ctx, Bidder_CancelAutoDeposit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) AutoDepositStatus(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*AutoDepositStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AutoDepositStatusResponse)
+	err := c.cc.Invoke(ctx, Bidder_AutoDepositStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) CancelAndWithdrawAutoDeposit(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*CancelAutoDepositResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelAutoDepositResponse)
+	err := c.cc.Invoke(ctx, Bidder_CancelAndWithdrawAutoDeposit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) WithdrawFromSpecificWindows(ctx context.Context, in *WithdrawFromSpecificWindowsRequest, opts ...grpc.CallOption) (*AutoDepositResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AutoDepositResponse)
+	err := c.cc.Invoke(ctx, Bidder_WithdrawFromSpecificWindows_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *bidderClient) GetDeposit(ctx context.Context, in *GetDepositRequest, opts ...grpc.CallOption) (*DepositResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DepositResponse)
-	err := c.cc.Invoke(ctx, Bidder_GetMinDeposit_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Bidder_GetDeposit_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -145,14 +205,30 @@ type BidderServer interface {
 	//
 	// Deposit is called by the bidder node to add deposit in the bidder registry.
 	Deposit(context.Context, *DepositRequest) (*DepositResponse, error)
+	// AutoDeposit
+	//
+	// AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+	AutoDeposit(context.Context, *DepositRequest) (*AutoDepositResponse, error)
+	// CancelAutoDeposit
+	//
+	// CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+	CancelAutoDeposit(context.Context, *EmptyMessage) (*CancelAutoDepositResponse, error)
+	// AutoDepositStatus
+	//
+	// AutoDepositStatus is called by the bidder node to get the status of the auto deposit.
+	AutoDepositStatus(context.Context, *EmptyMessage) (*AutoDepositStatusResponse, error)
+	// CancelAndWithdrawAutoDeposit
+	//
+	// CancelAndWithdrawAutoDeposit is called by the bidder node to cancel the auto deposit and withdraw the funds.
+	CancelAndWithdrawAutoDeposit(context.Context, *EmptyMessage) (*CancelAutoDepositResponse, error)
+	// WithdrawFromSpecificWindows
+	//
+	// WithdrawFromSpecificWindows is called by the bidder node to withdraw funds from specific windows.
+	WithdrawFromSpecificWindows(context.Context, *WithdrawFromSpecificWindowsRequest) (*AutoDepositResponse, error)
 	// GetDeposit
 	//
 	// GetDeposit is called by the bidder to get its deposit in the bidder registry.
 	GetDeposit(context.Context, *GetDepositRequest) (*DepositResponse, error)
-	// GetMinDeposit
-	//
-	// GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
-	GetMinDeposit(context.Context, *EmptyMessage) (*DepositResponse, error)
 	// Withdraw
 	//
 	// Withdraw is called by the bidder to withdraw deposit from the bidder registry.
@@ -170,11 +246,23 @@ func (UnimplementedBidderServer) SendBid(*Bid, Bidder_SendBidServer) error {
 func (UnimplementedBidderServer) Deposit(context.Context, *DepositRequest) (*DepositResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Deposit not implemented")
 }
+func (UnimplementedBidderServer) AutoDeposit(context.Context, *DepositRequest) (*AutoDepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AutoDeposit not implemented")
+}
+func (UnimplementedBidderServer) CancelAutoDeposit(context.Context, *EmptyMessage) (*CancelAutoDepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelAutoDeposit not implemented")
+}
+func (UnimplementedBidderServer) AutoDepositStatus(context.Context, *EmptyMessage) (*AutoDepositStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AutoDepositStatus not implemented")
+}
+func (UnimplementedBidderServer) CancelAndWithdrawAutoDeposit(context.Context, *EmptyMessage) (*CancelAutoDepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelAndWithdrawAutoDeposit not implemented")
+}
+func (UnimplementedBidderServer) WithdrawFromSpecificWindows(context.Context, *WithdrawFromSpecificWindowsRequest) (*AutoDepositResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WithdrawFromSpecificWindows not implemented")
+}
 func (UnimplementedBidderServer) GetDeposit(context.Context, *GetDepositRequest) (*DepositResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDeposit not implemented")
-}
-func (UnimplementedBidderServer) GetMinDeposit(context.Context, *EmptyMessage) (*DepositResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetMinDeposit not implemented")
 }
 func (UnimplementedBidderServer) Withdraw(context.Context, *WithdrawRequest) (*WithdrawResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Withdraw not implemented")
@@ -231,6 +319,96 @@ func _Bidder_Deposit_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Bidder_AutoDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DepositRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).AutoDeposit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_AutoDeposit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).AutoDeposit(ctx, req.(*DepositRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_CancelAutoDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).CancelAutoDeposit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_CancelAutoDeposit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).CancelAutoDeposit(ctx, req.(*EmptyMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_AutoDepositStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).AutoDepositStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_AutoDepositStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).AutoDepositStatus(ctx, req.(*EmptyMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_CancelAndWithdrawAutoDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).CancelAndWithdrawAutoDeposit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_CancelAndWithdrawAutoDeposit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).CancelAndWithdrawAutoDeposit(ctx, req.(*EmptyMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Bidder_WithdrawFromSpecificWindows_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WithdrawFromSpecificWindowsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BidderServer).WithdrawFromSpecificWindows(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Bidder_WithdrawFromSpecificWindows_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BidderServer).WithdrawFromSpecificWindows(ctx, req.(*WithdrawFromSpecificWindowsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Bidder_GetDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetDepositRequest)
 	if err := dec(in); err != nil {
@@ -245,24 +423,6 @@ func _Bidder_GetDeposit_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BidderServer).GetDeposit(ctx, req.(*GetDepositRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Bidder_GetMinDeposit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyMessage)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BidderServer).GetMinDeposit(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Bidder_GetMinDeposit_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BidderServer).GetMinDeposit(ctx, req.(*EmptyMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -297,12 +457,28 @@ var Bidder_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Bidder_Deposit_Handler,
 		},
 		{
-			MethodName: "GetDeposit",
-			Handler:    _Bidder_GetDeposit_Handler,
+			MethodName: "AutoDeposit",
+			Handler:    _Bidder_AutoDeposit_Handler,
 		},
 		{
-			MethodName: "GetMinDeposit",
-			Handler:    _Bidder_GetMinDeposit_Handler,
+			MethodName: "CancelAutoDeposit",
+			Handler:    _Bidder_CancelAutoDeposit_Handler,
+		},
+		{
+			MethodName: "AutoDepositStatus",
+			Handler:    _Bidder_AutoDepositStatus_Handler,
+		},
+		{
+			MethodName: "CancelAndWithdrawAutoDeposit",
+			Handler:    _Bidder_CancelAndWithdrawAutoDeposit_Handler,
+		},
+		{
+			MethodName: "WithdrawFromSpecificWindows",
+			Handler:    _Bidder_WithdrawFromSpecificWindows_Handler,
+		},
+		{
+			MethodName: "GetDeposit",
+			Handler:    _Bidder_GetDeposit_Handler,
 		},
 		{
 			MethodName: "Withdraw",

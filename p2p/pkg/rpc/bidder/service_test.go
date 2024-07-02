@@ -80,10 +80,14 @@ func (s *testSender) SendBid(
 
 type testRegistryContract struct {
 	deposit    *big.Int
-	minDeposit *big.Int
 }
 
 func (t *testRegistryContract) DepositForSpecificWindow(opts *bind.TransactOpts, _ *big.Int) (*types.Transaction, error) {
+	t.deposit = opts.Value
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
+func (t *testRegistryContract) DepositForNWindows(opts *bind.TransactOpts, _ *big.Int, _ uint16) (*types.Transaction, error) {
 	t.deposit = opts.Value
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
@@ -100,10 +104,6 @@ func (t *testRegistryContract) GetDeposit(_ *bind.CallOpts, _ common.Address, _ 
 	return t.deposit, nil
 }
 
-func (t *testRegistryContract) MinDeposit(_ *bind.CallOpts) (*big.Int, error) {
-	return t.minDeposit, nil
-}
-
 func (t *testRegistryContract) ParseBidderRegistered(_ types.Log) (*bidderregistry.BidderregistryBidderRegistered, error) {
 	return &bidderregistry.BidderregistryBidderRegistered{
 		DepositedAmount: t.deposit,
@@ -116,6 +116,48 @@ func (t *testRegistryContract) ParseBidderWithdrawal(_ types.Log) (*bidderregist
 		Amount: t.deposit,
 		Window: big.NewInt(1),
 	}, nil
+}
+
+func (t *testRegistryContract) WithdrawFromSpecificWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
+	return types.NewTransaction(3, common.Address{}, nil, 0, nil, nil), nil
+}
+
+type testAutoDepositTracker struct {
+	deposits  map[uint64]bool
+	isWorking bool
+}
+
+func (t *testAutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ads []*bidderapiv1.AutoDeposit) error {
+	t.isWorking = true
+	for _, ad := range ads {
+		t.deposits[ad.WindowNumber.Value] = true
+	}
+
+	return nil
+}
+
+func (t *testAutoDepositTracker) IsWorking() bool {
+	return t.isWorking
+}
+
+func (t *testAutoDepositTracker) GetStatus() (map[uint64]bool, bool) {
+	return t.deposits, t.isWorking
+}
+
+func (t *testAutoDepositTracker) Stop() (*bidderapiv1.CancelAutoDepositResponse, error) {
+	t.isWorking = false
+	var windowNumbers []*wrapperspb.UInt64Value
+	for k := range t.deposits {
+		windowNumbers = append(windowNumbers, &wrapperspb.UInt64Value{Value: k})
+		delete(t.deposits, k)
+	}
+	return &bidderapiv1.CancelAutoDepositResponse{
+		WindowNumbers: windowNumbers,
+	}, nil
+}
+
+func (t *testAutoDepositTracker) WithdrawAutoDeposit(ctx context.Context, windowNumbers []*wrapperspb.UInt64Value) error {
+	return nil
 }
 
 type testTxWatcher struct {
@@ -159,9 +201,10 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	}
 
 	owner := common.HexToAddress("0x00001")
-	registryContract := &testRegistryContract{minDeposit: big.NewInt(100000000000000000)}
+	registryContract := &testRegistryContract{}
 	sender := &testSender{noOfPreconfs: 2}
 	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
+	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
 	srvImpl := bidderapi.NewService(
 		owner,
 		blockTrackerContract.blocksPerWindow,
@@ -176,6 +219,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 				Context: ctx,
 			}, nil
 		},
+		testAutoDepositTracker,
 		logger,
 	)
 
@@ -264,16 +308,6 @@ func TestDepositHandling(t *testing.T) {
 		}
 		if deposit.Amount != "1000000000000000000" {
 			t.Fatalf("expected amount to be 1000000000000000000, got %v", deposit.Amount)
-		}
-	})
-
-	t.Run("get min deposit", func(t *testing.T) {
-		deposit, err := client.GetMinDeposit(context.Background(), &bidderapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error getting min deposit: %v", err)
-		}
-		if deposit.Amount != "100000000000000000" {
-			t.Fatalf("expected amount to be 100000000000000000, got %v", deposit.Amount)
 		}
 	})
 

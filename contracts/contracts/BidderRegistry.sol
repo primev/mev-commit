@@ -25,9 +25,6 @@ contract BidderRegistry is
     /// @dev Fee percent that would be taken by protocol when provider is slashed
     uint16 public feePercent;
 
-    /// @dev Minimum deposit required for registration
-    uint256 public minDeposit;
-
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
 
@@ -114,20 +111,19 @@ contract BidderRegistry is
 
     /**
      * @dev Initializes the contract with a minimum deposit requirement.
-     * @param _minDeposit The minimum deposit required for bidder registration.
      * @param _feeRecipient The address that receives fee
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
+     * @param _blockTracker The address of the block tracker contract.
+     * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
-        uint256 _minDeposit,
         address _feeRecipient,
         uint16 _feePercent,
         address _owner,
         address _blockTracker,
         uint256 _blocksPerWindow
     ) external initializer {
-        minDeposit = _minDeposit;
         feeRecipient = _feeRecipient;
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
@@ -168,6 +164,7 @@ contract BidderRegistry is
 
     /**
      * @dev Get the amount assigned to a provider.
+     * @param provider The address of the provider.
      */
     function getProviderAmount(
         address provider
@@ -187,8 +184,6 @@ contract BidderRegistry is
      * @param window The window for which the deposit is being made.
      */
     function depositForSpecificWindow(uint256 window) external payable {
-        require(msg.value >= minDeposit, "Insufficient deposit");
-
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -203,8 +198,136 @@ contract BidderRegistry is
     }
 
     /**
+     * @dev Move deposit from one window to another.
+     * @param fromWindow The window from which the deposit is being moved.
+     * @param toWindow The window to which the deposit is being moved.
+     */
+    function moveDepositToWindow(
+        uint256 fromWindow,
+        uint256 toWindow
+    ) external nonReentrant {
+        require(
+            fromWindow < toWindow,
+            "fromWindow should be less than toWindow"
+        );
+        uint256 currentWindow = blockTrackerContract.getCurrentWindow();
+        require(
+            fromWindow < currentWindow,
+            "funds can only be moved after the window is settled"
+        );
+        uint256 deposit = lockedFunds[msg.sender][fromWindow];
+        require(deposit > 0, "deposit amount is zero");
+
+        lockedFunds[msg.sender][fromWindow] = 0;
+        maxBidPerBlock[msg.sender][fromWindow] = 0;
+
+        uint256 newLockedFunds = lockedFunds[msg.sender][toWindow] + deposit;
+
+        lockedFunds[msg.sender][toWindow] = newLockedFunds;
+        maxBidPerBlock[msg.sender][toWindow] = newLockedFunds / blocksPerWindow;
+
+        emit BidderRegistered(msg.sender, newLockedFunds, toWindow);
+        emit BidderWithdrawal(msg.sender, fromWindow, deposit);
+    }
+
+    /**
+     * @dev Deposit for n windows.
+     * @param window The window for which the deposit is being made.
+     * @param n The number of windows for which the deposit is being made.
+     */
+    function depositForNWindows(uint256 window, uint16 n) external payable {
+        if (!bidderRegistered[msg.sender]) {
+            bidderRegistered[msg.sender] = true;
+        }
+
+        uint256 amountToDeposit = msg.value / n;
+        uint256 remainingAmount = msg.value % n; // to handle rounding issues
+
+        for (uint16 i = 0; i < n; i++) {
+            uint256 windowIndex = window + i;
+            uint256 currentLockedFunds = lockedFunds[msg.sender][windowIndex];
+
+            uint256 newLockedFunds = currentLockedFunds + amountToDeposit;
+            if (i == n - 1) {
+                newLockedFunds += remainingAmount; // Add the remainder to the last window
+            }
+
+            lockedFunds[msg.sender][windowIndex] = newLockedFunds;
+            maxBidPerBlock[msg.sender][windowIndex] =
+                newLockedFunds /
+                blocksPerWindow;
+
+            emit BidderRegistered(msg.sender, newLockedFunds, windowIndex);
+        }
+    }
+
+    /**
+     * @dev Withdraw from n windows.
+     * @param window The window for which the deposit is being withdrawn.
+     * @param n The number of windows for which the deposit is being withdrawn.
+     */
+    function withdrawFromNWindows(
+        uint256 window,
+        uint16 n
+    ) external nonReentrant {
+        uint256 currentWindow = blockTrackerContract.getCurrentWindow();
+        require(
+            window + n < currentWindow,
+            "funds can only be withdrawn after the window is settled"
+        );
+
+        uint256 totalAmount = 0;
+        for (uint16 i = 0; i < n; i++) {
+            uint256 windowIndex = window + i;
+            uint256 amount = lockedFunds[msg.sender][windowIndex];
+            totalAmount += amount;
+            lockedFunds[msg.sender][windowIndex] = 0;
+            maxBidPerBlock[msg.sender][windowIndex] = 0;
+            emit BidderWithdrawal(msg.sender, window, amount);
+        }
+
+        require(totalAmount > 0, "bidder Amount is zero");
+
+        (bool success, ) = msg.sender.call{value: totalAmount}("");
+        require(success, "couldn't transfer to bidder");
+    }
+
+    /**
+     * @dev Withdraw from specific windows.
+     * @param windows The windows from which the deposit is being withdrawn.
+     */
+    function withdrawFromSpecificWindows(
+        uint256[] calldata windows
+    ) external nonReentrant {
+        uint256 currentWindow = blockTrackerContract.getCurrentWindow();
+        address sender = msg.sender;
+        uint256 totalAmount;
+
+        for (uint256 i = 0; i < windows.length; i++) {
+            uint256 window = windows[i];
+            require(
+                window < currentWindow,
+                "funds can only be withdrawn after the window is settled"
+            );
+
+            uint256 amount = lockedFunds[sender][window];
+            require(amount > 0, "bidder Amount is zero");
+
+            lockedFunds[sender][window] = 0;
+            maxBidPerBlock[sender][window] = 0;
+            emit BidderWithdrawal(sender, window, amount);
+
+            totalAmount += amount;
+        }
+
+        require(totalAmount > 0, "Total withdrawal amount is zero");
+        (bool success, ) = sender.call{value: totalAmount}("");
+        require(success, "Couldn't transfer to bidder");
+    }
+    /**
      * @dev Check the deposit of a bidder.
      * @param bidder The address of the bidder.
+     * @param window The window for which the deposit is being checked.
      * @return The deposited amount for the bidder.
      */
     function getDeposit(
@@ -217,8 +340,10 @@ contract BidderRegistry is
     /**
      * @dev Retrieve funds from a bidder's deposit (only callable by the pre-confirmations contract).
      * @dev reenterancy not necessary but still putting here for precaution
+     * @param windowToSettle The window for which the funds are being retrieved.
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      * @param provider The address to transfer the retrieved funds to.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function retrieveFunds(
         uint256 windowToSettle,
@@ -267,6 +392,7 @@ contract BidderRegistry is
     /**
      * @dev Return funds to a bidder's deposit (only callable by the pre-confirmations contract).
      * @dev reenterancy not necessary but still putting here for precaution
+     * @param window The window for which the funds are being retrieved.
      * @param bidID is the Bid ID that allows us to identify the bid, and deposit
      */
     function unlockFunds(
@@ -382,6 +508,7 @@ contract BidderRegistry is
     /**
      * @dev Withdraw funds to the bidder.
      * @param bidder The address of the bidder.
+     * @param window The window for which the funds are being withdrawn.
      */
     function withdrawBidderAmountFromWindow(
         address payable bidder,
@@ -401,6 +528,7 @@ contract BidderRegistry is
         lockedFunds[bidder][window] = 0;
         require(amount > 0, "bidder Amount is zero");
 
+        maxBidPerBlock[bidder][window] = 0;
         (bool success, ) = bidder.call{value: amount}("");
         require(success, "couldn't transfer to bidder");
 
