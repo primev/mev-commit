@@ -21,6 +21,7 @@ type metrics struct {
 	BlockTimeCacheHits        prometheus.Counter
 	BlockTimeCacheMisses      prometheus.Counter
 	LastSentNonce             prometheus.Gauge
+	TxnReceiptRequestDuration prometheus.Histogram
 }
 
 func newMetrics() *metrics {
@@ -127,6 +128,14 @@ func newMetrics() *metrics {
 			Subsystem: subsystem,
 			Name:      "last_sent_nonce",
 			Help:      "Last nonce sent to for settlement",
+		},
+	)
+	m.TxnReceiptRequestDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "txn_receipt_request_duration",
+			Help:      "Duration of transaction receipt requests",
 		},
 	)
 	return m

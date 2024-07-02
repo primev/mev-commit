@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -498,10 +499,12 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 
 	for _, bucket := range buckets {
 		eg.Go(func() error {
+			start := time.Now()
 			results, err := u.receiptBatcher.BatchReceipts(ctx, bucket)
 			if err != nil {
 				return fmt.Errorf("failed to get batch receipts: %w", err)
 			}
+			u.metrics.TxnReceiptRequestDuration.Observe(time.Since(start).Seconds())
 			for _, result := range results {
 				if result.Err != nil {
 					return fmt.Errorf("failed to get receipt for txn: %s", result.Err)
