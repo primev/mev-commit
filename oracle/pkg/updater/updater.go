@@ -91,7 +91,6 @@ type Oracle interface {
 
 type EVMClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 type Updater struct {
@@ -509,7 +508,7 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 					return fmt.Errorf("failed to get receipt for txn: %s", result.Err)
 				}
 
-				txnReceipts.Store(result.Receipt.TxHash.Hex(), *result.Receipt)
+				txnReceipts.Store(result.Receipt.TxHash.Hex(), result.Receipt)
 			}
 
 			return nil
@@ -526,7 +525,7 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 		if !ok {
 			return nil, fmt.Errorf("receipt not found for txn: %s", tx)
 		}
-		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(types.Receipt).Status == types.ReceiptStatusSuccessful}
+		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful}
 	}
 
 	_ = u.l1BlockCache.Add(blockNum, txnsMap)
