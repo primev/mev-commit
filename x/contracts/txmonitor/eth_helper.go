@@ -2,6 +2,7 @@ package txmonitor
 
 import (
 	"context"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -111,13 +112,29 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 		}
 	}
 
-	// Execute the batch request
-	err := e.client.BatchCallContext(ctx, batch)
+	var receipts []Result
+	var err error
+	for retries := 0; retries < 3; retries++ {
+		// Execute the batch request
+		err = e.client.BatchCallContext(ctx, batch)
+		if err == nil {
+			break
+		}
+
+		// Check if the error is a 429 (Too Many Requests)
+		if rpcErr, ok := err.(rpc.Error); ok && rpcErr.ErrorCode() == 429 {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
-	receipts := make([]Result, len(batch))
+	receipts = make([]Result, len(batch))
 	for i, elem := range batch {
 		receipts[i].Receipt = elem.Result.(*types.Receipt)
 		if elem.Error != nil {
