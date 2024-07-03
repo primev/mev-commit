@@ -2,9 +2,11 @@ import json
 import argparse
 import time
 from web3 import Web3
+from web3.middleware import geth_poa_middleware
 from eth_account import Account
 
 def check_geth_running(w3):
+    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
     while True:
         try:
             latest_block = w3.eth.get_block('latest')
