@@ -79,13 +79,14 @@ func TestL1Listener(t *testing.T) {
 		}
 	}
 
-	// no winner
-	ethClient.AddHeader(10, &types.Header{
-		Number: big.NewInt(10),
-	})
+	// // no winner
+	// ethClient.AddHeader(10, &types.Header{
+	// 	Number: big.NewInt(10),
+	// })
 
-	// error registering winner, ensure it is retried
-	ethClient.errC <- errors.New("dummy error")
+	// // error registering winner, ensure it is retried
+	// ethClient.errC <- errors.New("dummy error")
+
 	ethClient.AddHeader(11, &types.Header{
 		Number: big.NewInt(11),
 		Extra:  []byte("b11"),

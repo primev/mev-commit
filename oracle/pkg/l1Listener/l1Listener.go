@@ -154,6 +154,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 			for b := uint64(currentBlockNo) + 1; b <= blockNum; b++ {
 				header, err := l.l1Client.HeaderByNumber(ctx, big.NewInt(int64(b)))
 				if err != nil {
+					panic(err)
 					l.logger.Error("failed to get header", "block", b, "error", err)
 					continue
 				}
@@ -172,7 +173,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				)
 				if err != nil {
 					l.logger.Error("failed to register winner for block", "block", b, "error", err)
-					continue
+					return err
 				}
 
 				l.metrics.WinnerPostedCount.Inc()
