@@ -49,6 +49,7 @@ jobs:
   cluster:
     name: Setup and Test Nomad Cluster
     runs-on: ubuntu-22.04
+    run-name: ${{ github.event.workflow_run.head_branch || github.event.workflow_run.head_sha }}
     timeout-minutes: 180
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
