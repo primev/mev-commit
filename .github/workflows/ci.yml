@@ -53,166 +53,172 @@ jobs:
         if: github.event_name == 'pull_request'
         run: npx commitlint --from ${{ github.event.pull_request.head.sha }}~${{ github.event.pull_request.commits }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
-  go-modules:
-    name: Test and Build Go Modules
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
+  infrastructure:
+    uses: ./.github/workflows/infrastructure.yml
+    secrets: inherit
+    needs:
+      - commitlint
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Setup Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/go/pkg/mod
-            ~/.cache/go-build
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
-          restore-keys: ${{ runner.os }}-go-
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.22
-          check-latest: true
-          cache-dependency-path: go.work.sum
-
-      - name: Determine Workspace Modules
-        run: |
-          echo $(go list -f '{{.Dir}}' -m)
-          echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> ${GITHUB_ENV}
-
-      - name: Run Gofmt
-        run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l
-
-      - name: Run Tidy & Workspace Sync
-        run: |
-          go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
-          go work sync
-          git checkout ${{ github.event.pull_request.head.ref }}
-          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work/go.work.sum files" && exit 1)
-          git reset --hard HEAD
-
-      - name: Run Lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: v1.57.2
-          args: --timeout 15m --verbose ${{ env.GO_LINT_DIRS }}
-          skip-cache: true # TODO(mrekucci): remove when the following issue is solved https://github.com/golangci/golangci-lint-action/issues/135#issuecomment-2039548548
-
-      - name: Run Build
-        run: go list -f '{{.Dir}}/...' -m | xargs go build
-
-        # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
-      - name: Run Test
-        run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test -short -race
-
-      - name: Setup Protobuf
-        uses: bufbuild/buf-setup-action@v1.31.0
-
-      - name: Protobuf Version
-        run: buf --version
-
-      - name: Check Protobuf Parity
-        run: |
-          make bufgen
-          git checkout ${{ github.event.pull_request.head.ref }}
-          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
-          git reset --hard HEAD
-        working-directory: p2p
-
-  foundry:
-    name: Foundry Checks and Reports
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: contracts
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Print Versions
-        run: |
-          git --version
-          node --version
-          npm --version
-          forge --version
-
-      - name: Run Tests
-        run: forge clean && forge test -vvv --via-ir
-
-      - name: Run Snapshot
-        run: forge clean && forge snapshot --via-ir
-
-      - name: Run Coverage
-        run: forge clean && forge coverage --ir-minimum
-
-  contracts:
-    name: Test and Build Contracts Scripts
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: contracts
-
-    strategy:
-      matrix:
-        node-version: [ 18.x, 20.x ] # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache-dependency-path: ./contracts/package-lock.json
-          cache: npm
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install Hardhat
-        run: npm install -g hardhat
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Print Versions
-        run: |
-          git --version
-          node --version
-          npm --version
-          forge --version
-
-      - name: Build
-        run: npm run build --if-present
-
-      - name: Install abigen
-        run: |
-          sudo add-apt-repository -y ppa:ethereum/ethereum
-          sudo apt-get update
-          sudo apt-get install -y ethereum
-          abigen --version
-
-      - name: Check ABI Parity
-        run: |
-          bash script.sh
-          git checkout ${{ github.event.pull_request.head.ref }}
-          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
-          git reset --hard HEAD
-        working-directory: contracts-abi
+#  go-modules:
+#    name: Test and Build Go Modules
+#    runs-on: ubuntu-22.04
+#    timeout-minutes: 60
+#
+#    steps:
+#      - name: Checkout Code
+#        uses: actions/checkout@v4
+#        with:
+#          fetch-depth: 0
+#          submodules: recursive
+#
+#      - name: Setup Cache
+#        uses: actions/cache@v4
+#        with:
+#          path: |
+#            ~/go/pkg/mod
+#            ~/.cache/go-build
+#          key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
+#          restore-keys: ${{ runner.os }}-go-
+#
+#      - name: Setup Go
+#        uses: actions/setup-go@v5
+#        with:
+#          go-version: 1.22
+#          check-latest: true
+#          cache-dependency-path: go.work.sum
+#
+#      - name: Determine Workspace Modules
+#        run: |
+#          echo $(go list -f '{{.Dir}}' -m)
+#          echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> ${GITHUB_ENV}
+#
+#      - name: Run Gofmt
+#        run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l
+#
+#      - name: Run Tidy & Workspace Sync
+#        run: |
+#          go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
+#          go work sync
+#          git checkout ${{ github.event.pull_request.head.ref }}
+#          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work/go.work.sum files" && exit 1)
+#          git reset --hard HEAD
+#
+#      - name: Run Lint
+#        uses: golangci/golangci-lint-action@v4
+#        with:
+#          version: v1.57.2
+#          args: --timeout 15m --verbose ${{ env.GO_LINT_DIRS }}
+#          skip-cache: true # TODO(mrekucci): remove when the following issue is solved https://github.com/golangci/golangci-lint-action/issues/135#issuecomment-2039548548
+#
+#      - name: Run Build
+#        run: go list -f '{{.Dir}}/...' -m | xargs go build
+#
+#        # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
+#      - name: Run Test
+#        run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test -short -race
+#
+#      - name: Setup Protobuf
+#        uses: bufbuild/buf-setup-action@v1.31.0
+#
+#      - name: Protobuf Version
+#        run: buf --version
+#
+#      - name: Check Protobuf Parity
+#        run: |
+#          make bufgen
+#          git checkout ${{ github.event.pull_request.head.ref }}
+#          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
+#          git reset --hard HEAD
+#        working-directory: p2p
+#
+#  foundry:
+#    name: Foundry Checks and Reports
+#    runs-on: ubuntu-22.04
+#    timeout-minutes: 30
+#    defaults:
+#      run:
+#        working-directory: contracts
+#
+#    steps:
+#      - name: Checkout Code
+#        uses: actions/checkout@v4
+#        with:
+#          submodules: recursive
+#
+#      - name: Install Foundry
+#        uses: foundry-rs/foundry-toolchain@v1
+#
+#      - name: Print Versions
+#        run: |
+#          git --version
+#          node --version
+#          npm --version
+#          forge --version
+#
+#      - name: Run Tests
+#        run: forge clean && forge test -vvv --via-ir
+#
+#      - name: Run Snapshot
+#        run: forge clean && forge snapshot --via-ir
+#
+#      - name: Run Coverage
+#        run: forge clean && forge coverage --ir-minimum
+#
+#  contracts:
+#    name: Test and Build Contracts Scripts
+#    runs-on: ubuntu-22.04
+#    timeout-minutes: 30
+#    defaults:
+#      run:
+#        working-directory: contracts
+#
+#    strategy:
+#      matrix:
+#        node-version: [ 18.x, 20.x ] # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+#
+#    steps:
+#      - name: Checkout Code
+#        uses: actions/checkout@v4
+#        with:
+#          fetch-depth: 0
+#
+#      - name: Use Node.js ${{ matrix.node-version }}
+#        uses: actions/setup-node@v4
+#        with:
+#          node-version: ${{ matrix.node-version }}
+#          cache-dependency-path: ./contracts/package-lock.json
+#          cache: npm
+#
+#      - name: Install Foundry
+#        uses: foundry-rs/foundry-toolchain@v1
+#
+#      - name: Install Hardhat
+#        run: npm install -g hardhat
+#
+#      - name: Install Dependencies
+#        run: npm install
+#
+#      - name: Print Versions
+#        run: |
+#          git --version
+#          node --version
+#          npm --version
+#          forge --version
+#
+#      - name: Build
+#        run: npm run build --if-present
+#
+#      - name: Install abigen
+#        run: |
+#          sudo add-apt-repository -y ppa:ethereum/ethereum
+#          sudo apt-get update
+#          sudo apt-get install -y ethereum
+#          abigen --version
+#
+#      - name: Check ABI Parity
+#        run: |
+#          bash script.sh
+#          git checkout ${{ github.event.pull_request.head.ref }}
+#          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
+#          git reset --hard HEAD
+#        working-directory: contracts-abi

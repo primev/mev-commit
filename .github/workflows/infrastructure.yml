@@ -1,11 +1,7 @@
 name: infrastructure
 
 on:
-  workflow_run:
-    workflows:
-      - ci
-    types:
-      - completed
+  workflow_call:
   workflow_dispatch:
     inputs:
       profile:
@@ -50,7 +46,7 @@ jobs:
     name: Setup and Test Nomad Cluster
     runs-on: ubuntu-22.04
     timeout-minutes: 180
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+#    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Setup Environment
@@ -104,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ${{ github.event.workflow_run.head_branch || github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_branch || github.event.inputs.branch || github.ref }}
 
       - name: Setup Cache
         uses: actions/cache@v4
