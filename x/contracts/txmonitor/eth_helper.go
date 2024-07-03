@@ -114,7 +114,7 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 
 	var receipts []Result
 	var err error
-	for retries := 0; retries < 3; retries++ {
+	for retries := 0; retries < 100; retries++ {
 		// Execute the batch request
 		err = e.client.BatchCallContext(ctx, batch)
 		if err == nil {

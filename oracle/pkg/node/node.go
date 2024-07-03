@@ -164,6 +164,8 @@ func NewNode(opts *Options) (*Node, error) {
 		listenerL1Client = &laggerdL1Client{EthClient: listenerL1Client, amount: opts.LaggerdMode}
 	}
 
+	listenerL1Client = &infiniteRetryL1Client{EthClient: listenerL1Client, logger: nd.logger}
+
 	blockTracker, err := blocktracker.NewBlocktrackerTransactor(
 		opts.BlockTrackerContractAddr,
 		settlementRPC,
@@ -232,7 +234,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	updtr, err := updater.NewUpdater(
 		nd.logger.With("component", "updater"),
-		l1Client,
+		listenerL1Client,
 		st,
 		evtMgr,
 		oracleTransactorSession,
@@ -402,6 +404,53 @@ func (w *winnerOverrideL1Client) HeaderByNumber(ctx context.Context, number *big
 	hdr.Extra = []byte(w.winners[idx])
 
 	return hdr, nil
+}
+
+type infiniteRetryL1Client struct {
+	l1Listener.EthClient
+	logger *slog.Logger
+}
+
+func (i *infiniteRetryL1Client) BlockNumber(ctx context.Context) (uint64, error) {
+	var blkNum uint64
+	var err error
+	for {
+		blkNum, err = i.EthClient.BlockNumber(ctx)
+		if err == nil {
+			break
+		}
+		i.logger.Error("failed to get block number, retrying...", "error", err)
+		time.Sleep(1 * time.Second)
+	}
+	return blkNum, nil
+}
+
+func (i *infiniteRetryL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	var hdr *types.Header
+	var err error
+	for {
+		hdr, err = i.EthClient.HeaderByNumber(ctx, number)
+		if err == nil {
+			break
+		}
+		i.logger.Error("failed to get header by number, retrying...", "error", err)
+		time.Sleep(1 * time.Second)
+	}
+	return hdr, nil
+}
+
+func (i *infiniteRetryL1Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	var blk *types.Block
+	var err error
+	for {
+		blk, err = i.EthClient.BlockByNumber(ctx, number)
+		if err == nil {
+			break
+		}
+		i.logger.Error("failed to get block by number, retrying...", "error", err)
+		time.Sleep(1 * time.Second)
+	}
+	return blk, nil
 }
 
 func setBuilderMapping(
