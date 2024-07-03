@@ -8,20 +8,21 @@ const (
 )
 
 type metrics struct {
-	CommitmentsReceivedCount  prometheus.Counter
-	CommitmentsProcessedCount prometheus.Counter
-	CommitmentsTooOldCount    prometheus.Counter
-	DuplicateCommitmentsCount prometheus.Counter
-	RewardsCount              prometheus.Counter
-	SlashesCount              prometheus.Counter
-	EncryptedCommitmentsCount prometheus.Counter
-	NoWinnerCount             prometheus.Counter
-	BlockTxnCacheHits         prometheus.Counter
-	BlockTxnCacheMisses       prometheus.Counter
-	BlockTimeCacheHits        prometheus.Counter
-	BlockTimeCacheMisses      prometheus.Counter
-	LastSentNonce             prometheus.Gauge
-	TxnReceiptRequestDuration prometheus.Histogram
+	CommitmentsReceivedCount       prometheus.Counter
+	CommitmentsProcessedCount      prometheus.Counter
+	CommitmentsTooOldCount         prometheus.Counter
+	DuplicateCommitmentsCount      prometheus.Counter
+	RewardsCount                   prometheus.Counter
+	SlashesCount                   prometheus.Counter
+	EncryptedCommitmentsCount      prometheus.Counter
+	NoWinnerCount                  prometheus.Counter
+	BlockTxnCacheHits              prometheus.Counter
+	BlockTxnCacheMisses            prometheus.Counter
+	BlockTimeCacheHits             prometheus.Counter
+	BlockTimeCacheMisses           prometheus.Counter
+	LastSentNonce                  prometheus.Gauge
+	TxnReceiptRequestDuration      prometheus.Histogram
+	TxnReceiptRequestBlockDuration prometheus.Histogram
 }
 
 func newMetrics() *metrics {
@@ -138,6 +139,14 @@ func newMetrics() *metrics {
 			Help:      "Duration of transaction receipt requests",
 		},
 	)
+	m.TxnReceiptRequestBlockDuration = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Namespace: defaultNamespace,
+			Subsystem: subsystem,
+			Name:      "txn_receipt_request_block_duration",
+			Help:      "Duration of transaction receipt requests",
+		},
+	)
 	return m
 }
 
@@ -157,5 +166,6 @@ func (m *metrics) Collectors() []prometheus.Collector {
 		m.BlockTimeCacheMisses,
 		m.LastSentNonce,
 		m.TxnReceiptRequestDuration,
+		m.TxnReceiptRequestBlockDuration,
 	}
 }

@@ -497,6 +497,8 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 		buckets[i] = txnsArray[start:end]
 	}
 
+	blockStart := time.Now()
+
 	for _, bucket := range buckets {
 		eg.Go(func() error {
 			start := time.Now()
@@ -520,6 +522,8 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
+
+	u.metrics.TxnReceiptRequestBlockDuration.Observe(time.Since(blockStart).Seconds())
 
 	txnsMap := make(map[string]TxMetadata)
 	for i, tx := range txnsArray {
