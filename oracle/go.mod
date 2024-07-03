@@ -8,6 +8,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/lib/pq v1.10.9
 	github.com/primev/mev-commit/contracts-abi v0.0.1
+	github.com/primev/mev-commit/x v0.0.0-00010101000000-000000000000
 	github.com/prometheus/client_golang v1.19.0
 	github.com/testcontainers/testcontainers-go v0.30.0
 	github.com/urfave/cli/v2 v2.27.2

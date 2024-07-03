@@ -47,5 +47,3 @@ require (
 )
 
 replace github.com/ethereum/go-ethereum => ../../../external/geth
-
-replace github.com/crate-crypto/go-kzg-4844 => github.com/crate-crypto/go-kzg v0.7.0
