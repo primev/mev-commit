@@ -1,0 +1,69 @@
+version: 1
+
+project_name: eigen-operator-cli
+dist: /tmp/dist/eigen-operator-cli
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    goarm:
+      - 7
+    ignore:
+      - goos: windows
+        goarch: arm64
+    dir: ./infrastructure/tools/eigen-operator-cli
+    main: ./cmd
+    binary: "{{ .ProjectName }}"
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .Binary }}_
+      {{- with index .Env "RELEASE_VERSION" -}}
+        {{ . }}
+      {{- else -}}
+        {{- if .IsSnapshot }}{{ .ShortCommit }}
+        {{- else }}{{ .Version }}
+        {{- end }}
+      {{- end -}}
+      {{- with index .Env "DIRTY_SUFFIX" -}}
+      {{ . }}
+      {{- end -}}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}
+      {{- end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: >-
+    {{ .ProjectName }}_
+    {{- with index .Env "RELEASE_VERSION" -}}
+      {{ . }}
+    {{- else -}}
+      {{- if .IsSnapshot }}{{ .ShortCommit }}
+      {{- else }}{{ .Version }}
+      {{- end }}
+    {{- end -}}
+    {{- with index .Env "DIRTY_SUFFIX" -}}
+    {{ . }}
+    {{- end -}}
+    _checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
