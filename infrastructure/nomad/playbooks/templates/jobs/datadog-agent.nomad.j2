@@ -50,6 +50,7 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
+          hostname: {{ ansible_hostname }}
           site: datadoghq.com
           logs_enabled: true
           api_key: {{ datadog_key }}

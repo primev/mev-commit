@@ -168,6 +168,7 @@
           Profile:         {{ environments[env].profile }}
           Version:         {{ environments[env].version }}
           Secrets:         {{ environments[env].secrets }}
+          Hostname:        {{ ansible_hostname }}
           Build Artifacts: {{ 'yes' if build_artifacts | default(false) else 'no' }}
           Build Templates: {{ 'yes' if build_templates | default(false) else 'no' }}
 
@@ -236,7 +237,7 @@
           {% if artifact.keystore is defined %}
             case "{{ environments[env].secrets }}" in
               "generate")
-                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=["ascii_letters", "digits", ".,:_"]) }}"
+                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits', '.,:_<>|/']) }}"
 
                 RESULT=$(
                   {{ keystore_generator.stdout }} generate \
@@ -644,3 +645,4 @@
           Artifacts:   {{ 'built' if build_artifacts | default(false) else 'skipped' }}
           Templates:   {{ 'built' if build_templates | default(false) else 'skipped' }}
           Timestamp:   {{ now(utc=true, fmt='%a %Y-%m-%d %H:%M:%S UTC') }}
+          Hostname:    {{ ansible_hostname }}
