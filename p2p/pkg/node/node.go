@@ -78,6 +78,7 @@ type Options struct {
 	NatAddr                  string
 	TLSCertificateFile       string
 	TLSPrivateKeyFile        string
+	ProviderWhitelist        []common.Address
 }
 
 type Node struct {
