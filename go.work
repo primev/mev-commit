@@ -4,6 +4,7 @@ use (
 	./bridge/standard/bridge-v1
 	./contracts-abi
 	./external/geth
+	./infrastructure/tools/eigen-operator-cli
 	./infrastructure/tools/keystore-generator
 	./oracle
 	./p2p
