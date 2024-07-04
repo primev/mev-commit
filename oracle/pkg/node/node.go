@@ -420,7 +420,7 @@ func (i *infiniteRetryL1Client) BlockNumber(ctx context.Context) (uint64, error)
 			break
 		}
 		i.logger.Error("failed to get block number, retrying...", "error", err)
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
 		return 0, err
@@ -437,7 +437,7 @@ func (i *infiniteRetryL1Client) HeaderByNumber(ctx context.Context, number *big.
 			break
 		}
 		i.logger.Error("failed to get header by number, retrying...", "error", err)
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
 		return nil, err
@@ -454,7 +454,7 @@ func (i *infiniteRetryL1Client) BlockByNumber(ctx context.Context, number *big.I
 			break
 		}
 		i.logger.Error("failed to get block by number, retrying...", "error", err)
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
 		return nil, err
