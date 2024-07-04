@@ -400,6 +400,7 @@ func NewNode(opts *Options) (*Node, error) {
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
+				nil,
 			)
 			p2pSvc.AddStreamHandlers(keyexchange.Streams()...)
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
@@ -457,6 +458,7 @@ func NewNode(opts *Options) (*Node, error) {
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
+				opts.ProviderWhitelist,
 			)
 			topo.SubscribePeer(func(p p2p.Peer) {
 				if p.Type == p2p.PeerTypeProvider {
