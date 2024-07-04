@@ -216,7 +216,8 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 	go func() {
 		defer close(doneChan)
 		if err := eg.Wait(); err != nil {
-			u.logger.Error("failed to start updater", "error", err)
+			u.logger.Error("updater failed, exiting", "error", err)
+			panic(err)
 		}
 	}()
 
