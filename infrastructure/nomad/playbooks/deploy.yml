@@ -571,16 +571,7 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        RESULT="$(nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad 2>&1)"
-        if [ $? -ne 0 ]; then
-          echo "Failed to deploy {{ job.name }}:"
-          echo "${RESULT}"
-          echo "{{ job.name }} stdout logs:"
-          nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
-          echo "{{ job.name }} error logs:"
-          nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
-          exit 1
-        fi
+        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
 
         TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
         START_TIME=$(date +%s)
@@ -588,10 +579,6 @@
         if [ $? -ne 0 ]; then
           echo "Failed to get job status for {{ job.name }}:"
           echo "${RESULT}"
-          echo "{{ job.name }} stdout logs:"
-          nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
-          echo "{{ job.name }} error logs:"
-          nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
           exit 1
         fi
         JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
@@ -623,7 +610,7 @@
           CURRENT_TIME="$(date +%s)"
           ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
           if [ ${ELAPSED_TIME} -ge ${TIMEOUT} ]; then
-            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}."
+            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}"
             exit 1
           fi
 
@@ -632,10 +619,6 @@
           if [ $? -ne 0 ]; then
             echo "Failed to get job status for {{ job.name }}:"
             echo "${RESULT}"
-            echo "{{ job.name }} stdout logs:"
-            nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
-            echo "{{ job.name }} error logs:"
-            nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
             exit 1
           fi
         done
