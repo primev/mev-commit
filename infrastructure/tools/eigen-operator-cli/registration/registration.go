@@ -5,37 +5,130 @@ import (
 	"log/slog"
 
 	eigenclitypes "github.com/Layr-Labs/eigenlayer-cli/pkg/types"
-	eigenecdsa "github.com/Layr-Labs/eigensdk-go/crypto/ecdsa"
+	eigencliutils "github.com/Layr-Labs/eigenlayer-cli/pkg/utils"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	avs "github.com/primev/mev-commit/contracts-abi/clients/MevCommitAVS"
+	"github.com/primev/mev-commit/x/contracts/transactor"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	ks "github.com/primev/mev-commit/x/keysigner"
 	"github.com/urfave/cli/v2"
 )
 
+// TODO: re-eval if all these fields need to be stored
 type Command struct {
-	Logger         *slog.Logger
-	OperatorConfig eigenclitypes.OperatorConfig
+	Logger           *slog.Logger
+	OperatorConfig   *eigenclitypes.OperatorConfig
+	KeystorePassword string
+	AVSAddress       string
+	ethClient        *ethclient.Client
+	signer           *ks.KeystoreSigner
+	transactor       *transactor.Transactor
+	sesh             *avs.MevcommitavsTransactorSession
 }
 
-func (c *Command) RegisterOperator(ctx *cli.Context) error {
-	c.Logger.Info("Registering operator...")
-
-	password := ctx.String("password")
-
-	privKey, err := eigenecdsa.ReadKey(c.OperatorConfig.PrivateKeyStorePath, password)
-	if err != nil {
-		return fmt.Errorf("failed to read private key: %w", err)
-	}
-
-	client, err := ethclient.Dial(ctx.String("eth-node-url"))
+func (c *Command) initialize(ctx *cli.Context) error {
+	ethClient, err := ethclient.Dial(c.OperatorConfig.EthRPCUrl)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Ethereum node: %w", err)
 	}
-	c.Logger.Info("Client", "client", client)
+	c.ethClient = ethClient
 
-	operatorAddress := ctx.String("operator-address")
-	signature := ctx.String("signature")
+	chainID, err := ethClient.ChainID(ctx.Context)
+	if err != nil {
+		c.Logger.Error("failed to get chain ID", "error", err)
+		return err
+	}
 
-	// Add your registration logic here, e.g., sending a transaction to the Ethereum network
-	c.Logger.Info("Operator registered", "address", operatorAddress, "signature", signature)
+	if chainID.Cmp(&c.OperatorConfig.ChainId) != 0 {
+		return fmt.Errorf("chain ID from rpc url doesn't match operator config: %s != %s",
+			chainID.String(), c.OperatorConfig.ChainId.String())
+	}
+	c.Logger.Info("Chain ID", "chainID", chainID)
+
+	if c.KeystorePassword == "" {
+		prompter := eigencliutils.NewPrompter()
+		keystorePwd, err := prompter.InputHiddenString(
+			fmt.Sprintf("Enter password to decrypt ecdsa keystore for %s:", c.OperatorConfig.PrivateKeyStorePath), "",
+			func(string) error {
+				return nil
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to read keystore password: %w", err)
+		}
+		c.KeystorePassword = keystorePwd
+	}
+
+	signer, err := ks.NewKeystoreSigner(c.OperatorConfig.PrivateKeyStorePath, c.KeystorePassword)
+	if err != nil {
+		return fmt.Errorf("failed to create keystore signer: %w", err)
+	}
+	c.signer = signer
+
+	monitor := txmonitor.New(
+		signer.GetAddress(),
+		ethClient,
+		txmonitor.NewEVMHelper(ethClient.Client()),
+		nil, // TOOD: re-eval if you need saver/store
+		c.Logger.With("component", "txmonitor"),
+		1, // TODO: re-eval max pending
+	)
+	transactor := transactor.NewTransactor(
+		ethClient,
+		monitor,
+	)
+	c.transactor = transactor
+
+	avsAddress := common.HexToAddress(c.AVSAddress)
+
+	mevCommitAVS, err := avs.NewMevcommitavs(avsAddress, transactor)
+	if err != nil {
+		return fmt.Errorf("failed to create mev-commit avs: %w", err)
+	}
+
+	// Apparently we don't need to set gas params manually anymore?
+	tOpts, err := c.signer.GetAuth(chainID)
+	if err != nil {
+		c.Logger.Error("failed to get auth", "error", err)
+		return err
+	}
+
+	sesh := &avs.MevcommitavsTransactorSession{
+		Contract:     &mevCommitAVS.MevcommitavsTransactor,
+		TransactOpts: *tOpts,
+	}
+	c.sesh = sesh
+
+	return nil
+}
+
+func (c *Command) RegisterOperator(ctx *cli.Context) error {
+
+	c.Logger.Info("Registering operator...")
+	c.initialize(ctx)
+
+	// TODO: query operator state before a tx is sent
+
+	// TODO: generate actual sig
+	operatorSig := avs.ISignatureUtilsSignatureWithSaltAndExpiry{}
+
+	tx, err := c.sesh.RegisterOperator(operatorSig)
+	if err != nil {
+		return fmt.Errorf("failed to register operator: %w", err)
+	}
+
+	c.Logger.Info("waiting for tx to be mined", "txHash", tx.Hash().Hex(), "nonce", tx.Nonce())
+	rec, err := bind.WaitMined(ctx.Context, c.ethClient, tx)
+	if err != nil {
+		return fmt.Errorf("failed to wait for tx to be mined: %w", err)
+	} else if rec.Status != ethtypes.ReceiptStatusSuccessful {
+		return fmt.Errorf("receipt status unsuccessful: %d", rec.Status)
+	}
+
+	// TODO: Determine if we want to support fee bump, cancelling, etc. Do some testing here..
 	return nil
 }
 

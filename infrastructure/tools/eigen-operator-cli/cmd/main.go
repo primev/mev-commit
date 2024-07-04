@@ -4,9 +4,8 @@ import (
 	registration "eigen-operator-cli/registration"
 	"fmt"
 	"os"
-	"strings"
-
 	"slices"
+	"strings"
 
 	eigenclitypes "github.com/Layr-Labs/eigenlayer-cli/pkg/types"
 	"github.com/primev/mev-commit/x/util"
@@ -16,16 +15,24 @@ import (
 )
 
 var (
-	optionOperatorAddress = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "operator-address",
-		Usage:   "Address of the operator",
-		EnvVars: []string{"OPERATOR_ADDRESS"},
+	optionOperatorConfig = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "operator-config",
+		Usage:    "Path to operator.yml config file",
+		EnvVars:  []string{"OPERATOR_CONFIG"},
+		Required: true,
 	})
 
-	optionSignature = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "signature",
-		Usage:   "Signature for operator registration",
-		EnvVars: []string{"OPERATOR_SIGNATURE"},
+	optionAVSAddress = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "avs-address",
+		Usage:    "Address of the mev-commit AVS contract",
+		EnvVars:  []string{"AVS_ADDRESS"},
+		Required: true, // TODO: ask user interactively
+	})
+
+	optionKeystorePassword = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "keystore-password",
+		Usage:   "Password for the keystore",
+		EnvVars: []string{"KEYSTORE_PASSWORD"},
 	})
 
 	optionLogLevel = altsrc.NewStringFlag(&cli.StringFlag{
@@ -67,12 +74,6 @@ var (
 			return nil
 		},
 	})
-
-	optionOperatorConfig = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "operator-config",
-		Usage:   "Path to operator.yml config file",
-		EnvVars: []string{"OPERATOR_CONFIG"},
-	})
 )
 
 func readConfig(file string) (eigenclitypes.OperatorConfig, error) {
@@ -95,12 +96,12 @@ func readConfig(file string) (eigenclitypes.OperatorConfig, error) {
 
 func main() {
 	flags := []cli.Flag{
-		optionOperatorAddress,
-		optionSignature,
+		optionOperatorConfig,
+		optionKeystorePassword,
+		optionAVSAddress,
 		optionLogLevel,
 		optionLogFmt,
 		optionLogTags,
-		optionOperatorConfig,
 	}
 
 	app := &cli.App{
@@ -151,8 +152,10 @@ func newAction(action func(*registration.Command, *cli.Context) error) cli.Actio
 			return err
 		}
 		if err := action(&registration.Command{
-			Logger:         logger,
-			OperatorConfig: operConfig,
+			Logger:           logger,
+			OperatorConfig:   &operConfig,
+			KeystorePassword: ctx.String(optionKeystorePassword.Name),
+			AVSAddress:       ctx.String(optionAVSAddress.Name),
 		}, ctx); err != nil {
 			logger.Error("command execution failed", "error", err)
 			return err
