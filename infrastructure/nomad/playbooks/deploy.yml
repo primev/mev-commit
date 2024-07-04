@@ -237,7 +237,7 @@
           {% if artifact.keystore is defined %}
             case "{{ environments[env].secrets }}" in
               "generate")
-                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits', '.,:_<>|/']) }}"
+                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits', '+-_,.:@']) }}"
 
                 RESULT=$(
                   {{ keystore_generator.stdout }} generate \
@@ -573,7 +573,12 @@
       ansible.builtin.shell: |
         RESULT="$(nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad 2>&1)"
         if [ $? -ne 0 ]; then
-          echo "Failed to deploy {{ job.name }}: ${RESULT}."
+          echo "Failed to deploy {{ job.name }}:"
+          echo "${RESULT}"
+          echo "{{ job.name }} stdout logs:"
+          nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
+          echo "{{ job.name }} error logs:"
+          nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
           exit 1
         fi
 
@@ -581,7 +586,12 @@
         START_TIME=$(date +%s)
         RESULT=$(nomad job status -json "{{ job.name }}")
         if [ $? -ne 0 ]; then
-          echo "Failed to get job status for {{ job.name }}: ${RESULT}."
+          echo "Failed to get job status for {{ job.name }}:"
+          echo "${RESULT}"
+          echo "{{ job.name }} stdout logs:"
+          nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
+          echo "{{ job.name }} error logs:"
+          nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
           exit 1
         fi
         JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
@@ -620,7 +630,12 @@
           sleep 1
           RESULT=$(nomad job status -json "{{ job.name }}")
           if [ $? -ne 0 ]; then
-            echo "Failed to get job status for {{ job.name }}: ${RESULT}."
+            echo "Failed to get job status for {{ job.name }}:"
+            echo "${RESULT}"
+            echo "{{ job.name }} stdout logs:"
+            nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
+            echo "{{ job.name }} error logs:"
+            nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
             exit 1
           fi
         done
