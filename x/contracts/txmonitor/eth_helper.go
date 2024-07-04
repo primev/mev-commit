@@ -2,6 +2,7 @@ package txmonitor
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -114,7 +115,7 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 
 	var receipts []Result
 	var err error
-	for retries := 0; retries < 100; retries++ {
+	for {
 		// Execute the batch request
 		err = e.client.BatchCallContext(ctx, batch)
 		if err == nil {
@@ -123,14 +124,11 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 
 		// Check if the error is a 429 (Too Many Requests)
 		if rpcErr, ok := err.(rpc.Error); ok && rpcErr.ErrorCode() == 429 {
+			log.Println("received 429 Too Many Requests, retrying...", "error", err)
 			time.Sleep(1 * time.Second)
 			continue
 		}
 
-		return nil, err
-	}
-
-	if err != nil {
 		return nil, err
 	}
 
