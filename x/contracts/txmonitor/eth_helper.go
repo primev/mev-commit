@@ -115,23 +115,18 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 
 	var receipts []Result
 	var err error
-	for {
+	for attempts := 0; attempts < 10; attempts++ {
 		// Execute the batch request
 		err = e.client.BatchCallContext(ctx, batch)
-		if err == nil {
-			break
-		}
-
-		// Check if the error is a 429 (Too Many Requests)
-		if rpcErr, ok := err.(rpc.Error); ok && rpcErr.ErrorCode() == 429 {
-			log.Println("received 429 Too Many Requests, retrying...", "error", err)
+		if err != nil {
+			log.Printf("Batch call attempt %d failed: %v", attempts+1, err)
 			time.Sleep(1 * time.Second)
-			continue
 		}
-
-		return nil, err
 	}
 
+	if err != nil {
+		return nil, err
+	}
 	receipts = make([]Result, len(batch))
 	for i, elem := range batch {
 		receipts[i].Receipt = elem.Result.(*types.Receipt)
