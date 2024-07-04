@@ -462,20 +462,24 @@ func (u *Updater) addSettlement(
 
 	return nil
 }
-
 func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]TxMetadata, error) {
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
 		u.metrics.BlockTxnCacheHits.Inc()
+		u.logger.Info("cache hit for block transactions", "blockNum", blockNum)
 		return txns, nil
 	}
 
 	u.metrics.BlockTxnCacheMisses.Inc()
+	u.logger.Info("cache miss for block transactions", "blockNum", blockNum)
 
 	block, err := u.l1Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
 	if err != nil {
+		u.logger.Error("failed to get block by number", "blockNum", blockNum, "error", err)
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
+
+	u.logger.Info("retrieved block", "blockNum", blockNum, "blockHash", block.Hash().Hex())
 
 	var txnReceipts sync.Map
 	eg, ctx := errgroup.WithContext(ctx)
@@ -502,17 +506,22 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	for _, bucket := range buckets {
 		eg.Go(func() error {
 			start := time.Now()
+			u.logger.Info("requesting batch receipts", "bucketSize", len(bucket))
 			results, err := u.receiptBatcher.BatchReceipts(ctx, bucket)
 			if err != nil {
+				u.logger.Error("failed to get batch receipts", "error", err)
 				return fmt.Errorf("failed to get batch receipts: %w", err)
 			}
 			u.metrics.TxnReceiptRequestDuration.Observe(time.Since(start).Seconds())
+			u.logger.Info("received batch receipts", "duration", time.Since(start).Seconds())
 			for _, result := range results {
 				if result.Err != nil {
+					u.logger.Error("failed to get receipt for txn", "txnHash", result.Receipt.TxHash.Hex(), "error", result.Err)
 					return fmt.Errorf("failed to get receipt for txn: %s", result.Err)
 				}
 
 				txnReceipts.Store(result.Receipt.TxHash.Hex(), result.Receipt)
+				u.logger.Info("stored receipt", "txnHash", result.Receipt.TxHash.Hex())
 			}
 
 			return nil
@@ -520,21 +529,26 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	}
 
 	if err := eg.Wait(); err != nil {
+		u.logger.Error("error while waiting for batch receipts", "error", err)
 		return nil, err
 	}
 
 	u.metrics.TxnReceiptRequestBlockDuration.Observe(time.Since(blockStart).Seconds())
+	u.logger.Info("completed batch receipt requests for block", "blockNum", blockNum, "duration", time.Since(blockStart).Seconds())
 
 	txnsMap := make(map[string]TxMetadata)
 	for i, tx := range txnsArray {
 		receipt, ok := txnReceipts.Load(tx.Hex())
 		if !ok {
+			u.logger.Error("receipt not found for txn", "txnHash", tx.Hex())
 			return nil, fmt.Errorf("receipt not found for txn: %s", tx)
 		}
 		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful}
+		u.logger.Info("added txn to map", "txnHash", tx.Hex(), "posInBlock", i, "succeeded", receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful)
 	}
 
 	_ = u.l1BlockCache.Add(blockNum, txnsMap)
+	u.logger.Info("added block transactions to cache", "blockNum", blockNum)
 
 	return txnsMap, nil
 }
