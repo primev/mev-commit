@@ -419,7 +419,12 @@ func (i *infiniteRetryL1Client) BlockNumber(ctx context.Context) (uint64, error)
 		if err == nil {
 			break
 		}
-		i.logger.Error("failed to get block number, retrying...", "error", err)
+		if httpErr, ok := err.(interface{ StatusCode() int }); ok && httpErr.StatusCode() == 429 {
+			i.logger.Error("received 429 Too Many Requests, retrying...", "error", err)
+		} else {
+			i.logger.Error("failed to get block number", "error", err)
+			return 0, err
+		}
 		time.Sleep(1 * time.Second)
 	}
 	return blkNum, nil
@@ -433,7 +438,12 @@ func (i *infiniteRetryL1Client) HeaderByNumber(ctx context.Context, number *big.
 		if err == nil {
 			break
 		}
-		i.logger.Error("failed to get header by number, retrying...", "error", err)
+		if httpErr, ok := err.(interface{ StatusCode() int }); ok && httpErr.StatusCode() == 429 {
+			i.logger.Error("received 429 Too Many Requests, retrying...", "error", err)
+		} else {
+			i.logger.Error("failed to get header by number", "error", err)
+			return nil, err
+		}
 		time.Sleep(1 * time.Second)
 	}
 	return hdr, nil
@@ -447,7 +457,12 @@ func (i *infiniteRetryL1Client) BlockByNumber(ctx context.Context, number *big.I
 		if err == nil {
 			break
 		}
-		i.logger.Error("failed to get block by number, retrying...", "error", err)
+		if httpErr, ok := err.(interface{ StatusCode() int }); ok && httpErr.StatusCode() == 429 {
+			i.logger.Error("received 429 Too Many Requests, retrying...", "error", err)
+		} else {
+			i.logger.Error("failed to get block by number", "error", err)
+			return nil, err
+		}
 		time.Sleep(1 * time.Second)
 	}
 	return blk, nil
