@@ -216,3 +216,12 @@ jobs:
           git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
           git reset --hard HEAD
         working-directory: contracts-abi
+
+  infrastructure:
+    uses: ./.github/workflows/infrastructure.yml
+    secrets: inherit
+    needs:
+      - commitlint
+      - go-modules
+      - foundry
+      - contracts
