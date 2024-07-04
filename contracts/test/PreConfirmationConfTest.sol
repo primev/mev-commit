@@ -152,10 +152,10 @@ contract TestPreConfCommitmentStore is Test {
         // Step 2: Store the commitment
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
-                commitmentDigest,
-                commitmentSignature,
-                1000
-            );
+            commitmentDigest,
+            commitmentSignature,
+            1000
+        );
 
         // Step 3: Verify the results
         // a. Check that the commitment index is correctly generated and not zero
@@ -163,9 +163,9 @@ contract TestPreConfCommitmentStore is Test {
 
         // b. Retrieve the commitment by index and verify its properties
         PreConfCommitmentStore.EncrPreConfCommitment
-            memory commitment = preConfCommitmentStore.getEncryptedCommitment(
-                commitmentIndex
-            );
+        memory commitment = preConfCommitmentStore.getEncryptedCommitment(
+            commitmentIndex
+        );
 
         // c. Assertions to verify the stored commitment matches the input
         assertEq(commitment.commiter, committer);
@@ -198,7 +198,7 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
-        public
+    public
     {
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -448,10 +448,10 @@ contract TestPreConfCommitmentStore is Test {
         vm.startPrank(commiter);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
-                commitmentHash,
-                commitmentSignature,
-                dispatchTimestamp
-            );
+            commitmentHash,
+            commitmentSignature,
+            dispatchTimestamp
+        );
         vm.stopPrank();
         return commitmentIndex;
     }
@@ -499,21 +499,22 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory sharedSecretKey
     ) public view {
         PreConfCommitmentStore.PreConfCommitment
-            memory commitment = preConfCommitmentStore.getCommitment(index);
+        memory commitment = preConfCommitmentStore.getCommitment(index);
 
-        (, address commiterAddress) = preConfCommitmentStore
-            .verifyPreConfCommitment(
-                txnHash,
-                revertingTxHashes,
-                bid,
-                blockNumber,
-                decayStartTimestamp,
-                decayEndTimestamp,
-                commitment.bidHash,
-                bidSignature,
-                commitmentSignature,
-                sharedSecretKey
-            );
+        PreConfCommitmentStore.CommitmentParams memory commitmentParams = PreConfCommitmentStore.CommitmentParams({
+            txnHash: txnHash,
+            revertingTxHashes: revertingTxHashes,
+            bid: bid,
+            blockNumber: blockNumber,
+            decayStartTimeStamp: decayStartTimestamp,
+            decayEndTimeStamp: decayEndTimestamp,
+            bidHash: commitment.bidHash,
+            bidSignature: bidSignature,
+            commitmentSignature: commitmentSignature,
+            sharedSecretKey: sharedSecretKey
+        });
+
+        (, address commiterAddress) = preConfCommitmentStore.verifyPreConfCommitment(commitmentParams);
 
         assertNotEq(commiterAddress, address(0));
         assertEq(commitment.bid, bid, "Stored bid should match input bid");
@@ -575,8 +576,8 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.sharedSecretKey
         );
         PreConfCommitmentStore.EncrPreConfCommitment
-            memory storedCommitment = preConfCommitmentStore
-                .getEncryptedCommitment(commitmentIndex);
+        memory storedCommitment = preConfCommitmentStore
+            .getEncryptedCommitment(commitmentIndex);
 
         assertEq(
             storedCommitment.commitmentDigest,
@@ -596,9 +597,9 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber,
-                    blocksPerWindow
-                );
+                _testCommitmentAliceBob.blockNumber,
+                blocksPerWindow
+            );
             bidderRegistry.depositForSpecificWindow{value: 2 ether}(
                 depositWindow
             );
@@ -670,7 +671,7 @@ contract TestPreConfCommitmentStore is Test {
             preConfCommitmentStore.initiateSlash(index, 100);
 
             (isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
-                .commitments(index);
+            .commitments(index);
             // Verify that the commitment has been deleted
             assert(isUsed == true);
         }
@@ -685,9 +686,9 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber,
-                    blocksPerWindow
-                );
+                _testCommitmentAliceBob.blockNumber,
+                blocksPerWindow
+            );
             bidderRegistry.depositForSpecificWindow{value: 2 ether}(
                 depositWindow
             );
@@ -757,7 +758,7 @@ contract TestPreConfCommitmentStore is Test {
             preConfCommitmentStore.initiateReward(index, 100);
 
             (isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
-                .commitments(index);
+            .commitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
@@ -770,9 +771,9 @@ contract TestPreConfCommitmentStore is Test {
             (address bidder, ) = makeAddrAndKey("alice");
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber,
-                    blocksPerWindow
-                );
+                _testCommitmentAliceBob.blockNumber,
+                blocksPerWindow
+            );
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
             bidderRegistry.depositForSpecificWindow{value: 2 ether}(
@@ -846,7 +847,7 @@ contract TestPreConfCommitmentStore is Test {
             preConfCommitmentStore.initiateReward(index, 0);
 
             (isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
-                .commitments(index);
+            .commitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted

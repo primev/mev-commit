@@ -19,15 +19,15 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
-        keccak256(
-            "PreConfCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
-        );
+    keccak256(
+        "PreConfCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+    );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
-        keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
-        );
+    keccak256(
+        "PreConfBid(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+    );
 
     // Represents the dispatch window in milliseconds
     uint64 public commitmentDispatchWindow;
@@ -102,6 +102,20 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint64 dispatchTimestamp,
         bytes sharedSecretKey
     );
+
+    /// @dev Struct for all the commitment params to avoid too deep in the stack error
+    struct CommitmentParams {
+        string txnHash;
+        string revertingTxHashes;
+        uint256 bid;
+        uint64 blockNumber;
+        uint64 decayStartTimeStamp;
+        uint64 decayEndTimeStamp;
+        bytes32 bidHash;
+        bytes bidSignature;
+        bytes commitmentSignature;
+        bytes sharedSecretKey;
+    }
 
     /// @dev Struct for all the information around encrypted preconfirmations commitment
     struct EncrPreConfCommitment {
@@ -230,19 +244,19 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_BID,
-                keccak256(
-                    abi.encode(
-                        EIP712_BID_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        keccak256(abi.encodePacked(_revertingTxHashes)),
-                        _bid,
-                        _blockNumber,
-                        _decayStartTimeStamp,
-                        _decayEndTimeStamp
-                    )
+            DOMAIN_SEPARATOR_BID,
+            keccak256(
+                abi.encode(
+                    EIP712_BID_TYPEHASH,
+                    keccak256(abi.encodePacked(_txnHash)),
+                    keccak256(abi.encodePacked(_revertingTxHashes)),
+                    _bid,
+                    _blockNumber,
+                    _decayStartTimeStamp,
+                    _decayEndTimeStamp
                 )
-            );
+            )
+        );
     }
 
     /**
@@ -266,25 +280,25 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_PRECONF,
-                keccak256(
-                    abi.encode(
-                        EIP712_COMMITMENT_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        keccak256(abi.encodePacked(_revertingTxHashes)),
-                        _bid,
-                        _blockNumber,
-                        _decayStartTimeStamp,
-                        _decayEndTimeStamp,
-                        _revertingTxHashes,
-                        keccak256(
-                            abi.encodePacked(_bytes32ToHexString(_bidHash))
-                        ),
-                        keccak256(abi.encodePacked(_bidSignature)),
-                        keccak256(abi.encodePacked(_sharedSecretKey))
-                    )
+            DOMAIN_SEPARATOR_PRECONF,
+            keccak256(
+                abi.encode(
+                    EIP712_COMMITMENT_TYPEHASH,
+                    keccak256(abi.encodePacked(_txnHash)),
+                    keccak256(abi.encodePacked(_revertingTxHashes)),
+                    _bid,
+                    _blockNumber,
+                    _decayStartTimeStamp,
+                    _decayEndTimeStamp,
+                    _revertingTxHashes,
+                    keccak256(
+                        abi.encodePacked(_bytes32ToHexString(_bidHash))
+                    ),
+                    keccak256(abi.encodePacked(_bidSignature)),
+                    keccak256(abi.encodePacked(_sharedSecretKey))
                 )
-            );
+            )
+        );
     }
 
     /**
@@ -318,40 +332,45 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
 
     /**
      * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
-     * @param txnHash The transaction hash associated with the commitment.
-     * @param bid The bid amount.
-     * @param blockNumber The block number at the time of the bid.
-     * @param bidHash The hash of the bid details.
-     * @param bidSignature The signature of the bid.
-     * @param commitmentSignature The signature of the commitment.
+     * @param params The commitment params associated with the commitment.
      * @return preConfHash The hash of the pre-confirmation commitment.
      * @return commiterAddress The address of the committer recovered from the commitment signature.
      */
-    function verifyPreConfCommitment(
-        string memory txnHash,
-        string memory revertingTxHashes,
-        uint256 bid,
-        uint64 blockNumber,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        bytes32 bidHash,
-        bytes memory bidSignature,
-        bytes memory commitmentSignature,
-        bytes memory sharedSecretKey
-    ) public view returns (bytes32 preConfHash, address commiterAddress) {
-        preConfHash = getPreConfHash(
-            txnHash,
-            revertingTxHashes,
-            bid,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            bidHash,
-            _bytesToHexString(bidSignature),
-            _bytesToHexString(sharedSecretKey)
-        );
 
-        commiterAddress = preConfHash.recover(commitmentSignature);
+    function verifyPreConfCommitment(
+        CommitmentParams memory params
+    ) public view returns (bytes32 preConfHash, address commiterAddress) {
+        return _verifyPreConfCommitment(params);
+    }
+
+    function _verifyPreConfCommitment(
+        CommitmentParams memory params
+    ) internal view returns (bytes32 preConfHash, address commiterAddress) {
+        preConfHash = _getPreConfHash(params);
+        commiterAddress = _recoverCommitterAddress(preConfHash, params.commitmentSignature);
+    }
+
+    function _getPreConfHash(
+        CommitmentParams memory params
+    ) internal view returns (bytes32) {
+        return getPreConfHash(
+            params.txnHash,
+            params.revertingTxHashes,
+            params.bid,
+            params.blockNumber,
+            params.decayStartTimeStamp,
+            params.decayEndTimeStamp,
+            params.bidHash,
+            _bytesToHexString(params.bidSignature),
+            _bytesToHexString(params.sharedSecretKey)
+        );
+    }
+
+    function _recoverCommitterAddress(
+        bytes32 preConfHash,
+        bytes memory commitmentSignature
+    ) internal pure returns (address) {
+        return preConfHash.recover(commitmentSignature);
     }
 
     /**
@@ -364,11 +383,11 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     ) public pure returns (bytes32) {
         return
             keccak256(
-                abi.encodePacked(
-                    commitment.commitmentHash,
-                    commitment.commitmentSignature
-                )
-            );
+            abi.encodePacked(
+                commitment.commitmentHash,
+                commitment.commitmentSignature
+            )
+        );
     }
 
     /**
@@ -381,11 +400,11 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     ) public pure returns (bytes32) {
         return
             keccak256(
-                abi.encodePacked(
-                    commitment.commitmentDigest,
-                    commitment.commitmentSignature
-                )
-            );
+            abi.encodePacked(
+                commitment.commitmentDigest,
+                commitment.commitmentSignature
+            )
+        );
     }
 
     /**
@@ -437,8 +456,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
                 _bytesToHexString(sharedSecretKey)
             );
             EncrPreConfCommitment
-                memory encryptedCommitment = encryptedCommitments[
-                    encryptedCommitmentIndex
+            memory encryptedCommitment = encryptedCommitments[
+                        encryptedCommitmentIndex
                 ];
             require(!encryptedCommitment.isUsed, "Commitment already used");
 
@@ -459,7 +478,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
             address winner = blockTracker.getBlockWinner(blockNumber);
             require(
                 (msg.sender == winner && winner == commiterAddress) ||
-                    msg.sender == bidderAddress,
+                msg.sender == bidderAddress,
                 "Caller is not a winner provider or bidder"
             );
 
