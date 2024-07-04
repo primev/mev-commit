@@ -25,8 +25,10 @@ contract AVSDirectoryMock is IAVSDirectory, Test {
         address operator,
         ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
     ) external override {
-        require(operator != address(0), "Operator cannot be zero");
-        require(operatorSignature.salt != bytes32(0), "Salt cannot be zero");
+        require(operator != address(0), "Operator required");
+        require(keccak256(operatorSignature.signature) != keccak256(bytes("")), "Signature required");
+        require(operatorSignature.salt != bytes32(0), "Salt required");
+        require(operatorSignature.expiry != 0, "Expiry required");
         isOperatorRegistered[operator] = true;
         emit OperatorAVSRegistrationStatusUpdated(operator, msg.sender, OperatorAVSRegistrationStatus.REGISTERED);
     }
