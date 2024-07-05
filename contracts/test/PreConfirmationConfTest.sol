@@ -367,7 +367,7 @@ contract TestPreConfCommitmentStore is Test {
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
         vm.prank(bidder);
-        bidderRegistry.depositForSpecificWindow{value: 2 ether}(2);
+        bidderRegistry.depositForWindow{value: 2 ether}(2);
 
         // Step 1: Verify that the commitment has not been used before
         verifyCommitmentNotUsed(
@@ -609,7 +609,7 @@ contract TestPreConfCommitmentStore is Test {
             blocksPerWindow
         );
         vm.prank(bidder);
-        bidderRegistry.depositForSpecificWindow{value: 2 ether}(window);
+        bidderRegistry.depositForWindow{value: 2 ether}(window);
         // Step 1: Verify that the commitment has not been used before
         verifyCommitmentNotUsed(
             _testCommitmentAliceBob.txnHash,
@@ -659,10 +659,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                _testCommitmentAliceBob.blockNumber,
-                blocksPerWindow
-            );
-            bidderRegistry.depositForSpecificWindow{value: 2 ether}(
+                    _testCommitmentAliceBob.blockNumber,
+                    blocksPerWindow
+                );
+            bidderRegistry.depositForWindow{value: 2 ether}(
                 depositWindow
             );
 
@@ -736,8 +736,12 @@ contract TestPreConfCommitmentStore is Test {
             .commitments(index);
             // Verify that the commitment has been deleted
             assert(isUsed == true);
+
+            assertEq(bidderRegistry.lockedFunds(bidder, depositWindow), 2 ether - _testCommitmentAliceBob.bid);
+            assertEq(bidderRegistry.providerAmount(commiter), 0 ether);
+            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
         }
-        // commitmentHash value is internal to contract and not asserted
+        // commitmentHash value is internal to contract and not asserted  
     }
 
     function test_InitiateReward() public {
@@ -748,10 +752,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                _testCommitmentAliceBob.blockNumber,
-                blocksPerWindow
-            );
-            bidderRegistry.depositForSpecificWindow{value: 2 ether}(
+                    _testCommitmentAliceBob.blockNumber,
+                    blocksPerWindow
+                );
+            bidderRegistry.depositForWindow{value: 2 ether}(
                 depositWindow
             );
 
@@ -824,6 +828,7 @@ contract TestPreConfCommitmentStore is Test {
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
+            assertEq(bidderRegistry.lockedFunds(bidder, depositWindow), 2 ether - _testCommitmentAliceBob.bid);
         }
     }
 
@@ -838,7 +843,7 @@ contract TestPreConfCommitmentStore is Test {
             );
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            bidderRegistry.depositForSpecificWindow{value: 2 ether}(
+            bidderRegistry.depositForWindow{value: 2 ether}(
                 depositWindow
             );
 
@@ -914,8 +919,9 @@ contract TestPreConfCommitmentStore is Test {
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
 
-            assert(bidderRegistry.lockedFunds(bidder, window) == 2 ether);
-            assert(bidderRegistry.providerAmount(commiter) == 0 ether);
+            assertEq(bidderRegistry.lockedFunds(bidder, window), 2 ether - _testCommitmentAliceBob.bid);
+            assertEq(bidderRegistry.providerAmount(commiter), 0 ether);
+            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
         }
     }
 
