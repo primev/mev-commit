@@ -29,9 +29,9 @@ on:
         type: choice
         options:
           - lax1
-          - nyc1
-          - nyc2
+          - chi1
           - mia2
+          - mia3
         default: 'lax'
 
 permissions:
