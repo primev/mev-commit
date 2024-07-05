@@ -221,6 +221,7 @@
               fi
               set +x
               goreleaser release --snapshot --config=./{{ artifact.path }}/.goreleaser.tmp.yml
+              if [ $? -ne 0 ]; then exit 1; fi
               rm ./{{ artifact.path }}/.goreleaser.tmp.yml
             fi
             flock -v -u 192
@@ -231,6 +232,7 @@
               echo "${ARTIFACT}" >> "${INVENTORY}"
               flock -v -u 192
               tar -czvf "${ARTIFACT}" ./{{ artifact.path }}
+              if [ $? -ne 0 ]; then exit 1; fi
             fi
           {% endif %}
 
@@ -245,6 +247,7 @@
                     --passphrase="${PASSPHRASE}" \
                     --log-fmt="json"
                 )
+                if [ $? -ne 0 ]; then exit 1; fi
                 ARTIFACT_PATH="$(echo ${RESULT} | jq -e -r '.path // empty' 2>/dev/null)"
                 flock -v -x 192
                 echo "${ARTIFACT_PATH}" >> "${INVENTORY}"
@@ -261,6 +264,7 @@
                     "{{ artifact.keystore.name }}_password": $keystore_password
                   }' \
                 > "${SECRETS}"
+                if [ $? -ne 0 ]; then exit 1; fi
                 flock -v -u 191
 
                 ADDRESS="$(cat ${ARTIFACT_PATH} | jq -r '.address')"
@@ -309,6 +313,7 @@
                     "{{ artifact.keystore.name }}_password": $keystore_password
                   }' \
                 > "${SECRETS}"
+                if [ $? -ne 0 ]; then exit 1; fi
                 flock -v -u 191
 
                 ADDRESS=$(echo "${KEYSTORE}" | jq -r '.address')
@@ -331,6 +336,7 @@
           {% endif %}
           {% if artifact.boot_key | default(false) and environments[env].secrets == 'generate' %}
             bootnode -genkey "${DESTINATION_DIR}/boot.key"
+            if [ $? -ne 0 ]; then exit 1; fi
 
             flock -v -x 191
             cat "${SECRETS}" | jq \
@@ -342,6 +348,7 @@
                 ($item_name + "_boot_key_address"): $boot_key_address
               }' \
             > "${SECRETS}"
+            if [ $? -ne 0 ]; then exit 1; fi
             flock -v -u 191
 
           {% endif %}
