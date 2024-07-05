@@ -205,6 +205,10 @@ func (t *testEthClient) HeaderByNumber(_ context.Context, number *big.Int) (*typ
 	return hdr, nil
 }
 
+func (t *testEthClient) BlockByNumber(_ context.Context, number *big.Int) (*types.Block, error) {
+	return nil, nil
+}
+
 func publishLog(
 	eventManager events.EventManager,
 	blockNum *big.Int,

@@ -29,9 +29,9 @@ on:
         type: choice
         options:
           - lax1
-          - nyc1
-          - nyc2
+          - chi1
           - mia2
+          - mia3
         default: 'lax'
 
 permissions:
@@ -131,6 +131,15 @@ jobs:
 
       - name: Configure Control Machine
         run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat <<-EOH >> ~/.ssh/config
+          Host *
+            ControlMaster auto
+            ControlPath /tmp/ssh_mux_%h_%p_%r
+            ControlPersist 60m
+          EOH
+
           ANSIBLE_USER="${USER}"
           ANSIBLE_CONNECTION="ansible_connection=local"
           if [ "${IS_MANUAL_DEPLOYMENT}" == "true" ]; then
@@ -138,9 +147,7 @@ jobs:
             ANSIBLE_CONNECTION=""
             export ANSIBLE_HOST_KEY_CHECKING=false
 
-            mkdir -p ~/.ssh && \
-            chmod 700 ~/.ssh && \
-            echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519 && \
+            echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519
             chmod 600 ~/.ssh/id_ed25519
           fi
 
@@ -249,6 +256,48 @@ jobs:
           EOH
           )
           curl -X POST -H 'Content-type: application/json' --data "${PAYLOAD}" "${{ secrets.SLACK_CI_CHANNEL_WEBHOOK_URL }}"
+
+      - name: Collect Cluster Logs
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && failure() }}
+        run: |
+          NOMAD_SERVER="http://${TARGET_MACHINE_IP}:4646"
+          journalctl -u nomad > nomad.log
+          curl -s ${NOMAD_SERVER}/v1/jobs > nomad_jobs.json
+
+          ALLOC_IDS=$(curl -s ${NOMAD_SERVER}/v1/allocations | jq -r '.[].ID')
+          for ALLOC_ID in ${ALLOC_IDS}; do
+            JOB=$(curl -s ${NOMAD_SERVER}/v1/allocation/${ALLOC_ID} | jq -r '.JobID')
+            TASKS=$(curl -s ${NOMAD_SERVER}/v1/allocation/${ALLOC_ID} | jq -r '.TaskStates | keys[]')
+
+            for TASK in ${TASKS}; do
+              STDOUT=$(curl -s "${NOMAD_SERVER}/v1/client/fs/logs/${ALLOC_ID}?task=${TASK}&type=stdout")
+              if [ "$(jq -e .Data <<< "${STDOUT}" 2> /dev/null)" != "null" ]; then
+                echo ${STDOUT} | jq -r '.Data' | base64 -d > "${ALLOC_ID}_${JOB}_${TASK}_stdout.log"
+              else
+                echo "Failed to fetch stdout log for ${ALLOC_ID}_${JOB}_${TASK}:"
+                echo ${STDOUT}
+              fi
+
+              STDERR=$(curl -s "${NOMAD_SERVER}/v1/client/fs/logs/${ALLOC_ID}?task=${TASK}&type=stderr")
+              if [ "$(jq -e .Data <<< "${STDERR}" 2> /dev/null)" != "null" ]; then
+                echo ${STDERR} | jq -r '.Data' | base64 -d > "${ALLOC_ID}_${JOB}_${TASK}_stderr.log"
+              else
+                echo "Failed to fetch stderr log for ${ALLOC_ID}_${JOB}_${TASK}:"
+                echo ${STDERR}
+              fi
+            done
+          done
+
+      - name: Upload Cluster Logs
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs
+          path: |
+            nomad_jobs.json
+            nomad.log
+            *_stdout.log
+            *_stderr.log
 
       - name: Initialize Debug Shell
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && failure() }}

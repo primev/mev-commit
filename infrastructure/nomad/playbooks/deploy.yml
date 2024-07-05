@@ -221,6 +221,7 @@
               fi
               set +x
               goreleaser release --snapshot --config=./{{ artifact.path }}/.goreleaser.tmp.yml
+              if [ $? -ne 0 ]; then exit 1; fi
               rm ./{{ artifact.path }}/.goreleaser.tmp.yml
             fi
             flock -v -u 192
@@ -231,13 +232,14 @@
               echo "${ARTIFACT}" >> "${INVENTORY}"
               flock -v -u 192
               tar -czvf "${ARTIFACT}" ./{{ artifact.path }}
+              if [ $? -ne 0 ]; then exit 1; fi
             fi
           {% endif %}
 
           {% if artifact.keystore is defined %}
             case "{{ environments[env].secrets }}" in
               "generate")
-                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits', '+-_,.:@']) }}"
+                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits']) }}"
 
                 RESULT=$(
                   {{ keystore_generator.stdout }} generate \
@@ -245,6 +247,7 @@
                     --passphrase="${PASSPHRASE}" \
                     --log-fmt="json"
                 )
+                if [ $? -ne 0 ]; then exit 1; fi
                 ARTIFACT_PATH="$(echo ${RESULT} | jq -e -r '.path // empty' 2>/dev/null)"
                 flock -v -x 192
                 echo "${ARTIFACT_PATH}" >> "${INVENTORY}"
@@ -261,6 +264,7 @@
                     "{{ artifact.keystore.name }}_password": $keystore_password
                   }' \
                 > "${SECRETS}"
+                if [ $? -ne 0 ]; then exit 1; fi
                 flock -v -u 191
 
                 ADDRESS="$(cat ${ARTIFACT_PATH} | jq -r '.address')"
@@ -309,6 +313,7 @@
                     "{{ artifact.keystore.name }}_password": $keystore_password
                   }' \
                 > "${SECRETS}"
+                if [ $? -ne 0 ]; then exit 1; fi
                 flock -v -u 191
 
                 ADDRESS=$(echo "${KEYSTORE}" | jq -r '.address')
@@ -331,6 +336,7 @@
           {% endif %}
           {% if artifact.boot_key | default(false) and environments[env].secrets == 'generate' %}
             bootnode -genkey "${DESTINATION_DIR}/boot.key"
+            if [ $? -ne 0 ]; then exit 1; fi
 
             flock -v -x 191
             cat "${SECRETS}" | jq \
@@ -342,6 +348,7 @@
                 ($item_name + "_boot_key_address"): $boot_key_address
               }' \
             > "${SECRETS}"
+            if [ $? -ne 0 ]; then exit 1; fi
             flock -v -u 191
 
           {% endif %}
@@ -517,6 +524,21 @@
         label: "{{ item.path | basename }}"
       when: build_artifacts and upload_artifacts.matched > 0 and env == 'devenv'
 
+    - name: Read Generated Secrets
+      slurp:
+        src: "{{ dist_dir }}/secrets.json"
+      register: secrets_json
+      when: build_artifacts and environments[env].secrets == 'generate'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Debug Generated Secrets
+      ansible.builtin.debug:
+        msg: "{{ secrets_json.content | b64decode | from_json }}"
+      when: build_artifacts and env == 'devenv' and environments[env].secrets == 'generate'
+      delegate_to: localhost
+      run_once: true
+
     - name: Push Generated Secrets to Vault
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}"
@@ -525,7 +547,7 @@
         headers:
           X-Vault-Token: "{{ vault_init.json.root_token }}"
           Content-Type: "application/json"
-        body: "{{ {'data': (lookup('file', dist_dir + '/secrets.json') | from_json)} | to_json }}"
+        body: "{{ {'data': (secrets_json.content | b64decode | from_json)} | to_json }}"
         status_code: [200, 204]
         validate_certs: no
       when: build_artifacts and environments[env].secrets == 'generate'
@@ -571,16 +593,7 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        RESULT="$(nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad 2>&1)"
-        if [ $? -ne 0 ]; then
-          echo "Failed to deploy {{ job.name }}:"
-          echo "${RESULT}"
-          echo "{{ job.name }} stdout logs:"
-          nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
-          echo "{{ job.name }} error logs:"
-          nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
-          exit 1
-        fi
+        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
 
         TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
         START_TIME=$(date +%s)
@@ -588,10 +601,6 @@
         if [ $? -ne 0 ]; then
           echo "Failed to get job status for {{ job.name }}:"
           echo "${RESULT}"
-          echo "{{ job.name }} stdout logs:"
-          nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
-          echo "{{ job.name }} error logs:"
-          nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
           exit 1
         fi
         JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
@@ -623,7 +632,7 @@
           CURRENT_TIME="$(date +%s)"
           ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
           if [ ${ELAPSED_TIME} -ge ${TIMEOUT} ]; then
-            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}."
+            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}"
             exit 1
           fi
 
@@ -632,10 +641,6 @@
           if [ $? -ne 0 ]; then
             echo "Failed to get job status for {{ job.name }}:"
             echo "${RESULT}"
-            echo "{{ job.name }} stdout logs:"
-            nomad alloc logs -stdout -job "{{ job.name }}" | tail -n 100
-            echo "{{ job.name }} error logs:"
-            nomad alloc logs -stderr -job "{{ job.name }}" | tail -n 100
             exit 1
           fi
         done

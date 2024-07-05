@@ -2,6 +2,8 @@ package txmonitor
 
 import (
 	"context"
+	"log/slog"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -76,11 +78,11 @@ type BatchReceiptGetter interface {
 
 type evmHelper struct {
 	client *rpc.Client
+	logger *slog.Logger
 }
 
-// NewEVMHelper creates a new EVMHelper instance.
-func NewEVMHelper(client *rpc.Client) *evmHelper {
-	return &evmHelper{client}
+func NewEVMHelperWithLogger(client *rpc.Client, logger *slog.Logger) *evmHelper {
+	return &evmHelper{client, logger}
 }
 
 // TraceTransaction implements Debugger.TraceTransaction interface.
@@ -101,9 +103,11 @@ func (e *evmHelper) TraceTransaction(ctx context.Context, txHash common.Hash) (*
 
 // BatchReceipts retrieves multiple receipts for a list of transaction hashes.
 func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]Result, error) {
+	e.logger.Info("Starting BatchReceipts", "txHashes", txHashes)
 	batch := make([]rpc.BatchElem, len(txHashes))
 
 	for i, hash := range txHashes {
+		e.logger.Debug("Preparing batch element", "index", i, "hash", hash.Hex())
 		batch[i] = rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{hash},
@@ -111,19 +115,34 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 		}
 	}
 
-	// Execute the batch request
-	err := e.client.BatchCallContext(ctx, batch)
-	if err != nil {
-		return nil, err
+	var receipts []Result
+	var err error
+	for attempts := 0; attempts < 50; attempts++ {
+		e.logger.Debug("Attempting batch call", "attempt", attempts+1)
+		// Execute the batch request
+		err = e.client.BatchCallContext(context.Background(), batch)
+		if err != nil {
+			e.logger.Error("Batch call attempt failed", "attempt", attempts+1, "error", err)
+			time.Sleep(1 * time.Second)
+		} else {
+			e.logger.Info("Batch call attempt succeeded", "attempt", attempts+1)
+			break
+		}
 	}
 
-	receipts := make([]Result, len(batch))
+	if err != nil {
+		e.logger.Error("All batch call attempts failed", "error", err)
+		return nil, err
+	}
+	receipts = make([]Result, len(batch))
 	for i, elem := range batch {
+		e.logger.Debug("Processing batch element", "index", i, "result", elem.Result, "error", elem.Error)
 		receipts[i].Receipt = elem.Result.(*types.Receipt)
 		if elem.Error != nil {
 			receipts[i].Err = elem.Error
 		}
 	}
 
+	e.logger.Info("BatchReceipts completed successfully", "receipts", receipts)
 	return receipts, nil
 }
