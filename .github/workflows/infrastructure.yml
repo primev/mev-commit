@@ -127,7 +127,7 @@ jobs:
           sudo add-apt-repository --yes ppa:ethereum/ethereum
           sudo apt-get update
           sudo apt-get install --yes goreleaser ethereum
-          pip install boto3 botocore
+          pip install boto3 botocore --break-system-packages
           pipx inject ansible-core botocore boto3
 
       - name: Configure Control Machine
