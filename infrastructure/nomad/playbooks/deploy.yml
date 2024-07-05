@@ -517,6 +517,13 @@
         label: "{{ item.path | basename }}"
       when: build_artifacts and upload_artifacts.matched > 0 and env == 'devenv'
 
+    - name: Read Generated Secrets
+      slurp:
+        src: "{{ dist_dir }}/secrets.json"
+      register: secrets_json
+      delegate_to: localhost
+      run_once: true
+
     - name: Push Generated Secrets to Vault
       ansible.builtin.uri:
         url: "{{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}"
@@ -525,7 +532,7 @@
         headers:
           X-Vault-Token: "{{ vault_init.json.root_token }}"
           Content-Type: "application/json"
-        body: "{{ {'data': (lookup('file', dist_dir + '/secrets.json') | from_json)} | to_json }}"
+        body: "{{ {'data': (secrets_json.content | b64decode | from_json)} | to_json }}"
         status_code: [200, 204]
         validate_certs: no
       when: build_artifacts and environments[env].secrets == 'generate'
