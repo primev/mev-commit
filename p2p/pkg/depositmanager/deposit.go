@@ -185,7 +185,7 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 
 	if defaultBalance == nil {
 		dm.logger.Error("bidder balance not found", "address", address.Hex(), "window", windowToCheck)
-		return nil, status.Errorf(codes.FailedPrecondition, "balance not found")
+		return nil, status.Errorf(codes.FailedPrecondition, "balance not found for window %s", windowToCheck.String())
 	}
 
 	if defaultBalance.Cmp(bidAmount) < 0 {
