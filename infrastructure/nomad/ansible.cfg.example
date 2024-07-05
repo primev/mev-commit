@@ -8,7 +8,6 @@ timeout = 10
 connection = ssh
 pipelining = True
 host_key_checking = False
-ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o ForwardAgent=yes
 fact_caching = jsonfile
 fact_caching_connection = /tmp/ansible_facts_cache
 fact_caching_timeout = 86400
@@ -17,3 +16,6 @@ module_defaults:
     gather_subset:
     - '!all'
     - 'min'
+
+[ssh_connection]
+ssh_args = -o ControlMaster=auto -o ControlPersist=60m -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ForwardAgent=yes

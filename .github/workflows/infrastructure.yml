@@ -131,6 +131,15 @@ jobs:
 
       - name: Configure Control Machine
         run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          cat <<-EOH >> ~/.ssh/config
+          Host *
+            ControlMaster auto
+            ControlPath /tmp/ssh_mux_%h_%p_%r
+            ControlPersist 60m
+          EOH
+
           ANSIBLE_USER="${USER}"
           ANSIBLE_CONNECTION="ansible_connection=local"
           if [ "${IS_MANUAL_DEPLOYMENT}" == "true" ]; then
@@ -138,9 +147,7 @@ jobs:
             ANSIBLE_CONNECTION=""
             export ANSIBLE_HOST_KEY_CHECKING=false
 
-            mkdir -p ~/.ssh && \
-            chmod 700 ~/.ssh && \
-            echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519 && \
+            echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519
             chmod 600 ~/.ssh/id_ed25519
           fi
 
