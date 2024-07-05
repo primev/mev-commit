@@ -237,7 +237,7 @@
           {% if artifact.keystore is defined %}
             case "{{ environments[env].secrets }}" in
               "generate")
-                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits', '+-_,.:@']) }}"
+                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits']) }}"
 
                 RESULT=$(
                   {{ keystore_generator.stdout }} generate \
