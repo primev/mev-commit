@@ -3,6 +3,7 @@ package txmonitor
 import (
 	"context"
 	"log"
+	"log/slog"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -78,11 +79,11 @@ type BatchReceiptGetter interface {
 
 type evmHelper struct {
 	client *rpc.Client
+	logger *slog.Logger
 }
 
-// NewEVMHelper creates a new EVMHelper instance.
-func NewEVMHelper(client *rpc.Client) *evmHelper {
-	return &evmHelper{client}
+func NewEVMHelperWithLogger(client *rpc.Client, logger *slog.Logger) *evmHelper {
+	return &evmHelper{client, logger}
 }
 
 // TraceTransaction implements Debugger.TraceTransaction interface.
