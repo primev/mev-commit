@@ -129,17 +129,12 @@
   },
   {
     "type": "function",
-    "name": "depositForNWindows",
+    "name": "depositForWindow",
     "inputs": [
       {
         "name": "window",
         "type": "uint256",
         "internalType": "uint256"
-      },
-      {
-        "name": "n",
-        "type": "uint16",
-        "internalType": "uint16"
       }
     ],
     "outputs": [],
@@ -147,12 +142,12 @@
   },
   {
     "type": "function",
-    "name": "depositForSpecificWindow",
+    "name": "depositForWindows",
     "inputs": [
       {
-        "name": "window",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "windows",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [],
@@ -333,24 +328,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "moveDepositToWindow",
-    "inputs": [
-      {
-        "name": "fromWindow",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "toWindow",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -597,25 +574,7 @@
   },
   {
     "type": "function",
-    "name": "withdrawFromNWindows",
-    "inputs": [
-      {
-        "name": "window",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "n",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "withdrawFromSpecificWindows",
+    "name": "withdrawFromWindows",
     "inputs": [
       {
         "name": "windows",
