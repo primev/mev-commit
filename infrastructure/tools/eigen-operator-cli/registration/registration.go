@@ -89,7 +89,6 @@ func (c *Command) initialize(ctx *cli.Context) error {
 		return fmt.Errorf("failed to create mev-commit avs: %w", err)
 	}
 
-	// Apparently we don't need to set gas params manually anymore?
 	tOpts, err := c.signer.GetAuth(chainID)
 	if err != nil {
 		c.Logger.Error("failed to get auth", "error", err)
@@ -127,6 +126,7 @@ func (c *Command) RegisterOperator(ctx *cli.Context) error {
 	} else if rec.Status != ethtypes.ReceiptStatusSuccessful {
 		return fmt.Errorf("receipt status unsuccessful: %d", rec.Status)
 	}
+	// TODO: Confirm we don't need to set gas params manually anymore?
 
 	// TODO: Determine if we want to support fee bump, cancelling, etc. Do some testing here..
 	return nil

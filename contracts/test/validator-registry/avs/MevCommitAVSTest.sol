@@ -31,6 +31,9 @@ contract MevCommitAVSTest is Test {
     uint256 public lstRestakerDeregPeriodBlocks;
     string public metadataUrl;
 
+    address public operator = address(0x18A8E44e0E225B10a4Af86CEC6e4c514BB95B342);
+    uint256 public operatorPrivateKey = uint256(0xe0ea92e36ee0c574bc092425926b3bfe817ec9471afbe90b577757ee16f60fd8);
+
     event OperatorRegistered(address indexed operator);
     event OperatorDeregistrationRequested(address indexed operator);
     event OperatorDeregistered(address indexed operator);
@@ -95,9 +98,18 @@ contract MevCommitAVSTest is Test {
 
     function testRegisterOperator() public {
 
-        address operator = address(0x888);
+        avsDirectoryMock.setAVS(address(mevCommitAVS));
+
+        bytes32 digestHash = avsDirectoryMock.calculateOperatorAVSRegistrationDigestHash({
+            operator: operator,
+            avs: address(mevCommitAVS),
+            salt: bytes32("salt"),
+            expiry: block.timestamp + 1 days
+        });
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorPrivateKey, digestHash);
         ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature = ISignatureUtils.SignatureWithSaltAndExpiry({
-            signature: bytes("signature"),
+            signature: abi.encodePacked(r, s, v),
             salt: bytes32("salt"),
             expiry: block.timestamp + 1 days
         });
@@ -132,8 +144,6 @@ contract MevCommitAVSTest is Test {
 
     function testRequestOperatorDeregistration() public {
         vm.roll(108);
-
-        address operator = address(0x888);
 
         vm.prank(owner);
         mevCommitAVS.pause();
@@ -175,8 +185,6 @@ contract MevCommitAVSTest is Test {
 
     function testDeregisterOperator() public {
         vm.roll(11);
-
-        address operator = address(0x888);
 
         vm.prank(owner);
         mevCommitAVS.pause();
@@ -232,7 +240,6 @@ contract MevCommitAVSTest is Test {
     function testRegisterValidatorsByPodOwners() public {
         vm.roll(55);
 
-        address operator = address(0x888);
         address podOwner = address(0x420);
         ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
             signature: bytes("signature"),
@@ -332,7 +339,6 @@ contract MevCommitAVSTest is Test {
 
     function testRequestValidatorsDeregistration() public {
 
-        address operator = address(0x888);
         address podOwner = address(0x420);
 
         bytes[] memory valPubkeys = new bytes[](2);
@@ -388,7 +394,6 @@ contract MevCommitAVSTest is Test {
 
     function testDeregisterValidator() public {
 
-        address operator = address(0x888);
         address podOwner = address(0x420);
         bytes[] memory valPubkeys = new bytes[](1);
         valPubkeys[0] = bytes("valPubkey1");
@@ -447,7 +452,6 @@ contract MevCommitAVSTest is Test {
 
     function testRegisterLSTRestaker() public {
 
-        address operator = address(0x888);
         address lstRestaker = address(0x34443);
         address otherAcct = address(0x777);
         bytes[] memory chosenVals = new bytes[](0);
@@ -631,7 +635,6 @@ contract MevCommitAVSTest is Test {
 
         vm.roll(403);
 
-        address operator = address(0x888);
         bytes[] memory valPubkeys2 = new bytes[](1);
         valPubkeys2[0] = bytes("valPubkey1");
         vm.prank(operator);
@@ -699,7 +702,6 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
 
         address lstRestaker = address(0x34443);
-        address operator = address(0x888);
         ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
             signature: bytes("signature"),
             expiry: 10
