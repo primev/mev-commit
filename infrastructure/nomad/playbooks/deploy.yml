@@ -585,21 +585,26 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        # nomad job plan {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
-        # nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+        LOGFILE="/var/log/nomad_deploy_{{ job.name }}.log"
+
+        # Plan the job
+        echo "Planning job {{ job.name }}..." | tee -a $LOGFILE
+        nomad job plan {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad > /tmp/plan_result-{{ job.name }}.txt 2>&1
+        cat /tmp/plan_result-{{ job.name }}.txt | tee -a $LOGFILE
 
         # Check for differences in the job plan
-        nomad job plan {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad > /tmp/plan_result.txt
-        cat /tmp/plan_result.txt 
-        if grep -q "No changes" /tmp/plan_result.txt; then
-          echo "No changes in the job plan for {{ job.name }}. Skipping deployment."
+        echo "Checking for differences in the job plan..." | tee -a $LOGFILE
+        if grep -q "+/-" /tmp/plan_result-{{ job.name }}.txt; then
+          echo "No changes in the job plan for {{ job.name }}. Skipping deployment." | tee -a $LOGFILE
         else
-          echo "Differences found in the job plan for {{ job.name }}. Redeploying job."
+          echo "Differences found in the job plan for {{ job.name }}. Redeploying job." | tee -a $LOGFILE
           # Stop the existing job
-          nomad job stop {{ job.name }}
+          echo "Stopping existing job {{ job.name }}..." | tee -a $LOGFILE
+          nomad job stop {{ job.name }} | tee -a $LOGFILE
           
           # Run the updated job
-          nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+          echo "Running updated job {{ job.name }}..." | tee -a $LOGFILE
+          nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad | tee -a $LOGFILE
         fi
 
         TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
@@ -608,8 +613,8 @@
         while true; do
           RESULT=$(nomad job status -json "{{ job.name }}")
           if [ $? -ne 0 ]; then
-            echo "Failed to get job status for {{ job.name }}:"
-            echo "${RESULT}"
+            echo "Failed to get job status for {{ job.name }}:" | tee -a $LOGFILE
+            echo "${RESULT}" | tee -a $LOGFILE
             exit 1
           fi
 
@@ -617,12 +622,12 @@
           JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
           STATUS=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].ClientStatus')
 
-          echo "Current status of job {{ job.name }}: ${STATUS}"
+          echo "Current status of job {{ job.name }}: ${STATUS}" | tee -a $LOGFILE
 
           # Fetch and display logs
           LOGS=$(nomad alloc logs ${ALLOC_ID} 2>&1)
-          echo "Logs for allocation ${ALLOC_ID}:"
-          echo "${LOGS}"
+          echo "Logs for allocation ${ALLOC_ID}:" | tee -a $LOGFILE
+          echo "${LOGS}" | tee -a $LOGFILE
 
           case "${JOB_TYPE}" in
             service)
@@ -639,7 +644,7 @@
               {% if env != 'devenv' %}
               break
               {% else %}
-              echo "Unknown job type: ${JOB_TYPE}"
+              echo "Unknown job type: ${JOB_TYPE}" | tee -a $LOGFILE
               exit 1
               {% endif %}
               ;;
@@ -648,7 +653,7 @@
           CURRENT_TIME="$(date +%s)"
           ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
           if [ ${ELAPSED_TIME} -ge ${TIMEOUT} ]; then
-            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}"
+            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}" | tee -a $LOGFILE
             exit 1
           fi
 
@@ -666,6 +671,7 @@
       register: result
       failed_when: result.rc != 0
       no_log: false
+
 
 
     - name: Post Deployment Info
