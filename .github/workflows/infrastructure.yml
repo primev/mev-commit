@@ -173,11 +173,11 @@ jobs:
           fi
         working-directory: infrastructure/nomad
 
-      # - name: Destroy Existing Cluster
-      #   if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
-      #   run: |
-      #     ./cluster.sh destroy ${CLUSTER_DEBUG_FLAG}
-      #   working-directory: infrastructure/nomad
+      - name: Destroy Existing Cluster
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
+        run: |
+          ./cluster.sh destroy ${CLUSTER_DEBUG_FLAG}
+        working-directory: infrastructure/nomad
 
       - name: Initialize Cluster
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' }}
