@@ -587,8 +587,9 @@
       ansible.builtin.shell: |
         cat {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
         echo "nomad file"
-        
-        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+
+        nomad job plan {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+        #nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
 
         TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
         POLL_INTERVAL=2
@@ -651,7 +652,7 @@
         job: "{{ item }}"
       register: result
       failed_when: result.rc != 0
-      parallel: true  # Run jobs in parallel
+      # parallel: true  # Run jobs in parallel
 
 
     - name: Post Deployment Info
