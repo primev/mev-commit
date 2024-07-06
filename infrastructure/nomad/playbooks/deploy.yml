@@ -585,8 +585,22 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        nomad job plan {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
-        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+        # nomad job plan {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+        # nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+
+        # Check for differences in the job plan
+        nomad job plan {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad > /tmp/plan_result.txt
+        cat /tmp/plan_result.txt 
+        if grep -q "No changes" /tmp/plan_result.txt; then
+          echo "No changes in the job plan for {{ job.name }}. Skipping deployment."
+        else
+          echo "Differences found in the job plan for {{ job.name }}. Redeploying job."
+          # Stop the existing job
+          nomad job stop {{ job.name }}
+          
+          # Run the updated job
+          nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+        fi
 
         TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
         START_TIME=$(date +%s)
@@ -643,7 +657,7 @@
       args:
         executable: bash
       async: 1800
-      poll: 1
+      poll: 30
       loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
