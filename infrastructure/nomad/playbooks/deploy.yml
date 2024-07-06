@@ -589,20 +589,26 @@
         nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
 
         TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
-        POLL_INTERVAL=2
         START_TIME=$(date +%s)
 
-        sleep 5  # Initial delay before first status check
-        RESULT=$(nomad job status -json "{{ job.name }}")
-        if [ $? -ne 0 ]; then
-          echo "Failed to get job status for {{ job.name }}:"
-          echo "${RESULT}"
-          exit 1
-        fi
-        JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
-
         while true; do
+          RESULT=$(nomad job status -json "{{ job.name }}")
+          if [ $? -ne 0 ]; then
+            echo "Failed to get job status for {{ job.name }}:"
+            echo "${RESULT}"
+            exit 1
+          fi
+
+          ALLOC_ID=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].ID')
+          JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
           STATUS=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].ClientStatus')
+
+          echo "Current status of job {{ job.name }}: ${STATUS}"
+
+          # Fetch and display logs
+          LOGS=$(nomad alloc logs ${ALLOC_ID} 2>&1)
+          echo "Logs for allocation ${ALLOC_ID}:"
+          echo "${LOGS}"
 
           case "${JOB_TYPE}" in
             service)
@@ -625,23 +631,19 @@
               ;;
           esac
 
-          CURRENT_TIME=$(date +%s)
-          ELAPSED_TIME=$(( CURRENT_TIME - START_TIME ))
+          CURRENT_TIME="$(date +%s)"
+          ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
           if [ ${ELAPSED_TIME} -ge ${TIMEOUT} ]; then
             echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}"
             exit 1
           fi
 
-          sleep ${POLL_INTERVAL}
-          RESULT=$(nomad job status -json "{{ job.name }}")
-          if [ $? -ne 0 ]; then
-            echo "Failed to get job status for {{ job.name }}:"
-            echo "${RESULT}"
-            exit 1
-          fi
+          sleep 1
         done
       args:
         executable: bash
+      async: 1800
+      poll: 1
       loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
@@ -649,7 +651,7 @@
         job: "{{ item }}"
       register: result
       failed_when: result.rc != 0
-      # parallel: true  # Run jobs in parallel
+      no_log: false
 
 
     - name: Post Deployment Info
