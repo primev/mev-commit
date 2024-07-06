@@ -585,7 +585,7 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        LOGFILE="/var/log/nomad_deploy.log"
+        LOGFILE="/tmp/nomad_deploy.log"
 
         # Plan the job
         echo "Planning job {{ job.name }}..." | tee -a $LOGFILE
