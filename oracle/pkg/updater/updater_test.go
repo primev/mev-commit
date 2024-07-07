@@ -360,11 +360,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 
 	signer := types.NewLondonSigner(big.NewInt(5))
 	var txns []*types.Transaction
-<<<<<<< HEAD
 	for i := range 10 {
-=======
-	for i := 0; i < 10; i++ {
->>>>>>> 1ad9a07 (feat: adds a revert check in tests)
 		txns = append(txns, types.MustSignNewTx(key, signer, &types.DynamicFeeTx{
 			Nonce:     uint64(i + 1),
 			Gas:       1000000,
@@ -412,11 +408,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	}
 
 	// constructing bundles
-<<<<<<< HEAD
 	for i := range 10 {
-=======
-	for i := 0; i < 10; i++ {
->>>>>>> 1ad9a07 (feat: adds a revert check in tests)
 		idxBytes := getIdxBytes(int64(i + 10))
 
 		bundle := strings.TrimPrefix(txns[i].Hash().Hex(), "0x")
@@ -494,15 +486,12 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	oracle := &testOracle{
 		commitments: make(chan processedCommitment, 1),
 	}
-<<<<<<< HEAD
 	testBatcher := &testBatcher{
 		failedReceipts: make(map[common.Hash]bool),
 	}
 	for _, txn := range txns {
 		testBatcher.failedReceipts[txn.Hash()] = true
 	}
-=======
->>>>>>> 1ad9a07 (feat: adds a revert check in tests)
 
 	updtr, err := updater.NewUpdater(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -510,10 +499,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		register,
 		evtMgr,
 		oracle,
-<<<<<<< HEAD
 		testBatcher,
-=======
->>>>>>> 1ad9a07 (feat: adds a revert check in tests)
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -1139,14 +1125,6 @@ func (t *testEVMClient) BlockByNumber(ctx context.Context, blkNum *big.Int) (*ty
 		return nil, fmt.Errorf("block %d not found", blkNum.Int64())
 	}
 	return blk, nil
-}
-
-func (t *testEVMClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	receipt, found := t.receipts[txHash.Hex()]
-	if !found {
-		return nil, fmt.Errorf("receipt for transaction hash %s not found", txHash.Hex())
-	}
-	return receipt, nil
 }
 
 type processedCommitment struct {

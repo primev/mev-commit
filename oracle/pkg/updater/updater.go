@@ -92,7 +92,6 @@ type Oracle interface {
 
 type EVMClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
 
 type Updater struct {
@@ -337,16 +336,9 @@ func (u *Updater) handleOpenedCommitment(
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
-	// TODO(@ckartik): replace this with a set of revertable txns from the bidder
-	revertableTxnHashes := make(map[string]struct{})
-	// We want to temporarily emulate a skip list of transactions that can be either removed or not succeed and still have a valid commitment.
-	// There are three states: the txn is present and successful, the txn is present but reverted, or the txn is missing entirely.
-	// We can operate on this with a set inclusion check for revertable txns and a separate check for missing txns.
 	// Ensure Bundle is atomic and present in the block
-	expectedPos := txns[commitmentTxnHashes[0]].PosInBlock
 	for i := 0; i < len(commitmentTxnHashes); i++ {
 		txnDetails, found := txns[commitmentTxnHashes[i]]
-<<<<<<< HEAD
 		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || !txnDetails.Succeeded {
 			u.logger.Info(
 				"bundle does not satsify commited requirements",
@@ -368,53 +360,7 @@ func (u *Updater) handleOpenedCommitment(
 				decayPercentage,
 				winner.Window,
 			)
-=======
-		if !found {
-			// NOTE(@ckartik): we can also add droppable here in case that's needed.
-			if _, revertable := revertableTxnHashes[commitmentTxnHashes[i]]; !revertable {
-				u.logger.Info(
-					"bundle is not atomic: transaction missing",
-					"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-					"txnHash", commitmentTxnHashes[i],
-					"blockNumber", update.BlockNumber,
-				)
-				return u.settle(ctx, update, SettlementTypeSlash, decayPercentage, winner.Window)
-			}
-			continue // Skip this transaction as it's revertable and missing
->>>>>>> c3cfccb (feat: reorganizes the oracle check for revertable txns)
 		}
-		if txnDetails.PosInBlock != expectedPos {
-			u.logger.Info(
-				"bundle is not atomic: incorrect position",
-				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-				"txnHash", commitmentTxnHashes[i],
-				"blockNumber", update.BlockNumber,
-				"actualPos", txnDetails.PosInBlock,
-				"expectedPos", expectedPos,
-			)
-			return u.settle(ctx, update, SettlementTypeSlash, decayPercentage, winner.Window)
-		}
-		if !txnDetails.Succeeded && revertableTxnHashes[commitmentTxnHashes[i]] == struct{}{} {
-			u.logger.Info(
-				"revertable transaction failed",
-				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-				"txnHash", commitmentTxnHashes[i],
-				"blockNumber", update.BlockNumber,
-			)
-			// This is allowed, so we continue to the next transaction
-			expectedPos++ // Increment expected position for the next transaction
-			continue
-		}
-		if !txnDetails.Succeeded {
-			u.logger.Info(
-				"non-revertable transaction failed",
-				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
-				"txnHash", commitmentTxnHashes[i],
-				"blockNumber", update.BlockNumber,
-			)
-			return u.settle(ctx, update, SettlementTypeSlash, decayPercentage, winner.Window)
-		}
-		expectedPos++ // Increment expected position for the next transaction
 	}
 
 	return u.settle(
@@ -517,7 +463,6 @@ func (u *Updater) addSettlement(
 
 	return nil
 }
-
 func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]TxMetadata, error) {
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
@@ -535,44 +480,7 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
 
-<<<<<<< HEAD
 	u.logger.Info("retrieved block", "blockNum", blockNum, "blockHash", block.Hash().Hex())
-=======
-	txnsInBlock := make(map[string]TxMetadata)
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var receiptErr error
-
-	processTransactionMetadata := func(posInBlock int, tx *types.Transaction) {
-		defer wg.Done()
-		receipt, err := u.l1Client.TransactionReceipt(ctx, tx.Hash())
-		if err != nil {
-			u.logger.Error("failed to get transaction receipt", "txHash", tx.Hash().Hex(), "error", err)
-			mu.Lock()
-			receiptErr = err
-			mu.Unlock()
-			return
-		}
-		txSucceeded := receipt.Status == types.ReceiptStatusSuccessful
-		mu.Lock()
-		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = TxMetadata{PosInBlock: posInBlock, Succeeded: txSucceeded}
-		mu.Unlock()
-	}
-
-	for posInBlock, tx := range block.Transactions() {
-
-		wg.Add(1)
-		go processTransactionMetadata(posInBlock, tx)
-	}
-
-	wg.Wait()
-
-	if receiptErr != nil {
-		return nil, receiptErr
-	}
-
-	_ = u.l1BlockCache.Add(blockNum, txnsInBlock)
->>>>>>> e18f314 (feat: request receipts concurrently)
 
 	var txnReceipts sync.Map
 	eg, ctx := errgroup.WithContext(ctx)
