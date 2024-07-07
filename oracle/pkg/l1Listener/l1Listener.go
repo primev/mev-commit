@@ -22,6 +22,7 @@ type L1Recorder interface {
 
 type WinnerRegister interface {
 	RegisterWinner(ctx context.Context, blockNum int64, winner []byte, window int64) error
+	LastWinnerBlock() (int64, error)
 }
 
 type EthClient interface {
@@ -131,8 +132,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
-	// TODO: change it to the store to not miss blocks, if oracle is down
-	currentBlockNo, err := l.l1Client.BlockNumber(ctx)
+	currentBlockNo, err := l.winnerRegister.LastWinnerBlock()
 	if err != nil {
 		l.logger.Error("failed to get block number", "error", err)
 		return err
@@ -187,7 +187,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				)
 			}
 
-			currentBlockNo = blockNum
+			currentBlockNo = int64(blockNum)
 		}
 	}
 }

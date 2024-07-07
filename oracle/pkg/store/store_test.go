@@ -206,6 +206,20 @@ func TestStore(t *testing.T) {
 		}
 	})
 
+	t.Run("LastWinner", func(t *testing.T) {
+		st, err := store.NewStore(db)
+		if err != nil {
+			t.Fatalf("Failed to create store: %s", err)
+		}
+		blockNumber, err := st.LastWinnerBlock()
+		if err != nil {
+			t.Fatalf("Failed to get last winner block: %s", err)
+		}
+		if blockNumber != winners[1].BlockNumber {
+			t.Fatalf("Expected last winner block %d, got %d", winners[1].BlockNumber, blockNumber)
+		}
+	})
+
 	t.Run("AddEncryptedCommitment", func(t *testing.T) {
 		st, err := store.NewStore(db)
 		if err != nil {
