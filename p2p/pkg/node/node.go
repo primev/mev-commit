@@ -28,6 +28,7 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
+	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
@@ -435,10 +436,11 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
-			autoDeposit := depositmanager.NewAutoDepositTracker(
+			autoDeposit := autodepositor.New(
 				evtMgr,
 				bidderRegistry,
 				optsGetter,
+				monitor,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 

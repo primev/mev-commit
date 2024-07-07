@@ -83,20 +83,6 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/bidderapiv1Bid'
-  /v1/bidder/cancel_and_withdraw_auto_deposit:
-    post:
-      summary: CancelAndWithdrawAutoDeposit
-      description: CancelAndWithdrawAutoDeposit is called by the bidder node to cancel the auto deposit and withdraw the funds.
-      operationId: Bidder_CancelAndWithdrawAutoDeposit
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1CancelAutoDepositResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/cancel_auto_deposit:
     post:
       summary: CancelAutoDeposit
@@ -111,6 +97,11 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: withdraw
+          in: query
+          required: false
+          type: boolean
   /v1/bidder/deposit/{amount}:
     post:
       summary: Deposit
@@ -185,16 +176,16 @@ paths:
           required: false
           type: string
           format: uint64
-  /v1/bidder/withdraw_from_specific_windows:
+  /v1/bidder/withdraw_from_windows:
     post:
-      summary: WithdrawFromSpecificWindows
-      description: WithdrawFromSpecificWindows is called by the bidder node to withdraw funds from specific windows.
-      operationId: Bidder_WithdrawFromSpecificWindows
+      summary: WithdrawFromWindows
+      description: WithdrawFromWindows is called by the bidder node to withdraw funds from multiple windows.
+      operationId: Bidder_WithdrawFromWindows
       responses:
         "200":
           description: A successful response.
           schema:
-            $ref: '#/definitions/v1AutoDepositResponse'
+            $ref: '#/definitions/v1WithdrawFromWindowsResponse'
         default:
           description: An unexpected error response.
           schema:
@@ -277,41 +268,37 @@ definitions:
   v1AutoDepositResponse:
     type: object
     example:
-      - amount: "1000000000000000000"
-        window_number: 1
-      - amount: "1000000000000000000"
-        window_number: 2
-      - amount: "1000000000000000000"
-        window_number: 3
+      amount_per_window: "1000000000000000000"
+      start_block_number: "1"
     properties:
-      amountsAndWindowNumbers:
-        type: array
-        items:
-          type: object
-          $ref: '#/definitions/bidderapiv1AutoDeposit'
-    description: AutoDeposit deposit from the bidder registry.
+      startBlockNumber:
+        type: string
+        format: uint64
+      amountPerWindow:
+        type: string
+    description: Response on AutoDeposit request.
     title: AutoDeposit response
   v1AutoDepositStatusResponse:
     type: object
     example:
-      amounts_and_window_numbers:
+      isWorking: true
+      window_balances:
         - amount: "1000000000000000000"
           window_number: 1
         - amount: "1000000000000000000"
           window_number: 2
         - amount: "1000000000000000000"
           window_number: 3
-      isWorking: true
     properties:
-      amountsAndWindowNumbers:
+      windowBalances:
         type: array
         items:
           type: object
           $ref: '#/definitions/bidderapiv1AutoDeposit'
       isWorking:
         type: boolean
-    description: AutoDeposit deposit from the bidder registry.
-    title: AutoDeposit response
+    description: AutoDeposit status from the bidder registry.
+    title: AutoDeposit status response
   v1CancelAutoDepositResponse:
     type: object
     example:
@@ -383,6 +370,24 @@ definitions:
         format: uint64
     description: Get deposit for bidder in the bidder registry.
     title: Deposit response
+  v1WithdrawFromWindowsResponse:
+    type: object
+    example:
+      withdraw_responses:
+        - amount: "1000000000000000000"
+          window_number: 1
+        - amount: "1000000000000000000"
+          window_number: 2
+        - amount: "1000000000000000000"
+          window_number: 3
+    properties:
+      withdrawResponses:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1WithdrawResponse'
+    description: Withdraw deposit from the bidder registry.
+    title: Withdraw from multiple windows response
   v1WithdrawResponse:
     type: object
     example:

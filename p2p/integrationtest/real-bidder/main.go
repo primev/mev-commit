@@ -152,20 +152,14 @@ func main() {
 		return
 	}
 
-	minDepositAmt := new(big.Int).Mul(minDeposit, big.NewInt(10))
-
-	minDepositAmt = new(big.Int).Mul(minDepositAmt, big.NewInt(3))
-
 	resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
-		Amount: minDepositAmt.String(),
+		Amount: minDeposit.String(),
 	})
 	if err != nil {
 		logger.Error("failed to auto deposit", "err", err)
 		return
 	}
-	for _, v := range resp.AmountsAndWindowNumbers {
-		logger.Info("auto deposit", "amount", v.Amount, "window", v.WindowNumber)
-	}
+	logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartBlockNumber)
 	type blockWithTxns struct {
 		blockNum int64
 		txns     []string
