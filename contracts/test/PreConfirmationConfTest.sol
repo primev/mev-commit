@@ -269,7 +269,6 @@ contract TestPreConfCommitmentStore is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        console.logBytes(signature);
         bytes memory sharedSecretKey = bytes("0xsecret");
         bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
             _testCommitmentAliceBob.txnHash,
@@ -287,7 +286,6 @@ contract TestPreConfCommitmentStore is Test {
         (, uint256 providerPk) = makeAddrAndKey("bob");
         (v, r, s) = vm.sign(providerPk, preConfHash);
         signature = abi.encodePacked(r, s, v);
-        console.logBytes(signature);
     }
 
     function _bytes32ToHexString(
@@ -433,8 +431,7 @@ contract TestPreConfCommitmentStore is Test {
             decayStartTimestamp,
             decayEndTimestamp
         );
-        console.log("bidHash");
-        console.logBytes32(bidHash);
+
         bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
             txnHash,
             revertingTxHashes,
@@ -446,8 +443,6 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
         );
-        console.log("commitmentHash");
-        console.logBytes32(commitmentHash);
         vm.startPrank(commiter);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(

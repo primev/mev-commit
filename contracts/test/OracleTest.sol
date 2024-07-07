@@ -560,14 +560,12 @@ contract OracleTest is Test {
             bidHash,
             bidSignature
         );
-        console.log("commitmentHash");
-        console.logBytes32(commitmentHash);
+        
         bytes memory commitmentSignature = getCommitmentSignature(
             signerPk,
             commitmentHash
         );
-        console.log("commitmentSignature");
-        console.logBytes(commitmentSignature);
+        
 
         bytes32 encryptedCommitmentIndex = storeEncryptedCommitment(
             provider,
