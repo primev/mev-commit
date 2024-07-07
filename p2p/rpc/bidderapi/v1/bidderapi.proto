@@ -28,6 +28,7 @@ service Bidder {
       body: "*"
     };
   }
+
   // Deposit
   //
   // Deposit is called by the bidder node to add deposit in the bidder registry.
@@ -45,7 +46,7 @@ service Bidder {
   // CancelAutoDeposit
   //
   // CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
-  rpc CancelAutoDeposit(EmptyMessage) returns (CancelAutoDepositResponse) {
+  rpc CancelAutoDeposit(CancelAutoDepositRequest) returns (CancelAutoDepositResponse) {
     option (google.api.http) = {post: "/v1/bidder/cancel_auto_deposit"};
   }
 
@@ -56,20 +57,13 @@ service Bidder {
     option (google.api.http) = {get: "/v1/bidder/auto_deposit_status"};
   }
 
-  // CancelAndWithdrawAutoDeposit
+  // WithdrawFromWindows
   //
-  // CancelAndWithdrawAutoDeposit is called by the bidder node to cancel the auto deposit and withdraw the funds.
-  rpc CancelAndWithdrawAutoDeposit(EmptyMessage) returns (CancelAutoDepositResponse) {
-    option (google.api.http) = {post: "/v1/bidder/cancel_and_withdraw_auto_deposit"};
+  // WithdrawFromWindows is called by the bidder node to withdraw funds from multiple windows.
+  rpc WithdrawFromWindows(WithdrawFromWindowsRequest) returns (WithdrawFromWindowsResponse) {
+    option (google.api.http) = {post: "/v1/bidder/withdraw_from_windows"};
   }
 
-  // WithdrawFromSpecificWindows
-  //
-  // WithdrawFromSpecificWindows is called by the bidder node to withdraw funds from specific windows.
-  rpc WithdrawFromSpecificWindows(WithdrawFromSpecificWindowsRequest) returns (AutoDepositResponse) {
-    option (google.api.http) = {post: "/v1/bidder/withdraw_from_specific_windows"};
-  }
-  
   // GetDeposit
   //
   // GetDeposit is called by the bidder to get its deposit in the bidder registry.
@@ -127,7 +121,7 @@ message DepositResponse {
       title: "Deposit response"
       description: "Get deposit for bidder in the bidder registry."
     }
-    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1 }"
+    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1}"
   };
   string amount = 1;
   google.protobuf.UInt64Value window_number = 2;
@@ -137,23 +131,34 @@ message AutoDepositResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "AutoDeposit response"
-      description: "AutoDeposit deposit from the bidder registry."
+      description: "Response on AutoDeposit request."
     }
-    example: "[{\"amount\": \"1000000000000000000\", \"window_number\": 1}, {\"amount\": \"1000000000000000000\", \"window_number\": 2}, {\"amount\": \"1000000000000000000\", \"window_number\": 3}]"
+    example: "{\"start_block_number\": \"1\", \"amount_per_window\": \"1000000000000000000\"}"
   };
-  repeated AutoDeposit amounts_and_window_numbers = 1;
+  google.protobuf.UInt64Value start_block_number = 1;
+  string amount_per_window = 2;
 };
 
 message AutoDepositStatusResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "AutoDeposit response"
-      description: "AutoDeposit deposit from the bidder registry."
+      title: "AutoDeposit status response"
+      description: "AutoDeposit status from the bidder registry."
     }
-    example: "{\"amounts_and_window_numbers\": [{\"amount\": \"1000000000000000000\", \"window_number\": 1}, {\"amount\": \"1000000000000000000\", \"window_number\": 2}, {\"amount\": \"1000000000000000000\", \"window_number\": 3}], \"isWorking\": true}"
+    example: "{\"window_balances\": [{\"amount\": \"1000000000000000000\", \"window_number\": 1}, {\"amount\": \"1000000000000000000\", \"window_number\": 2}, {\"amount\": \"1000000000000000000\", \"window_number\": 3}], \"isWorking\": true}"
   };
-  repeated AutoDeposit amounts_and_window_numbers = 1;
-  bool isWorking = 2;
+  repeated AutoDeposit window_balances = 1;
+  bool is_working = 2;
+};
+
+message CancelAutoDepositRequest {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "CancelAutoDeposit request"
+      description: "Request to cancel AutoDeposit."
+    }
+  };
+  bool withdraw = 1;
 };
 
 message CancelAutoDepositResponse {
@@ -214,10 +219,10 @@ message WithdrawResponse {
   google.protobuf.UInt64Value window_number = 2;
 };
 
-message WithdrawFromSpecificWindowsRequest {
+message WithdrawFromWindowsRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
-      title: "Withdraw from N windows request"
+      title: "Withdraw from multiple windows request"
       description: "Withdraw deposit from the bidder registry."
       required: ["window_numbers"]
     }
@@ -231,6 +236,17 @@ message WithdrawFromSpecificWindowsRequest {
       message: "window_numbers must be a valid array of positive integers.",
       expression: "this.all(r, r > 0) && size(this) > 0"
     }];
+};
+
+message WithdrawFromWindowsResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Withdraw from multiple windows response"
+      description: "Withdraw deposit from the bidder registry."
+    }
+    example: "{\"withdraw_responses\": [{\"amount\": \"1000000000000000000\", \"window_number\": 1 }, {\"amount\": \"1000000000000000000\", \"window_number\": 2 }, {\"amount\": \"1000000000000000000\", \"window_number\": 3 } ]}"
+  };
+  repeated WithdrawResponse withdraw_responses = 1;
 };
 
 message Bid {
