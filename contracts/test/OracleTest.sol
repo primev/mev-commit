@@ -11,6 +11,7 @@ import "../contracts/BlockTracker.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
+import "forge-std/console.sol";
 
 contract OracleTest is Test {
     address public owner;
@@ -61,7 +62,7 @@ contract OracleTest is Test {
     function setUp() public {
         testNumber = 2;
         testNumber2 = 2;
-        sharedSecretKey = abi.encodePacked(keccak256("0xsecret"));
+        sharedSecretKey = bytes("0xsecret");
         _testCommitmentAliceBob = TestCommitment(
             2,
             2,
@@ -521,7 +522,6 @@ contract OracleTest is Test {
             );
             vm.stopPrank();
         }
-
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
         for (uint256 i = 0; i < commitments.length; i++) {
             vm.expectEmit(true, false, false, true);
@@ -551,6 +551,7 @@ contract OracleTest is Test {
     ) public returns (bytes32 commitmentIndex) {
         bytes32 bidHash = getBidHash(txnHash, revertingTxHashes, bid, blockNumber);
         bytes memory bidSignature = getBidSignature(bidderPk, bidHash);
+        
         bytes32 commitmentHash = getCommitmentHash(
             txnHash,
             revertingTxHashes,
@@ -559,10 +560,14 @@ contract OracleTest is Test {
             bidHash,
             bidSignature
         );
+        console.log("commitmentHash");
+        console.logBytes32(commitmentHash);
         bytes memory commitmentSignature = getCommitmentSignature(
             signerPk,
             commitmentHash
         );
+        console.log("commitmentSignature");
+        console.logBytes(commitmentSignature);
 
         bytes32 encryptedCommitmentIndex = storeEncryptedCommitment(
             provider,

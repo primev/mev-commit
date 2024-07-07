@@ -48,10 +48,10 @@ contract TestPreConfCommitmentStore is Test {
             "0xkartik",
             10,
             20,
-            0x56c06a13be335eba981b780ea45dff258a7c429d0e9d993235ef2d3a7e435df8,
-            0x9d954942ad3f6cb41ccd029869be7b28036270b4754665a3783c2d6bf0ef7d08,
-            hex"2e7df27808c72d7d5b2543bb63b06c0ae2144e021593b8d2a7cca6a3fb2d9c4b1a82dd2a07266de9364d255bdb709476ad96b826ec855efb528eaff66682997e1c",
-            hex"682a1bc8659a0d2616f579ca0e0944d4e21911e65561b7d9ae7dba36c5a5b699248f1c93e8e6f52492ee6c3cb0f34f20f5a97fb2653c5a67200e1de9254389e11c",
+            0x9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900,
+            0x5798166a22386ff729228c55f79ebff1abe1ea579989d7d59a46a1e50590e2e1,
+            hex"f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c81b",
+            hex"5b3000290d4f347b94146eb37f66d5368aed18fb8713bf78620abe40ae3de7f635f7ed161801c31ea10e736d88e6fd2a2286bbd59385161dd24c9fefd2568f341b",
             15,
             bytes("0xsecret")
         );
@@ -433,7 +433,8 @@ contract TestPreConfCommitmentStore is Test {
             decayStartTimestamp,
             decayEndTimestamp
         );
-
+        console.log("bidHash");
+        console.logBytes32(bidHash);
         bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
             txnHash,
             revertingTxHashes,
@@ -445,6 +446,8 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
         );
+        console.log("commitmentHash");
+        console.logBytes32(commitmentHash);
         vm.startPrank(commiter);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
@@ -562,6 +565,7 @@ contract TestPreConfCommitmentStore is Test {
         // Step 2: Store the commitment
         (address commiter, ) = makeAddrAndKey("bob");
         vm.deal(commiter, 5 ether);
+        
         bytes32 commitmentIndex = storeCommitment(
             commiter,
             _testCommitmentAliceBob.bid,

@@ -9,6 +9,7 @@ import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
+import "forge-std/console.sol";
 
 /**
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
@@ -504,7 +505,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
 
             // Store commitment
             commitments[commitmentIndex] = newCommitment;
-
             // Mark the encrypted commitment as used
             encryptedCommitments[encryptedCommitmentIndex].isUsed = true;
 
