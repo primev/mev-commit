@@ -365,12 +365,12 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 						"txHash", txHashes[start+i],
 					)
 				} else {
-					m.logger.Error("transaction failed",
+					m.logger.Debug("transaction failed",
 						"transaction_trace", tt,
 						"txHash", txHashes[start+i],
 					)
 				}
-				m.logger.Error("failed to get receipt", "error", r.Err, "transaction_trace", tt)
+				m.logger.Error("failed to get receipt", "error", r.Err)
 				m.notify(nonce, txHashes[start+i], Result{r.Receipt, ErrTxnFailed})
 				continue
 			}
