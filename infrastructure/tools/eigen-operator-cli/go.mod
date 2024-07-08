@@ -4,6 +4,7 @@ go 1.22
 
 require (
 	github.com/Layr-Labs/eigenlayer-cli v0.8.2
+	github.com/Layr-Labs/eigensdk-go v0.1.8
 	github.com/ethereum/go-ethereum v1.14.3
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/x v0.0.0
@@ -14,7 +15,6 @@ require (
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/Layr-Labs/eigensdk-go v0.1.8 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

@@ -6,6 +6,7 @@ import (
 
 	eigenclitypes "github.com/Layr-Labs/eigenlayer-cli/pkg/types"
 	eigencliutils "github.com/Layr-Labs/eigenlayer-cli/pkg/utils"
+	dm "github.com/Layr-Labs/eigensdk-go/contracts/bindings/DelegationManager"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -17,16 +18,23 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+type avsContractWithSesh struct {
+	avs  *avs.Mevcommitavs
+	sesh *avs.MevcommitavsTransactorSession
+}
+
 // TODO: re-eval if all these fields need to be stored
 type Command struct {
 	Logger           *slog.Logger
 	OperatorConfig   *eigenclitypes.OperatorConfig
 	KeystorePassword string
-	AVSAddress       string
-	ethClient        *ethclient.Client
 	signer           *ks.KeystoreSigner
-	transactor       *transactor.Transactor
-	sesh             *avs.MevcommitavsTransactorSession
+	ethClient        *ethclient.Client
+
+	AVSAddress          string
+	avsContractWithSesh *avsContractWithSesh
+
+	DelegationManagerAddress string
 }
 
 func (c *Command) initialize(ctx *cli.Context) error {
@@ -80,10 +88,8 @@ func (c *Command) initialize(ctx *cli.Context) error {
 		ethClient,
 		monitor,
 	)
-	c.transactor = transactor
 
 	avsAddress := common.HexToAddress(c.AVSAddress)
-
 	mevCommitAVS, err := avs.NewMevcommitavs(avsAddress, transactor)
 	if err != nil {
 		return fmt.Errorf("failed to create mev-commit avs: %w", err)
@@ -99,7 +105,17 @@ func (c *Command) initialize(ctx *cli.Context) error {
 		Contract:     &mevCommitAVS.MevcommitavsTransactor,
 		TransactOpts: *tOpts,
 	}
-	c.sesh = sesh
+
+	c.avsContractWithSesh = &avsContractWithSesh{
+		avs:  mevCommitAVS,
+		sesh: sesh,
+	}
+
+	delegationManager, err := dm.NewContractDelegationManagerCaller(common.HexToAddress(""), nil) // TODO
+	if err != nil {
+		return fmt.Errorf("failed to create delegation manager: %w", err)
+	}
+	fmt.Println(delegationManager)
 
 	return nil
 }
@@ -109,12 +125,21 @@ func (c *Command) RegisterOperator(ctx *cli.Context) error {
 	c.Logger.Info("Registering operator...")
 	c.initialize(ctx)
 
-	// TODO: query operator state before a tx is sent
+	operatorRegInfo, err := c.avsContractWithSesh.avs.GetOperatorRegInfo(
+		&bind.CallOpts{Context: ctx.Context}, c.signer.GetAddress())
+	if err != nil {
+		return fmt.Errorf("failed to get operator reg info: %w", err)
+	}
+	if operatorRegInfo.Exists {
+		return fmt.Errorf("signing operator already registered")
+	}
+
+	// TODO: also query EL's delegation manager
 
 	// TODO: generate actual sig
 	operatorSig := avs.ISignatureUtilsSignatureWithSaltAndExpiry{}
 
-	tx, err := c.sesh.RegisterOperator(operatorSig)
+	tx, err := c.avsContractWithSesh.sesh.RegisterOperator(operatorSig)
 	if err != nil {
 		return fmt.Errorf("failed to register operator: %w", err)
 	}
