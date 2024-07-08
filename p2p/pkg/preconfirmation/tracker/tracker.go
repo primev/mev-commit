@@ -32,9 +32,9 @@ type Tracker struct {
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
-	winners map[int64]*blocktracker.BlocktrackerNewL1Block
-	metrics *metrics
-	logger  *slog.Logger
+	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
+	metrics         *metrics
+	logger          *slog.Logger
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -60,6 +60,7 @@ type PreconfContract interface {
 		bid *big.Int,
 		blockNumber uint64,
 		txnHash string,
+		revertingTxHashes string,
 		decayStartTimeStamp uint64,
 		decayEndTimeStamp uint64,
 		bidSignature []byte,
@@ -89,9 +90,9 @@ func NewTracker(
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
-		winners: make(map[int64]*blocktracker.BlocktrackerNewL1Block),
-		metrics: newMetrics(),
-		logger:  logger,
+		winners:         make(map[int64]*blocktracker.BlocktrackerNewL1Block),
+		metrics:         newMetrics(),
+		logger:          logger,
 	}
 }
 
@@ -324,6 +325,7 @@ func (t *Tracker) handleNewL1Block(
 			bidAmt,
 			uint64(commitment.PreConfirmation.Bid.BlockNumber),
 			commitment.PreConfirmation.Bid.TxHash,
+			commitment.PreConfirmation.Bid.RevertingTxHashes,
 			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
 			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
 			commitment.PreConfirmation.Bid.Signature,
