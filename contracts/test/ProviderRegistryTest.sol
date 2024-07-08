@@ -21,7 +21,7 @@ contract ProviderRegistryTest is Test {
     BlockTracker public blockTracker;
     uint256 public blocksPerWindow;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount);
+    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
 
     function setUp() public {
         testNumber = 42;
@@ -105,7 +105,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(provider);
         vm.expectEmit(true, false, false, true);
 
-        emit ProviderRegistered(provider, 1e18 wei);
+        emit ProviderRegistered(provider, 1e18 wei, validBLSPubkey);
 
         providerRegistry.registerAndStake{value: 1e18 wei}(validBLSPubkey);
 
