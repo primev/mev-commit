@@ -8,7 +8,6 @@ import (
 	"errors"
 	"log/slog"
 	"math/big"
-	"strings"
 	"time"
 
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
@@ -124,12 +123,6 @@ func (b *ProviderClient) CheckAndStake() error {
 		BlsPublicKey: hex.EncodeToString(blsPubkeyBytes),
 	})
 	if err != nil {
-		if strings.Contains(err.Error(), "Invalid BLS public key length") {
-			b.logger.Error("failed to register stake", "err", err)
-			b.logger.Info("blsPubkeyBytes", "blsPubkeyBytes", hex.EncodeToString(blsPubkeyBytes))
-			b.logger.Info("blsPubkeyBytes length", "blsPubkeyBytes length", len(blsPubkeyBytes))
-			return err
-		}
 		b.logger.Error("failed to register stake", "err", err)
 		return err
 	}
