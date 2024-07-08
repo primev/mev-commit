@@ -307,18 +307,20 @@ func GetBidHash(bid *preconfpb.Bid) ([]byte, error) {
 		return nil, ErrInvalidBidAmt
 	}
 
-	// EIP712_MESSAGE_TYPEHASH
+	// EIP712_BID_TYPEHASH
 	eip712MessageTypeHash := crypto.Keccak256Hash(
-		[]byte("PreConfBid(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"),
+		[]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"),
 	)
 
 	// Convert the txnHash to a byte array and hash it
 	txnHashHash := crypto.Keccak256Hash([]byte(bid.TxHash))
+	revertingTxHashesHash := crypto.Keccak256Hash([]byte(bid.RevertingTxHashes))
 
 	// Encode values similar to Solidity's abi.encode
 	// The reason we use math.U256Bytes is because we want to encode the uint64 as a 32 byte array
 	// The EVM does this for values due via padding to 32 bytes, as that's the base size of a word in the EVM
 	data := append(eip712MessageTypeHash.Bytes(), txnHashHash.Bytes()...)
+	data = append(data, revertingTxHashesHash.Bytes()...)
 	data = append(data, math.U256Bytes(bidAmt)...)
 	data = append(data, math.U256Bytes(big.NewInt(bid.BlockNumber))...)
 	data = append(data, math.U256Bytes(big.NewInt(bid.DecayStartTimestamp))...)
@@ -350,19 +352,21 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 		return nil, ErrInvalidBidAmt
 	}
 
-	// EIP712_MESSAGE_TYPEHASH
+	// EIP712_COMMITMENT_TYPEHASH
 	eip712MessageTypeHash := crypto.Keccak256Hash(
-		[]byte("PreConfCommitment(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"),
+		[]byte("PreConfCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"),
 	)
 
 	// Convert the txnHash to a byte array and hash it
 	txnHashHash := crypto.Keccak256Hash([]byte(c.Bid.TxHash))
+	revertingTxHashesHash := crypto.Keccak256Hash([]byte(c.Bid.RevertingTxHashes))
 	bidDigestHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.Bid.Digest)))
 	bidSigHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.Bid.Signature)))
 	sharedSecretHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.SharedSecret)))
 
 	// Encode values similar to Solidity's abi.encode
 	data := append(eip712MessageTypeHash.Bytes(), txnHashHash.Bytes()...)
+	data = append(data, revertingTxHashesHash.Bytes()...)
 	data = append(data, math.U256Bytes(bidAmt)...)
 	data = append(data, math.U256Bytes(big.NewInt(c.Bid.BlockNumber))...)
 	data = append(data, math.U256Bytes(big.NewInt(c.Bid.DecayStartTimestamp))...)
