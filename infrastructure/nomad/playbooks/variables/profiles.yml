@@ -1,5 +1,5 @@
 datacenter: "dc1"
-l1_rpc_url: "https://eth-holesky.g.alchemy.com/v2/H8JN1wImnEPrxkFRVOT7cJ_gzu9x3VmB"
+l1_rpc_url: "https://holesky.infura.io/v3/6c8112e20c50475b9286f703bb6f0b90"
 
 artifacts:
   bidder_emulator: &bidder_emulator_artifact
