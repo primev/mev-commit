@@ -131,8 +131,6 @@ func main() {
 		return
 	}
 
-	fmt.Printf("connected to provider %s, receiving bids...\n", *serverAddr)
-
 	for bid := range bidS {
 		receivedBids.Inc()
 		buf, err := json.Marshal(bid)

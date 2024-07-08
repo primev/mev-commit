@@ -627,9 +627,12 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
+        START_TIME="$(date +%s)"
         nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+        END_TIME="$(date +%s)"
+        echo "Deployment of {{ job.name }} took $(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')"
 
-        TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
+        TIMEOUT=600
         START_TIME=$(date +%s)
         RESULT=$(nomad job status -json "{{ job.name }}")
         if [ $? -ne 0 ]; then
@@ -641,6 +644,11 @@
 
         while true; do
           STATUS=$(echo "${RESULT}"  | jq -r '.[0].Allocations[0].ClientStatus')
+          if [ "${STATUS}" = "failed" ]; then
+            echo "Deployment failed for {{ job.name }}:"
+            echo "${RESULT}"
+            exit 1
+          fi
 
           case "${JOB_TYPE}" in
             service)
@@ -666,7 +674,7 @@
           CURRENT_TIME="$(date +%s)"
           ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
           if [ ${ELAPSED_TIME} -ge ${TIMEOUT} ]; then
-            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}"
+            echo "Deployment timed out for {{ job.name }}, current status: ${STATUS}"
             exit 1
           fi
 
@@ -685,8 +693,9 @@
         label: "{{ item.name }}"
       vars:
         job: "{{ item }}"
-      register: result
-      failed_when: result.rc != 0
+      register: job_result
+      failed_when: job_result.rc != 0
+      when: job_result is not defined or job_result.rc == 0
 
     - name: Post Deployment Info
       ansible.builtin.debug:

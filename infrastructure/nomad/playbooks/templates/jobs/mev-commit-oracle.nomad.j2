@@ -5,6 +5,18 @@ job "{{ job.name }}" {
   group "{{ job.name }}-group" {
     count = {{ job.count }}
 
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
     network {
       mode = "bridge"
 
@@ -87,16 +99,15 @@ job "{{ job.name }}" {
           mkdir -p /var/run/postgresql > /dev/null 2>&1
           pg_ctl initdb --silent --pgdata="${POSTGRES_DATA}"
           if [ $? -ne 0 ]; then
-            echo "Failed to initialize database."
+            echo "Failed to initialize PostgreSQL."
             exit 1
           fi
           cp /alloc/data/postgres.env "${POSTGRES_DATA}/.env"
-          postgres -D "${POSTGRES_DATA}" &
-          pid=$!
 
-          if ! timeout 5m bash -c 'until pg_ctl status --pgdata="${POSTGRES_DATA}" --silent --no-wait; do sleep 1; done'; then
-            echo "Waiting for PostgreSQL to start..."
-            sleep 1
+          pg_ctl start --pgdata="${POSTGRES_DATA}" --silent --wait --timeout=300 > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to start PostgreSQL."
+            exit 1
           fi
 
           createuser --superuser postgres > /dev/null 2>&1
@@ -109,7 +120,13 @@ job "{{ job.name }}" {
                           GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USERNAME};"
           echo "Database initialized and configured successfully."
 
-          wait $pid
+          pg_ctl stop --pgdata="${POSTGRES_DATA}" --silent --wait --timeout=300 > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to stop PostgreSQL."
+            exit 1
+          fi
+
+          postgres -D "${POSTGRES_DATA}"
           {% endraw %}
         EOH
         destination = "local/run.sh"
@@ -303,6 +320,11 @@ job "{{ job.name }}" {
           export MEV_ORACLE_PG_USER="${POSTGRES_USERNAME}"
           export MEV_ORACLE_PG_PASSWORD="${POSTGRES_PASSWORD}"
           export MEV_ORACLE_PG_DBNAME="${POSTGRES_DB}"
+
+          if ! timeout 5m bash -c 'until pg_isready -h ${MEV_ORACLE_PG_HOST} -p ${MEV_ORACLE_PG_PORT} -U ${MEV_ORACLE_PG_USER} -d ${MEV_ORACLE_PG_DBNAME}; do sleep 1; done'; then
+            echo "Waiting for PostgreSQL to start..."
+            sleep 1
+          fi
 
           chmod +x local/mev-commit-oracle
           local/mev-commit-oracle start
