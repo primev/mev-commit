@@ -152,14 +152,23 @@ func main() {
 		return
 	}
 
-	resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
-		Amount: minDeposit.String(),
-	})
+	status, err := bidderClient.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
 	if err != nil {
-		logger.Error("failed to auto deposit", "err", err)
+		logger.Error("failed to get auto deposit status", "err", err)
 		return
 	}
-	logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartBlockNumber)
+
+	if !status.IsWorking {
+		resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
+			Amount: minDeposit.String(),
+		})
+		if err != nil {
+			logger.Error("failed to auto deposit", "err", err)
+			return
+		}
+		logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartBlockNumber)
+	}
+
 	type blockWithTxns struct {
 		blockNum int64
 		txns     []string
