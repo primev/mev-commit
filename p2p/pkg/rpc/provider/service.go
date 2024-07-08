@@ -205,6 +205,7 @@ func (s *Service) RegisterStake(
 	}
 	opts.Value = amount
 
+	stake.BlsPublicKey = strings.TrimPrefix(stake.BlsPublicKey, "0x")
 	blsPubkeyBytes, err := hex.DecodeString(stake.BlsPublicKey)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)

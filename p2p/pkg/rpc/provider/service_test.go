@@ -184,6 +184,7 @@ func TestStakeHandling(t *testing.T) {
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
 				}
+				tc.blsPublicKey = strings.TrimPrefix(tc.blsPublicKey, "0x")
 				if stake.BlsPublicKey != tc.blsPublicKey {
 					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKey)
 				}
