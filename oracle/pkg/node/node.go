@@ -95,6 +95,7 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
+	fmt.Println("USING L1 RPC URL", opts.L1RPCUrl)
 	l1Client, err := ethclient.Dial(opts.L1RPCUrl)
 	if err != nil {
 		nd.logger.Error("Failed to connect to the L1 Ethereum client", "error", err)
