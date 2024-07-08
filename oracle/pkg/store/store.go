@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS integers (
 	value BIGINT
 );`
 
+var ErrNotFound = fmt.Errorf("not found")
+
 type Store struct {
 	db *sql.DB
 }
@@ -137,7 +139,7 @@ func (s *Store) LastWinnerBlock() (int64, error) {
 	err := s.db.QueryRow("SELECT block_number FROM winners ORDER BY block_number DESC LIMIT 1").Scan(&lastBlock)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, nil
+			return 0, ErrNotFound
 		}
 		return 0, err
 	}
