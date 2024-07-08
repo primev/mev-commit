@@ -3,12 +3,14 @@ package l1Listener
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	"github.com/primev/mev-commit/oracle/pkg/store"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
@@ -134,8 +136,18 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 	currentBlockNo, err := l.winnerRegister.LastWinnerBlock()
 	if err != nil {
-		l.logger.Error("failed to get block number", "error", err)
-		return err
+		// this is a fresh start, so start from the current block
+		if errors.Is(err, store.ErrNotFound) {
+			tip, err := l.l1Client.BlockNumber(ctx)
+			if err != nil {
+				l.logger.Error("failed to get current block number", "error", err)
+				return err
+			}
+			currentBlockNo = int64(tip)
+		} else {
+			l.logger.Error("failed to get last winner block", "error", err)
+			return err
+		}
 	}
 	for {
 		select {
