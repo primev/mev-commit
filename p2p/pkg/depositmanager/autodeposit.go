@@ -33,6 +33,7 @@ type AutoDepositTracker struct {
 	brContract BidderRegistryContract
 	optsGetter OptsGetter
 	logger     *slog.Logger
+	mu         sync.Mutex
 	cancelFunc context.CancelFunc
 }
 
@@ -52,7 +53,12 @@ func NewAutoDepositTracker(
 }
 
 func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ads []*bidderapiv1.AutoDeposit) error {
-	adt.isWorking.Store(true)
+	adt.mu.Lock()
+	defer adt.mu.Unlock()
+
+	if !adt.isWorking.CompareAndSwap(false, true) {
+		return fmt.Errorf("auto deposit tracker is already working")
+	}
 
 	for _, ad := range ads {
 		adt.deposits.Store(ad.WindowNumber.Value, true)
@@ -85,16 +91,6 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 	eg.Go(func() error {
 		defer sub.Unsubscribe()
 
-		select {
-		case <-egCtx.Done():
-			adt.logger.Info("event subscription context done")
-			return nil
-		case err := <-sub.Err():
-			return fmt.Errorf("error in event subscription: %w", err)
-		}
-	})
-
-	eg.Go(func() error {
 		for {
 			select {
 			case <-egCtx.Done():
@@ -118,6 +114,8 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 				adt.logger.Info("move deposit to window", "hash", txn.Hash(), "from", fromWindow, "to", toWindow)
 				adt.deposits.Delete(fromWindow.Uint64())
 				adt.deposits.Store(toWindow.Uint64(), true)
+			case err := <-sub.Err():
+				return fmt.Errorf("error in event subscription: %w", err)
 			}
 		}
 	})
@@ -140,6 +138,9 @@ func (adt *AutoDepositTracker) DoAutoMoveToAnotherWindow(ctx context.Context, ad
 }
 
 func (adt *AutoDepositTracker) Stop() (*bidderapiv1.CancelAutoDepositResponse, error) {
+	adt.mu.Lock()
+	defer adt.mu.Unlock()
+
 	if !adt.isWorking.Load() {
 		return nil, fmt.Errorf("auto deposit tracker is not running")
 	}
