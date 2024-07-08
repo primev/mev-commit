@@ -10,7 +10,6 @@ import (
 	"math/big"
 	"time"
 
-	bls "github.com/ethereum/go-ethereum/crypto/bls12381"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -112,11 +111,12 @@ func (b *ProviderClient) CheckAndStake() error {
 		return nil
 	}
 
-	g1 := bls.NewG1()
-	privKey, _ := rand.Int(rand.Reader, g1.Q())
-	blsPubkey := g1.One()
-	g1.MulScalar(blsPubkey, blsPubkey, privKey)
-	blsPubkeyBytes := g1.ToBytes(blsPubkey)
+	blsPubkeyBytes := make([]byte, 48)
+	_, err = rand.Read(blsPubkeyBytes)
+	if err != nil {
+		b.logger.Error("failed to generate mock BLS public key", "err", err)
+		return err
+	}
 
 	_, err = b.client.RegisterStake(context.Background(), &providerapiv1.StakeRequest{
 		Amount:       "10000000000000000000",
