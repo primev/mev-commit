@@ -471,7 +471,13 @@
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
         paths: "{{ dist_dir }}"
-        patterns: "*{{ environments[env].version }}*.*"
+        patterns: >-
+          [
+          "*{{ environments[env].version }}*.*"
+          {% if env == 'devenv' %},
+          "secrets.json"
+          {% endif %}
+          ]
         recurse: yes
       register: upload_artifacts
       delegate_to: localhost
