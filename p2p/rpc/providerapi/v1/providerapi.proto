@@ -74,11 +74,11 @@ message StakeRequest {
   }];
   string bls_public_key = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "BLS public key of the provider."
-    pattern: "^[a-fA-F0-9]{96}$"
+    pattern: "^(0x)?[a-fA-F0-9]{96}$"
   }, (buf.validate.field).cel = {
       id: "bls_public_key",
-      message: "bls_public_key must be a valid 48-byte hex string.",
-      expression: "this.matches('^[a-fA-F0-9]{96}$')"
+      message: "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+      expression: "this.matches('^(0x)?[a-fA-F0-9]{96}$')"
   }];
 };
 
@@ -88,9 +88,10 @@ message StakeResponse {
       title: "Stake response"
       description: "Get staked amount for provider in the provider registry."
     }
-    example: "{\"amount\": \"1000000000000000000\" }"
+    example: "{\"amount\": \"1000000000000000000\", \"bls_public_key\": \"80000cddeec66a80e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d4497ba8b756e1e82b\"}"
   };
   string amount = 1;
+  string bls_public_key = 2;
 };
 
 message EmptyMessage {};

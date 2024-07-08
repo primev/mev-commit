@@ -86,7 +86,7 @@ paths:
           in: query
           required: true
           type: string
-          pattern: ^[a-fA-F0-9]{96}$
+          pattern: ^(0x)?[a-fA-F0-9]{96}$
   /v1/provider/send_processed_bids:
     post:
       summary: SendProcessedBids
@@ -208,8 +208,11 @@ definitions:
     type: object
     example:
       amount: "1000000000000000000"
+      bls_public_key: 80000cddeec66a80e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d4497ba8b756e1e82b
     properties:
       amount:
+        type: string
+      blsPublicKey:
         type: string
     description: Get staked amount for provider in the provider registry.
     title: Stake response

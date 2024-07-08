@@ -222,7 +222,10 @@ func (s *Service) RegisterStake(
 	for _, log := range receipt.Logs {
 		if registration, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
 			s.logger.Info("stake registered", "amount", registration.Amount)
-			return &providerapiv1.StakeResponse{Amount: registration.Amount.String()}, nil
+			return &providerapiv1.StakeResponse{
+				Amount:       registration.Amount.String(),
+				BlsPublicKey: stake.BlsPublicKey,
+			}, nil
 		}
 	}
 

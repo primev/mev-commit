@@ -131,14 +131,16 @@ func TestStakeHandling(t *testing.T) {
 
 	t.Run("register stake", func(t *testing.T) {
 		type testCase struct {
-			amount string
-			err    string
+			amount       string
+			blsPublicKey string
+			err          string
 		}
 
 		for _, tc := range []testCase{
 			{
-				amount: "",
-				err:    "amount must be a valid integer",
+				amount:       "",
+				blsPublicKey: "",
+				err:          "amount must be a valid integer",
 			},
 			{
 				amount: "0000000000000000000",
@@ -149,11 +151,28 @@ func TestStakeHandling(t *testing.T) {
 				err:    "amount must be a valid integer",
 			},
 			{
-				amount: "1000000000000000000",
-				err:    "",
+				amount:       "1000000000000000000",
+				blsPublicKey: "0x",
+				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+			},
+			{
+				amount:       "1000000000000000000",
+				blsPublicKey: "0x12345",
+				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+			},
+			{
+				amount:       "1000000000000000000",
+				blsPublicKey: "0x123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456",
+				err:          "",
+			},
+			{
+				amount:       "1000000000000000000",
+				blsPublicKey: "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456",
+				err:          "",
 			},
 		} {
-			stake, err := client.RegisterStake(context.Background(), &providerapiv1.StakeRequest{Amount: tc.amount})
+			stake, err := client.RegisterStake(context.Background(),
+				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKey: tc.blsPublicKey})
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("expected error staking: %s got %v", tc.err, err)
@@ -164,6 +183,9 @@ func TestStakeHandling(t *testing.T) {
 				}
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
+				}
+				if stake.BlsPublicKey != tc.blsPublicKey {
+					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKey)
 				}
 			}
 		}
