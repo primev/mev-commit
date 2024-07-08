@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -374,6 +375,7 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 	data = append(data, bidDigestHash.Bytes()...)
 	data = append(data, bidSigHash.Bytes()...)
 	data = append(data, sharedSecretHash.Bytes()...)
+	fmt.Printf("Data to be hashed: %x\n", data)
 	dataHash := crypto.Keccak256Hash(data)
 
 	rawData := append([]byte("\x19\x01"), append(domainSeparatorBid.Bytes(), dataHash.Bytes()...)...)

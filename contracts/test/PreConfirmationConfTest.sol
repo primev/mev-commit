@@ -121,6 +121,68 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
+    function test_getBidHash() public {
+        // Step 1: Prepare the test commitment data
+        PreConfCommitmentStore.CommitmentParams memory testCommitment = PreConfCommitmentStore.CommitmentParams({
+            txnHash: "0xkartik",
+            revertingTxHashes: "0xkartik",
+            bid: 2,
+            blockNumber: 2,
+            decayStartTimeStamp: 10,
+            decayEndTimeStamp: 20,
+            sharedSecretKey: bytes("0xsecret"),
+            bidHash: hex"9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900",
+            bidSignature: hex"c2ab6e530f6b09337e53e1192857fa10017cdb488cf2a07e0aa4457571492b8c6bff93cbda4e003336656b4ecf8ff46bd1d408b310acdf07be4925a1a8fee4471c",
+            commitmentSignature: hex"5b3000290d4f347b94146eb37f66d5368aed18fb8713bf78620abe40ae3de7f635f7ed161801c31ea10e736d88e6fd2a2286bbd59385161dd24c9fefd2568f341b"
+        });
+        // Step 2: Calculate the bid hash using the getBidHash function
+        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+            testCommitment.txnHash,
+            testCommitment.revertingTxHashes,
+            testCommitment.bid,
+            testCommitment.blockNumber,
+            testCommitment.decayStartTimeStamp,
+            testCommitment.decayEndTimeStamp
+        );
+
+        // Add a bob private key and console log the key
+        (address bob, uint256 bobPk) = makeAddrAndKey("bob");
+        console.log("Bob's Private Key:", bobPk);
+
+        // Make a signature on the bid hash
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(bobPk, bidHash);
+        bytes memory bidSignature = abi.encodePacked(r, s, v);
+        console.logBytes(bidSignature);
+
+        // Step 3: Calculate the commitment hash using the getPreConfHash function
+        bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
+            testCommitment.txnHash,
+            testCommitment.revertingTxHashes,
+            testCommitment.bid,
+            testCommitment.blockNumber,
+            testCommitment.decayStartTimeStamp,
+            testCommitment.decayEndTimeStamp,
+            bidHash,
+            _bytesToHexString(bidSignature),
+            _bytesToHexString(testCommitment.sharedSecretKey)
+        );
+
+        // Step 4: Verify the bid hash is correctly generated and not zero
+        assert(bidHash != bytes32(0));
+
+        // Optional: Log the bid hash for debugging purposes
+        console.logBytes32(bidHash);
+
+        // Step 5: Verify the commitment hash is correctly generated and not zero
+        assert(commitmentHash != bytes32(0));
+        // Log the commitment hash for debugging purposes
+        console.log("Logging commitment hash:");
+        console.logBytes32(commitmentHash);
+
+        // Optional: Log the commitment hash for debugging purposes
+        console.logBytes32(commitmentHash);
+    }
+
     function test_Initialize() public view {
         assertEq(preConfCommitmentStore.oracle(), feeRecipient);
         assertEq(
