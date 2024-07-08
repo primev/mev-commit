@@ -409,9 +409,8 @@ func TestAutoDepositHandling(t *testing.T) {
 		}
 
 		windows := make([]*wrapperspb.UInt64Value, 2)
-		for i, v := range resp.WindowNumbers {
-			windows[i] = v
-		}
+		copy(windows, resp.WindowNumbers)
+
 		_, err = client.WithdrawFromWindows(context.Background(), &bidderapiv1.WithdrawFromWindowsRequest{
 			WindowNumbers: windows,
 		})

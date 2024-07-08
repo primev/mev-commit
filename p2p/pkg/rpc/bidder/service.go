@@ -382,42 +382,39 @@ func (s *Service) CancelAutoDeposit(
 		go func() {
 			ticker := time.NewTicker(5 * time.Second)
 			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
+			for range ticker.C {
+				currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
+				if err != nil {
+					s.logger.Error("getting current window", "error", err)
+					continue
+				}
+				doWithdraw := true
+				for _, w := range windows {
+					if w.Uint64() >= currentWindow.Uint64() {
+						doWithdraw = false
+						break
+					}
+				}
+				if doWithdraw {
+					opts, err := s.optsGetter(ctx)
 					if err != nil {
-						s.logger.Error("getting current window", "error", err)
+						s.logger.Error("getting transact opts", "error", err)
 						continue
 					}
-					doWithdraw := true
-					for _, w := range windows {
-						if w.Uint64() >= currentWindow.Uint64() {
-							doWithdraw = false
-							break
-						}
-					}
-					if doWithdraw {
-						opts, err := s.optsGetter(ctx)
-						if err != nil {
-							s.logger.Error("getting transact opts", "error", err)
-							continue
-						}
-						txn, err := s.registryContract.WithdrawFromWindows(opts, windows)
-						if err != nil {
-							s.logger.Error("withdraw from windows", "error", err)
-							return
-						}
-						receipt, err := s.watcher.WaitForReceipt(ctx, txn)
-						if err != nil {
-							s.logger.Error("waiting for receipt", "error", err)
-							return
-						}
-						if receipt.Status != types.ReceiptStatusSuccessful {
-							s.logger.Error("receipt status", "status", receipt.Status)
-						}
+					txn, err := s.registryContract.WithdrawFromWindows(opts, windows)
+					if err != nil {
+						s.logger.Error("withdraw from windows", "error", err)
 						return
 					}
+					receipt, err := s.watcher.WaitForReceipt(ctx, txn)
+					if err != nil {
+						s.logger.Error("waiting for receipt", "error", err)
+						return
+					}
+					if receipt.Status != types.ReceiptStatusSuccessful {
+						s.logger.Error("receipt status", "status", receipt.Status)
+					}
+					return
 				}
 			}
 		}()
