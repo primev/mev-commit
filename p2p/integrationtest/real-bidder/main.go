@@ -12,7 +12,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -197,9 +196,12 @@ func main() {
 
 			currentBlkNum = blkNum
 			for _, ch := range blockChans {
+				txns := make([]string, len(block))
+				copy(txns, block)
+
 				ch <- blockWithTxns{
 					blockNum: blkNum,
-					txns:     slices.Clone(block),
+					txns:     txns,
 				}
 			}
 		}
