@@ -336,6 +336,8 @@ func (u *Updater) handleOpenedCommitment(
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
+	u.logger.Info("commitmentTxnHashes", "commitmentTxnHashes", commitmentTxnHashes)
+	revertableTxns := make(map[string]bool)
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
 		txnDetails, found := txns[commitmentTxnHashes[i]]
