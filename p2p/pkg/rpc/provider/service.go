@@ -205,7 +205,12 @@ func (s *Service) RegisterStake(
 	}
 	opts.Value = amount
 
-	tx, err := s.registryContract.RegisterAndStake(opts, []byte(stake.BlsPublicKey))
+	blsPubkeyBytes, err := hex.DecodeString(stake.BlsPublicKey)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
+	}
+
+	tx, err := s.registryContract.RegisterAndStake(opts, blsPubkeyBytes)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "registering stake: %v", err)
 	}
