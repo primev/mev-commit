@@ -540,7 +540,7 @@
 
     - name: Debug Generated Secrets
       ansible.builtin.debug:
-        msg: "{{ secrets_json.content | b64decode | from_json }}"
+        msg: "{{ secrets_json.content | b64decode }}"
       when: build_artifacts and env == 'devenv' and environments[env].secrets == 'generate'
       delegate_to: localhost
       run_once: true
