@@ -48,6 +48,14 @@ jobs:
     timeout-minutes: 180
 
     steps:
+      - name: Print System Information
+        run: |
+          echo "CPU INFO:"
+          lscpu
+          echo
+          echo "MEMORY INFO:"
+          free -h
+
       - name: Setup Environment
         run: |
           RUNNER_START_TIME="$(date +%s)"
