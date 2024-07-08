@@ -39,7 +39,7 @@ service Provider {
   //
   // RegisterStake is called by the provider to register its stake in the provider registry.
   rpc RegisterStake(StakeRequest) returns (StakeResponse) {
-    option (google.api.http) = {post: "/v1/provider/register_stake/{amount}"};
+    option (google.api.http) = {post: "/v1/provider/register_stake"};
   }
   // GetStake
   //
@@ -59,18 +59,26 @@ message StakeRequest {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Stake request"
-      description: "Stake provider in the provider provider_registry."
-      required: ["stake"]
+      description: "Stake provider in the provider registry."
+      required: ["amount", "bls_public_key"]
     }
-    example: "{\"amount\": \"1000000000000000000\" }"
+    example: "{\"amount\": \"1000000000000000000\", \"bls_public_key\": \"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b\"}"
   };
   string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Amount of ETH to stake in the provider provider_registry."
+    description: "Amount of ETH to stake in the provider registry."
     pattern: "[0-9]+"
   }, (buf.validate.field).cel = {
       id: "amount",
       message: "amount must be a valid integer.",
       expression: "this.matches('^[0-9]+$') && uint(this) > 0"
+  }];
+  string bls_public_key = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "BLS public key of the provider."
+    pattern: "^[a-fA-F0-9]{96}$"
+  }, (buf.validate.field).cel = {
+      id: "bls_public_key",
+      message: "bls_public_key must be a valid 48-byte hex string.",
+      expression: "this.matches('^[a-fA-F0-9]{96}$')"
   }];
 };
 
@@ -78,7 +86,7 @@ message StakeResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {
       title: "Stake response"
-      description: "Get staked amount for provider in the provider provider_registry."
+      description: "Get staked amount for provider in the provider registry."
     }
     example: "{\"amount\": \"1000000000000000000\" }"
   };
@@ -136,6 +144,7 @@ message Bid {
       expression: "uint(this) > 0"
   }];
 };
+
 message BidResponse {
   option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
     json_schema: {

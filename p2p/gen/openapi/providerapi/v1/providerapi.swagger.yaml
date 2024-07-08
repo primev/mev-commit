@@ -60,7 +60,7 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
-  /v1/provider/register_stake/{amount}:
+  /v1/provider/register_stake:
     post:
       summary: RegisterStake
       description: RegisterStake is called by the provider to register its stake in the provider registry.
@@ -76,10 +76,17 @@ paths:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
         - name: amount
-          description: Amount of ETH to stake in the provider provider_registry.
-          in: path
+          description: Amount of ETH to stake in the provider registry.
+          in: query
           required: true
           type: string
+          pattern: '[0-9]+'
+        - name: blsPublicKey
+          description: BLS public key of the provider.
+          in: query
+          required: true
+          type: string
+          pattern: ^[a-fA-F0-9]{96}$
   /v1/provider/send_processed_bids:
     post:
       summary: SendProcessedBids
@@ -204,5 +211,5 @@ definitions:
     properties:
       amount:
         type: string
-    description: Get staked amount for provider in the provider provider_registry.
+    description: Get staked amount for provider in the provider registry.
     title: Stake response

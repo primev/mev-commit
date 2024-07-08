@@ -28,15 +28,16 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     TestCommitment internal _testCommitmentAliceBob;
-    PreConfCommitmentStore internal preConfCommitmentStore;
-    uint16 internal feePercent;
-    uint256 internal minStake;
-    address internal provider;
-    address internal feeRecipient;
-    ProviderRegistry internal providerRegistry;
-    BlockTracker internal blockTracker;
-    uint256 internal blocksPerWindow;
-    BidderRegistry internal bidderRegistry;
+    PreConfCommitmentStore public preConfCommitmentStore;
+    uint16 public feePercent;
+    uint256 public minStake;
+    address public provider;
+    address public feeRecipient;
+    ProviderRegistry public providerRegistry;
+    BlockTracker public blockTracker;
+    uint256 public blocksPerWindow;
+    BidderRegistry public bidderRegistry;
+    bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
 
     function setUp() public {
         _testCommitmentAliceBob = TestCommitment(
@@ -410,7 +411,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp,
         bytes memory sharedSecretKey
-    ) internal returns (bytes32) {
+    ) public returns (bytes32) {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             txnHash,
             bid,
@@ -451,7 +452,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
-    ) internal returns (bytes32) {
+    ) public returns (bytes32) {
         vm.prank(msgSender);
         bytes32 commitmentIndex = preConfCommitmentStore.openCommitment(
             encryptedCommitmentIndex,
@@ -624,7 +625,7 @@ contract TestPreConfCommitmentStore is Test {
                 address(preConfCommitmentStore)
             );
             vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}();
+            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             uint256 blockNumber = 2;
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(blockNumber, "test");
@@ -705,7 +706,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.sharedSecretKey
             );
             vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}();
+            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
@@ -789,7 +790,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.sharedSecretKey
             );
             vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}();
+            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
@@ -824,7 +825,7 @@ contract TestPreConfCommitmentStore is Test {
 
     function _bytesToHexString(
         bytes memory _bytes
-    ) public pure returns (string memory) {
+    ) internal pure returns (string memory) {
         bytes memory HEXCHARS = "0123456789abcdef";
         bytes memory _string = new bytes(_bytes.length * 2);
         for (uint256 i = 0; i < _bytes.length; i++) {

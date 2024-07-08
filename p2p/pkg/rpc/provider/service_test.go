@@ -29,7 +29,7 @@ type testRegistryContract struct {
 	minStake *big.Int
 }
 
-func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts) (*types.Transaction, error) {
+func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error) {
 	t.stake = opts.Value
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }

@@ -41,7 +41,7 @@ type Service struct {
 }
 
 type ProviderRegistryContract interface {
-	RegisterAndStake(*bind.TransactOpts) (*types.Transaction, error)
+	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	CheckStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseFundsDeposited(types.Log) (*providerregistry.ProviderregistryFundsDeposited, error)
@@ -205,7 +205,7 @@ func (s *Service) RegisterStake(
 	}
 	opts.Value = amount
 
-	tx, err := s.registryContract.RegisterAndStake(opts)
+	tx, err := s.registryContract.RegisterAndStake(opts, []byte(stake.BlsPublicKey))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "registering stake: %v", err)
 	}
