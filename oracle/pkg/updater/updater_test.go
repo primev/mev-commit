@@ -131,6 +131,8 @@ func TestUpdater(t *testing.T) {
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+			RevertingTxHashes:   "",
+			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -173,6 +175,8 @@ func TestUpdater(t *testing.T) {
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+			RevertingTxHashes:   "",
+			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		encCommitments = append(encCommitments, encCommitment)
 		commitments = append(commitments, commitment)
@@ -392,6 +396,8 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+			RevertingTxHashes:   "",
+			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -434,6 +440,8 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+			RevertingTxHashes:   "",
+			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		encCommitments = append(encCommitments, encCommitment)
 		commitments = append(commitments, commitment)
@@ -657,6 +665,8 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
+			RevertingTxHashes:   "",
+			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		commitments = append(commitments, commitment)
@@ -841,6 +851,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			Commiter:            builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
+			RevertingTxHashes:   "",
 			BlockNumber:         blockNum,
 			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -1203,6 +1214,7 @@ func publishCommitment(
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,
 		c.TxnHash,
+		c.RevertingTxHashes,
 		c.CommitmentHash,
 		c.BidSignature,
 		c.CommitmentSignature,
