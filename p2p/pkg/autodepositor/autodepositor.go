@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
@@ -60,29 +61,16 @@ func (adt *AutoDepositTracker) Start(
 		return fmt.Errorf("auto deposit tracker is already running")
 	}
 
-	nextWindow := new(big.Int).Add(startWindow, big.NewInt(1))
-
 	opts, err := adt.optsGetter(ctx)
 	if err != nil {
 		return err
 	}
 
-	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
-
-	// Make initial deposit for the first two windows
-	_, err = adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
-	if err != nil {
-		return err
-	}
-
-	adt.deposits.Store(startWindow.Uint64(), true)
-	adt.deposits.Store(nextWindow.Uint64(), true)
-
 	eg, egCtx := errgroup.WithContext(context.Background())
 	egCtx, cancel := context.WithCancel(egCtx)
 	adt.cancelFunc = cancel
 
-	evt := events.NewEventHandler(
+	evt1 := events.NewEventHandler(
 		"NewWindow",
 		func(update *blocktracker.BlocktrackerNewWindow) {
 			adt.logger.Info(
@@ -96,9 +84,49 @@ func (adt *AutoDepositTracker) Start(
 		},
 	)
 
-	sub, err := adt.eventMgr.Subscribe(evt)
+	evt2 := events.NewEventHandler(
+		"BidderRegistered",
+		func(bidderReg *bidderregistry.BidderregistryBidderRegistered) {
+			if bidderReg.Bidder.Cmp(opts.From) != 0 {
+				return
+			}
+			adt.logger.Info(
+				"bidder registered event",
+				"bidder", bidderReg.Bidder.String(),
+				"window", bidderReg.WindowNumber,
+			)
+			adt.deposits.Store(bidderReg.WindowNumber.Uint64(), true)
+		},
+	)
+
+	evt3 := events.NewEventHandler(
+		"BidderWithdrawal",
+		func(bidderReg *bidderregistry.BidderregistryBidderWithdrawal) {
+			if bidderReg.Bidder.Cmp(opts.From) != 0 {
+				return
+			}
+			adt.logger.Info(
+				"bidder withdrawal event",
+				"bidder", bidderReg.Bidder.String(),
+				"window", bidderReg.Window,
+			)
+			adt.deposits.Delete(bidderReg.Window.Uint64())
+		},
+	)
+
+	sub, err := adt.eventMgr.Subscribe(evt1, evt2, evt3)
 	if err != nil {
 		return fmt.Errorf("error subscribing to event: %w", err)
+	}
+
+	nextWindow := new(big.Int).Add(startWindow, big.NewInt(1))
+
+	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
+
+	// Make initial deposit for the first two windows
+	_, err = adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
+	if err != nil {
+		return err
 	}
 
 	eg.Go(func() error {
@@ -128,9 +156,6 @@ func (adt *AutoDepositTracker) Start(
 						return err
 					}
 					adt.logger.Info("withdraw from windows", "hash", txn.Hash(), "windows", withdrawWindows)
-					for _, window := range withdrawWindows {
-						adt.deposits.Delete(window.Uint64())
-					}
 				}
 
 				// Make deposit for the next window. The window event is 2 windows
@@ -157,7 +182,6 @@ func (adt *AutoDepositTracker) Start(
 					"window", nextWindow,
 					"amount", amount,
 				)
-				adt.deposits.Store(nextWindow.Uint64(), true)
 			}
 		}
 	})
