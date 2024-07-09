@@ -59,7 +59,7 @@ var (
 	)
 	bidWorkers = flag.Int(
 		"bid-workers",
-		3,
+		2,
 		"Number of workers to send bids",
 	)
 )
