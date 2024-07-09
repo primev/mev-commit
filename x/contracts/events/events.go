@@ -220,15 +220,15 @@ func (l *Listener) PublishLogEvent(ctx context.Context, log types.Log) {
 
 	l.metrics.totalLogs.Inc()
 
-	wg := sync.WaitGroup{}
+	// wg := sync.WaitGroup{}
 	events := l.subscribers[log.Topics[0]]
 	for _, event := range events {
 		ev := event
 		l.metrics.totalEvents.Inc()
 		l.metrics.eventCounts.WithLabelValues(ev.evt.eventName()).Inc()
-		wg.Add(1)
+		// wg.Add(1)
 		go func() {
-			defer wg.Done()
+			// defer wg.Done()
 
 			defer func(start time.Time) {
 				l.metrics.eventHandlerDurations.
@@ -247,5 +247,5 @@ func (l *Listener) PublishLogEvent(ctx context.Context, log types.Log) {
 		}()
 	}
 
-	wg.Wait()
+	// wg.Wait()
 }
