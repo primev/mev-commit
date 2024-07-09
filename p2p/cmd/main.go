@@ -372,7 +372,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		return fmt.Errorf("both -%s and -%s must be provided to enable TLS", optionServerTLSCert.Name, optionServerTLSPrivateKey.Name)
 	}
 
-	whitelist := make([]common.Address, 0)
+	whitelist := make([]common.Address, 0, len(c.StringSlice(optionProviderWhitelist.Name)))
 	for _, addr := range c.StringSlice(optionProviderWhitelist.Name) {
 		whitelist = append(whitelist, common.HexToAddress(addr))
 	}

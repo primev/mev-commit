@@ -78,8 +78,8 @@ func (ke *KeyExchange) SendTimestampMessage() error {
 
 func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 	providers := ke.topo.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
-	if ke.providerWhitelist != nil && len(ke.providerWhitelist) > 0 {
-		for i := len(providers) - 1; i >= 0; i-- {
+	if len(ke.providerWhitelist) > 0 {
+		for i := 0; i < len(providers); i++ {
 			if !slices.ContainsFunc(ke.providerWhitelist, func(e common.Address) bool {
 				return providers[i].EthAddress.Cmp(e) == 0
 			}) {
