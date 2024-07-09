@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	keyexchangepb "github.com/primev/mev-commit/p2p/gen/go/keyexchange/v1"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
@@ -28,16 +30,18 @@ func New(
 	store Store,
 	logger *slog.Logger,
 	signer signer.Signer,
+	providerWhitelist []common.Address,
 ) *KeyExchange {
 	return &KeyExchange{
-		topo:      topo,
-		streamer:  streamer,
-		keySigner: keySigner,
-		aesKey:    aesKey,
-		address:   keySigner.GetAddress(),
-		store:     store,
-		logger:    logger,
-		signer:    signer,
+		topo:              topo,
+		streamer:          streamer,
+		keySigner:         keySigner,
+		aesKey:            aesKey,
+		address:           keySigner.GetAddress(),
+		store:             store,
+		logger:            logger,
+		signer:            signer,
+		providerWhitelist: providerWhitelist,
 	}
 }
 
@@ -74,6 +78,16 @@ func (ke *KeyExchange) SendTimestampMessage() error {
 
 func (ke *KeyExchange) getProviders() ([]p2p.Peer, error) {
 	providers := ke.topo.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
+	if len(ke.providerWhitelist) > 0 {
+		for i := 0; i < len(providers); i++ {
+			if !slices.ContainsFunc(ke.providerWhitelist, func(e common.Address) bool {
+				return providers[i].EthAddress.Cmp(e) == 0
+			}) {
+				ke.logger.Debug("ignoring provider for key exchange", "provider", providers[i].EthAddress)
+				providers = append(providers[:i], providers[i+1:]...)
+			}
+		}
+	}
 	if len(providers) == 0 {
 		return nil, ErrNoProvidersAvailable
 	}
