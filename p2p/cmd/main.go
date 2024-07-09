@@ -201,9 +201,16 @@ var (
 	})
 
 	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "autodeposit",
+		Name:    "autodeposit-amount",
 		Usage:   "amount to auto deposit",
-		EnvVars: []string{"MEV_COMMIT_AUTODEPOSIT"},
+		EnvVars: []string{"MEV_COMMIT_AUTODEPOSIT_AMOUNT"},
+	})
+
+	optionAutodepositEnabled = altsrc.NewBoolFlag(&cli.BoolFlag{
+		Name:    "autodeposit-enabled",
+		Usage:   "enable auto deposit",
+		EnvVars: []string{"MEV_COMMIT_AUTODEPOSIT_ENABLED"},
+		Value:   false,
 	})
 
 	optionSettlementRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
@@ -268,6 +275,7 @@ func main() {
 		optionPreconfStoreAddr,
 		optionBlockTrackerAddr,
 		optionAutodepositAmount,
+		optionAutodepositEnabled,
 		optionSettlementRPCEndpoint,
 		optionSettlementWSRPCEndpoint,
 		optionNATAddr,
@@ -338,7 +346,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		autodepositAmount *big.Int
 		ok bool
 	)
-	if c.String(optionAutodepositAmount.Name) != "" {
+	if c.String(optionAutodepositAmount.Name) != "" && c.Bool(optionAutodepositEnabled.Name) {
 		autodepositAmount, ok = new(big.Int).SetString(c.String(optionAutodepositAmount.Name), 10)
 		if !ok {
 			return fmt.Errorf("failed to parse autodeposit amount %q", c.String(optionAutodepositAmount.Name))
