@@ -9,7 +9,6 @@ import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
-import "forge-std/console.sol";
 
 /**
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
