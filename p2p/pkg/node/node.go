@@ -442,7 +442,6 @@ func NewNode(opts *Options) (*Node, error) {
 				evtMgr,
 				bidderRegistry,
 				optsGetter,
-				monitor,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
