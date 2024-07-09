@@ -185,11 +185,14 @@ func (adt *AutoDepositTracker) doInitialDeposit(opts *bind.TransactOpts, startWi
 		return err
 	}
 
+	adt.deposits.Store(startWindow.Uint64(), true)
+	adt.deposits.Store(nextWindow.Uint64(), true)
+
 	return nil
 }
 
 func (adt *AutoDepositTracker) initSub(egCtx context.Context, opts *bind.TransactOpts) (events.Subscription, error) {
-	evt1 := events.NewEventHandler(
+	evt := events.NewEventHandler(
 		"NewWindow",
 		func(update *blocktracker.BlocktrackerNewWindow) {
 			adt.logger.Info(
@@ -202,37 +205,8 @@ func (adt *AutoDepositTracker) initSub(egCtx context.Context, opts *bind.Transac
 			}
 		},
 	)
-	evt2 := events.NewEventHandler(
-		"BidderRegistered",
-		func(bidderReg *bidderregistry.BidderregistryBidderRegistered) {
-			if bidderReg.Bidder.Cmp(opts.From) != 0 {
-				return
-			}
-			adt.logger.Info(
-				"bidder registered event",
-				"bidder", bidderReg.Bidder.String(),
-				"window", bidderReg.WindowNumber,
-			)
-			adt.deposits.Store(bidderReg.WindowNumber.Uint64(), true)
-		},
-	)
 
-	evt3 := events.NewEventHandler(
-		"BidderWithdrawal",
-		func(bidderReg *bidderregistry.BidderregistryBidderWithdrawal) {
-			if bidderReg.Bidder.Cmp(opts.From) != 0 {
-				return
-			}
-			adt.logger.Info(
-				"bidder withdrawal event",
-				"bidder", bidderReg.Bidder.String(),
-				"window", bidderReg.Window,
-			)
-			adt.deposits.Delete(bidderReg.Window.Uint64())
-		},
-	)
-
-	sub, err := adt.eventMgr.Subscribe(evt1, evt2, evt3)
+	sub, err := adt.eventMgr.Subscribe(evt)
 	if err != nil {
 		return nil, fmt.Errorf("error subscribing to event: %w", err)
 	}
@@ -267,6 +241,9 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 						return err
 					}
 					adt.logger.Info("withdraw from windows", "hash", txn.Hash(), "windows", withdrawWindows)
+					for _, window := range withdrawWindows {
+						adt.deposits.Delete(window.Uint64())
+					}
 				}
 
 				// Make deposit for the next window. The window event is 2 windows
@@ -293,6 +270,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 					"window", nextWindow,
 					"amount", amount,
 				)
+				adt.deposits.Store(nextWindow.Uint64(), true)
 			}
 		}
 	})
