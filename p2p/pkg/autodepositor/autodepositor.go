@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
-	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
@@ -68,7 +67,7 @@ func (adt *AutoDepositTracker) Start(ctx context.Context) <-chan struct{} {
 
 	if adt.isWorking {
 		close(doneChan)
-		adt.logger.Error("failed to subscribe to events", "error", fmt.Errorf("auto deposit tracker is already running"))
+		adt.logger.Error("failed to subscribe to events", "error", "auto deposit tracker is already running")
 		return doneChan
 	}
 
@@ -81,7 +80,6 @@ func (adt *AutoDepositTracker) Start(ctx context.Context) <-chan struct{} {
 	// adding +2 as oracle runs two windows behind
 	currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
 
-	opts, err := adt.optsGetter(ctx)
 	if err != nil {
 		close(doneChan)
 		adt.logger.Error("failed to get transact opts", "error", err)
@@ -92,7 +90,7 @@ func (adt *AutoDepositTracker) Start(ctx context.Context) <-chan struct{} {
 	egCtx, cancel := context.WithCancel(egCtx)
 	adt.cancelFunc = cancel
 
-	sub, err := adt.initSub(egCtx, opts)
+	sub, err := adt.initSub(egCtx)
 
 	if err != nil {
 		close(doneChan)
@@ -100,7 +98,7 @@ func (adt *AutoDepositTracker) Start(ctx context.Context) <-chan struct{} {
 		return doneChan
 	}
 
-	err = adt.doInitialDeposit(opts, currentWindow, adt.initialAmount)
+	err = adt.doInitialDeposit(ctx, currentWindow, adt.initialAmount)
 	if err != nil {
 		close(doneChan)
 		adt.logger.Error("failed to do initial deposit", "error", err)
@@ -133,22 +131,17 @@ func (adt *AutoDepositTracker) StartFromApi(
 		return fmt.Errorf("auto deposit tracker is already running")
 	}
 
-	opts, err := adt.optsGetter(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get transact opts, err: %w", err)
-	}
-
 	eg, egCtx := errgroup.WithContext(context.Background())
 	egCtx, cancel := context.WithCancel(egCtx)
 	adt.cancelFunc = cancel
 
-	sub, err := adt.initSub(egCtx, opts)
+	sub, err := adt.initSub(egCtx)
 
 	if err != nil {
 		return fmt.Errorf("error subscribing to event: %w", err)
 	}
 
-	err = adt.doInitialDeposit(opts, startWindow, amount)
+	err = adt.doInitialDeposit(ctx, startWindow, amount)
 	if err != nil {
 		return fmt.Errorf("failed to do initial deposit, err: %w", err)
 	}
@@ -174,15 +167,19 @@ func (adt *AutoDepositTracker) StartFromApi(
 	return nil
 }
 
-func (adt *AutoDepositTracker) doInitialDeposit(opts *bind.TransactOpts, startWindow, amount *big.Int) error {
+func (adt *AutoDepositTracker) doInitialDeposit(ctx context.Context, startWindow, amount *big.Int) error {
 	nextWindow := new(big.Int).Add(startWindow, big.NewInt(1))
 
+	opts, err := adt.optsGetter(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get transact opts, err: %w", err)
+	}
 	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
 
 	// Make initial deposit for the first two windows
-	_, err := adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
+	_, err = adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to deposit for windows, err: %w", err)
 	}
 
 	adt.deposits.Store(startWindow.Uint64(), true)
@@ -191,7 +188,7 @@ func (adt *AutoDepositTracker) doInitialDeposit(opts *bind.TransactOpts, startWi
 	return nil
 }
 
-func (adt *AutoDepositTracker) initSub(egCtx context.Context, opts *bind.TransactOpts) (events.Subscription, error) {
+func (adt *AutoDepositTracker) initSub(egCtx context.Context) (events.Subscription, error) {
 	evt := events.NewEventHandler(
 		"NewWindow",
 		func(update *blocktracker.BlocktrackerNewWindow) {
