@@ -296,12 +296,13 @@ jobs:
             done
           done
 
-      - name: Upload Cluster Logs
-        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && failure() }}
+      - name: Upload Debug Artifacts
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: cluster-logs
+          name: debug-artifacts
           path: |
+            /tmp/dist/
             nomad_jobs.json
             nomad.log
             *_stdout.log
