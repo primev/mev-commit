@@ -42,10 +42,10 @@ func (t *testRegistryContract) MinStake(_ *bind.CallOpts) (*big.Int, error) {
 	return t.minStake, nil
 }
 
-func (t *testRegistryContract) ParseFundsDeposited(log types.Log) (*providerregistry.ProviderregistryFundsDeposited, error) {
-	return &providerregistry.ProviderregistryFundsDeposited{
+func (t *testRegistryContract) ParseProviderRegistered(log types.Log) (*providerregistry.ProviderregistryProviderRegistered, error) {
+	return &providerregistry.ProviderregistryProviderRegistered{
 		Provider: common.Address{},
-		Amount:   t.stake,
+		StakedAmount: t.stake,
 	}, nil
 }
 
