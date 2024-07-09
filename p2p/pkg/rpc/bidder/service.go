@@ -416,6 +416,7 @@ func (s *Service) CancelAutoDeposit(
 					}
 					return
 				}
+				s.logger.Info("waiting for windows to be in the past before withdrawing", "currentWindow", currentWindow, "windows", windows)
 			}
 		}()
 		return &bidderapiv1.CancelAutoDepositResponse{}, nil
