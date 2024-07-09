@@ -80,12 +80,6 @@ func (adt *AutoDepositTracker) Start(ctx context.Context) <-chan struct{} {
 	// adding +2 as oracle runs two windows behind
 	currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
 
-	if err != nil {
-		close(doneChan)
-		adt.logger.Error("failed to get transact opts", "error", err)
-		return doneChan
-	}
-
 	eg, egCtx := errgroup.WithContext(context.Background())
 	egCtx, cancel := context.WithCancel(egCtx)
 	adt.cancelFunc = cancel
