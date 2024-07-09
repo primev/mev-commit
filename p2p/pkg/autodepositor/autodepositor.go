@@ -23,6 +23,10 @@ type BidderRegistryContract interface {
 	WithdrawFromWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
 }
 
+type BlockTrackerContract interface {
+	GetCurrentWindow() (*big.Int, error)
+}
+
 type AutoDepositTracker struct {
 	startMu    sync.Mutex
 	isWorking  bool
@@ -30,6 +34,8 @@ type AutoDepositTracker struct {
 	deposits   sync.Map
 	windowChan chan *blocktracker.BlocktrackerNewWindow
 	brContract BidderRegistryContract
+	btContract BlockTrackerContract
+	initialAmount *big.Int
 	optsGetter OptsGetter
 	logger     *slog.Logger
 	cancelFunc context.CancelFunc
@@ -38,19 +44,85 @@ type AutoDepositTracker struct {
 func New(
 	evtMgr events.EventManager,
 	brContract BidderRegistryContract,
+	btContract BlockTrackerContract,
 	optsGetter OptsGetter,
+	initialAmount *big.Int,
 	logger *slog.Logger,
 ) *AutoDepositTracker {
 	return &AutoDepositTracker{
 		eventMgr:   evtMgr,
 		brContract: brContract,
+		btContract: btContract,
 		optsGetter: optsGetter,
 		windowChan: make(chan *blocktracker.BlocktrackerNewWindow, 1),
+		initialAmount: initialAmount,
 		logger:     logger,
 	}
 }
 
-func (adt *AutoDepositTracker) Start(
+func (adt *AutoDepositTracker) Start(ctx context.Context) <-chan struct{} {
+	adt.startMu.Lock()
+	defer adt.startMu.Unlock()
+
+	doneChan := make(chan struct{})
+
+	if adt.isWorking {
+		close(doneChan)
+		adt.logger.Error("failed to subscribe to events", "error", fmt.Errorf("auto deposit tracker is already running"))
+		return doneChan
+	}
+
+	currentWindow, err := adt.btContract.GetCurrentWindow()
+	if err != nil {
+		close(doneChan)
+		adt.logger.Error("failed to get current window", "error", err)
+		return doneChan
+	}
+	// adding +2 as oracle runs two windows behind
+	currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
+
+	opts, err := adt.optsGetter(ctx)
+	if err != nil {
+		close(doneChan)
+		adt.logger.Error("failed to get transact opts", "error", err)
+		return doneChan
+	}
+
+	eg, egCtx := errgroup.WithContext(context.Background())
+	egCtx, cancel := context.WithCancel(egCtx)
+	adt.cancelFunc = cancel
+
+	sub, err := adt.initSub(egCtx, opts)
+
+	if err != nil {
+		close(doneChan)
+		adt.logger.Error("error subscribing to event", "error", err)
+		return doneChan
+	}
+
+	err = adt.doInitialDeposit(opts, currentWindow, adt.initialAmount)
+	if err != nil {
+		close(doneChan)
+		adt.logger.Error("failed to do initial deposit", "error", err)
+		return doneChan
+	}
+
+	adt.startAutodeposit(egCtx, eg, adt.initialAmount, sub)
+
+	go func() {
+		defer close(doneChan)
+		if err := eg.Wait(); err != nil {
+			adt.logger.Error("error in errgroup", "error", err)
+		}
+		adt.startMu.Lock()
+		adt.isWorking = false
+		adt.startMu.Unlock()
+	}()
+	
+	return doneChan
+}
+
+func (adt *AutoDepositTracker) StartFromApi(
 	ctx context.Context,
 	startWindow, amount *big.Int,
 ) error {
@@ -63,13 +135,60 @@ func (adt *AutoDepositTracker) Start(
 
 	opts, err := adt.optsGetter(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get transact opts, err: %w", err)
 	}
 
 	eg, egCtx := errgroup.WithContext(context.Background())
 	egCtx, cancel := context.WithCancel(egCtx)
 	adt.cancelFunc = cancel
 
+	sub, err := adt.initSub(egCtx, opts)
+
+	if err != nil {
+		return fmt.Errorf("error subscribing to event: %w", err)
+	}
+
+	err = adt.doInitialDeposit(opts, startWindow, amount)
+	if err != nil {
+		return fmt.Errorf("failed to do initial deposit, err: %w", err)
+	}
+
+	adt.startAutodeposit(egCtx, eg, amount, sub)
+
+	started := make(chan struct{})
+	go func() {
+		close(started)
+		if err := eg.Wait(); err != nil {
+			adt.logger.Error("error in errgroup", "err", err)
+		}
+		adt.startMu.Lock()
+		adt.isWorking = false
+		adt.startMu.Unlock()
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-started:
+		adt.isWorking = true
+	}
+	return nil
+}
+
+func (adt *AutoDepositTracker) doInitialDeposit(opts *bind.TransactOpts, startWindow, amount *big.Int) error {
+	nextWindow := new(big.Int).Add(startWindow, big.NewInt(1))
+
+	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
+
+	// Make initial deposit for the first two windows
+	_, err := adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (adt *AutoDepositTracker) initSub(egCtx context.Context, opts *bind.TransactOpts) (events.Subscription, error) {
 	evt1 := events.NewEventHandler(
 		"NewWindow",
 		func(update *blocktracker.BlocktrackerNewWindow) {
@@ -83,7 +202,6 @@ func (adt *AutoDepositTracker) Start(
 			}
 		},
 	)
-
 	evt2 := events.NewEventHandler(
 		"BidderRegistered",
 		func(bidderReg *bidderregistry.BidderregistryBidderRegistered) {
@@ -116,19 +234,12 @@ func (adt *AutoDepositTracker) Start(
 
 	sub, err := adt.eventMgr.Subscribe(evt1, evt2, evt3)
 	if err != nil {
-		return fmt.Errorf("error subscribing to event: %w", err)
+		return nil, fmt.Errorf("error subscribing to event: %w", err)
 	}
+	return sub, nil
+}
 
-	nextWindow := new(big.Int).Add(startWindow, big.NewInt(1))
-
-	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
-
-	// Make initial deposit for the first two windows
-	_, err = adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
-	if err != nil {
-		return err
-	}
-
+func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgroup.Group, amount *big.Int, sub events.Subscription) {
 	eg.Go(func() error {
 		for {
 			select {
@@ -185,24 +296,6 @@ func (adt *AutoDepositTracker) Start(
 			}
 		}
 	})
-
-	started := make(chan struct{})
-	go func() {
-		close(started)
-		if err := eg.Wait(); err != nil {
-			adt.logger.Error("error in errgroup", "err", err)
-		}
-		adt.startMu.Lock()
-		adt.isWorking = false
-		adt.startMu.Unlock()
-	}()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-started:
-		adt.isWorking = true
-	}
-	return nil
 }
 
 func (adt *AutoDepositTracker) Stop() ([]*big.Int, error) {

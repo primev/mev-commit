@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
 	"net"
 	"net/http"
 	"strings"
@@ -74,6 +75,7 @@ type Options struct {
 	BlockTrackerContract     string
 	ProviderRegistryContract string
 	BidderRegistryContract   string
+	AutodepositAmount        *big.Int
 	RPCEndpoint              string
 	WSRPCEndpoint            string
 	NatAddr                  string
@@ -439,9 +441,15 @@ func NewNode(opts *Options) (*Node, error) {
 			autoDeposit := autodepositor.New(
 				evtMgr,
 				bidderRegistry,
+				blockTrackerSession,
 				optsGetter,
+				opts.AutodepositAmount,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
+
+			if opts.AutodepositAmount != nil {
+				startables = append(startables, autoDeposit)
+			}
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),

@@ -63,7 +63,7 @@ func NewService(
 }
 
 type AutoDepositTracker interface {
-	Start(context.Context, *big.Int, *big.Int) error
+	StartFromApi(context.Context, *big.Int, *big.Int) error
 	Stop() ([]*big.Int, error)
 	IsWorking() bool
 	GetStatus() (map[uint64]bool, bool)
@@ -348,7 +348,7 @@ func (s *Service) AutoDeposit(
 		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", r.Amount)
 	}
 
-	err = s.autoDepositTracker.Start(ctx, windowToDeposit, amount)
+	err = s.autoDepositTracker.StartFromApi(ctx, windowToDeposit, amount)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "starting auto deposit: %v", err)
 	}
