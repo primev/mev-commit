@@ -363,6 +363,7 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 	revertingTxHashesHash := crypto.Keccak256Hash([]byte(c.Bid.RevertingTxHashes))
 	bidDigestHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.Bid.Digest)))
 	bidSigHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.Bid.Signature)))
+	fmt.Printf("Bid Signature Hash: %x\n", bidSigHash.Bytes())
 	sharedSecretHash := crypto.Keccak256Hash([]byte(hex.EncodeToString(c.SharedSecret)))
 
 	// Encode values similar to Solidity's abi.encode

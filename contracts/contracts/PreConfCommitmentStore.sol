@@ -279,56 +279,56 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         string memory _bidSignature,
         string memory _sharedSecretKey
     ) public view returns (bytes32) {
-        // console.log("EIP712_COMMITMENT_TYPEHASH:");
-        // console.logBytes32(EIP712_COMMITMENT_TYPEHASH);
+        console.log("EIP712_COMMITMENT_TYPEHASH:");
+        console.logBytes32(EIP712_COMMITMENT_TYPEHASH);
 
-        // console.log("Transaction Hash:");
-        // console.logBytes32(keccak256(abi.encodePacked(_txnHash)));
+        console.log("Transaction Hash:");
+        console.logBytes32(keccak256(abi.encodePacked(_txnHash)));
 
-        // console.log("Reverting Transaction Hashes:");
-        // console.logBytes32(keccak256(abi.encodePacked(_revertingTxHashes)));
+        console.log("Reverting Transaction Hashes:");
+        console.logBytes32(keccak256(abi.encodePacked(_revertingTxHashes)));
 
-        // console.log("Bid:");
-        // console.logUint(_bid);
+        console.log("Bid:");
+        console.logUint(_bid);
 
-        // console.log("Block Number:");
-        // console.logUint(_blockNumber);
+        console.log("Block Number:");
+        console.logUint(_blockNumber);
 
-        // console.log("Decay Start Timestamp:");
-        // console.logUint(_decayStartTimeStamp);
+        console.log("Decay Start Timestamp:");
+        console.logUint(_decayStartTimeStamp);
 
-        // console.log("Decay End Timestamp:");
-        // console.logUint(_decayEndTimeStamp);
+        console.log("Decay End Timestamp:");
+        console.logUint(_decayEndTimeStamp);
 
-        // console.log("Reverting Transaction Hashes (again):");
-        // console.logBytes32(keccak256(abi.encodePacked(_revertingTxHashes)));
+        console.log("Reverting Transaction Hashes (again):");
+        console.logBytes32(keccak256(abi.encodePacked(_revertingTxHashes)));
 
-        // console.log("Bid Hash:");
-        // console.logBytes32(keccak256(abi.encodePacked(_bytes32ToHexString(_bidHash))));
+        console.log("Bid Hash:");
+        console.logBytes32(keccak256(abi.encodePacked(_bytes32ToHexString(_bidHash))));
 
-        // console.log("Bid Signature:");
-        // console.logBytes32(keccak256(abi.encodePacked(_bidSignature)));
+        console.log("Bid Signature:");
+        console.logBytes(abi.encodePacked(_bidSignature));
 
-        // console.log("Shared Secret Key:");
-        // console.logBytes32(keccak256(abi.encodePacked(_sharedSecretKey)));
-        // console.log("whole thing");
-        // console.logBytes(
-        //     abi.encode(
-        //         EIP712_COMMITMENT_TYPEHASH,
-        //         keccak256(abi.encodePacked(_txnHash)),
-        //         keccak256(abi.encodePacked(_revertingTxHashes)),
-        //         _bid,
-        //         _blockNumber,
-        //         _decayStartTimeStamp,
-        //         _decayEndTimeStamp,
-        //         _revertingTxHashes,
-        //         keccak256(
-        //             abi.encodePacked(_bytes32ToHexString(_bidHash))
-        //         ),
-        //         keccak256(abi.encodePacked(_bidSignature)),
-        //         keccak256(abi.encodePacked(_sharedSecretKey))
-        //     )
-        // );
+        console.log("Shared Secret Key:");
+        console.logBytes32(keccak256(abi.encodePacked(_sharedSecretKey)));
+        console.log("whole thing");
+        console.logBytes(
+            abi.encode(
+                EIP712_COMMITMENT_TYPEHASH,
+                keccak256(abi.encodePacked(_txnHash)),
+                keccak256(abi.encodePacked(_revertingTxHashes)),
+                _bid,
+                _blockNumber,
+                _decayStartTimeStamp,
+                _decayEndTimeStamp,
+                keccak256(
+                    abi.encodePacked(_bytes32ToHexString(_bidHash))
+                ),
+                keccak256(abi.encodePacked(_bidSignature)),
+                keccak256(abi.encodePacked(_sharedSecretKey))
+            )
+        );
+
         return
             ECDSA.toTypedDataHash(
             DOMAIN_SEPARATOR_PRECONF,

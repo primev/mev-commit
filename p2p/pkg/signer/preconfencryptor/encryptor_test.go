@@ -170,11 +170,32 @@ func TestHashing(t *testing.T) {
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
+
+		alicePrivateKey, err := crypto.HexToECDSA("9C0257114EB9399A2985F8E75DAD7600C5D89FE3824FFA99EC1C3EB8BF3B0501")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expHashBytes, err := hex.DecodeString(expHash)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		signature, err := crypto.Sign(expHashBytes, alicePrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("Signature: %s", hex.EncodeToString(signature))
+
+		// Log the keccak of the signature
+		signatureHash := crypto.Keccak256Hash(signature)
+		t.Logf("Keccak256 of Signature: %s", signatureHash.Hex())
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
 		bidHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
-		bidSignature := "c2ab6e530f6b09337e53e1192857fa10017cdb488cf2a07e0aa4457571492b8c6bff93cbda4e003336656b4ecf8ff46bd1d408b310acdf07be4925a1a8fee4471c"
+		bidSignature := "f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c81b"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
 		if err != nil {
@@ -207,20 +228,32 @@ func TestHashing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		hashStr := hex.EncodeToString(hash)
-		expHash := "e872828431f235bf75bebc05bd1a7d349e3b3d30be926c04502a674a05ef802d"
+		expHash := "8257770d4be5c4b622e6bd6b45ff8deb6602235f3aa844b774eb21800eb4923a"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
+
+		// Sign the hash with Bob's private key
+		bobPrivateKey, err := crypto.HexToECDSA("38E47A7B719DCE63662AEAF43440326F551B8A7EE198CEE35CB5D517F2D296A2")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		signature, err := crypto.Sign(hash, bobPrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("Bob's Signature: %s", hex.EncodeToString(signature))
 	})
 }
 
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	bidSig := "8af22e36247e14ba05d3a5a3cc62eee708cfd9ce293c0aebcbe7f89229f6db56638af8427806247d9abb295f681c1a2f2bb127f3bf80799f80d62b252cce04d91c"
-	bidHash := "2574b1ab8a90e173528ddee748be8e8e696b1f0cf687f75966550f5e9ef408b0"
+	bidSig := "f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c800"
+	bidHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
 
 	bidHashBytes, err := hex.DecodeString(bidHash)
 	if err != nil {

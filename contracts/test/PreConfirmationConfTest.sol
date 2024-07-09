@@ -49,9 +49,9 @@ contract TestPreConfCommitmentStore is Test {
             10,
             20,
             0x9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900,
-            0x5798166a22386ff729228c55f79ebff1abe1ea579989d7d59a46a1e50590e2e1,
+            0x8257770d4be5c4b622e6bd6b45ff8deb6602235f3aa844b774eb21800eb4923a,
             hex"f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c81b",
-            hex"5b3000290d4f347b94146eb37f66d5368aed18fb8713bf78620abe40ae3de7f635f7ed161801c31ea10e736d88e6fd2a2286bbd59385161dd24c9fefd2568f341b",
+            hex"8101af732be6879be2cea25a792b3dcc8a5372b5e7636e8348445351a6dd079c534bcaf61e3f7fb4f9f45238e4068a8a5fe20d0204c7644d25b12c60fa95404201",
             15,
             bytes("0xsecret")
         );
@@ -146,7 +146,7 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         // Add a bob private key and console log the key
-        (address bob, uint256 bobPk) = makeAddrAndKey("bob");
+        (address bob, uint256 bobPk) = makeAddrAndKey("alice");
         console.log("Bob's Private Key:", bobPk);
 
         // Make a signature on the bid hash
@@ -319,7 +319,7 @@ contract TestPreConfCommitmentStore is Test {
 
     function test_GetCommitmentDigest() public {
         (, uint256 bidderPk) = makeAddrAndKey("alice");
-
+        console.log("Bidder Private Key:", bidderPk);
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
@@ -775,7 +775,7 @@ contract TestPreConfCommitmentStore is Test {
                 _bytesToHexString(_testCommitmentAliceBob.bidSignature),
                 _bytesToHexString(_testCommitmentAliceBob.sharedSecretKey)
             );
-
+            
             // Verify that the commitment has not been used before
             (bool isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(preConfHash);
