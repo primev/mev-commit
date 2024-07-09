@@ -55,35 +55,14 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := common.HexToAddress("0x1234")
 	amount := big.NewInt(100)
 	logger := util.NewTestLogger(os.Stdout)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 	brContract := &MockBidderRegistryContract{
 		DepositForWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-			for _, window := range windows {
-				err = publishBidderRegistered(evtMgr, &brABI, &bidderregistry.BidderregistryBidderRegistered{
-					Bidder:          addr,
-					DepositedAmount: amount,
-					WindowNumber:    window,
-				})
-				if err != nil {
-					return nil, err
-				}
-			}
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 		WithdrawFromWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-			for _, window := range windows {
-				err = publishBidderWithdrawal(evtMgr, &brABI, &bidderregistry.BidderregistryBidderWithdrawal{
-					Bidder: addr,
-					Amount: amount,
-					Window: window,
-				})
-				if err != nil {
-					return nil, err
-				}
-			}
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 	}
@@ -319,54 +298,3 @@ func publishNewWindow(
 	evtMgr.PublishLogEvent(context.Background(), testLog)
 }
 
-func publishBidderRegistered(
-	evtMgr events.EventManager,
-	brABI *abi.ABI,
-	br *bidderregistry.BidderregistryBidderRegistered,
-) error {
-	event := brABI.Events["BidderRegistered"]
-	buf, err := event.Inputs.NonIndexed().Pack(
-		br.DepositedAmount,
-		br.WindowNumber,
-	)
-	if err != nil {
-		return err
-	}
-
-	testLog := types.Log{
-		Topics: []common.Hash{
-			event.ID,
-			common.HexToHash(br.Bidder.Hex()),
-		},
-		Data: buf,
-	}
-	evtMgr.PublishLogEvent(context.Background(), testLog)
-
-	return nil
-}
-
-func publishBidderWithdrawal(
-	evtMgr events.EventManager,
-	brABI *abi.ABI,
-	br *bidderregistry.BidderregistryBidderWithdrawal,
-) error {
-	event := brABI.Events["BidderWithdrawal"]
-	buf, err := event.Inputs.NonIndexed().Pack(
-		br.Window,
-		br.Amount,
-	)
-	if err != nil {
-		return err
-	}
-
-	testLog := types.Log{
-		Topics: []common.Hash{
-			event.ID,
-			common.HexToHash(br.Bidder.Hex()),
-		},
-		Data: buf,
-	}
-	evtMgr.PublishLogEvent(context.Background(), testLog)
-
-	return nil
-}
