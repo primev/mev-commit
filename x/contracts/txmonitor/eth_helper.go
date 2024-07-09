@@ -118,7 +118,7 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 	var receipts []Result
 	var err error
 	for attempts := 0; attempts < 50; attempts++ {
-		e.logger.Debug("Attempting batch call", "attempt", attempts+1)
+		e.logger.Info("Attempting batch call", "attempt", attempts+1)
 		// Execute the batch request
 		err = e.client.BatchCallContext(context.Background(), batch)
 		if err != nil {
@@ -134,12 +134,31 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 		e.logger.Error("All batch call attempts failed", "error", err)
 		return nil, err
 	}
+
 	receipts = make([]Result, len(batch))
 	for i, elem := range batch {
 		e.logger.Debug("Processing batch element", "index", i, "result", elem.Result, "error", elem.Error)
 		receipts[i].Receipt = elem.Result.(*types.Receipt)
 		if elem.Error != nil {
 			receipts[i].Err = elem.Error
+		}
+	}
+
+	// Retry individual failed transactions
+	for i, receipt := range receipts {
+		if receipt.Err != nil {
+			e.logger.Info("Retrying failed transaction", "index", i, "hash", txHashes[i].Hex())
+			for attempts := 0; attempts < 50; attempts++ {
+				e.logger.Info("Attempting individual call", "attempt", attempts+1, "hash", txHashes[i].Hex())
+				err = e.client.CallContext(context.Background(), receipt.Receipt, "eth_getTransactionReceipt", txHashes[i])
+				if err == nil {
+					e.logger.Info("Individual call succeeded", "attempt", attempts+1, "hash", txHashes[i].Hex())
+					receipts[i].Err = nil
+					break
+				}
+				e.logger.Error("Individual call attempt failed", "attempt", attempts+1, "hash", txHashes[i].Hex(), "error", err)
+				time.Sleep(1 * time.Second)
+			}
 		}
 	}
 
