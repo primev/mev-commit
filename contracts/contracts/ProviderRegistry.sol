@@ -18,8 +18,8 @@ contract ProviderRegistry is
     ReentrancyGuardUpgradeable
 {
     /// @dev For improved precision
-    uint256 constant PRECISION = 10 ** 25;
-    uint256 constant PERCENT = 100 * PRECISION;
+    uint256 public constant PRECISION = 10 ** 25;
+    uint256 public constant PERCENT = 100 * PRECISION;
 
     /// @dev Minimum stake required for registration
     uint256 public minStake;
@@ -39,6 +39,9 @@ contract ProviderRegistry is
     /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
 
+    /// @dev Mapping from a provider's EOA address to their BLS public key
+    mapping(address => bytes) public EOAToBLSPubkey;
+
     /// @dev Mapping from provider addresses to their staked amount
     mapping(address => uint256) public providerStakes;
 
@@ -46,7 +49,7 @@ contract ProviderRegistry is
     mapping(address => uint256) public bidderAmount;
 
     /// @dev Event for provider registration
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount);
+    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
 
     /// @dev Event for depositing funds
     event FundsDeposited(address indexed provider, uint256 amount);
@@ -123,14 +126,17 @@ contract ProviderRegistry is
 
     /**
      * @dev Register and stake function for providers.
+     * @param blsPublicKey The BLS public key of the provider.
+     * The validity of this key must be verified manually off-chain.
      */
-    function registerAndStake() public payable {
+    function registerAndStake(bytes calldata blsPublicKey) public payable {
         require(!providerRegistered[msg.sender], "Provider already registered");
         require(msg.value >= minStake, "Insufficient stake");
+        require(blsPublicKey.length == 48, "Invalid BLS public key length");
+        EOAToBLSPubkey[msg.sender] = blsPublicKey;
         providerStakes[msg.sender] = msg.value;
         providerRegistered[msg.sender] = true;
-
-        emit ProviderRegistered(msg.sender, msg.value);
+        emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
     }
 
     /**
@@ -254,5 +260,10 @@ contract ProviderRegistry is
 
         (bool success, ) = provider.call{value: stake}("");
         require(success, "Couldn't transfer stake to provider");
+    }
+
+    /// @dev Returns the BLS public key corresponding to a provider's staked EOA address.
+    function getBLSKey(address provider) external view returns (bytes memory) {
+        return EOAToBLSPubkey[provider];
     }
 }
