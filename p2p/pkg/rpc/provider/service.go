@@ -44,7 +44,7 @@ type ProviderRegistryContract interface {
 	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	CheckStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
-	ParseFundsDeposited(types.Log) (*providerregistry.ProviderregistryFundsDeposited, error)
+	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
 }
 
 type Watcher interface {
@@ -226,10 +226,10 @@ func (s *Service) RegisterStake(
 	}
 
 	for _, log := range receipt.Logs {
-		if registration, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
-			s.logger.Info("stake registered", "amount", registration.Amount)
+		if registration, err := s.registryContract.ParseProviderRegistered(*log); err == nil {
+			s.logger.Info("stake registered", "amount", registration.StakedAmount)
 			return &providerapiv1.StakeResponse{
-				Amount:       registration.Amount.String(),
+				Amount:       registration.StakedAmount.String(),
 				BlsPublicKey: stake.BlsPublicKey,
 			}, nil
 		}
