@@ -268,18 +268,18 @@ func (t *Tracker) handleNewL1Block(
 		// for bidder to open is only in cases of slashes as he will get refund. Only one
 		// of bidder or provider should open the commitment as 1 of the txns would
 		// fail. This delay is to ensure this.
-		t.logger.Info("Bidder detected, processing block 1 behind the current one")
+		t.logger.Info("bidder detected, processing block 1 behind the current one")
 		t.winners[newL1Block.BlockNumber.Int64()] = newL1Block
 		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-2]
 		if !ok {
-			t.logger.Info("Past block not found, returning")
+			t.logger.Info("past block not found, returning")
 			return nil
 		}
 		newL1Block = pastBlock
-		t.logger.Info("Processing past block", "blockNumber", pastBlock.BlockNumber)
+		t.logger.Info("processing past block", "blockNumber", pastBlock.BlockNumber)
 		for k := range t.winners {
 			if k < pastBlock.BlockNumber.Int64() {
-				t.logger.Info("Deleting old winner entry", "blockNumber", k)
+				t.logger.Info("deleting old winner entry", "blockNumber", k)
 				delete(t.winners, k)
 			}
 		}
@@ -287,23 +287,23 @@ func (t *Tracker) handleNewL1Block(
 
 	commitments, err := t.store.GetCommitmentsByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
-		t.logger.Error("Failed to get commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
+		t.logger.Error("failed to get commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
 		return err
 	}
 
-	t.logger.Info("Commitments retrieved", "count", len(commitments))
+	t.logger.Info("commitments retrieved", "count", len(commitments))
 
 	failedCommitments := make([]common.Hash, 0)
 	settled := 0
 	for _, commitment := range commitments {
 		if commitment.CommitmentIndex == nil {
-			t.logger.Info("Commitment index is nil, adding to failed commitments", "txnHash", commitment.TxnHash)
+			t.logger.Info("commitment index is nil, adding to failed commitments", "txnHash", commitment.TxnHash)
 			failedCommitments = append(failedCommitments, commitment.TxnHash)
 			continue
 		}
 		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
 			t.logger.Debug(
-				"Provider address does not match the winner",
+				"provider address does not match the winner",
 				"providerAddress", commitment.ProviderAddress,
 				"winner", newL1Block.Winner,
 			)
@@ -316,17 +316,17 @@ func (t *Tracker) handleNewL1Block(
 
 		bidAmt, ok := new(big.Int).SetString(commitment.Bid.BidAmount, 10)
 		if !ok {
-			t.logger.Error("Failed to parse bid amount", "bidAmount", commitment.Bid.BidAmount)
+			t.logger.Error("failed to parse bid amount", "bidAmount", commitment.Bid.BidAmount)
 			continue
 		}
 
 		opts, err := t.optsGetter(ctx)
 		if err != nil {
-			t.logger.Error("Failed to get transact opts", "error", err)
+			t.logger.Error("failed to get transact opts", "error", err)
 			continue
 		}
 
-		t.logger.Info("Opening commitment", "commitmentIdx", commitmentIdx, "bidAmount", bidAmt)
+		t.logger.Info("opening commitment", "commitmentIdx", commitmentIdx, "bidAmount", bidAmt)
 
 		txHash, err := t.preconfContract.OpenCommitment(
 			opts,
@@ -342,11 +342,11 @@ func (t *Tracker) handleNewL1Block(
 			commitment.PreConfirmation.SharedSecret,
 		)
 		if err != nil {
-			t.logger.Error("Failed to open commitment", "error", err)
+			t.logger.Error("failed to open commitment", "error", err)
 			continue
 		}
 		duration := time.Since(startTime)
-		t.logger.Info("Opened commitment",
+		t.logger.Info("opened commitment",
 			"txHash", txHash, "duration", duration,
 			"blockNumber", newL1Block.BlockNumber,
 			"commiter", common.Bytes2Hex(commitment.ProviderAddress),
@@ -356,12 +356,12 @@ func (t *Tracker) handleNewL1Block(
 
 	err = t.store.DeleteCommitmentByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
-		t.logger.Error("Failed to delete commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
+		t.logger.Error("failed to delete commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
 		return err
 	}
 
 	openDuration := time.Since(openStart)
-	t.logger.Info("Commitments opened",
+	t.logger.Info("commitments opened",
 		"blockNumber", newL1Block.BlockNumber,
 		"total", len(commitments),
 		"settled", settled,
@@ -374,14 +374,14 @@ func (t *Tracker) handleNewL1Block(
 	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
 
 	if len(failedCommitments) > 0 {
-		t.logger.Info("Processing failed commitments", "count", len(failedCommitments))
+		t.logger.Info("processing failed commitments", "count", len(failedCommitments))
 		receipts, err := t.receiptGetter.BatchReceipts(ctx, failedCommitments)
 		if err != nil {
-			t.logger.Warn("Failed to get receipts for failed commitments", "error", err)
+			t.logger.Warn("failed to get receipts for failed commitments", "error", err)
 			return nil
 		}
 		for i, receipt := range receipts {
-			t.logger.Debug("Receipt for failed commitment",
+			t.logger.Debug("receipt for failed commitment",
 				"txHash", failedCommitments[i],
 				"error", receipt.Err,
 			)
