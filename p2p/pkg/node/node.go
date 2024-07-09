@@ -84,8 +84,9 @@ type Options struct {
 }
 
 type Node struct {
-	cancelFunc context.CancelFunc
-	closers    []io.Closer
+	cancelFunc  context.CancelFunc
+	closers     []io.Closer
+	autoDeposit *autodepositor.AutoDepositTracker
 }
 
 func NewNode(opts *Options) (*Node, error) {
@@ -448,7 +449,8 @@ func NewNode(opts *Options) (*Node, error) {
 			)
 
 			if opts.AutodepositAmount != nil {
-				startables = append(startables, autoDeposit)
+				autoDeposit.Start(context.Background(), nil, opts.AutodepositAmount)
+				nd.autoDeposit = autoDeposit
 			}
 
 			bidderAPI := bidderapi.NewService(
@@ -651,6 +653,9 @@ func (n *Node) Close() error {
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
 	}
+	
+	_, adErr := n.autoDeposit.Stop()
+	errors.Join(err, adErr)
 
 	return err
 }

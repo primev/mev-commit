@@ -59,62 +59,7 @@ func New(
 	}
 }
 
-func (adt *AutoDepositTracker) Start(ctx context.Context) <-chan struct{} {
-	adt.startMu.Lock()
-	defer adt.startMu.Unlock()
-
-	doneChan := make(chan struct{})
-
-	if adt.isWorking {
-		close(doneChan)
-		adt.logger.Error("failed to subscribe to events", "error", "auto deposit tracker is already running")
-		return doneChan
-	}
-
-	currentWindow, err := adt.btContract.GetCurrentWindow()
-	if err != nil {
-		close(doneChan)
-		adt.logger.Error("failed to get current window", "error", err)
-		return doneChan
-	}
-	// adding +2 as oracle runs two windows behind
-	currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
-
-	eg, egCtx := errgroup.WithContext(context.Background())
-	egCtx, cancel := context.WithCancel(egCtx)
-	adt.cancelFunc = cancel
-
-	sub, err := adt.initSub(egCtx)
-
-	if err != nil {
-		close(doneChan)
-		adt.logger.Error("error subscribing to event", "error", err)
-		return doneChan
-	}
-
-	err = adt.doInitialDeposit(ctx, currentWindow, adt.initialAmount)
-	if err != nil {
-		close(doneChan)
-		adt.logger.Error("failed to do initial deposit", "error", err)
-		return doneChan
-	}
-
-	adt.startAutodeposit(egCtx, eg, adt.initialAmount, sub)
-
-	go func() {
-		defer close(doneChan)
-		if err := eg.Wait(); err != nil {
-			adt.logger.Error("error in errgroup", "error", err)
-		}
-		adt.startMu.Lock()
-		adt.isWorking = false
-		adt.startMu.Unlock()
-	}()
-	
-	return doneChan
-}
-
-func (adt *AutoDepositTracker) StartFromApi(
+func (adt *AutoDepositTracker) Start(
 	ctx context.Context,
 	startWindow, amount *big.Int,
 ) error {
@@ -123,6 +68,18 @@ func (adt *AutoDepositTracker) StartFromApi(
 
 	if adt.isWorking {
 		return fmt.Errorf("auto deposit tracker is already running")
+	}
+
+	if startWindow == nil {
+		var err error
+		startWindow, err = adt.btContract.GetCurrentWindow()
+		if err != nil {
+			adt.logger.Error("failed to get current window", "error", err)
+			return err
+		}
+		// adding +2 as oracle runs two windows behind
+		startWindow = new(big.Int).Add(startWindow, big.NewInt(2))
+
 	}
 
 	eg, egCtx := errgroup.WithContext(context.Background())

@@ -129,7 +129,7 @@ type testAutoDepositTracker struct {
 	isWorking bool
 }
 
-func (t *testAutoDepositTracker) StartFromApi(ctx context.Context, startWindow, amount *big.Int) error {
+func (t *testAutoDepositTracker) Start(ctx context.Context, startWindow, amount *big.Int) error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 

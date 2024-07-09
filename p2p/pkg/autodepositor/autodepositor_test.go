@@ -102,7 +102,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	// Start AutoDepositTracker
 	ctx := context.Background()
 	startWindow := big.NewInt(2)
-	err = adt.StartFromApi(ctx, startWindow, amount)
+	err = adt.Start(ctx, startWindow, amount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 	startWindow := big.NewInt(1)
 	amount := big.NewInt(100)
 	cancel()
-	err = adt.StartFromApi(ctx, startWindow, amount)
+	err = adt.Start(ctx, startWindow, amount)
 	if err != context.Canceled {
 		t.Fatalf("expected context canceled error, got %v", err)
 	}
@@ -282,7 +282,7 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 	ctx := context.Background()
 	startWindow := big.NewInt(1)
 	amount := big.NewInt(100)
-	err = adt.StartFromApi(ctx, startWindow, amount)
+	err = adt.Start(ctx, startWindow, amount)
 	if err != nil {
 		t.Fatal(err)
 	}
