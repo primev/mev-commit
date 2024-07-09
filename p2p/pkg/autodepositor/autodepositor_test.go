@@ -54,21 +54,27 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	brContract := &MockBidderRegistryContract{
 		DepositForWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
 			for _, window := range windows {
-				publishBidderRegistered(evtMgr, &brABI, &bidderregistry.BidderregistryBidderRegistered{
+				err = publishBidderRegistered(evtMgr, &brABI, &bidderregistry.BidderregistryBidderRegistered{
 					Bidder:          addr,
 					DepositedAmount: amount,
 					WindowNumber:    window,
 				})
+				if err != nil {
+					return nil, err
+				}
 			}
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 		WithdrawFromWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
 			for _, window := range windows {
-				publishBidderWithdrawal(evtMgr, &brABI, &bidderregistry.BidderregistryBidderWithdrawal{
+				err = publishBidderWithdrawal(evtMgr, &brABI, &bidderregistry.BidderregistryBidderWithdrawal{
 					Bidder: addr,
 					Amount: amount,
 					Window: window,
 				})
+				if err != nil {
+					return nil, err
+				}
 			}
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
