@@ -22,15 +22,10 @@ type BidderRegistryContract interface {
 	WithdrawFromWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
 }
 
-type TxWatcher interface {
-	WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error)
-}
-
 type AutoDepositTracker struct {
 	startMu    sync.Mutex
 	isWorking  bool
 	eventMgr   events.EventManager
-	watcher    TxWatcher
 	deposits   sync.Map
 	windowChan chan *blocktracker.BlocktrackerNewWindow
 	brContract BidderRegistryContract
@@ -43,14 +38,12 @@ func New(
 	evtMgr events.EventManager,
 	brContract BidderRegistryContract,
 	optsGetter OptsGetter,
-	watcher TxWatcher,
 	logger *slog.Logger,
 ) *AutoDepositTracker {
 	return &AutoDepositTracker{
 		eventMgr:   evtMgr,
 		brContract: brContract,
 		optsGetter: optsGetter,
-		watcher:    watcher,
 		windowChan: make(chan *blocktracker.BlocktrackerNewWindow, 1),
 		logger:     logger,
 	}
@@ -77,18 +70,9 @@ func (adt *AutoDepositTracker) Start(
 	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
 
 	// Make initial deposit for the first two windows
-	txn, err := adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
+	_, err = adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
 	if err != nil {
 		return err
-	}
-
-	receipt, err := adt.watcher.WaitForReceipt(ctx, txn)
-	if err != nil {
-		return err
-	}
-
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("initial deposit transaction failed: %d", receipt.Status)
 	}
 
 	adt.deposits.Store(startWindow.Uint64(), true)
@@ -143,13 +127,6 @@ func (adt *AutoDepositTracker) Start(
 					if err != nil {
 						return err
 					}
-					r, err := adt.watcher.WaitForReceipt(egCtx, txn)
-					if err != nil {
-						return err
-					}
-					if r.Status != types.ReceiptStatusSuccessful {
-						return fmt.Errorf("withdraw transaction failed: %d", r.Status)
-					}
 					adt.logger.Info("withdraw from windows", "hash", txn.Hash(), "windows", withdrawWindows)
 					for _, window := range withdrawWindows {
 						adt.deposits.Delete(window.Uint64())
@@ -173,13 +150,6 @@ func (adt *AutoDepositTracker) Start(
 				txn, err := adt.brContract.DepositForWindows(opts, []*big.Int{nextWindow})
 				if err != nil {
 					return err
-				}
-				r, err := adt.watcher.WaitForReceipt(egCtx, txn)
-				if err != nil {
-					return err
-				}
-				if r.Status != types.ReceiptStatusSuccessful {
-					return fmt.Errorf("deposit transaction failed: %d", r.Status)
 				}
 				adt.logger.Info(
 					"deposited to next window",

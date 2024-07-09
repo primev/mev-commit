@@ -33,14 +33,6 @@ func (m *MockBidderRegistryContract) WithdrawFromWindows(opts *bind.TransactOpts
 	return m.WithdrawFromWindowsFunc(opts, windows)
 }
 
-type MockTxWatcher struct {
-	WaitForReceiptFunc func(ctx context.Context, tx *types.Transaction) (*types.Receipt, error)
-}
-
-func (m *MockTxWatcher) WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-	return m.WaitForReceiptFunc(ctx, tx)
-}
-
 func TestAutoDepositTracker_Start(t *testing.T) {
 	t.Parallel()
 
@@ -68,16 +60,9 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
-	watcher := &MockTxWatcher{
-		WaitForReceiptFunc: func(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-			return &types.Receipt{
-				Status: 1,
-			}, nil
-		},
-	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, watcher, logger)
+	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
 
 	// Start AutoDepositTracker
 	ctx := context.Background()
@@ -168,16 +153,9 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
-	watcher := &MockTxWatcher{
-		WaitForReceiptFunc: func(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-			return &types.Receipt{
-				Status: 1,
-			}, nil
-		},
-	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, watcher, logger)
+	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
 
 	// Start AutoDepositTracker with a cancelable context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -210,10 +188,9 @@ func TestAutoDepositTracker_Stop_NotRunning(t *testing.T) {
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
-	watcher := &MockTxWatcher{}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, watcher, logger)
+	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
 
 	// Stop AutoDepositTracker when not running
 	_, err = adt.Stop()
@@ -246,16 +223,9 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
-	watcher := &MockTxWatcher{
-		WaitForReceiptFunc: func(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
-			return &types.Receipt{
-				Status: 1,
-			}, nil
-		},
-	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, watcher, logger)
+	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
 
 	// Assert initial IsWorking status
 	if adt.IsWorking() {
