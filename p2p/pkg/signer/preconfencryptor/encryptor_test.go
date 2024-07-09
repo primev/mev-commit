@@ -275,7 +275,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expOwner := "0x8339F9E3d7B2693aD8955Aa5EC59D56669A84d60"
+	expOwner := "0x328809Bc894f92807417D2dAD6b7C998c1aFdac6"
 	if owner.Hex() != expOwner {
 		t.Fatalf("owner mismatch: %s != %s", owner.Hex(), expOwner)
 	}

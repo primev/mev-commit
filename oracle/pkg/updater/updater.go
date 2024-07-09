@@ -336,9 +336,9 @@ func (u *Updater) handleOpenedCommitment(
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
-	u.logger.Info("commitmentTxnHashes", "commitmentTxnHashes", commitmentTxnHashes)
+	u.logger.Debug("commitmentTxnHashes", "commitmentTxnHashes", commitmentTxnHashes)
 	revertableTxns := strings.Split(update.RevertingTxHashes, ",")
-	u.logger.Info("revertableTxns", "revertableTxns", revertableTxns)
+	u.logger.Debug("revertableTxns", "revertableTxns", revertableTxns)
 
 	// Create a map for revertable transactions
 	revertableTxnsMap := make(map[string]bool)
