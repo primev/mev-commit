@@ -86,7 +86,7 @@ func NewTracker(
 		preconfContract: preconfContract,
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
-		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block, 10),
+		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
 		winners:         make(map[int64]*blocktracker.BlocktrackerNewL1Block),
