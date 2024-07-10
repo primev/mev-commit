@@ -33,6 +33,14 @@ func (m *MockBidderRegistryContract) WithdrawFromWindows(opts *bind.TransactOpts
 	return m.WithdrawFromWindowsFunc(opts, windows)
 }
 
+type MockBlockTrackerContract struct {
+	GetCurrentWindowFunc func() (*big.Int, error)
+}
+
+func (m *MockBlockTrackerContract) GetCurrentWindow() (*big.Int, error) {
+	return m.GetCurrentWindowFunc()
+}
+
 func TestAutoDepositTracker_Start(t *testing.T) {
 	t.Parallel()
 
@@ -47,6 +55,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	amount := big.NewInt(100)
 	logger := util.NewTestLogger(os.Stdout)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 	brContract := &MockBidderRegistryContract{
@@ -57,17 +66,21 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 	}
+	btContract := &MockBlockTrackerContract{
+		GetCurrentWindowFunc: func() (*big.Int, error) {
+			return big.NewInt(1), nil
+		},
+	}
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
 
 	// Start AutoDepositTracker
 	ctx := context.Background()
 	startWindow := big.NewInt(2)
-	amount := big.NewInt(100)
 	err = adt.Start(ctx, startWindow, amount)
 	if err != nil {
 		t.Fatal(err)
@@ -150,12 +163,17 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 	}
+	btContract := &MockBlockTrackerContract{
+		GetCurrentWindowFunc: func() (*big.Int, error) {
+			return big.NewInt(1), nil
+		},
+	}
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
 
 	// Start AutoDepositTracker with a cancelable context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -185,12 +203,13 @@ func TestAutoDepositTracker_Stop_NotRunning(t *testing.T) {
 	logger := util.NewTestLogger(io.Discard)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 	brContract := &MockBidderRegistryContract{}
+	btContract := &MockBlockTrackerContract{}
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
 
 	// Stop AutoDepositTracker when not running
 	_, err = adt.Stop()
@@ -220,12 +239,18 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 	}
+	btContract := &MockBlockTrackerContract{
+		GetCurrentWindowFunc: func() (*big.Int, error) {
+			return big.NewInt(1), nil
+		},
+	}
+
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
 		return &bind.TransactOpts{}, nil
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
 
 	// Assert initial IsWorking status
 	if adt.IsWorking() {
@@ -272,3 +297,4 @@ func publishNewWindow(
 	}
 	evtMgr.PublishLogEvent(context.Background(), testLog)
 }
+

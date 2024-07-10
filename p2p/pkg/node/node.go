@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
 	"net"
 	"net/http"
 	"strings"
@@ -74,6 +75,7 @@ type Options struct {
 	BlockTrackerContract     string
 	ProviderRegistryContract string
 	BidderRegistryContract   string
+	AutodepositAmount        *big.Int
 	RPCEndpoint              string
 	WSRPCEndpoint            string
 	NatAddr                  string
@@ -83,8 +85,9 @@ type Options struct {
 }
 
 type Node struct {
-	cancelFunc context.CancelFunc
-	closers    []io.Closer
+	cancelFunc  context.CancelFunc
+	closers     []io.Closer
+	autoDeposit *autodepositor.AutoDepositTracker
 }
 
 func NewNode(opts *Options) (*Node, error) {
@@ -441,9 +444,16 @@ func NewNode(opts *Options) (*Node, error) {
 			autoDeposit := autodepositor.New(
 				evtMgr,
 				bidderRegistry,
+				blockTrackerSession,
 				optsGetter,
+				opts.AutodepositAmount,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
+
+			if opts.AutodepositAmount != nil {
+				autoDeposit.Start(context.Background(), nil, opts.AutodepositAmount)
+				nd.autoDeposit = autoDeposit
+			}
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
@@ -646,6 +656,9 @@ func (n *Node) Close() error {
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
 	}
+	
+	_, adErr := n.autoDeposit.Stop()
+	errors.Join(err, adErr)
 
 	return err
 }
