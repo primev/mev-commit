@@ -232,6 +232,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      * @param _txnHash transaction Hash.
      * @param _bid bid id.
      * @param _blockNumber block number
+     * @param _revertingTxHashes reverting transaction hashes.
      * @return digest it returns a digest that can be used for signing bids
      */
     function getBidHash(
@@ -264,6 +265,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      * @param _txnHash transaction Hash.
      * @param _bid bid id.
      * @param _blockNumber block number.
+     * @param _revertingTxHashes reverting transaction hashes.
      * @param _bidHash hash of the bid.
      * @return digest it returns a digest that can be used for signing bids.
      */
@@ -306,6 +308,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      * @param bid bid id.
      * @param blockNumber block number.
      * @param txnHash transaction Hash.
+     * @param revertingTxHashes reverting transaction hashes.
      * @param bidSignature bid signature.
      * @return messageDigest returns the bid hash for given bid id.
      * @return recoveredAddress the address from the bid hash.
@@ -413,6 +416,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         @param bid The bid amount
         @param blockNumber The block number
         @param txnHash The transaction hash
+        @param revertingTxHashes The reverting transaction hashes
         @param decayStartTimeStamp The start time of the decay
         @param decayEndTimeStamp The end time of the decay
         @param bidSignature The signature of the bid
