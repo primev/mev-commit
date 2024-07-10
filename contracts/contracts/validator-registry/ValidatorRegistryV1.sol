@@ -190,16 +190,21 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      */
     function _stake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
         require(blsPubKeys.length > 0, "There must be at least one recipient");
-        uint256 splitAmount = msg.value / blsPubKeys.length;
+        uint256 baseStakeAmount = msg.value / blsPubKeys.length;
+        require(baseStakeAmount > 0, "Insufficient stake amount for number of pubkeys");
+        uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
+
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
             bytes calldata pubKey = blsPubKeys[i];
+            uint256 stakeAmount = (i == blsPubKeys.length - 1) ? lastStakeAmount : baseStakeAmount;
+
             stakedValidators[pubKey] = StakedValidator({
                 exists: true,
-                balance: splitAmount,
+                balance: stakeAmount,
                 withdrawalAddress: withdrawalAddress,
                 unstakeHeight: EventHeightLib.EventHeight({ exists: false, blockHeight: 0 })
             });
-            emit Staked(msg.sender, withdrawalAddress, pubKey, splitAmount);
+            emit Staked(msg.sender, withdrawalAddress, pubKey, stakeAmount);
         }
     }
 
