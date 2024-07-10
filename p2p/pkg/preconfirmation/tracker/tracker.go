@@ -294,7 +294,10 @@ func (t *Tracker) handleNewL1Block(
 	settled := 0
 	for _, commitment := range commitments {
 		if commitment.CommitmentIndex == nil {
-			failedCommitments = append(failedCommitments, commitment.TxnHash)
+			t.logger.Debug("commitment index not found", "commitment", commitment)
+			if commitment.TxnHash != (common.Hash{}) {
+				failedCommitments = append(failedCommitments, commitment.TxnHash)
+			}
 			continue
 		}
 		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
@@ -367,20 +370,20 @@ func (t *Tracker) handleNewL1Block(
 	t.metrics.totalOpenedCommitments.Add(float64(settled))
 	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
 
-	if len(failedCommitments) > 0 {
-		t.logger.Info("processing failed commitments", "count", len(failedCommitments))
-		receipts, err := t.receiptGetter.BatchReceipts(ctx, failedCommitments)
-		if err != nil {
-			t.logger.Warn("failed to get receipts for failed commitments", "error", err)
-			return nil
-		}
-		for i, receipt := range receipts {
-			t.logger.Debug("receipt for failed commitment",
-				"txHash", failedCommitments[i],
-				"error", receipt.Err,
-			)
-		}
-	}
+	// if len(failedCommitments) > 0 {
+	// 	t.logger.Info("processing failed commitments", "count", len(failedCommitments))
+	// 	receipts, err := t.receiptGetter.BatchReceipts(ctx, failedCommitments)
+	// 	if err != nil {
+	// 		t.logger.Warn("failed to get receipts for failed commitments", "error", err)
+	// 		return nil
+	// 	}
+	// 	for i, receipt := range receipts {
+	// 		t.logger.Debug("receipt for failed commitment",
+	// 			"txHash", failedCommitments[i],
+	// 			"error", receipt.Err,
+	// 		)
+	// 	}
+	// }
 
 	return nil
 }
