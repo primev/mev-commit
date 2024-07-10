@@ -87,7 +87,7 @@ job "{{ job.name }}" {
           ./local/eth-faucet \
             --httpport "${HTTP_PORT}" \
             --faucet.amount 10 \
-            --faucet.minutes 60 \
+            --faucet.minutes 1 \
             --faucet.name "mev-commit chain" \
             --wallet.keyjson "${KEYSTORE_FILE}" \
             --wallet.keypass secrets/keystore_password.txt \
