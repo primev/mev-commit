@@ -446,12 +446,15 @@ func NewNode(opts *Options) (*Node, error) {
 				bidderRegistry,
 				blockTrackerSession,
 				optsGetter,
-				opts.AutodepositAmount,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
 			if opts.AutodepositAmount != nil {
-				autoDeposit.Start(context.Background(), nil, opts.AutodepositAmount)
+				err = autoDeposit.Start(context.Background(), nil, opts.AutodepositAmount)
+				if err != nil {
+					opts.Logger.Error("failed to start auto deposit tracker", "error", err)
+					return nil, errors.Join(err, nd.Close())
+				}
 				nd.autoDeposit = autoDeposit
 			}
 
@@ -656,7 +659,7 @@ func (n *Node) Close() error {
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
 	}
-	
+
 	_, adErr := n.autoDeposit.Stop()
 	errors.Join(err, adErr)
 

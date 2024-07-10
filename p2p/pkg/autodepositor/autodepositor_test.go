@@ -76,7 +76,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
 
 	// Start AutoDepositTracker
 	ctx := context.Background()
@@ -173,7 +173,7 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
 
 	// Start AutoDepositTracker with a cancelable context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -209,7 +209,7 @@ func TestAutoDepositTracker_Stop_NotRunning(t *testing.T) {
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
 
 	// Stop AutoDepositTracker when not running
 	_, err = adt.Stop()
@@ -250,7 +250,7 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, nil, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
 
 	// Assert initial IsWorking status
 	if adt.IsWorking() {
@@ -297,4 +297,3 @@ func publishNewWindow(
 	}
 	evtMgr.PublishLogEvent(context.Background(), testLog)
 }
-

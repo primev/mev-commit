@@ -34,7 +34,6 @@ type AutoDepositTracker struct {
 	windowChan chan *blocktracker.BlocktrackerNewWindow
 	brContract BidderRegistryContract
 	btContract BlockTrackerContract
-	initialAmount *big.Int
 	optsGetter OptsGetter
 	logger     *slog.Logger
 	cancelFunc context.CancelFunc
@@ -45,7 +44,6 @@ func New(
 	brContract BidderRegistryContract,
 	btContract BlockTrackerContract,
 	optsGetter OptsGetter,
-	initialAmount *big.Int,
 	logger *slog.Logger,
 ) *AutoDepositTracker {
 	return &AutoDepositTracker{
@@ -54,7 +52,6 @@ func New(
 		btContract: btContract,
 		optsGetter: optsGetter,
 		windowChan: make(chan *blocktracker.BlocktrackerNewWindow, 1),
-		initialAmount: initialAmount,
 		logger:     logger,
 	}
 }
@@ -79,7 +76,6 @@ func (adt *AutoDepositTracker) Start(
 		}
 		// adding +2 as oracle runs two windows behind
 		startWindow = new(big.Int).Add(startWindow, big.NewInt(2))
-
 	}
 
 	eg, egCtx := errgroup.WithContext(context.Background())
