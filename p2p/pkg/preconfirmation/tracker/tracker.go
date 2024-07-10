@@ -249,6 +249,7 @@ func (t *Tracker) TrackCommitment(
 func (t *Tracker) Metrics() []prometheus.Collector {
 	return t.metrics.Metrics()
 }
+
 func (t *Tracker) handleNewL1Block(
 	ctx context.Context,
 	newL1Block *blocktracker.BlocktrackerNewL1Block,
@@ -272,14 +273,12 @@ func (t *Tracker) handleNewL1Block(
 		t.winners[newL1Block.BlockNumber.Int64()] = newL1Block
 		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-2]
 		if !ok {
-			t.logger.Info("past block not found, returning")
 			return nil
 		}
 		newL1Block = pastBlock
 		t.logger.Info("processing past block", "blockNumber", pastBlock.BlockNumber)
 		for k := range t.winners {
 			if k < pastBlock.BlockNumber.Int64() {
-				t.logger.Info("deleting old winner entry", "blockNumber", k)
 				delete(t.winners, k)
 			}
 		}
@@ -291,13 +290,10 @@ func (t *Tracker) handleNewL1Block(
 		return err
 	}
 
-	t.logger.Info("commitments retrieved", "count", len(commitments))
-
 	failedCommitments := make([]common.Hash, 0)
 	settled := 0
 	for _, commitment := range commitments {
 		if commitment.CommitmentIndex == nil {
-			t.logger.Info("commitment index is nil, adding to failed commitments", "txnHash", commitment.TxnHash)
 			failedCommitments = append(failedCommitments, commitment.TxnHash)
 			continue
 		}
@@ -325,8 +321,6 @@ func (t *Tracker) handleNewL1Block(
 			t.logger.Error("failed to get transact opts", "error", err)
 			continue
 		}
-
-		t.logger.Info("opening commitment", "commitmentIdx", commitmentIdx, "bidAmount", bidAmt)
 
 		txHash, err := t.preconfContract.OpenCommitment(
 			opts,
