@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	contracts "github.com/primev/mev-commit/contracts-abi/config"
 	mevcommit "github.com/primev/mev-commit/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/node"
@@ -176,6 +177,12 @@ var (
 		Usage:   "address of the bidder registry contract",
 		EnvVars: []string{"MEV_COMMIT_BIDDER_REGISTRY_ADDR"},
 		Value:   contracts.TestnetContracts.BidderRegistry,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid bidder registry address: %s", s)
+			}
+			return nil
+		},
 	})
 
 	optionProviderRegistryAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -183,6 +190,12 @@ var (
 		Usage:   "address of the provider registry contract",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_REGISTRY_ADDR"},
 		Value:   contracts.TestnetContracts.ProviderRegistry,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid provider registry address: %s", s)
+			}
+			return nil
+		},
 	})
 
 	optionPreconfStoreAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -190,6 +203,12 @@ var (
 		Usage:   "address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
 		Value:   contracts.TestnetContracts.PreconfCommitmentStore,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid preconfirmation commitment store address: %s", s)
+			}
+			return nil
+		},
 	})
 
 	optionBlockTrackerAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -197,6 +216,12 @@ var (
 		Usage:   "address of the block tracker contract",
 		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
 		Value:   contracts.TestnetContracts.BlockTracker,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid block tracker address: %s", s)
+			}
+			return nil
+		},
 	})
 
 	optionSettlementRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
@@ -236,6 +261,20 @@ var (
 		Usage:   "Path to the server TLS private key",
 		EnvVars: []string{"MEV_COMMIT_SERVER_TLS_PRIVATE_KEY"},
 	})
+
+	optionProviderWhitelist = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:    "provider-whitelist",
+		Usage:   "list of provider addresses to whitelist for bids",
+		EnvVars: []string{"MEV_COMMIT_PROVIDER_WHITELIST"},
+		Action: func(ctx *cli.Context, vals []string) error {
+			for i, v := range vals {
+				if !common.IsHexAddress(v) {
+					return fmt.Errorf("invalid provider address at index %d: %s", i, v)
+				}
+			}
+			return nil
+		},
+	})
 )
 
 func main() {
@@ -266,6 +305,7 @@ func main() {
 		optionNATPort,
 		optionServerTLSCert,
 		optionServerTLSPrivateKey,
+		optionProviderWhitelist,
 	}
 
 	app := &cli.App{
@@ -332,6 +372,11 @@ func launchNodeWithConfig(c *cli.Context) error {
 		return fmt.Errorf("both -%s and -%s must be provided to enable TLS", optionServerTLSCert.Name, optionServerTLSPrivateKey.Name)
 	}
 
+	whitelist := make([]common.Address, 0, len(c.StringSlice(optionProviderWhitelist.Name)))
+	for _, addr := range c.StringSlice(optionProviderWhitelist.Name) {
+		whitelist = append(whitelist, common.HexToAddress(addr))
+	}
+
 	nd, err := node.NewNode(&node.Options{
 		KeySigner:                keysigner,
 		Secret:                   c.String(optionSecret.Name),
@@ -351,6 +396,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		NatAddr:                  natAddr,
 		TLSCertificateFile:       crtFile,
 		TLSPrivateKeyFile:        keyFile,
+		ProviderWhitelist:        whitelist,
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
