@@ -157,6 +157,11 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the bid ends decaying.
+      revertingTxHashes:
+        type: array
+        items:
+          type: string
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
     description: Unsigned bid message from bidders to the bidder mev-commit node.
     title: Bid message
     required:
@@ -225,6 +230,11 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the commitment is published.
+      revertingTxHashes:
+        type: array
+        items:
+          type: string
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
   v1DepositResponse:
     type: object
     example:

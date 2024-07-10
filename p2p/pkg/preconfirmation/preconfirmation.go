@@ -119,6 +119,7 @@ func (p *Preconfirmation) SendBid(
 	blockNumber int64,
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
+	revertingTxHashes string,
 ) (chan *preconfpb.PreConfirmation, error) {
 	startTime := time.Now()
 	bid, encryptedBid, nikePrivateKey, err := p.encryptor.ConstructEncryptedBid(
@@ -127,6 +128,7 @@ func (p *Preconfirmation) SendBid(
 		blockNumber,
 		decayStartTimestamp,
 		decayEndTimestamp,
+		revertingTxHashes,
 	)
 	if err != nil {
 		p.logger.Error("constructing encrypted bid", "error", err, "txHash", txHash)

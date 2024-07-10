@@ -165,6 +165,11 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the bid ends decaying.
+      revertingTxHashes:
+        type: array
+        items:
+          type: string
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
     description: Signed bid message from bidders to the provider.
     title: Bid message
     required:

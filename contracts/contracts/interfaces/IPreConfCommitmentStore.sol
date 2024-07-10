@@ -19,10 +19,12 @@ interface IPreConfCommitmentStore {
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
         string txnHash;
+        string revertingTxHashes;
         bytes32 commitmentHash;
         bytes bidSignature;
         bytes commitmentSignature;
         uint64 dispatchTimestamp;
+        bytes sharedSecretKey;
     }
 
     event SignatureVerified(
@@ -63,6 +65,7 @@ interface IPreConfCommitmentStore {
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
+        string memory revertingTxHashes,
         string memory commitmentHash,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,

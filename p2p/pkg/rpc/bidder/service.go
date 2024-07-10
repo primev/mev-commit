@@ -60,7 +60,7 @@ func NewService(
 }
 
 type PreconfSender interface {
-	SendBid(context.Context, string, string, int64, int64, int64) (chan *preconfirmationv1.PreConfirmation, error)
+	SendBid(ctx context.Context, txnsStr string, amount string, blockNumber int64, decayStartTimestamp int64, decayEndTimestamp int64, revertingTxHashes string) (chan *preconfirmationv1.PreConfirmation, error)
 }
 
 type BidderRegistryContract interface {
@@ -99,6 +99,7 @@ func (s *Service) SendBid(
 	}
 
 	txnsStr := strings.Join(bid.TxHashes, ",")
+	revertingTxHashesStr := strings.Join(bid.RevertingTxHashes, ",")
 
 	respC, err := s.sender.SendBid(
 		ctx,
@@ -107,6 +108,7 @@ func (s *Service) SendBid(
 		bid.BlockNumber,
 		bid.DecayStartTimestamp,
 		bid.DecayEndTimestamp,
+		revertingTxHashesStr,
 	)
 	if err != nil {
 		s.logger.Error("sending bid", "error", err)

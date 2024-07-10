@@ -44,7 +44,7 @@ func TestBids(t *testing.T) {
 		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
-		_, encryptedBid, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		_, encryptedBid, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -123,7 +123,7 @@ func TestBids(t *testing.T) {
 		start := time.Now().UnixMilli()
 		end := start + 100000
 
-		bid, encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end)
+		bid, encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -152,6 +152,7 @@ func TestHashing(t *testing.T) {
 	t.Run("bid", func(t *testing.T) {
 		bid := &preconfpb.Bid{
 			TxHash:              "0xkartik",
+			RevertingTxHashes:   "0xkartik",
 			BidAmount:           "2",
 			BlockNumber:         2,
 			DecayStartTimestamp: 10,
@@ -165,15 +166,36 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "56c06a13be335eba981b780ea45dff258a7c429d0e9d993235ef2d3a7e435df8"
+		expHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
+
+		alicePrivateKey, err := crypto.HexToECDSA("9C0257114EB9399A2985F8E75DAD7600C5D89FE3824FFA99EC1C3EB8BF3B0501")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		expHashBytes, err := hex.DecodeString(expHash)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		signature, err := crypto.Sign(expHashBytes, alicePrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("Signature: %s", hex.EncodeToString(signature))
+
+		// Log the keccak of the signature
+		signatureHash := crypto.Keccak256Hash(signature)
+		t.Logf("Keccak256 of Signature: %s", signatureHash.Hex())
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "56c06a13be335eba981b780ea45dff258a7c429d0e9d993235ef2d3a7e435df8"
-		bidSignature := "2e7df27808c72d7d5b2543bb63b06c0ae2144e021593b8d2a7cca6a3fb2d9c4b1a82dd2a07266de9364d255bdb709476ad96b826ec855efb528eaff66682997e1c"
+		bidHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
+		bidSignature := "f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c81b"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
 		if err != nil {
@@ -186,6 +208,7 @@ func TestHashing(t *testing.T) {
 
 		bid := &preconfpb.Bid{
 			TxHash:              "0xkartik",
+			RevertingTxHashes:   "0xkartik",
 			BidAmount:           "2",
 			BlockNumber:         2,
 			DecayStartTimestamp: 10,
@@ -205,20 +228,32 @@ func TestHashing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		hashStr := hex.EncodeToString(hash)
-		expHash := "9d954942ad3f6cb41ccd029869be7b28036270b4754665a3783c2d6bf0ef7d08"
+		expHash := "8257770d4be5c4b622e6bd6b45ff8deb6602235f3aa844b774eb21800eb4923a"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
+
+		// Sign the hash with Bob's private key
+		bobPrivateKey, err := crypto.HexToECDSA("38E47A7B719DCE63662AEAF43440326F551B8A7EE198CEE35CB5D517F2D296A2")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		signature, err := crypto.Sign(hash, bobPrivateKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Logf("Bob's Signature: %s", hex.EncodeToString(signature))
 	})
 }
 
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	bidSig := "8af22e36247e14ba05d3a5a3cc62eee708cfd9ce293c0aebcbe7f89229f6db56638af8427806247d9abb295f681c1a2f2bb127f3bf80799f80d62b252cce04d91c"
-	bidHash := "2574b1ab8a90e173528ddee748be8e8e696b1f0cf687f75966550f5e9ef408b0"
+	bidSig := "f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c800"
+	bidHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
 
 	bidHashBytes, err := hex.DecodeString(bidHash)
 	if err != nil {
@@ -240,7 +275,7 @@ func TestVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expOwner := "0x8339F9E3d7B2693aD8955Aa5EC59D56669A84d60"
+	expOwner := "0x328809Bc894f92807417D2dAD6b7C998c1aFdac6"
 	if owner.Hex() != expOwner {
 		t.Fatalf("owner mismatch: %s != %s", owner.Hex(), expOwner)
 	}
@@ -309,7 +344,7 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 	b.ResetTimer()
 	// Benchmark loop
 	for i := 0; i < b.N; i++ {
-		_, _, _, err := encryptor.ConstructEncryptedBid(bids[i].hash, bids[i].amount, bids[i].blocknumber, bids[i].start, bids[i].end)
+		_, _, _, err := encryptor.ConstructEncryptedBid(bids[i].hash, bids[i].amount, bids[i].blocknumber, bids[i].start, bids[i].end, "")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -368,7 +403,7 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		bids[i], _, _, err = bidderEncryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end)
+		bids[i], _, _, err = bidderEncryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end, "")
 		if err != nil {
 			b.Fatal(err)
 		}

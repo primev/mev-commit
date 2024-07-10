@@ -205,6 +205,11 @@
         "internalType": "string"
       },
       {
+        "name": "revertingTxHashes",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "commitmentHash",
         "type": "bytes32",
         "internalType": "bytes32"
@@ -300,6 +305,11 @@
         "internalType": "string"
       },
       {
+        "name": "_revertingTxHashes",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "_bid",
         "type": "uint256",
         "internalType": "uint256"
@@ -391,6 +401,11 @@
             "internalType": "string"
           },
           {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
             "name": "commitmentHash",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -471,6 +486,11 @@
           },
           {
             "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
             "type": "string",
             "internalType": "string"
           },
@@ -609,6 +629,11 @@
     "inputs": [
       {
         "name": "_txnHash",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "_revertingTxHashes",
         "type": "string",
         "internalType": "string"
       },
@@ -789,6 +814,11 @@
       },
       {
         "name": "txnHash",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "revertingTxHashes",
         "type": "string",
         "internalType": "string"
       },
@@ -1028,6 +1058,11 @@
         "internalType": "string"
       },
       {
+        "name": "revertingTxHashes",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "bidSignature",
         "type": "bytes",
         "internalType": "bytes"
@@ -1052,49 +1087,61 @@
     "name": "verifyPreConfCommitment",
     "inputs": [
       {
-        "name": "txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "bid",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "bidHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "commitmentSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "sharedSecretKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct PreConfCommitmentStore.CommitmentParams",
+        "components": [
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "bid",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayStartTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayEndTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "bidHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "bidSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "commitmentSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "sharedSecretKey",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
       }
     ],
     "outputs": [
@@ -1165,6 +1212,12 @@
       },
       {
         "name": "txnHash",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "revertingTxHashes",
         "type": "string",
         "indexed": false,
         "internalType": "string"
@@ -1283,6 +1336,12 @@
       },
       {
         "name": "txnHash",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "revertingTxHashes",
         "type": "string",
         "indexed": false,
         "internalType": "string"

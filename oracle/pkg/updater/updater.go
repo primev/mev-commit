@@ -336,12 +336,22 @@ func (u *Updater) handleOpenedCommitment(
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
+	u.logger.Debug("commitmentTxnHashes", "commitmentTxnHashes", commitmentTxnHashes)
+	revertableTxns := strings.Split(update.RevertingTxHashes, ",")
+	u.logger.Debug("revertableTxns", "revertableTxns", revertableTxns)
+
+	// Create a map for revertable transactions
+	revertableTxnsMap := make(map[string]bool)
+	for _, txn := range revertableTxns {
+		revertableTxnsMap[txn] = true
+	}
+
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
 		txnDetails, found := txns[commitmentTxnHashes[i]]
-		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || !txnDetails.Succeeded {
+		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || (!txnDetails.Succeeded && !revertableTxnsMap[commitmentTxnHashes[i]]) {
 			u.logger.Info(
-				"bundle does not satsify commited requirements",
+				"bundle does not satisfy committed requirements",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 				"txnHash", update.TxnHash,
 				"blockNumber", update.BlockNumber,
@@ -349,6 +359,7 @@ func (u *Updater) handleOpenedCommitment(
 				"posInBlock", txnDetails.PosInBlock,
 				"succeeded", txnDetails.Succeeded,
 				"expectedPosInBlock", txns[commitmentTxnHashes[0]].PosInBlock+i,
+				"revertible", revertableTxnsMap[commitmentTxnHashes[i]],
 			)
 
 			// The committer did not include the transactions in the block

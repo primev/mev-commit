@@ -144,6 +144,13 @@ message Bid {
       message: "decay_end_timestamp must be a valid integer.",
       expression: "uint(this) > 0"
   }];
+  repeated string reverting_tx_hashes = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional array of tx hashes that are allowed to revert or be discarded."
+  }, (buf.validate.field).cel = {
+      id: "reverting_tx_hashes",
+      message: "reverting_tx_hashes must be an array of valid transaction hashes.",
+      expression: "this.all(r, r.matches('^[a-fA-F0-9]{64}$'))"
+  }];
 };
 
 message BidResponse {
