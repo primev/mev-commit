@@ -169,9 +169,9 @@
     "name": "CommitmentProcessed",
     "inputs": [
       {
-        "name": "commitmentHash",
+        "name": "commitmentIndex",
         "type": "bytes32",
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes32"
       },
       {

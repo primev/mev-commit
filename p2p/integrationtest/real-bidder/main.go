@@ -12,7 +12,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,7 +24,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var (
@@ -61,7 +59,7 @@ var (
 	)
 	bidWorkers = flag.Int(
 		"bid-workers",
-		3,
+		2,
 		"Number of workers to send bids",
 	)
 )
@@ -89,8 +87,6 @@ var (
 		[]string{"status", "no_of_preconfs"},
 	)
 )
-
-var deposits = map[uint64]struct{}{}
 
 func main() {
 	flag.Parse()
@@ -148,33 +144,29 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
-		ticker := time.NewTicker(10 * time.Minute)
-		defer ticker.Stop()
+	// set as 1 eth
+	minDeposit, set := big.NewInt(0).SetString("1000000000000000000", 10)
+	if !set {
+		logger.Error("failed to parse min deposit amount")
+		return
+	}
 
-		minDepositResp, err := bidderClient.GetMinDeposit(context.Background(), &pb.EmptyMessage{})
+	status, err := bidderClient.AutoDepositStatus(context.Background(), &pb.EmptyMessage{})
+	if err != nil {
+		logger.Error("failed to get auto deposit status", "err", err)
+		return
+	}
+
+	if !status.IsWorking {
+		resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
+			Amount: minDeposit.String(),
+		})
 		if err != nil {
-			logger.Error("failed to get min deposit", "err", err)
+			logger.Error("failed to auto deposit", "err", err)
 			return
 		}
-
-		minDeposit, set := big.NewInt(0).SetString(minDepositResp.Amount, 10)
-		if !set {
-			logger.Error("failed to parse min deposit amount")
-			return
-		}
-
-		minDepositAmt := new(big.Int).Mul(minDeposit, big.NewInt(10))
-
-		for {
-			err = checkOrDeposit(bidderClient, logger, minDepositAmt)
-			if err != nil {
-				logger.Error("failed to check or stake", "err", err)
-			}
-			<-ticker.C
-		}
-	}()
+		logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartBlockNumber)
+	}
 
 	type blockWithTxns struct {
 		blockNum int64
@@ -204,9 +196,12 @@ func main() {
 
 			currentBlkNum = blkNum
 			for _, ch := range blockChans {
+				txns := make([]string, len(block))
+				copy(txns, block)
+
 				ch <- blockWithTxns{
 					blockNum: blkNum,
-					txns:     slices.Clone(block),
+					txns:     txns,
 				}
 			}
 		}
@@ -276,64 +271,6 @@ func RetreivedBlock(rpcClient *ethclient.Client) ([]string, int64, error) {
 	}
 
 	return blockTxns, int64(blkNum), nil
-}
-
-func checkOrDeposit(
-	bidderClient pb.BidderClient,
-	logger *slog.Logger,
-	minDeposit *big.Int,
-) error {
-	deposit, err := bidderClient.GetDeposit(context.Background(), &pb.GetDepositRequest{})
-	if err != nil {
-		logger.Error("failed to get deposit", "err", err)
-		return err
-	}
-
-	for i := deposit.WindowNumber.Value; i < deposit.WindowNumber.Value+64; i++ {
-		if _, ok := deposits[i]; !ok {
-			deposit, err = bidderClient.GetDeposit(context.Background(), &pb.GetDepositRequest{
-				WindowNumber: wrapperspb.UInt64(i),
-			})
-			if err != nil {
-				logger.Error("failed to get deposit", "err", err)
-				return err
-			}
-			depositAmount, set := big.NewInt(0).SetString(deposit.Amount, 10)
-			if !set {
-				logger.Error("failed to parse deposit amount")
-				return errors.New("failed to parse deposit amount")
-			}
-
-			if depositAmount.Cmp(minDeposit) < 0 {
-				newDeposit, err := bidderClient.Deposit(context.Background(), &pb.DepositRequest{
-					Amount:       new(big.Int).Sub(minDeposit, depositAmount).String(),
-					WindowNumber: wrapperspb.UInt64(i),
-				})
-				if err != nil {
-					logger.Error("failed to deposit", "err", err)
-					return err
-				}
-				logger.Info("deposit", "amount", newDeposit.Amount, "window", newDeposit.WindowNumber.Value)
-				deposits[newDeposit.WindowNumber.Value] = struct{}{}
-			}
-		}
-	}
-
-	for window := range deposits {
-		if window < deposit.WindowNumber.Value-3 {
-			resp, err := bidderClient.Withdraw(context.Background(), &pb.WithdrawRequest{
-				WindowNumber: wrapperspb.UInt64(window),
-			})
-			if err != nil {
-				logger.Error("failed to withdraw", "err", err)
-				return err
-			}
-			logger.Info("withdraw", "amount", resp.Amount, "window", resp.WindowNumber)
-			delete(deposits, window)
-		}
-	}
-
-	return nil
 }
 
 func sendBid(

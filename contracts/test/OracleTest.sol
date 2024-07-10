@@ -52,7 +52,7 @@ contract OracleTest is Test {
         uint256 blockNumber,
         string blockBuilderName
     );
-    event CommitmentProcessed(bytes32 commitmentHash, bool isSlash);
+    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
     event FundsRetrieved(
         bytes32 indexed commitmentDigest,
         uint256 window,
@@ -103,7 +103,6 @@ contract OracleTest is Test {
             abi.encodeCall(
                 BidderRegistry.initialize,
                 (
-                    minStake,
                     feeRecipient,
                     feePercent,
                     address(this),
@@ -134,7 +133,7 @@ contract OracleTest is Test {
         vm.deal(ownerInstance, 5 ether);
         vm.startPrank(ownerInstance);
         uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForSpecificWindow{value: 2 ether}(window + 1);
+        bidderRegistry.depositForWindow{value: 2 ether}(window + 1);
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
@@ -177,7 +176,7 @@ contract OracleTest is Test {
         vm.deal(bidder, 200000 ether);
         vm.startPrank(bidder);
         uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForSpecificWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -225,7 +224,7 @@ contract OracleTest is Test {
         vm.deal(bidder, 200000 ether);
         vm.startPrank(bidder);
         uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForSpecificWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -279,7 +278,7 @@ contract OracleTest is Test {
         vm.deal(bidder, 200000 ether);
         vm.startPrank(bidder);
         uint256 window = blockTracker.getCurrentWindow();
-        bidderRegistry.depositForSpecificWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -356,7 +355,7 @@ contract OracleTest is Test {
         vm.deal(bidder, 200000 ether);
         uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(blockNumber, blocksPerWindow);
         vm.startPrank(bidder);
-        bidderRegistry.depositForSpecificWindow{value: 250 ether}(window);
+        bidderRegistry.depositForWindow{value: 250 ether}(window);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);
@@ -471,7 +470,7 @@ contract OracleTest is Test {
         vm.deal(bidder, 200000 ether);
         uint256 window = blockTracker.getCurrentWindow();
         vm.startPrank(bidder);
-        bidderRegistry.depositForSpecificWindow{value: 250 ether}(window + 1);
+        bidderRegistry.depositForWindow{value: 250 ether}(window + 1);
         vm.stopPrank();
 
         vm.deal(provider, 200000 ether);

@@ -19,9 +19,6 @@ contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when a new window is created.
     event NewWindow(uint256 indexed window);
 
-    /// @dev Event emitted when the number of blocks per window is updated.
-    event NewBlocksPerWindow(uint256 blocksPerWindow);
-
     uint256 public currentWindow;
     uint256 public blocksPerWindow;
 

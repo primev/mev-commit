@@ -3,12 +3,14 @@ package l1Listener
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	"github.com/primev/mev-commit/oracle/pkg/store"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
@@ -22,6 +24,7 @@ type L1Recorder interface {
 
 type WinnerRegister interface {
 	RegisterWinner(ctx context.Context, blockNum int64, winner []byte, window int64) error
+	LastWinnerBlock() (int64, error)
 }
 
 type EthClient interface {
@@ -131,11 +134,20 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
-	// TODO: change it to the store to not miss blocks, if oracle is down
-	currentBlockNo, err := l.l1Client.BlockNumber(ctx)
+	currentBlockNo, err := l.winnerRegister.LastWinnerBlock()
 	if err != nil {
-		l.logger.Error("failed to get block number", "error", err)
-		return err
+		// this is a fresh start, so start from the current block
+		if errors.Is(err, store.ErrNotFound) {
+			tip, err := l.l1Client.BlockNumber(ctx)
+			if err != nil {
+				l.logger.Error("failed to get current block number", "error", err)
+				return err
+			}
+			currentBlockNo = int64(tip)
+		} else {
+			l.logger.Error("failed to get last winner block", "error", err)
+			return err
+		}
 	}
 	for {
 		select {
@@ -187,7 +199,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				)
 			}
 
-			currentBlockNo = blockNum
+			currentBlockNo = int64(blockNum)
 		}
 	}
 }

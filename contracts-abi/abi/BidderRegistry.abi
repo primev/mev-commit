@@ -129,12 +129,25 @@
   },
   {
     "type": "function",
-    "name": "depositForSpecificWindow",
+    "name": "depositForWindow",
     "inputs": [
       {
         "name": "window",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "depositForWindows",
+    "inputs": [
+      {
+        "name": "windows",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [],
@@ -240,11 +253,6 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "_minDeposit",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "_feeRecipient",
         "type": "address",
         "internalType": "address"
@@ -312,19 +320,6 @@
         "internalType": "uint256"
       }
     ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "minDeposit",
-    "inputs": [],
     "outputs": [
       {
         "name": "",
@@ -574,6 +569,19 @@
     "type": "function",
     "name": "withdrawFeeRecipientAmount",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawFromWindows",
+    "inputs": [
+      {
+        "name": "windows",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },

@@ -28,7 +28,7 @@ interface IBidderRegistry {
 
     function getDeposit(address bidder, uint256 window) external view returns (uint256);
 
-    function depositForSpecificWindow(uint256 window) external payable;
+    function depositForWindow(uint256 window) external payable;
 
     function retrieveFunds(
         uint256 windowToSettle,
