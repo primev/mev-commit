@@ -30,6 +30,14 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         _;
     }
 
+    /// @dev Modifier to confirm all provided BLS pubkeys are NOT unstaking.
+    modifier onlyNotUnstaking(bytes[] calldata blsPubKeys) {
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            require(!_isUnstaking(blsPubKeys[i]), "Validator must NOT be unstaking");
+        }
+        _;
+    }
+
     /// @dev Modifier to confirm the sender is the withdrawal address for all provided BLS pubkeys.
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
@@ -108,7 +116,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to add stake to.
      */
     function addStake(bytes[] calldata blsPubKeys) external payable 
-        onlyExistentValidatorRecords(blsPubKeys) whenNotPaused() {
+        onlyExistentValidatorRecords(blsPubKeys) onlyNotUnstaking(blsPubKeys) whenNotPaused() {
         _addStake(blsPubKeys);
     }
 
@@ -117,7 +125,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to unstake.
      */
     function unstake(bytes[] calldata blsPubKeys) external 
-        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
+        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys)
+            onlyNotUnstaking(blsPubKeys) whenNotPaused() {
         _unstake(blsPubKeys);
     }
 
@@ -225,7 +234,6 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param pubKey The single BLS public key to unstake.
      */
     function _unstakeSingle(bytes calldata pubKey) internal {
-        require(!_isUnstaking(pubKey), "Unstake must NOT be initiated for validator");
         EventHeightLib.set(stakedValidators[pubKey].unstakeHeight, block.number);
         emit Unstaked(msg.sender, stakedValidators[pubKey].withdrawalAddress,
             pubKey, stakedValidators[pubKey].balance);

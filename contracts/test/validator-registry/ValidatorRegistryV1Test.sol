@@ -200,14 +200,14 @@ contract ValidatorRegistryV1Test is Test {
         vm.stopPrank();
 
         vm.startPrank(user1);
-        vm.expectRevert("Unstake must NOT be initiated for validator");
+        vm.expectRevert("Validator must NOT be unstaking");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
         vm.roll(500);
 
         vm.startPrank(user1);
-        vm.expectRevert("Unstake must NOT be initiated for validator");
+        vm.expectRevert("Validator must NOT be unstaking");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
@@ -667,5 +667,27 @@ contract ValidatorRegistryV1Test is Test {
 
         assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+    }
+
+    // Tests the edge case where a user stakes, unstakes, then attempts to adds stake again
+    function testAddStakeWhileUnstaking() public {
+        testSelfStake();
+        vm.roll(11);
+
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
+        validatorRegistry.unstake(validators);
+
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+        assertTrue(validatorRegistry.isUnstaking(user1BLSKey));
+
+        vm.prank(user1);
+        vm.expectRevert("Validator must NOT be unstaking");
+        validatorRegistry.addStake{value: MIN_STAKE}(validators);
     }
 }
