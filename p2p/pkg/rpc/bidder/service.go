@@ -397,7 +397,7 @@ func (s *Service) CancelAutoDeposit(
 					}
 				}
 				if doWithdraw {
-					opts, err := s.optsGetter(ctx)
+					opts, err := s.optsGetter(context.Background())
 					if err != nil {
 						s.logger.Error("getting transact opts", "error", err)
 						continue
@@ -407,7 +407,7 @@ func (s *Service) CancelAutoDeposit(
 						s.logger.Error("withdraw from windows", "error", err)
 						return
 					}
-					receipt, err := s.watcher.WaitForReceipt(ctx, txn)
+					receipt, err := s.watcher.WaitForReceipt(context.Background(), txn)
 					if err != nil {
 						s.logger.Error("waiting for receipt", "error", err)
 						return
