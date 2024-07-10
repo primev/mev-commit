@@ -294,7 +294,10 @@ func (t *Tracker) handleNewL1Block(
 	settled := 0
 	for _, commitment := range commitments {
 		if commitment.CommitmentIndex == nil {
-			failedCommitments = append(failedCommitments, commitment.TxnHash)
+			t.logger.Debug("commitment index not found", "commitment", commitment)
+			if commitment.TxnHash != (common.Hash{}) {
+				failedCommitments = append(failedCommitments, commitment.TxnHash)
+			}
 			continue
 		}
 		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
