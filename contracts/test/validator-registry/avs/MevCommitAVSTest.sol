@@ -929,4 +929,36 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.updateMetadataURI(newMetadataURI);
     }
+
+    function testValidatorsWithReqDeregisteredOperatorsCannotRegister() public {
+        testRegisterOperator();
+
+        address operator = address(0x888);
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+
+        address podOwner = address(0x420);
+        vm.prank(podOwner);
+        ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
+            signature: bytes("signature"),
+            expiry: 10
+        });
+        delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
+
+        bytes[][] memory valPubkeys = new bytes[][](1);
+        bytes[] memory inner = new bytes[](2);
+        inner[0] = bytes("valPubkey1");
+        inner[1] = bytes("valPubkey2");
+        valPubkeys[0] = inner;
+
+        address[] memory podOwners = new address[](1);
+        podOwners[0] = podOwner;
+        vm.prank(podOwner);
+        vm.expectRevert("delegated operator must not have requested deregistration");
+        mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
+
+        vm.prank(operator);
+        vm.expectRevert("delegated operator must not have requested deregistration");
+        mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
+    }
 }

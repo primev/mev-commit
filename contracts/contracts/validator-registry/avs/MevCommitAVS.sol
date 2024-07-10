@@ -357,8 +357,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         bytes[] calldata valPubKeys,
         address podOwner
     ) internal onlyNonRegisteredValidators(valPubKeys) onlyPodOwnerOrOperator(podOwner)  {
-        require(operatorRegistrations[_delegationManager.delegatedTo(podOwner)].exists,
+        address operator = _delegationManager.delegatedTo(podOwner);
+        require(operatorRegistrations[operator].exists,
             "delegated operator must be registered with MevCommitAVS");
+        require(!operatorRegistrations[operator].deregRequestHeight.exists,
+            "delegated operator must not have requested deregistration");
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
@@ -580,12 +583,15 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
         bool isValRegistered = validatorRegistrations[valPubKey].exists;
         bool isFrozen = validatorRegistrations[valPubKey].freezeHeight.exists;
-        bool isDeregRequested = validatorRegistrations[valPubKey].deregRequestHeight.exists;
+        bool isValDeregRequested = validatorRegistrations[valPubKey].deregRequestHeight.exists;
         IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
         bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
         address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
         bool isOperatorRegistered = operatorRegistrations[delegatedOperator].exists;
-        return isValRegistered && !isFrozen && !isDeregRequested && isValActive && isOperatorRegistered;
+        bool isOperatorDeregRequested = operatorRegistrations[delegatedOperator].deregRequestHeight.exists;
+
+        return isValRegistered && !isFrozen && !isValDeregRequested && isValActive
+            && isOperatorRegistered && !isOperatorDeregRequested;
     }
 
     /// @dev Internal function to get the list of restakeable strategies.
