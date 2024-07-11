@@ -57,6 +57,7 @@ type Options struct {
 	PgDbname                     string
 	LaggerdMode                  int
 	OverrideWinners              []string
+	RegistrationPassword         string
 }
 
 type Node struct {
@@ -248,10 +249,32 @@ func NewNode(opts *Options) (*Node, error) {
 
 	updtrClosed := updtr.Start(ctx)
 
+	providerRegistry, err := providerregistry.NewProviderregistryCaller(
+		opts.ProviderRegistryContractAddr,
+		settlementClient,
+	)
+	if err != nil {
+		nd.logger.Error("failed to instantiate provider registry contract", "error", err)
+		cancel()
+		return nil, err
+	}
+
+	providerRegistryCaller := &providerregistry.ProviderregistryCallerSession{
+		Contract: providerRegistry,
+		CallOpts: bind.CallOpts{
+			From:    opts.KeySigner.GetAddress(),
+			Pending: false,
+		},
+	}
+
 	srv := apiserver.New(
 		nd.logger.With("component", "apiserver"),
 		evtMgr,
 		st,
+		opts.RegistrationPassword,
+		blockTrackerTransactor,
+		providerRegistryCaller,
+		monitor,
 	)
 
 	pubDone := eventsPublisher.Start(ctx, contractAddrs...)
@@ -461,6 +484,7 @@ func (i *infiniteRetryL1Client) BlockByNumber(ctx context.Context, number *big.I
 	}
 	return blk, nil
 }
+
 func setBuilderMapping(
 	ctx context.Context,
 	bt *blocktracker.BlocktrackerTransactorSession,
