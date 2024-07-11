@@ -661,8 +661,11 @@ func (n *Node) Close() error {
 	}
 
 	_, adErr := n.autoDeposit.Stop()
+	if adErr != nil && !errors.Is(adErr, autodepositor.ErrNotRunning) {
+		return errors.Join(err, adErr)
+	}
 
-	return errors.Join(err, adErr)
+	return err
 }
 
 type noOpBidProcessor struct{}

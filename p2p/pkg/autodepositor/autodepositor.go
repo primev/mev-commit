@@ -16,6 +16,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var ErrNotRunning = fmt.Errorf("auto deposit tracker is not running")
+
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type BidderRegistryContract interface {
@@ -228,7 +230,7 @@ func (adt *AutoDepositTracker) Stop() ([]*big.Int, error) {
 	defer adt.startMu.Unlock()
 
 	if !adt.isWorking {
-		return nil, fmt.Errorf("auto deposit tracker is not running")
+		return nil, ErrNotRunning
 	}
 	if adt.cancelFunc != nil {
 		adt.cancelFunc()
@@ -247,7 +249,7 @@ func (adt *AutoDepositTracker) Stop() ([]*big.Int, error) {
 
 	adt.isWorking = false
 
-	adt.logger.Info("stop auto deposit tracker", "windows", windowNumbers)
+	adt.logger.Info("stop auto deposit tracker", "windowsToWithdraw", windowNumbers)
 	return windowNumbers, nil
 }
 
