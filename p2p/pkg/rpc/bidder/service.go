@@ -356,7 +356,7 @@ func (s *Service) AutoDeposit(
 		return nil, status.Errorf(codes.Internal, "starting auto deposit: %v", err)
 	}
 
-	s.logger.Error(
+	s.logger.Info(
 		"autodeposit enabled",
 		"window", windowToDeposit,
 		"amount", amount.String(),
@@ -502,6 +502,10 @@ func (s *Service) AutoDepositStatus(
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.AutoDepositStatusResponse, error) {
 	deposits, isWorking := s.autoDepositTracker.GetStatus()
+	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
+	if err != nil {
+		s.logger.Error("failed to get current window", "error", err)
+	}
 	var autoDeposits []*bidderapiv1.AutoDeposit
 	for window, ok := range deposits {
 		if ok {
@@ -512,10 +516,16 @@ func (s *Service) AutoDepositStatus(
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 			}
-			autoDeposits = append(autoDeposits, &bidderapiv1.AutoDeposit{
-				WindowNumber: wrapperspb.UInt64(window),
-				Amount:       stakeAmount.String(),
-			})
+			ad := &bidderapiv1.AutoDeposit{
+				WindowNumber:     wrapperspb.UInt64(window),
+				Amount:           stakeAmount.String(),
+				StartBlockNumber: wrapperspb.UInt64((window-1)*s.blocksPerWindow + 1),
+				EndBlockNumber:   wrapperspb.UInt64(window * s.blocksPerWindow),
+			}
+			if currentWindow != nil && currentWindow.Uint64() == window {
+				ad.IsCurrent = true
+			}
+			autoDeposits = append(autoDeposits, ad)
 		}
 	}
 

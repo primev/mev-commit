@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	bufferSize = 101024 * 1024
+	bufferSize      = 101024 * 1024
+	blocksPerWindow = 64
 )
 
 type bid struct {
@@ -213,7 +214,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 		deposit: big.NewInt(1000000000000000000),
 	}
 	sender := &testSender{noOfPreconfs: 2}
-	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
+	blockTrackerContract := &testBlockTrackerContract{lastBlockNumber: blocksPerWindow + 1, blocksPerWindow: blocksPerWindow, blockNumberToWinner: make(map[uint64]common.Address)}
 	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
 	srvImpl := bidderapi.NewService(
 		owner,
@@ -375,6 +376,12 @@ func TestAutoDepositHandling(t *testing.T) {
 			}
 			if v.Amount != "1000000000000000000" {
 				t.Fatalf("expected amount to be 1000000000000000000, got %v", v)
+			}
+			if v.WindowNumber.Value == 1 && v.StartBlockNumber.Value != 1 && v.EndBlockNumber.Value != blocksPerWindow && !v.IsCurrent {
+				t.Fatalf("expected correct values for window 1, got %v", v)
+			}
+			if v.WindowNumber.Value == 2 && v.StartBlockNumber.Value != blocksPerWindow+1 && v.EndBlockNumber.Value != blocksPerWindow*2 && v.IsCurrent {
+				t.Fatalf("expected correct values for window 2, got %v", v)
 			}
 		}
 	})
