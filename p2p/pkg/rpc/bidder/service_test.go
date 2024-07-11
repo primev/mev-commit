@@ -149,11 +149,11 @@ func (t *testAutoDepositTracker) IsWorking() bool {
 	return t.isWorking
 }
 
-func (t *testAutoDepositTracker) GetStatus() (map[uint64]bool, bool) {
+func (t *testAutoDepositTracker) GetStatus() (map[uint64]bool, bool, *big.Int) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	return t.deposits, t.isWorking
+	return t.deposits, t.isWorking, big.NewInt(1)
 }
 
 func (t *testAutoDepositTracker) Stop() ([]*big.Int, error) {

@@ -90,7 +90,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 		t.Helper()
 
 		for {
-			depositsMap, status := adt.GetStatus()
+			depositsMap, status, _ := adt.GetStatus()
 			if status != working {
 				t.Fatalf("expected status to be %v, got %v", working, status)
 			}

@@ -66,7 +66,7 @@ type AutoDepositTracker interface {
 	Start(context.Context, *big.Int, *big.Int) error
 	Stop() ([]*big.Int, error)
 	IsWorking() bool
-	GetStatus() (map[uint64]bool, bool)
+	GetStatus() (map[uint64]bool, bool, *big.Int)
 }
 
 type PreconfSender interface {
@@ -501,10 +501,10 @@ func (s *Service) AutoDepositStatus(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.AutoDepositStatusResponse, error) {
-	deposits, isWorking := s.autoDepositTracker.GetStatus()
-	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
-	if err != nil {
-		s.logger.Error("failed to get current window", "error", err)
+	deposits, isWorking, currentWindow := s.autoDepositTracker.GetStatus()
+	if currentWindow != nil {
+		// as oracle working 2 windows behind the current window, we add + 2 here
+		currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
 	}
 	var autoDeposits []*bidderapiv1.AutoDeposit
 	for window, ok := range deposits {
