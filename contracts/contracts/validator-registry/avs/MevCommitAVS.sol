@@ -236,12 +236,16 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
     function unfreeze(bytes[] calldata valPubKey) payable external 
         whenNotPaused() onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) {
-        require(msg.value >= unfreezeFee * valPubKey.length,
+        uint256 requiredFee = unfreezeFee * valPubKey.length;
+        require(msg.value >= requiredFee,
             "sender must pay at least the unfreeze fee for each validator");
-        uint256 feePerVal = msg.value / valPubKey.length;
         for (uint256 i = 0; i < valPubKey.length; i++) {
             _unfreeze(valPubKey[i]);
-            payable(unfreezeReceiver).transfer(feePerVal);
+            payable(unfreezeReceiver).transfer(unfreezeFee);
+        }
+        uint256 excessFee = msg.value - requiredFee;
+        if (excessFee > 0) {
+            payable(msg.sender).transfer(excessFee);
         }
     }
 

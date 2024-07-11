@@ -961,4 +961,44 @@ contract MevCommitAVSTest is Test {
         vm.expectRevert("delegated operator must not have requested deregistration");
         mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
     }
+
+    function testUnfreezeExcessFeeReturned() public {
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+
+        address newAccount = address(0x333333333);
+
+        testRegisterValidatorsByPodOwners();
+
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
+
+        uint256 tripleUnfreezeFee = unfreezeFee * 3;
+        vm.deal(newAccount, tripleUnfreezeFee);
+
+        vm.roll(block.number + unfreezePeriodBlocks);
+
+        assertEq(address(newAccount).balance, tripleUnfreezeFee);
+        assertEq(address(mevCommitAVS).balance, 0);
+        assertEq(address(unfreezeReceiver).balance, 0);
+
+        address podOwner = address(0x420);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorUnfrozen(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorUnfrozen(valPubkeys[1], podOwner);
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze{value: tripleUnfreezeFee}(valPubkeys);
+
+        assertEq(address(newAccount).balance, unfreezeFee);
+        assertEq(address(mevCommitAVS).balance, 0);
+        assertEq(address(unfreezeReceiver).balance, 2 * unfreezeFee);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+    }
 }
