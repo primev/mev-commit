@@ -351,8 +351,8 @@ func TestAutoDepositHandling(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error depositing: %v", err)
 		}
-		if deposit.StartBlockNumber.Value != 1 {
-			t.Fatalf("expected start block number to be 1, got %v", deposit.StartBlockNumber)
+		if deposit.StartWindowNumber.Value != 1 {
+			t.Fatalf("expected start window number to be 1, got %v", deposit.StartWindowNumber)
 		}
 		if deposit.AmountPerWindow != "1000000000000000000" {
 			t.Fatalf("expected amount per window to be 1000000000000000000, got %v", deposit.AmountPerWindow)

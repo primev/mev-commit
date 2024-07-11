@@ -363,7 +363,7 @@ func (s *Service) AutoDeposit(
 	)
 
 	return &bidderapiv1.AutoDepositResponse{
-		StartBlockNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
+		StartWindowNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
 		AmountPerWindow:  amount.String(),
 	}, nil
 }

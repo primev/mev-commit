@@ -274,9 +274,9 @@ definitions:
     type: object
     example:
       amount_per_window: "1000000000000000000"
-      start_block_number: "1"
+      start_window_number: "1"
     properties:
-      startBlockNumber:
+      startWindowNumber:
         type: string
         format: uint64
       amountPerWindow:

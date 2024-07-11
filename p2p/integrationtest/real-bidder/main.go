@@ -165,7 +165,7 @@ func main() {
 			logger.Error("failed to auto deposit", "err", err)
 			return
 		}
-		logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartBlockNumber)
+		logger.Info("auto deposit", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
 	}
 
 	type blockWithTxns struct {

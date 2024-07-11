@@ -142,9 +142,9 @@ message AutoDepositResponse {
       title: "AutoDeposit response"
       description: "Response on AutoDeposit request."
     }
-    example: "{\"start_block_number\": \"1\", \"amount_per_window\": \"1000000000000000000\"}"
+    example: "{\"start_window_number\": \"1\", \"amount_per_window\": \"1000000000000000000\"}"
   };
-  google.protobuf.UInt64Value start_block_number = 1;
+  google.protobuf.UInt64Value start_window_number = 1;
   string amount_per_window = 2;
 };
 
