@@ -214,6 +214,9 @@ job "{{ job.name }}" {
           echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${MEV_ORACLE_KEYSTORE_PATH}/${MEV_ORACLE_KEYSTORE_FILENAME}"
             {{ end }}
 
+          {% endraw %}
+          {% if env == 'devenv' %}
+          {% raw %}
           MEV_ORACLE_OVERRIDE_WINNERS=""
 
           {{- range nomadService "mev-commit-provider-node1" }}
@@ -274,6 +277,9 @@ job "{{ job.name }}" {
             echo "Overriding winners: ${MEV_ORACLE_OVERRIDE_WINNERS}"
            export MEV_ORACLE_OVERRIDE_WINNERS
           fi
+          {% endraw %}
+          {% endif %}
+          {% raw %}
 
           {{- range nomadService "contracts-deployer" }}
             {{ if contains "http" .Tags }}
