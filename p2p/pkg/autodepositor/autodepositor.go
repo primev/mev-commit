@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,16 +28,17 @@ type BlockTrackerContract interface {
 }
 
 type AutoDepositTracker struct {
-	startMu    sync.Mutex
-	isWorking  bool
-	eventMgr   events.EventManager
-	deposits   sync.Map
-	windowChan chan *blocktracker.BlocktrackerNewWindow
-	brContract BidderRegistryContract
-	btContract BlockTrackerContract
-	optsGetter OptsGetter
-	logger     *slog.Logger
-	cancelFunc context.CancelFunc
+	startMu             sync.Mutex
+	isWorking           bool
+	eventMgr            events.EventManager
+	deposits            sync.Map
+	windowChan          chan *blocktracker.BlocktrackerNewWindow
+	brContract          BidderRegistryContract
+	btContract          BlockTrackerContract
+	optsGetter          OptsGetter
+	currentOracleWindow atomic.Value
+	logger              *slog.Logger
+	cancelFunc          context.CancelFunc
 }
 
 func New(
@@ -167,6 +169,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 			case err := <-sub.Err():
 				return fmt.Errorf("error in autodeposit event subscription: %w", err)
 			case window := <-adt.windowChan:
+				adt.currentOracleWindow.Store(window.Window)
 				withdrawWindows := make([]*big.Int, 0)
 				adt.deposits.Range(func(key, value interface{}) bool {
 					if key.(uint64) < window.Window.Uint64() {
@@ -255,7 +258,7 @@ func (adt *AutoDepositTracker) IsWorking() bool {
 	return adt.isWorking
 }
 
-func (adt *AutoDepositTracker) GetStatus() (map[uint64]bool, bool) {
+func (adt *AutoDepositTracker) GetStatus() (map[uint64]bool, bool, *big.Int) {
 	adt.startMu.Lock()
 	isWorking := adt.isWorking
 	adt.startMu.Unlock()
@@ -265,5 +268,11 @@ func (adt *AutoDepositTracker) GetStatus() (map[uint64]bool, bool) {
 		deposits[key.(uint64)] = value.(bool)
 		return true
 	})
-	return deposits, isWorking
+
+	var currentOracleWindow *big.Int
+	if val := adt.currentOracleWindow.Load(); val != nil {
+		currentOracleWindow = val.(*big.Int)
+	}
+
+	return deposits, isWorking, currentOracleWindow
 }

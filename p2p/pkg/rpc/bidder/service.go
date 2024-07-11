@@ -66,7 +66,7 @@ type AutoDepositTracker interface {
 	Start(context.Context, *big.Int, *big.Int) error
 	Stop() ([]*big.Int, error)
 	IsWorking() bool
-	GetStatus() (map[uint64]bool, bool)
+	GetStatus() (map[uint64]bool, bool, *big.Int)
 }
 
 type PreconfSender interface {
@@ -356,14 +356,14 @@ func (s *Service) AutoDeposit(
 		return nil, status.Errorf(codes.Internal, "starting auto deposit: %v", err)
 	}
 
-	s.logger.Error(
+	s.logger.Info(
 		"autodeposit enabled",
 		"window", windowToDeposit,
 		"amount", amount.String(),
 	)
 
 	return &bidderapiv1.AutoDepositResponse{
-		StartBlockNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
+		StartWindowNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
 		AmountPerWindow:  amount.String(),
 	}, nil
 }
@@ -501,7 +501,11 @@ func (s *Service) AutoDepositStatus(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.AutoDepositStatusResponse, error) {
-	deposits, isWorking := s.autoDepositTracker.GetStatus()
+	deposits, isWorking, currentWindow := s.autoDepositTracker.GetStatus()
+	if currentWindow != nil {
+		// as oracle working 2 windows behind the current window, we add + 2 here
+		currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
+	}
 	var autoDeposits []*bidderapiv1.AutoDeposit
 	for window, ok := range deposits {
 		if ok {
@@ -512,10 +516,16 @@ func (s *Service) AutoDepositStatus(
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 			}
-			autoDeposits = append(autoDeposits, &bidderapiv1.AutoDeposit{
-				WindowNumber: wrapperspb.UInt64(window),
-				Amount:       stakeAmount.String(),
-			})
+			ad := &bidderapiv1.AutoDeposit{
+				WindowNumber:     wrapperspb.UInt64(window),
+				Amount:           stakeAmount.String(),
+				StartBlockNumber: wrapperspb.UInt64((window-1)*s.blocksPerWindow + 1),
+				EndBlockNumber:   wrapperspb.UInt64(window * s.blocksPerWindow),
+			}
+			if currentWindow != nil && currentWindow.Uint64() == window {
+				ad.IsCurrent = true
+			}
+			autoDeposits = append(autoDeposits, ad)
 		}
 	}
 
