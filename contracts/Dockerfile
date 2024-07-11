@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy our source code into the container
 COPY . .
 
-# Compile contracts using solidity compiler version 0.8.23
-RUN forge build --use 0.8.23 --via-ir
+# Compile contracts using solidity compiler version 0.8.20
+RUN forge build --use 0.8.20 --via-ir
 
 # Set environment variables for RPC URL and private key
 # These should be passed during the Docker build process

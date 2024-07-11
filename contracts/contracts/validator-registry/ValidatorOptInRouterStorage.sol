@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
 import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";

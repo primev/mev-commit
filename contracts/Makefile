@@ -6,7 +6,7 @@ deploy-val-reg:
 		--broadcast \
 		--chain-id 31337 \
 		-vvvv \
-		--use 0.8.23 \
+		--use 0.8.20 \
 		--via-ir \
 
 deploy-core:

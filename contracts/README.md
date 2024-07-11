@@ -163,26 +163,26 @@ export CHAIN_ID=17864
 - Run the deploy script for core contracts
 
 ```
-forge script scripts/DeployScripts.s.sol:DeployScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.23
+forge script scripts/DeployScripts.s.sol:DeployScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.20
 ```
 
 - Run deploy script for whitelist contract, HYP_ERC20_ADDR denotes the HypERC20.sol contract address to give native mint/burn privileges.
 
 ```
-HYP_ERC20_ADDR=0xBe3dEF3973584FdcC1326634aF188f0d9772D57D forge script scripts/DeployScripts.s.sol:DeployWhitelist --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.23
+HYP_ERC20_ADDR=0xBe3dEF3973584FdcC1326634aF188f0d9772D57D forge script scripts/DeployScripts.s.sol:DeployWhitelist --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --chain-id $CHAIN_ID -vvvv --use 0.8.20
 ```
 
 #### Note on CREATE2
 
 Foundry scripts in this repo use the CREATE2 opcode to deploy for every contract. Meaning deployment on any chain will yield the same contract addresses, given a constant deployer account, contract bytecode, and salt.
 
-This means the solidity version used for contract compilation affects the addresses those contracts will be deployed to. Solidity 0.8.23 is the canonical version to use.
+This means the solidity version used for contract compilation affects the addresses those contracts will be deployed to. Solidity 0.8.20 is the canonical version to use.
 
 It's recommended to use `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` as the deployer account so that contract addresses will match external facing documentation. In production this address will have proper key management, for now here's the private key: `ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`.
 
 The CREATE2 proxy needs to be deployed prior to these contracts. See [this repo](https://github.com/primev/deterministic-deployment-proxy), or this [make command](https://github.com/primev/mev-commit-geth/blob/d29cfe94205e852cc57a8184585ccc895d32a517/geth-poa/Makefile#L48) to deploy. Anvil automatically deploys this proxy to the expected address.
 
-Using the above private key and compiling with solidity 0.8.23, expected contract addresses are:
+Using the above private key and compiling with solidity 0.8.20, expected contract addresses are:
 
 ```bash
 UserRegistry deployed to: 0xe38B5a8C41f307646F395030992Aa008978E2699
