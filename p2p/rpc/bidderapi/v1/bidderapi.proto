@@ -40,14 +40,20 @@ service Bidder {
   //
   // AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
   rpc AutoDeposit(DepositRequest) returns (AutoDepositResponse) {
-    option (google.api.http) = {post: "/v1/bidder/auto_deposit/{amount}"};
+    option (google.api.http) = {
+      post: "/v1/bidder/auto_deposit/{amount}",
+      body: "*"
+    };
   }
 
   // CancelAutoDeposit
   //
   // CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
   rpc CancelAutoDeposit(CancelAutoDepositRequest) returns (CancelAutoDepositResponse) {
-    option (google.api.http) = {post: "/v1/bidder/cancel_auto_deposit"};
+    option (google.api.http) = {
+      post: "/v1/bidder/cancel_auto_deposit",
+      body: "*"
+    };
   }
 
   // AutoDepositStatus
@@ -61,7 +67,10 @@ service Bidder {
   //
   // WithdrawFromWindows is called by the bidder node to withdraw funds from multiple windows.
   rpc WithdrawFromWindows(WithdrawFromWindowsRequest) returns (WithdrawFromWindowsResponse) {
-    option (google.api.http) = {post: "/v1/bidder/withdraw_from_windows"};
+    option (google.api.http) = {
+      post: "/v1/bidder/withdraw_from_windows"
+      body: "*"
+    };
   }
 
   // GetDeposit
@@ -133,9 +142,9 @@ message AutoDepositResponse {
       title: "AutoDeposit response"
       description: "Response on AutoDeposit request."
     }
-    example: "{\"start_block_number\": \"1\", \"amount_per_window\": \"1000000000000000000\"}"
+    example: "{\"start_window_number\": \"1\", \"amount_per_window\": \"1000000000000000000\"}"
   };
-  google.protobuf.UInt64Value start_block_number = 1;
+  google.protobuf.UInt64Value start_window_number = 1;
   string amount_per_window = 2;
 };
 
@@ -175,6 +184,9 @@ message CancelAutoDepositResponse {
 message AutoDeposit {
   string amount = 1;
   google.protobuf.UInt64Value window_number = 2;
+  bool is_current = 3;
+  google.protobuf.UInt64Value start_block_number = 4;
+  google.protobuf.UInt64Value end_block_number = 5;
 }
 message EmptyMessage {};
 

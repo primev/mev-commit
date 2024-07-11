@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	bufferSize = 101024 * 1024
+	bufferSize      = 101024 * 1024
+	blocksPerWindow = 64
 )
 
 type bid struct {
@@ -148,11 +149,11 @@ func (t *testAutoDepositTracker) IsWorking() bool {
 	return t.isWorking
 }
 
-func (t *testAutoDepositTracker) GetStatus() (map[uint64]bool, bool) {
+func (t *testAutoDepositTracker) GetStatus() (map[uint64]bool, bool, *big.Int) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 
-	return t.deposits, t.isWorking
+	return t.deposits, t.isWorking, big.NewInt(1)
 }
 
 func (t *testAutoDepositTracker) Stop() ([]*big.Int, error) {
@@ -213,7 +214,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 		deposit: big.NewInt(1000000000000000000),
 	}
 	sender := &testSender{noOfPreconfs: 2}
-	blockTrackerContract := &testBlockTrackerContract{blocksPerWindow: 64, blockNumberToWinner: make(map[uint64]common.Address)}
+	blockTrackerContract := &testBlockTrackerContract{lastBlockNumber: blocksPerWindow + 1, blocksPerWindow: blocksPerWindow, blockNumberToWinner: make(map[uint64]common.Address)}
 	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
 	srvImpl := bidderapi.NewService(
 		owner,
@@ -350,8 +351,8 @@ func TestAutoDepositHandling(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error depositing: %v", err)
 		}
-		if deposit.StartBlockNumber.Value != 1 {
-			t.Fatalf("expected start block number to be 1, got %v", deposit.StartBlockNumber)
+		if deposit.StartWindowNumber.Value != 1 {
+			t.Fatalf("expected start window number to be 1, got %v", deposit.StartWindowNumber)
 		}
 		if deposit.AmountPerWindow != "1000000000000000000" {
 			t.Fatalf("expected amount per window to be 1000000000000000000, got %v", deposit.AmountPerWindow)
@@ -375,6 +376,12 @@ func TestAutoDepositHandling(t *testing.T) {
 			}
 			if v.Amount != "1000000000000000000" {
 				t.Fatalf("expected amount to be 1000000000000000000, got %v", v)
+			}
+			if v.WindowNumber.Value == 1 && v.StartBlockNumber.Value != 1 && v.EndBlockNumber.Value != blocksPerWindow && !v.IsCurrent {
+				t.Fatalf("expected correct values for window 1, got %v", v)
+			}
+			if v.WindowNumber.Value == 2 && v.StartBlockNumber.Value != blocksPerWindow+1 && v.EndBlockNumber.Value != blocksPerWindow*2 && v.IsCurrent {
+				t.Fatalf("expected correct values for window 2, got %v", v)
 			}
 		}
 	})

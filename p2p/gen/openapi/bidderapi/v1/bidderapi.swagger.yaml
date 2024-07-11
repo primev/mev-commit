@@ -30,18 +30,11 @@ paths:
           in: path
           required: true
           type: string
-        - name: windowNumber
-          description: Optional window number for querying deposit. If not specified, the current block number is used.
-          in: query
-          required: false
-          type: string
-          format: uint64
-        - name: blockNumber
-          description: Optional block number for querying deposit. If specified, calculate window based on this block number.
-          in: query
-          required: false
-          type: string
-          format: uint64
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1BidderAutoDepositBody'
   /v1/bidder/auto_deposit_status:
     get:
       summary: AutoDepositStatus
@@ -98,10 +91,12 @@ paths:
           schema:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
-        - name: withdraw
-          in: query
-          required: false
-          type: boolean
+        - name: body
+          description: Request to cancel AutoDeposit.
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1CancelAutoDepositRequest'
   /v1/bidder/deposit/{amount}:
     post:
       summary: Deposit
@@ -191,15 +186,12 @@ paths:
           schema:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
-        - name: windowNumbers
-          description: Window numbers for withdrawing deposits.
-          in: query
+        - name: body
+          description: Withdraw deposit from the bidder registry.
+          in: body
           required: true
-          type: array
-          items:
-            type: string
-            format: uint64
-          collectionFormat: multi
+          schema:
+            $ref: '#/definitions/v1WithdrawFromWindowsRequest'
 definitions:
   bidderapiv1AutoDeposit:
     type: object
@@ -207,6 +199,14 @@ definitions:
       amount:
         type: string
       windowNumber:
+        type: string
+        format: uint64
+      isCurrent:
+        type: boolean
+      startBlockNumber:
+        type: string
+        format: uint64
+      endBlockNumber:
         type: string
         format: uint64
   bidderapiv1Bid:
@@ -274,9 +274,9 @@ definitions:
     type: object
     example:
       amount_per_window: "1000000000000000000"
-      start_block_number: "1"
+      start_window_number: "1"
     properties:
-      startBlockNumber:
+      startWindowNumber:
         type: string
         format: uint64
       amountPerWindow:
@@ -304,6 +304,29 @@ definitions:
         type: boolean
     description: AutoDeposit status from the bidder registry.
     title: AutoDeposit status response
+  v1BidderAutoDepositBody:
+    type: object
+    example:
+      amount: "1000000000000000000"
+      window_number: 1
+    properties:
+      windowNumber:
+        type: string
+        format: uint64
+        description: Optional window number for querying deposit. If not specified, the current block number is used.
+      blockNumber:
+        type: string
+        format: uint64
+        description: Optional block number for querying deposit. If specified, calculate window based on this block number.
+    description: Deposit for bids to be issued by the bidder in wei.
+    title: Deposit request
+  v1CancelAutoDepositRequest:
+    type: object
+    properties:
+      withdraw:
+        type: boolean
+    description: Request to cancel AutoDeposit.
+    title: CancelAutoDeposit request
   v1CancelAutoDepositResponse:
     type: object
     example:
@@ -380,6 +403,24 @@ definitions:
         format: uint64
     description: Get deposit for bidder in the bidder registry.
     title: Deposit response
+  v1WithdrawFromWindowsRequest:
+    type: object
+    example:
+      window_numbers:
+        - 1
+        - 2
+        - 3
+    properties:
+      windowNumbers:
+        type: array
+        items:
+          type: string
+          format: uint64
+        description: Window numbers for withdrawing deposits.
+    description: Withdraw deposit from the bidder registry.
+    title: Withdraw from multiple windows request
+    required:
+      - windowNumbers
   v1WithdrawFromWindowsResponse:
     type: object
     example:
