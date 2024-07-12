@@ -238,7 +238,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         whenNotPaused() onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) {
         uint256 requiredFee = unfreezeFee * valPubKey.length;
         require(msg.value >= requiredFee,
-            "sender must pay at least the unfreeze fee for each validator");
+            "pay unfreeze fee for each validator");
         for (uint256 i = 0; i < valPubKey.length; i++) {
             _unfreeze(valPubKey[i]);
             payable(unfreezeReceiver).transfer(unfreezeFee);

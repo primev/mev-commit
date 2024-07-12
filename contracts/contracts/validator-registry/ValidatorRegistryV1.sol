@@ -32,7 +32,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Modifier to confirm all provided BLS pubkeys are NOT unstaking.
     modifier onlyNotUnstaking(bytes[] calldata blsPubKeys) {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             require(!_isUnstaking(blsPubKeys[i]), "Validator must NOT be unstaking");
         }
         _;
@@ -191,7 +191,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     function _stake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
         require(blsPubKeys.length > 0, "There must be at least one recipient");
         uint256 baseStakeAmount = msg.value / blsPubKeys.length;
-        require(baseStakeAmount > 0, "Insufficient stake amount for number of pubkeys");
+        require(baseStakeAmount != 0, "Insufficient stake amount for number of pubkeys");
         uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
 
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
