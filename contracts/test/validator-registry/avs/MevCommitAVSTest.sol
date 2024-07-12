@@ -263,7 +263,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(otherAcct);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
-        vm.expectRevert("delegated operator must be registered with MevCommitAVS");
+        vm.expectRevert("operator must register w/ MevCommitAVS");
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
@@ -954,11 +954,11 @@ contract MevCommitAVSTest is Test {
         address[] memory podOwners = new address[](1);
         podOwners[0] = podOwner;
         vm.prank(podOwner);
-        vm.expectRevert("delegated operator must not have requested deregistration");
+        vm.expectRevert("operator must not request deregistration");
         mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
 
         vm.prank(operator);
-        vm.expectRevert("delegated operator must not have requested deregistration");
+        vm.expectRevert("operator must not request deregistration");
         mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
     }
 

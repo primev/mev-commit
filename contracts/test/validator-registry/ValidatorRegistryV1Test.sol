@@ -703,7 +703,7 @@ contract ValidatorRegistryV1Test is Test {
         vm.deal(user1, 100 wei);
 
         vm.prank(user1);
-        vm.expectRevert("Insufficient stake amount for number of pubkeys");
+        vm.expectRevert("Stake too low for number of keys");
         validatorRegistry.stake{value: 80 wei}(validators);
 
         assertEq(address(validatorRegistry).balance, 0);
