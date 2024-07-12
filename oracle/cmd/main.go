@@ -212,10 +212,10 @@ var (
 	})
 
 	optionRegistrationAuthToken = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "register-provider-auth-token",
-		Usage:    "Authorization token for provider registration",
-		EnvVars:  []string{"MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN"},
-		Required: true,
+		Name:    "register-provider-auth-token",
+		Usage:   "Authorization token for provider registration",
+		EnvVars: []string{"MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN"},
+		Value:   "test",
 	})
 )
 

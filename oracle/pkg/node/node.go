@@ -206,22 +206,22 @@ func NewNode(opts *Options) (*Node, error) {
 
 	if opts.OverrideWinners != nil && len(opts.OverrideWinners) > 0 {
 		listenerL1Client = &winnerOverrideL1Client{EthClient: listenerL1Client, winners: opts.OverrideWinners}
-		for _, winner := range opts.OverrideWinners {
-			nd.logger.Info("setting builder mapping", "builderName", winner, "builderAddress", winner)
-			err := setBuilderMapping(
-				ctx,
-				blockTrackerTransactor,
-				settlementClient,
-				winner,
-				winner,
-				nd.logger,
-			)
-			if err != nil {
-				nd.logger.Error("failed to set builder mapping", "error", err)
-				cancel()
-				return nil, err
-			}
-		}
+		// for _, winner := range opts.OverrideWinners {
+		// 	nd.logger.Info("setting builder mapping", "builderName", winner, "builderAddress", winner)
+		// 	err := setBuilderMapping(
+		// 		ctx,
+		// 		blockTrackerTransactor,
+		// 		settlementClient,
+		// 		winner,
+		// 		winner,
+		// 		nd.logger,
+		// 	)
+		// 	if err != nil {
+		// 		nd.logger.Error("failed to set builder mapping", "error", err)
+		// 		cancel()
+		// 		return nil, err
+		// 	}
+		// }
 	}
 
 	l1Lis := l1Listener.NewL1Listener(
