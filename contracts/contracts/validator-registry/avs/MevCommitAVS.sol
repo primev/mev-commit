@@ -360,6 +360,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to register validators by their pod owner.
     /// @notice Invalid pubkeys should not correspond to VALIDATOR_STATUS.ACTIVE due to validations in EigenPod.sol
+    /// @dev A successful call to this function gauruntees isValidatorOptedIn() returns true for each pubkey immediately after
+    /// this function returns. However, sucessive state-changes (ex: delegated operator deregisters) may result in changes
+    /// to validator opt-in state.
     function _registerValidatorsByPodOwner(
         bytes[] calldata valPubKeys,
         address podOwner
