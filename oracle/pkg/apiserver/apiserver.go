@@ -139,13 +139,13 @@ func (s *Service) registerProvider(token string) http.Handler {
 
 		minStake, err := s.providerRegistry.MinStake()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to get minimum stake amount", http.StatusInternalServerError)
 			return
 		}
 
 		stake, err := s.providerRegistry.CheckStake(providerAddress)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to check provider stake", http.StatusInternalServerError)
 			return
 		}
 
@@ -156,13 +156,13 @@ func (s *Service) registerProvider(token string) http.Handler {
 
 		txn, err := s.blockTracker.AddBuilderAddress(grafiti, providerAddress)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to add provider mapping", http.StatusInternalServerError)
 			return
 		}
 
 		receipt, err := s.monitor.WaitForReceipt(context.Background(), txn)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to get receipt for transaction", http.StatusInternalServerError)
 			return
 		}
 
