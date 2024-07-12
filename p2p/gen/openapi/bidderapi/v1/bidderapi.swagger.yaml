@@ -198,17 +198,22 @@ definitions:
     properties:
       amount:
         type: string
+        description: Deposited amount of ETH in wei.
       windowNumber:
         type: string
         format: uint64
+        description: Window number for the deposit.
       isCurrent:
         type: boolean
+        description: Indicates if the window is the current window.
       startBlockNumber:
         type: string
         format: uint64
+        description: The initial L1 block number for the window.
       endBlockNumber:
         type: string
         format: uint64
+        description: The final L1 block number for the window.
   bidderapiv1Bid:
     type: object
     example:
