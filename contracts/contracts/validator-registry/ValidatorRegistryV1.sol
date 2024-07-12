@@ -193,10 +193,10 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         uint256 baseStakeAmount = msg.value / blsPubKeys.length;
         require(baseStakeAmount != 0, "Stake too low for number of keys");
         uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
-        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
-            bytes calldata pubKey = blsPubKeys[i];
-            uint256 stakeAmount = (i == blsPubKeys.length - 1) ? lastStakeAmount : baseStakeAmount;
-            action(pubKey, stakeAmount, withdrawalAddress);
+        uint256 numKeys = blsPubKeys.length;
+        for (uint256 i = 0; i < numKeys; ++i) {
+            uint256 stakeAmount = (i == numKeys - 1) ? lastStakeAmount : baseStakeAmount;
+            action(blsPubKeys[i], stakeAmount, withdrawalAddress);
         }
     }
 
@@ -230,8 +230,9 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function that adds stake to an already existing validator record, emitting a StakeAdded event.
     function _addStakeAction(bytes calldata pubKey, uint256 stakeAmount, address) internal {
-        stakedValidators[pubKey].balance += stakeAmount;
-        emit StakeAdded(msg.sender, stakedValidators[pubKey].withdrawalAddress, pubKey, stakeAmount, stakedValidators[pubKey].balance);
+        IValidatorRegistryV1.StakedValidator storage validator = stakedValidators[pubKey];
+        validator.balance += stakeAmount;
+        emit StakeAdded(msg.sender, validator.withdrawalAddress, pubKey, stakeAmount, validator.balance);
     }
 
     /* 
