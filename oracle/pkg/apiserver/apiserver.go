@@ -107,13 +107,13 @@ func (s *Service) registerProvider(token string) http.Handler {
 		}
 
 		// Expected format "Bearer <token>"
-		splitToken := strings.Split(authHeader, " ")
-		if len(splitToken) != 2 || splitToken[0] != "Bearer" {
+		headerToken, found := strings.CutPrefix(authHeader, "Bearer ")
+		if !found {
 			http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
 			return
 		}
 
-		if splitToken[1] != token {
+		if headerToken != token {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
