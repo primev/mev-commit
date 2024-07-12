@@ -12,7 +12,7 @@ import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
 /// @title Oracle Contract
 /// @author Kartik Chopra
-/// @notice This contract is for fetching L1 Ethereum Block Data
+/// @notice This contract is for settling commitments made by providers.
 
 /**
  * @title Oracle - A contract for Fetching L1 Block Builder Info and Block Data.
@@ -46,6 +46,7 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
     /**
      * @dev Initializes the contract with a PreConfirmations contract.
      * @param _preConfContract The address of the pre-confirmations contract.
+     * @param _blockTrackerContract The address of the block tracker contract.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed with create2 factory.
      */
     function initialize(
@@ -74,6 +75,7 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
      * @param blockNumber The block number to be processed.
      * @param builder The address of the builder.
      * @param isSlash Determines whether the commitment should be slashed or rewarded.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function processBuilderCommitmentForBlockNumber(
         bytes32 commitmentIndex,
@@ -82,9 +84,8 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) external onlyOwner {
-        address winner = blockTrackerContract.getBlockWinner(blockNumber);
         require(
-            winner == builder,
+            blockTrackerContract.getBlockWinner(blockNumber) == builder,
             "Builder is not the winner of the block"
         );
         require(
@@ -109,6 +110,7 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
      * @dev Internal function to process a commitment, either slashing or rewarding based on the commitment's state.
      * @param commitmentIndex The id of the commitment to be processed.
      * @param isSlash Determines if the commitment should be slashed or rewarded.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function processCommitment(
         bytes32 commitmentIndex,

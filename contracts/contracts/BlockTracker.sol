@@ -69,6 +69,7 @@ contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
     /**
      * @dev Returns the builder's address corresponding to the given name.
      * @param builderNameGrafiti The name (or graffiti) of the block builder.
+     * @return The Ethereum address of the builder.
      */
     function getBuilder(
         string calldata builderNameGrafiti
@@ -104,7 +105,11 @@ contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
         emit NewL1Block(_blockNumber, _winner, currentWindow);
     }
 
-    // Function to record a new block winner
+    /**
+    * @dev Internal function to record a new block winner
+    * @param blockNumber The number of the block
+    * @param winner The address of the block winner
+    */
     function recordBlockWinner(uint256 blockNumber, address winner) internal {
         // Check if the block number is valid (not 0)
         require(blockNumber != 0, "Invalid block number");

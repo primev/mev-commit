@@ -144,14 +144,12 @@ contract TestPreConfCommitmentStore is Test {
             testCommitment.decayEndTimeStamp
         );
 
-        // Add a bob private key and console log the key
-        (address bob, uint256 bobPk) = makeAddrAndKey("alice");
-        
+        // Add a alice private key and console log the key
+        (, uint256 alicePk) = makeAddrAndKey("alice");
 
         // Make a signature on the bid hash
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(bobPk, bidHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(alicePk, bidHash);
         bytes memory bidSignature = abi.encodePacked(r, s, v);
-        
 
         // Step 3: Calculate the commitment hash using the getPreConfHash function
         bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
@@ -169,17 +167,8 @@ contract TestPreConfCommitmentStore is Test {
         // Step 4: Verify the bid hash is correctly generated and not zero
         assert(bidHash != bytes32(0));
 
-        // Optional: Log the bid hash for debugging purposes
-        
-
         // Step 5: Verify the commitment hash is correctly generated and not zero
-        assert(commitmentHash != bytes32(0));
-        // Log the commitment hash for debugging purposes
-        
-        
-
-        // Optional: Log the commitment hash for debugging purposes
-        
+        assert(commitmentHash != bytes32(0));        
     }
 
     function test_Initialize() public view {
@@ -274,7 +263,7 @@ contract TestPreConfCommitmentStore is Test {
 
         vm.prank(preConfCommitmentStore.owner());
         preConfCommitmentStore.updateCommitmentDispatchWindow(200);
-        vm.warp(200 + _testCommitmentAliceBob.dispatchTimestamp);
+        vm.warp(201 + _testCommitmentAliceBob.dispatchTimestamp);
         vm.expectRevert("Invalid dispatch timestamp");
         preConfCommitmentStore.storeEncryptedCommitment(
             commitmentDigest,

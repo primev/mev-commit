@@ -133,6 +133,7 @@ contract ProviderRegistry is
         require(!providerRegistered[msg.sender], "Provider already registered");
         require(msg.value >= minStake, "Insufficient stake");
         require(blsPublicKey.length == 48, "Invalid BLS public key length");
+        
         EOAToBLSPubkey[msg.sender] = blsPublicKey;
         providerStakes[msg.sender] = msg.value;
         providerRegistered[msg.sender] = true;
