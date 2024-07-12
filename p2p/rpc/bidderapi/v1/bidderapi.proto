@@ -182,12 +182,23 @@ message CancelAutoDepositResponse {
 };
 
 message AutoDeposit {
-  string amount = 1;
-  google.protobuf.UInt64Value window_number = 2;
-  bool is_current = 3;
-  google.protobuf.UInt64Value start_block_number = 4;
-  google.protobuf.UInt64Value end_block_number = 5;
+  string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Deposited amount of ETH in wei."
+  }];
+  google.protobuf.UInt64Value window_number = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Window number for the deposit."
+  }];
+  bool is_current = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Indicates if the window is the current window."
+  }];
+  google.protobuf.UInt64Value start_block_number = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "The initial L1 block number for the window."
+  }];
+  google.protobuf.UInt64Value end_block_number = 5 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "The final L1 block number for the window."
+  }];
 }
+
 message EmptyMessage {};
 
 message GetDepositRequest {
