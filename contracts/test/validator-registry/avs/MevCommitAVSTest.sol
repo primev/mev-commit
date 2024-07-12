@@ -763,14 +763,14 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
 
-        vm.expectRevert("sender must pay at least the unfreeze fee for each validator");
+        vm.expectRevert("pay unfreeze fee for each validator");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze(valPubkeys);
 
         vm.deal(newAccount, 2 * unfreezeFee);
 
         uint256 singleUnfreezeFee = unfreezeFee;
-        vm.expectRevert("sender must pay at least the unfreeze fee for each validator");
+        vm.expectRevert("pay unfreeze fee for each validator");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze{value: singleUnfreezeFee}(valPubkeys);
 
