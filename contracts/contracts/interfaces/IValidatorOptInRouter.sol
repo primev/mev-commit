@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 interface IValidatorOptInRouter {
     /// @notice Initializes the contract with the validator registry and mev-commit AVS contracts.
