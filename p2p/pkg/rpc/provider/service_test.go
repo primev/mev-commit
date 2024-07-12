@@ -44,7 +44,7 @@ func (t *testRegistryContract) MinStake(_ *bind.CallOpts) (*big.Int, error) {
 
 func (t *testRegistryContract) ParseProviderRegistered(log types.Log) (*providerregistry.ProviderregistryProviderRegistered, error) {
 	return &providerregistry.ProviderregistryProviderRegistered{
-		Provider: common.Address{},
+		Provider:     common.Address{},
 		StakedAmount: t.stake,
 	}, nil
 }
@@ -97,7 +97,7 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 		if err := baseServer.Serve(lis); err != nil {
 			// Ignore "use of closed network connection" error
 			if opErr, ok := err.(*net.OpError); !ok || !errors.Is(opErr.Err, net.ErrClosed) {
-				t.Logf("server stopped err: %v", err)
+				t.Errorf("server stopped err: %v", err)
 			}
 		}
 	}()

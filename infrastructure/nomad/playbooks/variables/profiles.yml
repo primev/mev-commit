@@ -452,6 +452,8 @@ jobs:
     template: mev-commit-oracle.nomad.j2
     artifacts:
       - *oracle_artifact
+      - auth_token:
+          name: oracle_register_provider_api_auth_token
       - keystore:
           name: oracle_keystore
           allocation: true
