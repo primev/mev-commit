@@ -183,29 +183,41 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         _setUnstakePeriodBlocks(newUnstakePeriodBlocks);
     }
 
+    /// @dev Internal function that splits msg.value stake to apply an action for each validator.
+    function _splitStakeAndApplyAction(
+        bytes[] calldata blsPubKeys,
+        address withdrawalAddress,
+        function(bytes calldata, uint256, address) internal action
+    ) internal {
+        require(blsPubKeys.length > 0, "There must be at least one recipient");
+        uint256 baseStakeAmount = msg.value / blsPubKeys.length;
+        require(baseStakeAmount != 0, "Insufficient stake amount for number of pubkeys");
+        uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
+        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+            bytes calldata pubKey = blsPubKeys[i];
+            uint256 stakeAmount = (i == blsPubKeys.length - 1) ? lastStakeAmount : baseStakeAmount;
+            action(pubKey, stakeAmount, withdrawalAddress);
+        }
+    }
+
     /*
      * @dev Internal function to stake ETH on behalf of one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The validator BLS public keys to stake.
      * @param withdrawalAddress The address to receive the staked ETH.
      */
     function _stake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
-        require(blsPubKeys.length > 0, "There must be at least one recipient");
-        uint256 baseStakeAmount = msg.value / blsPubKeys.length;
-        require(baseStakeAmount != 0, "Insufficient stake amount for number of pubkeys");
-        uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
+        _splitStakeAndApplyAction(blsPubKeys, withdrawalAddress, _stakeAction);
+    }
 
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            bytes calldata pubKey = blsPubKeys[i];
-            uint256 stakeAmount = (i == blsPubKeys.length - 1) ? lastStakeAmount : baseStakeAmount;
-
-            stakedValidators[pubKey] = StakedValidator({
-                exists: true,
-                balance: stakeAmount,
-                withdrawalAddress: withdrawalAddress,
-                unstakeHeight: EventHeightLib.EventHeight({ exists: false, blockHeight: 0 })
-            });
-            emit Staked(msg.sender, withdrawalAddress, pubKey, stakeAmount);
-        }
+    /// @dev Internal function that creates a staked validator record and emits a Staked event.
+    function _stakeAction(bytes calldata pubKey, uint256 stakeAmount, address withdrawalAddress) internal {
+        stakedValidators[pubKey] = StakedValidator({
+            exists: true,
+            balance: stakeAmount,
+            withdrawalAddress: withdrawalAddress,
+            unstakeHeight: EventHeightLib.EventHeight({ exists: false, blockHeight: 0 })
+        });
+        emit Staked(msg.sender, withdrawalAddress, pubKey, stakeAmount);
     }
 
     /* 
@@ -213,14 +225,13 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to add stake to.
      */
     function _addStake(bytes[] calldata blsPubKeys) internal {
-        require(blsPubKeys.length > 0, "There must be at least one recipient");
-        uint256 splitAmount = msg.value / blsPubKeys.length;
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            bytes calldata pubKey = blsPubKeys[i];
-            stakedValidators[pubKey].balance += splitAmount;
-            emit StakeAdded(msg.sender, stakedValidators[pubKey].withdrawalAddress,
-                pubKey, splitAmount, stakedValidators[pubKey].balance);
-        }
+        _splitStakeAndApplyAction(blsPubKeys, address(0), _addStakeAction);
+    }
+
+    /// @dev Internal function that adds stake to an already existing validator record, emitting a StakeAdded event.
+    function _addStakeAction(bytes calldata pubKey, uint256 stakeAmount, address) internal {
+        stakedValidators[pubKey].balance += stakeAmount;
+        emit StakeAdded(msg.sender, stakedValidators[pubKey].withdrawalAddress, pubKey, stakeAmount, stakedValidators[pubKey].balance);
     }
 
     /* 
