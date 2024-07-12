@@ -585,14 +585,18 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to check if a validator is opted-in.
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
-        bool isValRegistered = validatorRegistrations[valPubKey].exists;
-        bool isFrozen = validatorRegistrations[valPubKey].freezeHeight.exists;
-        bool isValDeregRequested = validatorRegistrations[valPubKey].deregRequestHeight.exists;
-        IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
+        IMevCommitAVS.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
+        bool isValRegistered = valRegistration.exists;
+        bool isFrozen = valRegistration.freezeHeight.exists;
+        bool isValDeregRequested = valRegistration.deregRequestHeight.exists;
+
+        IEigenPod pod = _eigenPodManager.getPod(valRegistration.podOwner);
         bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
-        address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
-        bool isOperatorRegistered = operatorRegistrations[delegatedOperator].exists;
-        bool isOperatorDeregRequested = operatorRegistrations[delegatedOperator].deregRequestHeight.exists;
+
+        address delegatedOperator = _delegationManager.delegatedTo(valRegistration.podOwner);
+        IMevCommitAVS.OperatorRegistrationInfo memory operatorRegistration = operatorRegistrations[delegatedOperator];
+        bool isOperatorRegistered = operatorRegistration.exists;
+        bool isOperatorDeregRequested = operatorRegistration.deregRequestHeight.exists;
 
         return isValRegistered && !isFrozen && !isValDeregRequested && isValActive
             && isOperatorRegistered && !isOperatorDeregRequested;
