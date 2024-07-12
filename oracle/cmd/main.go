@@ -211,10 +211,10 @@ var (
 		Value:   filepath.Join(defaultConfigDir, defaultKeystore),
 	})
 
-	optionRegistrationPassword = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "registration-password",
-		Usage:    "password for registration",
-		EnvVars:  []string{"MEV_ORACLE_REGISTRATION_PASSWORD"},
+	optionRegistrationAuthToken = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "register-provider-auth-token",
+		Usage:    "Authorization token for provider registration",
+		EnvVars:  []string{"MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN"},
 		Required: true,
 	})
 )
@@ -244,7 +244,7 @@ func main() {
 		optionOverrideWinners,
 		optionKeystorePath,
 		optionKeystorePassword,
-		optionRegistrationPassword,
+		optionRegistrationAuthToken,
 	}
 	app := &cli.App{
 		Name:  "mev-oracle",
@@ -330,7 +330,7 @@ func launchOracleWithConfig(c *cli.Context) error {
 		PgDbname:                     c.String(optionPgDbname.Name),
 		LaggerdMode:                  c.Int(optionLaggerdMode.Name),
 		OverrideWinners:              c.StringSlice(optionOverrideWinners.Name),
-		RegistrationPassword:         c.String(optionRegistrationPassword.Name),
+		RegistrationAuthToken:        c.String(optionRegistrationAuthToken.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

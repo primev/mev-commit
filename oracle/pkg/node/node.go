@@ -57,7 +57,7 @@ type Options struct {
 	PgDbname                     string
 	LaggerdMode                  int
 	OverrideWinners              []string
-	RegistrationPassword         string
+	RegistrationAuthToken        string
 }
 
 type Node struct {
@@ -271,7 +271,7 @@ func NewNode(opts *Options) (*Node, error) {
 		nd.logger.With("component", "apiserver"),
 		evtMgr,
 		st,
-		opts.RegistrationPassword,
+		opts.RegistrationAuthToken,
 		blockTrackerTransactor,
 		providerRegistryCaller,
 		monitor,
