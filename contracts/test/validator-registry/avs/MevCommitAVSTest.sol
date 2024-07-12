@@ -263,7 +263,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(otherAcct);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
-        vm.expectRevert("delegated operator must be registered with MevCommitAVS");
+        vm.expectRevert("operator must register w/ MevCommitAVS");
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
@@ -763,14 +763,14 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
 
-        vm.expectRevert("sender must pay at least the unfreeze fee for each validator");
+        vm.expectRevert("pay unfreeze fee for each validator");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze(valPubkeys);
 
         vm.deal(newAccount, 2 * unfreezeFee);
 
         uint256 singleUnfreezeFee = unfreezeFee;
-        vm.expectRevert("sender must pay at least the unfreeze fee for each validator");
+        vm.expectRevert("pay unfreeze fee for each validator");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze{value: singleUnfreezeFee}(valPubkeys);
 
@@ -928,5 +928,77 @@ contract MevCommitAVSTest is Test {
         mevCommitAVS.updateMetadataURI(newMetadataURI);
         vm.prank(owner);
         mevCommitAVS.updateMetadataURI(newMetadataURI);
+    }
+
+    function testValidatorsWithReqDeregisteredOperatorsCannotRegister() public {
+        testRegisterOperator();
+
+        address operator = address(0x888);
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+
+        address podOwner = address(0x420);
+        vm.prank(podOwner);
+        ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
+            signature: bytes("signature"),
+            expiry: 10
+        });
+        delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
+
+        bytes[][] memory valPubkeys = new bytes[][](1);
+        bytes[] memory inner = new bytes[](2);
+        inner[0] = bytes("valPubkey1");
+        inner[1] = bytes("valPubkey2");
+        valPubkeys[0] = inner;
+
+        address[] memory podOwners = new address[](1);
+        podOwners[0] = podOwner;
+        vm.prank(podOwner);
+        vm.expectRevert("operator must not request deregistration");
+        mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
+
+        vm.prank(operator);
+        vm.expectRevert("operator must not request deregistration");
+        mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
+    }
+
+    function testUnfreezeExcessFeeReturned() public {
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+
+        address newAccount = address(0x333333333);
+
+        testRegisterValidatorsByPodOwners();
+
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
+
+        uint256 tripleUnfreezeFee = unfreezeFee * 3;
+        vm.deal(newAccount, tripleUnfreezeFee);
+
+        vm.roll(block.number + unfreezePeriodBlocks);
+
+        assertEq(address(newAccount).balance, tripleUnfreezeFee);
+        assertEq(address(mevCommitAVS).balance, 0);
+        assertEq(address(unfreezeReceiver).balance, 0);
+
+        address podOwner = address(0x420);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorUnfrozen(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorUnfrozen(valPubkeys[1], podOwner);
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze{value: tripleUnfreezeFee}(valPubkeys);
+
+        assertEq(address(newAccount).balance, unfreezeFee);
+        assertEq(address(mevCommitAVS).balance, 0);
+        assertEq(address(unfreezeReceiver).balance, 2 * unfreezeFee);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
     }
 }
