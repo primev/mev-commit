@@ -244,7 +244,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             payable(unfreezeReceiver).transfer(unfreezeFee);
         }
         uint256 excessFee = msg.value - requiredFee;
-        if (excessFee > 0) {
+        if (excessFee != 0) {
             payable(msg.sender).transfer(excessFee);
         }
     }
@@ -363,9 +363,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     ) internal onlyNonRegisteredValidators(valPubKeys) onlyPodOwnerOrOperator(podOwner)  {
         address operator = _delegationManager.delegatedTo(podOwner);
         require(operatorRegistrations[operator].exists,
-            "delegated operator must be registered with MevCommitAVS");
+            "operator must register w/ MevCommitAVS");
         require(!operatorRegistrations[operator].deregRequestHeight.exists,
-            "delegated operator must not have requested deregistration");
+            "operator must not request deregistration");
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,

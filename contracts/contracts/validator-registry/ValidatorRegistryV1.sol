@@ -189,11 +189,11 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         address withdrawalAddress,
         function(bytes calldata, uint256, address) internal action
     ) internal {
-        require(blsPubKeys.length > 0, "There must be at least one recipient");
+        require(blsPubKeys.length != 0, "At least one recipient required");
         uint256 baseStakeAmount = msg.value / blsPubKeys.length;
-        require(baseStakeAmount != 0, "Insufficient stake amount for number of pubkeys");
+        require(baseStakeAmount != 0, "Stake too low for number of keys");
         uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             uint256 stakeAmount = (i == blsPubKeys.length - 1) ? lastStakeAmount : baseStakeAmount;
             action(pubKey, stakeAmount, withdrawalAddress);
