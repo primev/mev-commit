@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,7 +58,7 @@ func New(
 	logger *slog.Logger,
 	evm events.EventManager,
 	store Store,
-	password string,
+	token string,
 	blockTracker *blocktracker.BlocktrackerTransactorSession,
 	providerRegistry *providerregistry.ProviderregistryCallerSession,
 	monitor *txmonitor.Monitor,
@@ -86,20 +87,33 @@ func New(
 		logger.Error("failed to configure dashboard", "error", err)
 	}
 
-	srv.router.Handle("/register_provider", srv.registerProvider(password))
+	srv.router.Handle("/register_provider", srv.registerProvider(token))
 
 	srv.registerDebugEndpoints()
 	return srv
 }
 
-func (s *Service) registerProvider(password string) http.Handler {
+func (s *Service) registerProvider(token string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		if r.Header.Get("X-Registration-Password") != password {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+			return
+		}
+
+		// Expected format "Bearer <token>"
+		splitToken := strings.Split(authHeader, " ")
+		if len(splitToken) != 2 || splitToken[0] != "Bearer" {
+			http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+			return
+		}
+
+		if splitToken[1] != token {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
