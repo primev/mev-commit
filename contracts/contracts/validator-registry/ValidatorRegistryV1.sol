@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
 import {ValidatorRegistryV1Storage} from "./ValidatorRegistryV1Storage.sol";
 import {EventHeightLib} from "../utils/EventHeight.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -12,7 +12,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
 /// via simply staking ETH outside what's staked with the beacon chain.
 contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage,
-    OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+    Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     /// @dev Modifier to confirm a validator record exists for all provided BLS pubkeys.
     modifier onlyExistentValidatorRecords(bytes[] calldata blsPubKeys) {

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @dev Gateway contract for standard bridge. 
  */
-abstract contract Gateway is OwnableUpgradeable, UUPSUpgradeable {   
+abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {   
     
     // @dev index for tracking transfer initiations.
     // Also total number of transfers initiated from this gateway.

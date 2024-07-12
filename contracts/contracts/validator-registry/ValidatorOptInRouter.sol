@@ -5,14 +5,14 @@ import {ValidatorOptInRouterStorage} from "./ValidatorOptInRouterStorage.sol";
 import {IValidatorOptInRouter} from "../interfaces/IValidatorOptInRouter.sol";
 import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
 import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title ValidatorOptInRouter
 /// @notice This contract acts as the top level source of truth for whether a validator 
 /// is opted in to mev-commit from either the v1 validator registry or the mev-commit AVS.
 contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStorage,
-    OwnableUpgradeable, UUPSUpgradeable {
+    Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor

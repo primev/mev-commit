@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @title BlockTracker
  * @dev A contract that tracks Ethereum blocks and their winners.
  */
-contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
+contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when a new L1 block is tracked.
     event NewL1Block(
         uint256 indexed blockNumber,

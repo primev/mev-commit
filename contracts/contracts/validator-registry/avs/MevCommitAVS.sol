@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {MevCommitAVSStorage} from "./MevCommitAVSStorage.sol";
 import {EventHeightLib} from "../../utils/EventHeight.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IDelegationManager} from "eigenlayer-contracts/src/contracts/interfaces/IDelegationManager.sol";
@@ -18,7 +18,7 @@ import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IS
 /// @notice This contract serves as the entrypoint for operators, validators and LST restakers to register with
 /// the mev-commit protocol via an eigenlayer AVS.
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
-    OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+    Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     
     /// @dev Modifier to ensure the provided operator is registered with MevCommitAVS.
     modifier onlyRegisteredOperator(address operator) {
