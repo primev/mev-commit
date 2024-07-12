@@ -173,6 +173,7 @@ job "{{ job.name }}" {
           MEV_ORACLE_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           MEV_ORACLE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_register_provider_api_auth_token }}{{ end }}"
           {{- range nomadService "mev-commit-oracle" }}
             {{- if contains "http" .Tags }}
           MEV_ORACLE_HTTP_PORT="{{ .Port }}"
