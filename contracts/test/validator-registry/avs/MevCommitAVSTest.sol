@@ -1042,4 +1042,39 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
     }
+
+    function testDeregisteredOperatorCanStillDeregisterValidators() public {
+        testRegisterValidatorsByPodOwners();
+
+        address operator = address(0x888);
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+        assertTrue(mevCommitAVS.getOperatorRegInfo(operator).exists);
+        assertTrue(mevCommitAVS.getOperatorRegInfo(operator).deregRequestHeight.exists);
+
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+        
+        address podOwner = address(0x420);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(valPubkeys[1], podOwner);
+        vm.prank(operator);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
+
+        vm.roll(2000);
+
+        vm.prank(operator);
+        mevCommitAVS.deregisterOperator(operator);
+        assertFalse(mevCommitAVS.getOperatorRegInfo(operator).exists);
+
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistered(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistered(valPubkeys[1], podOwner);
+        vm.prank(operator);
+        mevCommitAVS.deregisterValidators(valPubkeys);
+    }
 }

@@ -32,11 +32,11 @@ This function verifies and updates state such that directly after the call, `isV
 Note two entities are able to register validator pub keys in this way:
 
 1. The eigenpod owner account itself.
-2. The (delegated and registered) Operator account.
+2. The (delegated and fully registered) Operator account.
 
 If an Operator is registering pubkeys on behalf of validators, it's expected that the Operator manages those validators itself, or represents the validators to an extent that the Operator can realistically attest to the validator following the rules of mev-commit (staking-as-a-service providers for example). This trustful relationship between validators and their delegated Operator piggybacks off already agreed upon trust assumptions with eigenlayer delegation.
 
-Validator deregistration requires calling `requestValidatorsDeregistration`, waiting a configurable amount of blocks, then calling `deregisterValidators`. These functions are similarly callable by the eigenpod owner OR delegated operator.
+Validator deregistration requires calling `requestValidatorsDeregistration`, waiting a configurable amount of blocks, then calling `deregisterValidators`. These functions are similarly callable by the eigenpod owner OR delegated operator. A delegated operator calling either `requestValidatorsDeregistration` or `deregisterValidators` does not require that operator to be registered with the MevCommitAVS (this is allowed due to aforementioned trust assumptions between validators and their delegated Operator).
 
 ### What defines a validator staying "opted-in"
 
