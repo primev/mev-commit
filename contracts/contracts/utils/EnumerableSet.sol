@@ -196,7 +196,7 @@ library EnumerableSet {
 
         bytes[] memory result = new bytes[](end - start);
 
-        for (uint256 i = start; i < end; i++) {
+        for (uint256 i = start; i < end; ++i) {
             result[i - start] = set._values[i];
         }
 

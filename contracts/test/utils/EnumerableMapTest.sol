@@ -125,7 +125,7 @@ contract EnumerableMapTest is Test {
 
         uint foundCount = 0;
         
-        for (uint i = 0; i < expected.length; i++) {
+        for (uint i = 0; i < expected.length; ++i) {
             for (uint j = 0; j < actual.length; j++) {
                 if (keccak256(abi.encodePacked(actual[j])) == keccak256(abi.encodePacked(expected[i]))) {
                     foundCount++;

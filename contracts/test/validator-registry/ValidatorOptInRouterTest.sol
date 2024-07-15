@@ -74,7 +74,7 @@ contract ValidatorOptInRouterTest is Test {
         
         bool[] memory areOptedIn = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
         assertEq(areOptedIn.length, 2);
-        for (uint256 i = 0; i < areOptedIn.length; i++) {
+        for (uint256 i = 0; i < areOptedIn.length; ++i) {
             assertTrue(areOptedIn[i]);
         }
     }
@@ -91,7 +91,7 @@ contract ValidatorOptInRouterTest is Test {
 
         bool[] memory areOptedIn = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
         assertEq(areOptedIn.length, 2);
-        for (uint256 i = 0; i < areOptedIn.length; i++) {
+        for (uint256 i = 0; i < areOptedIn.length; ++i) {
             assertTrue(areOptedIn[i]);
         }
     }

@@ -10,7 +10,7 @@ contract EnumerableSetTest is Test {
     EnumerableSet.BytesSet private set;
 
     function setUp() public { 
-        for (uint256 i = 0; i < set.length(); i++) {
+        for (uint256 i = 0; i < set.length(); ++i) {
             set.remove(set.at(i));
         }
         require(set.length() == 0, "Set should be empty.");
@@ -77,7 +77,7 @@ contract EnumerableSetTest is Test {
         values[0] = "data1";
         values[1] = "data2";
         values[2] = "data3";
-        for (uint256 i = 0; i < values.length; i++) {
+        for (uint256 i = 0; i < values.length; ++i) {
             set.add(values[i]);
         }
 
@@ -102,7 +102,7 @@ contract EnumerableSetTest is Test {
         values[1] = "data2";
         values[2] = "data3";
 
-        for (uint256 i = 0; i < values.length; i++) {
+        for (uint256 i = 0; i < values.length; ++i) {
             set.add(values[i]);
         }
 
@@ -145,10 +145,10 @@ contract EnumerableSetTest is Test {
         assertEq(firstThree.length, 3, "There should be 3 elements in the batch.");
 
         bytes[] memory combo = new bytes[](6);
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             combo[i] = firstThree[i];
         }
-        for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < 3; ++i) {
             combo[i + 3] = lastThree[i];
         }
         bytes[] memory expectedCombo = new bytes[](6);
@@ -167,7 +167,7 @@ contract EnumerableSetTest is Test {
 
         uint foundCount = 0;
         
-        for (uint i = 0; i < expected.length; i++) {
+        for (uint i = 0; i < expected.length; ++i) {
             for (uint j = 0; j < actual.length; j++) {
                 if (keccak256(abi.encodePacked(actual[j])) == keccak256(abi.encodePacked(expected[i]))) {
                     foundCount++;

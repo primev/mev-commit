@@ -16,7 +16,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Modifier to confirm a validator record exists for all provided BLS pubkeys.
     modifier onlyExistentValidatorRecords(bytes[] calldata blsPubKeys) {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             require(stakedValidators[blsPubKeys[i]].exists, "Validator record must exist");
         }
         _;
@@ -24,7 +24,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Modifier to confirm a validator record does not exist for all provided BLS pubkeys.
     modifier onlyNonExistentValidatorRecords(bytes[] calldata blsPubKeys) {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             require(!stakedValidators[blsPubKeys[i]].exists, "Validator record must NOT exist");
         }
         _;
@@ -40,7 +40,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Modifier to confirm the sender is the withdrawal address for all provided BLS pubkeys.
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             require(stakedValidators[blsPubKeys[i]].withdrawalAddress == msg.sender, "Only withdrawal address can call this function");
         }
         _;
@@ -48,7 +48,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Modifier to confirm all provided BLS pubkeys are valid length.
     modifier onlyValidBLSPubKeys(bytes[] calldata blsPubKeys) {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             require(blsPubKeys[i].length == 48, "Invalid BLS public key length. Must be 48 bytes");
         }
         _;
@@ -240,7 +240,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to unstake.
      */
     function _unstake(bytes[] calldata blsPubKeys) internal {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             _unstakeSingle(blsPubKeys[i]);
         }
     }
@@ -261,7 +261,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to withdraw.
      */
     function _withdraw(bytes[] calldata blsPubKeys) internal {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             require(_isUnstaking(pubKey), "Unstake must be initiated before withdrawal");
             require(block.number >= stakedValidators[pubKey].unstakeHeight.blockHeight + unstakePeriodBlocks,
@@ -280,7 +280,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to slash.
      */
     function _slash(bytes[] calldata blsPubKeys) internal {
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             require(stakedValidators[pubKey].balance >= slashAmount,
                 "Validator balance must be greater than or equal to slash amount");

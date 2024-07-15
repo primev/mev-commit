@@ -34,7 +34,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure all provided validators are registered with MevCommitAVS.
     modifier onlyRegisteredValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             require(validatorRegistrations[valPubKeys[i]].exists, "validator must be registered");
         }
         _;
@@ -42,7 +42,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure all provided validators are not registered with MevCommitAVS.
     modifier onlyNonRegisteredValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             require(!validatorRegistrations[valPubKeys[i]].exists, "validator must not be registered");
         }
         _;
@@ -88,7 +88,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure the sender is either the pod owner or operator of all the given validators.
     modifier onlyPodOwnerOrOperatorOfValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
             require(msg.sender == regInfo.podOwner || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
                 "sender must be podOwner or delegated operator of validator");
@@ -106,7 +106,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure all provided validators are frozen.
     modifier onlyFrozenValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             require(validatorRegistrations[valPubKeys[i]].freezeHeight.exists, "validator must be frozen");
         }
         _;
@@ -184,7 +184,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         bytes[][] calldata valPubKeys,
         address[] calldata podOwners
     ) external whenNotPaused() {
-        for (uint256 i = 0; i < podOwners.length; i++) {
+        for (uint256 i = 0; i < podOwners.length; ++i) {
             _registerValidatorsByPodOwner(valPubKeys[i], podOwners[i]);
         }
     }
@@ -194,7 +194,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// the podOwner, delegated operator, or the contract owner.
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys)
         external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             _requestValidatorDeregistration(valPubKeys[i]);
         }
     }
@@ -204,7 +204,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// the podOwner, delegated operator, or the contract owner.
     function deregisterValidators(bytes[] calldata valPubKeys)
         external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             _deregisterValidator(valPubKeys[i]);
         }
     }
@@ -228,7 +228,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Allows the freeze oracle account to freeze validators which disobey the mev-commit protocol.
     function freeze(bytes[] calldata valPubKeys) external
         whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyFreezeOracle() {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             _freeze(valPubKeys[i]);
         }
     }
@@ -239,7 +239,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         uint256 requiredFee = unfreezeFee * valPubKey.length;
         require(msg.value >= requiredFee,
             "pay unfreeze fee for each validator");
-        for (uint256 i = 0; i < valPubKey.length; i++) {
+        for (uint256 i = 0; i < valPubKey.length; ++i) {
             _unfreeze(valPubKey[i]);
         }
         (bool success, ) = unfreezeReceiver.call{value: requiredFee}("");
@@ -369,7 +369,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         require(!operatorRegistrations[operator].deregRequestHeight.exists,
             "operator must not request deregistration");
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        for (uint256 i = 0; i < valPubKeys.length; ++i) {
             require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
                 "validator must be active under pod");
             _registerValidator(valPubKeys[i], podOwner);
@@ -427,7 +427,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
                 blockHeight: 0
             })
         });
-        for (uint256 i = 0; i < chosenValidators.length; i++) {
+        for (uint256 i = 0; i < chosenValidators.length; ++i) {
             emit LSTRestakerRegistered(chosenValidators[i], chosenValidators.length, msg.sender);
         }
     }
@@ -437,7 +437,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
         require(!reg.deregRequestHeight.exists, "LST restaker must not have already requested deregistration");
         EventHeightLib.set(reg.deregRequestHeight, block.number);
-        for (uint256 i = 0; i < reg.numChosen; i++) {
+        for (uint256 i = 0; i < reg.numChosen; ++i) {
             emit LSTRestakerDeregistrationRequested(reg.chosenValidators[i], reg.numChosen, msg.sender);
         }
     }
@@ -448,7 +448,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         require(reg.deregRequestHeight.exists, "LST restaker must have requested deregistration");
         require(block.number >= reg.deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
             "deregistration must happen at least lstRestakerDeregPeriodBlocks after deregistration request height");
-        for (uint256 i = 0; i < reg.numChosen; i++) {
+        for (uint256 i = 0; i < reg.numChosen; ++i) {
             emit LSTRestakerDeregistered(reg.chosenValidators[i], reg.numChosen, msg.sender);
         }
         delete lstRestakerRegistrations[msg.sender];

@@ -345,7 +345,7 @@ contract TestPreConfCommitmentStore is Test {
     ) internal pure returns (string memory) {
         bytes memory HEXCHARS = "0123456789abcdef";
         bytes memory _string = new bytes(64);
-        for (uint8 i = 0; i < 32; i++) {
+        for (uint8 i = 0; i < 32; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
         }
@@ -919,7 +919,7 @@ contract TestPreConfCommitmentStore is Test {
     ) internal pure returns (string memory) {
         bytes memory HEXCHARS = "0123456789abcdef";
         bytes memory _string = new bytes(_bytes.length * 2);
-        for (uint256 i = 0; i < _bytes.length; i++) {
+        for (uint256 i = 0; i < _bytes.length; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
         }

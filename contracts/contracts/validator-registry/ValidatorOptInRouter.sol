@@ -55,7 +55,7 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
     /// @notice Returns an array of bools indicating whether each validator pubkey is opted in to mev-commit.
     function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory) {
         bool[] memory optedIn = new bool[](valBLSPubKeys.length);
-        for (uint256 i = 0; i < valBLSPubKeys.length; i++) {
+        for (uint256 i = 0; i < valBLSPubKeys.length; ++i) {
             optedIn[i] = _isValidatorOptedIn(valBLSPubKeys[i]);
         }
         return optedIn;

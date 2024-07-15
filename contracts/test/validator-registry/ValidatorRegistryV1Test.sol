@@ -696,7 +696,7 @@ contract ValidatorRegistryV1Test is Test {
         validatorRegistry.setMinStake(1 wei);
 
         bytes[] memory validators = new bytes[](90);
-        for (uint256 i = 0; i < 90; i++) {
+        for (uint256 i = 0; i < 90; ++i) {
             validators[i] = user1BLSKey;
             validators[i][0] = bytes1(uint8(i + 1));
         }
@@ -711,7 +711,7 @@ contract ValidatorRegistryV1Test is Test {
         vm.prank(user1);
         validatorRegistry.stake{value: 100 wei}(validators);
 
-        for (uint256 i = 0; i < 89; i++) {
+        for (uint256 i = 0; i < 89; ++i) {
             assertEq(validatorRegistry.getStakedAmount(validators[i]), 1 wei);
             assertTrue(validatorRegistry.isValidatorOptedIn(validators[i]));
         }
@@ -727,7 +727,7 @@ contract ValidatorRegistryV1Test is Test {
         vm.prank(user1);
         validatorRegistry.addStake{value: 100 wei}(validators);
 
-        for (uint256 i = 0; i < 89; i++) {
+        for (uint256 i = 0; i < 89; ++i) {
             assertEq(validatorRegistry.getStakedAmount(validators[i]), 2 wei);
         }
         expectedFinalStake = 2 * expectedFinalStake;
