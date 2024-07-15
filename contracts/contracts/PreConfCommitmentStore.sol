@@ -540,7 +540,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
 
         // Check if the dispatch timestamp is within the allowed dispatch window
-        require(dispatchTimestamp >= minTime, "Invalid dispatch timestamp");
+        require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
@@ -699,7 +699,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         bytes32 _bytes32
     ) internal pure returns (string memory) {
         bytes memory _string = new bytes(64);
-        for (uint8 i = 0; i < 32; i++) {
+        for (uint8 i = 0; i < 32; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
         }
@@ -715,7 +715,7 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         bytes memory _bytes
     ) public pure returns (string memory) {
         bytes memory _string = new bytes(_bytes.length * 2);
-        for (uint256 i = 0; i < _bytes.length; i++) {
+        for (uint256 i = 0; i < _bytes.length; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
         }
