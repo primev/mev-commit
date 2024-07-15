@@ -308,7 +308,8 @@ contract ValidatorRegistryV1Test is Test {
 
         vm.deal(user1, 1 ether);
         vm.startPrank(user1);
-        validatorRegistry.stake{value: MIN_STAKE/2}(validators);
+        uint256 stakeAmount = MIN_STAKE/2+1;
+        validatorRegistry.stake{value: stakeAmount}(validators);
         vm.stopPrank();
 
         vm.prank(owner);
@@ -319,7 +320,7 @@ contract ValidatorRegistryV1Test is Test {
         emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE/2);
         validatorRegistry.slash(validators);
 
-        vm.expectRevert("Validator balance must be greater than or equal to slash amount");
+        vm.expectRevert("Validator balance must be greater than slash amount");
         vm.prank(SLASH_ORACLE);
         validatorRegistry.slash(validators);
     }

@@ -215,7 +215,7 @@ contract MevCommitAVSTest is Test {
 
         avsDirectoryMock.registerOperator(operator);
 
-        vm.roll(11 + operatorDeregPeriodBlocks);
+        vm.roll(11 + operatorDeregPeriodBlocks + 1);
 
         vm.expectEmit(true, true, true, true);
         emit OperatorDeregistered(operator);
@@ -583,7 +583,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(lstRestaker);
         mevCommitAVS.deregisterLSTRestaker();
 
-        vm.roll(302 + lstRestakerDeregPeriodBlocks);
+        vm.roll(302 + lstRestakerDeregPeriodBlocks + 1);
 
         bytes[] memory chosenVals = new bytes[](2);
         chosenVals[0] = bytes("valPubkey1");
@@ -720,7 +720,7 @@ contract MevCommitAVSTest is Test {
 
         assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
 
-        vm.roll(block.number + lstRestakerDeregPeriodBlocks);
+        vm.roll(block.number + lstRestakerDeregPeriodBlocks + 1);
 
         vm.prank(lstRestaker);
         mevCommitAVS.deregisterLSTRestaker();
@@ -779,7 +779,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(newAccount);
         mevCommitAVS.unfreeze{value: doubleUnfreezeFee}(valPubkeys);
 
-        vm.roll(block.number + unfreezePeriodBlocks);
+        vm.roll(block.number + unfreezePeriodBlocks + 1);
 
         assertEq(address(mevCommitAVS).balance, 0);
         assertEq(address(newAccount).balance, unfreezeFee * 2);
@@ -977,7 +977,7 @@ contract MevCommitAVSTest is Test {
         uint256 tripleUnfreezeFee = unfreezeFee * 3;
         vm.deal(newAccount, tripleUnfreezeFee);
 
-        vm.roll(block.number + unfreezePeriodBlocks);
+        vm.roll(block.number + unfreezePeriodBlocks + 1);
 
         assertEq(address(newAccount).balance, tripleUnfreezeFee);
         assertEq(address(mevCommitAVS).balance, 0);

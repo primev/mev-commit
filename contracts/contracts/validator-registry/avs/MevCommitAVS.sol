@@ -350,7 +350,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Internal function to deregister an operator.
     function _deregisterOperator(address operator) internal {
         require(operatorRegistrations[operator].deregRequestHeight.exists, "operator must have requested deregistration");
-        require(block.number >= operatorRegistrations[operator].deregRequestHeight.blockHeight + operatorDeregPeriodBlocks,
+        require(block.number > operatorRegistrations[operator].deregRequestHeight.blockHeight + operatorDeregPeriodBlocks,
             "deregistration must happen at least operatorDeregPeriodBlocks after deregistration request height");
         _eigenAVSDirectory.deregisterOperatorFromAVS(operator);
         delete operatorRegistrations[operator];
@@ -406,7 +406,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         require(!validatorRegistrations[valPubKey].freezeHeight.exists, "frozen validator cannot deregister");
         require(validatorRegistrations[valPubKey].deregRequestHeight.exists,
             "validator must have requested deregistration");
-        require(block.number >= validatorRegistrations[valPubKey].deregRequestHeight.blockHeight + validatorDeregPeriodBlocks,
+        require(block.number > validatorRegistrations[valPubKey].deregRequestHeight.blockHeight + validatorDeregPeriodBlocks,
             "deregistration must happen at least validatorDeregPeriodBlocks after deregistration request height");
         address podOwner = validatorRegistrations[valPubKey].podOwner;
         delete validatorRegistrations[valPubKey];
@@ -446,7 +446,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _deregisterLSTRestaker() internal {
         LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
         require(reg.deregRequestHeight.exists, "LST restaker must have requested deregistration");
-        require(block.number >= reg.deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
+        require(block.number > reg.deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
             "deregistration must happen at least lstRestakerDeregPeriodBlocks after deregistration request height");
         for (uint256 i = 0; i < reg.numChosen; ++i) {
             emit LSTRestakerDeregistered(reg.chosenValidators[i], reg.numChosen, msg.sender);
@@ -463,7 +463,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to unfreeze a validator.
     function _unfreeze(bytes calldata valPubKey) internal {
-        require(block.number >= validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
+        require(block.number > validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
             "unfreeze must happen at least unfreezePeriodBlocks after freeze height");
         EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);

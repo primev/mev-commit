@@ -264,7 +264,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             require(_isUnstaking(pubKey), "Unstake must be initiated before withdrawal");
-            require(block.number >= stakedValidators[pubKey].unstakeHeight.blockHeight + unstakePeriodBlocks,
+            require(block.number > stakedValidators[pubKey].unstakeHeight.blockHeight + unstakePeriodBlocks,
                 "withdrawal not allowed yet. Blocks requirement not met.");
             uint256 balance = stakedValidators[pubKey].balance;
             address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
@@ -282,8 +282,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     function _slash(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(stakedValidators[pubKey].balance >= slashAmount,
-                "Validator balance must be greater than or equal to slash amount");
+            require(stakedValidators[pubKey].balance > slashAmount,
+                "Validator balance must be greater than slash amount");
             stakedValidators[pubKey].balance -= slashAmount;
             if (_isUnstaking(pubKey)) {
                 // If validator is already unstaking, reset their unstake block number
@@ -307,8 +307,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function to set the slash amount parameter.
     function _setSlashAmount(uint256 newSlashAmount) internal {
-        require(newSlashAmount >= 0, "Slash amount must be positive or 0");
-        require(newSlashAmount <= minStake, "Slash amount must be less than or equal to minimum stake");
+        require(newSlashAmount > 0, "Slash amount must be positive");
+        require(newSlashAmount < minStake, "Slash amount must be less than minimum stake");
         slashAmount = newSlashAmount;
         emit SlashAmountSet(msg.sender, newSlashAmount);
     }
