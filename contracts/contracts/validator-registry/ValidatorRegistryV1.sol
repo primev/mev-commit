@@ -269,7 +269,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
             uint256 balance = stakedValidators[pubKey].balance;
             address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
             delete stakedValidators[pubKey];
-            payable(withdrawalAddress).transfer(balance);
+            (bool success, ) = withdrawalAddress.call{value: balance}("");
+            require(success, "Withdrawal failed");
             emit StakeWithdrawn(msg.sender, withdrawalAddress, pubKey, balance);
         }
     }
@@ -284,13 +285,14 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
             require(stakedValidators[pubKey].balance >= slashAmount,
                 "Validator balance must be greater than or equal to slash amount");
             stakedValidators[pubKey].balance -= slashAmount;
-            payable(slashReceiver).transfer(slashAmount);
             if (_isUnstaking(pubKey)) {
                 // If validator is already unstaking, reset their unstake block number
                 EventHeightLib.set(stakedValidators[pubKey].unstakeHeight, block.number);
             } else {
                 _unstakeSingle(pubKey);
             }
+            (bool success, ) = slashReceiver.call{value: slashAmount}("");
+            require(success, "Slashing transfer failed");
             emit Slashed(msg.sender, slashReceiver,
                 stakedValidators[pubKey].withdrawalAddress, pubKey, slashAmount);
         }

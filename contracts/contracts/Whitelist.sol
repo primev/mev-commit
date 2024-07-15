@@ -40,7 +40,8 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
     function mint(address _mintTo, uint256 _amount) external {
         require(isWhitelisted(msg.sender), "Sender is not whitelisted");
         require(address(this).balance >= _amount, "Insufficient contract balance");
-        payable(_mintTo).transfer(_amount);
+        (bool success, ) = _mintTo.call{value: _amount}("");
+        require(success, "Transfer to _mintTo failed");
     }
 
     // Receiver for native tokens to be "burnt"

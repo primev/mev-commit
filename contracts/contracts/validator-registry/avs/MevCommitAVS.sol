@@ -241,11 +241,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             "pay unfreeze fee for each validator");
         for (uint256 i = 0; i < valPubKey.length; i++) {
             _unfreeze(valPubKey[i]);
-            payable(unfreezeReceiver).transfer(unfreezeFee);
         }
+        (bool success, ) = unfreezeReceiver.call{value: requiredFee}("");
+        require(success, "Transfer to unfreezeReceiver failed");
         uint256 excessFee = msg.value - requiredFee;
         if (excessFee != 0) {
-            payable(msg.sender).transfer(excessFee);
+            (bool successRefund, ) = msg.sender.call{value: excessFee}("");
+            require(successRefund, "Refund of excess fee failed");
         }
     }
 
