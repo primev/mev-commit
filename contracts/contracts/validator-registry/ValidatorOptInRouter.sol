@@ -39,13 +39,17 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @notice Allows the owner to set the validator registry V1 contract.
-    function setValidatorRegistryV1(address _validatorRegistry) external onlyOwner {
-        validatorRegistryV1 = IValidatorRegistryV1(_validatorRegistry);
+    function setValidatorRegistryV1(IValidatorRegistryV1 _validatorRegistry) external onlyOwner {
+        address oldContract = address(validatorRegistryV1);
+        validatorRegistryV1 = _validatorRegistry;
+        emit ValidatorRegistryV1Set(oldContract, address(validatorRegistryV1));
     }
 
     /// @notice Allows the owner to set the mev-commit AVS contract.
-    function setMevCommitAVS(address _mevCommitAVS) external onlyOwner {
-        mevCommitAVS = IMevCommitAVS(_mevCommitAVS);
+    function setMevCommitAVS(IMevCommitAVS _mevCommitAVS) external onlyOwner {
+        address oldContract = address(mevCommitAVS);
+        mevCommitAVS = _mevCommitAVS;
+        emit MevCommitAVSSet(oldContract, address(mevCommitAVS));
     }
 
     /// @notice Returns an array of bools indicating whether each validator pubkey is opted in to mev-commit.
@@ -59,9 +63,10 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
 
     /// @notice Internal function to check if a validator is opted in to mev-commit with either simple staking or restaking.
     function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
-        bool simpleStakeOptedIn = validatorRegistryV1.isValidatorOptedIn(valBLSPubKey);
-        bool restakeOptedIn = mevCommitAVS.isValidatorOptedIn(valBLSPubKey);
-        return simpleStakeOptedIn || restakeOptedIn;
+        if (validatorRegistryV1.isValidatorOptedIn(valBLSPubKey)) {
+            return true;
+        }
+        return mevCommitAVS.isValidatorOptedIn(valBLSPubKey);
     }
 
     /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
