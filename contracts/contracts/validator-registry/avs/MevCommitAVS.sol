@@ -236,12 +236,16 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
     function unfreeze(bytes[] calldata valPubKey) payable external 
         whenNotPaused() onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) {
-        require(msg.value >= unfreezeFee * valPubKey.length,
-            "sender must pay at least the unfreeze fee for each validator");
-        uint256 feePerVal = msg.value / valPubKey.length;
+        uint256 requiredFee = unfreezeFee * valPubKey.length;
+        require(msg.value >= requiredFee,
+            "pay unfreeze fee for each validator");
         for (uint256 i = 0; i < valPubKey.length; i++) {
             _unfreeze(valPubKey[i]);
-            payable(unfreezeReceiver).transfer(feePerVal);
+            payable(unfreezeReceiver).transfer(unfreezeFee);
+        }
+        uint256 excessFee = msg.value - requiredFee;
+        if (excessFee != 0) {
+            payable(msg.sender).transfer(excessFee);
         }
     }
 
@@ -357,8 +361,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         bytes[] calldata valPubKeys,
         address podOwner
     ) internal onlyNonRegisteredValidators(valPubKeys) onlyPodOwnerOrOperator(podOwner)  {
-        require(operatorRegistrations[_delegationManager.delegatedTo(podOwner)].exists,
-            "delegated operator must be registered with MevCommitAVS");
+        address operator = _delegationManager.delegatedTo(podOwner);
+        require(operatorRegistrations[operator].exists,
+            "operator must register w/ MevCommitAVS");
+        require(!operatorRegistrations[operator].deregRequestHeight.exists,
+            "operator must not request deregistration");
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         for (uint256 i = 0; i < valPubKeys.length; i++) {
             require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
@@ -578,14 +585,21 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to check if a validator is opted-in.
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
-        bool isValRegistered = validatorRegistrations[valPubKey].exists;
-        bool isFrozen = validatorRegistrations[valPubKey].freezeHeight.exists;
-        bool isDeregRequested = validatorRegistrations[valPubKey].deregRequestHeight.exists;
-        IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
+        IMevCommitAVS.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
+        bool isValRegistered = valRegistration.exists;
+        bool isFrozen = valRegistration.freezeHeight.exists;
+        bool isValDeregRequested = valRegistration.deregRequestHeight.exists;
+
+        IEigenPod pod = _eigenPodManager.getPod(valRegistration.podOwner);
         bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
-        address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
-        bool isOperatorRegistered = operatorRegistrations[delegatedOperator].exists;
-        return isValRegistered && !isFrozen && !isDeregRequested && isValActive && isOperatorRegistered;
+
+        address delegatedOperator = _delegationManager.delegatedTo(valRegistration.podOwner);
+        IMevCommitAVS.OperatorRegistrationInfo memory operatorRegistration = operatorRegistrations[delegatedOperator];
+        bool isOperatorRegistered = operatorRegistration.exists;
+        bool isOperatorDeregRequested = operatorRegistration.deregRequestHeight.exists;
+
+        return isValRegistered && !isFrozen && !isValDeregRequested && isValActive
+            && isOperatorRegistered && !isOperatorDeregRequested;
     }
 
     /// @dev Internal function to get the list of restakeable strategies.

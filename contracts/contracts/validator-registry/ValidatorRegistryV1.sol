@@ -30,6 +30,14 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         _;
     }
 
+    /// @dev Modifier to confirm all provided BLS pubkeys are NOT unstaking.
+    modifier onlyNotUnstaking(bytes[] calldata blsPubKeys) {
+        for (uint256 i = 0; i < blsPubKeys.length; ++i) {
+            require(!_isUnstaking(blsPubKeys[i]), "Validator must NOT be unstaking");
+        }
+        _;
+    }
+
     /// @dev Modifier to confirm the sender is the withdrawal address for all provided BLS pubkeys.
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; i++) {
@@ -108,7 +116,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to add stake to.
      */
     function addStake(bytes[] calldata blsPubKeys) external payable 
-        onlyExistentValidatorRecords(blsPubKeys) whenNotPaused() {
+        onlyExistentValidatorRecords(blsPubKeys) onlyNotUnstaking(blsPubKeys) whenNotPaused() {
         _addStake(blsPubKeys);
     }
 
@@ -117,7 +125,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to unstake.
      */
     function unstake(bytes[] calldata blsPubKeys) external 
-        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
+        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys)
+            onlyNotUnstaking(blsPubKeys) whenNotPaused() {
         _unstake(blsPubKeys);
     }
 
@@ -174,24 +183,41 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         _setUnstakePeriodBlocks(newUnstakePeriodBlocks);
     }
 
+    /// @dev Internal function that splits msg.value stake to apply an action for each validator.
+    function _splitStakeAndApplyAction(
+        bytes[] calldata blsPubKeys,
+        address withdrawalAddress,
+        function(bytes calldata, uint256, address) internal action
+    ) internal {
+        require(blsPubKeys.length != 0, "At least one recipient required");
+        uint256 baseStakeAmount = msg.value / blsPubKeys.length;
+        require(baseStakeAmount != 0, "Stake too low for number of keys");
+        uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
+        uint256 numKeys = blsPubKeys.length;
+        for (uint256 i = 0; i < numKeys; ++i) {
+            uint256 stakeAmount = (i == numKeys - 1) ? lastStakeAmount : baseStakeAmount;
+            action(blsPubKeys[i], stakeAmount, withdrawalAddress);
+        }
+    }
+
     /*
      * @dev Internal function to stake ETH on behalf of one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The validator BLS public keys to stake.
      * @param withdrawalAddress The address to receive the staked ETH.
      */
     function _stake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
-        require(blsPubKeys.length > 0, "There must be at least one recipient");
-        uint256 splitAmount = msg.value / blsPubKeys.length;
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            bytes calldata pubKey = blsPubKeys[i];
-            stakedValidators[pubKey] = StakedValidator({
-                exists: true,
-                balance: splitAmount,
-                withdrawalAddress: withdrawalAddress,
-                unstakeHeight: EventHeightLib.EventHeight({ exists: false, blockHeight: 0 })
-            });
-            emit Staked(msg.sender, withdrawalAddress, pubKey, splitAmount);
-        }
+        _splitStakeAndApplyAction(blsPubKeys, withdrawalAddress, _stakeAction);
+    }
+
+    /// @dev Internal function that creates a staked validator record and emits a Staked event.
+    function _stakeAction(bytes calldata pubKey, uint256 stakeAmount, address withdrawalAddress) internal {
+        stakedValidators[pubKey] = StakedValidator({
+            exists: true,
+            balance: stakeAmount,
+            withdrawalAddress: withdrawalAddress,
+            unstakeHeight: EventHeightLib.EventHeight({ exists: false, blockHeight: 0 })
+        });
+        emit Staked(msg.sender, withdrawalAddress, pubKey, stakeAmount);
     }
 
     /* 
@@ -199,14 +225,14 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param blsPubKeys The BLS public keys to add stake to.
      */
     function _addStake(bytes[] calldata blsPubKeys) internal {
-        require(blsPubKeys.length > 0, "There must be at least one recipient");
-        uint256 splitAmount = msg.value / blsPubKeys.length;
-        for (uint256 i = 0; i < blsPubKeys.length; i++) {
-            bytes calldata pubKey = blsPubKeys[i];
-            stakedValidators[pubKey].balance += splitAmount;
-            emit StakeAdded(msg.sender, stakedValidators[pubKey].withdrawalAddress,
-                pubKey, splitAmount, stakedValidators[pubKey].balance);
-        }
+        _splitStakeAndApplyAction(blsPubKeys, address(0), _addStakeAction);
+    }
+
+    /// @dev Internal function that adds stake to an already existing validator record, emitting a StakeAdded event.
+    function _addStakeAction(bytes calldata pubKey, uint256 stakeAmount, address) internal {
+        IValidatorRegistryV1.StakedValidator storage validator = stakedValidators[pubKey];
+        validator.balance += stakeAmount;
+        emit StakeAdded(msg.sender, validator.withdrawalAddress, pubKey, stakeAmount, validator.balance);
     }
 
     /* 
@@ -225,7 +251,6 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @param pubKey The single BLS public key to unstake.
      */
     function _unstakeSingle(bytes calldata pubKey) internal {
-        require(!_isUnstaking(pubKey), "Unstake must NOT be initiated for validator");
         EventHeightLib.set(stakedValidators[pubKey].unstakeHeight, block.number);
         emit Unstaked(msg.sender, stakedValidators[pubKey].withdrawalAddress,
             pubKey, stakedValidators[pubKey].balance);
