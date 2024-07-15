@@ -50,7 +50,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         );
 
     // Hex characters
-    bytes constant HEXCHARS = "0123456789abcdef";
+    bytes public constant HEXCHARS = "0123456789abcdef";
 
     // Represents the dispatch window in milliseconds
     uint64 public commitmentDispatchWindow;
@@ -714,7 +714,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
      */
     function _bytesToHexString(
         bytes memory _bytes
-    ) public pure returns (string memory) {
+    ) internal pure returns (string memory) {
         bytes memory _string = new bytes(_bytes.length * 2);
         for (uint256 i = 0; i < _bytes.length; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
