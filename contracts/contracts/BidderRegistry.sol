@@ -209,7 +209,7 @@ contract BidderRegistry is
         uint256 amountToDeposit = msg.value / windows.length;
         uint256 remainingAmount = msg.value % windows.length; // to handle rounding issues
 
-        for (uint16 i = 0; i < windows.length; i++) {
+        for (uint16 i = 0; i < windows.length; ++i) {
             uint256 window = windows[i];
 
             uint256 currentLockedFunds = lockedFunds[msg.sender][window];
@@ -236,24 +236,23 @@ contract BidderRegistry is
         uint256[] calldata windows
     ) external nonReentrant {
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
-        address sender = msg.sender;
         uint256 totalAmount;
 
-        for (uint256 i = 0; i < windows.length; i++) {
+        for (uint256 i = 0; i < windows.length; ++i) {
             uint256 window = windows[i];
             require(
                 window < currentWindow,
-                "funds can only be withdrawn after the window is settled"
+                "withdraw after window settled"
             );
 
-            uint256 amount = lockedFunds[sender][window];
+            uint256 amount = lockedFunds[msg.sender][window];
             if (amount == 0) {
                 continue;
             }
 
-            lockedFunds[sender][window] = 0;
-            maxBidPerBlock[sender][window] = 0;
-            emit BidderWithdrawal(sender, window, amount);
+            lockedFunds[msg.sender][window] = 0;
+            maxBidPerBlock[msg.sender][window] = 0;
+            emit BidderWithdrawal(msg.sender, window, amount);
 
             totalAmount += amount;
         }
@@ -262,9 +261,10 @@ contract BidderRegistry is
             return;
         }
 
-        (bool success, ) = sender.call{value: totalAmount}("");
-        require(success, "Couldn't transfer to bidder");
+        (bool success, ) = msg.sender.call{value: totalAmount}("");
+        require(success, "transfer to bidder failed");
     }
+
     /**
      * @dev Check the deposit of a bidder.
      * @param bidder The address of the bidder.
@@ -292,10 +292,10 @@ contract BidderRegistry is
         address payable provider,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreConfirmationEngine {
-        BidState memory bidState = BidPayment[commitmentDigest];
+        BidState storage bidState = BidPayment[commitmentDigest];
         require(
             bidState.state == State.PreConfirmed,
-            "The bid was not preconfirmed"
+            "bid not preconfirmed"
         );
         uint256 decayedAmt = (bidState.bidAmt *
             residualBidPercentAfterDecay *
@@ -316,12 +316,12 @@ contract BidderRegistry is
         // Transfer funds back to the bidder wallet
         uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
-            (bool success, ) = payable(bidState.bidder).call{value: (bidState.bidAmt - decayedAmt)}("");
-            require(success, "couldn't transfer to bidder");
+            (bool success, ) = payable(bidState.bidder).call{value: (fundsToReturn)}("");
+            require(success, "transfer to bidder failed");
         }
 
-        BidPayment[commitmentDigest].state = State.Withdrawn;
-        BidPayment[commitmentDigest].bidAmt = 0;
+        bidState.state = State.Withdrawn;
+        bidState.bidAmt = 0;
 
         emit FundsRewarded(
             commitmentDigest,
@@ -342,17 +342,17 @@ contract BidderRegistry is
         uint256 window,
         bytes32 bidID
     ) external nonReentrant onlyPreConfirmationEngine {
-        BidState memory bidState = BidPayment[bidID];
+        BidState storage bidState = BidPayment[bidID];
         require(
             bidState.state == State.PreConfirmed,
             "The bid was not preconfirmed"
         );
         uint256 amt = bidState.bidAmt;
+        bidState.state = State.Withdrawn;
+        bidState.bidAmt = 0;
+
         (bool success, ) = payable(bidState.bidder).call{value: amt}("");
         require(success, "couldn't transfer to bidder");
-
-        BidPayment[bidID].state = State.Withdrawn;
-        BidPayment[bidID].bidAmt = 0;
 
         emit FundsRetrieved(bidID, bidState.bidder, window, amt);
     }
@@ -370,7 +370,7 @@ contract BidderRegistry is
         address bidder,
         uint64 blockNumber
     ) external onlyPreConfirmationEngine {
-        BidState memory bidState = BidPayment[commitmentDigest];
+        BidState storage bidState = BidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return;
         }
@@ -380,10 +380,11 @@ contract BidderRegistry is
         );
 
         uint256 windowAmount = maxBidPerBlock[bidder][currentWindow];
+        uint256 usedAmount = usedFunds[bidder][blockNumber];
 
         // Calculate the available amount for this block
-        uint256 availableAmount = windowAmount > usedFunds[bidder][blockNumber]
-            ? windowAmount - usedFunds[bidder][blockNumber]
+        uint256 availableAmount = windowAmount > usedAmount
+            ? windowAmount - usedAmount
             : 0;
 
         // Check if bid exceeds the available amount for the block
@@ -398,11 +399,9 @@ contract BidderRegistry is
             lockedFunds[bidder][currentWindow] -= bid;
         }
 
-        BidPayment[commitmentDigest] = BidState({
-            state: State.PreConfirmed,
-            bidder: bidder,
-            bidAmt: bid
-        });
+        bidState.state = State.PreConfirmed;
+        bidState.bidder = bidder;
+        bidState.bidAmt = bid;
     }
 
     /**
@@ -429,9 +428,9 @@ contract BidderRegistry is
     function withdrawFeeRecipientAmount() external nonReentrant {
         uint256 amount = feeRecipientAmount;
         feeRecipientAmount = 0;
-        require(amount > 0, "fee recipient amount Amount is zero");
+        require(amount != 0, "fee amount is zero");
         (bool successFee, ) = feeRecipient.call{value: amount}("");
-        require(successFee, "couldn't transfer to fee Recipient");
+        require(successFee, "fee transfer failed");
     }
 
     /**
@@ -444,7 +443,7 @@ contract BidderRegistry is
         uint256 amount = providerAmount[provider];
         providerAmount[provider] = 0;
 
-        require(amount > 0, "provider Amount is zero");
+        require(amount != 0, "provider amount is zero");
         (bool success, ) = provider.call{value: amount}("");
         require(success, "couldn't transfer to provider");
     }
@@ -460,19 +459,20 @@ contract BidderRegistry is
     ) external nonReentrant {
         require(
             msg.sender == bidder,
-            "only bidder can withdraw funds from window"
+            "only bidder can withdraw"
         );
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
         // withdraw is enabled only when closed and settled
         require(
             window < currentWindow,
-            "funds can only be withdrawn after the window is settled"
+            "window not settled"
         );
         uint256 amount = lockedFunds[bidder][window];
-        lockedFunds[bidder][window] = 0;
-        require(amount > 0, "bidder Amount is zero");
+        require(amount != 0, "bidder amount is zero");
 
+        lockedFunds[bidder][window] = 0;
         maxBidPerBlock[bidder][window] = 0;
+
         (bool success, ) = bidder.call{value: amount}("");
         require(success, "couldn't transfer to bidder");
 
@@ -488,9 +488,9 @@ contract BidderRegistry is
     ) external onlyOwner nonReentrant {
         uint256 _protocolFeeAmount = protocolFeeAmount;
         protocolFeeAmount = 0;
-        require(_protocolFeeAmount > 0, "insufficient protocol fee amount");
+        require(_protocolFeeAmount != 0, "insufficient protocol fee amount");
 
         (bool success, ) = bidder.call{value: _protocolFeeAmount}("");
-        require(success, "couldn't transfer deposit to bidder");
+        require(success, "deposit transfer failed");
     }
 }
