@@ -455,7 +455,7 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
-        (bool isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
+        (,bool isUsed , , , , , , , , , , , , ,) = preConfCommitmentStore
             .commitments(preConfHash);
         assertEq(isUsed, false);
 
@@ -679,7 +679,7 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been set before
-            (bool isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
+            (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
@@ -721,7 +721,7 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateSlash(index, 100);
 
-            (isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
+            (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
             .commitments(index);
             // Verify that the commitment has been deleted
             assert(isUsed == true);
@@ -771,7 +771,7 @@ contract TestPreConfCommitmentStore is Test {
             );
             
             // Verify that the commitment has not been used before
-            (bool isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
+            (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
@@ -812,7 +812,7 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateReward(index, 100);
 
-            (isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
+            (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
             .commitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
@@ -859,7 +859,7 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (bool isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
+            (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
@@ -902,7 +902,7 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(feeRecipient);
             preConfCommitmentStore.initiateReward(index, 0);
 
-            (isUsed, , , , , , , , , , , , , ,) = preConfCommitmentStore
+            (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
             .commitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);

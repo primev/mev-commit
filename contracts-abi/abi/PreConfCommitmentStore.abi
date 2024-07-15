@@ -160,34 +160,19 @@
     ],
     "outputs": [
       {
-        "name": "isUsed",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
         "name": "bidder",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "commiter",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "bid",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "isUsed",
+        "type": "bool",
+        "internalType": "bool"
       },
       {
         "name": "blockNumber",
         "type": "uint64",
         "internalType": "uint64"
-      },
-      {
-        "name": "bidHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
       },
       {
         "name": "decayStartTimeStamp",
@@ -200,14 +185,24 @@
         "internalType": "uint64"
       },
       {
-        "name": "txnHash",
-        "type": "string",
-        "internalType": "string"
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
       },
       {
-        "name": "revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
+        "name": "commiter",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "bid",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bidHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
         "name": "commitmentHash",
@@ -225,14 +220,19 @@
         "internalType": "bytes"
       },
       {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
         "name": "sharedSecretKey",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "txnHash",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "revertingTxHashes",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -278,6 +278,11 @@
         "internalType": "address"
       },
       {
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
         "name": "commitmentDigest",
         "type": "bytes32",
         "internalType": "bytes32"
@@ -286,11 +291,6 @@
         "name": "commitmentSignature",
         "type": "bytes",
         "internalType": "bytes"
-      },
-      {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -356,34 +356,19 @@
         "internalType": "struct PreConfCommitmentStore.PreConfCommitment",
         "components": [
           {
-            "name": "isUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
             "name": "bidder",
             "type": "address",
             "internalType": "address"
           },
           {
-            "name": "commiter",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "bid",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "isUsed",
+            "type": "bool",
+            "internalType": "bool"
           },
           {
             "name": "blockNumber",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "bidHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
           },
           {
             "name": "decayStartTimeStamp",
@@ -396,14 +381,24 @@
             "internalType": "uint64"
           },
           {
-            "name": "txnHash",
-            "type": "string",
-            "internalType": "string"
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
-            "name": "revertingTxHashes",
-            "type": "string",
-            "internalType": "string"
+            "name": "commiter",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "bid",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "bidHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "commitmentHash",
@@ -421,14 +416,19 @@
             "internalType": "bytes"
           },
           {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
             "name": "sharedSecretKey",
             "type": "bytes",
             "internalType": "bytes"
+          },
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
           }
         ]
       }
@@ -445,34 +445,19 @@
         "internalType": "struct PreConfCommitmentStore.PreConfCommitment",
         "components": [
           {
-            "name": "isUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
             "name": "bidder",
             "type": "address",
             "internalType": "address"
           },
           {
-            "name": "commiter",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "bid",
-            "type": "uint256",
-            "internalType": "uint256"
+            "name": "isUsed",
+            "type": "bool",
+            "internalType": "bool"
           },
           {
             "name": "blockNumber",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "bidHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
           },
           {
             "name": "decayStartTimeStamp",
@@ -485,14 +470,24 @@
             "internalType": "uint64"
           },
           {
-            "name": "txnHash",
-            "type": "string",
-            "internalType": "string"
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
-            "name": "revertingTxHashes",
-            "type": "string",
-            "internalType": "string"
+            "name": "commiter",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "bid",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "bidHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "commitmentHash",
@@ -510,14 +505,19 @@
             "internalType": "bytes"
           },
           {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
             "name": "sharedSecretKey",
             "type": "bytes",
             "internalType": "bytes"
+          },
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
           }
         ]
       }
@@ -558,6 +558,11 @@
             "internalType": "address"
           },
           {
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
             "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -566,11 +571,6 @@
             "name": "commitmentSignature",
             "type": "bytes",
             "internalType": "bytes"
-          },
-          {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
           }
         ]
       }
@@ -597,6 +597,11 @@
             "internalType": "address"
           },
           {
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
             "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -605,11 +610,6 @@
             "name": "commitmentSignature",
             "type": "bytes",
             "internalType": "bytes"
-          },
-          {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
           }
         ]
       }

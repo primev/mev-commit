@@ -22,9 +22,6 @@ contract BidderRegistry is
     uint256 constant PRECISION = 10 ** 25;
     uint256 constant PERCENT = 100 * PRECISION;
 
-    /// @dev Fee percent that would be taken by protocol when provider is slashed
-    uint16 public feePercent;
-
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
 
@@ -33,6 +30,9 @@ contract BidderRegistry is
 
     /// @dev Address of the pre-confirmations contract
     address public preConfirmationsContract;
+
+    /// @dev Fee percent that would be taken by protocol when provider is slashed
+    uint16 public feePercent;
 
     /// @dev Block tracker contract
     IBlockTracker public blockTrackerContract;
