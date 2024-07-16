@@ -7,6 +7,7 @@ import {EventHeightLib} from "../utils/EventHeight.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Errors} from "../utils/Errors.sol";
 
 /// @title Validator Registry v1
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
@@ -372,11 +373,11 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
     fallback() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidFallback();
     }
 
     /// @dev Receive function is disabled for this contract to prevent unintended interactions.
     receive() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidReceive();
     }
 }

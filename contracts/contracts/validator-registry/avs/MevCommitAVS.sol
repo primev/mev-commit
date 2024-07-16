@@ -13,6 +13,7 @@ import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
+import {Errors} from "../../utils/Errors.sol";
 
 /// @title MevCommitAVS
 /// @notice This contract serves as the entrypoint for operators, validators and LST restakers to register with
@@ -611,11 +612,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Fallback function to prevent unintended contract interactions.
     fallback() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidFallback();
     }
 
     /// @dev Receive function to prevent unintended contract interactions.
     receive() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidReceive();
     }
 }

@@ -7,6 +7,7 @@ import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
 import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Errors} from "../utils/Errors.sol";
 
 /// @title ValidatorOptInRouter
 /// @notice This contract acts as the top level source of truth for whether a validator 
@@ -71,11 +72,11 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
 
     /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
     fallback() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidFallback();
     }
 
     /// @dev Receive function is disabled for this contract to prevent unintended interactions.
     receive() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidReceive();
     }
 }
