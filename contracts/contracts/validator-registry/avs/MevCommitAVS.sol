@@ -148,7 +148,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _setOperatorDeregPeriodBlocks(operatorDeregPeriodBlocks_);
         _setValidatorDeregPeriodBlocks(validatorDeregPeriodBlocks_);
         _setLstRestakerDeregPeriodBlocks(lstRestakerDeregPeriodBlocks_);
-        if (bytes(metadataURI_).length > 0) {
+        if (bytes(metadataURI_).length != 0) {
             _updateMetadataURI(metadataURI_);
         }
         __Ownable_init(owner_);
@@ -416,9 +416,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to register an LST restaker.
     function _registerLSTRestaker(bytes[] calldata chosenValidators) internal {
-        require(chosenValidators.length > 0, "need chosen vals");
+        require(chosenValidators.length != 0, "need chosen vals");
         uint256 stratLen = _strategyManager.stakerStrategyListLength(msg.sender);
-        require(stratLen > 0, "no eigen strategy deposits");
+        require(stratLen != 0, "no eigen strategy deposits");
         lstRestakerRegistrations[msg.sender] = LSTRestakerRegistrationInfo({
             exists: true,
             chosenValidators: chosenValidators,

@@ -300,14 +300,14 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function to set the minimum stake parameter.
     function _setMinStake(uint256 newMinStake) internal {
-        require(newMinStake > 0, "Min stake must be positive");
+        require(newMinStake != 0, "Min stake must be positive");
         minStake = newMinStake;
         emit MinStakeSet(msg.sender, newMinStake);
     }
 
     /// @dev Internal function to set the slash amount parameter.
     function _setSlashAmount(uint256 newSlashAmount) internal {
-        require(newSlashAmount > 0, "Slash amount must be > 0");
+        require(newSlashAmount != 0, "Slash amount must be > 0");
         require(newSlashAmount < minStake, "Slash amount must be < minStake");
         slashAmount = newSlashAmount;
         emit SlashAmountSet(msg.sender, newSlashAmount);
@@ -329,7 +329,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function to set the unstake period parameter.
     function _setUnstakePeriodBlocks(uint256 newUnstakePeriodBlocks) internal {
-        require(newUnstakePeriodBlocks > 0, "Unstake period must be positive");
+        require(newUnstakePeriodBlocks != 0, "Unstake period must be positive");
         unstakePeriodBlocks = newUnstakePeriodBlocks;
         emit UnstakePeriodBlocksSet(msg.sender, newUnstakePeriodBlocks);
     }
