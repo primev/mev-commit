@@ -10,21 +10,21 @@ interface IPreConfCommitmentStore {
 
     /// @dev Struct for all the information around preconfirmations commitment
     struct PreConfCommitment {
-        bool isUsed;
         address bidder;
-        address commiter;
-        uint256 bid;
+        bool isUsed;
         uint64 blockNumber;
-        bytes32 bidHash;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
-        string txnHash;
-        string revertingTxHashes;
+        uint64 dispatchTimestamp;
+        address commiter;
+        uint256 bid;
+        bytes32 bidHash;
         bytes32 commitmentHash;
         bytes bidSignature;
         bytes commitmentSignature;
-        uint64 dispatchTimestamp;
         bytes sharedSecretKey;
+        string txnHash;
+        string revertingTxHashes;
     }
 
     event SignatureVerified(

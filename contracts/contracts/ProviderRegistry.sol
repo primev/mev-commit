@@ -24,14 +24,14 @@ contract ProviderRegistry is
     /// @dev Minimum stake required for registration
     uint256 public minStake;
 
-    /// @dev Fee percent that would be taken by protocol when provider is slashed
-    uint16 public feePercent;
-
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
 
     /// @dev Address of the pre-confirmations contract
     address public preConfirmationsContract;
+
+    /// @dev Fee percent that would be taken by protocol when provider is slashed
+    uint16 public feePercent;
 
     /// @dev Fee recipient
     address public feeRecipient;

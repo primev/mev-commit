@@ -83,21 +83,21 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev Struct for all the information around preconfirmations commitment
     struct PreConfCommitment {
-        bool isUsed;
         address bidder;
-        address commiter;
-        uint256 bid;
+        bool isUsed;
         uint64 blockNumber;
-        bytes32 bidHash;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
-        string txnHash;
-        string revertingTxHashes;
+        uint64 dispatchTimestamp;
+        address commiter;
+        uint256 bid;
+        bytes32 bidHash;
         bytes32 commitmentHash;
         bytes bidSignature;
         bytes commitmentSignature;
-        uint64 dispatchTimestamp;
         bytes sharedSecretKey;
+        string txnHash;
+        string revertingTxHashes;
     }
 
     /// @dev Event to log successful commitment storage
@@ -137,9 +137,9 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     struct EncrPreConfCommitment {
         bool isUsed;
         address commiter;
+        uint64 dispatchTimestamp;
         bytes32 commitmentDigest;
         bytes commitmentSignature;
-        uint64 dispatchTimestamp;
     }
 
     /// @dev Event to log successful encrypted commitment storage
@@ -428,6 +428,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public returns (bytes32 commitmentIndex) {
+        require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
+
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bid,
             blockNumber,
@@ -461,7 +463,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         );
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
-        require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
 
         address winner = blockTracker.getBlockWinner(blockNumber);
         require(
@@ -471,21 +472,21 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         );
 
         PreConfCommitment memory newCommitment = PreConfCommitment(
-            false,
             bidderAddress,
-            commiterAddress,
-            bid,
+            false,
             blockNumber,
-            bHash,
             decayStartTimeStamp,
             decayEndTimeStamp,
-            txnHash,
-            revertingTxHashes,
+            encryptedCommitment.dispatchTimestamp,
+            commiterAddress,
+            bid,
+            bHash,
             commitmentDigest,
             bidSignature,
             commitmentSignature,
-            encryptedCommitment.dispatchTimestamp,
-            sharedSecretKey
+            sharedSecretKey,
+            txnHash,
+            revertingTxHashes
         );
 
         commitmentIndex = getCommitmentIndex(newCommitment);
@@ -552,9 +553,9 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
             commiterAddress,
+            dispatchTimestamp,
             commitmentDigest,
-            commitmentSignature,
-            dispatchTimestamp
+            commitmentSignature
         );
 
         commitmentIndex = getEncryptedCommitmentIndex(newCommitment);
