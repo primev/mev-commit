@@ -110,7 +110,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("sender must be an eigenlayer operator");
+        vm.expectRevert("sender isnt eigen core operator");
         vm.prank(operator);
         mevCommitAVS.registerOperator(operatorSignature);
 
@@ -125,7 +125,7 @@ contract MevCommitAVSTest is Test {
         assertTrue(reg.exists);
         assertFalse(reg.deregRequestHeight.exists);
 
-        vm.expectRevert("sender must not be registered operator");
+        vm.expectRevert("sender is registered operator");
         vm.prank(operator);
         mevCommitAVS.registerOperator(operatorSignature);
     }
@@ -143,14 +143,14 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("operator must be registered");
+        vm.expectRevert("operator not registered");
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
 
         testRegisterOperator();
 
         address otherAcct = address(0x777);
-        vm.expectRevert("sender must be operator");
+        vm.expectRevert("sender isnt specified operator");
         vm.prank(otherAcct);
         mevCommitAVS.requestOperatorDeregistration(operator);
 
@@ -168,7 +168,7 @@ contract MevCommitAVSTest is Test {
         assertTrue(reg.deregRequestHeight.exists);
         assertEq(reg.deregRequestHeight.blockHeight, 108);
 
-        vm.expectRevert("operator must not have already requested deregistration");
+        vm.expectRevert("operator dereg already req");
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
     }
@@ -186,25 +186,25 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("operator must be registered");
+        vm.expectRevert("operator not registered");
         vm.prank(operator);
         mevCommitAVS.deregisterOperator(operator);
 
         testRegisterOperator();
 
         address otherAcct = address(0x777);
-        vm.expectRevert("sender must be operator");
+        vm.expectRevert("sender isnt specified operator");
         vm.prank(otherAcct);
         mevCommitAVS.deregisterOperator(operator);
 
-        vm.expectRevert("operator must have requested deregistration");
+        vm.expectRevert("dereg not requested");
         vm.prank(operator);
         mevCommitAVS.deregisterOperator(operator);
 
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
 
-        vm.expectRevert("deregistration must happen at least operatorDeregPeriodBlocks after deregistration request height");
+        vm.expectRevert("dereg too soon");
         vm.prank(operator);
         mevCommitAVS.deregisterOperator(operator);
 
@@ -259,11 +259,11 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("sender must be podOwner or delegated operator");
+        vm.expectRevert("sender not podOwner or operator");
         vm.prank(otherAcct);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
-        vm.expectRevert("operator must register w/ MevCommitAVS");
+        vm.expectRevert("operator not registered");
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
@@ -278,7 +278,7 @@ contract MevCommitAVSTest is Test {
         }));
         eigenPodManagerMock.setMockPod(podOwner, mockPod);
 
-        vm.expectRevert("validator must be active under pod");
+        vm.expectRevert("validator not active");
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
@@ -325,7 +325,7 @@ contract MevCommitAVSTest is Test {
         assertFalse(regInfo0.deregRequestHeight.exists);
         assertFalse(regInfo1.deregRequestHeight.exists);
 
-        vm.expectRevert("validator must not be registered");
+        vm.expectRevert("validator is registered");
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
     }
@@ -347,7 +347,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("validator must be registered");
+        vm.expectRevert("validator not registered");
         vm.prank(podOwner);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
 
@@ -381,7 +381,7 @@ contract MevCommitAVSTest is Test {
         assertFalse(regInfo0.freezeHeight.exists);
         assertFalse(regInfo1.freezeHeight.exists);
 
-        vm.expectRevert("validator must not have already requested deregistration");
+        vm.expectRevert("dereg already requested");
         vm.prank(podOwner);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
     }
@@ -401,18 +401,18 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("validator must be registered");
+        vm.expectRevert("validator not registered");
         vm.prank(podOwner);
         mevCommitAVS.deregisterValidators(valPubkeys);
 
         testRegisterValidatorsByPodOwners();
 
         address otherAcct = address(0x777);
-        vm.expectRevert("sender must be podOwner or delegated operator of validator");
+        vm.expectRevert("sender not podOwner or operator");
         vm.prank(otherAcct);
         mevCommitAVS.deregisterValidators(valPubkeys);
 
-        vm.expectRevert("validator must have requested deregistration");
+        vm.expectRevert("dereg not requested");
         vm.prank(podOwner);
         mevCommitAVS.deregisterValidators(valPubkeys);
 
@@ -427,7 +427,7 @@ contract MevCommitAVSTest is Test {
         assertTrue(regInfo0.deregRequestHeight.exists);
         assertTrue(regInfo1.deregRequestHeight.exists);
 
-        vm.expectRevert("deregistration must happen at least validatorDeregPeriodBlocks after deregistration request height");
+        vm.expectRevert("dereg too soon");
         vm.prank(operator);
         mevCommitAVS.deregisterValidators(valPubkeys2);
 
@@ -460,7 +460,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("sender must be delegated to an operator that is registered with MevCommitAVS");
+        vm.expectRevert("no delegation to reg operator");
         vm.prank(otherAcct);
         mevCommitAVS.registerLSTRestaker(chosenVals);
 
@@ -473,14 +473,14 @@ contract MevCommitAVSTest is Test {
         vm.prank(lstRestaker);
         delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
 
-        vm.expectRevert("LST restaker must choose at least one validator");
+        vm.expectRevert("need chosen vals");
         vm.prank(lstRestaker);
         mevCommitAVS.registerLSTRestaker(chosenVals);
 
         bytes[] memory chosenVals2 = new bytes[](2);
         chosenVals2[0] = bytes("valPubkey1");
         chosenVals2[1] = bytes("valPubkey2");
-        vm.expectRevert("LST restaker must have deposited into at least one strategy");
+        vm.expectRevert("no eigen strategy deposits");
         vm.prank(lstRestaker);
         mevCommitAVS.registerLSTRestaker(chosenVals2);
 
@@ -504,7 +504,7 @@ contract MevCommitAVSTest is Test {
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], chosenVals2[1]);
         assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
     
-        vm.expectRevert("sender must not be registered LST restaker");
+        vm.expectRevert("LST restaker is registered");
         vm.prank(lstRestaker);
         mevCommitAVS.registerLSTRestaker(chosenVals2);
     }
@@ -520,7 +520,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("sender must be registered LST restaker");
+        vm.expectRevert("LST restaker not registered");
         vm.prank(otherAcct);
         mevCommitAVS.requestLSTRestakerDeregistration();
 
@@ -546,7 +546,7 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.blockHeight, 177);
 
-        vm.expectRevert("LST restaker must not have already requested deregistration");
+        vm.expectRevert("dereg already requested");
         vm.prank(lstRestaker);
         mevCommitAVS.requestLSTRestakerDeregistration();
     }
@@ -563,7 +563,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("sender must be registered LST restaker");
+        vm.expectRevert("LST restaker not registered");
         vm.prank(otherAcct);
         mevCommitAVS.deregisterLSTRestaker();
 
@@ -572,14 +572,14 @@ contract MevCommitAVSTest is Test {
         vm.roll(302);
 
         address lstRestaker = address(0x34443);
-        vm.expectRevert("LST restaker must have requested deregistration");
+        vm.expectRevert("dereg not requested");
         vm.prank(lstRestaker);
         mevCommitAVS.deregisterLSTRestaker();
 
         vm.prank(lstRestaker);
         mevCommitAVS.requestLSTRestakerDeregistration();
 
-        vm.expectRevert("deregistration must happen at least lstRestakerDeregPeriodBlocks after deregistration request height");
+        vm.expectRevert("dereg too soon");
         vm.prank(lstRestaker);
         mevCommitAVS.deregisterLSTRestaker();
 
@@ -623,7 +623,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("validator must be registered");
+        vm.expectRevert("validator not registered");
         vm.prank(freezeOracle);
         mevCommitAVS.freeze(valPubkeys);
 
@@ -669,7 +669,7 @@ contract MevCommitAVSTest is Test {
         assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.blockHeight, 403);
         assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
 
-        vm.expectRevert("validator must not already be frozen");
+        vm.expectRevert("val already frozen");
         vm.prank(freezeOracle);
         mevCommitAVS.freeze(valPubkeys);
     }
@@ -685,7 +685,7 @@ contract MevCommitAVSTest is Test {
         vm.roll(block.number + validatorDeregPeriodBlocks);
 
         address podOwner = address(0x420);
-        vm.expectRevert("frozen validator cannot deregister");
+        vm.expectRevert("frozen val cant deregister");
         vm.prank(podOwner);
         mevCommitAVS.deregisterValidators(valPubkeys);
     }
@@ -744,13 +744,13 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert("validator must be registered");
+        vm.expectRevert("validator not registered");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze(valPubkeys);
 
         testRegisterValidatorsByPodOwners();
 
-        vm.expectRevert("validator must be frozen");
+        vm.expectRevert("validator not frozen");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze(valPubkeys);
 
@@ -775,7 +775,7 @@ contract MevCommitAVSTest is Test {
         mevCommitAVS.unfreeze{value: singleUnfreezeFee}(valPubkeys);
 
         uint256 doubleUnfreezeFee = unfreezeFee * 2;
-        vm.expectRevert("unfreeze must happen at least unfreezePeriodBlocks after freeze height");
+        vm.expectRevert("unfreeze too soon");
         vm.prank(newAccount);
         mevCommitAVS.unfreeze{value: doubleUnfreezeFee}(valPubkeys);
 
@@ -954,11 +954,11 @@ contract MevCommitAVSTest is Test {
         address[] memory podOwners = new address[](1);
         podOwners[0] = podOwner;
         vm.prank(podOwner);
-        vm.expectRevert("operator must not request deregistration");
+        vm.expectRevert("operator dereg already req");
         mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
 
         vm.prank(operator);
-        vm.expectRevert("operator must not request deregistration");
+        vm.expectRevert("operator dereg already req");
         mevCommitAVS.registerValidatorsByPodOwners(valPubkeys, podOwners);
     }
 

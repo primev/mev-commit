@@ -33,7 +33,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     /// @dev Modifier to confirm all provided BLS pubkeys are NOT unstaking.
     modifier onlyNotUnstaking(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; ++i) {
-            require(!_isUnstaking(blsPubKeys[i]), "Validator must NOT be unstaking");
+            require(!_isUnstaking(blsPubKeys[i]), "Validator can't be unstaking");
         }
         _;
     }
@@ -41,7 +41,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     /// @dev Modifier to confirm the sender is the withdrawal address for all provided BLS pubkeys.
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; ++i) {
-            require(stakedValidators[blsPubKeys[i]].withdrawalAddress == msg.sender, "Only withdrawal address can call this function");
+            require(stakedValidators[blsPubKeys[i]].withdrawalAddress == msg.sender, "Sender isn't withdrawal address");
         }
         _;
     }
@@ -49,14 +49,14 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     /// @dev Modifier to confirm all provided BLS pubkeys are valid length.
     modifier onlyValidBLSPubKeys(bytes[] calldata blsPubKeys) {
         for (uint256 i = 0; i < blsPubKeys.length; ++i) {
-            require(blsPubKeys[i].length == 48, "Invalid BLS public key length. Must be 48 bytes");
+            require(blsPubKeys[i].length == 48, "Invalid BLS key length");
         }
         _;
     }
 
     /// @dev Modifier to confirm the sender is the oracle account.
     modifier onlySlashOracle() {
-        require(msg.sender == slashOracle, "Only slashing oracle account can call this function");
+        require(msg.sender == slashOracle, "Sender isn't slashing oracle");
         _;
     }
 
@@ -263,9 +263,9 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     function _withdraw(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(_isUnstaking(pubKey), "Unstake must be initiated before withdrawal");
+            require(_isUnstaking(pubKey), "Must unstake to withdraw");
             require(block.number > stakedValidators[pubKey].unstakeHeight.blockHeight + unstakePeriodBlocks,
-                "withdrawal not allowed yet. Blocks requirement not met.");
+                "Withdrawing too soon");
             uint256 balance = stakedValidators[pubKey].balance;
             address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
             delete stakedValidators[pubKey];
@@ -282,8 +282,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     function _slash(bytes[] calldata blsPubKeys) internal {
         for (uint256 i = 0; i < blsPubKeys.length; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(stakedValidators[pubKey].balance > slashAmount,
-                "Validator balance must be greater than slash amount");
+            require(stakedValidators[pubKey].balance > slashAmount, "Not enough balance to slash");
             stakedValidators[pubKey].balance -= slashAmount;
             if (_isUnstaking(pubKey)) {
                 // If validator is already unstaking, reset their unstake block number
@@ -300,15 +299,15 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function to set the minimum stake parameter.
     function _setMinStake(uint256 newMinStake) internal {
-        require(newMinStake > 0, "Minimum stake must be greater than 0");
+        require(newMinStake > 0, "Min stake must be positive");
         minStake = newMinStake;
         emit MinStakeSet(msg.sender, newMinStake);
     }
 
     /// @dev Internal function to set the slash amount parameter.
     function _setSlashAmount(uint256 newSlashAmount) internal {
-        require(newSlashAmount > 0, "Slash amount must be positive");
-        require(newSlashAmount < minStake, "Slash amount must be less than minimum stake");
+        require(newSlashAmount > 0, "Slash amount must be > 0");
+        require(newSlashAmount < minStake, "Slash amount must be < minStake");
         slashAmount = newSlashAmount;
         emit SlashAmountSet(msg.sender, newSlashAmount);
     }
@@ -329,7 +328,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function to set the unstake period parameter.
     function _setUnstakePeriodBlocks(uint256 newUnstakePeriodBlocks) internal {
-        require(newUnstakePeriodBlocks > 0, "Unstake period must be greater than 0");
+        require(newUnstakePeriodBlocks > 0, "Unstake period must be positive");
         unstakePeriodBlocks = newUnstakePeriodBlocks;
         emit UnstakePeriodBlocksSet(msg.sender, newUnstakePeriodBlocks);
     }
@@ -356,7 +355,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Returns the number of blocks remaining until an unstaking validator can withdraw their staked ETH.
     function getBlocksTillWithdrawAllowed(bytes calldata valBLSPubKey) external view returns (uint256) {
-        require(_isUnstaking(valBLSPubKey), "Unstake must be initiated to check withdrawal eligibility");
+        require(_isUnstaking(valBLSPubKey), "Unstake first");
         uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeHeight.blockHeight;
         return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
     }
