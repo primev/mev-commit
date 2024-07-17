@@ -106,7 +106,7 @@ func NewNode(opts *Options) (*Node, error) {
 	monitor := txmonitor.New(
 		owner,
 		settlementClient,
-		txmonitor.NewEVMHelperWithLogger(settlementClient.Client(), nd.logger),
+		evmclients.NewEVMHelperWithLogger(settlementClient.Client(), nd.logger),
 		st,
 		nd.logger.With("component", "tx_monitor"),
 		1024,
@@ -238,7 +238,7 @@ func NewNode(opts *Options) (*Node, error) {
 		st,
 		evtMgr,
 		oracleTransactorSession,
-		txmonitor.NewEVMHelperWithLogger(l1Client.Client(), nd.logger),
+		evmclients.NewEVMHelperWithLogger(l1Client.Client(), nd.logger),
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate updater", "error", err)

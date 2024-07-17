@@ -22,7 +22,7 @@ import (
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
 	"github.com/primev/mev-commit/x/contracts/events"
-	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/evmclients"
 	"github.com/primev/mev-commit/x/util"
 	"golang.org/x/crypto/sha3"
 )
@@ -37,14 +37,14 @@ type testBatcher struct {
 	failedReceipts map[common.Hash]bool
 }
 
-func (t *testBatcher) BatchReceipts(ctx context.Context, txns []common.Hash) ([]txmonitor.Result, error) {
-	var results []txmonitor.Result
+func (t *testBatcher) BatchReceipts(ctx context.Context, txns []common.Hash) ([]evmclients.Result, error) {
+	var results []evmclients.Result
 	for _, txn := range txns {
 		status := types.ReceiptStatusSuccessful
 		if t.failedReceipts[txn] {
 			status = types.ReceiptStatusFailed
 		}
-		results = append(results, txmonitor.Result{
+		results = append(results, evmclients.Result{
 			Receipt: &types.Receipt{
 				TxHash: txn,
 				Status: status,

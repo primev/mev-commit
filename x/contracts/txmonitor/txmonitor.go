@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/primev/mev-commit/x/evmclients"
 )
 
 var (
@@ -32,8 +34,8 @@ type Saver interface {
 }
 
 type EVMHelper interface {
-	BatchReceiptGetter
-	Debugger
+	evmclients.BatchReceiptGetter
+	evmclients.Debugger
 }
 
 type EVM interface {
@@ -54,7 +56,7 @@ type waitCheck struct {
 type Monitor struct {
 	owner              common.Address
 	mtx                sync.Mutex
-	waitMap            map[uint64]map[common.Hash][]chan Result
+	waitMap            map[uint64]map[common.Hash][]chan evmclients.Result
 	client             EVM
 	helper             EVMHelper
 	saver              Saver
@@ -86,7 +88,7 @@ func New(
 		saver:         saver,
 		maxPendingTxs: maxPendingTxs,
 		metrics:       newMetrics(),
-		waitMap:       make(map[uint64]map[common.Hash][]chan Result),
+		waitMap:       make(map[uint64]map[common.Hash][]chan evmclients.Result),
 		newTxAdded:    make(chan struct{}),
 		nonceUpdate:   make(chan struct{}),
 		blockUpdate:   make(chan waitCheck),
@@ -117,7 +119,7 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 			for _, v := range m.waitMap {
 				for _, c := range v {
 					for _, c := range c {
-						c <- Result{nil, ErrMonitorClosed}
+						c <- evmclients.Result{nil, ErrMonitorClosed}
 						close(c)
 					}
 				}
@@ -236,15 +238,15 @@ func (m *Monitor) Sent(ctx context.Context, tx *types.Transaction) {
 	}()
 }
 
-func (m *Monitor) WatchTx(txHash common.Hash, nonce uint64) <-chan Result {
+func (m *Monitor) WatchTx(txHash common.Hash, nonce uint64) <-chan evmclients.Result {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
 	if m.waitMap[nonce] == nil {
-		m.waitMap[nonce] = make(map[common.Hash][]chan Result)
+		m.waitMap[nonce] = make(map[common.Hash][]chan evmclients.Result)
 	}
 
-	c := make(chan Result, 1)
+	c := make(chan evmclients.Result, 1)
 	m.waitMap[nonce][txHash] = append(m.waitMap[nonce][txHash], c)
 
 	m.triggerNewTx()
@@ -299,7 +301,7 @@ func (m *Monitor) getOlderTxns(nonce uint64) map[uint64][]common.Hash {
 func (m *Monitor) notify(
 	nonce uint64,
 	txn common.Hash,
-	res Result,
+	res evmclients.Result,
 ) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
@@ -350,7 +352,7 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 			nonce := nonceMap[txHashes[start+i]]
 			if r.Err != nil {
 				if errors.Is(r.Err, ethereum.NotFound) {
-					m.notify(nonce, txHashes[start+i], Result{nil, ErrTxnCancelled})
+					m.notify(nonce, txHashes[start+i], evmclients.Result{nil, ErrTxnCancelled})
 					continue
 				}
 				m.logger.Error("failed to get receipt", "error", r.Err, "txHash", txHashes[start+i])
@@ -371,11 +373,11 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 					)
 				}
 				m.logger.Error("failed to get receipt", "error", r.Err)
-				m.notify(nonce, txHashes[start+i], Result{r.Receipt, ErrTxnFailed})
+				m.notify(nonce, txHashes[start+i], evmclients.Result{r.Receipt, ErrTxnFailed})
 				continue
 			}
 
-			m.notify(nonce, txHashes[start+i], Result{r.Receipt, nil})
+			m.notify(nonce, txHashes[start+i], evmclients.Result{r.Receipt, nil})
 		}
 	}
 }

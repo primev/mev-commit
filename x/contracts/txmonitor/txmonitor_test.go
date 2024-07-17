@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/evmclients"
 	"github.com/primev/mev-commit/x/util"
 )
 
@@ -39,9 +40,9 @@ func TestTxMonitor(t *testing.T) {
 		))
 	}
 
-	results := make(map[common.Hash]txmonitor.Result)
+	results := make(map[common.Hash]evmclients.Result)
 	for _, tx := range txns {
-		results[tx.Hash()] = txmonitor.Result{Receipt: &types.Receipt{Status: 1}}
+		results[tx.Hash()] = evmclients.Result{Receipt: &types.Receipt{Status: 1}}
 	}
 
 	evm := &testEVM{
@@ -144,14 +145,14 @@ func (t *testEVM) NonceAt(ctx context.Context, account common.Address, blockNumb
 }
 
 type testEVMHelper struct {
-	receipts map[common.Hash]txmonitor.Result
+	receipts map[common.Hash]evmclients.Result
 }
 
-func (t *testEVMHelper) BatchReceipts(ctx context.Context, txns []common.Hash) ([]txmonitor.Result, error) {
-	results := make([]txmonitor.Result, 0, len(txns))
+func (t *testEVMHelper) BatchReceipts(ctx context.Context, txns []common.Hash) ([]evmclients.Result, error) {
+	results := make([]evmclients.Result, 0, len(txns))
 	for _, tx := range txns {
 		if _, ok := t.receipts[tx]; !ok {
-			results = append(results, txmonitor.Result{Err: ethereum.NotFound})
+			results = append(results, evmclients.Result{Err: ethereum.NotFound})
 			continue
 		}
 		results = append(results, t.receipts[tx])

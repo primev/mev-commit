@@ -20,7 +20,7 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/x/contracts/events"
-	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/evmclients"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -105,7 +105,7 @@ type Updater struct {
 	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
 	currentWindow  atomic.Int64
 	metrics        *metrics
-	receiptBatcher txmonitor.BatchReceiptGetter
+	receiptBatcher evmclients.BatchReceiptGetter
 }
 
 func NewUpdater(
@@ -114,7 +114,7 @@ func NewUpdater(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	oracle Oracle,
-	receiptBatcher txmonitor.BatchReceiptGetter,
+	receiptBatcher evmclients.BatchReceiptGetter,
 ) (*Updater, error) {
 	l1BlockCache, err := lru.New[uint64, map[string]TxMetadata](1024)
 	if err != nil {

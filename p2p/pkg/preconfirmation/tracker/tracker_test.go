@@ -23,7 +23,7 @@ import (
 	preconftracker "github.com/primev/mev-commit/p2p/pkg/preconfirmation/tracker"
 	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/x/contracts/events"
-	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/evmclients"
 	"github.com/primev/mev-commit/x/util"
 )
 
@@ -364,13 +364,13 @@ type testReceiptGetter struct {
 	count int
 }
 
-func (t *testReceiptGetter) BatchReceipts(_ context.Context, txns []common.Hash) ([]txmonitor.Result, error) {
+func (t *testReceiptGetter) BatchReceipts(_ context.Context, txns []common.Hash) ([]evmclients.Result, error) {
 	if t.count != len(txns) {
 		return nil, fmt.Errorf("expected %d txns, got %d", t.count, len(txns))
 	}
-	results := make([]txmonitor.Result, 0, len(txns))
+	results := make([]evmclients.Result, 0, len(txns))
 	for range txns {
-		results = append(results, txmonitor.Result{
+		results = append(results, evmclients.Result{
 			Err: errors.New("test error"),
 		})
 	}
