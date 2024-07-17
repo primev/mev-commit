@@ -22,6 +22,15 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
 
+    /// @dev Permissioned address of the oracle account.
+    address public oracleAccount;
+
+    /// @dev Modifier to ensure that the sender is the oracle account.
+    modifier onlyOracle() {
+        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        _;
+    }
+
     // To shutup the compiler
     /// @dev Empty receive function to silence compiler warnings about missing payable functions.
     receive() external payable {
@@ -45,18 +54,21 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
 
     /**
      * @dev Initializes the contract with a PreConfirmations contract.
-     * @param _preConfContract The address of the pre-confirmations contract.
-     * @param _blockTrackerContract The address of the block tracker contract.
-     * @param _owner Owner of the contract, explicitly needed since contract is deployed with create2 factory.
+     * @param preConfContract_ The address of the pre-confirmations contract.
+     * @param blockTrackerContract_ The address of the block tracker contract.
+     * @param oracleAccount_ The address of the oracle account.
+     * @param owner_ Owner of the contract, explicitly needed since contract is deployed with create2 factory.
      */
     function initialize(
-        address _preConfContract,
-        address _blockTrackerContract,
-        address _owner
+        address preConfContract_,
+        address blockTrackerContract_,
+        address oracleAccount_,
+        address owner_
     ) external initializer {
-        preConfContract = IPreConfCommitmentStore(_preConfContract);
-        blockTrackerContract = IBlockTracker(_blockTrackerContract);
-        __Ownable_init(_owner);
+        preConfContract = IPreConfCommitmentStore(preConfContract_);
+        blockTrackerContract = IBlockTracker(blockTrackerContract_);
+        oracleAccount = oracleAccount_;
+        __Ownable_init(owner_);
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -83,7 +95,7 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
         address builder,
         bool isSlash,
         uint256 residualBidPercentAfterDecay
-    ) external onlyOwner {
+    ) external onlyOracle {
         require(
             blockTrackerContract.getBlockWinner(blockNumber) == builder,
             "Builder is not the winner of the block"

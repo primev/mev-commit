@@ -15,43 +15,14 @@ KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"pwd"}
 CONTRACT_REPO_ROOT_PATH=${CONTRACT_REPO_ROOT_PATH:-$PWD}
 
 if [ "${DEPLOY_TYPE}" = "core" ]; then
-    echo "Deploying core contracts"
-    "${FORGE_BIN_PATH}" script \
-        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployScript \
-        --root "${CONTRACT_REPO_ROOT_PATH}" \
-        --priority-gas-price 2000000000 \
-        --with-gas-price 5000000000 \
-        --chain-id "${CHAIN_ID}" \
-        --rpc-url "${RPC_URL}" \
-        --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
-        --password "${KEYSTORE_PASSWORD}" \
-        --sender "${SENDER}" \
-        --skip-simulation \
-        --use 0.8.20 \
-        --broadcast \
-        --force \
-        --json \
-        --via-ir
-
-elif [ "${DEPLOY_TYPE}" = "transfer-ownership" ]; then
     if [ -z "$ORACLE_KEYSTORE_ADDRESS" ]; then
         echo "ORACLE_KEYSTORE_ADDRESS not specified"
         exit 1
     fi
-    if [ -z "$BLOCK_TRACKER_ADDRESS" ]; then
-        echo "BLOCK_TRACKER_ADDRESS not specified"
-        exit 1
-    fi
-    if [ -z "$ORACLE_ADDRESS" ]; then
-        echo "ORACLE_ADDRESS not specified"
-        exit 1
-    fi
-    echo "Transferring ownership to ${ORACLE_KEYSTORE_ADDRESS}"
+    echo "Deploying core contracts"
     ORACLE_KEYSTORE_ADDRESS="$ORACLE_KEYSTORE_ADDRESS" \
-    BLOCK_TRACKER_ADDRESS="$BLOCK_TRACKER_ADDRESS" \
-    ORACLE_ADDRESS="$ORACLE_ADDRESS" \
     "${FORGE_BIN_PATH}" script \
-    "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:TransferOwnership \
+        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployScript \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --priority-gas-price 2000000000 \
         --with-gas-price 5000000000 \
