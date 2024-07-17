@@ -1,9 +1,13 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+// SPDX-License-Identifier: BSL 1.1
 
-import "forge-std/Script.sol";
-import "forge-std/console.sol";
-import "../../contracts/validator-registry/ValidatorRegistryV1.sol";
+// solhint-disable no-console
+// solhint-disable one-contract-per-file
+
+pragma solidity 0.8.20;
+
+import {Script} from "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
+import {ValidatorRegistryV1} from "../../contracts/validator-registry/ValidatorRegistryV1.sol";
 import {IValidatorRegistryV1} from "../../contracts/interfaces/IValidatorRegistryV1.sol";
 
 // Script to e2e test the ValidatorRegistryV1 contract with anvil, also see makefile.
@@ -34,7 +38,7 @@ abstract contract ExampleScript is Script {
         console.log("Checking Staking related state...");
         console.log("--------------------");
         
-        for (uint i = 0; i < blsKeys.length; ++i) {
+        for (uint256 i = 0; i < blsKeys.length; ++i) {
             bool isStaked = _validatorRegistry.isValidatorOptedIn(blsKeys[i]);
             console.log("--------------------");
             console.log("BLS Key: ");
@@ -54,7 +58,7 @@ abstract contract ExampleScript is Script {
         console.log("--------------------");
         console.log("Checking Withdrawal related state...");
         console.log("--------------------");
-        for (uint i = 0; i < blsKeys.length; ++i) {
+        for (uint256 i = 0; i < blsKeys.length; ++i) {
             uint256 blocksTillWithdrawAllowed = _validatorRegistry.getBlocksTillWithdrawAllowed(blsKeys[i]);
             console.log("--------------------");
             console.log("BLS Key: ");
@@ -70,7 +74,7 @@ contract StakeExample is ExampleScript {
     function run() external {
         vm.startBroadcast();
 
-        require(msg.sender == defaultEOA, "must be 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+        require(msg.sender == defaultEOA, "sender must be default EOA");
         console.log("Balance of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb922266:", defaultEOA.balance);
 
         bytes[] memory validators = new bytes[](3);
@@ -100,8 +104,8 @@ contract UnstakeExample is ExampleScript {
     function run() external {
         vm.startBroadcast();
 
-        require(msg.sender == defaultEOA, "must be 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
-        console.log("Balance of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266:", defaultEOA.balance);
+        require(msg.sender == defaultEOA, "sender must be default EOA");
+        console.log("Balance of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb922266:", defaultEOA.balance);
 
         bytes[] memory validators = new bytes[](3);
         validators[0] = hex"a97794deb52ea4529d37d283213ca7e298ea9be0a2fec1bb3134a1464ab8cf9eb2c703d1b42dd68d97b5f1c8e74cc0df";
@@ -128,7 +132,7 @@ contract WithdrawExample is ExampleScript {
     function run() external {
         vm.startBroadcast();
 
-        require(msg.sender == defaultEOA, "must be 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+        require(msg.sender == defaultEOA, "sender must be default EOA");
         console.log("Balance of 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266:", defaultEOA.balance);
 
         bytes[] memory validators = new bytes[](3);
@@ -155,7 +159,7 @@ contract SlashExample is ExampleScript {
     function run() external {
         vm.startBroadcast();
 
-        require(msg.sender == defaultEOA2, "slash oracle must be 0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+        require(msg.sender == defaultEOA2, "slash oracle must be defaultEOA2");
         console.log("Balance of slash oracle @ 0x70997970C51812dc3A010C7d01b50e0d17dc79C8:", defaultEOA2.balance);
 
         bytes[] memory validators = new bytes[](3);

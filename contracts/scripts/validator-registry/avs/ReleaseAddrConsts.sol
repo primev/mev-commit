@@ -1,5 +1,9 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+// SPDX-License-Identifier: BSL 1.1
+
+// solhint-disable no-console
+// solhint-disable one-contract-per-file
+
+pragma solidity 0.8.0;
 
 // TODO: Confirm every addr here with the markdown
 

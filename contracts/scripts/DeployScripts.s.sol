@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: BSL 1.1
+
+// solhint-disable no-console
+// solhint-disable one-contract-per-file
+
 pragma solidity 0.8.20;
-import "forge-std/Script.sol";
-import "../contracts/BidderRegistry.sol";
-import "../contracts/ProviderRegistry.sol";
-import "../contracts/PreConfCommitmentStore.sol";
-import "../contracts/Oracle.sol";
-import "../contracts/Whitelist.sol";
+
+import {Script} from "forge-std/Script.sol";
+import {BidderRegistry} from "../contracts/BidderRegistry.sol";
+import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
+import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
+import {Oracle} from "../contracts/Oracle.sol";
+import {Whitelist} from "../contracts/Whitelist.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import "../contracts/BlockTracker.sol";
+import {BlockTracker} from "../contracts/BlockTracker.sol";
 
 // Deploys core contracts
 contract DeployScript is Script {
@@ -80,7 +85,7 @@ contract TransferOwnership is Script {
         vm.startBroadcast();
 
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
-        require(oracleKeystoreAddress != address(0), "Oracle keystore address not provided");
+        require(oracleKeystoreAddress != address(0), "keystore addr not provided");
 
         address blockTrackerProxy = vm.envAddress("BLOCK_TRACKER_ADDRESS");
         require(blockTrackerProxy != address(0), "Block tracker not provided");
@@ -110,7 +115,7 @@ contract DeployWhitelist is Script {
         address hypERC20Addr = vm.envAddress("HYP_ERC20_ADDR");
         require(
             hypERC20Addr != address(0),
-            "Address to whitelist not provided"
+            "hypERC20 addr not provided"
         );
 
         address whitelistProxy = Upgrades.deployUUPSProxy(
@@ -129,3 +134,5 @@ contract DeployWhitelist is Script {
         vm.stopBroadcast();
     }
 }
+
+// solhint-enable no-console
