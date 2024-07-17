@@ -71,13 +71,14 @@ func (adt *AutoDepositTracker) Start(
 		return fmt.Errorf("auto deposit tracker is already running")
 	}
 
+	currentOracleWindow, err := adt.btContract.GetCurrentWindow()
+	if err != nil {
+		return fmt.Errorf("failed to get current window, err: %w", err)
+	}
+	adt.currentOracleWindow.Store(currentOracleWindow)
+	
 	if startWindow == nil {
-		var err error
-		startWindow, err = adt.btContract.GetCurrentWindow()
-		if err != nil {
-			adt.logger.Error("failed to get current window", "error", err)
-			return err
-		}
+		startWindow = currentOracleWindow
 		// adding +2 as oracle runs two windows behind
 		startWindow = new(big.Int).Add(startWindow, big.NewInt(2))
 	}

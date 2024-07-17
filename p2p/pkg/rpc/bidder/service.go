@@ -364,7 +364,7 @@ func (s *Service) AutoDeposit(
 
 	return &bidderapiv1.AutoDepositResponse{
 		StartWindowNumber: wrapperspb.UInt64(windowToDeposit.Uint64()),
-		AmountPerWindow:  amount.String(),
+		AmountPerWindow:   amount.String(),
 	}, nil
 }
 
@@ -501,7 +501,7 @@ func (s *Service) AutoDepositStatus(
 	ctx context.Context,
 	_ *bidderapiv1.EmptyMessage,
 ) (*bidderapiv1.AutoDepositStatusResponse, error) {
-	deposits, isWorking, currentWindow := s.autoDepositTracker.GetStatus()
+	deposits, isAutodepositEnabled, currentWindow := s.autoDepositTracker.GetStatus()
 	if currentWindow != nil {
 		// as oracle working 2 windows behind the current window, we add + 2 here
 		currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
@@ -518,7 +518,7 @@ func (s *Service) AutoDepositStatus(
 			}
 			ad := &bidderapiv1.AutoDeposit{
 				WindowNumber:     wrapperspb.UInt64(window),
-				Amount:           stakeAmount.String(),
+				DepositedAmount:  stakeAmount.String(),
 				StartBlockNumber: wrapperspb.UInt64((window-1)*s.blocksPerWindow + 1),
 				EndBlockNumber:   wrapperspb.UInt64(window * s.blocksPerWindow),
 			}
@@ -530,7 +530,7 @@ func (s *Service) AutoDepositStatus(
 	}
 
 	return &bidderapiv1.AutoDepositStatusResponse{
-		WindowBalances: autoDeposits,
-		IsWorking:      isWorking,
+		WindowBalances:       autoDeposits,
+		IsAutodepositEnabled: isAutodepositEnabled,
 	}, nil
 }

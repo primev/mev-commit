@@ -196,7 +196,7 @@ definitions:
   bidderapiv1AutoDeposit:
     type: object
     properties:
-      amount:
+      depositedAmount:
         type: string
         description: Deposited amount of ETH in wei.
       windowNumber:
@@ -291,13 +291,13 @@ definitions:
   v1AutoDepositStatusResponse:
     type: object
     example:
-      isWorking: true
+      isAutodepositEnabled: true
       window_balances:
-        - amount: "1000000000000000000"
+        - depositedAmount: "1000000000000000000"
           window_number: 1
-        - amount: "1000000000000000000"
+        - depositedAmount: "1000000000000000000"
           window_number: 2
-        - amount: "1000000000000000000"
+        - depositedAmount: "1000000000000000000"
           window_number: 3
     properties:
       windowBalances:
@@ -305,7 +305,7 @@ definitions:
         items:
           type: object
           $ref: '#/definitions/bidderapiv1AutoDeposit'
-      isWorking:
+      isAutodepositEnabled:
         type: boolean
     description: AutoDeposit status from the bidder registry.
     title: AutoDeposit status response
