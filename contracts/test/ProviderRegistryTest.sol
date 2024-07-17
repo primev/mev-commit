@@ -43,7 +43,7 @@ contract ProviderRegistryTest is Test {
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, 
-            (address(this), blocksPerWindow)) 
+            (blocksPerWindow, address(this), address(this))) 
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
