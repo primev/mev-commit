@@ -135,5 +135,3 @@ contract DeployWhitelist is Script {
         vm.stopBroadcast();
     }
 }
-
-// solhint-enable no-console
