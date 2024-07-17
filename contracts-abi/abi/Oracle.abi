@@ -49,23 +49,41 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "_preConfContract",
+        "name": "preConfContract_",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_blockTrackerContract",
+        "name": "blockTrackerContract_",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_owner",
+        "name": "oracleAccount_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "owner_",
         "type": "address",
         "internalType": "address"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "oracleAccount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -135,6 +153,19 @@
   },
   {
     "type": "function",
+    "name": "setOracleAccount",
+    "inputs": [
+      {
+        "name": "newOracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -192,6 +223,25 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OracleAccountSet",
+    "inputs": [
+      {
+        "name": "oldOracleAccount",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOracleAccount",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
