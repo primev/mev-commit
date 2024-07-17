@@ -364,8 +364,8 @@ func TestAutoDepositHandling(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error getting deposit: %v", err)
 		}
-		if status.IsWorking != true {
-			t.Fatalf("expected is working to be true, got %v", status.IsWorking)
+		if status.IsAutodepositEnabled != true {
+			t.Fatalf("expected is autodeposit enabled to be true, got %v", status.IsAutodepositEnabled)
 		}
 		if len(status.WindowBalances) != 2 {
 			t.Fatalf("expected 2 deposits, got %v", len(status.WindowBalances))
@@ -374,7 +374,7 @@ func TestAutoDepositHandling(t *testing.T) {
 			if v.WindowNumber.Value != 1 && v.WindowNumber.Value != 2 {
 				t.Fatalf("unexpected window number, got %v", v.WindowNumber)
 			}
-			if v.Amount != "1000000000000000000" {
+			if v.DepositedAmount != "1000000000000000000" {
 				t.Fatalf("expected amount to be 1000000000000000000, got %v", v)
 			}
 			if v.WindowNumber.Value == 1 && v.StartBlockNumber.Value != 1 && v.EndBlockNumber.Value != blocksPerWindow && !v.IsCurrent {

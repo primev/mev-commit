@@ -154,10 +154,10 @@ message AutoDepositStatusResponse {
       title: "AutoDeposit status response"
       description: "AutoDeposit status from the bidder registry."
     }
-    example: "{\"window_balances\": [{\"amount\": \"1000000000000000000\", \"window_number\": 1}, {\"amount\": \"1000000000000000000\", \"window_number\": 2}, {\"amount\": \"1000000000000000000\", \"window_number\": 3}], \"isWorking\": true}"
+    example: "{\"window_balances\": [{\"depositedAmount\": \"1000000000000000000\", \"window_number\": 1}, {\"depositedAmount\": \"1000000000000000000\", \"window_number\": 2}, {\"depositedAmount\": \"1000000000000000000\", \"window_number\": 3}], \"isAutodepositEnabled\": true}"
   };
   repeated AutoDeposit window_balances = 1;
-  bool is_working = 2;
+  bool is_autodeposit_enabled = 2;
 };
 
 message CancelAutoDepositRequest {
@@ -182,7 +182,7 @@ message CancelAutoDepositResponse {
 };
 
 message AutoDeposit {
-  string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+  string depositedAmount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Deposited amount of ETH in wei."
   }];
   google.protobuf.UInt64Value window_number = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
