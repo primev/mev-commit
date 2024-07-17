@@ -277,22 +277,22 @@ func (s *Service) Self() map[string]interface{} {
 }
 
 func ConstructProtocolID(protocolName, protocolVersion string) protocol.ID {
-	return protocol.ID(fmt.Sprintf("/%s/%s", protocolName, protocolVersion))
+	return protocol.ID(fmt.Sprintf("/mev-commit/%s/%s", protocolName, protocolVersion))
 }
 
 func matchProtocolIDWithSemver(
 	incomingProtoID string,
-	incomingProtocolName string,
+	protoName string,
 	supportedVersion string) (bool, error) {
 	// Extract the version part from the protocol ID.
 	parts := strings.Split(incomingProtoID, "/")
-	if len(parts) != 3 {
-		return false, fmt.Errorf("invalid protocol ID: %s", incomingProtoID)
+	if len(parts) != 4 {
+		return false, fmt.Errorf("invalid protocol ID: %s; expected protocol name: %s", incomingProtoID, protoName)
 	}
-	protocolName := parts[1]
-	protocolVersion := parts[2]
+	protocolName := parts[2]
+	protocolVersion := parts[3]
 
-	if protocolName != incomingProtocolName {
+	if protocolName != protoName {
 		return false, nil
 	}
 
@@ -317,10 +317,6 @@ func (s *Service) AddStreamHandlers(streams ...p2p.StreamDesc) {
 		s.host.SetStreamHandlerMatch(
 			ConstructProtocolID(ss.Name, ss.Version),
 			func(p protocol.ID) bool {
-				parts := strings.Split(string(p), "/")
-				if len(parts) != 3 {
-					s.logger.Error("incorrect protocol ID format:", "p", string(p))
-				}
 				matched, err := matchProtocolIDWithSemver(string(p), ss.Name, ss.Version)
 				if err != nil {
 					s.logger.Error("matching protocol ID with semver", "err", err)
@@ -391,7 +387,7 @@ func (s *Service) NewStream(
 		return nil, p2p.ErrPeerNotFound
 	}
 
-	streamID := protocol.ID(fmt.Sprintf("/%s/%s", stream.Name, stream.Version))
+	streamID := ConstructProtocolID(stream.Name, stream.Version)
 	streamlibp2p, err := s.host.NewStream(ctx, peerID, streamID)
 	if err != nil {
 		return nil, err
