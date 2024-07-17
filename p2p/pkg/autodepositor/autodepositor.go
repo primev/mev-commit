@@ -73,10 +73,10 @@ func (adt *AutoDepositTracker) Start(
 
 	currentOracleWindow, err := adt.btContract.GetCurrentWindow()
 	if err != nil {
-		return fmt.Errorf("failed to get current window, err: %w", err)
+		return fmt.Errorf("failed to get current window: %w", err)
 	}
 	adt.currentOracleWindow.Store(currentOracleWindow)
-	
+
 	if startWindow == nil {
 		startWindow = currentOracleWindow
 		// adding +2 as oracle runs two windows behind
@@ -95,7 +95,7 @@ func (adt *AutoDepositTracker) Start(
 
 	err = adt.doInitialDeposit(ctx, startWindow, amount)
 	if err != nil {
-		return fmt.Errorf("failed to do initial deposit, err: %w", err)
+		return fmt.Errorf("failed to do initial deposit: %w", err)
 	}
 
 	adt.startAutodeposit(egCtx, eg, amount, sub)
@@ -124,14 +124,14 @@ func (adt *AutoDepositTracker) doInitialDeposit(ctx context.Context, startWindow
 
 	opts, err := adt.optsGetter(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get transact opts, err: %w", err)
+		return fmt.Errorf("failed to get transact opts: %w", err)
 	}
 	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
 
 	// Make initial deposit for the first two windows
 	_, err = adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
 	if err != nil {
-		return fmt.Errorf("failed to deposit for windows, err: %w", err)
+		return fmt.Errorf("failed to deposit for windows: %w", err)
 	}
 
 	adt.deposits.Store(startWindow.Uint64(), true)
