@@ -16,6 +16,6 @@
     "gas-strict-inequalities": "warn",
     "ordering": "warn",
     "gas-indexed-events": "warn",
-    "gas-custom-errors": "off"
+    "gas-custom-errors": "warn"
   }
 }
