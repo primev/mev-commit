@@ -236,7 +236,10 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 
 	baseServer := grpc.NewServer()
 	bidderapiv1.RegisterBidderServer(baseServer, srvImpl)
+	srvStopped := make(chan struct{})
 	go func() {
+		defer close(srvStopped)
+
 		if err := baseServer.Serve(lis); err != nil {
 			// Ignore "use of closed network connection" error
 			if opErr, ok := err.(*net.OpError); !ok || !errors.Is(opErr.Err, net.ErrClosed) {
@@ -260,6 +263,8 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 			t.Errorf("error closing listener: %v", err)
 		}
 		baseServer.Stop()
+
+		<-srvStopped
 	})
 
 	client := bidderapiv1.NewBidderClient(conn)
