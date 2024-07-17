@@ -203,7 +203,7 @@ func New(opts *Options) (*Service, error) {
 
 	host.Network().Notify(s.peers)
 
-	s.host.SetStreamHandler(handshake.ProtocolID(), s.handleConnectReq)
+	s.host.SetStreamHandler(ConstructProtocolID(handshake.ProtocolName, handshake.ProtocolVersion), s.handleConnectReq)
 
 	if len(opts.BootstrapAddrs) > 0 {
 		go s.startBootstrapper(opts.BootstrapAddrs)
@@ -276,6 +276,10 @@ func (s *Service) Self() map[string]interface{} {
 	}
 }
 
+func ConstructProtocolID(protocolName, protocolVersion string) protocol.ID {
+	return protocol.ID(fmt.Sprintf("/%s/%s", protocolName, protocolVersion))
+}
+
 func matchProtocolIDWithSemver(
 	incomingProto string,
 	protoID string,
@@ -311,7 +315,7 @@ func (s *Service) AddStreamHandlers(streams ...p2p.StreamDesc) {
 		ss := stream
 
 		s.host.SetStreamHandlerMatch(
-			protocol.ID(ss.Name),
+			ConstructProtocolID(ss.Name, ss.Version),
 			func(p protocol.ID) bool {
 				matched, err := matchProtocolIDWithSemver(string(p), ss.Name, ss.Version)
 				if err != nil {
@@ -422,7 +426,7 @@ func (s *Service) Connect(ctx context.Context, info []byte) (p2p.Peer, error) {
 		return p2p.Peer{}, err
 	}
 
-	streamlibp2p, err := s.host.NewStream(ctx, addrInfo.ID, handshake.ProtocolID())
+	streamlibp2p, err := s.host.NewStream(ctx, addrInfo.ID, ConstructProtocolID(handshake.ProtocolName, handshake.ProtocolVersion))
 	if err != nil {
 		return p2p.Peer{}, err
 	}
