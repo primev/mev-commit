@@ -489,6 +489,28 @@
       run_once: true
       when: build_artifacts
 
+    - name: Prepare launchmevcommit Script
+      ansible.builtin.shell: |
+        SCRIPT="{{ dist_dir }}/launchmevcommit-{{ environments[env].version }}.sh"
+        TARGET_MACHINE_IP="{{ ansible_facts['default_ipv4']['address'] }}"
+        cp launchmevcommit "${SCRIPT}"
+        case "$(uname)" in
+          Darwin)
+            sed -i '' '1,/__VERSION__/s/__VERSION__/{{ environments[env].version }}/' "${SCRIPT}"
+            sed -i '' '1,/__TARGET_MACHINE_IP__/s/__TARGET_MACHINE_IP__/'"${TARGET_MACHINE_IP}"'/' "${SCRIPT}"
+            ;;
+          *)
+            sed -i '1,/__VERSION__/s/__VERSION__/{{ environments[env].version }}/' "${SCRIPT}"
+            sed -i '1,/__TARGET_MACHINE_IP__/s/__TARGET_MACHINE_IP__/'"${TARGET_MACHINE_IP}"'/' "${SCRIPT}"
+            ;;
+        esac
+      args:
+        chdir: "{{ root_dir }}"
+        executable: bash
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and env == 'devenv'
+
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
         paths: "{{ dist_dir }}"

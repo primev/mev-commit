@@ -1,0 +1,281 @@
+#!/usr/bin/env bash
+
+# Default binary path and root path for mev-commit.
+ROOT_PATH="${HOME}/.mev-commit"
+BINARY_PATH="${ROOT_PATH}/mev-commit"
+
+# Default mev-commit configuration values.
+NODE_TYPE="bidder"
+DOMAIN="testnet.mev-commit.xyz"
+RPC_URL="https://chainrpc.${DOMAIN}"
+FAUCET_URL="https://faucet.${DOMAIN}"
+BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
+CONTRACTS_URL="https://contracts.${DOMAIN}"
+
+# Default mev-commit binary download values.
+ARTIFACTS_URL="https://github.com/primev/mev-commit/releases/latest/download/"
+VERSION="__VERSION__"
+if [ "${VERSION}" == "__VERSION__" ]; then
+  TAG="$(curl -sIL -o /dev/null -w %{url_effective} https://github.com/primev/mev-commit/releases/latest | sed 's:.*/::')"
+  VERSION="${TAG:1}"
+fi
+
+# Rewrites the default values if the target machine IP is provided.
+# This is useful when running the script in dev environments.
+TARGET_MACHINE_IP="__TARGET_MACHINE_IP__"
+if [ "${TARGET_MACHINE_IP}" != "__TARGET_MACHINE_IP__" ]; then
+  RPC_URL="http://${TARGET_MACHINE_IP}:8545"
+  FAUCET_URL="http://${TARGET_MACHINE_IP}"
+  CONTRACTS_URL="http://${TARGET_MACHINE_IP}:1010/contracts.json"
+  TOPOLOGY="$(curl -skL https://${TARGET_MACHINE_IP}:13523/v1/debug/topology)"
+  if [ -z "${TOPOLOGY}" ]; then
+    echo "Failed to fetch topology from ${TARGET_MACHINE_IP}"
+    exit 1
+  fi
+  UNDERLAY="$(echo "${TOPOLOGY}" | jq -r '.topology.self.Underlay')"
+  if [ "${UNDERLAY}" == "null" ]; then
+    echo "Failed to fetch underlay from ${TARGET_MACHINE_IP}"
+    exit 1
+  fi
+  BOOTNODE="/ip4/${TARGET_MACHINE_IP}/tcp/13522/p2p/${UNDERLAY}"
+  ARTIFACTS_URL="http://${TARGET_MACHINE_IP}:1111"
+fi
+
+# Prints usage information for the script.
+usage() {
+  echo "Usage: $0 --node-type [bidder|provider]"
+  exit 1
+}
+
+# Logs an informational message in blue.
+log_info() {
+  local message="${1}"
+  echo -e "\033[34m[\033[32m*\033[34m]\033[34m ${message} \033[0m"
+}
+
+# Logs a warning message in yellow.
+log_warn() {
+  local message="${1}"
+  echo -e "\033[31m[\033[34m#\033[31m]\033[33m ${message} \033[0m"
+}
+
+# Logs an error message in red.
+log_error() {
+  local message="${1}"
+  echo -e "\033[31m[\033[34m!\033[31m]\033[31m ${message} \033[0m"
+}
+
+# Checks if required utilities are installed.
+check_utils() {
+  local missing_utils=()
+  local required_utilities=(
+    jq
+    sed
+    curl
+  )
+  for util in "${required_utilities[@]}"; do
+    if [ ! -x "$(command -v ${util})" ]; then
+      missing_utils+=("${util}")
+    fi
+  done
+  if [ ${#missing_utils[@]} -ne 0 ]; then
+    log_error "The following utilities are required and not installed: ${missing_utils[*]}"
+    exit 1
+  fi
+}
+
+# Downloads and installs the mev-commit binary.
+install_mev_commit() {
+  local file="mev-commit_${VERSION}_"
+  case "$(uname -s):$(uname -m)" in
+    Linux:x86_64)
+      file+="Linux_x86_64.tar.gz"
+      ;;
+    Linux:arm64)
+      file+="Linux_arm64.tar.gz"
+      ;;
+    Darwin:x86_64)
+      file+="Darwin_x86_64.tar.gz"
+      ;;
+    Darwin:arm64)
+      file+="Darwin_arm64.tar.gz"
+      ;;
+    WindowsNT:x86_64)
+      file+="Windows_x86_64.zip"
+      ;;
+    *)
+      log_error "Unsupported system ($(uname -a))"
+      exit 1
+      ;;
+  esac
+
+  if [ ! -f "${ROOT_PATH}/${file}" ]; then
+    log_info "Installing mev-commit..."
+    http_status=$(curl -sL -w "%{http_code}" "${ARTIFACTS_URL}/${file}" -o "${ROOT_PATH}/${file}")
+    if [ "${http_status}" -ne 200 ]; then
+      log_error "Failed to download file from ${ARTIFACTS_URL}/${file}, status code: ${http_status}"
+      rm -f "${ROOT_PATH}/${file}"
+      exit 1
+    fi
+    tar -xzf "${ROOT_PATH}/${file}" -C "${ROOT_PATH}"
+    if [ $? -ne 0 ]; then
+      log_error "Failed to extract mev-commit binary"
+      exit 1
+    fi
+  else
+    log_info "Binary is already installed"
+  fi
+}
+
+# Waits until the specified URL is reachable or times out.
+wait_until_reachable() {
+  local url="${1}"
+  local timeout=60
+  local start_time="$(date +%s)"
+
+  while true; do
+    if [ "$(curl -s -o /dev/null -w "%{http_code}" ${url})" -eq 200 ]; then
+      return 0
+    fi
+
+    current_time=$(date +%s)
+    elapsed_time=$((current_time - start_time))
+    if [ "${elapsed_time}" -ge "${timeout}" ]; then
+      log_error "Timeout reached, ${url} did not return status 200."
+      return 1
+    fi
+
+    sleep 1
+  done
+}
+
+# Parses command-line arguments.
+parse_args() {
+  while [[ "$#" -gt 0 ]]; do
+    case ${1} in
+      --node-type)
+        NODE_TYPE="${2}"
+        case ${NODE_TYPE} in
+          bidder|provider)
+            # Valid node type, do nothing.
+            ;;
+          *)
+            log_error "Invalid node type: ${NODE_TYPE}, must be 'bidder' or 'provider'"
+            usage
+            exit 1
+            ;;
+        esac
+        shift
+        ;;
+      *)
+        log_error "Unknown parameter passed: ${1}"
+        usage
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+# Cleans up by killing the specified process ID.
+# The function is idempotent and only kills the process once.
+cleanup() {
+  local pid="${1}"
+  if [ -z "${cleaned_up}" ] && kill -0 ${pid} 2>/dev/null; then
+    log_info "Killing mev-commit node with PID ${pid}"
+    kill ${pid}
+  fi
+  cleaned_up=true
+  exit 0
+}
+
+main() {
+  log_info "Starting mev-commit setup script..."
+  log_info "Version of mev-commit: ${VERSION}"
+  log_info "Type of node: ${NODE_TYPE}"
+
+  mkdir -p "${ROOT_PATH}"
+  if [ ! -O ${ROOT_PATH} ] && [ -z "${MEV_COMMIT_INSECURE_EXEC}" ]; then
+    log_error "Temp path ${ROOT_PATH} is not owned by current user"
+    log_error "Run again with MEV_COMMIT_INSECURE_EXEC=1 to ignore this warning"
+    exit 1
+  fi
+
+  check_utils
+  parse_args "$@"
+  install_mev_commit
+
+  if [ ! -x "$(command -v forge)" ] && [ ! -d "${HOME}/.foundry/bin" ]; then
+    log_info "Installing foundry..."
+    curl -s -L https://foundry.paradigm.xyz | bash
+    exec "${HOME}/.foundry/bin/foundryup"
+  fi
+
+  local contracts_json=$(curl -sL ${CONTRACTS_URL})
+  if ! echo "${contracts_json}" | jq . > /dev/null 2>&1; then
+    log_error "Failed to fetch contracts from ${CONTRACTS_URL}"
+    exit 1
+  fi
+  export MEV_COMMIT_BLOCK_TRACKER_ADDR="$(echo ${contracts_json} | jq -r '.BlockTracker')"
+  export MEV_COMMIT_BIDDER_REGISTRY_ADDR="$(echo ${contracts_json} | jq -r '.BidderRegistry')"
+  export MEV_COMMIT_PROVIDER_REGISTRY_ADDR="$(echo ${contracts_json} | jq -r '.ProviderRegistry')"
+  export MEV_COMMIT_PRECONF_ADDR="$(echo ${contracts_json} | jq -r '.PreConfCommitmentStore')"
+
+  chmod +x ${BINARY_PATH}
+  log_info "Initializing mev-commit..."
+  ${BINARY_PATH} \
+    --settlement-rpc-endpoint "${RPC_URL}" \
+    --peer-type "${NODE_TYPE}" \
+    --bootnodes "${BOOTNODE}" &
+  local pid=$!
+
+  sleep 1
+  if ! ps -p ${pid} > /dev/null; then
+    log_error "Failed to start mev-commit"
+    exit 1
+  fi
+
+  trap "cleanup ${pid}" EXIT SIGINT SIGTERM
+  log_info "To kill mev-commit, exit the script with Ctrl+C"
+
+  local address=$(cast wallet address --private-key "0x$(cat ${ROOT_PATH}/key)")
+  log_info "Your wallet address is ${address}"
+
+  while true ; do
+    local balance=$(echo "scale=18; $(cast balance ${address} --rpc-url ${RPC_URL}) / 1000000000000000000" | bc)
+    if (( $(echo "${balance} > 0" | bc -l) )); then
+      log_info "Account ${address} has been funded"
+      break
+    fi
+    log_info "Waiting for account ${address} to be funded, visit ${FAUCET_URL}"
+    sleep 5
+  done
+
+  wait_until_reachable "http://127.0.0.1:13523/health"
+
+  case ${NODE_TYPE} in
+    bidder)
+      log_info "Sending auto deposit request..."
+      local response=$(
+        curl \
+        --silent \
+        --show-error \
+        --output /dev/null \
+        --write-out "%{http_code}" \
+        --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/1000000000000000000"
+      )
+      if [ "${response}" -ne 200 ]; then
+        log_error "Failed to send auto deposit request, status code: ${response}"
+        exit 1
+      fi
+      log_info "Auto deposit request sent successfully"
+      ;;
+    provider)
+      log_info "Next, to register and stake as a provider, visit https://docs.primev.xyz/get-started/providers/registering-a-provider"
+      ;;
+  esac
+
+  wait ${pid}
+}
+
+main "$@" || exit 1
