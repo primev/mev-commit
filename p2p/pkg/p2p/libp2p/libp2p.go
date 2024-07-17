@@ -281,18 +281,18 @@ func ConstructProtocolID(protocolName, protocolVersion string) protocol.ID {
 }
 
 func matchProtocolIDWithSemver(
-	incomingProto string,
-	protoID string,
+	incomingProtoID string,
+	incomingProtocolName string,
 	supportedVersion string) (bool, error) {
 	// Extract the version part from the protocol ID.
-	parts := strings.Split(incomingProto, "/")
+	parts := strings.Split(incomingProtoID, "/")
 	if len(parts) != 3 {
-		return false, fmt.Errorf("invalid protocol ID: %s", protoID)
+		return false, fmt.Errorf("invalid protocol ID: %s", incomingProtoID)
 	}
 	protocolName := parts[1]
 	protocolVersion := parts[2]
 
-	if protocolName != protoID {
+	if protocolName != incomingProtocolName {
 		return false, nil
 	}
 
@@ -317,6 +317,10 @@ func (s *Service) AddStreamHandlers(streams ...p2p.StreamDesc) {
 		s.host.SetStreamHandlerMatch(
 			ConstructProtocolID(ss.Name, ss.Version),
 			func(p protocol.ID) bool {
+				parts := strings.Split(string(p), "/")
+				if len(parts) != 3 {
+					s.logger.Error("incorrect protocol ID format:", "p", string(p))
+				}
 				matched, err := matchProtocolIDWithSemver(string(p), ss.Name, ss.Version)
 				if err != nil {
 					s.logger.Error("matching protocol ID with semver", "err", err)
