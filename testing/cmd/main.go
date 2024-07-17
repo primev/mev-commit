@@ -132,14 +132,8 @@ func main() {
 			optionLogLevel,
 			optionLogTags,
 		},
-		Commands: []*cli.Command{
-			{
-				Name:  "run",
-				Usage: "Run MEV commit test",
-				Action: func(c *cli.Context) error {
-					return run(c)
-				},
-			},
+		Action: func(c *cli.Context) error {
+			return run(c)
 		},
 	}
 
