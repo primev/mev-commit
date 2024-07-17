@@ -12,6 +12,7 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/oracle/pkg/store"
 	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/evmclients"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -27,15 +28,9 @@ type WinnerRegister interface {
 	LastWinnerBlock() (int64, error)
 }
 
-type EthClient interface {
-	BlockNumber(ctx context.Context) (uint64, error)
-	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
-	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
-}
-
 type L1Listener struct {
 	logger         *slog.Logger
-	l1Client       EthClient
+	l1Client       evmclients.EthClient
 	winnerRegister WinnerRegister
 	eventMgr       events.EventManager
 	recorder       L1Recorder
@@ -44,7 +39,7 @@ type L1Listener struct {
 
 func NewL1Listener(
 	logger *slog.Logger,
-	l1Client EthClient,
+	l1Client evmclients.EthClient,
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	recorder L1Recorder,

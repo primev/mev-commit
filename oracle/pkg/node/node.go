@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math/big"
 	"net/url"
 	"strings"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
@@ -30,6 +28,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/evmclients"
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
@@ -158,14 +157,14 @@ func NewNode(opts *Options) (*Node, error) {
 		)
 	}
 
-	var listenerL1Client l1Listener.EthClient
+	var listenerL1Client evmclients.EthClient
 
 	listenerL1Client = l1Client
 	if opts.LaggerdMode > 0 {
-		listenerL1Client = &laggerdL1Client{EthClient: listenerL1Client, amount: opts.LaggerdMode}
+		listenerL1Client = evmclients.NewLaggerdL1Client(listenerL1Client, opts.LaggerdMode)
 	}
 
-	listenerL1Client = &infiniteRetryL1Client{EthClient: listenerL1Client, logger: nd.logger}
+	listenerL1Client = evmclients.NewInfiniteRetryL1Client(listenerL1Client, nd.logger)
 
 	blockTracker, err := blocktracker.NewBlocktrackerTransactor(
 		opts.BlockTrackerContractAddr,
@@ -205,7 +204,7 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	if opts.OverrideWinners != nil && len(opts.OverrideWinners) > 0 {
-		listenerL1Client = &winnerOverrideL1Client{EthClient: listenerL1Client, winners: opts.OverrideWinners}
+		listenerL1Client = evmclients.NewWinnerOverrideL1Client(listenerL1Client, opts.OverrideWinners)
 		for _, winner := range opts.OverrideWinners {
 			nd.logger.Info("setting builder mapping", "builderName", winner, "builderAddress", winner)
 			err := setBuilderMapping(
@@ -396,93 +395,6 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 	abis[opts.OracleContractAddr] = &orABI
 
 	return abis, nil
-}
-
-type laggerdL1Client struct {
-	l1Listener.EthClient
-	amount int
-}
-
-func (l *laggerdL1Client) BlockNumber(ctx context.Context) (uint64, error) {
-	blkNum, err := l.EthClient.BlockNumber(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	return blkNum - uint64(l.amount), nil
-}
-
-type winnerOverrideL1Client struct {
-	l1Listener.EthClient
-	winners []string
-}
-
-func (w *winnerOverrideL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	hdr, err := w.EthClient.HeaderByNumber(ctx, number)
-	if err != nil {
-		return nil, err
-	}
-
-	idx := number.Int64() % int64(len(w.winners))
-	hdr.Extra = []byte(w.winners[idx])
-
-	return hdr, nil
-}
-
-type infiniteRetryL1Client struct {
-	l1Listener.EthClient
-	logger *slog.Logger
-}
-
-func (i *infiniteRetryL1Client) BlockNumber(ctx context.Context) (uint64, error) {
-	var blkNum uint64
-	var err error
-	for retries := 50; retries > 0; retries-- {
-		blkNum, err = i.EthClient.BlockNumber(ctx)
-		if err == nil {
-			break
-		}
-		i.logger.Error("failed to get block number, retrying...", "error", err)
-		time.Sleep(2 * time.Second)
-	}
-	if err != nil {
-		return 0, err
-	}
-	return blkNum, nil
-}
-
-func (i *infiniteRetryL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	var hdr *types.Header
-	var err error
-	for retries := 50; retries > 0; retries-- {
-		hdr, err = i.EthClient.HeaderByNumber(ctx, number)
-		if err == nil {
-			break
-		}
-		i.logger.Error("failed to get header by number, retrying...", "error", err)
-		time.Sleep(2 * time.Second)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return hdr, nil
-}
-
-func (i *infiniteRetryL1Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	var blk *types.Block
-	var err error
-	for retries := 50; retries > 0; retries-- {
-		blk, err = i.EthClient.BlockByNumber(ctx, number)
-		if err == nil {
-			break
-		}
-		i.logger.Error("failed to get block by number, retrying...", "error", err)
-		time.Sleep(2 * time.Second)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return blk, nil
 }
 
 func setBuilderMapping(
