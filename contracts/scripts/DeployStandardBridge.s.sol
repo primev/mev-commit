@@ -11,6 +11,7 @@ import {L1Gateway} from "../contracts/standard-bridge/L1Gateway.sol";
 import {Whitelist} from "../contracts/Whitelist.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {console} from "forge-std/console.sol";
 
 contract DeploySettlementGateway is Script {
     function run() external {

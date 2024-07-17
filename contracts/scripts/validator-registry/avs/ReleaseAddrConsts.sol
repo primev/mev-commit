@@ -3,7 +3,7 @@
 // solhint-disable no-console
 // solhint-disable one-contract-per-file
 
-pragma solidity 0.8.0;
+pragma solidity 0.8.20;
 
 // TODO: Confirm every addr here with the markdown
 

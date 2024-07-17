@@ -27,7 +27,7 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
     // The counterparty's finalization fee (wei), included for UX purposes
     uint256 public counterpartyFee;
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     function initiateTransfer(address _recipient, uint256 _amount
     ) external payable returns (uint256 returnIdx) {

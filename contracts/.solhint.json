@@ -2,7 +2,20 @@
   "extends": "solhint:recommended",
   "rules": {
     "max-line-length": ["error", 1000],
-    "gas-custom-errors": "off",
-    "func-visibility": ["error", { "ignoreConstructors": true }]
+    "func-visibility": ["error", { "ignoreConstructors": true }],
+    "modifier-name-mixedcase": "error",
+    "func-param-name-mixedcase": "error",
+    "gas-calldata-parameters": "error",
+    "gas-increment-by-one": "error",
+    "gas-struct-packing": "error",
+    "no-unused-vars": "error",
+    "interface-starts-with-i": "error",
+    "reason-string": "warn",
+    "private-vars-leading-underscore": "warn",
+    "gas-length-in-loops": "warn",
+    "gas-strict-inequalities": "warn",
+    "ordering": "warn",
+    "gas-indexed-events": "warn",
+    "gas-custom-errors": "off"
   }
 }

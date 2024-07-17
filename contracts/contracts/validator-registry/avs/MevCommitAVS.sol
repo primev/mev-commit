@@ -157,11 +157,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Authorizes contract upgrades, restricted to contract owner.
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     /// @dev Registers an operator with the MevCommitAVS.
     function registerOperator (
-        ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
+        ISignatureUtils.SignatureWithSaltAndExpiry calldata operatorSignature
     ) external whenNotPaused() onlyNonRegisteredOperator() onlyEigenCoreOperator() {
         _registerOperator(operatorSignature);
     }
@@ -235,7 +235,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
-    function unfreeze(bytes[] calldata valPubKey) payable external 
+    function unfreeze(bytes[] calldata valPubKey) external payable
         whenNotPaused() onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) {
         uint256 requiredFee = unfreezeFee * valPubKey.length;
         require(msg.value >= requiredFee,
@@ -323,7 +323,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Updates the eigenlayer metadata URI, restricted to contract owner.
-    function updateMetadataURI(string memory metadataURI_) external onlyOwner {
+    function updateMetadataURI(string calldata metadataURI_) external onlyOwner {
         _updateMetadataURI(metadataURI_);
     }
 
@@ -501,50 +501,50 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to set the freeze oracle account.
-    function _setFreezeOracle(address _freezeOracle) internal {
-        freezeOracle = _freezeOracle;
-        emit FreezeOracleSet(_freezeOracle);
+    function _setFreezeOracle(address freezeOracle_) internal {
+        freezeOracle = freezeOracle_;
+        emit FreezeOracleSet(freezeOracle_);
     }
 
     /// @dev Internal function to set the unfreeze fee.
-    function _setUnfreezeFee(uint256 _unfreezeFee) internal {
-        unfreezeFee = _unfreezeFee;
-        emit UnfreezeFeeSet(_unfreezeFee);
+    function _setUnfreezeFee(uint256 unfreezeFee_) internal {
+        unfreezeFee = unfreezeFee_;
+        emit UnfreezeFeeSet(unfreezeFee_);
     }
 
     /// @dev Internal function to set the unfreeze receiver.
-    function _setUnfreezeReceiver(address _unfreezeReceiver) internal {
-        unfreezeReceiver = _unfreezeReceiver;
-        emit UnfreezeReceiverSet(_unfreezeReceiver);
+    function _setUnfreezeReceiver(address unfreezeReceiver_) internal {
+        unfreezeReceiver = unfreezeReceiver_;
+        emit UnfreezeReceiverSet(unfreezeReceiver_);
     }
 
     /// @dev Internal function to set the unfreeze period in blocks.
-    function _setUnfreezePeriodBlocks(uint256 _unfreezePeriodBlocks) internal {
-        unfreezePeriodBlocks = _unfreezePeriodBlocks;
-        emit UnfreezePeriodBlocksSet(_unfreezePeriodBlocks);
+    function _setUnfreezePeriodBlocks(uint256 unfreezePeriodBlocks_) internal {
+        unfreezePeriodBlocks = unfreezePeriodBlocks_;
+        emit UnfreezePeriodBlocksSet(unfreezePeriodBlocks_);
     }
     
     /// @dev Internal function to set the operator deregistration period in blocks.
-    function _setOperatorDeregPeriodBlocks(uint256 _operatorDeregPeriodBlocks) internal {
-        operatorDeregPeriodBlocks = _operatorDeregPeriodBlocks;
-        emit OperatorDeregPeriodBlocksSet(_operatorDeregPeriodBlocks);
+    function _setOperatorDeregPeriodBlocks(uint256 operatorDeregPeriodBlocks_) internal {
+        operatorDeregPeriodBlocks = operatorDeregPeriodBlocks_;
+        emit OperatorDeregPeriodBlocksSet(operatorDeregPeriodBlocks_);
     }
 
     /// @dev Internal function to set the validator deregistration period in blocks.
-    function _setValidatorDeregPeriodBlocks(uint256 _validatorDeregPeriodBlocks) internal {
-        validatorDeregPeriodBlocks = _validatorDeregPeriodBlocks;
-        emit ValidatorDeregPeriodBlocksSet(_validatorDeregPeriodBlocks);
+    function _setValidatorDeregPeriodBlocks(uint256 validatorDeregPeriodBlocks_) internal {
+        validatorDeregPeriodBlocks = validatorDeregPeriodBlocks_;
+        emit ValidatorDeregPeriodBlocksSet(validatorDeregPeriodBlocks_);
     }
 
     /// @dev Internal function to set the LST restaker deregistration period in blocks.
-    function _setLstRestakerDeregPeriodBlocks(uint256 _lstRestakerDeregPeriodBlocks) internal {
-        lstRestakerDeregPeriodBlocks = _lstRestakerDeregPeriodBlocks;
-        emit LSTRestakerDeregPeriodBlocksSet(_lstRestakerDeregPeriodBlocks);
+    function _setLstRestakerDeregPeriodBlocks(uint256 lstRestakerDeregPeriodBlocks_) internal {
+        lstRestakerDeregPeriodBlocks = lstRestakerDeregPeriodBlocks_;
+        emit LSTRestakerDeregPeriodBlocksSet(lstRestakerDeregPeriodBlocks_);
     }
 
     /// @dev Internal function to update the eigenlayer metadata URI.
-    function _updateMetadataURI(string memory _metadataURI) internal {
-        _eigenAVSDirectory.updateAVSMetadataURI(_metadataURI);
+    function _updateMetadataURI(string memory metadataURI_) internal {
+        _eigenAVSDirectory.updateAVSMetadataURI(metadataURI_);
     }
 
     /// @dev Returns the list of restakeable strategies.

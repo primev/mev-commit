@@ -40,8 +40,8 @@ interface IValidatorRegistryV1 {
     /// @dev Struct representing a validator staked with the registry.
     struct StakedValidator {
         bool exists;
-        uint256 balance;
         address withdrawalAddress;
+        uint256 balance;
         EventHeightLib.EventHeight unstakeHeight;
     }
 

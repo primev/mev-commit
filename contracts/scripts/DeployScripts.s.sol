@@ -13,6 +13,7 @@ import {Oracle} from "../contracts/Oracle.sol";
 import {Whitelist} from "../contracts/Whitelist.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {BlockTracker} from "../contracts/BlockTracker.sol";
+import {console} from "forge-std/console.sol";
 
 // Deploys core contracts
 contract DeployScript is Script {

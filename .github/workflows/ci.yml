@@ -223,9 +223,7 @@ jobs:
       
       - name: Run solhint solidity linter
         run: |
-          solhint 'contracts/**/*.sol'
-          solhint 'scripts/**/*.sol'
-          solhint 'test/**/*.sol'
+          make solhint
         working-directory: contracts
 
   infrastructure:

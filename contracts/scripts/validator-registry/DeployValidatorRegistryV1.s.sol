@@ -8,6 +8,7 @@ pragma solidity 0.8.20;
 import {Script} from "forge-std/Script.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {ValidatorRegistryV1} from "../../contracts/validator-registry/ValidatorRegistryV1.sol";
+import {console} from "forge-std/console.sol";
 
 contract BaseDeploy is Script {
     function deployValidatorRegistry(
