@@ -93,7 +93,10 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 
 	baseServer := grpc.NewServer()
 	providerapiv1.RegisterProviderServer(baseServer, srvImpl)
+	srvStopped := make(chan struct{})
 	go func() {
+		defer close(srvStopped)
+
 		if err := baseServer.Serve(lis); err != nil {
 			// Ignore "use of closed network connection" error
 			if opErr, ok := err.(*net.OpError); !ok || !errors.Is(opErr.Err, net.ErrClosed) {
@@ -117,6 +120,8 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 			t.Errorf("error closing listener: %v", err)
 		}
 		baseServer.Stop()
+
+		<-srvStopped
 	})
 
 	client := providerapiv1.NewProviderClient(conn)
