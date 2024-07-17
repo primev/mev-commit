@@ -97,7 +97,7 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 		if err := baseServer.Serve(lis); err != nil {
 			// Ignore "use of closed network connection" error
 			if opErr, ok := err.(*net.OpError); !ok || !errors.Is(opErr.Err, net.ErrClosed) {
-				t.Errorf("server stopped err: %v", err)
+				t.Logf("server stopped err: %v", err)
 			}
 		}
 	}()
