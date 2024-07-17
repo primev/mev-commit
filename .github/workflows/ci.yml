@@ -188,6 +188,9 @@ jobs:
 
       - name: Install Hardhat
         run: npm install -g hardhat
+      
+      - name: Install solhint
+        run: npm install -g solhint
 
       - name: Install Dependencies
         run: npm install
@@ -198,6 +201,7 @@ jobs:
           node --version
           npm --version
           forge --version
+          solhint --version
 
       - name: Build
         run: npm run build --if-present
@@ -216,6 +220,13 @@ jobs:
           git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
           git reset --hard HEAD
         working-directory: contracts-abi
+      
+      - name: Run solhint solidity linter
+        run: |
+          solhint 'contracts/**/*.sol'
+          solhint 'scripts/**/*.sol'
+          solhint 'test/**/*.sol'
+        working-directory: contracts
 
   infrastructure:
     uses: ./.github/workflows/infrastructure.yml

@@ -1,0 +1,8 @@
+{
+  "extends": "solhint:recommended",
+  "rules": {
+    "max-line-length": ["error", 1000],
+    "gas-custom-errors": "off",
+    "func-visibility": ["error", { "ignoreConstructors": true }]
+  }
+}
