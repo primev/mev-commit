@@ -7,7 +7,7 @@ BINARY_PATH="${ROOT_PATH}/mev-commit"
 # Default mev-commit configuration values.
 NODE_TYPE="bidder"
 DOMAIN="testnet.mev-commit.xyz"
-RPC_URL="https://chainrpc.${DOMAIN}"
+RPC_URL="wss://chainrpc-wss.${DOMAIN}"
 FAUCET_URL="https://faucet.${DOMAIN}"
 BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
 CONTRACTS_URL="https://contracts.${DOMAIN}"
@@ -24,7 +24,7 @@ fi
 # This is useful when running the script in dev environments.
 TARGET_MACHINE_IP="__TARGET_MACHINE_IP__"
 if [ "${TARGET_MACHINE_IP}" != "__TARGET_MACHINE_IP__" ]; then
-  RPC_URL="http://${TARGET_MACHINE_IP}:8545"
+  RPC_URL="ws://${TARGET_MACHINE_IP}:8546"
   FAUCET_URL="http://${TARGET_MACHINE_IP}"
   CONTRACTS_URL="http://${TARGET_MACHINE_IP}:1010/contracts.json"
   TOPOLOGY="$(curl -skL https://${TARGET_MACHINE_IP}:13523/v1/debug/topology)"
@@ -224,7 +224,7 @@ main() {
   chmod +x ${BINARY_PATH}
   log_info "Initializing mev-commit..."
   ${BINARY_PATH} \
-    --settlement-rpc-endpoint "${RPC_URL}" \
+    --settlement-ws-rpc-endpoint "${RPC_URL}" \
     --peer-type "${NODE_TYPE}" \
     --bootnodes "${BOOTNODE}" &
   local pid=$!
