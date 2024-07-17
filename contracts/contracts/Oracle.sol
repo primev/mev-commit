@@ -67,7 +67,7 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
     ) external initializer {
         preConfContract = IPreConfCommitmentStore(preConfContract_);
         blockTrackerContract = IBlockTracker(blockTrackerContract_);
-        oracleAccount = oracleAccount_;
+        _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
     }
 
@@ -79,6 +79,9 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
 
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+
+    /// @dev Event emitted when the oracle account is set.
+    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
     // Function to receive and process the block data (this would be automated in a real-world scenario)
     /**
@@ -116,6 +119,21 @@ contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
                 residualBidPercentAfterDecay
             );
         }
+    }
+
+    /// @dev Allows the owner to set the oracle account.
+    function setOracleAccount(address newOracleAccount) external onlyOwner {
+        _setOracleAccount(newOracleAccount);
+    }
+
+    /**
+     * @dev Internal function to set the oracle account.
+     * @param newOracleAccount The new address of the oracle account.
+     */
+    function _setOracleAccount(address newOracleAccount) internal {
+        address oldOracleAccount = oracleAccount;
+        oracleAccount = newOracleAccount;
+        emit OracleAccountSet(oldOracleAccount, newOracleAccount);
     }
 
     /**

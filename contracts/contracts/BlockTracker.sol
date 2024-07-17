@@ -29,6 +29,9 @@ contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when a new window is created.
     event NewWindow(uint256 indexed window);
 
+    /// @dev Event emitted when the oracle account is set.
+    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
+
     uint256 public currentWindow;
     uint256 public blocksPerWindow;
 
@@ -49,7 +52,7 @@ contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
     function initialize(uint256 blocksPerWindow_, address oracleAccount_, address owner_) external initializer {
         currentWindow = 1;
         blocksPerWindow = blocksPerWindow_;
-        oracleAccount = oracleAccount_;
+        _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
     }
 
@@ -116,6 +119,21 @@ contract BlockTracker is OwnableUpgradeable, UUPSUpgradeable {
             emit NewWindow(currentWindow);
         }
         emit NewL1Block(_blockNumber, _winner, currentWindow);
+    }
+
+    /// @dev Allows the owner to set the oracle account.
+    function setOracleAccount(address newOracleAccount) external onlyOwner {
+        _setOracleAccount(newOracleAccount);
+    }
+
+    /**
+     * @dev Internal function to set the oracle account.
+     * @param newOracleAccount The new address of the oracle account.
+     */
+    function _setOracleAccount(address newOracleAccount) internal {
+        address oldOracleAccount = oracleAccount;
+        oracleAccount = newOracleAccount;
+        emit OracleAccountSet(oldOracleAccount, newOracleAccount);
     }
 
     /**
