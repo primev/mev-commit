@@ -138,6 +138,9 @@ jobs:
         p2p:
           static: 13522
           to: 13522
+        rpc:
+          static: 13524
+          to: 13524
     env:
       type: bootnode
       tls_crt_file: "{{ tls_crt_file }}"
