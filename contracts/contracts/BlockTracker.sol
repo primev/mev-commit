@@ -76,7 +76,7 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @param builderAddress The Ethereum address of the builder.
      */
     function addBuilderAddress(
-        string memory builderName,
+        string calldata builderName,
         address builderAddress
     ) external onlyOracle {
         blockBuilderNameToAddress[builderName] = builderAddress;

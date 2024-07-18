@@ -7,7 +7,7 @@ import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
 import "../contracts/ProviderRegistry.sol";
 import "../contracts/BidderRegistry.sol";
 import "../contracts/BlockTracker.sol";
-import "forge-std/console.sol";
+
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";

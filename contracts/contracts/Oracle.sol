@@ -6,8 +6,8 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 
 import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
-import {IPreConfCommitmentStore} from './interfaces/IPreConfCommitmentStore.sol';
-import {IBidderRegistry} from './interfaces/IBidderRegistry.sol';
+import {IPreConfCommitmentStore} from "./interfaces/IPreConfCommitmentStore.sol";
+import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
 /// @title Oracle Contract
@@ -50,7 +50,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Reference to the BlockTracker contract interface.
     IBlockTracker private blockTrackerContract;
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     /**
      * @dev Initializes the contract with a PreConfirmations contract.

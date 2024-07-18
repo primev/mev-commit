@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: BSL 1.1
+
+// solhint-disable no-console
+// solhint-disable one-contract-per-file
+
 pragma solidity 0.8.20;
-import "forge-std/Script.sol";
-import "../contracts/BidderRegistry.sol";
-import "../contracts/ProviderRegistry.sol";
-import "../contracts/PreConfCommitmentStore.sol";
-import "../contracts/Oracle.sol";
-import "../contracts/Whitelist.sol";
+
+import {Script} from "forge-std/Script.sol";
+import {BidderRegistry} from "../contracts/BidderRegistry.sol";
+import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
+import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
+import {Oracle} from "../contracts/Oracle.sol";
+import {Whitelist} from "../contracts/Whitelist.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import "../contracts/BlockTracker.sol";
+import {BlockTracker} from "../contracts/BlockTracker.sol";
+import {console} from "forge-std/console.sol";
 
 // Deploys core contracts
 contract DeployScript is Script {
@@ -90,7 +96,7 @@ contract DeployWhitelist is Script {
         address hypERC20Addr = vm.envAddress("HYP_ERC20_ADDR");
         require(
             hypERC20Addr != address(0),
-            "Address to whitelist not provided"
+            "hypERC20 addr not provided"
         );
 
         address whitelistProxy = Upgrades.deployUUPSProxy(

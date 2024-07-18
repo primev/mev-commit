@@ -503,7 +503,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
             blockNumber
         );
 
-        commitmentsCount[commiterAddress] += 1;
+        ++commitmentsCount[commiterAddress];
 
         emit CommitmentStored(
             commitmentIndex,
@@ -619,7 +619,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         require(!commitment.isUsed, "Commitment already used");
 
         commitment.isUsed = true;
-        commitmentsCount[commitment.commiter] -= 1;
+        --commitmentsCount[commitment.commiter];
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,
@@ -653,7 +653,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         );
 
         commitment.isUsed = true;
-        commitmentsCount[commitment.commiter] -= 1;
+        --commitmentsCount[commitment.commiter];
 
         bidderRegistry.retrieveFunds(
             windowToSettle,
