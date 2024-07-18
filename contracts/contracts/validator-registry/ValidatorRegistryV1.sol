@@ -195,7 +195,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         require(baseStakeAmount != 0, "Stake too low for number of keys");
         uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
         uint256 numKeys = blsPubKeys.length;
-        for (uint256 i = 0; i < numKeys; ++i) {
+        for (uint256 i = 0; i < numKeys; i++) {
             uint256 stakeAmount = (i == numKeys - 1) ? lastStakeAmount : baseStakeAmount;
             action(blsPubKeys[i], stakeAmount, withdrawalAddress);
         }
