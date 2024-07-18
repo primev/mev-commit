@@ -94,7 +94,7 @@ contract OracleTest is Test {
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (ownerInstance, blocksPerWindow))
+            abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, ownerInstance, ownerInstance))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
@@ -142,6 +142,7 @@ contract OracleTest is Test {
                 (
                     address(preConfCommitmentStore),
                     address(blockTracker),
+                    ownerInstance,
                     ownerInstance
                 )
             )
