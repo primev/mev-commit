@@ -28,7 +28,7 @@ contract BidderRegistryTest is Test {
         blocksPerWindow = 10;
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (address(this), blocksPerWindow))
+            abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, address(this), address(this)))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 

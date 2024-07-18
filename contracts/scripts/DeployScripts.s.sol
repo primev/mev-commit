@@ -29,9 +29,12 @@ contract DeployScript is Script {
         uint64 commitmentDispatchWindow = 2000;
         uint256 blocksPerWindow = 10;
 
+        address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
+        require(oracleKeystoreAddress != address(0), "Oracle keystore address not provided");
+
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (msg.sender, blocksPerWindow))
+            abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, oracleKeystoreAddress, msg.sender))
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
         console.log("BlockTracker:", address(blockTracker));
@@ -69,36 +72,13 @@ contract DeployScript is Script {
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
-            abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), msg.sender))
+            abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), oracleKeystoreAddress, msg.sender))
         );
         Oracle oracle = Oracle(payable(oracleProxy));
         console.log("Oracle:", address(oracle));
 
         preConfCommitmentStore.updateOracle(address(oracle));
         console.log("PreConfCommitmentStoreWithOracle:", address(oracle));
-
-        vm.stopBroadcast();
-    }
-}
-
-contract TransferOwnership is Script {
-    function run() external {
-        vm.startBroadcast();
-
-        address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
-        require(oracleKeystoreAddress != address(0), "keystore addr not provided");
-
-        address blockTrackerProxy = vm.envAddress("BLOCK_TRACKER_ADDRESS");
-        require(blockTrackerProxy != address(0), "Block tracker not provided");
-        BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
-        blockTracker.transferOwnership(oracleKeystoreAddress);
-        console.log("BlockTracker owner:", blockTracker.owner());
-
-        address oracleProxy = vm.envAddress("ORACLE_ADDRESS");
-        require(oracleProxy != address(0), "Oracle proxy not provided");
-        Oracle oracle = Oracle(payable(oracleProxy));
-        oracle.transferOwnership(oracleKeystoreAddress);
-        console.log("Oracle owner:", oracle.owner());
 
         vm.stopBroadcast();
     }

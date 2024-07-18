@@ -155,7 +155,7 @@ func New(opts *Options) (*Service, error) {
 	}
 
 	for _, addr := range host.Addrs() {
-		opts.Logger.Info("p2p address", "addr", addr, "host_address", host.ID().Pretty())
+		opts.Logger.Info("p2p address", "addr", addr, "host_address", host.ID())
 	}
 
 	ethAddress, err := GetEthAddressFromPeerID(host.ID())
@@ -203,7 +203,7 @@ func New(opts *Options) (*Service, error) {
 
 	host.Network().Notify(s.peers)
 
-	s.host.SetStreamHandler(handshake.ProtocolID(), s.handleConnectReq)
+	s.host.SetStreamHandler(ConstructProtocolID(handshake.ProtocolName, handshake.ProtocolVersion), s.handleConnectReq)
 
 	if len(opts.BootstrapAddrs) > 0 {
 		go s.startBootstrapper(opts.BootstrapAddrs)
@@ -276,19 +276,23 @@ func (s *Service) Self() map[string]interface{} {
 	}
 }
 
+func ConstructProtocolID(protocolName, protocolVersion string) protocol.ID {
+	return protocol.ID(fmt.Sprintf("/mev-commit/%s/%s", protocolName, protocolVersion))
+}
+
 func matchProtocolIDWithSemver(
-	incomingProto string,
-	protoID string,
+	incomingProtoID string,
+	protoName string,
 	supportedVersion string) (bool, error) {
 	// Extract the version part from the protocol ID.
-	parts := strings.Split(incomingProto, "/")
-	if len(parts) != 3 {
-		return false, fmt.Errorf("invalid protocol ID: %s", protoID)
+	parts := strings.Split(incomingProtoID, "/")
+	if len(parts) != 4 {
+		return false, fmt.Errorf("invalid protocol ID: %s; expected protocol name: %s", incomingProtoID, protoName)
 	}
-	protocolName := parts[1]
-	protocolVersion := parts[2]
+	protocolName := parts[2]
+	protocolVersion := parts[3]
 
-	if protocolName != protoID {
+	if protocolName != protoName {
 		return false, nil
 	}
 
@@ -311,7 +315,7 @@ func (s *Service) AddStreamHandlers(streams ...p2p.StreamDesc) {
 		ss := stream
 
 		s.host.SetStreamHandlerMatch(
-			protocol.ID(ss.Name),
+			ConstructProtocolID(ss.Name, ss.Version),
 			func(p protocol.ID) bool {
 				matched, err := matchProtocolIDWithSemver(string(p), ss.Name, ss.Version)
 				if err != nil {
@@ -383,7 +387,7 @@ func (s *Service) NewStream(
 		return nil, p2p.ErrPeerNotFound
 	}
 
-	streamID := protocol.ID(fmt.Sprintf("/%s/%s", stream.Name, stream.Version))
+	streamID := ConstructProtocolID(stream.Name, stream.Version)
 	streamlibp2p, err := s.host.NewStream(ctx, peerID, streamID)
 	if err != nil {
 		return nil, err
@@ -422,7 +426,7 @@ func (s *Service) Connect(ctx context.Context, info []byte) (p2p.Peer, error) {
 		return p2p.Peer{}, err
 	}
 
-	streamlibp2p, err := s.host.NewStream(ctx, addrInfo.ID, handshake.ProtocolID())
+	streamlibp2p, err := s.host.NewStream(ctx, addrInfo.ID, ConstructProtocolID(handshake.ProtocolName, handshake.ProtocolVersion))
 	if err != nil {
 		return p2p.Peer{}, err
 	}

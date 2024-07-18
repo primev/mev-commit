@@ -74,7 +74,7 @@ contract TestPreConfCommitmentStore is Test {
             "BlockTracker.sol",
             abi.encodeCall(
                 BlockTracker.initialize,
-                (address(this), blocksPerWindow)
+                (blocksPerWindow, address(this), address(this))
             )
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
