@@ -7,13 +7,20 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -24,7 +31,7 @@ type Orchestrator interface {
 	Bidders() []Bidder
 	Bootnodes() []Bootnode
 
-	ProviderRegistry() *providerregistry.ProviderregistryFilterer
+	Events() events.EventManager
 	Logger() *slog.Logger
 
 	io.Closer
@@ -54,12 +61,15 @@ type Bootnode interface {
 }
 
 type Options struct {
-	SettlementRPCEndpoint   string
-	ProviderRegistryAddress common.Address
-	ProviderRPCAddresses    []string
-	BidderRPCAddresses      []string
-	BootnodeRPCAddresses    []string
-	Logger                  *slog.Logger
+	SettlementRPCEndpoint       string
+	ProviderRegistryAddress     common.Address
+	BlockTrackerContractAddress common.Address
+	PreconfContractAddress      common.Address
+	BidderRegistryAddress       common.Address
+	ProviderRPCAddresses        []string
+	BidderRPCAddresses          []string
+	BootnodeRPCAddresses        []string
+	Logger                      *slog.Logger
 }
 
 type node struct {
@@ -101,13 +111,11 @@ func newNode(rpcAddr string, logger *slog.Logger) (*node, error) {
 		isSecure   bool
 		credential credentials.TransportCredentials
 	}{
-		// {"TLS system pool certificate", true, credentials.NewClientTLSFromCert(nil, "")},
 		{"TLS skip verification", false, credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})},
 		{"TLS disabled", false, insecure.NewCredentials()},
 	} {
 		logger.Info("dialing to grpc server", "strategy", e.strategy)
-		conn, err = grpc.DialContext(
-			context.Background(),
+		conn, err = grpc.NewClient(
 			rpcAddr,
 			grpc.WithTransportCredentials(e.credential),
 		)
@@ -147,8 +155,10 @@ type orchestrator struct {
 	bidders   []Bidder
 	bootnodes []Bootnode
 
-	providerRegistry *providerregistry.ProviderregistryFilterer
-	logger           *slog.Logger
+	evtMgr     events.EventManager
+	logger     *slog.Logger
+	pubCancel  context.CancelFunc
+	pubStopped <-chan struct{}
 }
 
 func (o *orchestrator) Providers() []Provider {
@@ -163,8 +173,8 @@ func (o *orchestrator) Bootnodes() []Bootnode {
 	return o.bootnodes
 }
 
-func (o *orchestrator) ProviderRegistry() *providerregistry.ProviderregistryFilterer {
-	return o.providerRegistry
+func (o *orchestrator) Events() events.EventManager {
+	return o.evtMgr
 }
 
 func (o *orchestrator) Logger() *slog.Logger {
@@ -189,6 +199,9 @@ func (o *orchestrator) Close() error {
 		}
 	}
 
+	o.pubCancel()
+	<-o.pubStopped
+
 	return errs
 }
 
@@ -211,30 +224,95 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 		bidders = append(bidders, n)
 	}
 
-	// bootnodes := make([]Bootnode, 0, len(opts.BootnodeRPCAddresses))
-	// for _, rpcAddr := range opts.BootnodeRPCAddresses {
-	// 	n, err := newNode(rpcAddr, opts.Logger)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	bootnodes = append(bootnodes, n)
-	// }
+	bootnodes := make([]Bootnode, 0, len(opts.BootnodeRPCAddresses))
+	for _, rpcAddr := range opts.BootnodeRPCAddresses {
+		n, err := newNode(rpcAddr, opts.Logger)
+		if err != nil {
+			return nil, err
+		}
+		bootnodes = append(bootnodes, n)
+	}
 
 	ethClient, err := ethclient.Dial(opts.SettlementRPCEndpoint)
 	if err != nil {
 		return nil, err
 	}
 
-	providerRegistry, err := providerregistry.NewProviderregistryFilterer(opts.ProviderRegistryAddress, ethClient)
+	contracts, err := getContractABIs(opts)
 	if err != nil {
 		return nil, err
 	}
 
+	abis := make([]*abi.ABI, 0, len(contracts))
+	contractAddrs := make([]common.Address, 0, len(contracts))
+
+	for addr, abi := range contracts {
+		abis = append(abis, abi)
+		contractAddrs = append(contractAddrs, addr)
+	}
+
+	evtMgr := events.NewListener(
+		opts.Logger.With("component", "events"),
+		abis...,
+	)
+
+	evtPublisher := publisher.NewWSPublisher(
+		nilStore{},
+		opts.Logger.With("component", "ws_publisher"),
+		ethClient,
+		evtMgr,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := evtPublisher.Start(ctx, contractAddrs...)
+
 	return &orchestrator{
-		providers: providers,
-		bidders:   bidders,
-		// bootnodes:        bootnodes,
-		providerRegistry: providerRegistry,
-		logger:           opts.Logger,
+		providers:  providers,
+		bidders:    bidders,
+		bootnodes:  bootnodes,
+		evtMgr:     evtMgr,
+		logger:     opts.Logger,
+		pubCancel:  cancel,
+		pubStopped: stopped,
 	}, nil
+}
+
+func getContractABIs(opts Options) (map[common.Address]*abi.ABI, error) {
+	abis := make(map[common.Address]*abi.ABI)
+
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.BlockTrackerContractAddress] = &btABI
+
+	pcABI, err := abi.JSON(strings.NewReader(preconfcommitmentstore.PreconfcommitmentstoreABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.PreconfContractAddress] = &pcABI
+
+	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.BidderRegistryAddress] = &brABI
+
+	prABI, err := abi.JSON(strings.NewReader(providerregistry.ProviderregistryABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.ProviderRegistryAddress] = &prABI
+
+	return abis, nil
+}
+
+type nilStore struct{}
+
+func (nilStore) SetLastBlock(block uint64) error {
+	return nil
+}
+
+func (nilStore) LastBlock() (uint64, error) {
+	return 0, nil
 }

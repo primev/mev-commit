@@ -35,6 +35,42 @@ var (
 		},
 	}
 
+	optionBidderRegistryAddress = &cli.StringFlag{
+		Name:    "bidder-registry-address",
+		Usage:   "Bidder registry address",
+		EnvVars: []string{"MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS"},
+		Action: func(c *cli.Context, address string) error {
+			if !common.IsHexAddress(address) {
+				return fmt.Errorf("invalid bidder registry address")
+			}
+			return nil
+		},
+	}
+
+	optionPreconfContractAddress = &cli.StringFlag{
+		Name:    "preconf-contract-address",
+		Usage:   "Preconfirmation contract address",
+		EnvVars: []string{"MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS"},
+		Action: func(c *cli.Context, address string) error {
+			if !common.IsHexAddress(address) {
+				return fmt.Errorf("invalid preconf contract address")
+			}
+			return nil
+		},
+	}
+
+	optionBlocktrackerContractAddress = &cli.StringFlag{
+		Name:    "blocktracker-contract-address",
+		Usage:   "Blocktracker contract address",
+		EnvVars: []string{"MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS"},
+		Action: func(c *cli.Context, address string) error {
+			if !common.IsHexAddress(address) {
+				return fmt.Errorf("invalid provider registry address")
+			}
+			return nil
+		},
+	}
+
 	optionBootnodeRPCAddresses = &cli.StringSliceFlag{
 		Name:    "bootnode-rpc-addresses",
 		Usage:   "Bootnode RPC addresses",
@@ -125,6 +161,9 @@ func main() {
 		Flags: []cli.Flag{
 			optionSettlementRPCEndpoint,
 			optionProviderRegistryAddress,
+			optionBidderRegistryAddress,
+			optionPreconfContractAddress,
+			optionBlocktrackerContractAddress,
 			optionBootnodeRPCAddresses,
 			optionProviderRPCAddresses,
 			optionBidderRPCAddresses,
@@ -145,12 +184,18 @@ func main() {
 func run(c *cli.Context) error {
 	settlementRPCEndpoint := c.String(optionSettlementRPCEndpoint.Name)
 	providerRegistryAddress := c.String(optionProviderRegistryAddress.Name)
+	bidderRegistryAddress := c.String(optionBidderRegistryAddress.Name)
+	preconfContractAddress := c.String(optionPreconfContractAddress.Name)
+	blocktrackerContractAddress := c.String(optionBlocktrackerContractAddress.Name)
 	bootnodeRPCAddresses := c.StringSlice(optionBootnodeRPCAddresses.Name)
 	providerRPCAddresses := c.StringSlice(optionProviderRPCAddresses.Name)
 	bidderRPCAddresses := c.StringSlice(optionBidderRPCAddresses.Name)
 
 	fmt.Println("Settlement RPC endpoint:", settlementRPCEndpoint)
 	fmt.Println("Provider registry address:", providerRegistryAddress)
+	fmt.Println("Bidder registry address:", bidderRegistryAddress)
+	fmt.Println("Preconfirmation contract address:", preconfContractAddress)
+	fmt.Println("Blocktracker contract address:", blocktrackerContractAddress)
 	fmt.Println("Bootnode RPC addresses:", bootnodeRPCAddresses)
 	fmt.Println("Provider RPC addresses:", providerRPCAddresses)
 	fmt.Println("Bidder RPC addresses:", bidderRPCAddresses)
@@ -166,12 +211,15 @@ func run(c *cli.Context) error {
 	}
 
 	o, err := orchestrator.NewOrchestrator(orchestrator.Options{
-		SettlementRPCEndpoint:   settlementRPCEndpoint,
-		ProviderRegistryAddress: common.HexToAddress(providerRegistryAddress),
-		BootnodeRPCAddresses:    bootnodeRPCAddresses,
-		ProviderRPCAddresses:    providerRPCAddresses,
-		BidderRPCAddresses:      bidderRPCAddresses,
-		Logger:                  logger,
+		SettlementRPCEndpoint:       settlementRPCEndpoint,
+		ProviderRegistryAddress:     common.HexToAddress(providerRegistryAddress),
+		BidderRegistryAddress:       common.HexToAddress(bidderRegistryAddress),
+		PreconfContractAddress:      common.HexToAddress(preconfContractAddress),
+		BlockTrackerContractAddress: common.HexToAddress(blocktrackerContractAddress),
+		BootnodeRPCAddresses:        bootnodeRPCAddresses,
+		ProviderRPCAddresses:        providerRPCAddresses,
+		BidderRPCAddresses:          bidderRPCAddresses,
+		Logger:                      logger,
 	})
 
 	if err != nil {
