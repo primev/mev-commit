@@ -123,14 +123,14 @@
             "internalType": "bool"
           },
           {
-            "name": "balance",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "withdrawalAddress",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "balance",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "unstakeHeight",
@@ -456,14 +456,14 @@
         "internalType": "bool"
       },
       {
-        "name": "balance",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "withdrawalAddress",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "unstakeHeight",
