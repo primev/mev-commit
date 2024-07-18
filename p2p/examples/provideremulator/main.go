@@ -54,8 +54,6 @@ func main() {
 		return
 	}
 
-	fmt.Printf("connected to provider %s, receiving bids...\n", *serverAddr)
-
 	for {
 		select {
 		case bid, more := <-bidS:
