@@ -169,7 +169,7 @@ contract ValidatorRegistryV1Test is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user2);
-        vm.expectRevert("Only withdrawal address can call this function");
+        vm.expectRevert("Sender isn't withdrawal address");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
@@ -182,7 +182,7 @@ contract ValidatorRegistryV1Test is Test {
         validators[0] = user1BLSKey;
 
         vm.startPrank(user1);
-        vm.expectRevert("Unstake must be initiated before withdrawal");
+        vm.expectRevert("Must unstake to withdraw");
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
     }
@@ -200,14 +200,14 @@ contract ValidatorRegistryV1Test is Test {
         vm.stopPrank();
 
         vm.startPrank(user1);
-        vm.expectRevert("Validator must NOT be unstaking");
+        vm.expectRevert("Validator can't be unstaking");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
 
         vm.roll(500);
 
         vm.startPrank(user1);
-        vm.expectRevert("Validator must NOT be unstaking");
+        vm.expectRevert("Validator can't be unstaking");
         validatorRegistry.unstake(validators);
         vm.stopPrank();
     }
@@ -308,7 +308,8 @@ contract ValidatorRegistryV1Test is Test {
 
         vm.deal(user1, 1 ether);
         vm.startPrank(user1);
-        validatorRegistry.stake{value: MIN_STAKE/2}(validators);
+        uint256 stakeAmount = MIN_STAKE/2+1;
+        validatorRegistry.stake{value: stakeAmount}(validators);
         vm.stopPrank();
 
         vm.prank(owner);
@@ -319,7 +320,7 @@ contract ValidatorRegistryV1Test is Test {
         emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE/2);
         validatorRegistry.slash(validators);
 
-        vm.expectRevert("Validator balance must be greater than or equal to slash amount");
+        vm.expectRevert("Not enough balance to slash");
         vm.prank(SLASH_ORACLE);
         validatorRegistry.slash(validators);
     }
@@ -327,7 +328,7 @@ contract ValidatorRegistryV1Test is Test {
     function testUnauthorizedSlash() public {
         testSelfStake();
 
-        vm.expectRevert("Only slashing oracle account can call this function");
+        vm.expectRevert("Sender isn't slashing oracle");
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.prank(user2);
@@ -456,7 +457,7 @@ contract ValidatorRegistryV1Test is Test {
     function testGetBlocksTillWithdrawAllowed() public {
         testSelfStake();
 
-        vm.expectRevert("Unstake must be initiated to check withdrawal eligibility");
+        vm.expectRevert("Unstake first");
         validatorRegistry.getBlocksTillWithdrawAllowed(user2BLSKey);
 
         assertEq(block.number, 1);
@@ -485,7 +486,7 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(blocksTillWithdraw, 1);
 
         vm.startPrank(user1);
-        vm.expectRevert("withdrawal not allowed yet. Blocks requirement not met.");
+        vm.expectRevert("Withdrawing too soon");
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
 
@@ -544,7 +545,7 @@ contract ValidatorRegistryV1Test is Test {
 
         vm.roll(30);
         vm.prank(user1);
-        vm.expectRevert("withdrawal not allowed yet. Blocks requirement not met.");
+        vm.expectRevert("Withdrawing too soon");
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
 
@@ -687,7 +688,7 @@ contract ValidatorRegistryV1Test is Test {
         assertTrue(validatorRegistry.isUnstaking(user1BLSKey));
 
         vm.prank(user1);
-        vm.expectRevert("Validator must NOT be unstaking");
+        vm.expectRevert("Validator can't be unstaking");
         validatorRegistry.addStake{value: MIN_STAKE}(validators);
     }
 
@@ -696,7 +697,7 @@ contract ValidatorRegistryV1Test is Test {
         validatorRegistry.setMinStake(1 wei);
 
         bytes[] memory validators = new bytes[](90);
-        for (uint256 i = 0; i < 90; i++) {
+        for (uint256 i = 0; i < 90; ++i) {
             validators[i] = user1BLSKey;
             validators[i][0] = bytes1(uint8(i + 1));
         }
@@ -711,7 +712,7 @@ contract ValidatorRegistryV1Test is Test {
         vm.prank(user1);
         validatorRegistry.stake{value: 100 wei}(validators);
 
-        for (uint256 i = 0; i < 89; i++) {
+        for (uint256 i = 0; i < 89; ++i) {
             assertEq(validatorRegistry.getStakedAmount(validators[i]), 1 wei);
             assertTrue(validatorRegistry.isValidatorOptedIn(validators[i]));
         }
@@ -727,7 +728,7 @@ contract ValidatorRegistryV1Test is Test {
         vm.prank(user1);
         validatorRegistry.addStake{value: 100 wei}(validators);
 
-        for (uint256 i = 0; i < 89; i++) {
+        for (uint256 i = 0; i < 89; ++i) {
             assertEq(validatorRegistry.getStakedAmount(validators[i]), 2 wei);
         }
         expectedFinalStake = 2 * expectedFinalStake;

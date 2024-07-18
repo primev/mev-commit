@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 // Contract that allows an admin to add/remove addresses from the whitelist,
 // and allows whitelisted addresses to mint native tokens.
 //
 // The whitelist contract's create2 address must be funded on genesis.
-contract Whitelist is OwnableUpgradeable, UUPSUpgradeable {
+contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     mapping(address => bool) public whitelistedAddresses;
 
@@ -40,7 +40,8 @@ contract Whitelist is OwnableUpgradeable, UUPSUpgradeable {
     function mint(address _mintTo, uint256 _amount) external {
         require(isWhitelisted(msg.sender), "Sender is not whitelisted");
         require(address(this).balance >= _amount, "Insufficient contract balance");
-        payable(_mintTo).transfer(_amount);
+        (bool success, ) = _mintTo.call{value: _amount}("");
+        require(success, "Transfer to _mintTo failed");
     }
 
     // Receiver for native tokens to be "burnt"

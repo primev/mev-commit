@@ -32,7 +32,8 @@ contract L1Gateway is Gateway {
 
     function _fund(uint256 _amount, address _toFund) internal override {
         require(address(this).balance >= _amount, "Insufficient contract balance");
-        payable(_toFund).transfer(_amount);
+        (bool success, ) = _toFund.call{value: _amount}("");
+        require(success, "Transfer to _toFund failed");
     }
 
     receive() external payable {}

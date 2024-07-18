@@ -482,7 +482,7 @@ contract OracleTest is Test {
         bytes32[] memory commitments = new bytes32[](4);
         bytes[] memory bidSignatures = new bytes[](4);
         bytes[] memory commitmentSignatures = new bytes[](4);
-        for (uint256 i = 0; i < commitments.length; i++) {
+        for (uint256 i = 0; i < commitments.length; ++i) {
             (
                 commitments[i],
                 bidSignatures[i],
@@ -506,7 +506,7 @@ contract OracleTest is Test {
         blockTracker.recordL1Block(blockNumber, "test");
         vm.stopPrank();
 
-        for (uint256 i = 0; i < commitments.length; i++) {
+        for (uint256 i = 0; i < commitments.length; ++i) {
             vm.startPrank(provider);
             preConfCommitmentStore.openCommitment(
                 commitments[i],
@@ -523,7 +523,7 @@ contract OracleTest is Test {
             vm.stopPrank();
         }
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
-        for (uint256 i = 0; i < commitments.length; i++) {
+        for (uint256 i = 0; i < commitments.length; ++i) {
             vm.expectEmit(true, false, false, true);
             emit CommitmentProcessed(commitments[i], false);
             oracle.processBuilderCommitmentForBlockNumber(
@@ -755,7 +755,7 @@ contract OracleTest is Test {
     ) internal pure returns (string memory) {
         bytes memory HEXCHARS = "0123456789abcdef";
         bytes memory _string = new bytes(_bytes.length * 2);
-        for (uint256 i = 0; i < _bytes.length; i++) {
+        for (uint256 i = 0; i < _bytes.length; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
         }

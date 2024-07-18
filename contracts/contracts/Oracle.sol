@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
@@ -18,7 +18,7 @@ import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
  * @title Oracle - A contract for Fetching L1 Block Builder Info and Block Data.
  * @dev This contract serves as an oracle to fetch and process Ethereum Layer 1 block data.
  */
-contract Oracle is OwnableUpgradeable, UUPSUpgradeable {
+contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
 

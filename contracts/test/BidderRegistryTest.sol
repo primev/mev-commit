@@ -391,19 +391,19 @@ contract BidderRegistryTest is Test {
     function test_DepositForWindows() public {
         uint256[] memory windows = new uint256[](3);
         uint256 currentWindow = blockTracker.getCurrentWindow();
-        for (uint256 i = 0; i < windows.length; i++) {
+        for (uint256 i = 0; i < windows.length; ++i) {
             windows[i] = currentWindow + i;
         }
         uint256 depositAmount = 3 ether;
 
         vm.startPrank(bidder);
         vm.expectEmit(true, false, false, true);
-        for (uint256 i = 0; i < windows.length; i++) {
+        for (uint256 i = 0; i < windows.length; ++i) {
             emit BidderRegistered(bidder, depositAmount / windows.length, windows[i]);
         }
 
         bidderRegistry.depositForWindows{value: depositAmount}(windows);
-        for (uint256 i = 0; i < windows.length; i++) {
+        for (uint256 i = 0; i < windows.length; ++i) {
             uint256 lockedFunds = bidderRegistry.lockedFunds(bidder, windows[i]);
             assertEq(lockedFunds, depositAmount / windows.length);
 
@@ -418,20 +418,20 @@ contract BidderRegistryTest is Test {
     function test_WithdrawFromWindows() public {
         uint256[] memory windows = new uint256[](3);
         uint256 currentWindow = blockTracker.getCurrentWindow();
-        for (uint256 i = 0; i < windows.length; i++) {
+        for (uint256 i = 0; i < windows.length; ++i) {
             windows[i] = currentWindow + i;
         }
         uint256 depositAmount = minStake * windows.length;
 
         vm.startPrank(bidder);
         vm.expectEmit(true, false, false, true);
-        for (uint16 i = 0; i < windows.length; i++) {
+        for (uint16 i = 0; i < windows.length; ++i) {
             emit BidderRegistered(bidder, depositAmount / windows.length, currentWindow + i);
         }
 
         bidderRegistry.depositForWindows{value: depositAmount}(windows);
 
-        for (uint16 i = 0; i < windows.length; i++) {
+        for (uint16 i = 0; i < windows.length; ++i) {
             uint256 lockedFunds = bidderRegistry.lockedFunds(bidder, currentWindow + i);
             assertEq(lockedFunds, depositAmount / windows.length);
 
@@ -445,7 +445,7 @@ contract BidderRegistryTest is Test {
         vm.startPrank(bidder);
         bidderRegistry.withdrawFromWindows(windows);
 
-        for (uint16 i = 0; i < windows.length; i++) {
+        for (uint16 i = 0; i < windows.length; ++i) {
             uint256 lockedFunds = bidderRegistry.lockedFunds(bidder, currentWindow + i);
             assertEq(lockedFunds, 0);
 
