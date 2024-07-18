@@ -1001,4 +1001,80 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
     }
+
+    function testValidatorIsOptedIn() public {
+        testRegisterValidatorsByPodOwners();
+
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+
+        assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
+        assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
+
+        address operator = address(0x888);
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+
+        assertFalse(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
+        assertFalse(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
+
+        address newOperator = address(0x999);
+        delegationManagerMock.setIsOperator(newOperator, true);
+
+        vm.prank(newOperator);
+        ISignatureUtils.SignatureWithSaltAndExpiry memory newOperatorSigWithSalt = ISignatureUtils.SignatureWithSaltAndExpiry({
+            signature: bytes("signature"),
+            salt: bytes32("salt"),
+            expiry: block.timestamp + 1 days
+        });
+        mevCommitAVS.registerOperator(newOperatorSigWithSalt);
+        assertTrue(mevCommitAVS.getOperatorRegInfo(newOperator).exists);
+
+        address podOwner = address(0x420);
+        vm.prank(podOwner);
+        ISignatureUtils.SignatureWithExpiry memory newOperatorSig = ISignatureUtils.SignatureWithExpiry({
+            signature: bytes("signature"),
+            expiry: block.timestamp + 1 days
+        });
+        delegationManagerMock.delegateTo(newOperator, newOperatorSig, bytes32("salt"));
+
+        assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
+        assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
+    }
+
+    function testDeregisteredOperatorCanStillDeregisterValidators() public {
+        testRegisterValidatorsByPodOwners();
+
+        address operator = address(0x888);
+        vm.prank(operator);
+        mevCommitAVS.requestOperatorDeregistration(operator);
+        assertTrue(mevCommitAVS.getOperatorRegInfo(operator).exists);
+        assertTrue(mevCommitAVS.getOperatorRegInfo(operator).deregRequestHeight.exists);
+
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[1] = bytes("valPubkey2");
+        
+        address podOwner = address(0x420);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(valPubkeys[1], podOwner);
+        vm.prank(operator);
+        mevCommitAVS.requestValidatorsDeregistration(valPubkeys);
+
+        vm.roll(2000);
+
+        vm.prank(operator);
+        mevCommitAVS.deregisterOperator(operator);
+        assertFalse(mevCommitAVS.getOperatorRegInfo(operator).exists);
+
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistered(valPubkeys[0], podOwner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistered(valPubkeys[1], podOwner);
+        vm.prank(operator);
+        mevCommitAVS.deregisterValidators(valPubkeys);
+    }
 }
