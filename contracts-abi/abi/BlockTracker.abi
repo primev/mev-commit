@@ -27,13 +27,6 @@
   },
   {
     "type": "function",
-    "name": "acceptOwnership",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "addBuilderAddress",
     "inputs": [
       {
@@ -183,14 +176,19 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "_owner",
+        "name": "blocksPerWindow_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "oracleAccount_",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_blocksPerWindow",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "owner_",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -198,7 +196,7 @@
   },
   {
     "type": "function",
-    "name": "owner",
+    "name": "oracleAccount",
     "inputs": [],
     "outputs": [
       {
@@ -211,7 +209,7 @@
   },
   {
     "type": "function",
-    "name": "pendingOwner",
+    "name": "owner",
     "inputs": [],
     "outputs": [
       {
@@ -257,6 +255,19 @@
     "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOracleAccount",
+    "inputs": [
+      {
+        "name": "newOracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -344,16 +355,16 @@
   },
   {
     "type": "event",
-    "name": "OwnershipTransferStarted",
+    "name": "OracleAccountSet",
     "inputs": [
       {
-        "name": "previousOwner",
+        "name": "oldOracleAccount",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "newOwner",
+        "name": "newOracleAccount",
         "type": "address",
         "indexed": true,
         "internalType": "address"

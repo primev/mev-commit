@@ -157,7 +157,7 @@ func main() {
 		return
 	}
 
-	if !status.IsWorking {
+	if !status.IsAutodepositEnabled {
 		resp, err := bidderClient.AutoDeposit(context.Background(), &pb.DepositRequest{
 			Amount: minDeposit.String(),
 		})

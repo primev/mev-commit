@@ -31,7 +31,7 @@ var (
 
 // OracleMetaData contains all meta data concerning the Oracle contract.
 var OracleMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_preConfContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_blockTrackerContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"preConfContract_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockTrackerContract_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"oracleAccount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleAccount\",\"inputs\":[{\"name\":\"newOracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleAccountSet\",\"inputs\":[{\"name\":\"oldOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
 }
 
 // OracleABI is the input ABI used to generate the binding from.
@@ -242,6 +242,37 @@ func (_Oracle *OracleCallerSession) BlockBuilderNameToAddress(arg0 string) (comm
 	return _Oracle.Contract.BlockBuilderNameToAddress(&_Oracle.CallOpts, arg0)
 }
 
+// OracleAccount is a free data retrieval call binding the contract method 0xe7c59736.
+//
+// Solidity: function oracleAccount() view returns(address)
+func (_Oracle *OracleCaller) OracleAccount(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Oracle.contract.Call(opts, &out, "oracleAccount")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// OracleAccount is a free data retrieval call binding the contract method 0xe7c59736.
+//
+// Solidity: function oracleAccount() view returns(address)
+func (_Oracle *OracleSession) OracleAccount() (common.Address, error) {
+	return _Oracle.Contract.OracleAccount(&_Oracle.CallOpts)
+}
+
+// OracleAccount is a free data retrieval call binding the contract method 0xe7c59736.
+//
+// Solidity: function oracleAccount() view returns(address)
+func (_Oracle *OracleCallerSession) OracleAccount() (common.Address, error) {
+	return _Oracle.Contract.OracleAccount(&_Oracle.CallOpts)
+}
+
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -271,37 +302,6 @@ func (_Oracle *OracleSession) Owner() (common.Address, error) {
 // Solidity: function owner() view returns(address)
 func (_Oracle *OracleCallerSession) Owner() (common.Address, error) {
 	return _Oracle.Contract.Owner(&_Oracle.CallOpts)
-}
-
-// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
-//
-// Solidity: function pendingOwner() view returns(address)
-func (_Oracle *OracleCaller) PendingOwner(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _Oracle.contract.Call(opts, &out, "pendingOwner")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
-//
-// Solidity: function pendingOwner() view returns(address)
-func (_Oracle *OracleSession) PendingOwner() (common.Address, error) {
-	return _Oracle.Contract.PendingOwner(&_Oracle.CallOpts)
-}
-
-// PendingOwner is a free data retrieval call binding the contract method 0xe30c3978.
-//
-// Solidity: function pendingOwner() view returns(address)
-func (_Oracle *OracleCallerSession) PendingOwner() (common.Address, error) {
-	return _Oracle.Contract.PendingOwner(&_Oracle.CallOpts)
 }
 
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
@@ -335,46 +335,25 @@ func (_Oracle *OracleCallerSession) ProxiableUUID() ([32]byte, error) {
 	return _Oracle.Contract.ProxiableUUID(&_Oracle.CallOpts)
 }
 
-// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function acceptOwnership() returns()
-func (_Oracle *OracleTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "acceptOwnership")
+// Solidity: function initialize(address preConfContract_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleTransactor) Initialize(opts *bind.TransactOpts, preConfContract_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.contract.Transact(opts, "initialize", preConfContract_, blockTrackerContract_, oracleAccount_, owner_)
 }
 
-// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function acceptOwnership() returns()
-func (_Oracle *OracleSession) AcceptOwnership() (*types.Transaction, error) {
-	return _Oracle.Contract.AcceptOwnership(&_Oracle.TransactOpts)
+// Solidity: function initialize(address preConfContract_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleSession) Initialize(preConfContract_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preConfContract_, blockTrackerContract_, oracleAccount_, owner_)
 }
 
-// AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
+// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function acceptOwnership() returns()
-func (_Oracle *OracleTransactorSession) AcceptOwnership() (*types.Transaction, error) {
-	return _Oracle.Contract.AcceptOwnership(&_Oracle.TransactOpts)
-}
-
-// Initialize is a paid mutator transaction binding the contract method 0xc0c53b8b.
-//
-// Solidity: function initialize(address _preConfContract, address _blockTrackerContract, address _owner) returns()
-func (_Oracle *OracleTransactor) Initialize(opts *bind.TransactOpts, _preConfContract common.Address, _blockTrackerContract common.Address, _owner common.Address) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "initialize", _preConfContract, _blockTrackerContract, _owner)
-}
-
-// Initialize is a paid mutator transaction binding the contract method 0xc0c53b8b.
-//
-// Solidity: function initialize(address _preConfContract, address _blockTrackerContract, address _owner) returns()
-func (_Oracle *OracleSession) Initialize(_preConfContract common.Address, _blockTrackerContract common.Address, _owner common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, _preConfContract, _blockTrackerContract, _owner)
-}
-
-// Initialize is a paid mutator transaction binding the contract method 0xc0c53b8b.
-//
-// Solidity: function initialize(address _preConfContract, address _blockTrackerContract, address _owner) returns()
-func (_Oracle *OracleTransactorSession) Initialize(_preConfContract common.Address, _blockTrackerContract common.Address, _owner common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, _preConfContract, _blockTrackerContract, _owner)
+// Solidity: function initialize(address preConfContract_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleTransactorSession) Initialize(preConfContract_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preConfContract_, blockTrackerContract_, oracleAccount_, owner_)
 }
 
 // ProcessBuilderCommitmentForBlockNumber is a paid mutator transaction binding the contract method 0x40d46772.
@@ -417,6 +396,27 @@ func (_Oracle *OracleSession) RenounceOwnership() (*types.Transaction, error) {
 // Solidity: function renounceOwnership() returns()
 func (_Oracle *OracleTransactorSession) RenounceOwnership() (*types.Transaction, error) {
 	return _Oracle.Contract.RenounceOwnership(&_Oracle.TransactOpts)
+}
+
+// SetOracleAccount is a paid mutator transaction binding the contract method 0x58b20365.
+//
+// Solidity: function setOracleAccount(address newOracleAccount) returns()
+func (_Oracle *OracleTransactor) SetOracleAccount(opts *bind.TransactOpts, newOracleAccount common.Address) (*types.Transaction, error) {
+	return _Oracle.contract.Transact(opts, "setOracleAccount", newOracleAccount)
+}
+
+// SetOracleAccount is a paid mutator transaction binding the contract method 0x58b20365.
+//
+// Solidity: function setOracleAccount(address newOracleAccount) returns()
+func (_Oracle *OracleSession) SetOracleAccount(newOracleAccount common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.SetOracleAccount(&_Oracle.TransactOpts, newOracleAccount)
+}
+
+// SetOracleAccount is a paid mutator transaction binding the contract method 0x58b20365.
+//
+// Solidity: function setOracleAccount(address newOracleAccount) returns()
+func (_Oracle *OracleTransactorSession) SetOracleAccount(newOracleAccount common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.SetOracleAccount(&_Oracle.TransactOpts, newOracleAccount)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -782,9 +782,9 @@ func (_Oracle *OracleFilterer) ParseInitialized(log types.Log) (*OracleInitializ
 	return event, nil
 }
 
-// OracleOwnershipTransferStartedIterator is returned from FilterOwnershipTransferStarted and is used to iterate over the raw logs and unpacked data for OwnershipTransferStarted events raised by the Oracle contract.
-type OracleOwnershipTransferStartedIterator struct {
-	Event *OracleOwnershipTransferStarted // Event containing the contract specifics and raw log
+// OracleOracleAccountSetIterator is returned from FilterOracleAccountSet and is used to iterate over the raw logs and unpacked data for OracleAccountSet events raised by the Oracle contract.
+type OracleOracleAccountSetIterator struct {
+	Event *OracleOracleAccountSet // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -798,7 +798,7 @@ type OracleOwnershipTransferStartedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *OracleOwnershipTransferStartedIterator) Next() bool {
+func (it *OracleOracleAccountSetIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -807,7 +807,7 @@ func (it *OracleOwnershipTransferStartedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(OracleOwnershipTransferStarted)
+			it.Event = new(OracleOracleAccountSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -822,7 +822,7 @@ func (it *OracleOwnershipTransferStartedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(OracleOwnershipTransferStarted)
+		it.Event = new(OracleOracleAccountSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -838,60 +838,60 @@ func (it *OracleOwnershipTransferStartedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *OracleOwnershipTransferStartedIterator) Error() error {
+func (it *OracleOracleAccountSetIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *OracleOwnershipTransferStartedIterator) Close() error {
+func (it *OracleOracleAccountSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// OracleOwnershipTransferStarted represents a OwnershipTransferStarted event raised by the Oracle contract.
-type OracleOwnershipTransferStarted struct {
-	PreviousOwner common.Address
-	NewOwner      common.Address
-	Raw           types.Log // Blockchain specific contextual infos
+// OracleOracleAccountSet represents a OracleAccountSet event raised by the Oracle contract.
+type OracleOracleAccountSet struct {
+	OldOracleAccount common.Address
+	NewOracleAccount common.Address
+	Raw              types.Log // Blockchain specific contextual infos
 }
 
-// FilterOwnershipTransferStarted is a free log retrieval operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+// FilterOracleAccountSet is a free log retrieval operation binding the contract event 0xc44093d4ba5b256ab49bc7bebfea8c049eb2f75fff6bcb9a8da6f8b1c92249e9.
 //
-// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
-func (_Oracle *OracleFilterer) FilterOwnershipTransferStarted(opts *bind.FilterOpts, previousOwner []common.Address, newOwner []common.Address) (*OracleOwnershipTransferStartedIterator, error) {
+// Solidity: event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount)
+func (_Oracle *OracleFilterer) FilterOracleAccountSet(opts *bind.FilterOpts, oldOracleAccount []common.Address, newOracleAccount []common.Address) (*OracleOracleAccountSetIterator, error) {
 
-	var previousOwnerRule []interface{}
-	for _, previousOwnerItem := range previousOwner {
-		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	var oldOracleAccountRule []interface{}
+	for _, oldOracleAccountItem := range oldOracleAccount {
+		oldOracleAccountRule = append(oldOracleAccountRule, oldOracleAccountItem)
 	}
-	var newOwnerRule []interface{}
-	for _, newOwnerItem := range newOwner {
-		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	var newOracleAccountRule []interface{}
+	for _, newOracleAccountItem := range newOracleAccount {
+		newOracleAccountRule = append(newOracleAccountRule, newOracleAccountItem)
 	}
 
-	logs, sub, err := _Oracle.contract.FilterLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	logs, sub, err := _Oracle.contract.FilterLogs(opts, "OracleAccountSet", oldOracleAccountRule, newOracleAccountRule)
 	if err != nil {
 		return nil, err
 	}
-	return &OracleOwnershipTransferStartedIterator{contract: _Oracle.contract, event: "OwnershipTransferStarted", logs: logs, sub: sub}, nil
+	return &OracleOracleAccountSetIterator{contract: _Oracle.contract, event: "OracleAccountSet", logs: logs, sub: sub}, nil
 }
 
-// WatchOwnershipTransferStarted is a free log subscription operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+// WatchOracleAccountSet is a free log subscription operation binding the contract event 0xc44093d4ba5b256ab49bc7bebfea8c049eb2f75fff6bcb9a8da6f8b1c92249e9.
 //
-// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
-func (_Oracle *OracleFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpts, sink chan<- *OracleOwnershipTransferStarted, previousOwner []common.Address, newOwner []common.Address) (event.Subscription, error) {
+// Solidity: event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount)
+func (_Oracle *OracleFilterer) WatchOracleAccountSet(opts *bind.WatchOpts, sink chan<- *OracleOracleAccountSet, oldOracleAccount []common.Address, newOracleAccount []common.Address) (event.Subscription, error) {
 
-	var previousOwnerRule []interface{}
-	for _, previousOwnerItem := range previousOwner {
-		previousOwnerRule = append(previousOwnerRule, previousOwnerItem)
+	var oldOracleAccountRule []interface{}
+	for _, oldOracleAccountItem := range oldOracleAccount {
+		oldOracleAccountRule = append(oldOracleAccountRule, oldOracleAccountItem)
 	}
-	var newOwnerRule []interface{}
-	for _, newOwnerItem := range newOwner {
-		newOwnerRule = append(newOwnerRule, newOwnerItem)
+	var newOracleAccountRule []interface{}
+	for _, newOracleAccountItem := range newOracleAccount {
+		newOracleAccountRule = append(newOracleAccountRule, newOracleAccountItem)
 	}
 
-	logs, sub, err := _Oracle.contract.WatchLogs(opts, "OwnershipTransferStarted", previousOwnerRule, newOwnerRule)
+	logs, sub, err := _Oracle.contract.WatchLogs(opts, "OracleAccountSet", oldOracleAccountRule, newOracleAccountRule)
 	if err != nil {
 		return nil, err
 	}
@@ -901,8 +901,8 @@ func (_Oracle *OracleFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpt
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(OracleOwnershipTransferStarted)
-				if err := _Oracle.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+				event := new(OracleOracleAccountSet)
+				if err := _Oracle.contract.UnpackLog(event, "OracleAccountSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -923,12 +923,12 @@ func (_Oracle *OracleFilterer) WatchOwnershipTransferStarted(opts *bind.WatchOpt
 	}), nil
 }
 
-// ParseOwnershipTransferStarted is a log parse operation binding the contract event 0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700.
+// ParseOracleAccountSet is a log parse operation binding the contract event 0xc44093d4ba5b256ab49bc7bebfea8c049eb2f75fff6bcb9a8da6f8b1c92249e9.
 //
-// Solidity: event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner)
-func (_Oracle *OracleFilterer) ParseOwnershipTransferStarted(log types.Log) (*OracleOwnershipTransferStarted, error) {
-	event := new(OracleOwnershipTransferStarted)
-	if err := _Oracle.contract.UnpackLog(event, "OwnershipTransferStarted", log); err != nil {
+// Solidity: event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount)
+func (_Oracle *OracleFilterer) ParseOracleAccountSet(log types.Log) (*OracleOracleAccountSet, error) {
+	event := new(OracleOracleAccountSet)
+	if err := _Oracle.contract.UnpackLog(event, "OracleAccountSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

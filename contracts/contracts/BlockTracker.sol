@@ -9,6 +9,16 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
  * @dev A contract that tracks Ethereum blocks and their winners.
  */
 contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
+
+    /// @dev Permissioned address of the oracle account.
+    address public oracleAccount;
+
+    /// @dev Modifier to ensure that the sender is the oracle account.
+    modifier onlyOracle() {
+        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        _;
+    }
+
     /// @dev Event emitted when a new L1 block is tracked.
     event NewL1Block(
         uint256 indexed blockNumber,
@@ -18,6 +28,9 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /// @dev Event emitted when a new window is created.
     event NewWindow(uint256 indexed window);
+
+    /// @dev Event emitted when the oracle account is set.
+    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
     uint256 public currentWindow;
     uint256 public blocksPerWindow;
@@ -32,12 +45,15 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /**
      * @dev Initializes the BlockTracker contract with the specified owner.
-     * @param _owner The address of the contract owner.
+     * @param blocksPerWindow_ Number of blocks per window.
+     * @param oracleAccount_ Address of the permissoined oracle account.
+     * @param owner_ Address of the contract owner.
      */
-    function initialize(address _owner, uint256 _blocksPerWindow) external initializer {
+    function initialize(uint256 blocksPerWindow_, address oracleAccount_, address owner_) external initializer {
         currentWindow = 1;
-        blocksPerWindow = _blocksPerWindow;
-        __Ownable_init(_owner);
+        blocksPerWindow = blocksPerWindow_;
+        _setOracleAccount(oracleAccount_);
+        __Ownable_init(owner_);
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -48,21 +64,21 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /**
      * @dev Retrieves the current window number.
-     * @return The current window number.
+     * @return currentWindow The current window number.
      */
     function getCurrentWindow() external view returns (uint256) {
         return currentWindow;
     }
 
     /**
-     * @dev Allows the owner to add a new builder address.
+     * @dev Allows the oracle account to add a new builder address mapping.
      * @param builderName The name of the block builder as it appears on extra data.
      * @param builderAddress The Ethereum address of the builder.
      */
     function addBuilderAddress(
         string memory builderName,
         address builderAddress
-    ) external onlyOwner {
+    ) external onlyOracle {
         blockBuilderNameToAddress[builderName] = builderAddress;
     }
 
@@ -93,7 +109,7 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     function recordL1Block(
         uint256 _blockNumber,
         string calldata _winnerGraffiti
-    ) external onlyOwner {
+    ) external onlyOracle {
         address _winner = blockBuilderNameToAddress[_winnerGraffiti];
         recordBlockWinner(_blockNumber, _winner);
         uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
@@ -103,6 +119,21 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
             emit NewWindow(currentWindow);
         }
         emit NewL1Block(_blockNumber, _winner, currentWindow);
+    }
+
+    /// @dev Allows the owner to set the oracle account.
+    function setOracleAccount(address newOracleAccount) external onlyOwner {
+        _setOracleAccount(newOracleAccount);
+    }
+
+    /**
+     * @dev Internal function to set the oracle account.
+     * @param newOracleAccount The new address of the oracle account.
+     */
+    function _setOracleAccount(address newOracleAccount) internal {
+        address oldOracleAccount = oracleAccount;
+        oracleAccount = newOracleAccount;
+        emit OracleAccountSet(oldOracleAccount, newOracleAccount);
     }
 
     /**

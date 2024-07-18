@@ -112,6 +112,12 @@ job "{{ job.name }}" {
           start_time=$(date +%s)
           echo "Deploying contracts..."
           export DEPLOY_TYPE="core"
+          {% raw %}
+            {{ with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.oracle_keystore }}' > local/oracle_keystore
+            {{ end }}
+          {% endraw %}
+          export ORACLE_KEYSTORE_ADDRESS=$(jq -r '.address' local/oracle_keystore)
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
@@ -129,23 +135,6 @@ job "{{ job.name }}" {
           | sed -n '/{.*}/p' \
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
           > local/www/contracts.json
-
-          echo "Transferring ownership..."
-          export DEPLOY_TYPE="transfer-ownership"
-          {% raw %}
-            {{ with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.oracle_keystore }}' > local/oracle_keystore
-            {{ end }}
-          {% endraw %}
-          export ORACLE_KEYSTORE_ADDRESS=$(jq -r '.address' local/oracle_keystore)
-          export BLOCK_TRACKER_ADDRESS="$(jq -r '.BlockTracker' local/www/contracts.json)"
-          export ORACLE_ADDRESS="$(jq -r '.Oracle' local/www/contracts.json)"
-          ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
-          if [ $? -ne 0 ]; then
-            echo "Failed to transfer ownership!"
-            exit 1
-          fi
-          echo "Ownership transfered successfully."
 
           python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/www
           # endtodo
