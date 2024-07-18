@@ -222,7 +222,7 @@ jobs:
         working-directory: contracts-abi
       
       - name: Run solhint solidity linter
-        run: make solhint
+        run: solhint '**/*.sol'
         working-directory: contracts
 
   infrastructure:
