@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,8 @@ import (
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Orchestrator interface {
@@ -84,20 +87,53 @@ func (n *node) Close() error {
 	return n.conn.Close()
 }
 
-func newNode(rpcAddr string) (*node, error) {
-	conn, err := grpc.DialContext(context.Background(), rpcAddr, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
+func newNode(rpcAddr string, logger *slog.Logger) (*node, error) {
+	// Since we don't know if the server has TLS enabled on its rpc
+	// endpoint, we try different strategies from most secure to
+	// least secure. In the future, when only TLS-enabled servers
+	// are allowed, only the TLS system pool certificate strategy
+	// should be used.
+	var conn *grpc.ClientConn
+	var err error
+
+	for _, e := range []struct {
+		strategy   string
+		isSecure   bool
+		credential credentials.TransportCredentials
+	}{
+		// {"TLS system pool certificate", true, credentials.NewClientTLSFromCert(nil, "")},
+		{"TLS skip verification", false, credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})},
+		{"TLS disabled", false, insecure.NewCredentials()},
+	} {
+		logger.Info("dialing to grpc server", "strategy", e.strategy)
+		conn, err = grpc.DialContext(
+			context.Background(),
+			rpcAddr,
+			grpc.WithTransportCredentials(e.credential),
+		)
+		if err != nil {
+			logger.Error("failed to dial grpc server", "error", err)
+			continue
+		}
+
+		if !e.isSecure {
+			logger.Warn("established connection with the grpc server has potential security risk")
+		}
+		break
+	}
+	if conn == nil {
+		logger.Error("dialing of grpc server failed")
+		return nil, fmt.Errorf("dialing of grpc server failed")
 	}
 
 	topo, err := debugapiv1.NewDebugServiceClient(conn).GetTopology(context.Background(), &debugapiv1.EmptyMessage{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get node %s topology: %w", rpcAddr, err)
 	}
 
-	ethAddr := topo.Topology.Fields["eth_addr"].GetStringValue()
+	ethAddr := topo.Topology.Fields["self"].GetStructValue().Fields["Ethereum Address"].GetStringValue()
 	if ethAddr == "" {
-		return nil, fmt.Errorf("eth_addr not found in topology")
+		return nil, fmt.Errorf("ethereum address not found in topology")
 	}
 
 	return &node{
@@ -159,7 +195,7 @@ func (o *orchestrator) Close() error {
 func NewOrchestrator(opts Options) (Orchestrator, error) {
 	providers := make([]Provider, 0, len(opts.ProviderRPCAddresses))
 	for _, rpcAddr := range opts.ProviderRPCAddresses {
-		n, err := newNode(rpcAddr)
+		n, err := newNode(rpcAddr, opts.Logger)
 		if err != nil {
 			return nil, err
 		}
@@ -168,21 +204,21 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 
 	bidders := make([]Bidder, 0, len(opts.BidderRPCAddresses))
 	for _, rpcAddr := range opts.BidderRPCAddresses {
-		n, err := newNode(rpcAddr)
+		n, err := newNode(rpcAddr, opts.Logger)
 		if err != nil {
 			return nil, err
 		}
 		bidders = append(bidders, n)
 	}
 
-	bootnodes := make([]Bootnode, 0, len(opts.BootnodeRPCAddresses))
-	for _, rpcAddr := range opts.BootnodeRPCAddresses {
-		n, err := newNode(rpcAddr)
-		if err != nil {
-			return nil, err
-		}
-		bootnodes = append(bootnodes, n)
-	}
+	// bootnodes := make([]Bootnode, 0, len(opts.BootnodeRPCAddresses))
+	// for _, rpcAddr := range opts.BootnodeRPCAddresses {
+	// 	n, err := newNode(rpcAddr, opts.Logger)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	bootnodes = append(bootnodes, n)
+	// }
 
 	ethClient, err := ethclient.Dial(opts.SettlementRPCEndpoint)
 	if err != nil {
@@ -195,9 +231,9 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 	}
 
 	return &orchestrator{
-		providers:        providers,
-		bidders:          bidders,
-		bootnodes:        bootnodes,
+		providers: providers,
+		bidders:   bidders,
+		// bootnodes:        bootnodes,
 		providerRegistry: providerRegistry,
 		logger:           opts.Logger,
 	}, nil
