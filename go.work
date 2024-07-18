@@ -1,11 +1,11 @@
 go 1.22
 
 use (
-	./bridge/standard/bridge-v1
-	./contracts-abi
-	./infrastructure/tools/keystore-generator
-	./oracle
-	./p2p
-	./x
+    ./bridge/standard/bridge-v1
+    ./contracts-abi
+    ./infrastructure/tools/keystore-generator
+    ./oracle
+    ./p2p
+    ./x
     ./testing
 )
