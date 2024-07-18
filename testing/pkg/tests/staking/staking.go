@@ -2,30 +2,36 @@ package staking
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"slices"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
+	"github.com/primev/mev-commit/x/contracts/events"
 	"golang.org/x/sync/errgroup"
 )
 
 func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 	// Get all providers
 	providers := cluster.Providers()
-	providerRegistry := cluster.ProviderRegistry()
 	logger := cluster.Logger().With("test", "staking")
 
 	registrations := make(chan *providerregistry.ProviderregistryProviderRegistered)
-	sub, err := providerRegistry.WatchProviderRegistered(&bind.WatchOpts{
-		Context: ctx,
-	}, registrations, nil)
+	sub, err := cluster.Events().Subscribe(
+		events.NewEventHandler(
+			"ProviderRegistered",
+			func(p *providerregistry.ProviderregistryProviderRegistered) {
+				registrations <- p
+			},
+		),
+	)
 	if err != nil {
-		logger.Error("failed to watch provider registered", "error", err)
-		return err
+		logger.Error("failed to subscribe to provider registered events", "error", err)
+		return fmt.Errorf("failed to subscribe to provider registered events: %w", err)
 	}
 
 	eg := errgroup.Group{}
@@ -78,9 +84,17 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 
 		stakeAmount := big.NewInt(0).Mul(amount, big.NewInt(10))
 
+		blsPubkeyBytes := make([]byte, 48)
+		_, err = rand.Read(blsPubkeyBytes)
+		if err != nil {
+			l.Error("failed to generate mock BLS public key", "err", err)
+			return fmt.Errorf("failed to generate mock BLS public key: %w", err)
+		}
+
 		// Register a provider
 		resp, err := providerAPI.RegisterStake(ctx, &providerapiv1.StakeRequest{
-			Amount: stakeAmount.String(),
+			Amount:       stakeAmount.String(),
+			BlsPublicKey: hex.EncodeToString(blsPubkeyBytes),
 		})
 		if err != nil {
 			l.Error("failed to register stake", "error", err)

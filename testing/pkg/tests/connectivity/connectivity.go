@@ -22,6 +22,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 	logger := cluster.Logger().With("test", "connectivity")
 
 	start := time.Now()
+	bootnodeConnected := false
 	for {
 		// first check if all nodes are connected to the bootnode
 		for _, b := range cluster.Bootnodes() {
@@ -34,6 +35,10 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 
 			connectedBidders := topo.Topology.GetFields()["connected_bidders"].GetListValue()
 			if len(connectedBidders.Values) != len(bidders) {
+				break
+			}
+
+			if topo.Topology.GetFields()["connected_providers"] == nil {
 				break
 			}
 
@@ -61,6 +66,11 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 			}
 
 			logger.Info("all connected to bootnode")
+			bootnodeConnected = true
+		}
+
+		if bootnodeConnected {
+			break
 		}
 
 		if time.Since(start) > connectedTimeout {
