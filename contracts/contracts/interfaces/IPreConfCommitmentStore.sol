@@ -31,10 +31,8 @@ interface IPreConfCommitmentStore {
         address indexed signer,
         string txnHash,
         uint256 indexed bid,
-        uint64 blockNumber
+        uint64 indexed blockNumber
     );
-
-    // External functions that need to be implemented
 
     function storeCommitment(
         uint64 bid,
@@ -65,6 +63,8 @@ interface IPreConfCommitmentStore {
 
     function getCommitment(bytes32 commitmentIndex) external view returns (PreConfCommitment memory);
 
+    function getCommitmentsByBlockNumber(uint256 blockNumber) external view returns (bytes32[] memory);
+    
     function getBidHash(
         string memory _txnHash,
         uint256 _bid,
@@ -89,6 +89,4 @@ interface IPreConfCommitmentStore {
         string memory txnHash,
         bytes calldata bidSignature
     ) external view returns (bytes32 messageDigest, address recoveredAddress, uint256 stake);
-
-    function getCommitmentsByBlockNumber(uint256 blockNumber) external view returns (bytes32[] memory);
 }
