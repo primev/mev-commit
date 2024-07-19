@@ -44,7 +44,7 @@ concurrency:
 jobs:
   cluster:
     name: Setup and Test Nomad Cluster
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
 
     steps:
@@ -134,6 +134,8 @@ jobs:
           sudo add-apt-repository --yes ppa:ethereum/ethereum
           sudo apt-get update
           sudo apt-get install --yes goreleaser ethereum
+          python3 -m venv primevenv
+          source primevenv/bin/activate
           pip install boto3 botocore
           pipx inject ansible-core botocore boto3
 
