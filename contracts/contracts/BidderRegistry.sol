@@ -53,7 +53,7 @@ contract BidderRegistry is
     mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
 
     /// @dev Mapping from bidder addresses to their locked amount based on bidID (commitmentDigest)
-    mapping(bytes32 => BidState) public BidPayment;
+    mapping(bytes32 => BidState) public bidPayment;
 
     /// @dev Amount assigned to bidders
     mapping(address => uint256) public providerAmount;
@@ -262,7 +262,7 @@ contract BidderRegistry is
         address payable provider,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreConfirmationEngine {
-        BidState storage bidState = BidPayment[commitmentDigest];
+        BidState storage bidState = bidPayment[commitmentDigest];
         require(
             bidState.state == State.PreConfirmed,
             "bid not preconfirmed"
@@ -312,7 +312,7 @@ contract BidderRegistry is
         uint256 window,
         bytes32 bidID
     ) external nonReentrant onlyPreConfirmationEngine {
-        BidState storage bidState = BidPayment[bidID];
+        BidState storage bidState = bidPayment[bidID];
         require(
             bidState.state == State.PreConfirmed,
             "The bid was not preconfirmed"
@@ -334,13 +334,13 @@ contract BidderRegistry is
      * @param bidder The address of the bidder.
      * @param blockNumber The block number.
      */
-    function OpenBid(
+    function openBid(
         bytes32 commitmentDigest,
         uint256 bid,
         address bidder,
         uint64 blockNumber
     ) external onlyPreConfirmationEngine {
-        BidState storage bidState = BidPayment[commitmentDigest];
+        BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return;
         }

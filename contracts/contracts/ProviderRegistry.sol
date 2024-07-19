@@ -40,7 +40,7 @@ contract ProviderRegistry is
     mapping(address => bool) public providerRegistered;
 
     /// @dev Mapping from a provider's EOA address to their BLS public key
-    mapping(address => bytes) public EOAToBLSPubkey;
+    mapping(address => bytes) public eoaToBlsPubkey;
 
     /// @dev Mapping from provider addresses to their staked amount
     mapping(address => uint256) public providerStakes;
@@ -247,7 +247,7 @@ contract ProviderRegistry is
 
     /// @dev Returns the BLS public key corresponding to a provider's staked EOA address.
     function getBLSKey(address provider) external view returns (bytes memory) {
-        return EOAToBLSPubkey[provider];
+        return eoaToBlsPubkey[provider];
     }
 
     /**
@@ -260,7 +260,7 @@ contract ProviderRegistry is
         require(msg.value >= minStake, "Insufficient stake");
         require(blsPublicKey.length == 48, "Invalid BLS public key length");
         
-        EOAToBLSPubkey[msg.sender] = blsPublicKey;
+        eoaToBlsPubkey[msg.sender] = blsPublicKey;
         providerStakes[msg.sender] = msg.value;
         providerRegistered[msg.sender] = true;
         emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);

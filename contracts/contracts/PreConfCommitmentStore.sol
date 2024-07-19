@@ -342,7 +342,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         // Mark the encrypted commitment as used
         encryptedCommitment.isUsed = true;
 
-        bidderRegistry.OpenBid(
+        bidderRegistry.openBid(
             commitmentDigest,
             bid,
             bidderAddress,

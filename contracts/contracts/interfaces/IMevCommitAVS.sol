@@ -145,7 +145,7 @@ interface IMevCommitAVS {
     function freeze(bytes[] calldata valPubKeys) external;
 
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
-    function unfreeze(bytes[] calldata valPubKeys) payable external;
+    function unfreeze(bytes[] calldata valPubKeys) external payable;
 
     /// @dev Pauses the contract, restricted to contract owner.
     function pause() external;

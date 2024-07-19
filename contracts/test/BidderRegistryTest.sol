@@ -155,7 +155,7 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.OpenBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
 
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 100);
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
@@ -181,7 +181,7 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.OpenBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
 
         uint256 bidderBalance = bidder.balance;
 
@@ -212,7 +212,7 @@ contract BidderRegistryTest is Test {
 
         uint256 bidderBalance = bidder.balance;
 
-        bidderRegistry.OpenBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
 
         bidderRegistry.unlockFunds(nextWindow, bidID);
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
@@ -242,7 +242,7 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         bytes32 bidID = keccak256("1234");
-        bidderRegistry.OpenBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 100);
 
         uint256 feerecipientValueAfter = bidderRegistry.feeRecipientAmount();
@@ -263,7 +263,7 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         vm.expectRevert(bytes(""));
         bytes32 bidID = keccak256("1234");
-        bidderRegistry.OpenBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
     }
 
@@ -281,7 +281,7 @@ contract BidderRegistryTest is Test {
         vm.expectRevert(bytes(""));
         vm.prank(address(this));
         bytes32 bidID = keccak256("1234");
-        bidderRegistry.OpenBid(bidID, 3 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 3 ether, bidder, blockNumber);
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
     }
 
@@ -298,7 +298,7 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.OpenBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
         bidderRegistry.withdrawFeeRecipientAmount();
         uint256 balanceAfter = feeRecipient.balance;
@@ -325,7 +325,7 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.OpenBid(bidID, 2 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 2 ether, bidder, blockNumber);
         
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 100);
         bidderRegistry.withdrawProviderAmount(payable(provider));
@@ -358,7 +358,7 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.OpenBid(bidID, 2 ether, bidder, blockNumber);
+        bidderRegistry.openBid(bidID, 2 ether, bidder, blockNumber);
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 100);
         vm.prank(bidderRegistry.owner());
         bidderRegistry.withdrawProtocolFee(payable(address(bidder)));
