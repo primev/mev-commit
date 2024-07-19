@@ -269,7 +269,7 @@ func (t *Tracker) handleNewL1Block(
 		// for bidder to open is only in cases of slashes as he will get refund. Only one
 		// of bidder or provider should open the commitment as 1 of the txns would
 		// fail. This delay is to ensure this.
-		t.logger.Info("bidder detected, processing block 2 behind the current one")
+		t.logger.Info("bidder detected, processing 2 blocks behind the current one")
 		t.winners[newL1Block.BlockNumber.Int64()] = newL1Block
 		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-2]
 		if !ok {
