@@ -249,6 +249,16 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     /**
+     * @dev Updates the address of the provider registry.
+     * @param newProviderRegistry The new provider registry address.
+     */
+    function updateProviderRegistry(
+        address newProviderRegistry
+    ) external onlyOwner {
+        providerRegistry = IProviderRegistry(newProviderRegistry);
+    }
+    
+    /**
         @dev Open a commitment
         @param encryptedCommitmentIndex The index of the encrypted commitment
         @param bid The bid amount
@@ -477,16 +487,6 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     /**
-     * @dev Updates the address of the provider registry.
-     * @param newProviderRegistry The new provider registry address.
-     */
-    function updateProviderRegistry(
-        address newProviderRegistry
-    ) public onlyOwner {
-        providerRegistry = IProviderRegistry(newProviderRegistry);
-    }
-
-    /**
      * @dev Get a commitments' enclosed transaction by its commitmentIndex.
      * @param commitmentIndex The index of the commitment.
      * @return txnHash The transaction hash.
@@ -705,8 +705,8 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
     ) internal pure returns (string memory) {
         bytes memory _string = new bytes(64);
         for (uint8 i = 0; i < 32; ++i) {
-            _string[i * 2] = _HEXCHARS[uint8(_bytes32[i] >> 4)];
-            _string[1 + i * 2] = _HEXCHARS[uint8(_bytes32[i] & 0x0f)];
+            _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
+            _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
         }
         return string(_string);
     }
@@ -716,7 +716,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @param _bytes the byte array to convert to string
      * @return hex string from the bytes array
      */
-    function bytesToHexString(
+    function _bytesToHexString(
         bytes memory _bytes
     ) internal pure returns (string memory) {
         bytes memory _string = new bytes(_bytes.length * 2);

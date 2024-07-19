@@ -28,6 +28,12 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Reference to the BlockTracker contract interface.
     IBlockTracker private _blockTrackerContract;
 
+    /// @dev Event emitted when the oracle account is set.
+    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
+
+    /// @dev Event emitted when a commitment is processed.
+    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+
     error SenderNotOracleAccount();
     error InvalidCall();
 
@@ -116,9 +122,6 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     function setOracleAccount(address newOracleAccount) external onlyOwner {
         _setOracleAccount(newOracleAccount);
     }
-
-    // solhint-disable-next-line no-empty-blocks
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Internal function to set the oracle account.
