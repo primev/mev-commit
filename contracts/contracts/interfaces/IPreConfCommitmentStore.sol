@@ -31,10 +31,39 @@ interface IPreConfCommitmentStore {
         address indexed signer,
         string txnHash,
         uint256 indexed bid,
-        uint64 blockNumber
+        uint64 indexed blockNumber
     );
 
-    // External functions that need to be implemented
+    function storeCommitment(
+        uint64 bid,
+        uint64 blockNumber,
+        string memory txnHash,
+        string memory revertingTxHashes,
+        string memory commitmentHash,
+        uint64 decayStartTimeStamp,
+        uint64 decayEndTimeStamp,
+        bytes calldata bidSignature,
+        bytes memory commitmentSignature,
+        uint64 dispatchTimestamp
+    ) external returns (bytes32 commitmentIndex);
+
+    function updateCommitmentDispatchWindow(uint64 newDispatchWindow) external;
+
+    function initiateSlash(bytes32 commitmentIndex, uint256 residualDecayedBid) external;
+
+    function initiateReward(bytes32 commitmentIndex, uint256 residualDecayedBid) external;
+    
+    function unlockBidFunds(bytes32 commitmentDigest) external;
+
+    function updateOracle(address newOracle) external;
+
+    function updateProviderRegistry(address newProviderRegistry) external;
+
+    function updateBidderRegistry(address newBidderRegistry) external;
+
+    function getCommitment(bytes32 commitmentIndex) external view returns (PreConfCommitment memory);
+
+    function getCommitmentsByBlockNumber(uint256 blockNumber) external view returns (bytes32[] memory);
 
     function storeCommitment(
         uint64 bid,
@@ -91,4 +120,9 @@ interface IPreConfCommitmentStore {
     ) external view returns (bytes32 messageDigest, address recoveredAddress, uint256 stake);
 
     function getCommitmentsByBlockNumber(uint256 blockNumber) external view returns (bytes32[] memory);
+    // Public functions that can be included if they are meant to be called from other contracts
+
+    function bytes32ToHexString(bytes32 _bytes32) external pure returns (string memory);
+
+    function bytesToHexString(bytes memory _bytes) external pure returns (string memory);
 }

@@ -12,15 +12,14 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
-
+    
     uint256 public currentWindow;
-
     uint256 public blocksPerWindow;
 
     // Mapping from block number to the winner's address
     mapping(uint256 => address) public blockWinners;
 
-    /// @dev Maps builder names to their respective Ethereum addresses.
+     /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
 
     /// @dev Event emitted when a new L1 block is tracked.
@@ -36,9 +35,13 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when the oracle account is set.
     event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
+    error SenderNotOracleAccount();
+    error InvalidBlockNumber();
+    error InvalidCall();
+
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        if (msg.sender != oracleAccount) revert SenderNotOracleAccount();
         _;
     }
 
@@ -66,14 +69,14 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
      * Should be removed from here in case the registerAndStake function becomes more complex
      */
     receive() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     /**
@@ -147,8 +150,6 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
         return blockWinners[blockNumber];
     }
 
-    // solhint-disable-next-line no-empty-blocks
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Internal function to set the oracle account.
@@ -167,8 +168,10 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     */
     function _recordBlockWinner(uint256 blockNumber, address winner) internal {
         // Check if the block number is valid (not 0)
-        require(blockNumber != 0, "Invalid block number");
+        if (blockNumber == 0) revert InvalidBlockNumber();
 
         blockWinners[blockNumber] = winner;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable-line no-empty-blocks
 }
