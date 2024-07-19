@@ -719,7 +719,8 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         bytes memory _bytes
     ) internal pure returns (string memory) {
         bytes memory _string = new bytes(_bytes.length * 2);
-        for (uint256 i = 0; i < _bytes.length; ++i) {
+        uint256 len = _bytes.length;
+        for (uint256 i = 0; i < len; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
         }

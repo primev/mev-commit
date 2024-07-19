@@ -13,7 +13,7 @@
     "ordering": "error",
     "reason-string": "warn",
     "private-vars-leading-underscore": "error",
-    "gas-length-in-loops": "warn",
+    "gas-length-in-loops": "error",
     "gas-strict-inequalities": "warn",
     "gas-custom-errors": "off"
   }

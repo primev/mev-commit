@@ -190,7 +190,8 @@ contract BidderRegistry is
         uint256 amountToDeposit = msg.value / windows.length;
         uint256 remainingAmount = msg.value % windows.length; // to handle rounding issues
 
-        for (uint16 i = 0; i < windows.length; ++i) {
+        uint256 len = windows.length;
+        for (uint16 i = 0; i < len; ++i) {
             uint256 window = windows[i];
 
             uint256 currentLockedFunds = lockedFunds[msg.sender][window];
@@ -219,7 +220,8 @@ contract BidderRegistry is
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
         uint256 totalAmount;
 
-        for (uint256 i = 0; i < windows.length; ++i) {
+        uint256 len = windows.length;
+        for (uint256 i = 0; i < len; ++i) {
             uint256 window = windows[i];
             require(
                 window < currentWindow,

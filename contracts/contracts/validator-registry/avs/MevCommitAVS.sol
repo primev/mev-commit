@@ -35,7 +35,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure all provided validators are registered with MevCommitAVS.
     modifier onlyRegisteredValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             require(validatorRegistrations[valPubKeys[i]].exists, "validator not registered");
         }
         _;
@@ -43,7 +44,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure all provided validators are not registered with MevCommitAVS.
     modifier onlyNonRegisteredValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             require(!validatorRegistrations[valPubKeys[i]].exists, "validator is registered");
         }
         _;
@@ -89,7 +91,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure the sender is either the pod owner or operator of all the given validators.
     modifier onlyPodOwnerOrOperatorOfValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
             require(msg.sender == regInfo.podOwner || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
                 "sender not podOwner or operator");
@@ -107,7 +110,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Modifier to ensure all provided validators are frozen.
     modifier onlyFrozenValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             require(validatorRegistrations[valPubKeys[i]].freezeHeight.exists, "validator not frozen");
         }
         _;
@@ -192,7 +196,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         bytes[][] calldata valPubKeys,
         address[] calldata podOwners
     ) external whenNotPaused() {
-        for (uint256 i = 0; i < podOwners.length; ++i) {
+        uint256 len = podOwners.length;
+        for (uint256 i = 0; i < len; ++i) {
             _registerValidatorsByPodOwner(valPubKeys[i], podOwners[i]);
         }
     }
@@ -202,7 +207,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// the podOwner, delegated operator, or the contract owner.
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys)
         external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _requestValidatorDeregistration(valPubKeys[i]);
         }
     }
@@ -212,7 +218,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// the podOwner, delegated operator, or the contract owner.
     function deregisterValidators(bytes[] calldata valPubKeys)
         external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _deregisterValidator(valPubKeys[i]);
         }
     }
@@ -236,7 +243,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Allows the freeze oracle account to freeze validators which disobey the mev-commit protocol.
     function freeze(bytes[] calldata valPubKeys) external
         whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyFreezeOracle() {
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _freeze(valPubKeys[i]);
         }
     }
@@ -247,7 +255,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         uint256 requiredFee = unfreezeFee * valPubKey.length;
         require(msg.value >= requiredFee,
             "unfreeze fee required per val");
-        for (uint256 i = 0; i < valPubKey.length; ++i) {
+        uint256 len = valPubKey.length;
+        for (uint256 i = 0; i < len; ++i) {
             _unfreeze(valPubKey[i]);
         }
         (bool success, ) = unfreezeReceiver.call{value: requiredFee}("");
@@ -422,7 +431,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         require(!operatorRegistrations[operator].deregRequestHeight.exists,
             "operator dereg already req");
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
-        for (uint256 i = 0; i < valPubKeys.length; ++i) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
                 "validator not active");
             _registerValidator(valPubKeys[i], podOwner);
@@ -480,7 +490,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
                 blockHeight: 0
             })
         });
-        for (uint256 i = 0; i < chosenValidators.length; ++i) {
+        uint256 len = chosenValidators.length;
+        for (uint256 i = 0; i < len; ++i) {
             emit LSTRestakerRegistered(chosenValidators[i], chosenValidators.length, msg.sender);
         }
     }

@@ -38,7 +38,8 @@ abstract contract ExampleScript is Script {
         console.log("Checking Staking related state...");
         console.log("--------------------");
         
-        for (uint256 i = 0; i < blsKeys.length; ++i) {
+        uint256 len = blsKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             bool isStaked = _validatorRegistry.isValidatorOptedIn(blsKeys[i]);
             console.log("--------------------");
             console.log("BLS Key: ");
@@ -58,7 +59,8 @@ abstract contract ExampleScript is Script {
         console.log("--------------------");
         console.log("Checking Withdrawal related state...");
         console.log("--------------------");
-        for (uint256 i = 0; i < blsKeys.length; ++i) {
+        uint256 len = blsKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             uint256 blocksTillWithdrawAllowed = _validatorRegistry.getBlocksTillWithdrawAllowed(blsKeys[i]);
             console.log("--------------------");
             console.log("BLS Key: ");
