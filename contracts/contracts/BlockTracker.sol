@@ -173,5 +173,6 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
         blockWinners[blockNumber] = winner;
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable-line no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

@@ -36,6 +36,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     error SenderNotOracleAccount();
     error InvalidCall();
+    error NotBlockWinner();
+    error ResidualBidPercentExceedsLimit();
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
@@ -77,7 +79,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     // Function to receive and process the block data (this would be automated in a real-world scenario)
@@ -96,14 +98,13 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle {
-        require(
-            _blockTrackerContract.getBlockWinner(blockNumber) == builder,
-            "Builder is not the winner of the block"
-        );
-        require(
-            residualBidPercentAfterDecay <= 100,
-            "Residual bid after decay cannot be greater than 100 percent"
-        );
+        if (_blockTrackerContract.getBlockWinner(blockNumber) != builder) {
+            revert NotBlockWinner();
+        }
+
+        if (residualBidPercentAfterDecay > 100) {
+            revert ResidualBidPercentExceedsLimit();
+        }        
         IPreConfCommitmentStore.PreConfCommitment
             memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
@@ -133,7 +134,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         emit OracleAccountSet(oldOracleAccount, newOracleAccount);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Internal function to process a commitment, either slashing or rewarding based on the commitment's state.

@@ -161,15 +161,21 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint64 blockNumber
     );
 
+    error SenderNotOracleAccount();
+    error InvalidCall();
+    error InvalidDecayTime();
+    error CommitmentAldreadyUsed();
+    error InvalidCommitmentDigest();
+    error CallerNotWinnerProviderOrBidder();
+    error InvalidDispatchTimestamp();
+    error SenderNotCommiter();
     /**
      * @dev Makes sure transaction sender is oracle
      */
     modifier onlyOracle() {
-        require(msg.sender == oracle, "Only oracle can call this function");
+        if (msg.sender != oracle) revert SenderNotOracleAccount();
         _;
     }
-
-
 
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
@@ -210,14 +216,14 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @dev Revert if eth sent to this contract
      */
     receive() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     /**
      * @dev fallback to revert all the calls.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     /**
@@ -284,7 +290,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public returns (bytes32 commitmentIndex) {
-        require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
+        if (decayStartTimeStamp >= decayEndTimeStamp) revert InvalidDecayTime();
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bid,
@@ -312,20 +318,16 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
             storage encryptedCommitment = encryptedCommitments[
                 encryptedCommitmentIndex
             ];
-        require(!encryptedCommitment.isUsed, "Commitment already used");
-        require(
-            encryptedCommitment.commitmentDigest == commitmentDigest,
-            "Invalid commitment digest"
-        );
+
+        if (encryptedCommitment.isUsed) revert CommitmentAldreadyUsed();
+        if (encryptedCommitment.commitmentDigest != commitmentDigest) revert InvalidCommitmentDigest();
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
         address winner = blockTracker.getBlockWinner(blockNumber);
-        require(
-            (msg.sender == winner && winner == commiterAddress) ||
-                msg.sender == bidderAddress,
-            "Caller not a winner provider/bidder"
-        );
+        if (!((msg.sender == winner && winner == commiterAddress) || msg.sender == bidderAddress)) {
+            revert CallerNotWinnerProviderOrBidder();
+        }
 
         PreConfCommitment memory newCommitment = PreConfCommitment(
             bidderAddress,
@@ -395,16 +397,12 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
     ) public returns (bytes32 commitmentIndex) {
         // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
-
         // Check if the dispatch timestamp is within the allowed dispatch window
-        require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
+        if (dispatchTimestamp < minTime) revert InvalidDispatchTimestamp();
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
-        require(
-            commiterAddress == msg.sender,
-            "Commiter address differs from sender"
-        );
+        if (commiterAddress != msg.sender) revert SenderNotCommiter();
 
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
@@ -439,7 +437,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 residualBidPercentAfterDecay
     ) public onlyOracle {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
-        require(!commitment.isUsed, "Commitment already used");
+        if (commitment.isUsed) revert CommitmentAldreadyUsed();
 
         commitment.isUsed = true;
         --commitmentsCount[commitment.commiter];
@@ -468,8 +466,8 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 residualBidPercentAfterDecay
     ) public onlyOracle {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
-        require(!commitment.isUsed, "Commitment already used");
-
+        if (commitment.isUsed) revert CommitmentAldreadyUsed();
+        
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,
             blocksPerWindow
