@@ -115,7 +115,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	monitorClosed := monitor.Start(ctx)
 
-	txnMgr := transactor.NewTransactor(
+	txnMgr := transactor.NewTransactorWithDefaults(
 		settlementClient,
 		monitor,
 	)
