@@ -65,8 +65,8 @@ func (pks *PrivateKeySigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, erro
 	}
 
 	opts.GasLimit = 1_000_000
-	opts.GasTipCap = big.NewInt(1)
-	opts.GasFeeCap = big.NewInt(20000000000)
+	opts.GasTipCap = big.NewInt(1_000_000_000)
+	opts.GasFeeCap = big.NewInt(2_000_000_000)
 	return opts, nil
 }
 
