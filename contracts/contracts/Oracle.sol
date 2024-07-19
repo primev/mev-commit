@@ -4,10 +4,7 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
-import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IPreConfCommitmentStore} from "./interfaces/IPreConfCommitmentStore.sol";
-import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
 /// @title Oracle Contract
@@ -25,9 +22,18 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
 
+    /// @dev Reference to the PreConfCommitmentStore contract interface.
+    IPreConfCommitmentStore private _preConfContract;
+
+    /// @dev Reference to the BlockTracker contract interface.
+    IBlockTracker private _blockTrackerContract;
+
+    error SenderNotOracleAccount();
+    error InvalidCall();
+
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        if (msg.sender != oracleAccount) revert SenderNotOracleAccount();
         _;
     }
 
@@ -41,16 +47,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
-
-    /// @dev Reference to the PreConfCommitmentStore contract interface.
-    IPreConfCommitmentStore private _preConfContract;
-
-    /// @dev Reference to the BlockTracker contract interface.
-    IBlockTracker private _blockTrackerContract;
-
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     /**
      * @dev Initializes the contract with a PreConfirmations contract.
@@ -161,4 +159,6 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         // Emit an event that a commitment has been processed
         emit CommitmentProcessed(commitmentIndex, isSlash);
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 }
