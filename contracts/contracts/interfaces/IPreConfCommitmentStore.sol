@@ -91,10 +91,4 @@ interface IPreConfCommitmentStore {
     ) external view returns (bytes32 messageDigest, address recoveredAddress, uint256 stake);
 
     function getCommitmentsByBlockNumber(uint256 blockNumber) external view returns (bytes32[] memory);
-
-    // Public functions that can be included if they are meant to be called from other contracts
-
-    function _bytes32ToHexString(bytes32 _bytes32) external pure returns (string memory);
-
-    function _bytesToHexString(bytes memory _bytes) external pure returns (string memory);
 }

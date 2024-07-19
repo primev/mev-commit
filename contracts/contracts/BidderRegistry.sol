@@ -19,8 +19,8 @@ contract BidderRegistry is
     UUPSUpgradeable
 {
     /// @dev For improved precision
-    uint256 constant PRECISION = 10 ** 25;
-    uint256 constant PERCENT = 100 * PRECISION;
+    uint256 public constant PRECISION = 10 ** 25;
+    uint256 public constant PERCENT = 100 * PRECISION;
 
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;

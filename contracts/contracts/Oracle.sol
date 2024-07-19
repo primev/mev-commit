@@ -26,10 +26,10 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     address public oracleAccount;
 
     /// @dev Reference to the PreConfCommitmentStore contract interface.
-    IPreConfCommitmentStore private preConfContract;
+    IPreConfCommitmentStore public preConfContract;
 
     /// @dev Reference to the BlockTracker contract interface.
-    IBlockTracker private blockTrackerContract;
+    IBlockTracker public blockTrackerContract;
 
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
@@ -110,7 +110,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
             commitment.commiter == builder &&
             commitment.blockNumber == blockNumber
         ) {
-            processCommitment(
+            _processCommitment(
                 commitmentIndex,
                 isSlash,
                 residualBidPercentAfterDecay
@@ -141,7 +141,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @param isSlash Determines if the commitment should be slashed or rewarded.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
-    function processCommitment(
+    function _processCommitment(
         bytes32 commitmentIndex,
         bool isSlash,
         uint256 residualBidPercentAfterDecay

@@ -12,7 +12,7 @@
     "interface-starts-with-i": "error",
     "ordering": "error",
     "reason-string": "warn",
-    "private-vars-leading-underscore": "warn",
+    "private-vars-leading-underscore": "error",
     "gas-length-in-loops": "warn",
     "gas-strict-inequalities": "warn",
     "gas-custom-errors": "off"

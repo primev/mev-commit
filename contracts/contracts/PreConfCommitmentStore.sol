@@ -93,7 +93,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         );
 
     // Hex characters
-    bytes constant HEXCHARS = "0123456789abcdef";
+    bytes public constant HEXCHARS = "0123456789abcdef";
 
     // Represents the dispatch window in milliseconds
     uint64 public commitmentDispatchWindow;
@@ -675,22 +675,6 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
             );
     }
 
-    /**
-     * @dev Internal Function to convert bytes array to hex string without 0x
-     * @param _bytes the byte array to convert to string
-     * @return hex string from the bytes array
-     */
-    function _bytesToHexString(
-        bytes memory _bytes
-    ) public pure returns (string memory) {
-        bytes memory _string = new bytes(_bytes.length * 2);
-        for (uint256 i = 0; i < _bytes.length; ++i) {
-            _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
-            _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
-        }
-        return string(_string);
-    }
-
     function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     function _getPreConfHash(
@@ -722,6 +706,22 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         for (uint8 i = 0; i < 32; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
+        }
+        return string(_string);
+    }
+
+    /**
+     * @dev Internal Function to convert bytes array to hex string without 0x
+     * @param _bytes the byte array to convert to string
+     * @return hex string from the bytes array
+     */
+    function _bytesToHexString(
+        bytes memory _bytes
+    ) internal pure returns (string memory) {
+        bytes memory _string = new bytes(_bytes.length * 2);
+        for (uint256 i = 0; i < _bytes.length; ++i) {
+            _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
+            _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
         }
         return string(_string);
     }
