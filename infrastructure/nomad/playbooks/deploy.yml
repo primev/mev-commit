@@ -63,11 +63,6 @@
           exit 0
         fi
 
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "Uncommitted changes detected."
-          exit 1
-        fi
-
         VERSION="$(git describe --tags --exact-match 2>/dev/null)"
         if [ -z "${VERSION}" ]; then
           echo "Failed to get version tag."
@@ -394,6 +389,21 @@
       run_once: true
       when: build_artifacts
 
+    - name: Fetch Secrets
+      ansible.builtin.set_fact:
+        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', env ~ '/' ~ profile ~ '/' ~ vault_secret_path) }}"
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and environments[env].secrets == 'fetch'
+
+    - name: Write Retrieved Secrets to File
+      ansible.builtin.copy:
+        content: "{{ mev_commit_secrets }}"
+        dest: "{{ dist_dir }}/fetched_secrets.json"
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and environments[env].secrets == 'fetch'
+
     - name: Assemble Secrets File
       ansible.builtin.shell: |
         SECRETS=$(ls {{ dist_dir }}/*_secrets.json 2>/dev/null)
@@ -409,7 +419,7 @@
         executable: bash
       delegate_to: localhost
       run_once: true
-      when: build_artifacts and environments[env].secrets == 'generate'
+      when: build_artifacts
 
     - name: Assemble Genesis File
       ansible.builtin.shell: |
@@ -533,6 +543,7 @@
         object: "{{ item.path | basename }}"
         src: "{{ item.path }}"
         mode: put
+        tags: "{{ {'AutoDelete': 'true'} if not release else {} }}"
       loop: "{{ upload_artifacts.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
@@ -584,7 +595,7 @@
         body: "{{ {'data': (lookup('file', dist_dir + '/secrets.json') | from_json)} | to_json }}"
         status_code: [200, 204]
         validate_certs: no
-      when: build_artifacts and environments[env].secrets == 'generate'
+      when: build_artifacts
       delegate_to: localhost
 
     - name: Cleanup Built Artifacts
@@ -615,7 +626,9 @@
     - name: Create "meta.json"
       ansible.builtin.shell: |
         echo '{{ environments[env] | to_json }}' > {{ ansible_env.HOME }}/{{ env }}/meta.json
+        {% if env == 'devenv' %}
         ln -f {{ ansible_env.HOME }}/{{ env }}/meta.json {{ ansible_env.HOME }}/{{ env }}/artifacts/meta.json
+        {% endif %}
       when: build_templates
 
     - name: Purge Cluster

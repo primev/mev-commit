@@ -14,18 +14,18 @@ deploy_version="HEAD"
 environment_name="devenv"
 profile_name="devnet"
 datadog_key=""
+l1_rpc_url=""
 
 help() {
     echo "Usage:"
-    echo "$0 [init [--environment <name=devenv>] [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--release] [--debug]]"
+    echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--debug]] [--help]"
     echo "$0 --help"
     echo
     echo "Parameters:"
     echo "  init                            Initialize the environment."
     echo "    --environment <name=devenv>   Specify the environment to use (default is devenv)."
-    echo "    --profile <name=devnet>       Specify the profile to use (default is devnet)."
     echo "    --skip-certificates-setup     Skip the certificates installation and setup."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
@@ -34,7 +34,8 @@ help() {
     echo "    --profile <name=devnet>       Specify the profile to use (default is devnet)."
     echo "    --force-build-templates       Force the build of all job templates before deployment."
     echo "    --no-logs-collection          Disable the collection of logs from deployed jobs."
-    echo "    --datadog-key <key>           Datadog API key."
+    echo "    --datadog-key <key>           Datadog API key, cannot be empty."
+    echo "    --l1-rpc-url <url>            L1 RPC URL, cannot be empty."
     echo "    --release                     It will ignore the specified deployment version and use the current HEAD tag as the build version."
     echo "    --debug                       Enable debug mode for detailed output."
     echo
@@ -65,8 +66,8 @@ help() {
     echo "  Deploy with a specific version, environment, profile and force to build all job templates:"
     echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --force-build-templates"
     echo
-    echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection and Datadog API key:"
-    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --debug"
+    echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection, Datadog API key and L1 RPC URL:"
+    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --l1-rpc-url your_rpc_url --debug"
     echo
     echo "  Destroy with specific environment and debug mode:"
     echo "    $0 destroy --environment devenv --debug"
@@ -75,8 +76,8 @@ help() {
 
 usage() {
     echo "Usage:"
-    echo "$0 [init [--environment <name=devenv>] [--profile <name=devnet>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--release] [--debug]]"
+    echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--debug]] [--help]"
     echo "$0 --help"
     exit 1
@@ -155,15 +156,6 @@ parse_args() {
                         usage
                     fi
                 fi
-                if [[ $# -gt 0 && $1 == "--profile" ]]; then
-                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
-                        profile_name="$2"
-                        shift 2
-                    else
-                        echo "Error: --profile requires a value."
-                        usage
-                    fi
-                fi
                 if [[ $# -gt 0 && $1 == "--skip-certificates-setup" ]]; then
                     skip_certificates_setup_flag=true
                     shift
@@ -215,10 +207,19 @@ parse_args() {
                         usage
                     fi
                 fi
+                if [[ $# -gt 0 && $1 == "--l1-rpc-url" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        l1_rpc_url="$2"
+                        shift 2
+                    else
+                        echo "Error: --l1-rpc-url requires a value."
+                        usage
+                    fi
+                fi
                 if [[ $# -gt 0 && $1 == "--release" ]]; then
                     release_flag=true
                     shift
-                     if [[ "$deploy_version" != "HEAD" ]]; then
+                    if [[ "$deploy_version" != "HEAD" ]]; then
                         echo "Warning: deploy version ignored, using current HEAD."
                         deploy_version="HEAD"
                     fi
@@ -270,6 +271,7 @@ main() {
             [[ "${no_logs_collection_flag}" == true ]] && flags+=("--extra-vars" "no_logs_collection=true")
             [[ "${force_build_templates_flag}" == true ]] && flags+=("--extra-vars" "build_templates=true")
             [[ -n "${datadog_key}" ]] && flags+=("--extra-vars" "datadog_key=${datadog_key}")
+            [[ -n "${l1_rpc_url}" ]] && flags+=("--extra-vars" "l1_rpc_url=${l1_rpc_url}")
             [[ "${release_flag}" == true ]] && flags+=("--extra-vars" "release=true")
             ;;
         "${destroy_flag}")
