@@ -77,7 +77,15 @@ func (kss *KeystoreSigner) String() string {
 }
 
 func (kss *KeystoreSigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
-	return bind.NewKeyStoreTransactorWithChainID(kss.keystore, kss.account, chainID)
+	opts, err := bind.NewKeyStoreTransactorWithChainID(kss.keystore, kss.account, chainID)
+	if err != nil {
+		return nil, err
+	}
+
+	opts.GasLimit = 1_000_000
+	opts.GasTipCap = big.NewInt(1)
+	opts.GasFeeCap = big.NewInt(20000000000)
+	return opts, nil
 }
 
 func (kss *KeystoreSigner) GetAuthWithCtx(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {

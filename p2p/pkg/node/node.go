@@ -199,7 +199,7 @@ func NewNode(opts *Options) (*Node, error) {
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
 
 	contractsBackend := transactor.NewMetricsWrapper(
-		transactor.NewTransactorWithDefaults(
+		transactor.NewTransactor(
 			contractRPC,
 			monitor,
 		),
