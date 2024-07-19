@@ -9,7 +9,7 @@
     "gas-increment-by-one": "error",
     "gas-struct-packing": "error",
     "no-unused-vars": "error",
-    "no-unused-import": "warn",
+    "no-unused-import": "error",
     "interface-starts-with-i": "error",
     "ordering": "error",
     "reason-string": "warn",
