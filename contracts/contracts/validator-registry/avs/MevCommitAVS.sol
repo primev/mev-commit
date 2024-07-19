@@ -383,7 +383,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Authorizes contract upgrades, restricted to contract owner.
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @dev Internal function to register an operator.
     function _registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) internal {

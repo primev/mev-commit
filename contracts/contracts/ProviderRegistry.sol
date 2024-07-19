@@ -266,5 +266,6 @@ contract ProviderRegistry is
         emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

@@ -71,7 +71,8 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
         emit TransferFinalized(_recipient, _amount, _counterpartyIdx);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     // @dev where _decrementMsgSender is implemented by inheriting contract.
     function _decrementMsgSender(uint256 _amount) internal virtual;

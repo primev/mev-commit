@@ -123,7 +123,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         _setOracleAccount(newOracleAccount);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Internal function to set the oracle account.

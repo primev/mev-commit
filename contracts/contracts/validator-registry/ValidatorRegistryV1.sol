@@ -224,7 +224,8 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
      * @dev implements _authorizeUpgrade from UUPSUpgradeable to enable only
      * the owner to upgrade the implementation contract.
      */
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable-line no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @dev Internal function that splits msg.value stake to apply an action for each validator.
     function _splitStakeAndApplyAction(

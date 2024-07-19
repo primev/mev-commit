@@ -675,7 +675,8 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
             );
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function _getPreConfHash(
         CommitmentParams memory params
