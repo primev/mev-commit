@@ -45,10 +45,10 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     /// @dev Reference to the PreConfCommitmentStore contract interface.
-    IPreConfCommitmentStore private preConfContract;
+    IPreConfCommitmentStore private _preConfContract;
 
     /// @dev Reference to the BlockTracker contract interface.
-    IBlockTracker private blockTrackerContract;
+    IBlockTracker private _blockTrackerContract;
 
     function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
@@ -65,8 +65,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         address oracleAccount_,
         address owner_
     ) external initializer {
-        preConfContract = IPreConfCommitmentStore(preConfContract_);
-        blockTrackerContract = IBlockTracker(blockTrackerContract_);
+        _preConfContract = IPreConfCommitmentStore(preConfContract_);
+        _blockTrackerContract = IBlockTracker(blockTrackerContract_);
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
     }
@@ -100,7 +100,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle {
         require(
-            blockTrackerContract.getBlockWinner(blockNumber) == builder,
+            _blockTrackerContract.getBlockWinner(blockNumber) == builder,
             "Builder is not the winner of the block"
         );
         require(
@@ -108,12 +108,12 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
             "Residual bid after decay cannot be greater than 100 percent"
         );
         IPreConfCommitmentStore.PreConfCommitment
-            memory commitment = preConfContract.getCommitment(commitmentIndex);
+            memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
             commitment.commiter == builder &&
             commitment.blockNumber == blockNumber
         ) {
-            processCommitment(
+            _processCommitment(
                 commitmentIndex,
                 isSlash,
                 residualBidPercentAfterDecay
@@ -142,18 +142,18 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @param isSlash Determines if the commitment should be slashed or rewarded.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
-    function processCommitment(
+    function _processCommitment(
         bytes32 commitmentIndex,
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) private {
         if (isSlash) {
-            preConfContract.initiateSlash(
+            _preConfContract.initiateSlash(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );
         } else {
-            preConfContract.initiateReward(
+            _preConfContract.initiateReward(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );

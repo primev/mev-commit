@@ -24,7 +24,7 @@ interface IBidderRegistry {
         Withdrawn
     }
 
-    function OpenBid(bytes32 commitmentDigest, uint256 bid, address bidder, uint64 blockNumber) external;
+    function openBid(bytes32 commitmentDigest, uint256 bid, address bidder, uint64 blockNumber) external;
 
     function getDeposit(address bidder, uint256 window) external view returns (uint256);
 

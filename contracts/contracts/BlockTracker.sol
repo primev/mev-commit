@@ -111,7 +111,7 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
         string calldata _winnerGraffiti
     ) external onlyOracle {
         address _winner = blockBuilderNameToAddress[_winnerGraffiti];
-        recordBlockWinner(_blockNumber, _winner);
+        _recordBlockWinner(_blockNumber, _winner);
         uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
         if (newWindow > currentWindow) {
             // We've entered a new window
@@ -141,7 +141,7 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     * @param blockNumber The number of the block
     * @param winner The address of the block winner
     */
-    function recordBlockWinner(uint256 blockNumber, address winner) internal {
+    function _recordBlockWinner(uint256 blockNumber, address winner) internal {
         // Check if the block number is valid (not 0)
         require(blockNumber != 0, "Invalid block number");
 
