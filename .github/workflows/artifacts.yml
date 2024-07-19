@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   upload_contracts:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
@@ -49,7 +49,7 @@ jobs:
             --tagging 'TagSet=[{Key=AutoDelete,Value=true}]'
 
   upload_binaries:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       matrix:
