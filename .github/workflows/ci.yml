@@ -188,7 +188,7 @@ jobs:
 
       - name: Install Hardhat
         run: npm install -g hardhat
-      
+
       - name: Install solhint
         run: npm install -g solhint
 
@@ -220,7 +220,7 @@ jobs:
           git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
           git reset --hard HEAD
         working-directory: contracts-abi
-      
+
       - name: Run solhint solidity linter
         run: solhint '**/*.sol'
         working-directory: contracts
