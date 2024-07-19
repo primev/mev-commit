@@ -71,6 +71,7 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
      * @dev implements _authorizeUpgrade from UUPSUpgradeable to enable only
      * the owner to upgrade the implementation contract.
      */
+    // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @notice Internal function to check if a validator is opted in to mev-commit with either simple staking or restaking.
