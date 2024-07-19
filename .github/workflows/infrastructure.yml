@@ -67,6 +67,7 @@ jobs:
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
           CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
+          CLUSTER_L1_RPC_URL_FLAG="--l1-rpc-url ${{ secrets.L1_RPC_URL }}"
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
           TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target_machine }})" || echo "127.0.0.1")
 
@@ -76,6 +77,7 @@ jobs:
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DATADOG_KEY_FLAG=${CLUSTER_DATADOG_KEY_FLAG}" >> ${GITHUB_ENV}
+          echo "CLUSTER_L1_RPC_URL_FLAG=${CLUSTER_L1_RPC_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> ${GITHUB_ENV}
           echo "TARGET_MACHINE_IP=${TARGET_MACHINE_IP}" >> ${GITHUB_ENV}
 
@@ -192,7 +194,7 @@ jobs:
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' }}
         run: |
           START_TIME="$(date +%s)"
-          ./cluster.sh init ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh init ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
           echo "INIT_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
@@ -200,7 +202,7 @@ jobs:
       - name: Deploy Cluster
         run: |
           START_TIME="$(date +%s)"
-          ./cluster.sh deploy ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${CLUSTER_DATADOG_KEY_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh deploy ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${CLUSTER_DATADOG_KEY_FLAG} ${CLUSTER_L1_RPC_URL_FLAG} ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
           echo "DEPLOY_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad

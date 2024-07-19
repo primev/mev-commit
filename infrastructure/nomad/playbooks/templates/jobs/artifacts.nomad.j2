@@ -1,5 +1,5 @@
 #jinja2: trim_blocks:True, lstrip_blocks:True
-job "{% if env != 'devenv' %}{{ environments[env].version }}{% else %}artifacts-{{ environments[env].version }}{% endif %}" {
+job "artifacts-{{ environments[env].version }}" {
   datacenters = ["{{ datacenter }}"]
 
   {% if env != 'devenv' %}

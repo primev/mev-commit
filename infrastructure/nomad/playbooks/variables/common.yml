@@ -8,6 +8,6 @@ tls_key_file: "{{ private_keys_dir }}/{{ server_common_name }}.key"
 tls_ca_crt_file: "{{ ca_certificates_dir }}/ca-{{ server_common_name }}.crt"
 
 vault_init_file: "~/.vault_init.json"
-vault_address: "https://{{ ansible_facts['default_ipv4']['address'] }}:8200"
+vault_address: "https://{{ ansible_facts['default_ipv4']['address'] if env == 'devenv' else '127.0.0.1' }}:8200"
 vault_kv_engine_path: "secret"
 vault_secret_path: "mev-commit"

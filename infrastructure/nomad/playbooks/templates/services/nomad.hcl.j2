@@ -1,6 +1,6 @@
 #jinja2: trim_blocks:True, lstrip_blocks:True
 data_dir  = "/opt/nomad/data"
-bind_addr = "0.0.0.0"
+bind_addr = "{{ '0.0.0.0' if env == 'devenv' else '127.0.0.1' }}"
 
 {% if nomad_servers_defined %}
 server {
@@ -13,7 +13,7 @@ server {
 {% if nomad_clients_defined %}
 client {
   enabled = true
-  servers = ["{{ nomad_server_ip }}:4647"]
+  servers = ["{{ nomad_server_ip if env == 'devenv' else '127.0.0.1' }}:4647"]
   chroot_env {
     "/bin" = "/bin"
     "/etc" = "/etc"
@@ -48,9 +48,9 @@ syslog_facility = "LOCAL0"
 
 {% if nomad_servers_defined %}
 advertise {
-  http = "{{ ansible_host }}:4646"
-  rpc  = "{{ ansible_host }}:4647"
-  serf = "{{ ansible_host }}:4648"
+  http = "{{ ansible_host if env == 'devenv' else '127.0.0.1' }}:4646"
+  rpc  = "{{ ansible_host if env == 'devenv' else '127.0.0.1' }}:4647"
+  serf = "{{ ansible_host if env == 'devenv' else '127.0.0.1' }}:4648"
 }
 
 telemetry {
