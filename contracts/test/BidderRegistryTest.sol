@@ -18,7 +18,7 @@ contract BidderRegistryTest is Test {
     BlockTracker internal blockTracker;
 
     /// @dev Event emitted when a bidder is registered with their staked amount
-    event BidderRegistered(address indexed bidder, uint256 stakedAmount, uint256 windowNumber);
+    event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
 
     function setUp() public {
         testNumber = 42;

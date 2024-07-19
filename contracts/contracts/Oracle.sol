@@ -23,20 +23,25 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     address public oracleAccount;
 
     /// @dev Reference to the PreConfCommitmentStore contract interface.
-    IPreConfCommitmentStore public preConfContract;
+    IPreConfCommitmentStore private _preConfContract;
 
     /// @dev Reference to the BlockTracker contract interface.
-    IBlockTracker public blockTrackerContract;
-
-    /// @dev Event emitted when a commitment is processed.
-    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+    IBlockTracker private _blockTrackerContract;
 
     /// @dev Event emitted when the oracle account is set.
     event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
+    /// @dev Event emitted when a commitment is processed.
+    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+
+    error SenderNotOracleAccount();
+    error InvalidCall();
+    error NotBlockWinner();
+    error ResidualBidPercentExceedsLimit();
+
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        if (msg.sender != oracleAccount) revert SenderNotOracleAccount();
         _;
     }
 
@@ -53,8 +58,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         address oracleAccount_,
         address owner_
     ) external initializer {
-        preConfContract = IPreConfCommitmentStore(preConfContract_);
-        blockTrackerContract = IBlockTracker(blockTrackerContract_);
+        _preConfContract = IPreConfCommitmentStore(preConfContract_);
+        _blockTrackerContract = IBlockTracker(blockTrackerContract_);
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
     }
@@ -74,7 +79,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     // Function to receive and process the block data (this would be automated in a real-world scenario)
@@ -93,16 +98,15 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle {
-        require(
-            blockTrackerContract.getBlockWinner(blockNumber) == builder,
-            "Builder is not the winner of the block"
-        );
-        require(
-            residualBidPercentAfterDecay <= 100,
-            "Residual bid after decay cannot be greater than 100 percent"
-        );
+        if (_blockTrackerContract.getBlockWinner(blockNumber) != builder) {
+            revert NotBlockWinner();
+        }
+
+        if (residualBidPercentAfterDecay > 100) {
+            revert ResidualBidPercentExceedsLimit();
+        }        
         IPreConfCommitmentStore.PreConfCommitment
-            memory commitment = preConfContract.getCommitment(commitmentIndex);
+            memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
             commitment.commiter == builder &&
             commitment.blockNumber == blockNumber
@@ -120,9 +124,6 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         _setOracleAccount(newOracleAccount);
     }
 
-    // solhint-disable-next-line no-empty-blocks
-    function _authorizeUpgrade(address) internal override onlyOwner {}
-
     /**
      * @dev Internal function to set the oracle account.
      * @param newOracleAccount The new address of the oracle account.
@@ -132,6 +133,9 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         oracleAccount = newOracleAccount;
         emit OracleAccountSet(oldOracleAccount, newOracleAccount);
     }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Internal function to process a commitment, either slashing or rewarding based on the commitment's state.
@@ -145,12 +149,12 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 residualBidPercentAfterDecay
     ) private {
         if (isSlash) {
-            preConfContract.initiateSlash(
+            _preConfContract.initiateSlash(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );
         } else {
-            preConfContract.initiateReward(
+            _preConfContract.initiateReward(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );

@@ -57,14 +57,25 @@ contract ProviderRegistry is
     /// @dev Event for slashing funds
     event FundsSlashed(address indexed provider, uint256 amount);
 
+    error OnlyPreconfirmationEngine();
+    error InvalidCall();
+    error PreconfirationContractAlreadySet();
+    error ProviderNotRegistered();
+    error InsufficientFundsToSlash();
+    error TransferFailed();
+    error AmountIsZero();
+    error OnlyProviderCanUnstake();
+    error InvalidBLSKeyLength();
+    error PreConfirmationsContractNotSet();
+    error ProviderCommitmentsStillPending();
+    error ProviderAlreadyRegistered();
+    error InsufficientStake();
+
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
     modifier onlyPreConfirmationEngine() {
-        require(
-            msg.sender == preConfirmationsContract,
-            "Only the pre-confirmations contract can call this function"
-        );
+        if (msg.sender != preConfirmationsContract) revert OnlyPreconfirmationEngine();
         _;
     }
 
@@ -98,14 +109,14 @@ contract ProviderRegistry is
      * Should be removed from here in case the registerAndStake function becomes more complex
      */
     receive() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert InvalidCall();
     }
 
     /**
@@ -115,10 +126,7 @@ contract ProviderRegistry is
     function setPreconfirmationsContract(
         address contractAddress
     ) external onlyOwner {
-        require(
-            preConfirmationsContract == address(0),
-            "Preconfirmations Contract is already set and cannot be changed."
-        );
+        if (preConfirmationsContract != address(0)) revert PreconfirationContractAlreadySet();
         preConfirmationsContract = contractAddress;
     }
 
@@ -126,7 +134,7 @@ contract ProviderRegistry is
      * @dev Deposit more funds into the provider's stake.
      */
     function depositFunds() external payable {
-        require(providerRegistered[msg.sender], "Provider not registered");
+        if (!providerRegistered[msg.sender]) revert ProviderNotRegistered();
         providerStakes[msg.sender] += msg.value;
         emit FundsDeposited(msg.sender, msg.value);
     }
@@ -148,10 +156,10 @@ contract ProviderRegistry is
     ) external nonReentrant onlyPreConfirmationEngine {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) /
             PERCENT;
-        require(
-            providerStakes[provider] >= residualAmt,
-            "Insufficient funds to slash"
-        );
+
+        if (providerStakes[provider] < residualAmt) {
+            revert InsufficientFundsToSlash();
+        }
         providerStakes[provider] -= residualAmt;
 
         uint256 feeAmt = (residualAmt * uint256(feePercent) * PRECISION) /
@@ -191,7 +199,7 @@ contract ProviderRegistry is
     function withdrawFeeRecipientAmount() external nonReentrant {
         feeRecipientAmount = 0;
         (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
-        require(successFee, "Couldn't transfer to fee Recipient");
+        if (!successFee) revert TransferFailed();
     }
 
     /**
@@ -199,12 +207,12 @@ contract ProviderRegistry is
      * @param bidder The address of the bidder.
      */
     function withdrawBidderAmount(address bidder) external nonReentrant {
-        require(bidderAmount[bidder] > 0, "Bidder Amount is zero");
+        if (bidderAmount[bidder] == 0) revert AmountIsZero();
 
         bidderAmount[bidder] = 0;
 
         (bool success, ) = bidder.call{value: bidderAmount[bidder]}("");
-        require(success, "Couldn't transfer to bidder");
+        if (!success) revert TransferFailed();
     }
 
     /**
@@ -214,26 +222,20 @@ contract ProviderRegistry is
     function withdrawStakedAmount(
         address payable provider
     ) external nonReentrant {
-        require(msg.sender == provider, "Only provider can unstake");
+        if (msg.sender != provider) revert OnlyProviderCanUnstake();
         uint256 stake = providerStakes[provider];
         providerStakes[provider] = 0;
-        require(stake > 0, "Provider Staked Amount is zero");
-        require(
-            preConfirmationsContract != address(0),
-            "Pre Confirmations Contract not set"
-        );
+        if (stake == 0) revert AmountIsZero();
+        if (preConfirmationsContract == address(0)) revert PreConfirmationsContractNotSet();
 
         uint256 providerPendingCommitmentsCount = PreConfCommitmentStore(
             payable(preConfirmationsContract)
         ).commitmentsCount(provider);
 
-        require(
-            providerPendingCommitmentsCount == 0,
-            "Provider Commitments still pending"
-        );
+        if (providerPendingCommitmentsCount > 0) revert ProviderCommitmentsStillPending();
 
         (bool success, ) = provider.call{value: stake}("");
-        require(success, "Couldn't transfer stake to provider");
+        if (!success) revert TransferFailed();
     }
 
     /**
@@ -256,10 +258,9 @@ contract ProviderRegistry is
      * The validity of this key must be verified manually off-chain.
      */
     function registerAndStake(bytes calldata blsPublicKey) public payable {
-        require(!providerRegistered[msg.sender], "Provider already registered");
-        require(msg.value >= minStake, "Insufficient stake");
-        require(blsPublicKey.length == 48, "Invalid BLS public key length");
-        
+        if (msg.value < minStake) revert InsufficientStake();
+        if (providerRegistered[msg.sender]) revert ProviderAlreadyRegistered();
+        if (blsPublicKey.length != 48) revert InvalidBLSKeyLength();
         eoaToBlsPubkey[msg.sender] = blsPublicKey;
         providerStakes[msg.sender] = msg.value;
         providerRegistered[msg.sender] = true;

@@ -2,8 +2,7 @@
 pragma solidity 0.8.20;
 
 /// @title IBlockTracker interface for BlockTracker contract
-interface IBlockTracker {
-
+interface IBlockTracker {    
     /// @notice Emitted when a new L1 block is recorded.
     /// @param blockNumber The block number of the new L1 block.
     /// @param winner The address of the winner of the new L1 block.
@@ -12,10 +11,6 @@ interface IBlockTracker {
     /// @notice Emitted when entering a new window.
     /// @param window The new window number.
     event NewWindow(uint256 indexed window);
-
-    /// @notice Emitted when the number of blocks per window is updated.
-    /// @param blocksPerWindow The new number of blocks per window.
-    event NewBlocksPerWindow(uint256 blocksPerWindow);
 
     /// @notice Records a new L1 block with its winner.
     /// @param _blockNumber The block number of the new L1 block.
