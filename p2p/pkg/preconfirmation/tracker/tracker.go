@@ -87,7 +87,7 @@ func NewTracker(
 		preconfContract: preconfContract,
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
-		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
+		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block, 5),
 		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
 		winners:         make(map[int64]*blocktracker.BlocktrackerNewL1Block),
@@ -269,7 +269,7 @@ func (t *Tracker) handleNewL1Block(
 		// for bidder to open is only in cases of slashes as he will get refund. Only one
 		// of bidder or provider should open the commitment as 1 of the txns would
 		// fail. This delay is to ensure this.
-		t.logger.Info("bidder detected, processing block 1 behind the current one")
+		t.logger.Info("bidder detected, processing block 2 behind the current one")
 		t.winners[newL1Block.BlockNumber.Int64()] = newL1Block
 		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-2]
 		if !ok {

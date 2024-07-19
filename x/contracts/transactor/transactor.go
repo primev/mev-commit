@@ -2,14 +2,20 @@ package transactor
 
 import (
 	"context"
+	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-const txnRetriesLimit = 3
+const (
+	txnRetriesLimit = 3
+	defaultGasLimit = 1_000_000
+	defaultGasTip   = 1_000
+)
 
 // Watcher is an interface that is used to manage the lifecycle of a transaction.
 // The Allow method is used to determine if a transaction should be sent. The context
@@ -35,8 +41,9 @@ type Watcher interface {
 // of an error, the nonce is put back into the channel so that it can be reused.
 type Transactor struct {
 	bind.ContractBackend
-	nonceChan chan uint64
-	watcher   Watcher
+	nonceChan  chan uint64
+	watcher    Watcher
+	useDefault bool
 }
 
 func NewTransactor(
@@ -53,6 +60,15 @@ func NewTransactor(
 		watcher:         watcher,
 		nonceChan:       nonceChan,
 	}
+}
+
+func NewTransactorWithDefaults(
+	backend bind.ContractBackend,
+	watcher Watcher,
+) *Transactor {
+	t := NewTransactor(backend, watcher)
+	t.useDefault = true
+	return t
 }
 
 func (t *Transactor) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -116,4 +132,18 @@ func (t *Transactor) SendTransaction(ctx context.Context, tx *types.Transaction)
 	t.nonceChan <- tx.Nonce() + 1
 
 	return nil
+}
+
+func (t *Transactor) EstimateGas(ctx context.Context, callMsg ethereum.CallMsg) (gas uint64, err error) {
+	if t.useDefault {
+		return defaultGasLimit, nil
+	}
+	return t.ContractBackend.EstimateGas(ctx, callMsg)
+}
+
+func (t *Transactor) SuggestGasTipCap(ctx context.Context) (tip *big.Int, err error) {
+	if t.useDefault {
+		return big.NewInt(defaultGasTip), nil
+	}
+	return t.ContractBackend.SuggestGasTipCap(ctx)
 }

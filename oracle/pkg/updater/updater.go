@@ -129,7 +129,7 @@ func NewUpdater(
 		oracle:         oracle,
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
-		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
+		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored, 200),
 		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
 	}, nil
 }
