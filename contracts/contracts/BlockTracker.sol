@@ -13,11 +13,15 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
 
-    /// @dev Modifier to ensure that the sender is the oracle account.
-    modifier onlyOracle() {
-        require(msg.sender == oracleAccount, "sender isn't oracle account");
-        _;
-    }
+    uint256 public currentWindow;
+
+    uint256 public blocksPerWindow;
+
+    // Mapping from block number to the winner's address
+    mapping(uint256 => address) public blockWinners;
+
+    /// @dev Maps builder names to their respective Ethereum addresses.
+    mapping(string => address) public blockBuilderNameToAddress;
 
     /// @dev Event emitted when a new L1 block is tracked.
     event NewL1Block(
@@ -32,16 +36,11 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when the oracle account is set.
     event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
-    uint256 public currentWindow;
-    uint256 public blocksPerWindow;
-
-    // Mapping from block number to the winner's address
-    mapping(uint256 => address) public blockWinners;
-
-     /// @dev Maps builder names to their respective Ethereum addresses.
-    mapping(string => address) public blockBuilderNameToAddress;
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    /// @dev Modifier to ensure that the sender is the oracle account.
+    modifier onlyOracle() {
+        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        _;
+    }
 
     /**
      * @dev Initializes the BlockTracker contract with the specified owner.
@@ -63,11 +62,18 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     /**
-     * @dev Retrieves the current window number.
-     * @return currentWindow The current window number.
+     * @dev Receive function is disabled for this contract to prevent unintended interactions.
+     * Should be removed from here in case the registerAndStake function becomes more complex
      */
-    function getCurrentWindow() external view returns (uint256) {
-        return currentWindow;
+    receive() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
     }
 
     /**
@@ -80,25 +86,6 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
         address builderAddress
     ) external onlyOracle {
         blockBuilderNameToAddress[builderName] = builderAddress;
-    }
-
-    /**
-     * @dev Returns the builder's address corresponding to the given name.
-     * @param builderNameGrafiti The name (or graffiti) of the block builder.
-     * @return The Ethereum address of the builder.
-     */
-    function getBuilder(
-        string calldata builderNameGrafiti
-    ) external view returns (address) {
-        return blockBuilderNameToAddress[builderNameGrafiti];
-    }
-
-    /**
-     * @dev Returns the number of blocks per window.
-     * @return The number of blocks per window.
-     */
-    function getBlocksPerWindow() external view returns (uint256) {
-        return blocksPerWindow;
     }
 
     /**
@@ -127,6 +114,42 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     /**
+     * @dev Retrieves the current window number.
+     * @return currentWindow The current window number.
+     */
+    function getCurrentWindow() external view returns (uint256) {
+        return currentWindow;
+    }
+
+    /**
+     * @dev Returns the builder's address corresponding to the given name.
+     * @param builderNameGrafiti The name (or graffiti) of the block builder.
+     * @return The Ethereum address of the builder.
+     */
+    function getBuilder(
+        string calldata builderNameGrafiti
+    ) external view returns (address) {
+        return blockBuilderNameToAddress[builderNameGrafiti];
+    }
+
+    /**
+     * @dev Returns the number of blocks per window.
+     * @return The number of blocks per window.
+     */
+    function getBlocksPerWindow() external view returns (uint256) {
+        return blocksPerWindow;
+    }
+
+    // Function to get the winner of a specific block
+    function getBlockWinner(
+        uint256 blockNumber
+    ) external view returns (address) {
+        return blockWinners[blockNumber];
+    }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
+
+    /**
      * @dev Internal function to set the oracle account.
      * @param newOracleAccount The new address of the oracle account.
      */
@@ -146,27 +169,5 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
         require(blockNumber != 0, "Invalid block number");
 
         blockWinners[blockNumber] = winner;
-    }
-
-    // Function to get the winner of a specific block
-    function getBlockWinner(
-        uint256 blockNumber
-    ) external view returns (address) {
-        return blockWinners[blockNumber];
-    }
-
-    /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
-     */
-    fallback() external payable {
-        revert("Invalid call");
-    }
-
-    /**
-     * @dev Receive function is disabled for this contract to prevent unintended interactions.
-     * Should be removed from here in case the registerAndStake function becomes more complex
-     */
-    receive() external payable {
-        revert("Invalid call");
     }
 }

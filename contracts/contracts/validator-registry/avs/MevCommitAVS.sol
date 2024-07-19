@@ -156,8 +156,15 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         __Pausable_init();
     }
 
-    /// @dev Authorizes contract upgrades, restricted to contract owner.
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    /// @dev Receive function to prevent unintended contract interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to prevent unintended contract interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
 
     /// @dev Registers an operator with the MevCommitAVS.
     function registerOperator (
@@ -326,6 +333,48 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function updateMetadataURI(string calldata metadataURI_) external onlyOwner {
         _updateMetadataURI(metadataURI_);
     }
+
+    /// @dev Returns the list of restakeable strategies.
+    function getRestakeableStrategies() external view returns (address[] memory) {
+        return _getRestakeableStrategies();
+    }
+
+    /// @dev Returns the restakeable strategies for a given operator.
+    function getOperatorRestakedStrategies(address operator) external view returns (address[] memory) {
+        if (!operatorRegistrations[operator].exists) {
+            return new address[](0);
+        }
+        return _getRestakeableStrategies();
+    }
+
+    /// @dev Checks if a validator is opted-in.
+    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool) {
+        return _isValidatorOptedIn(valPubKey);
+    }
+
+    /// @dev Returns operator registration info.
+    function getOperatorRegInfo(address operator) external view returns (OperatorRegistrationInfo memory) {
+        return operatorRegistrations[operator];
+    }
+
+    /// @dev Returns validator registration info.
+    function getValidatorRegInfo(bytes calldata valPubKey) external view returns (ValidatorRegistrationInfo memory) {
+        return validatorRegistrations[valPubKey];
+    }
+
+    /// @dev Returns LST restaker registration info.
+    function getLSTRestakerRegInfo(address lstRestaker) 
+        external view returns (LSTRestakerRegistrationInfo memory) {
+        return lstRestakerRegistrations[lstRestaker];
+    }
+
+    /// @dev Returns the address of AVS directory.
+    function avsDirectory() external view returns (address) {
+        return address(_eigenAVSDirectory);
+    }
+
+    /// @dev Authorizes contract upgrades, restricted to contract owner.
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     /// @dev Internal function to register an operator.
     function _registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) internal {
@@ -550,45 +599,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _eigenAVSDirectory.updateAVSMetadataURI(metadataURI_);
     }
 
-    /// @dev Returns the list of restakeable strategies.
-    function getRestakeableStrategies() external view returns (address[] memory) {
-        return _getRestakeableStrategies();
-    }
-
-    /// @dev Returns the restakeable strategies for a given operator.
-    function getOperatorRestakedStrategies(address operator) external view returns (address[] memory) {
-        if (!operatorRegistrations[operator].exists) {
-            return new address[](0);
-        }
-        return _getRestakeableStrategies();
-    }
-
-    /// @dev Checks if a validator is opted-in.
-    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool) {
-        return _isValidatorOptedIn(valPubKey);
-    }
-
-    /// @dev Returns operator registration info.
-    function getOperatorRegInfo(address operator) external view returns (OperatorRegistrationInfo memory) {
-        return operatorRegistrations[operator];
-    }
-
-    /// @dev Returns validator registration info.
-    function getValidatorRegInfo(bytes calldata valPubKey) external view returns (ValidatorRegistrationInfo memory) {
-        return validatorRegistrations[valPubKey];
-    }
-
-    /// @dev Returns LST restaker registration info.
-    function getLSTRestakerRegInfo(address lstRestaker) 
-        external view returns (LSTRestakerRegistrationInfo memory) {
-        return lstRestakerRegistrations[lstRestaker];
-    }
-
-    /// @dev Returns the address of AVS directory.
-    function avsDirectory() external view returns (address) {
-        return address(_eigenAVSDirectory);
-    }
-
     /// @dev Internal function to check if a validator is opted-in.
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
         IMevCommitAVS.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
@@ -611,15 +621,5 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Internal function to get the list of restakeable strategies.
     function _getRestakeableStrategies() internal view returns (address[] memory) {
         return restakeableStrategies;
-    }
-
-    /// @dev Fallback function to prevent unintended contract interactions.
-    fallback() external payable {
-        revert Errors.InvalidFallback();
-    }
-
-    /// @dev Receive function to prevent unintended contract interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
     }
 }

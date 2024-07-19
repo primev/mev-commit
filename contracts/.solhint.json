@@ -10,12 +10,11 @@
     "gas-struct-packing": "error",
     "no-unused-vars": "error",
     "interface-starts-with-i": "error",
+    "ordering": "error",
     "reason-string": "warn",
     "private-vars-leading-underscore": "warn",
     "gas-length-in-loops": "warn",
     "gas-strict-inequalities": "warn",
-    "ordering": "warn",
-    "gas-indexed-events": "warn",
-    "gas-custom-errors": "warn"
+    "gas-custom-errors": "off"
   }
 }

@@ -84,11 +84,15 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         __Ownable_init(_owner);
     }
 
-    /*
-     * @dev implements _authorizeUpgrade from UUPSUpgradeable to enable only
-     * the owner to upgrade the implementation contract.
-     */
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
 
     /* 
      * @dev Stakes ETH on behalf of one or multiple validators via their BLS pubkey.
@@ -183,6 +187,39 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     function setUnstakePeriodBlocks(uint256 newUnstakePeriodBlocks) external onlyOwner {
         _setUnstakePeriodBlocks(newUnstakePeriodBlocks);
     }
+
+    /// @dev Returns true if a validator is considered "opted-in" to mev-commit via this registry.
+    function isValidatorOptedIn(bytes calldata valBLSPubKey) external view returns (bool) {
+        return _isValidatorOptedIn(valBLSPubKey);
+    }
+
+    /// @dev Returns stored staked validator struct for a given BLS pubkey.
+    function getStakedValidator(bytes calldata valBLSPubKey) external view returns (StakedValidator memory) {
+        return stakedValidators[valBLSPubKey];
+    }
+
+    /// @dev Returns the staked amount for a given BLS pubkey.
+    function getStakedAmount(bytes calldata valBLSPubKey) external view returns (uint256) {
+        return stakedValidators[valBLSPubKey].balance;
+    }
+
+    /// @dev Returns true if a validator is currently unstaking.
+    function isUnstaking(bytes calldata valBLSPubKey) external view returns (bool) {
+        return _isUnstaking(valBLSPubKey);
+    }
+
+    /// @dev Returns the number of blocks remaining until an unstaking validator can withdraw their staked ETH.
+    function getBlocksTillWithdrawAllowed(bytes calldata valBLSPubKey) external view returns (uint256) {
+        require(_isUnstaking(valBLSPubKey), "Unstake first");
+        uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeHeight.blockHeight;
+        return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
+    }
+
+    /*
+     * @dev implements _authorizeUpgrade from UUPSUpgradeable to enable only
+     * the owner to upgrade the implementation contract.
+     */
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable-line no-empty-blocks
 
     /// @dev Internal function that splits msg.value stake to apply an action for each validator.
     function _splitStakeAndApplyAction(
@@ -334,33 +371,6 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
         emit UnstakePeriodBlocksSet(msg.sender, newUnstakePeriodBlocks);
     }
 
-    /// @dev Returns true if a validator is considered "opted-in" to mev-commit via this registry.
-    function isValidatorOptedIn(bytes calldata valBLSPubKey) external view returns (bool) {
-        return _isValidatorOptedIn(valBLSPubKey);
-    }
-
-    /// @dev Returns stored staked validator struct for a given BLS pubkey.
-    function getStakedValidator(bytes calldata valBLSPubKey) external view returns (StakedValidator memory) {
-        return stakedValidators[valBLSPubKey];
-    }
-
-    /// @dev Returns the staked amount for a given BLS pubkey.
-    function getStakedAmount(bytes calldata valBLSPubKey) external view returns (uint256) {
-        return stakedValidators[valBLSPubKey].balance;
-    }
-
-    /// @dev Returns true if a validator is currently unstaking.
-    function isUnstaking(bytes calldata valBLSPubKey) external view returns (bool) {
-        return _isUnstaking(valBLSPubKey);
-    }
-
-    /// @dev Returns the number of blocks remaining until an unstaking validator can withdraw their staked ETH.
-    function getBlocksTillWithdrawAllowed(bytes calldata valBLSPubKey) external view returns (uint256) {
-        require(_isUnstaking(valBLSPubKey), "Unstake first");
-        uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeHeight.blockHeight;
-        return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
-    }
-
     /// @dev Internal function to check if a validator is considered "opted-in" to mev-commit via this registry.
     function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
         return !_isUnstaking(valBLSPubKey) && stakedValidators[valBLSPubKey].balance >= minStake;
@@ -369,15 +379,5 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
     /// @dev Internal function to check if a validator is currently unstaking.
     function _isUnstaking(bytes calldata valBLSPubKey) internal view returns (bool) {
         return stakedValidators[valBLSPubKey].unstakeHeight.exists;
-    }
-
-    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
-    fallback() external payable {
-        revert Errors.InvalidFallback();
-    }
-
-    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
     }
 }

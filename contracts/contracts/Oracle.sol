@@ -25,32 +25,23 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
 
-    /// @dev Modifier to ensure that the sender is the oracle account.
-    modifier onlyOracle() {
-        require(msg.sender == oracleAccount, "sender isn't oracle account");
-        _;
-    }
-
-    // To shutup the compiler
-    /// @dev Empty receive function to silence compiler warnings about missing payable functions.
-    receive() external payable {
-        // Empty receive function
-    }
-
-    /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
-     */
-    fallback() external payable {
-        revert("Invalid call");
-    }
-
     /// @dev Reference to the PreConfCommitmentStore contract interface.
     IPreConfCommitmentStore private preConfContract;
 
     /// @dev Reference to the BlockTracker contract interface.
     IBlockTracker private blockTrackerContract;
 
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
+    /// @dev Event emitted when a commitment is processed.
+    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+
+    /// @dev Event emitted when the oracle account is set.
+    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
+
+    /// @dev Modifier to ensure that the sender is the oracle account.
+    modifier onlyOracle() {
+        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        _;
+    }
 
     /**
      * @dev Initializes the contract with a PreConfirmations contract.
@@ -77,11 +68,17 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    /// @dev Event emitted when a commitment is processed.
-    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+    /// @dev Empty receive function to silence compiler warnings about missing payable functions.
+    receive() external payable {
+        // Empty receive function
+    }
 
-    /// @dev Event emitted when the oracle account is set.
-    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
+    }
 
     // Function to receive and process the block data (this would be automated in a real-world scenario)
     /**
@@ -125,6 +122,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     function setOracleAccount(address newOracleAccount) external onlyOwner {
         _setOracleAccount(newOracleAccount);
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     /**
      * @dev Internal function to set the oracle account.

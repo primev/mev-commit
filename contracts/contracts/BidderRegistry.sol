@@ -93,21 +93,15 @@ contract BidderRegistry is
     );
 
     /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
-    fallback() external payable {
-        revert("Invalid call");
+    modifier onlyPreConfirmationEngine() {
+        require(
+            msg.sender == preConfirmationsContract,
+            "Only the pre-confirmations contract can call this function"
+        );
+        _;
     }
-
-    /**
-     * @dev Receive function registers bidders and takes their deposit
-     * Should be removed from here in case the deposit function becomes more complex
-     */
-    receive() external payable {
-        revert("Invalid call");
-    }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with a minimum deposit requirement.
@@ -138,14 +132,18 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
+     * @dev Receive function registers bidders and takes their deposit
+     * Should be removed from here in case the deposit function becomes more complex
      */
-    modifier onlyPreConfirmationEngine() {
-        require(
-            msg.sender == preConfirmationsContract,
-            "Only the pre-confirmations contract can call this function"
-        );
-        _;
+    receive() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
     }
 
     /**
@@ -160,23 +158,6 @@ contract BidderRegistry is
             "Preconfirmations Contract is already set and cannot be changed."
         );
         preConfirmationsContract = contractAddress;
-    }
-
-    /**
-     * @dev Get the amount assigned to a provider.
-     * @param provider The address of the provider.
-     */
-    function getProviderAmount(
-        address provider
-    ) external view returns (uint256) {
-        return providerAmount[provider];
-    }
-
-    /**
-     * @dev Get the amount assigned to the fee recipient (treasury).
-     */
-    function getFeeRecipientAmount() external view onlyOwner returns (uint256) {
-        return feeRecipientAmount;
     }
 
     /**
@@ -263,19 +244,6 @@ contract BidderRegistry is
 
         (bool success, ) = msg.sender.call{value: totalAmount}("");
         require(success, "transfer to bidder failed");
-    }
-
-    /**
-     * @dev Check the deposit of a bidder.
-     * @param bidder The address of the bidder.
-     * @param window The window for which the deposit is being checked.
-     * @return The deposited amount for the bidder.
-     */
-    function getDeposit(
-        address bidder,
-        uint256 window
-    ) external view returns (uint256) {
-        return lockedFunds[bidder][window];
     }
 
     /**
@@ -493,4 +461,36 @@ contract BidderRegistry is
         (bool success, ) = bidder.call{value: _protocolFeeAmount}("");
         require(success, "deposit transfer failed");
     }
+
+    /**
+     * @dev Get the amount assigned to a provider.
+     * @param provider The address of the provider.
+     */
+    function getProviderAmount(
+        address provider
+    ) external view returns (uint256) {
+        return providerAmount[provider];
+    }
+
+    /**
+     * @dev Get the amount assigned to the fee recipient (treasury).
+     */
+    function getFeeRecipientAmount() external view onlyOwner returns (uint256) {
+        return feeRecipientAmount;
+    }
+
+    /**
+     * @dev Check the deposit of a bidder.
+     * @param bidder The address of the bidder.
+     * @param window The window for which the deposit is being checked.
+     * @return The deposited amount for the bidder.
+     */
+    function getDeposit(
+        address bidder,
+        uint256 window
+    ) external view returns (uint256) {
+        return lockedFunds[bidder][window];
+    }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 }

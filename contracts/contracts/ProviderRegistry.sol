@@ -58,21 +58,15 @@ contract ProviderRegistry is
     event FundsSlashed(address indexed provider, uint256 amount);
 
     /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
-    fallback() external payable {
-        revert("Invalid call");
+    modifier onlyPreConfirmationEngine() {
+        require(
+            msg.sender == preConfirmationsContract,
+            "Only the pre-confirmations contract can call this function"
+        );
+        _;
     }
-
-    /**
-     * @dev Receive function is disabled for this contract to prevent unintended interactions.
-     * Should be removed from here in case the registerAndStake function becomes more complex
-     */
-    receive() external payable {
-        revert("Invalid call");
-    }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with a minimum stake requirement.
@@ -100,14 +94,18 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
+     * @dev Receive function is disabled for this contract to prevent unintended interactions.
+     * Should be removed from here in case the registerAndStake function becomes more complex
      */
-    modifier onlyPreConfirmationEngine() {
-        require(
-            msg.sender == preConfirmationsContract,
-            "Only the pre-confirmations contract can call this function"
-        );
-        _;
+    receive() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
     }
 
     /**
@@ -122,31 +120,6 @@ contract ProviderRegistry is
             "Preconfirmations Contract is already set and cannot be changed."
         );
         preConfirmationsContract = contractAddress;
-    }
-
-    /**
-     * @dev Register and stake function for providers.
-     * @param blsPublicKey The BLS public key of the provider.
-     * The validity of this key must be verified manually off-chain.
-     */
-    function registerAndStake(bytes calldata blsPublicKey) public payable {
-        require(!providerRegistered[msg.sender], "Provider already registered");
-        require(msg.value >= minStake, "Insufficient stake");
-        require(blsPublicKey.length == 48, "Invalid BLS public key length");
-        
-        EOAToBLSPubkey[msg.sender] = blsPublicKey;
-        providerStakes[msg.sender] = msg.value;
-        providerRegistered[msg.sender] = true;
-        emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
-    }
-
-    /**
-     * @dev Check the stake of a provider.
-     * @param provider The address of the provider.
-     * @return The staked amount for the provider.
-     */
-    function checkStake(address provider) external view returns (uint256) {
-        return providerStakes[provider];
     }
 
     /**
@@ -263,8 +236,35 @@ contract ProviderRegistry is
         require(success, "Couldn't transfer stake to provider");
     }
 
+    /**
+     * @dev Check the stake of a provider.
+     * @param provider The address of the provider.
+     * @return The staked amount for the provider.
+     */
+    function checkStake(address provider) external view returns (uint256) {
+        return providerStakes[provider];
+    }
+
     /// @dev Returns the BLS public key corresponding to a provider's staked EOA address.
     function getBLSKey(address provider) external view returns (bytes memory) {
         return EOAToBLSPubkey[provider];
     }
+
+    /**
+     * @dev Register and stake function for providers.
+     * @param blsPublicKey The BLS public key of the provider.
+     * The validity of this key must be verified manually off-chain.
+     */
+    function registerAndStake(bytes calldata blsPublicKey) public payable {
+        require(!providerRegistered[msg.sender], "Provider already registered");
+        require(msg.value >= minStake, "Insufficient stake");
+        require(blsPublicKey.length == 48, "Invalid BLS public key length");
+        
+        EOAToBLSPubkey[msg.sender] = blsPublicKey;
+        providerStakes[msg.sender] = msg.value;
+        providerRegistered[msg.sender] = true;
+        emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
+    }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 }
