@@ -23,8 +23,7 @@
     "var-name-mixedcase": "error",
     "imports-on-top": "error",
     "visibility-modifier-order": "error",
-    "reason-string": "warn",
-    "gas-strict-inequalities": "warn",
+    "reason-string": "error",
     "gas-custom-errors": "off"
   }
 }

@@ -165,7 +165,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @dev Makes sure transaction sender is oracle
      */
     modifier onlyOracle() {
-        require(msg.sender == oracle, "Only oracle can call this function");
+        require(msg.sender == oracle, "sender is not oracle");
         _;
     }
 
@@ -323,7 +323,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         require(
             (msg.sender == winner && winner == commiterAddress) ||
                 msg.sender == bidderAddress,
-            "Caller not a winner provider/bidder"
+            "invalid sender"
         );
 
         PreConfCommitment memory newCommitment = PreConfCommitment(
@@ -401,7 +401,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
 
         require(
             commiterAddress == msg.sender,
-            "Commiter address differs from sender"
+            "sender is not commiter"
         );
 
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(

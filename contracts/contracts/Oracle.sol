@@ -95,11 +95,11 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     ) external onlyOracle {
         require(
             _blockTrackerContract.getBlockWinner(blockNumber) == builder,
-            "Builder is not the winner of the block"
+            "builder is not block winner"
         );
         require(
             residualBidPercentAfterDecay <= 100,
-            "Residual bid after decay cannot be greater than 100 percent"
+            "residBidPercentAfterDecay > 100%"
         ); 
 
         IPreConfCommitmentStore.PreConfCommitment
