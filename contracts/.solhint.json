@@ -12,7 +12,6 @@
     "no-unused-import": "error",
     "interface-starts-with-i": "error",
     "ordering": "error",
-    "reason-string": "warn",
     "private-vars-leading-underscore": "error",
     "gas-length-in-loops": "error",
     "const-name-snakecase": "error",
@@ -24,7 +23,8 @@
     "var-name-mixedcase": "error",
     "imports-on-top": "error",
     "visibility-modifier-order": "error",
-    "gas-strict-inequalities": "off",
+    "reason-string": "warn",
+    "gas-strict-inequalities": "warn",
     "gas-custom-errors": "off"
   }
 }

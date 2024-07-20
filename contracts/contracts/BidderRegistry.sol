@@ -92,25 +92,14 @@ contract BidderRegistry is
         uint256 indexed amount
     );
 
-    // @dev Error message for invalid call    
-    error InvalidCall();
-    error OnlyPreConfirmationsContractAllowed();
-    error PreconfirmationsContractAlreadySet();
-    error WithdrawAfterWindowSettled();
-    error TransferToBidderFailed();
-    error TransferToProviderFailed();
-    error FeeTransferFailed();
-    error BidNotPreConfirmed();
-    error AmountIsZero();
-    error OnlyBidderCanWithdraw();
-    
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
     modifier onlyPreConfirmationEngine() {
-        if (msg.sender != preConfirmationsContract) {
-            revert OnlyPreConfirmationsContractAllowed();
-        }
+        require(
+            msg.sender == preConfirmationsContract,
+            "Only the pre-confirmations contract can call this function"
+        );
         _;
     }
 
@@ -147,14 +136,15 @@ contract BidderRegistry is
      * Should be removed from here in case the deposit function becomes more complex
      */
     receive() external payable {
-        revert InvalidCall();
+        revert("Invalid call");
+
     }
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert InvalidCall();
+        revert("Invalid call");
     }
 
     /**
@@ -164,9 +154,10 @@ contract BidderRegistry is
     function setPreconfirmationsContract(
         address contractAddress
     ) external onlyOwner {
-        if (preConfirmationsContract != address(0)) {
-            revert PreconfirmationsContractAlreadySet();
-        }
+        require(
+            preConfirmationsContract == address(0),
+            "Preconfirmations Contract is already set and cannot be changed."
+        );
         preConfirmationsContract = contractAddress;
     }
 
@@ -233,10 +224,10 @@ contract BidderRegistry is
         uint256 len = windows.length;
         for (uint256 i = 0; i < len; ++i) {
             uint256 window = windows[i];
-            // solhint-disable-next-line gas-strict-inequalities
-            if (window >= currentWindow) {
-                revert WithdrawAfterWindowSettled();
-            }
+            require(
+                window < currentWindow,
+                "withdraw after window settled"
+            );
 
             uint256 amount = lockedFunds[msg.sender][window];
             if (amount == 0) {
@@ -251,9 +242,7 @@ contract BidderRegistry is
         }
 
         (bool success, ) = msg.sender.call{value: totalAmount}("");
-        if (!success) {
-            revert TransferToBidderFailed();
-        }    
+        require(success, "transfer to bidder failed");
     }
 
     /**
@@ -271,9 +260,10 @@ contract BidderRegistry is
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreConfirmationEngine {
         BidState storage bidState = bidPayment[commitmentDigest];
-        if (bidState.state != State.PreConfirmed) {
-            revert BidNotPreConfirmed();
-        }
+        require(
+            bidState.state == State.PreConfirmed,
+            "bid not preconfirmed"
+        );
         uint256 decayedAmt = (bidState.bidAmt *
             residualBidPercentAfterDecay *
             PRECISION) / PERCENT;
@@ -294,9 +284,7 @@ contract BidderRegistry is
         uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
             (bool success, ) = payable(bidState.bidder).call{value: (fundsToReturn)}("");
-            if (!success) {
-                revert TransferToBidderFailed();
-            }        
+            require(success, "transfer to bidder failed");
         }
 
         bidState.state = State.Withdrawn;
@@ -322,17 +310,16 @@ contract BidderRegistry is
         bytes32 bidID
     ) external nonReentrant onlyPreConfirmationEngine {
         BidState storage bidState = bidPayment[bidID];
-        if (bidState.state != State.PreConfirmed) {
-            revert BidNotPreConfirmed();
-        }
+        require(
+            bidState.state == State.PreConfirmed,
+            "The bid was not preconfirmed"
+        );
         uint256 amt = bidState.bidAmt;
         bidState.state = State.Withdrawn;
         bidState.bidAmt = 0;
 
         (bool success, ) = payable(bidState.bidder).call{value: amt}("");
-        if (!success) {
-            revert TransferToBidderFailed();
-        }        
+        require(success, "couldn't transfer to bidder");
 
         emit FundsRetrieved(bidID, bidState.bidder, window, amt);
     }
@@ -408,13 +395,9 @@ contract BidderRegistry is
     function withdrawFeeRecipientAmount() external nonReentrant {
         uint256 amount = feeRecipientAmount;
         feeRecipientAmount = 0;
-        if (amount == 0) {
-            revert AmountIsZero();
-        }
+        require(amount != 0, "fee amount is zero");
         (bool successFee, ) = feeRecipient.call{value: amount}("");
-        if (!successFee) {
-            revert FeeTransferFailed();
-        }        
+        require(successFee, "fee transfer failed");
     }
 
     /**
@@ -427,13 +410,11 @@ contract BidderRegistry is
         uint256 amount = providerAmount[provider];
         providerAmount[provider] = 0;
 
-        if (amount == 0) {
-            revert AmountIsZero();
-        }
+        require(amount != 0, "provider amount is zero");
+
         (bool success, ) = provider.call{value: amount}("");
-        if (!success) {
-            revert TransferToProviderFailed();
-        }
+        require(success, "couldn't transfer to provider");
+
     }
 
     /**
@@ -445,27 +426,24 @@ contract BidderRegistry is
         address payable bidder,
         uint256 window
     ) external nonReentrant {
-        if (msg.sender != bidder) {
-            revert OnlyBidderCanWithdraw();
-        }
+        require(
+            msg.sender == bidder,
+            "only bidder can withdraw"
+        );
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
         // withdraw is enabled only when closed and settled
-        // solhint-disable-next-line gas-strict-inequalities
-        if (window >= currentWindow) {
-            revert WithdrawAfterWindowSettled();
-        }
+        require(
+            window < currentWindow,
+            "window not settled"
+        );
         uint256 amount = lockedFunds[bidder][window];
-        if (amount == 0) {
-            revert AmountIsZero();
-        }
+        require(amount != 0, "bidder amount is zero");
 
         lockedFunds[bidder][window] = 0;
         maxBidPerBlock[bidder][window] = 0;
 
         (bool success, ) = bidder.call{value: amount}("");
-        if (!success) {
-            revert TransferToBidderFailed();
-        }
+        require(success, "couldn't transfer to bidder");
 
         emit BidderWithdrawal(bidder, window, amount);
     }
@@ -479,14 +457,9 @@ contract BidderRegistry is
     ) external onlyOwner nonReentrant {
         uint256 _protocolFeeAmount = protocolFeeAmount;
         protocolFeeAmount = 0;
-        if (_protocolFeeAmount == 0) {
-            revert AmountIsZero();
-        }
-
+        require(_protocolFeeAmount != 0, "insufficient protocol fee amount");
         (bool success, ) = treasuryAddress.call{value: _protocolFeeAmount}("");
-        if (!success) {
-            revert FeeTransferFailed();
-        }
+        require(success, "transfer failed");
     }
 
     /**

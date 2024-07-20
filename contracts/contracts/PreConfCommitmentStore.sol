@@ -161,19 +161,11 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint64 blockNumber
     );
 
-    error SenderNotOracleAccount();
-    error InvalidCall();
-    error InvalidDecayTime();
-    error CommitmentAldreadyUsed();
-    error InvalidCommitmentDigest();
-    error CallerNotWinnerProviderOrBidder();
-    error InvalidDispatchTimestamp();
-    error SenderNotCommiter();
     /**
      * @dev Makes sure transaction sender is oracle
      */
     modifier onlyOracle() {
-        if (msg.sender != oracle) revert SenderNotOracleAccount();
+        require(msg.sender == oracle, "Only oracle can call this function");
         _;
     }
 
@@ -216,14 +208,14 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @dev Revert if eth sent to this contract
      */
     receive() external payable {
-        revert InvalidCall();
+        revert("Invalid call");
     }
 
     /**
      * @dev fallback to revert all the calls.
      */
     fallback() external payable {
-        revert InvalidCall();
+        revert("Invalid call");
     }
 
     /**
@@ -265,19 +257,19 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
     
     /**
-        @dev Open a commitment
-        @param encryptedCommitmentIndex The index of the encrypted commitment
-        @param bid The bid amount
-        @param blockNumber The block number
-        @param txnHash The transaction hash
-        @param revertingTxHashes The reverting transaction hashes
-        @param decayStartTimeStamp The start time of the decay
-        @param decayEndTimeStamp The end time of the decay
-        @param bidSignature The signature of the bid
-        @param commitmentSignature The signature of the commitment
-        @param sharedSecretKey The shared secret key
-        @return commitmentIndex The index of the stored commitment
-    */
+     * @dev Open a commitment
+     * @param encryptedCommitmentIndex The index of the encrypted commitment
+     * @param bid The bid amount
+     * @param blockNumber The block number
+     * @param txnHash The transaction hash
+     * @param revertingTxHashes The reverting transaction hashes
+     * @param decayStartTimeStamp The start time of the decay
+     * @param decayEndTimeStamp The end time of the decay
+     * @param bidSignature The signature of the bid
+     * @param commitmentSignature The signature of the commitment
+     * @param sharedSecretKey The shared secret key
+     * @return commitmentIndex The index of the stored commitment
+     */
     function openCommitment(
         bytes32 encryptedCommitmentIndex,
         uint256 bid,
@@ -290,7 +282,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public returns (bytes32 commitmentIndex) {
-        if (decayStartTimeStamp >= decayEndTimeStamp) revert InvalidDecayTime();
+        require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bid,
@@ -319,15 +311,20 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
                 encryptedCommitmentIndex
             ];
 
-        if (encryptedCommitment.isUsed) revert CommitmentAldreadyUsed();
-        if (encryptedCommitment.commitmentDigest != commitmentDigest) revert InvalidCommitmentDigest();
+        require(!encryptedCommitment.isUsed, "Commitment already used");
+        require(
+            encryptedCommitment.commitmentDigest == commitmentDigest,
+            "Invalid commitment digest"
+        );
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
         address winner = blockTracker.getBlockWinner(blockNumber);
-        if (!((msg.sender == winner && winner == commiterAddress) || msg.sender == bidderAddress)) {
-            revert CallerNotWinnerProviderOrBidder();
-        }
+        require(
+            (msg.sender == winner && winner == commiterAddress) ||
+                msg.sender == bidderAddress,
+            "Caller not a winner provider/bidder"
+        );
 
         PreConfCommitment memory newCommitment = PreConfCommitment(
             bidderAddress,
@@ -398,11 +395,14 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
         // Check if the dispatch timestamp is within the allowed dispatch window
-        if (dispatchTimestamp < minTime) revert InvalidDispatchTimestamp();
+        require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
 
         address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
-        if (commiterAddress != msg.sender) revert SenderNotCommiter();
+        require(
+            commiterAddress == msg.sender,
+            "Commiter address differs from sender"
+        );
 
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
@@ -437,7 +437,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 residualBidPercentAfterDecay
     ) public onlyOracle {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
-        if (commitment.isUsed) revert CommitmentAldreadyUsed();
+        require(!commitment.isUsed, "Commitment already used");
 
         commitment.isUsed = true;
         --commitmentsCount[commitment.commiter];
@@ -466,7 +466,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 residualBidPercentAfterDecay
     ) public onlyOracle {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
-        if (commitment.isUsed) revert CommitmentAldreadyUsed();
+        require(!commitment.isUsed, "Commitment already used");
         
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,

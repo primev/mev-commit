@@ -35,13 +35,9 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when the oracle account is set.
     event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
-    error SenderNotOracleAccount();
-    error InvalidBlockNumber();
-    error InvalidCall();
-
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        if (msg.sender != oracleAccount) revert SenderNotOracleAccount();
+        require(msg.sender == oracleAccount, "sender isn't oracle account");
         _;
     }
 
@@ -69,14 +65,14 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
      * Should be removed from here in case the registerAndStake function becomes more complex
      */
     receive() external payable {
-        revert InvalidCall();
+        revert("Invalid call");
     }
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert InvalidCall();
+        revert("Invalid call");
     }
 
     /**
@@ -168,7 +164,7 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
     */
     function _recordBlockWinner(uint256 blockNumber, address winner) internal {
         // Check if the block number is valid (not 0)
-        if (blockNumber == 0) revert InvalidBlockNumber();
+        require(blockNumber != 0, "Invalid block number");
 
         blockWinners[blockNumber] = winner;
     }

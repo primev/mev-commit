@@ -34,14 +34,9 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
 
-    error SenderNotOracleAccount();
-    error InvalidCall();
-    error NotBlockWinner();
-    error ResidualBidPercentExceedsLimit();
-
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        if (msg.sender != oracleAccount) revert SenderNotOracleAccount();
+        require(msg.sender == oracleAccount, "sender isn't oracle account");
         _;
     }
 
@@ -79,7 +74,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert InvalidCall();
+        revert("Invalid call");
     }
 
     // Function to receive and process the block data (this would be automated in a real-world scenario)
@@ -98,13 +93,15 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle {
-        if (_blockTrackerContract.getBlockWinner(blockNumber) != builder) {
-            revert NotBlockWinner();
-        }
+        require(
+            _blockTrackerContract.getBlockWinner(blockNumber) == builder,
+            "Builder is not the winner of the block"
+        );
+        require(
+            residualBidPercentAfterDecay <= 100,
+            "Residual bid after decay cannot be greater than 100 percent"
+        ); 
 
-        if (residualBidPercentAfterDecay > 100) {
-            revert ResidualBidPercentExceedsLimit();
-        }        
         IPreConfCommitmentStore.PreConfCommitment
             memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
