@@ -12,10 +12,6 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     mapping(address => bool) public whitelistedAddresses;
 
-    error SenderNotWhitelisted();
-    error InsufficientContractBalance();
-    error TransferFailed();
-
     function initialize(address _owner) external initializer {
         __Ownable_init(_owner);
     }
@@ -39,13 +35,12 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     // "Mints" native tokens (transfer ether from this contract) if the sender is whitelisted.
     function mint(address _mintTo, uint256 _amount) external {
-        if (!isWhitelisted(msg.sender)) revert SenderNotWhitelisted();
+        require(isWhitelisted(msg.sender), "Sender is not whitelisted");
+        require(address(this).balance >= _amount, "Insufficient contract balance");
 
-        if (address(this).balance < _amount) revert InsufficientContractBalance();
         
         (bool success, ) = _mintTo.call{value: _amount}("");
-        if (!success) revert TransferFailed();
-        
+        require(success, "Transfer to _mintTo failed");
     }
 
     function isWhitelisted(address _address) public view returns (bool) {
