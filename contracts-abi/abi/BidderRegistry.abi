@@ -14,7 +14,53 @@
   },
   {
     "type": "function",
-    "name": "BidPayment",
+    "name": "PERCENT",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "PRECISION",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "UPGRADE_INTERFACE_VERSION",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "bidPayment",
     "inputs": [
       {
         "name": "",
@@ -40,54 +86,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "OpenBid",
-    "inputs": [
-      {
-        "name": "commitmentDigest",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "bid",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "bidder",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "UPGRADE_INTERFACE_VERSION",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "acceptOwnership",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -335,6 +333,34 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "openBid",
+    "inputs": [
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "bid",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -610,7 +636,7 @@
     "name": "withdrawProtocolFee",
     "inputs": [
       {
-        "name": "bidder",
+        "name": "treasuryAddress",
         "type": "address",
         "internalType": "address payable"
       }
@@ -644,13 +670,13 @@
       {
         "name": "depositedAmount",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       },
       {
         "name": "windowNumber",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       }
     ],
@@ -669,13 +695,13 @@
       {
         "name": "window",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       },
       {
         "name": "amount",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       }
     ],
@@ -700,7 +726,7 @@
       {
         "name": "window",
         "type": "uint256",
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256"
       },
       {
