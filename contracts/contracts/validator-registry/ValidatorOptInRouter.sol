@@ -33,11 +33,15 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
         __UUPSUpgradeable_init();
     }
 
-    /*
-     * @dev implements _authorizeUpgrade from UUPSUpgradeable to enable only
-     * the owner to upgrade the implementation contract.
-     */
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
 
     /// @notice Allows the owner to set the validator registry V1 contract.
     function setValidatorRegistryV1(IValidatorRegistryV1 _validatorRegistry) external onlyOwner {
@@ -55,12 +59,20 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
 
     /// @notice Returns an array of bools indicating whether each validator pubkey is opted in to mev-commit.
     function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory) {
-        bool[] memory optedIn = new bool[](valBLSPubKeys.length);
-        for (uint256 i = 0; i < valBLSPubKeys.length; ++i) {
+        uint256 len = valBLSPubKeys.length;
+        bool[] memory optedIn = new bool[](len);
+        for (uint256 i = 0; i < len; ++i) {
             optedIn[i] = _isValidatorOptedIn(valBLSPubKeys[i]);
         }
         return optedIn;
     }
+
+    /*
+     * @dev implements _authorizeUpgrade from UUPSUpgradeable to enable only
+     * the owner to upgrade the implementation contract.
+     */
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @notice Internal function to check if a validator is opted in to mev-commit with either simple staking or restaking.
     function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
@@ -68,15 +80,5 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
             return true;
         }
         return mevCommitAVS.isValidatorOptedIn(valBLSPubKey);
-    }
-
-    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
-    fallback() external payable {
-        revert Errors.InvalidFallback();
-    }
-
-    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
     }
 }

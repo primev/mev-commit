@@ -4,10 +4,7 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
-import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IPreConfCommitmentStore} from "./interfaces/IPreConfCommitmentStore.sol";
-import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
 /// @title Oracle Contract
@@ -25,32 +22,23 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
 
+    /// @dev Reference to the PreConfCommitmentStore contract interface.
+    IPreConfCommitmentStore private _preConfContract;
+
+    /// @dev Reference to the BlockTracker contract interface.
+    IBlockTracker private _blockTrackerContract;
+
+    /// @dev Event emitted when the oracle account is set.
+    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
+
+    /// @dev Event emitted when a commitment is processed.
+    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
         require(msg.sender == oracleAccount, "sender isn't oracle account");
         _;
     }
-
-    // To shutup the compiler
-    /// @dev Empty receive function to silence compiler warnings about missing payable functions.
-    receive() external payable {
-        // Empty receive function
-    }
-
-    /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
-     */
-    fallback() external payable {
-        revert("Invalid call");
-    }
-
-    /// @dev Reference to the PreConfCommitmentStore contract interface.
-    IPreConfCommitmentStore private preConfContract;
-
-    /// @dev Reference to the BlockTracker contract interface.
-    IBlockTracker private blockTrackerContract;
-
-    function _authorizeUpgrade(address) internal override onlyOwner {} // solhint-disable no-empty-blocks
 
     /**
      * @dev Initializes the contract with a PreConfirmations contract.
@@ -65,8 +53,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         address oracleAccount_,
         address owner_
     ) external initializer {
-        preConfContract = IPreConfCommitmentStore(preConfContract_);
-        blockTrackerContract = IBlockTracker(blockTrackerContract_);
+        _preConfContract = IPreConfCommitmentStore(preConfContract_);
+        _blockTrackerContract = IBlockTracker(blockTrackerContract_);
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
     }
@@ -77,11 +65,17 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    /// @dev Event emitted when a commitment is processed.
-    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+    /// @dev Empty receive function to silence compiler warnings about missing payable functions.
+    receive() external payable {
+        // Empty receive function
+    }
 
-    /// @dev Event emitted when the oracle account is set.
-    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
+    }
 
     // Function to receive and process the block data (this would be automated in a real-world scenario)
     /**
@@ -100,20 +94,21 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle {
         require(
-            blockTrackerContract.getBlockWinner(blockNumber) == builder,
-            "Builder is not the winner of the block"
+            _blockTrackerContract.getBlockWinner(blockNumber) == builder,
+            "builder is not block winner"
         );
         require(
             residualBidPercentAfterDecay <= 100,
-            "Residual bid after decay cannot be greater than 100 percent"
-        );
+            "residBidPercentAfterDecay > 100%"
+        ); 
+
         IPreConfCommitmentStore.PreConfCommitment
-            memory commitment = preConfContract.getCommitment(commitmentIndex);
+            memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
             commitment.commiter == builder &&
             commitment.blockNumber == blockNumber
         ) {
-            processCommitment(
+            _processCommitment(
                 commitmentIndex,
                 isSlash,
                 residualBidPercentAfterDecay
@@ -136,24 +131,27 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         emit OracleAccountSet(oldOracleAccount, newOracleAccount);
     }
 
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
     /**
      * @dev Internal function to process a commitment, either slashing or rewarding based on the commitment's state.
      * @param commitmentIndex The id of the commitment to be processed.
      * @param isSlash Determines if the commitment should be slashed or rewarded.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
-    function processCommitment(
+    function _processCommitment(
         bytes32 commitmentIndex,
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) private {
         if (isSlash) {
-            preConfContract.initiateSlash(
+            _preConfContract.initiateSlash(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );
         } else {
-            preConfContract.initiateReward(
+            _preConfContract.initiateReward(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );

@@ -12,8 +12,6 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     mapping(address => bool) public whitelistedAddresses;
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
-
     function initialize(address _owner) external initializer {
         __Ownable_init(_owner);
     }
@@ -24,6 +22,9 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
+    // Receiver for native tokens to be "burnt"
+    receive() external payable {}
+
     function addToWhitelist(address _address) external onlyOwner {
         whitelistedAddresses[_address] = true;
     }
@@ -32,18 +33,20 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
         whitelistedAddresses[_address] = false;
     }
 
-    function isWhitelisted(address _address) public view returns (bool) {
-        return whitelistedAddresses[_address];
-    }
-
     // "Mints" native tokens (transfer ether from this contract) if the sender is whitelisted.
     function mint(address _mintTo, uint256 _amount) external {
         require(isWhitelisted(msg.sender), "Sender is not whitelisted");
         require(address(this).balance >= _amount, "Insufficient contract balance");
+
+        
         (bool success, ) = _mintTo.call{value: _amount}("");
         require(success, "Transfer to _mintTo failed");
     }
 
-    // Receiver for native tokens to be "burnt"
-    receive() external payable {}
+    function isWhitelisted(address _address) public view returns (bool) {
+        return whitelistedAddresses[_address];
+    }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

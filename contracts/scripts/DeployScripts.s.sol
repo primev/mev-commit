@@ -30,7 +30,7 @@ contract DeployScript is Script {
         uint256 blocksPerWindow = 10;
 
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
-        require(oracleKeystoreAddress != address(0), "Oracle keystore address not provided");
+        require(oracleKeystoreAddress != address(0), "missing Oracle keystore address");
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",

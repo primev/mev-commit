@@ -5,6 +5,13 @@ import {IValidatorRegistryV1} from "./IValidatorRegistryV1.sol";
 import {IMevCommitAVS} from "./IMevCommitAVS.sol";
 
 interface IValidatorOptInRouter {
+
+    /// @notice Emitted when the validator registry V1 contract is set.
+    event ValidatorRegistryV1Set(address oldContract, address newContract);
+
+    /// @notice Emitted when the mev-commit AVS contract is set.
+    event MevCommitAVSSet(address oldContract, address newContract);
+
     /// @notice Initializes the contract with the validator registry and mev-commit AVS contracts.
     function initialize(
         address _validatorRegistry,
@@ -20,10 +27,4 @@ interface IValidatorOptInRouter {
 
     /// @notice Returns an array of bools indicating whether each validator pubkey is opted in to mev-commit.
     function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory);
-
-    /// @notice Emitted when the validator registry V1 contract is set.
-    event ValidatorRegistryV1Set(address oldContract, address newContract);
-
-    /// @notice Emitted when the mev-commit AVS contract is set.
-    event MevCommitAVSSet(address oldContract, address newContract);
 }
