@@ -98,7 +98,7 @@ contract BidderRegistry is
     modifier onlyPreConfirmationEngine() {
         require(
             msg.sender == preConfirmationsContract,
-            "Only the pre-confirmations contract can call this function"
+            "sender is not preconf contract"
         );
         _;
     }
@@ -156,7 +156,7 @@ contract BidderRegistry is
     ) external onlyOwner {
         require(
             preConfirmationsContract == address(0),
-            "Preconfirmations Contract is already set and cannot be changed."
+            "preconfs contract already set"
         );
         preConfirmationsContract = contractAddress;
     }

@@ -63,7 +63,7 @@ contract ProviderRegistry is
     modifier onlyPreConfirmationEngine() {
         require(
             msg.sender == preConfirmationsContract,
-            "Only the pre-confirmations contract can call this function"
+            "sender is not preconf contract"
         );
         _;
     }
@@ -117,7 +117,7 @@ contract ProviderRegistry is
     ) external onlyOwner {
         require(
             preConfirmationsContract == address(0),
-            "Preconfirmations Contract is already set and cannot be changed."
+            "preconf contract already set"
         );
         preConfirmationsContract = contractAddress;
     }
@@ -191,7 +191,7 @@ contract ProviderRegistry is
     function withdrawFeeRecipientAmount() external nonReentrant {
         feeRecipientAmount = 0;
         (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
-        require(successFee, "Couldn't transfer to fee Recipient");
+        require(successFee, "fee recipient transfer failed");
     }
 
     /**
@@ -220,7 +220,7 @@ contract ProviderRegistry is
         require(stake > 0, "Provider Staked Amount is zero");
         require(
             preConfirmationsContract != address(0),
-            "Pre Confirmations Contract not set"
+            "preconf contract not set"
         );
 
         uint256 providerPendingCommitmentsCount = PreConfCommitmentStore(
@@ -229,11 +229,11 @@ contract ProviderRegistry is
 
         require(
             providerPendingCommitmentsCount == 0,
-            "Provider Commitments still pending"
+            "provider commitments are pending"
         );
 
         (bool success, ) = provider.call{value: stake}("");
-        require(success, "Couldn't transfer stake to provider");
+        require(success, "stake transfer failed");
     }
 
     /**

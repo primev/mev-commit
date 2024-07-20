@@ -98,7 +98,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount must cover counterpartys finalization fee");
+        vm.expectRevert("Amount too small");
         vm.prank(bridgeUser);
         settlementGateway.initiateTransfer{value: 0.04 ether}(bridgeUser, 0.04 ether);
 
@@ -193,7 +193,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Only relayer can call this function");
+        vm.expectRevert("sender is not relayer");
         vm.prank(bridgeUser);
         settlementGateway.finalizeTransfer(address(0x101), amount, 1);
 
@@ -214,7 +214,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount must cover finalization fee");
+        vm.expectRevert("Amount too small");
         vm.prank(relayer);
         settlementGateway.finalizeTransfer(bridgeUser, 0.04 ether, 1);
 
@@ -236,7 +236,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Invalid counterparty index. Transfers must be relayed FIFO");
+        vm.expectRevert("Invalid counterparty index");
         vm.prank(relayer);
         settlementGateway.finalizeTransfer(bridgeUser, amount, 7);
 

@@ -47,13 +47,13 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
         address indexed recipient, uint256 amount, uint256 indexed counterpartyIdx);
 
     modifier onlyRelayer() {
-        require(msg.sender == relayer, "Only relayer can call this function");
+        require(msg.sender == relayer, "sender is not relayer");
         _;
     }
 
     function initiateTransfer(address _recipient, uint256 _amount
     ) external payable returns (uint256 returnIdx) {
-        require(_amount >= counterpartyFee, "Amount must cover counterpartys finalization fee");
+        require(_amount >= counterpartyFee, "Amount too small");
         _decrementMsgSender(_amount);
         ++transferInitiatedIdx;
         emit TransferInitiated(msg.sender, _recipient, _amount, transferInitiatedIdx);
@@ -62,8 +62,8 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx
     ) external onlyRelayer {
-        require(_amount >= finalizationFee, "Amount must cover finalization fee");
-        require(_counterpartyIdx == transferFinalizedIdx, "Invalid counterparty index. Transfers must be relayed FIFO");
+        require(_amount >= finalizationFee, "Amount too small");
+        require(_counterpartyIdx == transferFinalizedIdx, "Invalid counterparty index");
         uint256 amountAfterFee = _amount - finalizationFee;
         _fund(amountAfterFee, _recipient);
         _fund(finalizationFee, relayer);
