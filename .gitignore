@@ -16,3 +16,9 @@
 
 # Ignore configuration files.
 *.ini
+
+# Ignore code editor files
+**/.idea
+
+# Ignore log files
+**/*.log
