@@ -196,13 +196,13 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         bytes32 encryptedCommitmentIndex,
         uint256 bid,
         uint64 blockNumber,
-        string memory txnHash,
-        string memory revertingTxHashes,
+        string calldata txnHash,
+        string calldata revertingTxHashes,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory commitmentSignature,
-        bytes memory sharedSecretKey
+        bytes calldata commitmentSignature,
+        bytes calldata sharedSecretKey
     ) external returns (bytes32 commitmentIndex) {
         require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
 
@@ -311,7 +311,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      */
     function storeEncryptedCommitment(
         bytes32 commitmentDigest,
-        bytes memory commitmentSignature,
+        bytes calldata commitmentSignature,
         uint64 dispatchTimestamp
     ) external returns (bytes32 commitmentIndex) {
         // Calculate the minimum valid timestamp for dispatching the commitment
