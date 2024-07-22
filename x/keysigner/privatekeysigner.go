@@ -59,15 +59,7 @@ func (pks *PrivateKeySigner) GetPrivateKey() (*ecdsa.PrivateKey, error) {
 }
 
 func (pks *PrivateKeySigner) GetAuth(chainID *big.Int) (*bind.TransactOpts, error) {
-	opts, err := bind.NewKeyedTransactorWithChainID(pks.privKey, chainID)
-	if err != nil {
-		return nil, err
-	}
-
-	opts.GasLimit = 1_000_000
-	opts.GasTipCap = big.NewInt(1_000_000_000)
-	opts.GasFeeCap = big.NewInt(2_000_000_000)
-	return opts, nil
+	return bind.NewKeyedTransactorWithChainID(pks.privKey, chainID)
 }
 
 func (pks *PrivateKeySigner) GetAuthWithCtx(ctx context.Context, chainID *big.Int) (*bind.TransactOpts, error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/lib/pq"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -194,6 +195,13 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 				return nil
 			case ec := <-u.encryptedCmts:
 				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
+					if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+						u.logger.Info(
+							"encrypted commitment already exists",
+							"commitmentIdx", common.Bytes2Hex(ec.CommitmentIndex[:]),
+						)
+						return nil
+					}
 					return err
 				}
 			}

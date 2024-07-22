@@ -82,6 +82,9 @@ type Options struct {
 	TLSCertificateFile       string
 	TLSPrivateKeyFile        string
 	ProviderWhitelist        []common.Address
+	DefaultGasLimit          uint64
+	DefaultGasTipCap         *big.Int
+	DefaultGasFeeCap         *big.Int
 }
 
 type Node struct {
@@ -225,7 +228,14 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
-		return opts.KeySigner.GetAuthWithCtx(ctx, chainID)
+		tOpts, err := opts.KeySigner.GetAuthWithCtx(ctx, chainID)
+		if err == nil {
+			// Use any defaults set by user
+			tOpts.GasLimit = opts.DefaultGasLimit
+			tOpts.GasTipCap = opts.DefaultGasTipCap
+			tOpts.GasFeeCap = opts.DefaultGasFeeCap
+		}
+		return tOpts, err
 	}
 
 	p2pSvc, err := libp2p.New(&libp2p.Options{

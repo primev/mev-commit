@@ -149,21 +149,6 @@ func (s *Store) LastWinnerBlock() (int64, error) {
 	return lastBlock.Int64, nil
 }
 
-func (s *Store) encryptedCommitmentExists(ctx context.Context, commitmentIdx []byte) bool {
-	var exists bool
-	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
-	err := s.db.QueryRowContext(
-		ctx,
-		"SELECT EXISTS(SELECT 1 FROM encrypted_commitments WHERE commitment_index = $1)",
-		commitmentIdxBase64,
-	).Scan(&exists)
-	if err != nil {
-		return false
-	}
-
-	return exists
-}
-
 func (s *Store) AddEncryptedCommitment(
 	ctx context.Context,
 	commitmentIdx []byte,
@@ -172,11 +157,6 @@ func (s *Store) AddEncryptedCommitment(
 	commitmentSignature []byte,
 	dispatchTimestamp uint64,
 ) error {
-	// check if the commitmentIdx already exists
-	if s.encryptedCommitmentExists(ctx, commitmentIdx) {
-		return nil
-	}
-
 	columns := []string{
 		"commitment_index",
 		"committer",
