@@ -19,8 +19,8 @@ contract BidderRegistry is
     UUPSUpgradeable
 {
     /// @dev For improved precision
-    uint256 constant PRECISION = 10 ** 25;
-    uint256 constant PERCENT = 100 * PRECISION;
+    uint256 constant public PRECISION = 10 ** 25;
+    uint256 constant public PERCENT = 100 * PRECISION;
 
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
@@ -53,7 +53,7 @@ contract BidderRegistry is
     mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
 
     /// @dev Mapping from bidder addresses to their locked amount based on bidID (commitmentDigest)
-    mapping(bytes32 => BidState) public BidPayment;
+    mapping(bytes32 => BidState) public bidPayment;
 
     /// @dev Amount assigned to bidders
     mapping(address => uint256) public providerAmount;
@@ -64,15 +64,15 @@ contract BidderRegistry is
     /// @dev Event emitted when a bidder is registered with their deposited amount
     event BidderRegistered(
         address indexed bidder,
-        uint256 depositedAmount,
-        uint256 windowNumber
+        uint256 indexed depositedAmount,
+        uint256 indexed windowNumber
     );
 
     /// @dev Event emitted when funds are retrieved from a bidder's deposit
     event FundsRetrieved(
         bytes32 indexed commitmentDigest,
         address indexed bidder,
-        uint256 window,
+        uint256 indexed window,
         uint256 amount
     );
 
@@ -88,26 +88,20 @@ contract BidderRegistry is
     /// @dev Event emitted when a bidder withdraws their deposit
     event BidderWithdrawal(
         address indexed bidder,
-        uint256 window,
-        uint256 amount
+        uint256 indexed window,
+        uint256 indexed amount
     );
 
     /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
-    fallback() external payable {
-        revert("Invalid call");
+    modifier onlyPreConfirmationEngine() {
+        require(
+            msg.sender == preConfirmationsContract,
+            "sender is not preconf contract"
+        );
+        _;
     }
-
-    /**
-     * @dev Receive function registers bidders and takes their deposit
-     * Should be removed from here in case the deposit function becomes more complex
-     */
-    receive() external payable {
-        revert("Invalid call");
-    }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with a minimum deposit requirement.
@@ -138,14 +132,19 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
+     * @dev Receive function registers bidders and takes their deposit
+     * Should be removed from here in case the deposit function becomes more complex
      */
-    modifier onlyPreConfirmationEngine() {
-        require(
-            msg.sender == preConfirmationsContract,
-            "Only the pre-confirmations contract can call this function"
-        );
-        _;
+    receive() external payable {
+        revert("Invalid call");
+
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
     }
 
     /**
@@ -157,26 +156,9 @@ contract BidderRegistry is
     ) external onlyOwner {
         require(
             preConfirmationsContract == address(0),
-            "Preconfirmations Contract is already set and cannot be changed."
+            "preconfs contract already set"
         );
         preConfirmationsContract = contractAddress;
-    }
-
-    /**
-     * @dev Get the amount assigned to a provider.
-     * @param provider The address of the provider.
-     */
-    function getProviderAmount(
-        address provider
-    ) external view returns (uint256) {
-        return providerAmount[provider];
-    }
-
-    /**
-     * @dev Get the amount assigned to the fee recipient (treasury).
-     */
-    function getFeeRecipientAmount() external view onlyOwner returns (uint256) {
-        return feeRecipientAmount;
     }
 
     /**
@@ -209,13 +191,14 @@ contract BidderRegistry is
         uint256 amountToDeposit = msg.value / windows.length;
         uint256 remainingAmount = msg.value % windows.length; // to handle rounding issues
 
-        for (uint16 i = 0; i < windows.length; ++i) {
+        uint256 len = windows.length;
+        for (uint16 i = 0; i < len; ++i) {
             uint256 window = windows[i];
 
             uint256 currentLockedFunds = lockedFunds[msg.sender][window];
 
             uint256 newLockedFunds = currentLockedFunds + amountToDeposit;
-            if (i == windows.length - 1) {
+            if (i == len - 1) {
                 newLockedFunds += remainingAmount; // Add the remainder to the last window
             }
 
@@ -238,7 +221,8 @@ contract BidderRegistry is
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
         uint256 totalAmount;
 
-        for (uint256 i = 0; i < windows.length; ++i) {
+        uint256 len = windows.length;
+        for (uint256 i = 0; i < len; ++i) {
             uint256 window = windows[i];
             require(
                 window < currentWindow,
@@ -257,25 +241,8 @@ contract BidderRegistry is
             totalAmount += amount;
         }
 
-        if (totalAmount == 0) {
-            return;
-        }
-
         (bool success, ) = msg.sender.call{value: totalAmount}("");
         require(success, "transfer to bidder failed");
-    }
-
-    /**
-     * @dev Check the deposit of a bidder.
-     * @param bidder The address of the bidder.
-     * @param window The window for which the deposit is being checked.
-     * @return The deposited amount for the bidder.
-     */
-    function getDeposit(
-        address bidder,
-        uint256 window
-    ) external view returns (uint256) {
-        return lockedFunds[bidder][window];
     }
 
     /**
@@ -292,7 +259,7 @@ contract BidderRegistry is
         address payable provider,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreConfirmationEngine {
-        BidState storage bidState = BidPayment[commitmentDigest];
+        BidState storage bidState = bidPayment[commitmentDigest];
         require(
             bidState.state == State.PreConfirmed,
             "bid not preconfirmed"
@@ -342,7 +309,7 @@ contract BidderRegistry is
         uint256 window,
         bytes32 bidID
     ) external nonReentrant onlyPreConfirmationEngine {
-        BidState storage bidState = BidPayment[bidID];
+        BidState storage bidState = bidPayment[bidID];
         require(
             bidState.state == State.PreConfirmed,
             "The bid was not preconfirmed"
@@ -364,13 +331,13 @@ contract BidderRegistry is
      * @param bidder The address of the bidder.
      * @param blockNumber The block number.
      */
-    function OpenBid(
+    function openBid(
         bytes32 commitmentDigest,
         uint256 bid,
         address bidder,
         uint64 blockNumber
     ) external onlyPreConfirmationEngine {
-        BidState storage bidState = BidPayment[commitmentDigest];
+        BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return;
         }
@@ -444,8 +411,10 @@ contract BidderRegistry is
         providerAmount[provider] = 0;
 
         require(amount != 0, "provider amount is zero");
+
         (bool success, ) = provider.call{value: amount}("");
         require(success, "couldn't transfer to provider");
+
     }
 
     /**
@@ -481,16 +450,48 @@ contract BidderRegistry is
 
     /**
      * @dev Withdraw protocol fee.
-     * @param bidder The address of the bidder.
+     * @param treasuryAddress The address of the treasury.
      */
     function withdrawProtocolFee(
-        address payable bidder
+        address payable treasuryAddress
     ) external onlyOwner nonReentrant {
         uint256 _protocolFeeAmount = protocolFeeAmount;
         protocolFeeAmount = 0;
         require(_protocolFeeAmount != 0, "insufficient protocol fee amount");
-
-        (bool success, ) = bidder.call{value: _protocolFeeAmount}("");
-        require(success, "deposit transfer failed");
+        (bool success, ) = treasuryAddress.call{value: _protocolFeeAmount}("");
+        require(success, "transfer failed");
     }
+
+    /**
+     * @dev Get the amount assigned to a provider.
+     * @param provider The address of the provider.
+     */
+    function getProviderAmount(
+        address provider
+    ) external view returns (uint256) {
+        return providerAmount[provider];
+    }
+
+    /**
+     * @dev Get the amount assigned to the fee recipient (treasury).
+     */
+    function getFeeRecipientAmount() external view onlyOwner returns (uint256) {
+        return feeRecipientAmount;
+    }
+
+    /**
+     * @dev Check the deposit of a bidder.
+     * @param bidder The address of the bidder.
+     * @param window The window for which the deposit is being checked.
+     * @return The deposited amount for the bidder.
+     */
+    function getDeposit(
+        address bidder,
+        uint256 window
+    ) external view returns (uint256) {
+        return lockedFunds[bidder][window];
+    }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

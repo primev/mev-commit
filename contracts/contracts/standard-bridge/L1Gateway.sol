@@ -25,6 +25,8 @@ contract L1Gateway is Gateway {
         _disableInitializers();
     }
 
+    receive() external payable {}
+
     function _decrementMsgSender(uint256 _amount) internal override {
         require(msg.value == _amount, "Incorrect Ether value sent");
         // Wrapping function initiateTransfer is payable. Ether is escrowed in contract balance
@@ -35,7 +37,5 @@ contract L1Gateway is Gateway {
         (bool success, ) = _toFund.call{value: _amount}("");
         require(success, "Transfer to _toFund failed");
     }
-
-    receive() external payable {}
 }
 

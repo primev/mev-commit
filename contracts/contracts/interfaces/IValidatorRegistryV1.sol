@@ -7,6 +7,14 @@ import { EventHeightLib } from "../utils/EventHeight.sol";
 /// @notice Interface for the ValidatorRegistryV1 contract.
 interface IValidatorRegistryV1 {
 
+    /// @dev Struct representing a validator staked with the registry.
+    struct StakedValidator {
+        bool exists;
+        address withdrawalAddress;
+        uint256 balance;
+        EventHeightLib.EventHeight unstakeHeight;
+    }
+
     /// @dev Event emitted when a validator is staked.
     event Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
@@ -36,14 +44,6 @@ interface IValidatorRegistryV1 {
 
     /// @dev Event emitted when the unstake period blocks parameter is set.
     event UnstakePeriodBlocksSet(address indexed msgSender, uint256 newUnstakePeriodBlocks);
-
-    /// @dev Struct representing a validator staked with the registry.
-    struct StakedValidator {
-        bool exists;
-        address withdrawalAddress;
-        uint256 balance;
-        EventHeightLib.EventHeight unstakeHeight;
-    }
 
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
