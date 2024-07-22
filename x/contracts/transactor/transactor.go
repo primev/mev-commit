@@ -9,7 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-const txnRetriesLimit = 3
+const (
+	txnRetriesLimit = 3
+)
 
 // Watcher is an interface that is used to manage the lifecycle of a transaction.
 // The Allow method is used to determine if a transaction should be sent. The context
