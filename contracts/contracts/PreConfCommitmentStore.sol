@@ -203,7 +203,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         bytes calldata bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
-    ) external returns (bytes32 commitmentIndex) {
+    ) public returns (bytes32 commitmentIndex) {
         require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
@@ -313,7 +313,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         bytes32 commitmentDigest,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
-    ) external returns (bytes32 commitmentIndex) {
+    ) public returns (bytes32 commitmentIndex) {
         // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
         // Check if the dispatch timestamp is within the allowed dispatch window
