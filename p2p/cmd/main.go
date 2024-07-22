@@ -289,6 +289,27 @@ var (
 			return nil
 		},
 	})
+
+	optionGasLimit = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "gas-limit",
+		Usage:   "Use predefined gas limit for transactions",
+		EnvVars: []string{"MEV_COMMIT_GAS_LIMIT"},
+		Value:   1000000,
+	})
+
+	optionGasTipCap = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "gas-tip-cap",
+		Usage:   "Use predefined gas tip cap for transactions",
+		EnvVars: []string{"MEV_COMMIT_GAS_TIP_CAP"},
+		Value:   "1000000000", // 1 gWEI
+	})
+
+	optionGasFeeCap = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "gas-fee-cap",
+		Usage:   "Use predefined gas fee cap for transactions",
+		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
+		Value:   "2000000000", // 2 gWEI
+	})
 )
 
 func main() {
@@ -322,6 +343,9 @@ func main() {
 		optionServerTLSCert,
 		optionServerTLSPrivateKey,
 		optionProviderWhitelist,
+		optionGasLimit,
+		optionGasTipCap,
+		optionGasFeeCap,
 	}
 
 	app := &cli.App{
@@ -384,7 +408,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 
 	var (
 		autodepositAmount *big.Int
-		ok bool
+		ok                bool
 	)
 	if c.String(optionAutodepositAmount.Name) != "" && c.Bool(optionAutodepositEnabled.Name) {
 		autodepositAmount, ok = new(big.Int).SetString(c.String(optionAutodepositAmount.Name), 10)
@@ -401,6 +425,20 @@ func launchNodeWithConfig(c *cli.Context) error {
 	whitelist := make([]common.Address, 0, len(c.StringSlice(optionProviderWhitelist.Name)))
 	for _, addr := range c.StringSlice(optionProviderWhitelist.Name) {
 		whitelist = append(whitelist, common.HexToAddress(addr))
+	}
+
+	var gasTipCap, gasFeeCap *big.Int
+	if c.String(optionGasTipCap.Name) != "" {
+		gasTipCap, ok = new(big.Int).SetString(c.String(optionGasTipCap.Name), 10)
+		if !ok {
+			return fmt.Errorf("failed to parse gas tip cap %q", c.String(optionGasTipCap.Name))
+		}
+	}
+	if c.String(optionGasFeeCap.Name) != "" {
+		gasFeeCap, ok = new(big.Int).SetString(c.String(optionGasFeeCap.Name), 10)
+		if !ok {
+			return fmt.Errorf("failed to parse gas fee cap %q", c.String(optionGasFeeCap.Name))
+		}
 	}
 
 	nd, err := node.NewNode(&node.Options{
@@ -424,6 +462,9 @@ func launchNodeWithConfig(c *cli.Context) error {
 		TLSCertificateFile:       crtFile,
 		TLSPrivateKeyFile:        keyFile,
 		ProviderWhitelist:        whitelist,
+		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
+		DefaultGasTipCap:         gasTipCap,
+		DefaultGasFeeCap:         gasFeeCap,
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

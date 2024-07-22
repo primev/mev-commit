@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/lib/pq"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -129,8 +130,11 @@ func NewUpdater(
 		oracle:         oracle,
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
-		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
-		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
+		// the buffered channel here is required to ensure that the event processing
+		// does not block the event manager. This event involves making a settlement
+		// transaction on the blockchain, which can take a while to complete.
+		openedCmts:    make(chan *preconf.PreconfcommitmentstoreCommitmentStored, 200),
+		encryptedCmts: make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
 	}, nil
 }
 
@@ -194,6 +198,14 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 				return nil
 			case ec := <-u.encryptedCmts:
 				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
+					// ignore duplicate private key constraint
+					if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+						u.logger.Warn(
+							"encrypted commitment already exists",
+							"commitmentIdx", common.Bytes2Hex(ec.CommitmentIndex[:]),
+						)
+						return nil
+					}
 					return err
 				}
 			}
