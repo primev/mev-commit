@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 
 import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
-import "../contracts/ProviderRegistry.sol";
-import "../contracts/BidderRegistry.sol";
-import "../contracts/BlockTracker.sol";
-
+import {IPreConfCommitmentStore} from "../contracts/interfaces/IPreConfCommitmentStore.sol";
+import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
+import {BidderRegistry} from "../contracts/BidderRegistry.sol";
+import {BlockTracker} from "../contracts/BlockTracker.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
@@ -122,7 +122,7 @@ contract TestPreConfCommitmentStore is Test {
 
     function test_getBidHash() public {
         // Step 1: Prepare the test commitment data
-        PreConfCommitmentStore.CommitmentParams memory testCommitment = PreConfCommitmentStore.CommitmentParams({
+        PreConfCommitmentStore.CommitmentParams memory testCommitment = IPreConfCommitmentStore.CommitmentParams({
             txnHash: "0xkartik",
             revertingTxHashes: "0xkartik",
             bid: 2,
@@ -551,7 +551,7 @@ contract TestPreConfCommitmentStore is Test {
         PreConfCommitmentStore.PreConfCommitment
         memory commitment = preConfCommitmentStore.getCommitment(index);
 
-        PreConfCommitmentStore.CommitmentParams memory commitmentParams = PreConfCommitmentStore.CommitmentParams({
+        PreConfCommitmentStore.CommitmentParams memory commitmentParams = IPreConfCommitmentStore.CommitmentParams({
             txnHash: txnHash,
             revertingTxHashes: revertingTxHashes,
             bid: bid,

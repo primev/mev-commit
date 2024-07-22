@@ -3,12 +3,13 @@ pragma solidity 0.8.20;
 
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 
 /**
  * @title BlockTracker
  * @dev A contract that tracks Ethereum blocks and their winners.
  */
-contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
+contract BlockTracker is IBlockTracker, Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
@@ -21,19 +22,6 @@ contract BlockTracker is Ownable2StepUpgradeable, UUPSUpgradeable {
 
      /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
-
-    /// @dev Event emitted when a new L1 block is tracked.
-    event NewL1Block(
-        uint256 indexed blockNumber,
-        address indexed winner,
-        uint256 indexed window
-    );
-
-    /// @dev Event emitted when a new window is created.
-    event NewWindow(uint256 indexed window);
-
-    /// @dev Event emitted when the oracle account is set.
-    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
