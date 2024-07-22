@@ -87,12 +87,15 @@ func NewTracker(
 		preconfContract: preconfContract,
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
-		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block, 5),
-		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
-		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
-		winners:         make(map[int64]*blocktracker.BlocktrackerNewL1Block),
-		metrics:         newMetrics(),
-		logger:          logger,
+		// Buffered channels to avoid blocking the event manager. The buffer size
+		// should be enough to allow the tracker time to process commitments for a block
+		// which involves opening commitments on-chain.
+		newL1Blocks:  make(chan *blocktracker.BlocktrackerNewL1Block, 5),
+		enryptedCmts: make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
+		commitments:  make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
+		winners:      make(map[int64]*blocktracker.BlocktrackerNewL1Block),
+		metrics:      newMetrics(),
+		logger:       logger,
 	}
 }
 
