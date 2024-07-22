@@ -198,8 +198,9 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 				return nil
 			case ec := <-u.encryptedCmts:
 				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
+					// ignore duplicate private key constraint
 					if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-						u.logger.Info(
+						u.logger.Warn(
 							"encrypted commitment already exists",
 							"commitmentIdx", common.Bytes2Hex(ec.CommitmentIndex[:]),
 						)
