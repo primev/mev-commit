@@ -58,6 +58,9 @@ type Options struct {
 	LaggerdMode                  int
 	OverrideWinners              []string
 	RegistrationAuthToken        string
+	DefaultGasLimit              uint64
+	DefaultGasTipCap             *big.Int
+	DefaultGasFeeCap             *big.Int
 }
 
 type Node struct {
@@ -193,6 +196,11 @@ func NewNode(opts *Options) (*Node, error) {
 		cancel()
 		return nil, err
 	}
+
+	// Set default gas values
+	tOpts.GasLimit = opts.DefaultGasLimit
+	tOpts.GasTipCap = opts.DefaultGasTipCap
+	tOpts.GasFeeCap = opts.DefaultGasFeeCap
 
 	blockTrackerTransactor := &blocktracker.BlocktrackerTransactorSession{
 		Contract:     blockTracker,
