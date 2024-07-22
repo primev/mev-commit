@@ -8,57 +8,16 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
+import {IPreConfCommitmentStore} from "./interfaces/IPreConfCommitmentStore.sol";
 import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
 
 /**
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
  */
-contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
+contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradeable, UUPSUpgradeable {
 
     using ECDSA for bytes32;
-
-    /// @dev Struct for all the information around preconfirmations commitment
-    struct PreConfCommitment {
-        address bidder;
-        bool isUsed;
-        uint64 blockNumber;
-        uint64 decayStartTimeStamp;
-        uint64 decayEndTimeStamp;
-        uint64 dispatchTimestamp;
-        address commiter;
-        uint256 bid;
-        bytes32 bidHash;
-        bytes32 commitmentHash;
-        bytes bidSignature;
-        bytes commitmentSignature;
-        bytes sharedSecretKey;
-        string txnHash;
-        string revertingTxHashes;
-    }
-
-    /// @dev Struct for all the commitment params to avoid too deep in the stack error
-    struct CommitmentParams {
-        string txnHash;
-        string revertingTxHashes;
-        uint256 bid;
-        uint64 blockNumber;
-        uint64 decayStartTimeStamp;
-        uint64 decayEndTimeStamp;
-        bytes32 bidHash;
-        bytes bidSignature;
-        bytes commitmentSignature;
-        bytes sharedSecretKey;
-    }
-
-    /// @dev Struct for all the information around encrypted preconfirmations commitment
-    struct EncrPreConfCommitment {
-        bool isUsed;
-        address commiter;
-        uint64 dispatchTimestamp;
-        bytes32 commitmentDigest;
-        bytes commitmentSignature;
-    }
 
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
@@ -123,43 +82,6 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Encrypted Commitment Hash -> Encrypted Commitment
     /// @dev Only stores valid encrypted commitments
     mapping(bytes32 => EncrPreConfCommitment) public encryptedCommitments;
-
-    /// @dev Event to log successful commitment storage
-    event CommitmentStored(
-        bytes32 indexed commitmentIndex,
-        address bidder,
-        address commiter,
-        uint256 bid,
-        uint64 blockNumber,
-        bytes32 bidHash,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        string txnHash,
-        string revertingTxHashes,
-        bytes32 commitmentHash,
-        bytes bidSignature,
-        bytes commitmentSignature,
-        uint64 dispatchTimestamp,
-        bytes sharedSecretKey
-    );
-
-    /// @dev Event to log successful encrypted commitment storage
-    event EncryptedCommitmentStored(
-        bytes32 indexed commitmentIndex,
-        address commiter,
-        bytes32 commitmentDigest,
-        bytes commitmentSignature,
-        uint64 dispatchTimestamp
-    );
-
-    /// @dev Event to log successful verifications
-    event SignatureVerified(
-        address indexed signer,
-        string txnHash,
-        string revertingTxHashes,
-        uint256 indexed bid,
-        uint64 blockNumber
-    );
 
     /**
      * @dev Makes sure transaction sender is oracle
@@ -281,7 +203,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         bytes calldata bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
-    ) public returns (bytes32 commitmentIndex) {
+    ) external returns (bytes32 commitmentIndex) {
         require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
@@ -377,9 +299,9 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
             encryptedCommitment.dispatchTimestamp,
             sharedSecretKey
         );
-
         return commitmentIndex;
     }
+
     /**
      * @dev Store an encrypted commitment.
      * @param commitmentDigest The digest of the commitment.
@@ -391,7 +313,7 @@ contract PreConfCommitmentStore is Ownable2StepUpgradeable, UUPSUpgradeable {
         bytes32 commitmentDigest,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
-    ) public returns (bytes32 commitmentIndex) {
+    ) external returns (bytes32 commitmentIndex) {
         // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
         // Check if the dispatch timestamp is within the allowed dispatch window
