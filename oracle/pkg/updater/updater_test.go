@@ -198,7 +198,7 @@ func TestUpdater(t *testing.T) {
 
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, &types.Body{}, []*types.Receipt{}, NewHasher()),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -462,7 +462,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, &types.Body{}, []*types.Receipt{}, NewHasher()),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -733,7 +733,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, &types.Body{}, []*types.Receipt{}, NewHasher()),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -956,7 +956,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, &types.Body{}, []*types.Receipt{}, NewHasher()),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -1160,9 +1160,9 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5:  types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
-			8:  types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
-			10: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5:  types.NewBlock(&types.Header{}, &types.Body{}, []*types.Receipt{}, NewHasher()),
+			8:  types.NewBlock(&types.Header{}, &types.Body{}, []*types.Receipt{}, NewHasher()),
+			10: types.NewBlock(&types.Header{}, &types.Body{}, []*types.Receipt{}, NewHasher()),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}

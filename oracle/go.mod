@@ -87,7 +87,6 @@ require (
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.20.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240515191416-fc5f0ca64291 // indirect
 	google.golang.org/grpc v1.64.0 // indirect
@@ -97,7 +96,6 @@ require (
 )
 
 replace (
-	github.com/ethereum/go-ethereum => github.com/ethereum/go-ethereum v1.13.14
 	github.com/primev/mev-commit/contracts-abi => ../contracts-abi
 	github.com/primev/mev-commit/x => ../x
 )
