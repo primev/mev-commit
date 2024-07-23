@@ -935,7 +935,6 @@ contract MevCommitAVSTest is Test {
     function testValidatorsWithReqDeregisteredOperatorsCannotRegister() public {
         testRegisterOperator();
 
-        address operator = address(0x888);
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
 
@@ -1014,19 +1013,28 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
 
-        address operator = address(0x888);
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
 
         assertFalse(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
         assertFalse(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
 
-        address newOperator = address(0x999);
+        address newOperator = address(0x0c94D2aE152F29Bf68A78dc9747BEa59B6f01418);
+        uint256 newOperatorPrivateKey = uint256(0x61437e7186d6d418e8c3221a88ce4c4aafba32347414d113ed31c425a99085a6);
         delegationManagerMock.setIsOperator(newOperator, true);
+
+        bytes32 digestHash = avsDirectoryMock.calculateOperatorAVSRegistrationDigestHash({
+            operator: newOperator,
+            avs: address(mevCommitAVS),
+            salt: bytes32("salt"),
+            expiry: block.timestamp + 1 days
+        });
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(newOperatorPrivateKey, digestHash);
 
         vm.prank(newOperator);
         ISignatureUtils.SignatureWithSaltAndExpiry memory newOperatorSigWithSalt = ISignatureUtils.SignatureWithSaltAndExpiry({
-            signature: bytes("signature"),
+            signature: abi.encodePacked(r, s, v),
             salt: bytes32("salt"),
             expiry: block.timestamp + 1 days
         });
@@ -1048,7 +1056,6 @@ contract MevCommitAVSTest is Test {
     function testDeregisteredOperatorCanStillDeregisterValidators() public {
         testRegisterValidatorsByPodOwners();
 
-        address operator = address(0x888);
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
         assertTrue(mevCommitAVS.getOperatorRegInfo(operator).exists);
