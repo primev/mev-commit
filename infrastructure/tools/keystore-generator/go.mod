@@ -3,7 +3,7 @@ module keystoreGenerator
 go 1.21.2
 
 require (
-	github.com/ethereum/go-ethereum v1.13.11
+	github.com/ethereum/go-ethereum v1.14.3
 	github.com/urfave/cli/v2 v2.27.2
 )
 
@@ -12,7 +12,6 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
-	github.com/cockroachdb/pebble v1.1.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
