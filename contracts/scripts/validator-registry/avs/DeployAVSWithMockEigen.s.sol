@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity ^0.8.20;
 
-import "forge-std/Script.sol";
+// solhint-disable no-console
+// solhint-disable one-contract-per-file
+
+import {Script} from "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MevCommitAVS} from "../../../contracts/validator-registry/avs/MevCommitAVS.sol";
 import {StrategyManagerMock} from "eigenlayer-contracts/src/test/mocks/StrategyManagerMock.sol";
