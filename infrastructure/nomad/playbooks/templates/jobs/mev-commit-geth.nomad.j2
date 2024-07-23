@@ -107,6 +107,8 @@ job "{{ job.name }}" {
           {% endraw %}
           {% elif job.env['type'] == 'member' %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
+          {% elif job.env['type'] == 'archive' %}
+          GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
           {% endif %}
           {%- if job.env['type'] != 'bootnode' %}
           {%- raw %}
