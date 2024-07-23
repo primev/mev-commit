@@ -137,7 +137,6 @@ require (
 )
 
 replace (
-	github.com/ethereum/go-ethereum => github.com/ethereum/go-ethereum v1.13.14
 	github.com/primev/mev-commit/contracts-abi => ../contracts-abi
 	github.com/primev/mev-commit/x => ../x
 )
