@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import {Gateway} from "./Gateway.sol";
 
@@ -25,6 +25,8 @@ contract L1Gateway is Gateway {
         _disableInitializers();
     }
 
+    receive() external payable {}
+
     function _decrementMsgSender(uint256 _amount) internal override {
         require(msg.value == _amount, "Incorrect Ether value sent");
         // Wrapping function initiateTransfer is payable. Ether is escrowed in contract balance
@@ -32,9 +34,8 @@ contract L1Gateway is Gateway {
 
     function _fund(uint256 _amount, address _toFund) internal override {
         require(address(this).balance >= _amount, "Insufficient contract balance");
-        payable(_toFund).transfer(_amount);
+        (bool success, ) = _toFund.call{value: _amount}("");
+        require(success, "Transfer to _toFund failed");
     }
-
-    receive() external payable {}
 }
 

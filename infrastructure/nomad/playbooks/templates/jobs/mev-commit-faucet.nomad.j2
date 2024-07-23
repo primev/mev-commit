@@ -5,6 +5,18 @@ job "{{ job.name }}" {
   group "{{ job.name }}-group" {
     count = {{ job.count }}
 
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
     network {
       mode = "bridge"
 
@@ -87,7 +99,7 @@ job "{{ job.name }}" {
           ./local/eth-faucet \
             --httpport "${HTTP_PORT}" \
             --faucet.amount 10 \
-            --faucet.minutes 60 \
+            --faucet.minutes 1 \
             --faucet.name "mev-commit chain" \
             --wallet.keyjson "${KEYSTORE_FILE}" \
             --wallet.keypass secrets/keystore_password.txt \

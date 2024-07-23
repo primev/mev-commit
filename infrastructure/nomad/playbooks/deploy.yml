@@ -188,29 +188,28 @@
 
     - name: Build Artifacts Async
       ansible.builtin.shell: |
+        SECRETS="{{ dist_dir }}/{{ item.name }}_secrets.json"
         SIGNERS="{{ dist_dir }}/signers.txt"
-        SECRETS="{{ dist_dir }}/secrets.json"
         INVENTORY="{{ dist_dir }}/artifacts.txt"
         ALLOCATIONS="{{ dist_dir }}/allocations.txt"
         DESTINATION_DIR="{{ dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
-    
+
+        [ ! -f "${SECRETS}" ] && echo '{}' > "${SECRETS}"
         [ ! -f "${SIGNERS}" ] && touch "${SIGNERS}"
-        [ ! -f "${SECRETS}" ] && echo '{"version":"{{ environments[env].version }}"}' > "${SECRETS}"
         [ ! -f "${INVENTORY}" ] && touch "${INVENTORY}"
         [ ! -f "${ALLOCATIONS}" ] && touch "${ALLOCATIONS}"
 
-        exec 190>>"${SIGNERS}"
-        exec 191<>"${SECRETS}"
-        exec 192<>"${INVENTORY}"
-        exec 193>>"${ALLOCATIONS}"
+        exec 192>>"${SIGNERS}"
+        exec 193<>"${INVENTORY}"
+        exec 194>>"${ALLOCATIONS}"
 
         {% for artifact in item.artifacts | default([]) %}
 
           {% if artifact.type is defined and artifact.type == 'binary' %}
-            flock -v -x 192
+            flock -v -x 193
             if ! grep -qxF "{{ artifact.path }}" "${INVENTORY}"; then
               echo "{{ artifact.path }}" >> "${INVENTORY}"
-              flock -v -u 192
+              flock -v -u 193
               set -x
               cp ./{{ artifact.path }}/.goreleaser.yml ./{{ artifact.path }}/.goreleaser.tmp.yml
               if [ -n "${ARTIFACTS_GOOS}" ]; then
@@ -221,136 +220,148 @@
               fi
               set +x
               goreleaser release --snapshot --config=./{{ artifact.path }}/.goreleaser.tmp.yml
+              if [ $? -ne 0 ]; then exit 1; fi
               rm ./{{ artifact.path }}/.goreleaser.tmp.yml
             fi
-            flock -v -u 192
+            flock -v -u 193
           {% elif artifact.type is defined and artifact.type == 'archive' %}
             ARTIFACT="${DESTINATION_DIR}/{{ artifact.name | default(item.name) }}_{{ environments[env].version }}.tar.gz"
             if [ ! -f "${ARTIFACT}" ]; then
-              flock -v -x 192
+              flock -v -x 193
               echo "${ARTIFACT}" >> "${INVENTORY}"
-              flock -v -u 192
+              flock -v -u 193
               tar -czvf "${ARTIFACT}" ./{{ artifact.path }}
+              if [ $? -ne 0 ]; then exit 1; fi
             fi
           {% endif %}
 
-          {% if artifact.keystore is defined %}
-            case "{{ environments[env].secrets }}" in
-              "generate")
-                PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits', '.,:_<>|/']) }}"
+          case "{{ environments[env].secrets }}" in
+            "generate")
+            {% if artifact.keystore is defined %}
+              PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits']) }}"
 
-                RESULT=$(
-                  {{ keystore_generator.stdout }} generate \
-                    --keystore-dir="${DESTINATION_DIR}" \
-                    --passphrase="${PASSPHRASE}" \
-                    --log-fmt="json"
-                )
-                ARTIFACT_PATH="$(echo ${RESULT} | jq -e -r '.path // empty' 2>/dev/null)"
+              RESULT=$(
+                {{ keystore_generator.stdout }} generate \
+                  --keystore-dir="${DESTINATION_DIR}" \
+                  --passphrase="${PASSPHRASE}" \
+                  --log-fmt="json"
+              )
+              if [ $? -ne 0 ]; then exit 1; fi
+              ARTIFACT_PATH="$(echo ${RESULT} | jq -e -r '.path // empty' 2>/dev/null)"
+
+              cat "${SECRETS}" | jq \
+                --arg keystore "$(cat ${ARTIFACT_PATH} | jq -c .)" \
+                --arg keystore_filename "$(basename ${ARTIFACT_PATH})" \
+                --arg keystore_password "${PASSPHRASE}" \
+                '. + {
+                  "{{ artifact.keystore.name }}": $keystore,
+                  "{{ artifact.keystore.name }}_filename": $keystore_filename,
+                  "{{ artifact.keystore.name }}_password": $keystore_password
+                }' \
+              > "${SECRETS}.tmp" && mv "${SECRETS}.tmp" "${SECRETS}"
+              if [ $? -ne 0 ]; then
+                echo "Error: Failed to write keystore to secrets for {{ item.name }}."
+                exit 1; 
+              fi
+
+              ADDRESS="$(cat ${ARTIFACT_PATH} | jq -r '.address')"
+              {% if artifact.keystore.allocation | default(false) %}
+                flock -v -x 194
+                echo "${ADDRESS}" >> "${ALLOCATIONS}"
+                flock -v -u 194
+              {% endif %}
+              {% if item.env is defined and item.env.type | default('') == 'signer' %}
                 flock -v -x 192
-                echo "${ARTIFACT_PATH}" >> "${INVENTORY}"
+                echo "${ADDRESS}" >> "${SIGNERS}"
                 flock -v -u 192
+              {% endif %}
+            {% endif %}
 
-                flock -v -x 191
-                cat "${SECRETS}" | jq \
-                  --arg keystore "$(cat ${ARTIFACT_PATH} | jq -c .)" \
-                  --arg keystore_filename "$(basename ${ARTIFACT_PATH})" \
-                  --arg keystore_password "${PASSPHRASE}" \
-                  '. + {
-                    "{{ artifact.keystore.name }}": $keystore,
-                    "{{ artifact.keystore.name }}_filename": $keystore_filename,
-                    "{{ artifact.keystore.name }}_password": $keystore_password
-                  }' \
-                > "${SECRETS}"
-                flock -v -u 191
+            {% if artifact.boot_key | default(false) %}
+              bootnode -genkey "${DESTINATION_DIR}/boot.key"
+              if [ $? -ne 0 ]; then exit 1; fi
 
-                ADDRESS="$(cat ${ARTIFACT_PATH} | jq -r '.address')"
-                {% if artifact.keystore.allocation | default(false) %}
-                  flock -v -x 193
-                  echo "${ADDRESS}" >> "${ALLOCATIONS}"
-                  flock -v -u 193
-                {% endif %}
-                {% if item.env is defined and item.env.type | default('') == 'signer' %}
-                  flock -v -x 190
-                  echo "${ADDRESS}" >> "${SIGNERS}"
-                  flock -v -u 190
-                {% endif %}
-                ;;
-              "fetch")
-                RESPONSE=$(curl \
-                  --silent \
-                  --insecure \
-                  --header "X-Vault-Token: {{ vault_init.json.root_token }}" \
-                  {{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}
-                )
-                if [ -z "${RESPONSE}" ]; then
-                  echo "Error: No secrets found."
+              cat "${SECRETS}" | jq \
+                --arg item_name "{{ (item.name | regex_replace('^mev-commit-', '') | replace('-', '_')) }}" \
+                --arg boot_key "$(cat ${DESTINATION_DIR}/boot.key)" \
+                --arg boot_key_address "$(bootnode -nodekey ${DESTINATION_DIR}/boot.key -writeaddress)" \
+                '. + {
+                  ($item_name + "_boot_key"): $boot_key,
+                  ($item_name + "_boot_key_address"): $boot_key_address
+                }' \
+              > "${SECRETS}.tmp" && mv "${SECRETS}.tmp" "${SECRETS}"
+              if [ $? -ne 0 ]; then
+                echo "Error: Failed to write boot key to secrets for {{ item.name }}."
+                exit 1; 
+              fi
+            {% endif %}
+
+            {% if artifact.auth_token | default(false) %}
+              cat "${SECRETS}" | jq \
+                --arg item_name "{{ artifact.auth_token.name }}" \
+                --arg auth_token "{{ lookup('password', '/dev/null', length=128, chars=['ascii_letters', 'digits']) }}" \
+                '. + {
+                  ($item_name): $auth_token
+                }' \
+              > "${SECRETS}.tmp" && mv "${SECRETS}.tmp" "${SECRETS}"
+                if [ $? -ne 0 ]; then
+                  echo "Error: Failed to write auth token to secrets for {{ item.name }}."
                   exit 1
                 fi
-
-                KEYSTORE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}')
-                if [ -z "${KEYSTORE}" ]; then
-                  echo "Error: No keystore found for {{ artifact.keystore.name }}."
-                  exit 1
-                fi
-                PASSPHRASE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}_password')
-                if [ -z "${PASSPHRASE}" ]; then
-                  echo "Error: No passphrase found for {{ artifact.keystore.name }}."
-                  exit 1
-                fi
-
-                flock -v -x 191
-                cat "${SECRETS}" | jq \
-                  --arg keystore "$(echo $KEYSTORE | jq -c .)" \
-                  --arg keystore_filename "$(basename ${KEYSTORE})" \
-                  --arg keystore_password "${PASSPHRASE}" \
-                  '. + {
-                    "{{ artifact.keystore.name }}": $keystore,
-                    "{{ artifact.keystore.name }}_filename": $keystore_filename,
-                    "{{ artifact.keystore.name }}_password": $keystore_password
-                  }' \
-                > "${SECRETS}"
-                flock -v -u 191
-
-                ADDRESS=$(echo "${KEYSTORE}" | jq -r '.address')
-                {% if artifact.keystore.allocation | default(false) %}
-                  flock -v -x 193
-                  echo "${ADDRESS}" >> "${ALLOCATIONS}"
-                  flock -v -u 193
-                {% endif %}
-                {% if item.env is defined and item.env.type | default('') == 'signer' %}
-                  flock -v -x 190
-                  echo "${ADDRESS}" >> "${SIGNERS}"
-                  flock -v -u 190
-                {% endif %}
-                ;;
-              *)
-                echo "Error: Unknown secrets type: {{ environments[env].secrets }}."
+            {% endif %}
+              ;;
+            "fetch")
+              RESPONSE=$(curl \
+                --silent \
+                --insecure \
+                --header "X-Vault-Token: {{ vault_init.json.root_token }}" \
+                {{ vault_address }}/v1/{{ vault_kv_engine_path }}/data/{{ vault_secret_path }}
+              )
+              if [ $? -ne 0 ]; then
+                echo "Error: Failed to fetch secrets."
                 exit 1
-                ;;
-            esac
-          {% endif %}
-          {% if artifact.boot_key | default(false) and environments[env].secrets == 'generate' %}
-            bootnode -genkey "${DESTINATION_DIR}/boot.key"
+              fi
+              if [ -z "${RESPONSE}" ]; then
+                echo "Error: No secrets found."
+                exit 1
+              fi
 
-            flock -v -x 191
-            cat "${SECRETS}" | jq \
-              --arg item_name "{{ (item.name | regex_replace('^mev-commit-', '') | replace('-', '_')) }}" \
-              --arg boot_key "$(cat ${DESTINATION_DIR}/boot.key)" \
-              --arg boot_key_address "$(bootnode -nodekey ${DESTINATION_DIR}/boot.key -writeaddress)" \
-              '. + {
-                ($item_name + "_boot_key"): $boot_key,
-                ($item_name + "_boot_key_address"): $boot_key_address
-              }' \
-            > "${SECRETS}"
-            flock -v -u 191
+            {% if artifact.keystore is defined %}
+              KEYSTORE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}')
+              if [ -z "${KEYSTORE}" ]; then
+                echo "Error: No keystore found for {{ artifact.keystore.name }}."
+                exit 1
+              fi
+              PASSPHRASE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}_password')
+              if [ -z "${PASSPHRASE}" ]; then
+                echo "Error: No passphrase found for {{ artifact.keystore.name }}."
+                exit 1
+              fi
 
-          {% endif %}
+              ADDRESS=$(echo "${KEYSTORE}" | jq -r '.address')
+              {% if artifact.keystore.allocation | default(false) %}
+                flock -v -x 194
+                echo "${ADDRESS}" >> "${ALLOCATIONS}"
+                flock -v -u 194
+              {% endif %}
+              {% if item.env is defined and item.env.type | default('') == 'signer' %}
+                flock -v -x 192
+                echo "${ADDRESS}" >> "${SIGNERS}"
+                flock -v -u 192
+              {% endif %}
+            {% endif %}
+              ;;
+            *)
+              echo "Error: Unknown secrets type: {{ environments[env].secrets }}."
+              exit 1
+              ;;
+          esac
+
         {% endfor %}
 
-        exec 190>&-
-        exec 191>&-
         exec 192>&-
         exec 193>&-
+        exec 194>&-
       environment:
         ARTIFACTS_GOOS: "{{ lookup('env', 'ARTIFACTS_GOOS') }}"
         ARTIFACTS_GOARCH: "{{ lookup('env', 'ARTIFACTS_GOARCH') }}"
@@ -379,6 +390,38 @@
       loop: "{{ build_artifacts_async.results }}"
       loop_control:
         label: "{{ item.item.name }}"
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts
+
+    - name: Fetch Secrets
+      ansible.builtin.set_fact:
+        mev_commit_secrets: "{{ lookup('amazon.aws.aws_secret', env ~ '/' ~ profile ~ '/' ~ vault_secret_path) }}"
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and environments[env].secrets == 'fetch'
+
+    - name: Write Retrieved Secrets to File
+      ansible.builtin.copy:
+        content: "{{ mev_commit_secrets }}"
+        dest: "{{ dist_dir }}/fetched_secrets.json"
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and environments[env].secrets == 'fetch'
+
+    - name: Assemble Secrets File
+      ansible.builtin.shell: |
+        SECRETS=$(ls {{ dist_dir }}/*_secrets.json 2>/dev/null)
+        if [ -z "${SECRETS}" ]; then
+          echo "Error: No secrets found."
+          exit 1
+        fi
+        jq -s '
+          reduce .[] as $i ({}; . * $i)
+          | . + {"version":"{{ environments[env].version }}"}
+        ' ${SECRETS} > "{{ dist_dir }}/secrets.json"
+      args:
+        executable: bash
       delegate_to: localhost
       run_once: true
       when: build_artifacts
@@ -461,10 +504,38 @@
       run_once: true
       when: build_artifacts
 
+    - name: Prepare launchmevcommit Script
+      ansible.builtin.shell: |
+        SCRIPT="{{ dist_dir }}/launchmevcommit-{{ environments[env].version }}.sh"
+        TARGET_MACHINE_IP="{{ ansible_facts['default_ipv4']['address'] }}"
+        cp launchmevcommit "${SCRIPT}"
+        case "$(uname)" in
+          Darwin)
+            sed -i '' '1,/__VERSION__/s/__VERSION__/{{ environments[env].version }}/' "${SCRIPT}"
+            sed -i '' '1,/__TARGET_MACHINE_IP__/s/__TARGET_MACHINE_IP__/'"${TARGET_MACHINE_IP}"'/' "${SCRIPT}"
+            ;;
+          *)
+            sed -i '1,/__VERSION__/s/__VERSION__/{{ environments[env].version }}/' "${SCRIPT}"
+            sed -i '1,/__TARGET_MACHINE_IP__/s/__TARGET_MACHINE_IP__/'"${TARGET_MACHINE_IP}"'/' "${SCRIPT}"
+            ;;
+        esac
+      args:
+        chdir: "{{ root_dir }}"
+        executable: bash
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and env == 'devenv'
+
     - name: Filter Artifacts for Upload
       ansible.builtin.find:
         paths: "{{ dist_dir }}"
-        patterns: "*{{ environments[env].version }}*.*"
+        patterns: >-
+          [
+          "*{{ environments[env].version }}*.*"
+          {% if env == 'devenv' %},
+          "secrets.json"
+          {% endif %}
+          ]
         recurse: yes
       register: upload_artifacts
       delegate_to: localhost
@@ -477,6 +548,7 @@
         object: "{{ item.path | basename }}"
         src: "{{ item.path }}"
         mode: put
+        tags: "{{ {'AutoDelete': 'true'} if not release else {} }}"
       loop: "{{ upload_artifacts.files }}"
       loop_control:
         label: "{{ item.path | basename }}"
@@ -528,7 +600,7 @@
         body: "{{ {'data': (lookup('file', dist_dir + '/secrets.json') | from_json)} | to_json }}"
         status_code: [200, 204]
         validate_certs: no
-      when: build_artifacts and environments[env].secrets == 'generate'
+      when: build_artifacts
       delegate_to: localhost
 
     - name: Cleanup Built Artifacts
@@ -559,7 +631,9 @@
     - name: Create "meta.json"
       ansible.builtin.shell: |
         echo '{{ environments[env] | to_json }}' > {{ ansible_env.HOME }}/{{ env }}/meta.json
+        {% if env == 'devenv' %}
         ln -f {{ ansible_env.HOME }}/{{ env }}/meta.json {{ ansible_env.HOME }}/{{ env }}/artifacts/meta.json
+        {% endif %}
       when: build_templates
 
     - name: Purge Cluster
@@ -571,23 +645,28 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
-        RESULT="$(nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad 2>&1)"
-        if [ $? -ne 0 ]; then
-          echo "Failed to deploy {{ job.name }}: ${RESULT}."
-          exit 1
-        fi
+        START_TIME="$(date +%s)"
+        nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
+        END_TIME="$(date +%s)"
+        echo "Deployment of {{ job.name }} took $(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')"
 
-        TIMEOUT={% if profile == 'ci' %}600{% else %}300{% endif %}
+        TIMEOUT=600
         START_TIME=$(date +%s)
         RESULT=$(nomad job status -json "{{ job.name }}")
         if [ $? -ne 0 ]; then
-          echo "Failed to get job status for {{ job.name }}: ${RESULT}."
+          echo "Failed to get job status for {{ job.name }}:"
+          echo "${RESULT}"
           exit 1
         fi
         JOB_TYPE=$(echo "${RESULT}" | jq -r '.[0].Allocations[0].JobType')
 
         while true; do
           STATUS=$(echo "${RESULT}"  | jq -r '.[0].Allocations[0].ClientStatus')
+          if [ "${STATUS}" = "failed" ]; then
+            echo "Deployment failed for {{ job.name }}:"
+            echo "${RESULT}"
+            exit 1
+          fi
 
           case "${JOB_TYPE}" in
             service)
@@ -613,14 +692,15 @@
           CURRENT_TIME="$(date +%s)"
           ELAPSED_TIME="$(( CURRENT_TIME - START_TIME ))"
           if [ ${ELAPSED_TIME} -ge ${TIMEOUT} ]; then
-            echo "Deploy timed out for {{ job.name }}, current status: ${STATUS}."
+            echo "Deployment timed out for {{ job.name }}, current status: ${STATUS}"
             exit 1
           fi
 
           sleep 1
           RESULT=$(nomad job status -json "{{ job.name }}")
           if [ $? -ne 0 ]; then
-            echo "Failed to get job status for {{ job.name }}: ${RESULT}."
+            echo "Failed to get job status for {{ job.name }}:"
+            echo "${RESULT}"
             exit 1
           fi
         done
@@ -631,8 +711,9 @@
         label: "{{ item.name }}"
       vars:
         job: "{{ item }}"
-      register: result
-      failed_when: result.rc != 0
+      register: job_result
+      failed_when: job_result.rc != 0
+      when: job_result is not defined or job_result.rc == 0
 
     - name: Post Deployment Info
       ansible.builtin.debug:

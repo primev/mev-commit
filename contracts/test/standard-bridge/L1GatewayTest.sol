@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../contracts/standard-bridge/L1Gateway.sol";
@@ -75,7 +75,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount must cover counterpartys finalization fee");
+        vm.expectRevert("Amount too small");
         vm.prank(bridgeUser);
         l1Gateway.initiateTransfer{value: 0.04 ether}(bridgeUser, 0.04 ether);
 
@@ -159,7 +159,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Only relayer can call this function");
+        vm.expectRevert("sender is not relayer");
         vm.prank(bridgeUser);
         l1Gateway.finalizeTransfer(address(0x101), amount, 1);
 
@@ -177,7 +177,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount must cover finalization fee");
+        vm.expectRevert("Amount too small");
         vm.prank(relayer);
         l1Gateway.finalizeTransfer(address(0x101), amount, 1);
 
@@ -196,7 +196,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Invalid counterparty index. Transfers must be relayed FIFO");
+        vm.expectRevert("Invalid counterparty index");
         vm.prank(relayer);
         l1Gateway.finalizeTransfer(address(0x101), amount, 2);
 

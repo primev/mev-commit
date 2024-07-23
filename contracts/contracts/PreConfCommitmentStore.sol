@@ -1,33 +1,58 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
+import {IPreConfCommitmentStore} from "./interfaces/IPreConfCommitmentStore.sol";
 import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
 
 /**
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
  */
-contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
+contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradeable, UUPSUpgradeable {
+
     using ECDSA for bytes32;
 
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "PreConfCommitment(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "PreConfCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
         );
+
+    // EIP-712 domain separator
+    bytes32 public constant DOMAIN_SEPARATOR_PRECONF =
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version)"),
+                keccak256("PreConfCommitment"),
+                keccak256("1")
+            )
+        );
+
+    // EIP-712 domain separator
+    bytes32 public constant DOMAIN_SEPARATOR_BID =
+        keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version)"),
+                keccak256("PreConfBid"),
+                keccak256("1")
+            )
+        );
+
+    // Hex characters
+    bytes public constant HEXCHARS = "0123456789abcdef";
 
     // Represents the dispatch window in milliseconds
     uint64 public commitmentDispatchWindow;
@@ -35,17 +60,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Address of the oracle
     address public oracle;
 
-    /// @dev The last block that was processed by the Oracle
-    uint256 public lastProcessedBlock;
-
     /// @dev The number of blocks per window
     uint256 public blocksPerWindow;
-
-    // EIP-712 Domain Separator
-    bytes32 public DOMAIN_SEPARATOR_PRECONF;
-
-    // EIP-712 Domain Separator
-    bytes32 public DOMAIN_SEPARATOR_BID;
 
     /// @dev Address of provider registry
     IProviderRegistry public providerRegistry;
@@ -63,93 +79,17 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Only stores valid commitments
     mapping(bytes32 => PreConfCommitment) public commitments;
 
+    /// @dev Encrypted Commitment Hash -> Encrypted Commitment
+    /// @dev Only stores valid encrypted commitments
     mapping(bytes32 => EncrPreConfCommitment) public encryptedCommitments;
-
-    /// @dev Struct for all the information around preconfirmations commitment
-    struct PreConfCommitment {
-        bool isUsed;
-        address bidder;
-        address commiter;
-        uint256 bid;
-        uint64 blockNumber;
-        bytes32 bidHash;
-        uint64 decayStartTimeStamp;
-        uint64 decayEndTimeStamp;
-        string txnHash;
-        bytes32 commitmentHash;
-        bytes bidSignature;
-        bytes commitmentSignature;
-        uint64 dispatchTimestamp;
-        bytes sharedSecretKey;
-    }
-
-    /// @dev Event to log successful commitment storage
-    event CommitmentStored(
-        bytes32 indexed commitmentIndex,
-        address bidder,
-        address commiter,
-        uint256 bid,
-        uint64 blockNumber,
-        bytes32 bidHash,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        string txnHash,
-        bytes32 commitmentHash,
-        bytes bidSignature,
-        bytes commitmentSignature,
-        uint64 dispatchTimestamp,
-        bytes sharedSecretKey
-    );
-
-    /// @dev Struct for all the information around encrypted preconfirmations commitment
-    struct EncrPreConfCommitment {
-        bool isUsed;
-        address commiter;
-        bytes32 commitmentDigest;
-        bytes commitmentSignature;
-        uint64 dispatchTimestamp;
-    }
-
-    /// @dev Event to log successful encrypted commitment storage
-    event EncryptedCommitmentStored(
-        bytes32 indexed commitmentIndex,
-        address commiter,
-        bytes32 commitmentDigest,
-        bytes commitmentSignature,
-        uint64 dispatchTimestamp
-    );
-
-    /// @dev Event to log successful verifications
-    event SignatureVerified(
-        address indexed signer,
-        string txnHash,
-        uint256 indexed bid,
-        uint64 blockNumber
-    );
-
-    /**
-     * @dev fallback to revert all the calls.
-     */
-    fallback() external payable {
-        revert("Invalid call");
-    }
-
-    /**
-     * @dev Revert if eth sent to this contract
-     */
-    receive() external payable {
-        revert("Invalid call");
-    }
 
     /**
      * @dev Makes sure transaction sender is oracle
      */
     modifier onlyOracle() {
-        require(msg.sender == oracle, "Only the oracle can call this function");
+        require(msg.sender == oracle, "sender is not oracle");
         _;
     }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
@@ -158,6 +98,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      * @param _blockTracker The address of the block tracker.
      * @param _oracle The address of the oracle.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
+     * @param _commitmentDispatchWindow The dispatch window for commitments.
+     * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
         address _providerRegistry,
@@ -175,23 +117,27 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         blocksPerWindow = _blocksPerWindow;
         __Ownable_init(_owner);
 
-        // EIP-712 domain separator
-        DOMAIN_SEPARATOR_PRECONF = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256("PreConfCommitment"),
-                keccak256("1")
-            )
-        );
-        // EIP-712 domain separator
-        DOMAIN_SEPARATOR_BID = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256("PreConfBid"),
-                keccak256("1")
-            )
-        );
         commitmentDispatchWindow = _commitmentDispatchWindow;
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Revert if eth sent to this contract
+     */
+    receive() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev fallback to revert all the calls.
+     */
+    fallback() external payable {
+        revert("Invalid call");
     }
 
     /**
@@ -204,302 +150,155 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         commitmentDispatchWindow = newDispatchWindow;
     }
 
-    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     /**
-     * @dev Gives digest to be signed for bids
-     * @param _txnHash transaction Hash.
-     * @param _bid bid id.
-     * @param _blockNumber block number
-     * @return digest it returns a digest that can be used for signing bids
+     * @dev Updates the address of the oracle.
+     * @param newOracle The new oracle address.
      */
-    function getBidHash(
-        string memory _txnHash,
-        uint256 _bid,
-        uint64 _blockNumber,
-        uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp
-    ) public view returns (bytes32) {
-        return
-            ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_BID,
-                keccak256(
-                    abi.encode(
-                        EIP712_BID_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        _bid,
-                        _blockNumber,
-                        _decayStartTimeStamp,
-                        _decayEndTimeStamp
-                    )
-                )
-            );
+    function updateOracle(address newOracle) external onlyOwner {
+        oracle = newOracle;
     }
 
     /**
-     * @dev Gives digest to be signed for pre confirmation
-     * @param _txnHash transaction Hash.
-     * @param _bid bid id.
-     * @param _blockNumber block number.
-     * @param _bidHash hash of the bid.
-     * @return digest it returns a digest that can be used for signing bids.
+     * @dev Updates the address of the bidder registry.
+     * @param newBidderRegistry The new bidder registry address.
      */
-    function getPreConfHash(
-        string memory _txnHash,
-        uint256 _bid,
-        uint64 _blockNumber,
-        uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp,
-        bytes32 _bidHash,
-        string memory _bidSignature,
-        string memory _sharedSecretKey
-    ) public view returns (bytes32) {
-        return
-            ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_PRECONF,
-                keccak256(
-                    abi.encode(
-                        EIP712_COMMITMENT_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        _bid,
-                        _blockNumber,
-                        _decayStartTimeStamp,
-                        _decayEndTimeStamp,
-                        keccak256(
-                            abi.encodePacked(_bytes32ToHexString(_bidHash))
-                        ),
-                        keccak256(abi.encodePacked(_bidSignature)),
-                        keccak256(abi.encodePacked(_sharedSecretKey))
-                    )
-                )
-            );
+    function updateBidderRegistry(
+        address newBidderRegistry
+    ) external onlyOwner {
+        bidderRegistry = IBidderRegistry(newBidderRegistry);
     }
 
     /**
-     * @dev Internal function to verify a bid
-     * @param bid bid id.
-     * @param blockNumber block number.
-     * @param txnHash transaction Hash.
-     * @param bidSignature bid signature.
-     * @return messageDigest returns the bid hash for given bid id.
-     * @return recoveredAddress the address from the bid hash.
+     * @dev Updates the address of the provider registry.
+     * @param newProviderRegistry The new provider registry address.
      */
-    function verifyBid(
-        uint256 bid,
-        uint64 blockNumber,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        string memory txnHash,
-        bytes calldata bidSignature
-    ) public view returns (bytes32 messageDigest, address recoveredAddress) {
-        messageDigest = getBidHash(
-            txnHash,
-            bid,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp
-        );
-        recoveredAddress = messageDigest.recover(bidSignature);
+    function updateProviderRegistry(
+        address newProviderRegistry
+    ) external onlyOwner {
+        providerRegistry = IProviderRegistry(newProviderRegistry);
     }
-
+    
     /**
-     * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
-     * @param txnHash The transaction hash associated with the commitment.
-     * @param bid The bid amount.
-     * @param blockNumber The block number at the time of the bid.
-     * @param bidHash The hash of the bid details.
-     * @param bidSignature The signature of the bid.
-     * @param commitmentSignature The signature of the commitment.
-     * @return preConfHash The hash of the pre-confirmation commitment.
-     * @return commiterAddress The address of the committer recovered from the commitment signature.
-     */
-    function verifyPreConfCommitment(
-        string memory txnHash,
-        uint256 bid,
-        uint64 blockNumber,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        bytes32 bidHash,
-        bytes memory bidSignature,
-        bytes memory commitmentSignature,
-        bytes memory sharedSecretKey
-    ) public view returns (bytes32 preConfHash, address commiterAddress) {
-        preConfHash = getPreConfHash(
-            txnHash,
-            bid,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            bidHash,
-            _bytesToHexString(bidSignature),
-            _bytesToHexString(sharedSecretKey)
-        );
-
-        commiterAddress = preConfHash.recover(commitmentSignature);
-    }
-
-    /**
-     * @dev Get the index of a commitment.
-     * @param commitment The commitment to get the index for.
-     * @return The index of the commitment.
-     */
-    function getCommitmentIndex(
-        PreConfCommitment memory commitment
-    ) public pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked(
-                    commitment.commitmentHash,
-                    commitment.commitmentSignature
-                )
-            );
-    }
-
-    /**
-     * @dev Get the index of an encrypted commitment.
-     * @param commitment The commitment to get the index for.
-     * @return The index of the commitment.
-     */
-    function getEncryptedCommitmentIndex(
-        EncrPreConfCommitment memory commitment
-    ) public pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encodePacked(
-                    commitment.commitmentDigest,
-                    commitment.commitmentSignature
-                )
-            );
-    }
-
-    /**
-        @dev Open a commitment
-        @param encryptedCommitmentIndex The index of the encrypted commitment
-        @param bid The bid amount
-        @param blockNumber The block number
-        @param txnHash The transaction hash
-        @param decayStartTimeStamp The start time of the decay
-        @param decayEndTimeStamp The end time of the decay
-        @param bidSignature The signature of the bid
-        @param commitmentSignature The signature of the commitment
-        @param sharedSecretKey The shared secret key
-        @return commitmentIndex The index of the stored commitment
+     * @dev Open a commitment
+     * @param encryptedCommitmentIndex The index of the encrypted commitment
+     * @param bid The bid amount
+     * @param blockNumber The block number
+     * @param txnHash The transaction hash
+     * @param revertingTxHashes The reverting transaction hashes
+     * @param decayStartTimeStamp The start time of the decay
+     * @param decayEndTimeStamp The end time of the decay
+     * @param bidSignature The signature of the bid
+     * @param commitmentSignature The signature of the commitment
+     * @param sharedSecretKey The shared secret key
+     * @return commitmentIndex The index of the stored commitment
      */
     function openCommitment(
         bytes32 encryptedCommitmentIndex,
         uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
+        string memory revertingTxHashes,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public returns (bytes32 commitmentIndex) {
+        require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
+
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bid,
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
             txnHash,
+            revertingTxHashes,
             bidSignature
         );
 
-        // This helps in avoiding stack too deep
-        {
-            bytes32 commitmentDigest = getPreConfHash(
-                txnHash,
-                bid,
-                blockNumber,
-                decayStartTimeStamp,
-                decayEndTimeStamp,
-                bHash,
-                _bytesToHexString(bidSignature),
-                _bytesToHexString(sharedSecretKey)
-            );
-            EncrPreConfCommitment
-                memory encryptedCommitment = encryptedCommitments[
-                    encryptedCommitmentIndex
-                ];
-            require(!encryptedCommitment.isUsed, "Commitment already used");
+        bytes32 commitmentDigest = getPreConfHash(
+            txnHash,
+            revertingTxHashes,
+            bid,
+            blockNumber,
+            decayStartTimeStamp,
+            decayEndTimeStamp,
+            bHash,
+            _bytesToHexString(bidSignature),
+            _bytesToHexString(sharedSecretKey)
+        );
 
-            require(
-                encryptedCommitment.commitmentDigest == commitmentDigest,
-                "Invalid commitment digest"
-            );
+        EncrPreConfCommitment
+            storage encryptedCommitment = encryptedCommitments[
+                encryptedCommitmentIndex
+            ];
 
-            address commiterAddress = commitmentDigest.recover(
-                commitmentSignature
-            );
+        require(!encryptedCommitment.isUsed, "Commitment already used");
+        require(
+            encryptedCommitment.commitmentDigest == commitmentDigest,
+            "Invalid commitment digest"
+        );
 
-            require(
-                decayStartTimeStamp < decayEndTimeStamp,
-                "Invalid decay time"
-            );
+        address commiterAddress = commitmentDigest.recover(commitmentSignature);
 
-            address winner = blockTracker.getBlockWinner(blockNumber);
-            require(
-                (msg.sender == winner && winner == commiterAddress) ||
-                    msg.sender == bidderAddress,
-                "Caller is not a winner provider or bidder"
-            );
+        address winner = blockTracker.getBlockWinner(blockNumber);
+        require(
+            (msg.sender == winner && winner == commiterAddress) ||
+                msg.sender == bidderAddress,
+            "invalid sender"
+        );
 
-            PreConfCommitment memory newCommitment = PreConfCommitment(
-                false,
-                bidderAddress,
-                commiterAddress,
-                bid,
-                blockNumber,
-                bHash,
-                decayStartTimeStamp,
-                decayEndTimeStamp,
-                txnHash,
-                commitmentDigest,
-                bidSignature,
-                commitmentSignature,
-                encryptedCommitment.dispatchTimestamp,
-                sharedSecretKey
-            );
+        PreConfCommitment memory newCommitment = PreConfCommitment(
+            bidderAddress,
+            false,
+            blockNumber,
+            decayStartTimeStamp,
+            decayEndTimeStamp,
+            encryptedCommitment.dispatchTimestamp,
+            commiterAddress,
+            bid,
+            bHash,
+            commitmentDigest,
+            bidSignature,
+            commitmentSignature,
+            sharedSecretKey,
+            txnHash,
+            revertingTxHashes
+        );
 
-            commitmentIndex = getCommitmentIndex(newCommitment);
+        commitmentIndex = getCommitmentIndex(newCommitment);
 
-            // Store commitment
-            commitments[commitmentIndex] = newCommitment;
+        // Store the new commitment
+        commitments[commitmentIndex] = newCommitment;
+        // Mark the encrypted commitment as used
+        encryptedCommitment.isUsed = true;
 
-            // Mark the encrypted commitment as used
-            encryptedCommitments[encryptedCommitmentIndex].isUsed = true;
+        bidderRegistry.openBid(
+            commitmentDigest,
+            bid,
+            bidderAddress,
+            blockNumber
+        );
 
-            bidderRegistry.OpenBid(
-                commitmentDigest,
-                bid,
-                bidderAddress,
-                blockNumber
-            );
+        ++commitmentsCount[commiterAddress];
 
-            commitmentsCount[commiterAddress] += 1;
-
-            emit CommitmentStored(
-                commitmentIndex,
-                bidderAddress,
-                commiterAddress,
-                bid,
-                blockNumber,
-                bHash,
-                decayStartTimeStamp,
-                decayEndTimeStamp,
-                txnHash,
-                commitmentDigest,
-                bidSignature,
-                commitmentSignature,
-                encryptedCommitment.dispatchTimestamp,
-                sharedSecretKey
-            );
-        }
-
+        emit CommitmentStored(
+            commitmentIndex,
+            bidderAddress,
+            commiterAddress,
+            bid,
+            blockNumber,
+            bHash,
+            decayStartTimeStamp,
+            decayEndTimeStamp,
+            txnHash,
+            revertingTxHashes,
+            commitmentDigest,
+            bidSignature,
+            commitmentSignature,
+            encryptedCommitment.dispatchTimestamp,
+            sharedSecretKey
+        );
         return commitmentIndex;
     }
 
@@ -517,7 +316,6 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     ) public returns (bytes32 commitmentIndex) {
         // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
-
         // Check if the dispatch timestamp is within the allowed dispatch window
         require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
 
@@ -525,15 +323,15 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
 
         require(
             commiterAddress == msg.sender,
-            "Commiter address is different from the sender address"
+            "sender is not commiter"
         );
 
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
             commiterAddress,
+            dispatchTimestamp,
             commitmentDigest,
-            commitmentSignature,
-            dispatchTimestamp
+            commitmentSignature
         );
 
         commitmentIndex = getEncryptedCommitmentIndex(newCommitment);
@@ -549,6 +347,63 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
         );
 
         return commitmentIndex;
+    }
+
+    /**
+     * @dev Initiate a slash for a commitment.
+     * @param commitmentIndex The hash of the commitment to be slashed.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
+     */
+    function initiateSlash(
+        bytes32 commitmentIndex,
+        uint256 residualBidPercentAfterDecay
+    ) public onlyOracle {
+        PreConfCommitment storage commitment = commitments[commitmentIndex];
+        require(!commitment.isUsed, "Commitment already used");
+
+        commitment.isUsed = true;
+        --commitmentsCount[commitment.commiter];
+
+        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
+            commitment.blockNumber,
+            blocksPerWindow
+        );
+
+        providerRegistry.slash(
+            commitment.bid,
+            commitment.commiter,
+            payable(commitment.bidder),
+            residualBidPercentAfterDecay
+        );
+
+        bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentHash);
+    }
+
+    /**
+     * @dev Initiate a reward for a commitment.
+     * @param commitmentIndex The hash of the commitment to be rewarded.
+     */
+    function initiateReward(
+        bytes32 commitmentIndex,
+        uint256 residualBidPercentAfterDecay
+    ) public onlyOracle {
+        PreConfCommitment storage commitment = commitments[commitmentIndex];
+        require(!commitment.isUsed, "Commitment already used");
+        
+        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
+            commitment.blockNumber,
+            blocksPerWindow
+        );
+
+        commitment.isUsed = true;
+        --commitmentsCount[commitment.commiter];
+
+        bidderRegistry.retrieveFunds(
+            windowToSettle,
+            commitment.commitmentHash,
+            payable(commitment.commiter),
+            residualBidPercentAfterDecay
+        );
     }
 
     /**
@@ -585,93 +440,179 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     }
 
     /**
-     * @dev Initiate a slash for a commitment.
-     * @param commitmentIndex The hash of the commitment to be slashed.
+     * @dev Gives digest to be signed for bids
+     * @param _txnHash transaction Hash.
+     * @param _bid bid id.
+     * @param _blockNumber block number
+     * @param _revertingTxHashes reverting transaction hashes.
+     * @return digest it returns a digest that can be used for signing bids
      */
-    function initiateSlash(
-        bytes32 commitmentIndex,
-        uint256 residualBidPercentAfterDecay
-    ) public onlyOracle {
-        PreConfCommitment memory commitment = commitments[commitmentIndex];
-        require(
-            !commitments[commitmentIndex].isUsed,
-            "Commitment already used"
-        );
-
-        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber,
-            blocksPerWindow
-        );
-
-        commitments[commitmentIndex].isUsed = true;
-        commitmentsCount[commitment.commiter] -= 1;
-
-        providerRegistry.slash(
-            commitment.bid,
-            commitment.commiter,
-            payable(commitment.bidder),
-            residualBidPercentAfterDecay
-        );
-
-        bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentHash);
+    function getBidHash(
+        string memory _txnHash,
+        string memory _revertingTxHashes,
+        uint256 _bid,
+        uint64 _blockNumber,
+        uint64 _decayStartTimeStamp,
+        uint64 _decayEndTimeStamp
+    ) public pure returns (bytes32) {
+        return
+            ECDSA.toTypedDataHash(
+                DOMAIN_SEPARATOR_BID,
+                keccak256(
+                    abi.encode(
+                        EIP712_BID_TYPEHASH,
+                        keccak256(abi.encodePacked(_txnHash)),
+                        keccak256(abi.encodePacked(_revertingTxHashes)),
+                        _bid,
+                        _blockNumber,
+                        _decayStartTimeStamp,
+                        _decayEndTimeStamp
+                    )
+                )
+            );
     }
 
     /**
-     * @dev Initiate a reward for a commitment.
-     * @param commitmentIndex The hash of the commitment to be rewarded.
+     * @dev Gives digest to be signed for pre confirmation
+     * @param _txnHash transaction Hash.
+     * @param _bid bid id.
+     * @param _blockNumber block number.
+     * @param _revertingTxHashes reverting transaction hashes.
+     * @param _bidHash hash of the bid.
+     * @param _bidSignature signature of the bid.
+     * @param _sharedSecretKey shared secret key.
+     * @return digest it returns a digest that can be used for signing bids.
      */
-    function initiateReward(
-        bytes32 commitmentIndex,
-        uint256 residualBidPercentAfterDecay
-    ) public onlyOracle {
-        PreConfCommitment memory commitment = commitments[commitmentIndex];
-        require(
-            !commitments[commitmentIndex].isUsed,
-            "Commitment already used"
-        );
-
-        uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber,
-            blocksPerWindow
-        );
-
-        commitments[commitmentIndex].isUsed = true;
-        commitmentsCount[commitment.commiter] -= 1;
-
-        bidderRegistry.retrieveFunds(
-            windowToSettle,
-            commitment.commitmentHash,
-            payable(commitment.commiter),
-            residualBidPercentAfterDecay
-        );
+    function getPreConfHash(
+        string memory _txnHash,
+        string memory _revertingTxHashes,
+        uint256 _bid,
+        uint64 _blockNumber,
+        uint64 _decayStartTimeStamp,
+        uint64 _decayEndTimeStamp,
+        bytes32 _bidHash,
+        string memory _bidSignature,
+        string memory _sharedSecretKey
+    ) public pure returns (bytes32) {
+        return
+            ECDSA.toTypedDataHash(
+                DOMAIN_SEPARATOR_PRECONF,
+                keccak256(
+                    abi.encode(
+                        EIP712_COMMITMENT_TYPEHASH,
+                        keccak256(abi.encodePacked(_txnHash)),
+                        keccak256(abi.encodePacked(_revertingTxHashes)),
+                        _bid,
+                        _blockNumber,
+                        _decayStartTimeStamp,
+                        _decayEndTimeStamp,
+                        keccak256(
+                            abi.encodePacked(_bytes32ToHexString(_bidHash))
+                        ),
+                        keccak256(abi.encodePacked(_bidSignature)),
+                        keccak256(abi.encodePacked(_sharedSecretKey))
+                    )
+                )
+            );
     }
 
     /**
-     * @dev Updates the address of the oracle.
-     * @param newOracle The new oracle address.
+     * @dev Internal function to verify a bid
+     * @param bid bid id.
+     * @param blockNumber block number.
+     * @param decayStartTimeStamp decay start time.
+     * @param decayEndTimeStamp decay end time.
+     * @param txnHash transaction Hash.
+     * @param revertingTxHashes reverting transaction hashes.
+     * @param bidSignature bid signature.
+     * @return messageDigest returns the bid hash for given bid id.
+     * @return recoveredAddress the address from the bid hash.
      */
-    function updateOracle(address newOracle) external onlyOwner {
-        oracle = newOracle;
+    function verifyBid(
+        uint256 bid,
+        uint64 blockNumber,
+        uint64 decayStartTimeStamp,
+        uint64 decayEndTimeStamp,
+        string memory txnHash,
+        string memory revertingTxHashes,
+        bytes calldata bidSignature
+    ) public pure returns (bytes32 messageDigest, address recoveredAddress) {
+        messageDigest = getBidHash(
+            txnHash,
+            revertingTxHashes,
+            bid,
+            blockNumber,
+            decayStartTimeStamp,
+            decayEndTimeStamp
+        );
+        recoveredAddress = messageDigest.recover(bidSignature);
     }
 
     /**
-     * @dev Updates the address of the provider registry.
-     * @param newProviderRegistry The new provider registry address.
+     * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
+     * @param params The commitment params associated with the commitment.
+     * @return preConfHash The hash of the pre-confirmation commitment.
+     * @return commiterAddress The address of the committer recovered from the commitment signature.
      */
-    function updateProviderRegistry(
-        address newProviderRegistry
-    ) public onlyOwner {
-        providerRegistry = IProviderRegistry(newProviderRegistry);
+    function verifyPreConfCommitment(
+        CommitmentParams memory params
+    ) public pure returns (bytes32 preConfHash, address commiterAddress) {
+        preConfHash = _getPreConfHash(params);
+        commiterAddress = preConfHash.recover(params.commitmentSignature);
     }
 
     /**
-     * @dev Updates the address of the bidder registry.
-     * @param newBidderRegistry The new bidder registry address.
+     * @dev Get the index of a commitment.
+     * @param commitment The commitment to get the index for.
+     * @return The index of the commitment.
      */
-    function updateBidderRegistry(
-        address newBidderRegistry
-    ) external onlyOwner {
-        bidderRegistry = IBidderRegistry(newBidderRegistry);
+    function getCommitmentIndex(
+        PreConfCommitment memory commitment
+    ) public pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    commitment.commitmentHash,
+                    commitment.commitmentSignature
+                )
+            );
+    }
+
+    /**
+     * @dev Get the index of an encrypted commitment.
+     * @param commitment The commitment to get the index for.
+     * @return The index of the commitment.
+     */
+    function getEncryptedCommitmentIndex(
+        EncrPreConfCommitment memory commitment
+    ) public pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encodePacked(
+                    commitment.commitmentDigest,
+                    commitment.commitmentSignature
+                )
+            );
+    }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function _getPreConfHash(
+        CommitmentParams memory params
+    ) internal pure returns (bytes32) {
+        return
+            getPreConfHash(
+                params.txnHash,
+                params.revertingTxHashes,
+                params.bid,
+                params.blockNumber,
+                params.decayStartTimeStamp,
+                params.decayEndTimeStamp,
+                params.bidHash,
+                _bytesToHexString(params.bidSignature),
+                _bytesToHexString(params.sharedSecretKey)
+            );
     }
 
     /**
@@ -682,9 +623,8 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
     function _bytes32ToHexString(
         bytes32 _bytes32
     ) internal pure returns (string memory) {
-        bytes memory HEXCHARS = "0123456789abcdef";
         bytes memory _string = new bytes(64);
-        for (uint8 i = 0; i < 32; i++) {
+        for (uint8 i = 0; i < 32; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
         }
@@ -698,10 +638,10 @@ contract PreConfCommitmentStore is OwnableUpgradeable, UUPSUpgradeable {
      */
     function _bytesToHexString(
         bytes memory _bytes
-    ) public pure returns (string memory) {
-        bytes memory HEXCHARS = "0123456789abcdef";
+    ) internal pure returns (string memory) {
         bytes memory _string = new bytes(_bytes.length * 2);
-        for (uint256 i = 0; i < _bytes.length; i++) {
+        uint256 len = _bytes.length;
+        for (uint256 i = 0; i < len; ++i) {
             _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
             _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
         }

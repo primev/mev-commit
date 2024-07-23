@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -47,7 +48,7 @@ func TestL1Listener(t *testing.T) {
 	}
 
 	l := l1Listener.NewL1Listener(
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		slog.New(slog.NewTextHandler(os.Stdout, nil)),
 		ethClient,
 		reg,
 		eventManager,
@@ -67,7 +68,7 @@ func TestL1Listener(t *testing.T) {
 		})
 
 		select {
-		case <-time.After(5 * time.Second):
+		case <-time.After(10 * time.Second):
 			t.Fatal("timeout waiting for winner", i)
 		case update := <-rec.updates:
 			if update.blockNum.Int64() != int64(i) {
@@ -157,6 +158,10 @@ func (t *testRegister) RegisterWinner(_ context.Context, blockNum int64, winner 
 	return nil
 }
 
+func (t *testRegister) LastWinnerBlock() (int64, error) {
+	return 0, nil
+}
+
 type testEthClient struct {
 	mu      sync.Mutex
 	headers map[uint64]*types.Header
@@ -203,6 +208,10 @@ func (t *testEthClient) HeaderByNumber(_ context.Context, number *big.Int) (*typ
 		return nil, errors.New("header not found")
 	}
 	return hdr, nil
+}
+
+func (t *testEthClient) BlockByNumber(_ context.Context, number *big.Int) (*types.Block, error) {
+	return nil, nil
 }
 
 func publishLog(

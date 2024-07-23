@@ -5,6 +5,32 @@ job "{{ job.name }}" {
   group "{{ job.name }}-group" {
     count = {{ job.count }}
 
+    # This is a special case for CI because the runner machine is not very
+    # powerful and compiling and deploying contracts can take a long time.
+    {% if env == 'devenv' and profile == 'ci' %}
+    update {
+      healthy_deadline = "20m"
+      progress_deadline = "30m"
+    }
+    {% else %}
+    update {
+      healthy_deadline = "10m"
+      progress_deadline = "15m"
+    }
+    {% endif %}
+
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
     network {
       dns {
         servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
@@ -31,11 +57,19 @@ job "{{ job.name }}" {
         port = "{{ port_name }}"
         tags = ["{{ port_name }}"]
         provider = "nomad"
+
+        check {
+          type = "http"
+          path = "/"
+          port = "{{ port_name }}"
+          interval = "10s"
+          timeout  = "5s"
+        }
       }
       {% endfor %}
 
       artifact {
-        source = "https://nodejs.org/dist/v18.16.1/node-v18.16.1-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz"
+        source = "https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz"
         options {
           archive = false
         }
@@ -101,7 +135,7 @@ job "{{ job.name }}" {
 
           tar \
             --extract \
-            --file local/node-v18.16.1-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz \
+            --file local/node-v18.20.4-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz \
             --directory /usr/local \
             --strip-components=1
 
@@ -112,6 +146,12 @@ job "{{ job.name }}" {
           start_time=$(date +%s)
           echo "Deploying contracts..."
           export DEPLOY_TYPE="core"
+          {% raw %}
+            {{ with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.oracle_keystore }}' > local/oracle_keystore
+            {{ end }}
+          {% endraw %}
+          export ORACLE_KEYSTORE_ADDRESS=$(jq -r '.address' local/oracle_keystore)
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
@@ -129,23 +169,6 @@ job "{{ job.name }}" {
           | sed -n '/{.*}/p' \
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
           > local/www/contracts.json
-
-          echo "Transferring ownership..."
-          export DEPLOY_TYPE="transfer-ownership"
-          {% raw %}
-            {{ with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.oracle_keystore }}' > local/oracle_keystore
-            {{ end }}
-          {% endraw %}
-          export ORACLE_KEYSTORE_ADDRESS=$(jq -r '.address' local/oracle_keystore)
-          export BLOCK_TRACKER_ADDRESS="$(jq -r '.BlockTracker' local/www/contracts.json)"
-          export ORACLE_ADDRESS="$(jq -r '.Oracle' local/www/contracts.json)"
-          ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
-          if [ $? -ne 0 ]; then
-            echo "Failed to transfer ownership!"
-            exit 1
-          fi
-          echo "Ownership transfered successfully."
 
           python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/www
           # endtodo

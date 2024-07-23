@@ -5,12 +5,9 @@ import (
 	"context"
 	"crypto/ecdh"
 	"errors"
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p/core"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	handshakepb "github.com/primev/mev-commit/p2p/gen/go/handshake/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
@@ -20,7 +17,7 @@ import (
 
 const (
 	ProtocolName    = "handshake"
-	ProtocolVersion = "3.0.0"
+	ProtocolVersion = "4.0.0"
 	StreamName      = "handshake"
 )
 
@@ -71,10 +68,6 @@ func New(
 	}
 
 	return s, nil
-}
-
-func ProtocolID() protocol.ID {
-	return protocol.ID(fmt.Sprintf("/%s/%s", ProtocolName, ProtocolVersion))
 }
 
 func (h *Service) verifyReq(

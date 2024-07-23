@@ -147,10 +147,7 @@ func publishBidderRegistered(
 	br *bidderregistry.BidderregistryBidderRegistered,
 ) error {
 	event := brABI.Events["BidderRegistered"]
-	buf, err := event.Inputs.NonIndexed().Pack(
-		br.DepositedAmount,
-		br.WindowNumber,
-	)
+	buf, err := event.Inputs.NonIndexed().Pack()
 	if err != nil {
 		return err
 	}
@@ -159,6 +156,8 @@ func publishBidderRegistered(
 		Topics: []common.Hash{
 			event.ID,
 			common.HexToHash(br.Bidder.Hex()),
+			common.BigToHash(br.DepositedAmount),
+			common.BigToHash(br.WindowNumber),
 		},
 		Data: buf,
 	}

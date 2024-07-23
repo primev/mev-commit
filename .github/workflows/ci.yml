@@ -18,7 +18,7 @@ concurrency:
 jobs:
   commitlint:
     name: Check Commit Message
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
@@ -55,7 +55,7 @@ jobs:
 
   go-modules:
     name: Test and Build Go Modules
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     steps:
@@ -127,7 +127,7 @@ jobs:
 
   foundry:
     name: Foundry Checks and Reports
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -160,7 +160,7 @@ jobs:
 
   contracts:
     name: Test and Build Contracts Scripts
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -189,6 +189,9 @@ jobs:
       - name: Install Hardhat
         run: npm install -g hardhat
 
+      - name: Install solhint
+        run: npm install -g solhint
+
       - name: Install Dependencies
         run: npm install
 
@@ -198,6 +201,7 @@ jobs:
           node --version
           npm --version
           forge --version
+          solhint --version
 
       - name: Build
         run: npm run build --if-present
@@ -216,3 +220,16 @@ jobs:
           git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
           git reset --hard HEAD
         working-directory: contracts-abi
+
+      - name: Run solhint solidity linter
+        run: solhint '**/*.sol'
+        working-directory: contracts
+
+  infrastructure:
+    uses: ./.github/workflows/infrastructure.yml
+    secrets: inherit
+    needs:
+      - commitlint
+      - go-modules
+      - foundry
+      - contracts

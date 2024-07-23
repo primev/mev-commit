@@ -57,6 +57,10 @@ type Options struct {
 	PgDbname                     string
 	LaggerdMode                  int
 	OverrideWinners              []string
+	RegistrationAuthToken        string
+	DefaultGasLimit              uint64
+	DefaultGasTipCap             *big.Int
+	DefaultGasFeeCap             *big.Int
 }
 
 type Node struct {
@@ -106,7 +110,7 @@ func NewNode(opts *Options) (*Node, error) {
 	monitor := txmonitor.New(
 		owner,
 		settlementClient,
-		txmonitor.NewEVMHelper(settlementClient.Client()),
+		txmonitor.NewEVMHelperWithLogger(settlementClient.Client(), nd.logger),
 		st,
 		nd.logger.With("component", "tx_monitor"),
 		1024,
@@ -164,6 +168,8 @@ func NewNode(opts *Options) (*Node, error) {
 		listenerL1Client = &laggerdL1Client{EthClient: listenerL1Client, amount: opts.LaggerdMode}
 	}
 
+	listenerL1Client = &infiniteRetryL1Client{EthClient: listenerL1Client, logger: nd.logger}
+
 	blockTracker, err := blocktracker.NewBlocktrackerTransactor(
 		opts.BlockTrackerContractAddr,
 		settlementRPC,
@@ -190,6 +196,11 @@ func NewNode(opts *Options) (*Node, error) {
 		cancel()
 		return nil, err
 	}
+
+	// Set default gas values
+	tOpts.GasLimit = opts.DefaultGasLimit
+	tOpts.GasTipCap = opts.DefaultGasTipCap
+	tOpts.GasFeeCap = opts.DefaultGasFeeCap
 
 	blockTrackerTransactor := &blocktracker.BlocktrackerTransactorSession{
 		Contract:     blockTracker,
@@ -232,10 +243,11 @@ func NewNode(opts *Options) (*Node, error) {
 
 	updtr, err := updater.NewUpdater(
 		nd.logger.With("component", "updater"),
-		l1Client,
+		listenerL1Client,
 		st,
 		evtMgr,
 		oracleTransactorSession,
+		txmonitor.NewEVMHelperWithLogger(l1Client.Client(), nd.logger),
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate updater", "error", err)
@@ -245,10 +257,32 @@ func NewNode(opts *Options) (*Node, error) {
 
 	updtrClosed := updtr.Start(ctx)
 
+	providerRegistry, err := providerregistry.NewProviderregistryCaller(
+		opts.ProviderRegistryContractAddr,
+		settlementClient,
+	)
+	if err != nil {
+		nd.logger.Error("failed to instantiate provider registry contract", "error", err)
+		cancel()
+		return nil, err
+	}
+
+	providerRegistryCaller := &providerregistry.ProviderregistryCallerSession{
+		Contract: providerRegistry,
+		CallOpts: bind.CallOpts{
+			From:    opts.KeySigner.GetAddress(),
+			Pending: false,
+		},
+	}
+
 	srv := apiserver.New(
 		nd.logger.With("component", "apiserver"),
 		evtMgr,
 		st,
+		opts.RegistrationAuthToken,
+		blockTrackerTransactor,
+		providerRegistryCaller,
+		monitor,
 	)
 
 	pubDone := eventsPublisher.Start(ctx, contractAddrs...)
@@ -401,6 +435,62 @@ func (w *winnerOverrideL1Client) HeaderByNumber(ctx context.Context, number *big
 	hdr.Extra = []byte(w.winners[idx])
 
 	return hdr, nil
+}
+
+type infiniteRetryL1Client struct {
+	l1Listener.EthClient
+	logger *slog.Logger
+}
+
+func (i *infiniteRetryL1Client) BlockNumber(ctx context.Context) (uint64, error) {
+	var blkNum uint64
+	var err error
+	for retries := 50; retries > 0; retries-- {
+		blkNum, err = i.EthClient.BlockNumber(ctx)
+		if err == nil {
+			break
+		}
+		i.logger.Error("failed to get block number, retrying...", "error", err)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return blkNum, nil
+}
+
+func (i *infiniteRetryL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	var hdr *types.Header
+	var err error
+	for retries := 50; retries > 0; retries-- {
+		hdr, err = i.EthClient.HeaderByNumber(ctx, number)
+		if err == nil {
+			break
+		}
+		i.logger.Error("failed to get header by number, retrying...", "error", err)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return hdr, nil
+}
+
+func (i *infiniteRetryL1Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	var blk *types.Block
+	var err error
+	for retries := 50; retries > 0; retries-- {
+		blk, err = i.EthClient.BlockByNumber(ctx, number)
+		if err == nil {
+			break
+		}
+		i.logger.Error("failed to get block by number, retrying...", "error", err)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return blk, nil
 }
 
 func setBuilderMapping(

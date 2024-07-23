@@ -76,10 +76,16 @@ paths:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
         - name: amount
-          description: Amount of ETH to stake in the provider provider_registry.
+          description: Amount of ETH to stake in the provider registry.
           in: path
           required: true
           type: string
+        - name: blsPublicKey
+          description: BLS public key of the provider.
+          in: query
+          required: true
+          type: string
+          pattern: ^(0x)?[a-fA-F0-9]{96}$
   /v1/provider/send_processed_bids:
     post:
       summary: SendProcessedBids
@@ -159,6 +165,11 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the bid ends decaying.
+      revertingTxHashes:
+        type: array
+        items:
+          type: string
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
     description: Signed bid message from bidders to the provider.
     title: Bid message
     required:
@@ -201,8 +212,11 @@ definitions:
     type: object
     example:
       amount: "1000000000000000000"
+      bls_public_key: 80000cddeec66a80e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d4497ba8b756e1e82b
     properties:
       amount:
         type: string
-    description: Get staked amount for provider in the provider provider_registry.
+      blsPublicKey:
+        type: string
+    description: Get staked amount for provider in the provider registry.
     title: Stake response

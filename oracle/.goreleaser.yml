@@ -10,6 +10,7 @@ builds:
       - linux
     goarch:
       - amd64
+      - arm64
     dir: ./oracle
     main: ./cmd
     binary: "{{ .ProjectName }}"

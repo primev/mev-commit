@@ -9,20 +9,29 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/lib/pq"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/x/contracts/events"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
 type SettlementType string
+
+type TxMetadata struct {
+	PosInBlock int
+	Succeeded  bool
+}
 
 const (
 	SettlementTypeReward SettlementType = "reward"
@@ -92,11 +101,12 @@ type Updater struct {
 	winnerRegister WinnerRegister
 	oracle         Oracle
 	evtMgr         events.EventManager
-	l1BlockCache   *lru.Cache[uint64, map[string]int]
+	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
 	encryptedCmts  chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored
 	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
 	currentWindow  atomic.Int64
 	metrics        *metrics
+	receiptBatcher txmonitor.BatchReceiptGetter
 }
 
 func NewUpdater(
@@ -105,8 +115,9 @@ func NewUpdater(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	oracle Oracle,
+	receiptBatcher txmonitor.BatchReceiptGetter,
 ) (*Updater, error) {
-	l1BlockCache, err := lru.New[uint64, map[string]int](1024)
+	l1BlockCache, err := lru.New[uint64, map[string]TxMetadata](1024)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create L1 block cache: %w", err)
 	}
@@ -117,9 +128,13 @@ func NewUpdater(
 		winnerRegister: winnerRegister,
 		evtMgr:         evtMgr,
 		oracle:         oracle,
+		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
-		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
-		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
+		// the buffered channel here is required to ensure that the event processing
+		// does not block the event manager. This event involves making a settlement
+		// transaction on the blockchain, which can take a while to complete.
+		openedCmts:    make(chan *preconf.PreconfcommitmentstoreCommitmentStored, 200),
+		encryptedCmts: make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
 	}, nil
 }
 
@@ -183,6 +198,14 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 				return nil
 			case ec := <-u.encryptedCmts:
 				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
+					// ignore duplicate private key constraint
+					if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+						u.logger.Warn(
+							"encrypted commitment already exists",
+							"commitmentIdx", common.Bytes2Hex(ec.CommitmentIndex[:]),
+						)
+						return nil
+					}
 					return err
 				}
 			}
@@ -205,7 +228,8 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 	go func() {
 		defer close(doneChan)
 		if err := eg.Wait(); err != nil {
-			u.logger.Error("failed to start updater", "error", err)
+			u.logger.Error("updater failed, exiting", "error", err)
+			panic(err)
 		}
 	}()
 
@@ -316,7 +340,6 @@ func (u *Updater) handleOpenedCommitment(
 		)
 		return err
 	}
-
 	// Compute the decay percentage
 	decayPercentage := u.computeDecayPercentage(
 		update.DecayStartTimeStamp,
@@ -325,19 +348,32 @@ func (u *Updater) handleOpenedCommitment(
 	)
 
 	commitmentTxnHashes := strings.Split(update.TxnHash, ",")
+	u.logger.Debug("commitmentTxnHashes", "commitmentTxnHashes", commitmentTxnHashes)
+	revertableTxns := strings.Split(update.RevertingTxHashes, ",")
+	u.logger.Debug("revertableTxns", "revertableTxns", revertableTxns)
+
+	// Create a map for revertable transactions
+	revertableTxnsMap := make(map[string]bool)
+	for _, txn := range revertableTxns {
+		revertableTxnsMap[txn] = true
+	}
+
 	// Ensure Bundle is atomic and present in the block
 	for i := 0; i < len(commitmentTxnHashes); i++ {
-		posInBlock, found := txns[commitmentTxnHashes[i]]
-		if !found || posInBlock != txns[commitmentTxnHashes[0]]+i {
+		txnDetails, found := txns[commitmentTxnHashes[i]]
+		if !found || txnDetails.PosInBlock != (txns[commitmentTxnHashes[0]].PosInBlock)+i || (!txnDetails.Succeeded && !revertableTxnsMap[commitmentTxnHashes[i]]) {
 			u.logger.Info(
-				"bundle is not atomic",
+				"bundle does not satisfy committed requirements",
 				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 				"txnHash", update.TxnHash,
 				"blockNumber", update.BlockNumber,
 				"found", found,
-				"posInBlock", posInBlock,
-				"expectedPosInBlock", txns[commitmentTxnHashes[0]]+i,
+				"posInBlock", txnDetails.PosInBlock,
+				"succeeded", txnDetails.Succeeded,
+				"expectedPosInBlock", txns[commitmentTxnHashes[0]].PosInBlock+i,
+				"revertible", revertableTxnsMap[commitmentTxnHashes[i]],
 			)
+
 			// The committer did not include the transactions in the block
 			// correctly, so this is a slash to be processed
 			return u.settle(
@@ -450,28 +486,95 @@ func (u *Updater) addSettlement(
 
 	return nil
 }
-
-func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]int, error) {
+func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]TxMetadata, error) {
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
 		u.metrics.BlockTxnCacheHits.Inc()
+		u.logger.Info("cache hit for block transactions", "blockNum", blockNum)
 		return txns, nil
 	}
 
 	u.metrics.BlockTxnCacheMisses.Inc()
+	u.logger.Info("cache miss for block transactions", "blockNum", blockNum)
 
-	blk, err := u.l1Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
+	block, err := u.l1Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
 	if err != nil {
+		u.logger.Error("failed to get block by number", "blockNum", blockNum, "error", err)
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
 
-	txnsInBlock := make(map[string]int)
-	for posInBlock, tx := range blk.Transactions() {
-		txnsInBlock[strings.TrimPrefix(tx.Hash().Hex(), "0x")] = posInBlock
-	}
-	_ = u.l1BlockCache.Add(blockNum, txnsInBlock)
+	u.logger.Info("retrieved block", "blockNum", blockNum, "blockHash", block.Hash().Hex())
 
-	return txnsInBlock, nil
+	var txnReceipts sync.Map
+	eg, ctx := errgroup.WithContext(ctx)
+
+	txnsArray := make([]common.Hash, len(block.Transactions()))
+	for i, tx := range block.Transactions() {
+		txnsArray[i] = tx.Hash()
+	}
+	const bucketSize = 25 // Arbitrary number for bucket size
+
+	numBuckets := (len(txnsArray) + bucketSize - 1) / bucketSize // Calculate the number of buckets needed, rounding up
+	buckets := make([][]common.Hash, numBuckets)
+	for i := 0; i < numBuckets; i++ {
+		start := i * bucketSize
+		end := start + bucketSize
+		if end > len(txnsArray) {
+			end = len(txnsArray)
+		}
+		buckets[i] = txnsArray[start:end]
+	}
+
+	blockStart := time.Now()
+
+	for _, bucket := range buckets {
+		eg.Go(func() error {
+			start := time.Now()
+			u.logger.Info("requesting batch receipts", "bucketSize", len(bucket))
+			results, err := u.receiptBatcher.BatchReceipts(ctx, bucket)
+			if err != nil {
+				u.logger.Error("failed to get batch receipts", "error", err)
+				return fmt.Errorf("failed to get batch receipts: %w", err)
+			}
+			u.metrics.TxnReceiptRequestDuration.Observe(time.Since(start).Seconds())
+			u.logger.Info("received batch receipts", "duration", time.Since(start).Seconds())
+			for _, result := range results {
+				if result.Err != nil {
+					u.logger.Error("failed to get receipt for txn", "txnHash", result.Receipt.TxHash.Hex(), "error", result.Err)
+					return fmt.Errorf("failed to get receipt for txn: %s", result.Err)
+				}
+
+				txnReceipts.Store(result.Receipt.TxHash.Hex(), result.Receipt)
+				u.logger.Info("stored receipt", "txnHash", result.Receipt.TxHash.Hex())
+			}
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		u.logger.Error("error while waiting for batch receipts", "error", err)
+		return nil, err
+	}
+
+	u.metrics.TxnReceiptRequestBlockDuration.Observe(time.Since(blockStart).Seconds())
+	u.logger.Info("completed batch receipt requests for block", "blockNum", blockNum, "duration", time.Since(blockStart).Seconds())
+
+	txnsMap := make(map[string]TxMetadata)
+	for i, tx := range txnsArray {
+		receipt, ok := txnReceipts.Load(tx.Hex())
+		if !ok {
+			u.logger.Error("receipt not found for txn", "txnHash", tx.Hex())
+			return nil, fmt.Errorf("receipt not found for txn: %s", tx)
+		}
+		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful}
+		u.logger.Info("added txn to map", "txnHash", tx.Hex(), "posInBlock", i, "succeeded", receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful)
+	}
+
+	_ = u.l1BlockCache.Add(blockNum, txnsMap)
+	u.logger.Info("added block transactions to cache", "blockNum", blockNum)
+
+	return txnsMap, nil
 }
 
 // computeDecayPercentage takes startTimestamp, endTimestamp, commitTimestamp and computes a linear decay percentage

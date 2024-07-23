@@ -11,6 +11,7 @@ message Bid {
   int64 decay_start_timestamp = 6;
   int64 decay_end_timestamp = 7;
   bytes nike_public_key = 8;
+  string reverting_tx_hashes = 9;
 };
 
 message EncryptedBid {

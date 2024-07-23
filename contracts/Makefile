@@ -1,3 +1,10 @@
+solhint:
+	if !command -v solhint &>/dev/null; then \
+		echo "Install solhint with 'npm install -g solhint'"; \
+		exit 1; \
+	fi
+	solhint '**/*.sol'
+
 deploy-val-reg:
 	forge clean
 	forge script scripts/validator-registry/DeployValidatorRegistryV1.s.sol:DeployAnvil \
@@ -6,7 +13,7 @@ deploy-val-reg:
 		--broadcast \
 		--chain-id 31337 \
 		-vvvv \
-		--use 0.8.23 \
+		--use 0.8.20 \
 		--via-ir \
 
 deploy-core:

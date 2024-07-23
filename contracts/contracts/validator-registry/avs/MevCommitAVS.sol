@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {MevCommitAVSStorage} from "./MevCommitAVSStorage.sol";
 import {EventHeightLib} from "../../utils/EventHeight.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IDelegationManager} from "eigenlayer-contracts/src/contracts/interfaces/IDelegationManager.sol";
@@ -13,68 +13,71 @@ import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
+import {Errors} from "../../utils/Errors.sol";
 
 /// @title MevCommitAVS
 /// @notice This contract serves as the entrypoint for operators, validators and LST restakers to register with
 /// the mev-commit protocol via an eigenlayer AVS.
 contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
-    OwnableUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+    Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     
     /// @dev Modifier to ensure the provided operator is registered with MevCommitAVS.
     modifier onlyRegisteredOperator(address operator) {
-        require(operatorRegistrations[operator].exists, "operator must be registered");
+        require(operatorRegistrations[operator].exists, "operator not registered");
         _;
     }
 
     /// @dev Modifier to ensure the sender is not a registered operator with MevCommitAVS.
     modifier onlyNonRegisteredOperator() {
-        require(!operatorRegistrations[msg.sender].exists, "sender must not be registered operator");
+        require(!operatorRegistrations[msg.sender].exists, "sender is registered operator");
         _;
     }
 
     /// @dev Modifier to ensure all provided validators are registered with MevCommitAVS.
     modifier onlyRegisteredValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
-            require(validatorRegistrations[valPubKeys[i]].exists, "validator must be registered");
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
+            require(validatorRegistrations[valPubKeys[i]].exists, "validator not registered");
         }
         _;
     }
 
     /// @dev Modifier to ensure all provided validators are not registered with MevCommitAVS.
     modifier onlyNonRegisteredValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
-            require(!validatorRegistrations[valPubKeys[i]].exists, "validator must not be registered");
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
+            require(!validatorRegistrations[valPubKeys[i]].exists, "validator is registered");
         }
         _;
     }
 
     /// @dev Modifier to ensure the sender is a registered LST restaker with MevCommitAVS.
     modifier onlyRegisteredLstRestaker() {
-        require(lstRestakerRegistrations[msg.sender].exists, "sender must be registered LST restaker");
+        require(lstRestakerRegistrations[msg.sender].exists, "LST restaker not registered");
         _;
     }
 
     /// @dev Modifier to ensure the sender is not a registered LST restaker with MevCommitAVS.
     modifier onlyNonRegisteredLstRestaker() {
-        require(!lstRestakerRegistrations[msg.sender].exists, "sender must not be registered LST restaker");
+        require(!lstRestakerRegistrations[msg.sender].exists, "LST restaker is registered");
         _;
     }
 
     /// @dev Modifier to ensure the sender is the MevCommitAVS freeze oracle account.
     modifier onlyFreezeOracle() {
-        require(msg.sender == freezeOracle, "sender must be freeze oracle");
+        require(msg.sender == freezeOracle, "sender isnt freeze oracle");
         _;
     }
 
     /// @dev Modifier to ensure the sender is registered as an operator with the eigenlayer core contracts.
     modifier onlyEigenCoreOperator() {
-        require(_delegationManager.isOperator(msg.sender), "sender must be an eigenlayer operator");
+        require(_delegationManager.isOperator(msg.sender), "sender isnt eigen core operator");
         _;
     }
     
     /// @dev Modifier to ensure the sender is the given operator 
     modifier onlyOperator(address operator) {
-        require(msg.sender == operator, "sender must be operator");
+        require(msg.sender == operator, "sender isnt specified operator");
         _;
     }
 
@@ -82,16 +85,17 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// or the delegated operator for the given pod owner.
     modifier onlyPodOwnerOrOperator(address podOwner) {
         require(msg.sender == podOwner || msg.sender == _delegationManager.delegatedTo(podOwner), 
-            "sender must be podOwner or delegated operator");
+            "sender not podOwner or operator");
         _;
     }
 
     /// @dev Modifier to ensure the sender is either the pod owner or operator of all the given validators.
     modifier onlyPodOwnerOrOperatorOfValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
             require(msg.sender == regInfo.podOwner || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
-                "sender must be podOwner or delegated operator of validator");
+                "sender not podOwner or operator");
         }
         _;
     }
@@ -100,14 +104,15 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     modifier onlySenderWithRegisteredOperator() {
         address delegatedOperator = _delegationManager.delegatedTo(msg.sender);
         require(operatorRegistrations[delegatedOperator].exists,
-            "sender must be delegated to an operator that is registered with MevCommitAVS");
+            "no delegation to reg operator");
         _;
     }
 
     /// @dev Modifier to ensure all provided validators are frozen.
     modifier onlyFrozenValidators(bytes[] calldata valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
-            require(validatorRegistrations[valPubKeys[i]].freezeHeight.exists, "validator must be frozen");
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
+            require(validatorRegistrations[valPubKeys[i]].freezeHeight.exists, "validator not frozen");
         }
         _;
     }
@@ -147,7 +152,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _setOperatorDeregPeriodBlocks(operatorDeregPeriodBlocks_);
         _setValidatorDeregPeriodBlocks(validatorDeregPeriodBlocks_);
         _setLstRestakerDeregPeriodBlocks(lstRestakerDeregPeriodBlocks_);
-        if (bytes(metadataURI_).length > 0) {
+        if (bytes(metadataURI_).length != 0) {
             _updateMetadataURI(metadataURI_);
         }
         __Ownable_init(owner_);
@@ -155,12 +160,19 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         __Pausable_init();
     }
 
-    /// @dev Authorizes contract upgrades, restricted to contract owner.
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner { }
+    /// @dev Receive function to prevent unintended contract interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to prevent unintended contract interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
 
     /// @dev Registers an operator with the MevCommitAVS.
     function registerOperator (
-        ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
+        ISignatureUtils.SignatureWithSaltAndExpiry calldata operatorSignature
     ) external whenNotPaused() onlyNonRegisteredOperator() onlyEigenCoreOperator() {
         _registerOperator(operatorSignature);
     }
@@ -184,7 +196,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         bytes[][] calldata valPubKeys,
         address[] calldata podOwners
     ) external whenNotPaused() {
-        for (uint256 i = 0; i < podOwners.length; i++) {
+        uint256 len = podOwners.length;
+        for (uint256 i = 0; i < len; ++i) {
             _registerValidatorsByPodOwner(valPubKeys[i], podOwners[i]);
         }
     }
@@ -194,7 +207,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// the podOwner, delegated operator, or the contract owner.
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys)
         external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _requestValidatorDeregistration(valPubKeys[i]);
         }
     }
@@ -204,7 +218,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// the podOwner, delegated operator, or the contract owner.
     function deregisterValidators(bytes[] calldata valPubKeys)
         external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _deregisterValidator(valPubKeys[i]);
         }
     }
@@ -228,20 +243,28 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Allows the freeze oracle account to freeze validators which disobey the mev-commit protocol.
     function freeze(bytes[] calldata valPubKeys) external
         whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyFreezeOracle() {
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _freeze(valPubKeys[i]);
         }
     }
 
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
-    function unfreeze(bytes[] calldata valPubKey) payable external 
+    function unfreeze(bytes[] calldata valPubKey) external payable
         whenNotPaused() onlyRegisteredValidators(valPubKey) onlyFrozenValidators(valPubKey) {
-        require(msg.value >= unfreezeFee * valPubKey.length,
-            "sender must pay at least the unfreeze fee for each validator");
-        uint256 feePerVal = msg.value / valPubKey.length;
-        for (uint256 i = 0; i < valPubKey.length; i++) {
+        uint256 requiredFee = unfreezeFee * valPubKey.length;
+        require(msg.value >= requiredFee,
+            "unfreeze fee required per val");
+        uint256 len = valPubKey.length;
+        for (uint256 i = 0; i < len; ++i) {
             _unfreeze(valPubKey[i]);
-            payable(unfreezeReceiver).transfer(feePerVal);
+        }
+        (bool success, ) = unfreezeReceiver.call{value: requiredFee}("");
+        require(success, "unfreeze transfer failed");
+        uint256 excessFee = msg.value - requiredFee;
+        if (excessFee != 0) {
+            (bool successRefund, ) = msg.sender.call{value: excessFee}("");
+            require(successRefund, "refund failed");
         }
     }
 
@@ -316,225 +339,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Updates the eigenlayer metadata URI, restricted to contract owner.
-    function updateMetadataURI(string memory metadataURI_) external onlyOwner {
+    function updateMetadataURI(string calldata metadataURI_) external onlyOwner {
         _updateMetadataURI(metadataURI_);
-    }
-
-    /// @dev Internal function to register an operator.
-    function _registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) internal {
-        _eigenAVSDirectory.registerOperatorToAVS(msg.sender, operatorSignature);
-        operatorRegistrations[msg.sender] = OperatorRegistrationInfo({
-            exists: true,
-            deregRequestHeight: EventHeightLib.EventHeight({
-                exists: false,
-                blockHeight: 0
-            })
-        });
-        emit OperatorRegistered(msg.sender);
-    }
-
-    /// @dev Internal function to request deregistration of an operator.
-    function _requestOperatorDeregistration(address operator) internal {
-        require(!operatorRegistrations[operator].deregRequestHeight.exists,
-            "operator must not have already requested deregistration");
-        EventHeightLib.set(operatorRegistrations[operator].deregRequestHeight, block.number);
-        emit OperatorDeregistrationRequested(operator);
-    }
-
-    /// @dev Internal function to deregister an operator.
-    function _deregisterOperator(address operator) internal {
-        require(operatorRegistrations[operator].deregRequestHeight.exists, "operator must have requested deregistration");
-        require(block.number >= operatorRegistrations[operator].deregRequestHeight.blockHeight + operatorDeregPeriodBlocks,
-            "deregistration must happen at least operatorDeregPeriodBlocks after deregistration request height");
-        _eigenAVSDirectory.deregisterOperatorFromAVS(operator);
-        delete operatorRegistrations[operator];
-        emit OperatorDeregistered(operator);
-    }
-
-    /// @dev Internal function to register validators by their pod owner.
-    /// @notice Invalid pubkeys should not correspond to VALIDATOR_STATUS.ACTIVE due to validations in EigenPod.sol
-    function _registerValidatorsByPodOwner(
-        bytes[] calldata valPubKeys,
-        address podOwner
-    ) internal onlyNonRegisteredValidators(valPubKeys) onlyPodOwnerOrOperator(podOwner)  {
-        require(operatorRegistrations[_delegationManager.delegatedTo(podOwner)].exists,
-            "delegated operator must be registered with MevCommitAVS");
-        IEigenPod pod = _eigenPodManager.getPod(podOwner);
-        for (uint256 i = 0; i < valPubKeys.length; i++) {
-            require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
-                "validator must be active under pod");
-            _registerValidator(valPubKeys[i], podOwner);
-        }
-    }
-
-    /// @dev Internal function to register a validator.
-    function _registerValidator(bytes calldata valPubKey, address podOwner) internal {
-        validatorRegistrations[valPubKey] = ValidatorRegistrationInfo({
-            exists: true,
-            podOwner: podOwner,
-            freezeHeight: EventHeightLib.EventHeight({
-                exists: false,
-                blockHeight: 0
-            }),
-            deregRequestHeight: EventHeightLib.EventHeight({
-                exists: false,
-                blockHeight: 0
-            })
-        });
-        emit ValidatorRegistered(valPubKey, podOwner);
-    }
-
-    /// @dev Internal function to request deregistration of a validator.
-    function _requestValidatorDeregistration(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].deregRequestHeight.exists,
-            "validator must not have already requested deregistration");
-        EventHeightLib.set(validatorRegistrations[valPubKey].deregRequestHeight, block.number);
-        emit ValidatorDeregistrationRequested(valPubKey, validatorRegistrations[valPubKey].podOwner);
-    }
-
-    /// @dev Internal function to deregister a validator.
-    function _deregisterValidator(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].freezeHeight.exists, "frozen validator cannot deregister");
-        require(validatorRegistrations[valPubKey].deregRequestHeight.exists,
-            "validator must have requested deregistration");
-        require(block.number >= validatorRegistrations[valPubKey].deregRequestHeight.blockHeight + validatorDeregPeriodBlocks,
-            "deregistration must happen at least validatorDeregPeriodBlocks after deregistration request height");
-        address podOwner = validatorRegistrations[valPubKey].podOwner;
-        delete validatorRegistrations[valPubKey];
-        emit ValidatorDeregistered(valPubKey, podOwner);
-    }
-
-    /// @dev Internal function to register an LST restaker.
-    function _registerLSTRestaker(bytes[] calldata chosenValidators) internal {
-        require(chosenValidators.length > 0, "LST restaker must choose at least one validator");
-        uint256 stratLen = _strategyManager.stakerStrategyListLength(msg.sender);
-        require(stratLen > 0, "LST restaker must have deposited into at least one strategy");
-        lstRestakerRegistrations[msg.sender] = LSTRestakerRegistrationInfo({
-            exists: true,
-            chosenValidators: chosenValidators,
-            numChosen: chosenValidators.length,
-            deregRequestHeight: EventHeightLib.EventHeight({
-                exists: false,
-                blockHeight: 0
-            })
-        });
-        for (uint256 i = 0; i < chosenValidators.length; i++) {
-            emit LSTRestakerRegistered(chosenValidators[i], chosenValidators.length, msg.sender);
-        }
-    }
-
-    /// @dev Internal function to request deregistration of an LST restaker.
-    function _requestLSTRestakerDeregistration() internal {
-        LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
-        require(!reg.deregRequestHeight.exists, "LST restaker must not have already requested deregistration");
-        EventHeightLib.set(reg.deregRequestHeight, block.number);
-        for (uint256 i = 0; i < reg.numChosen; i++) {
-            emit LSTRestakerDeregistrationRequested(reg.chosenValidators[i], reg.numChosen, msg.sender);
-        }
-    }
-
-    /// @dev Internal function to deregister an LST restaker.
-    function _deregisterLSTRestaker() internal {
-        LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
-        require(reg.deregRequestHeight.exists, "LST restaker must have requested deregistration");
-        require(block.number >= reg.deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
-            "deregistration must happen at least lstRestakerDeregPeriodBlocks after deregistration request height");
-        for (uint256 i = 0; i < reg.numChosen; i++) {
-            emit LSTRestakerDeregistered(reg.chosenValidators[i], reg.numChosen, msg.sender);
-        }
-        delete lstRestakerRegistrations[msg.sender];
-    }
-
-    /// @dev Internal function to freeze a validator.
-    function _freeze(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].freezeHeight.exists, "validator must not already be frozen");
-        EventHeightLib.set(validatorRegistrations[valPubKey].freezeHeight, block.number);
-        emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
-    }
-
-    /// @dev Internal function to unfreeze a validator.
-    function _unfreeze(bytes calldata valPubKey) internal {
-        require(block.number >= validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
-            "unfreeze must happen at least unfreezePeriodBlocks after freeze height");
-        EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
-        emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
-    }
-
-    /// @dev Internal function to set the AVS directory.
-    function _setAVSDirectory(IAVSDirectory avsDirectory_) internal {
-        _eigenAVSDirectory = avsDirectory_;
-        emit AVSDirectorySet(address(_eigenAVSDirectory));
-    }
-
-    /// @dev Internal function to set the strategy manager.
-    function _setStrategyManager(IStrategyManager strategyManager_) internal {
-        _strategyManager = strategyManager_;
-        emit StrategyManagerSet(address(strategyManager_));
-    }
-
-    /// @dev Internal function to set the delegation manager.
-    function _setDelegationManager(IDelegationManager delegationManager_) internal {
-        _delegationManager = delegationManager_;
-        emit DelegationManagerSet(address(delegationManager_));
-    }
-
-    /// @dev Internal function to set the EigenPod manager.
-    function _setEigenPodManager(IEigenPodManager eigenPodManager_) internal {
-        _eigenPodManager = eigenPodManager_;
-        emit EigenPodManagerSet(address(eigenPodManager_));
-    }
-
-    /// @dev Internal function to set the restakeable strategies.
-    function _setRestakeableStrategies(address[] calldata restakeableStrategies_) internal {
-        restakeableStrategies = restakeableStrategies_;
-        emit RestakeableStrategiesSet(restakeableStrategies);
-    }
-
-    /// @dev Internal function to set the freeze oracle account.
-    function _setFreezeOracle(address _freezeOracle) internal {
-        freezeOracle = _freezeOracle;
-        emit FreezeOracleSet(_freezeOracle);
-    }
-
-    /// @dev Internal function to set the unfreeze fee.
-    function _setUnfreezeFee(uint256 _unfreezeFee) internal {
-        unfreezeFee = _unfreezeFee;
-        emit UnfreezeFeeSet(_unfreezeFee);
-    }
-
-    /// @dev Internal function to set the unfreeze receiver.
-    function _setUnfreezeReceiver(address _unfreezeReceiver) internal {
-        unfreezeReceiver = _unfreezeReceiver;
-        emit UnfreezeReceiverSet(_unfreezeReceiver);
-    }
-
-    /// @dev Internal function to set the unfreeze period in blocks.
-    function _setUnfreezePeriodBlocks(uint256 _unfreezePeriodBlocks) internal {
-        unfreezePeriodBlocks = _unfreezePeriodBlocks;
-        emit UnfreezePeriodBlocksSet(_unfreezePeriodBlocks);
-    }
-    
-    /// @dev Internal function to set the operator deregistration period in blocks.
-    function _setOperatorDeregPeriodBlocks(uint256 _operatorDeregPeriodBlocks) internal {
-        operatorDeregPeriodBlocks = _operatorDeregPeriodBlocks;
-        emit OperatorDeregPeriodBlocksSet(_operatorDeregPeriodBlocks);
-    }
-
-    /// @dev Internal function to set the validator deregistration period in blocks.
-    function _setValidatorDeregPeriodBlocks(uint256 _validatorDeregPeriodBlocks) internal {
-        validatorDeregPeriodBlocks = _validatorDeregPeriodBlocks;
-        emit ValidatorDeregPeriodBlocksSet(_validatorDeregPeriodBlocks);
-    }
-
-    /// @dev Internal function to set the LST restaker deregistration period in blocks.
-    function _setLstRestakerDeregPeriodBlocks(uint256 _lstRestakerDeregPeriodBlocks) internal {
-        lstRestakerDeregPeriodBlocks = _lstRestakerDeregPeriodBlocks;
-        emit LSTRestakerDeregPeriodBlocksSet(_lstRestakerDeregPeriodBlocks);
-    }
-
-    /// @dev Internal function to update the eigenlayer metadata URI.
-    function _updateMetadataURI(string memory _metadataURI) internal {
-        _eigenAVSDirectory.updateAVSMetadataURI(_metadataURI);
     }
 
     /// @dev Returns the list of restakeable strategies.
@@ -576,30 +382,256 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         return address(_eigenAVSDirectory);
     }
 
+    /// @dev Authorizes contract upgrades, restricted to contract owner.
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    /// @dev Internal function to register an operator.
+    function _registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) internal {
+        _eigenAVSDirectory.registerOperatorToAVS(msg.sender, operatorSignature);
+        operatorRegistrations[msg.sender] = OperatorRegistrationInfo({
+            exists: true,
+            deregRequestHeight: EventHeightLib.EventHeight({
+                exists: false,
+                blockHeight: 0
+            })
+        });
+        emit OperatorRegistered(msg.sender);
+    }
+
+    /// @dev Internal function to request deregistration of an operator.
+    function _requestOperatorDeregistration(address operator) internal {
+        require(!operatorRegistrations[operator].deregRequestHeight.exists,
+            "operator dereg already req");
+        EventHeightLib.set(operatorRegistrations[operator].deregRequestHeight, block.number);
+        emit OperatorDeregistrationRequested(operator);
+    }
+
+    /// @dev Internal function to deregister an operator.
+    function _deregisterOperator(address operator) internal {
+        require(operatorRegistrations[operator].deregRequestHeight.exists, "dereg not requested");
+        require(block.number > operatorRegistrations[operator].deregRequestHeight.blockHeight + operatorDeregPeriodBlocks,
+            "dereg too soon");
+        _eigenAVSDirectory.deregisterOperatorFromAVS(operator);
+        delete operatorRegistrations[operator];
+        emit OperatorDeregistered(operator);
+    }
+
+    /// @dev Internal function to register validators by their pod owner.
+    /// @notice Invalid pubkeys should not correspond to VALIDATOR_STATUS.ACTIVE due to validations in EigenPod.sol
+    /// @dev A successful call to this function gauruntees isValidatorOptedIn() returns true for each pubkey immediately after
+    /// this function returns. However, sucessive state-changes (ex: delegated operator deregisters) may result in changes
+    /// to validator opt-in state.
+    function _registerValidatorsByPodOwner(
+        bytes[] calldata valPubKeys,
+        address podOwner
+    ) internal onlyNonRegisteredValidators(valPubKeys) onlyPodOwnerOrOperator(podOwner)  {
+        address operator = _delegationManager.delegatedTo(podOwner);
+        require(operatorRegistrations[operator].exists,
+            "operator not registered");
+        require(!operatorRegistrations[operator].deregRequestHeight.exists,
+            "operator dereg already req");
+        IEigenPod pod = _eigenPodManager.getPod(podOwner);
+        uint256 len = valPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
+            require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE,
+                "validator not active");
+            _registerValidator(valPubKeys[i], podOwner);
+        }
+    }
+
+    /// @dev Internal function to register a validator.
+    function _registerValidator(bytes calldata valPubKey, address podOwner) internal {
+        validatorRegistrations[valPubKey] = ValidatorRegistrationInfo({
+            exists: true,
+            podOwner: podOwner,
+            freezeHeight: EventHeightLib.EventHeight({
+                exists: false,
+                blockHeight: 0
+            }),
+            deregRequestHeight: EventHeightLib.EventHeight({
+                exists: false,
+                blockHeight: 0
+            })
+        });
+        emit ValidatorRegistered(valPubKey, podOwner);
+    }
+
+    /// @dev Internal function to request deregistration of a validator.
+    function _requestValidatorDeregistration(bytes calldata valPubKey) internal {
+        require(!validatorRegistrations[valPubKey].deregRequestHeight.exists,
+            "dereg already requested");
+        EventHeightLib.set(validatorRegistrations[valPubKey].deregRequestHeight, block.number);
+        emit ValidatorDeregistrationRequested(valPubKey, validatorRegistrations[valPubKey].podOwner);
+    }
+
+    /// @dev Internal function to deregister a validator.
+    function _deregisterValidator(bytes calldata valPubKey) internal {
+        require(!validatorRegistrations[valPubKey].freezeHeight.exists, "frozen val cant deregister");
+        require(validatorRegistrations[valPubKey].deregRequestHeight.exists,
+            "dereg not requested");
+        require(block.number > validatorRegistrations[valPubKey].deregRequestHeight.blockHeight + validatorDeregPeriodBlocks,
+            "dereg too soon");
+        address podOwner = validatorRegistrations[valPubKey].podOwner;
+        delete validatorRegistrations[valPubKey];
+        emit ValidatorDeregistered(valPubKey, podOwner);
+    }
+
+    /// @dev Internal function to register an LST restaker.
+    function _registerLSTRestaker(bytes[] calldata chosenValidators) internal {
+        require(chosenValidators.length != 0, "need chosen vals");
+        uint256 stratLen = _strategyManager.stakerStrategyListLength(msg.sender);
+        require(stratLen != 0, "no eigen strategy deposits");
+        lstRestakerRegistrations[msg.sender] = LSTRestakerRegistrationInfo({
+            exists: true,
+            chosenValidators: chosenValidators,
+            numChosen: chosenValidators.length,
+            deregRequestHeight: EventHeightLib.EventHeight({
+                exists: false,
+                blockHeight: 0
+            })
+        });
+        uint256 len = chosenValidators.length;
+        for (uint256 i = 0; i < len; ++i) {
+            emit LSTRestakerRegistered(chosenValidators[i], chosenValidators.length, msg.sender);
+        }
+    }
+
+    /// @dev Internal function to request deregistration of an LST restaker.
+    function _requestLSTRestakerDeregistration() internal {
+        LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
+        require(!reg.deregRequestHeight.exists, "dereg already requested");
+        EventHeightLib.set(reg.deregRequestHeight, block.number);
+        for (uint256 i = 0; i < reg.numChosen; ++i) {
+            emit LSTRestakerDeregistrationRequested(reg.chosenValidators[i], reg.numChosen, msg.sender);
+        }
+    }
+
+    /// @dev Internal function to deregister an LST restaker.
+    function _deregisterLSTRestaker() internal {
+        LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
+        require(reg.deregRequestHeight.exists, "dereg not requested");
+        require(block.number > reg.deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
+            "dereg too soon");
+        for (uint256 i = 0; i < reg.numChosen; ++i) {
+            emit LSTRestakerDeregistered(reg.chosenValidators[i], reg.numChosen, msg.sender);
+        }
+        delete lstRestakerRegistrations[msg.sender];
+    }
+
+    /// @dev Internal function to freeze a validator.
+    function _freeze(bytes calldata valPubKey) internal {
+        require(!validatorRegistrations[valPubKey].freezeHeight.exists, "val already frozen");
+        EventHeightLib.set(validatorRegistrations[valPubKey].freezeHeight, block.number);
+        emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
+    }
+
+    /// @dev Internal function to unfreeze a validator.
+    function _unfreeze(bytes calldata valPubKey) internal {
+        require(block.number > validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
+            "unfreeze too soon");
+        EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
+        emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
+    }
+
+    /// @dev Internal function to set the AVS directory.
+    function _setAVSDirectory(IAVSDirectory avsDirectory_) internal {
+        _eigenAVSDirectory = avsDirectory_;
+        emit AVSDirectorySet(address(_eigenAVSDirectory));
+    }
+
+    /// @dev Internal function to set the strategy manager.
+    function _setStrategyManager(IStrategyManager strategyManager_) internal {
+        _strategyManager = strategyManager_;
+        emit StrategyManagerSet(address(strategyManager_));
+    }
+
+    /// @dev Internal function to set the delegation manager.
+    function _setDelegationManager(IDelegationManager delegationManager_) internal {
+        _delegationManager = delegationManager_;
+        emit DelegationManagerSet(address(delegationManager_));
+    }
+
+    /// @dev Internal function to set the EigenPod manager.
+    function _setEigenPodManager(IEigenPodManager eigenPodManager_) internal {
+        _eigenPodManager = eigenPodManager_;
+        emit EigenPodManagerSet(address(eigenPodManager_));
+    }
+
+    /// @dev Internal function to set the restakeable strategies.
+    function _setRestakeableStrategies(address[] calldata restakeableStrategies_) internal {
+        restakeableStrategies = restakeableStrategies_;
+        emit RestakeableStrategiesSet(restakeableStrategies);
+    }
+
+    /// @dev Internal function to set the freeze oracle account.
+    function _setFreezeOracle(address freezeOracle_) internal {
+        freezeOracle = freezeOracle_;
+        emit FreezeOracleSet(freezeOracle_);
+    }
+
+    /// @dev Internal function to set the unfreeze fee.
+    function _setUnfreezeFee(uint256 unfreezeFee_) internal {
+        unfreezeFee = unfreezeFee_;
+        emit UnfreezeFeeSet(unfreezeFee_);
+    }
+
+    /// @dev Internal function to set the unfreeze receiver.
+    function _setUnfreezeReceiver(address unfreezeReceiver_) internal {
+        unfreezeReceiver = unfreezeReceiver_;
+        emit UnfreezeReceiverSet(unfreezeReceiver_);
+    }
+
+    /// @dev Internal function to set the unfreeze period in blocks.
+    function _setUnfreezePeriodBlocks(uint256 unfreezePeriodBlocks_) internal {
+        unfreezePeriodBlocks = unfreezePeriodBlocks_;
+        emit UnfreezePeriodBlocksSet(unfreezePeriodBlocks_);
+    }
+    
+    /// @dev Internal function to set the operator deregistration period in blocks.
+    function _setOperatorDeregPeriodBlocks(uint256 operatorDeregPeriodBlocks_) internal {
+        operatorDeregPeriodBlocks = operatorDeregPeriodBlocks_;
+        emit OperatorDeregPeriodBlocksSet(operatorDeregPeriodBlocks_);
+    }
+
+    /// @dev Internal function to set the validator deregistration period in blocks.
+    function _setValidatorDeregPeriodBlocks(uint256 validatorDeregPeriodBlocks_) internal {
+        validatorDeregPeriodBlocks = validatorDeregPeriodBlocks_;
+        emit ValidatorDeregPeriodBlocksSet(validatorDeregPeriodBlocks_);
+    }
+
+    /// @dev Internal function to set the LST restaker deregistration period in blocks.
+    function _setLstRestakerDeregPeriodBlocks(uint256 lstRestakerDeregPeriodBlocks_) internal {
+        lstRestakerDeregPeriodBlocks = lstRestakerDeregPeriodBlocks_;
+        emit LSTRestakerDeregPeriodBlocksSet(lstRestakerDeregPeriodBlocks_);
+    }
+
+    /// @dev Internal function to update the eigenlayer metadata URI.
+    function _updateMetadataURI(string memory metadataURI_) internal {
+        _eigenAVSDirectory.updateAVSMetadataURI(metadataURI_);
+    }
+
     /// @dev Internal function to check if a validator is opted-in.
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
-        bool isValRegistered = validatorRegistrations[valPubKey].exists;
-        bool isFrozen = validatorRegistrations[valPubKey].freezeHeight.exists;
-        bool isDeregRequested = validatorRegistrations[valPubKey].deregRequestHeight.exists;
-        IEigenPod pod = _eigenPodManager.getPod(validatorRegistrations[valPubKey].podOwner);
+        IMevCommitAVS.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
+        bool isValRegistered = valRegistration.exists;
+        bool isFrozen = valRegistration.freezeHeight.exists;
+        bool isValDeregRequested = valRegistration.deregRequestHeight.exists;
+
+        IEigenPod pod = _eigenPodManager.getPod(valRegistration.podOwner);
         bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
-        address delegatedOperator = _delegationManager.delegatedTo(validatorRegistrations[valPubKey].podOwner);
-        bool isOperatorRegistered = operatorRegistrations[delegatedOperator].exists;
-        return isValRegistered && !isFrozen && !isDeregRequested && isValActive && isOperatorRegistered;
+
+        address delegatedOperator = _delegationManager.delegatedTo(valRegistration.podOwner);
+        IMevCommitAVS.OperatorRegistrationInfo memory operatorRegistration = operatorRegistrations[delegatedOperator];
+        bool isOperatorRegistered = operatorRegistration.exists;
+        bool isOperatorDeregRequested = operatorRegistration.deregRequestHeight.exists;
+
+        return isValRegistered && !isFrozen && !isValDeregRequested && isValActive
+            && isOperatorRegistered && !isOperatorDeregRequested;
     }
 
     /// @dev Internal function to get the list of restakeable strategies.
     function _getRestakeableStrategies() internal view returns (address[] memory) {
         return restakeableStrategies;
-    }
-
-    /// @dev Fallback function to prevent unintended contract interactions.
-    fallback() external payable {
-        revert("Invalid call");
-    }
-
-    /// @dev Receive function to prevent unintended contract interactions.
-    receive() external payable {
-        revert("Invalid call");
     }
 }

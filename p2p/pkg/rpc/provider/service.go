@@ -41,10 +41,10 @@ type Service struct {
 }
 
 type ProviderRegistryContract interface {
-	RegisterAndStake(*bind.TransactOpts) (*types.Transaction, error)
+	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	CheckStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
-	ParseFundsDeposited(types.Log) (*providerregistry.ProviderregistryFundsDeposited, error)
+	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
 }
 
 type Watcher interface {
@@ -205,7 +205,13 @@ func (s *Service) RegisterStake(
 	}
 	opts.Value = amount
 
-	tx, err := s.registryContract.RegisterAndStake(opts)
+	stake.BlsPublicKey = strings.TrimPrefix(stake.BlsPublicKey, "0x")
+	blsPubkeyBytes, err := hex.DecodeString(stake.BlsPublicKey)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
+	}
+
+	tx, err := s.registryContract.RegisterAndStake(opts, blsPubkeyBytes)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "registering stake: %v", err)
 	}
@@ -220,9 +226,12 @@ func (s *Service) RegisterStake(
 	}
 
 	for _, log := range receipt.Logs {
-		if registration, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
-			s.logger.Info("stake registered", "amount", registration.Amount)
-			return &providerapiv1.StakeResponse{Amount: registration.Amount.String()}, nil
+		if registration, err := s.registryContract.ParseProviderRegistered(*log); err == nil {
+			s.logger.Info("stake registered", "amount", registration.StakedAmount)
+			return &providerapiv1.StakeResponse{
+				Amount:       registration.StakedAmount.String(),
+				BlsPublicKey: stake.BlsPublicKey,
+			}, nil
 		}
 	}
 

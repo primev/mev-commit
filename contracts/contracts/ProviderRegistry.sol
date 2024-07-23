@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
@@ -13,19 +13,16 @@ import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
 /// @notice This contract is for provider registry and staking.
 contract ProviderRegistry is
     IProviderRegistry,
-    OwnableUpgradeable,
+    Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ReentrancyGuardUpgradeable
 {
     /// @dev For improved precision
-    uint256 constant PRECISION = 10 ** 25;
-    uint256 constant PERCENT = 100 * PRECISION;
+    uint256 public constant PRECISION = 10 ** 25;
+    uint256 public constant PERCENT = 100 * PRECISION;
 
     /// @dev Minimum stake required for registration
     uint256 public minStake;
-
-    /// @dev Fee percent that would be taken by protocol when provider is slashed
-    uint16 public feePercent;
 
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
@@ -33,11 +30,17 @@ contract ProviderRegistry is
     /// @dev Address of the pre-confirmations contract
     address public preConfirmationsContract;
 
+    /// @dev Fee percent that would be taken by protocol when provider is slashed
+    uint16 public feePercent;
+
     /// @dev Fee recipient
     address public feeRecipient;
 
     /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
+
+    /// @dev Mapping from a provider's EOA address to their BLS public key
+    mapping(address => bytes) public eoaToBlsPubkey;
 
     /// @dev Mapping from provider addresses to their staked amount
     mapping(address => uint256) public providerStakes;
@@ -46,7 +49,7 @@ contract ProviderRegistry is
     mapping(address => uint256) public bidderAmount;
 
     /// @dev Event for provider registration
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount);
+    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
 
     /// @dev Event for depositing funds
     event FundsDeposited(address indexed provider, uint256 amount);
@@ -55,21 +58,15 @@ contract ProviderRegistry is
     event FundsSlashed(address indexed provider, uint256 amount);
 
     /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
-    fallback() external payable {
-        revert("Invalid call");
+    modifier onlyPreConfirmationEngine() {
+        require(
+            msg.sender == preConfirmationsContract,
+            "sender is not preconf contract"
+        );
+        _;
     }
-
-    /**
-     * @dev Receive function is disabled for this contract to prevent unintended interactions.
-     * Should be removed from here in case the registerAndStake function becomes more complex
-     */
-    receive() external payable {
-        revert("Invalid call");
-    }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * @dev Initializes the contract with a minimum stake requirement.
@@ -97,14 +94,18 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
+     * @dev Receive function is disabled for this contract to prevent unintended interactions.
+     * Should be removed from here in case the registerAndStake function becomes more complex
      */
-    modifier onlyPreConfirmationEngine() {
-        require(
-            msg.sender == preConfirmationsContract,
-            "Only the pre-confirmations contract can call this function"
-        );
-        _;
+    receive() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
     }
 
     /**
@@ -116,30 +117,9 @@ contract ProviderRegistry is
     ) external onlyOwner {
         require(
             preConfirmationsContract == address(0),
-            "Preconfirmations Contract is already set and cannot be changed."
+            "preconf contract already set"
         );
         preConfirmationsContract = contractAddress;
-    }
-
-    /**
-     * @dev Register and stake function for providers.
-     */
-    function registerAndStake() public payable {
-        require(!providerRegistered[msg.sender], "Provider already registered");
-        require(msg.value >= minStake, "Insufficient stake");
-        providerStakes[msg.sender] = msg.value;
-        providerRegistered[msg.sender] = true;
-
-        emit ProviderRegistered(msg.sender, msg.value);
-    }
-
-    /**
-     * @dev Check the stake of a provider.
-     * @param provider The address of the provider.
-     * @return The staked amount for the provider.
-     */
-    function checkStake(address provider) external view returns (uint256) {
-        return providerStakes[provider];
     }
 
     /**
@@ -211,7 +191,7 @@ contract ProviderRegistry is
     function withdrawFeeRecipientAmount() external nonReentrant {
         feeRecipientAmount = 0;
         (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
-        require(successFee, "Couldn't transfer to fee Recipient");
+        require(successFee, "fee recipient transfer failed");
     }
 
     /**
@@ -240,7 +220,7 @@ contract ProviderRegistry is
         require(stake > 0, "Provider Staked Amount is zero");
         require(
             preConfirmationsContract != address(0),
-            "Pre Confirmations Contract not set"
+            "preconf contract not set"
         );
 
         uint256 providerPendingCommitmentsCount = PreConfCommitmentStore(
@@ -249,10 +229,43 @@ contract ProviderRegistry is
 
         require(
             providerPendingCommitmentsCount == 0,
-            "Provider Commitments still pending"
+            "provider commitments are pending"
         );
 
         (bool success, ) = provider.call{value: stake}("");
-        require(success, "Couldn't transfer stake to provider");
+        require(success, "stake transfer failed");
     }
+
+    /**
+     * @dev Check the stake of a provider.
+     * @param provider The address of the provider.
+     * @return The staked amount for the provider.
+     */
+    function checkStake(address provider) external view returns (uint256) {
+        return providerStakes[provider];
+    }
+
+    /// @dev Returns the BLS public key corresponding to a provider's staked EOA address.
+    function getBLSKey(address provider) external view returns (bytes memory) {
+        return eoaToBlsPubkey[provider];
+    }
+
+    /**
+     * @dev Register and stake function for providers.
+     * @param blsPublicKey The BLS public key of the provider.
+     * The validity of this key must be verified manually off-chain.
+     */
+    function registerAndStake(bytes calldata blsPublicKey) public payable {
+        require(!providerRegistered[msg.sender], "Provider already registered");
+        require(msg.value >= minStake, "Insufficient stake");
+        require(blsPublicKey.length == 48, "Invalid BLS public key length");
+        
+        eoaToBlsPubkey[msg.sender] = blsPublicKey;
+        providerStakes[msg.sender] = msg.value;
+        providerRegistered[msg.sender] = true;
+        emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
+    }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

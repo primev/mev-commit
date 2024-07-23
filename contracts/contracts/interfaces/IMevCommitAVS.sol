@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
 import {EventHeightLib} from "../utils/EventHeight.sol";
@@ -145,28 +145,13 @@ interface IMevCommitAVS {
     function freeze(bytes[] calldata valPubKeys) external;
 
     /// @dev Allows any account to unfreeze validators which have been frozen, for a fee.
-    function unfreeze(bytes[] calldata valPubKeys) payable external;
+    function unfreeze(bytes[] calldata valPubKeys) external payable;
 
     /// @dev Pauses the contract, restricted to contract owner.
     function pause() external;
 
     /// @dev Unpauses the contract, restricted to contract owner.
     function unpause() external;
-
-    /// @dev Checks if a validator is opted-in.
-    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
-
-    /// @dev Returns operator registration info.
-    function getOperatorRegInfo(address operator) external view returns (OperatorRegistrationInfo memory);
-
-    /// @dev Returns validator registration info.
-    function getValidatorRegInfo(bytes calldata valPubKey) external view returns (ValidatorRegistrationInfo memory);
-
-    /// @dev Returns LST restaker registration info.
-    function getLSTRestakerRegInfo(address lstRestaker) external view returns (LSTRestakerRegistrationInfo memory);
-
-    /// @dev Returns the address of AVS directory.
-    function avsDirectory() external view returns (address);
 
     /// @dev Sets the AVS directory, restricted to contract owner.
     function setAVSDirectory(IAVSDirectory avsDirectory_) external;
@@ -206,4 +191,19 @@ interface IMevCommitAVS {
 
     /// @dev Updates the eigenlayer metadata URI, restricted to contract owner.
     function updateMetadataURI(string memory metadataURI_) external;
+
+    /// @dev Checks if a validator is opted-in.
+    function isValidatorOptedIn(bytes calldata valPubKey) external view returns (bool);
+
+    /// @dev Returns operator registration info.
+    function getOperatorRegInfo(address operator) external view returns (OperatorRegistrationInfo memory);
+
+    /// @dev Returns validator registration info.
+    function getValidatorRegInfo(bytes calldata valPubKey) external view returns (ValidatorRegistrationInfo memory);
+
+    /// @dev Returns LST restaker registration info.
+    function getLSTRestakerRegInfo(address lstRestaker) external view returns (LSTRestakerRegistrationInfo memory);
+
+    /// @dev Returns the address of AVS directory.
+    function avsDirectory() external view returns (address);
 }

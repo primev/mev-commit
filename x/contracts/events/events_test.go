@@ -55,21 +55,22 @@ func TestEventHandler(t *testing.T) {
 
 	evtHdlr.setTopicAndContract(event.ID, &bidderABI)
 
-	buf, err := event.Inputs.NonIndexed().Pack(
-		b.DepositedAmount,
-		b.WindowNumber,
-	)
+	buf, err := event.Inputs.NonIndexed().Pack()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	bidder := common.HexToHash(b.Bidder.Hex())
+	depositedAmount := common.BigToHash(b.DepositedAmount)
+	windowNumber := common.BigToHash(b.WindowNumber)
 
 	// Creating a Log object
 	testLog := types.Log{
 		Topics: []common.Hash{
 			event.ID, // The first topic is the hash of the event signature
 			bidder,   // The next topics are the indexed event parameters
+			depositedAmount,
+			windowNumber,
 		},
 		Data: buf,
 	}
@@ -140,18 +141,12 @@ func TestEventManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data1, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack(
-		bidders[0].DepositedAmount,
-		bidders[0].WindowNumber,
-	)
+	data1, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	data2, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack(
-		bidders[1].DepositedAmount,
-		bidders[1].WindowNumber,
-	)
+	data2, err := bidderABI.Events["BidderRegistered"].Inputs.NonIndexed().Pack()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,6 +156,8 @@ func TestEventManager(t *testing.T) {
 			Topics: []common.Hash{
 				bidderABI.Events["BidderRegistered"].ID,
 				common.HexToHash(bidders[0].Bidder.Hex()),
+				common.BigToHash(bidders[0].DepositedAmount),
+				common.BigToHash(bidders[0].WindowNumber),
 			},
 			Data:        data1,
 			BlockNumber: 1,
@@ -169,6 +166,8 @@ func TestEventManager(t *testing.T) {
 			Topics: []common.Hash{
 				bidderABI.Events["BidderRegistered"].ID,
 				common.HexToHash(bidders[1].Bidder.Hex()),
+				common.BigToHash(bidders[1].DepositedAmount),
+				common.BigToHash(bidders[1].WindowNumber),
 			},
 			Data:        data2,
 			BlockNumber: 2,
@@ -177,6 +176,7 @@ func TestEventManager(t *testing.T) {
 			Topics: []common.Hash{
 				bidderABI.Events["BidderRegistered"].ID,
 				common.HexToHash("test"),
+				common.BigToHash(big.NewInt(3000)),
 			},
 			Data:        []byte("test"),
 			BlockNumber: 3,

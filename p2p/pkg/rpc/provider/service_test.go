@@ -29,7 +29,7 @@ type testRegistryContract struct {
 	minStake *big.Int
 }
 
-func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts) (*types.Transaction, error) {
+func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error) {
 	t.stake = opts.Value
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
@@ -42,10 +42,10 @@ func (t *testRegistryContract) MinStake(_ *bind.CallOpts) (*big.Int, error) {
 	return t.minStake, nil
 }
 
-func (t *testRegistryContract) ParseFundsDeposited(log types.Log) (*providerregistry.ProviderregistryFundsDeposited, error) {
-	return &providerregistry.ProviderregistryFundsDeposited{
-		Provider: common.Address{},
-		Amount:   t.stake,
+func (t *testRegistryContract) ParseProviderRegistered(log types.Log) (*providerregistry.ProviderregistryProviderRegistered, error) {
+	return &providerregistry.ProviderregistryProviderRegistered{
+		Provider:     common.Address{},
+		StakedAmount: t.stake,
 	}, nil
 }
 
@@ -93,7 +93,10 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 
 	baseServer := grpc.NewServer()
 	providerapiv1.RegisterProviderServer(baseServer, srvImpl)
+	srvStopped := make(chan struct{})
 	go func() {
+		defer close(srvStopped)
+
 		if err := baseServer.Serve(lis); err != nil {
 			// Ignore "use of closed network connection" error
 			if opErr, ok := err.(*net.OpError); !ok || !errors.Is(opErr.Err, net.ErrClosed) {
@@ -117,6 +120,8 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 			t.Errorf("error closing listener: %v", err)
 		}
 		baseServer.Stop()
+
+		<-srvStopped
 	})
 
 	client := providerapiv1.NewProviderClient(conn)
@@ -131,14 +136,16 @@ func TestStakeHandling(t *testing.T) {
 
 	t.Run("register stake", func(t *testing.T) {
 		type testCase struct {
-			amount string
-			err    string
+			amount       string
+			blsPublicKey string
+			err          string
 		}
 
 		for _, tc := range []testCase{
 			{
-				amount: "",
-				err:    "amount must be a valid integer",
+				amount:       "",
+				blsPublicKey: "",
+				err:          "amount must be a valid integer",
 			},
 			{
 				amount: "0000000000000000000",
@@ -149,11 +156,28 @@ func TestStakeHandling(t *testing.T) {
 				err:    "amount must be a valid integer",
 			},
 			{
-				amount: "1000000000000000000",
-				err:    "",
+				amount:       "1000000000000000000",
+				blsPublicKey: "0x",
+				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+			},
+			{
+				amount:       "1000000000000000000",
+				blsPublicKey: "0x12345",
+				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+			},
+			{
+				amount:       "1000000000000000000",
+				blsPublicKey: "0x123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456",
+				err:          "",
+			},
+			{
+				amount:       "1000000000000000000",
+				blsPublicKey: "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456",
+				err:          "",
 			},
 		} {
-			stake, err := client.RegisterStake(context.Background(), &providerapiv1.StakeRequest{Amount: tc.amount})
+			stake, err := client.RegisterStake(context.Background(),
+				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKey: tc.blsPublicKey})
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("expected error staking: %s got %v", tc.err, err)
@@ -164,6 +188,10 @@ func TestStakeHandling(t *testing.T) {
 				}
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
+				}
+				tc.blsPublicKey = strings.TrimPrefix(tc.blsPublicKey, "0x")
+				if stake.BlsPublicKey != tc.blsPublicKey {
+					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKey)
 				}
 			}
 		}

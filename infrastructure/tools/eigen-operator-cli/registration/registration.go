@@ -79,7 +79,7 @@ func (c *Command) initialize(ctx *cli.Context) error {
 	monitor := txmonitor.New(
 		signer.GetAddress(),
 		ethClient,
-		txmonitor.NewEVMHelper(ethClient.Client()),
+		txmonitor.NewEVMHelperWithLogger(ethClient.Client(), c.Logger),
 		nil, // TOOD: re-eval if you need saver/store
 		c.Logger.With("component", "txmonitor"),
 		1, // TODO: re-eval max pending

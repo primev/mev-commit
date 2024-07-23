@@ -158,6 +158,7 @@ func TestTracker(t *testing.T) {
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
 		DecayEndTimeStamp:   uint64(commitments[4].PreConfirmation.Bid.DecayEndTimestamp),
 		TxnHash:             commitments[4].PreConfirmation.Bid.TxHash,
+		RevertingTxHashes:   commitments[4].PreConfirmation.Bid.RevertingTxHashes,
 		CommitmentHash:      common.BytesToHash(commitments[4].PreConfirmation.Digest),
 		BidSignature:        commitments[4].PreConfirmation.Bid.Signature,
 		CommitmentSignature: commitments[4].PreConfirmation.Signature,
@@ -280,6 +281,9 @@ func TestTracker(t *testing.T) {
 				oc.decayStartTimeStamp,
 			)
 		}
+		if c.PreConfirmation.Bid.RevertingTxHashes != oc.revertingTxHashes {
+			t.Fatalf("expected reverting tx hashes %s, got %s", c.PreConfirmation.Bid.RevertingTxHashes, oc.revertingTxHashes)
+		}
 		if c.PreConfirmation.Bid.DecayEndTimestamp != int64(oc.decayEndTimeStamp) {
 			t.Fatalf("expected decay end timestamp %d, got %d", c.PreConfirmation.Bid.DecayEndTimestamp, oc.decayEndTimeStamp)
 		}
@@ -316,6 +320,7 @@ type openedCommitment struct {
 	bid                      *big.Int
 	blockNumber              uint64
 	txnHash                  string
+	revertingTxHashes        string
 	decayStartTimeStamp      uint64
 	decayEndTimeStamp        uint64
 	bidSignature             []byte
@@ -333,6 +338,7 @@ func (t *testPreconfContract) OpenCommitment(
 	bid *big.Int,
 	blockNumber uint64,
 	txnHash string,
+	revertingTxHashes string,
 	decayStartTimeStamp uint64,
 	decayEndTimeStamp uint64,
 	bidSignature []byte,
@@ -344,6 +350,7 @@ func (t *testPreconfContract) OpenCommitment(
 		bid:                      bid,
 		blockNumber:              blockNumber,
 		txnHash:                  txnHash,
+		revertingTxHashes:        revertingTxHashes,
 		decayStartTimeStamp:      decayStartTimeStamp,
 		decayEndTimeStamp:        decayEndTimeStamp,
 		bidSignature:             bidSignature,
@@ -417,6 +424,7 @@ func publishCommitment(
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,
 		c.TxnHash,
+		c.RevertingTxHashes,
 		c.CommitmentHash,
 		c.BidSignature,
 		c.CommitmentSignature,

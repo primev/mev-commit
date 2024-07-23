@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/big"
 	"net"
 	"net/http"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
+	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
@@ -73,16 +75,22 @@ type Options struct {
 	BlockTrackerContract     string
 	ProviderRegistryContract string
 	BidderRegistryContract   string
+	AutodepositAmount        *big.Int
 	RPCEndpoint              string
 	WSRPCEndpoint            string
 	NatAddr                  string
 	TLSCertificateFile       string
 	TLSPrivateKeyFile        string
+	ProviderWhitelist        []common.Address
+	DefaultGasLimit          uint64
+	DefaultGasTipCap         *big.Int
+	DefaultGasFeeCap         *big.Int
 }
 
 type Node struct {
-	cancelFunc context.CancelFunc
-	closers    []io.Closer
+	cancelFunc  context.CancelFunc
+	closers     []io.Closer
+	autoDeposit *autodepositor.AutoDepositTracker
 }
 
 func NewNode(opts *Options) (*Node, error) {
@@ -185,7 +193,7 @@ func NewNode(opts *Options) (*Node, error) {
 	monitor := txmonitor.New(
 		opts.KeySigner.GetAddress(),
 		contractRPC,
-		txmonitor.NewEVMHelper(contractRPC.Client()),
+		txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "txmonitor")),
 		store,
 		opts.Logger.With("component", "txmonitor"),
 		1024,
@@ -220,7 +228,14 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
-		return opts.KeySigner.GetAuthWithCtx(ctx, chainID)
+		tOpts, err := opts.KeySigner.GetAuthWithCtx(ctx, chainID)
+		if err == nil {
+			// Use any defaults set by user
+			tOpts.GasLimit = opts.DefaultGasLimit
+			tOpts.GasTipCap = opts.DefaultGasTipCap
+			tOpts.GasFeeCap = opts.DefaultGasFeeCap
+		}
+		return tOpts, err
 	}
 
 	p2pSvc, err := libp2p.New(&libp2p.Options{
@@ -337,7 +352,7 @@ func NewNode(opts *Options) (*Node, error) {
 			evtMgr,
 			store,
 			commitmentDA,
-			txmonitor.NewEVMHelper(contractRPC.Client()),
+			txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "evm_helper")),
 			optsGetter,
 			opts.Logger.With("component", "tracker"),
 		)
@@ -399,6 +414,7 @@ func NewNode(opts *Options) (*Node, error) {
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
+				nil,
 			)
 			p2pSvc.AddStreamHandlers(keyexchange.Streams()...)
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
@@ -435,6 +451,23 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
+			autoDeposit := autodepositor.New(
+				evtMgr,
+				bidderRegistry,
+				blockTrackerSession,
+				optsGetter,
+				opts.Logger.With("component", "auto_deposit_tracker"),
+			)
+
+			if opts.AutodepositAmount != nil {
+				err = autoDeposit.Start(context.Background(), nil, opts.AutodepositAmount)
+				if err != nil {
+					opts.Logger.Error("failed to start auto deposit tracker", "error", err)
+					return nil, errors.Join(err, nd.Close())
+				}
+				nd.autoDeposit = autoDeposit
+			}
+
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
 				blocksPerWindow,
@@ -444,6 +477,7 @@ func NewNode(opts *Options) (*Node, error) {
 				validator,
 				monitor,
 				optsGetter,
+				autoDeposit,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
@@ -456,6 +490,7 @@ func NewNode(opts *Options) (*Node, error) {
 				store,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
+				opts.ProviderWhitelist,
 			)
 			topo.SubscribePeer(func(p p2p.Peer) {
 				if p.Type == p2p.PeerTypeProvider {
@@ -633,6 +668,11 @@ func (n *Node) Close() error {
 	var err error
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
+	}
+
+	_, adErr := n.autoDeposit.Stop()
+	if adErr != nil && !errors.Is(adErr, autodepositor.ErrNotRunning) {
+		return errors.Join(err, adErr)
 	}
 
 	return err

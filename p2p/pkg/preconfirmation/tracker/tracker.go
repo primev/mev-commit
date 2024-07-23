@@ -32,9 +32,9 @@ type Tracker struct {
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
-	winners map[int64]*blocktracker.BlocktrackerNewL1Block
-	metrics *metrics
-	logger  *slog.Logger
+	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
+	metrics         *metrics
+	logger          *slog.Logger
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -60,6 +60,7 @@ type PreconfContract interface {
 		bid *big.Int,
 		blockNumber uint64,
 		txnHash string,
+		revertingTxHashes string,
 		decayStartTimeStamp uint64,
 		decayEndTimeStamp uint64,
 		bidSignature []byte,
@@ -86,12 +87,15 @@ func NewTracker(
 		preconfContract: preconfContract,
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
-		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
-		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
-		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
-		winners: make(map[int64]*blocktracker.BlocktrackerNewL1Block),
-		metrics: newMetrics(),
-		logger:  logger,
+		// Buffered channels to avoid blocking the event manager. The buffer size
+		// should be enough to allow the tracker time to process commitments for a block
+		// which involves opening commitments on-chain.
+		newL1Blocks:  make(chan *blocktracker.BlocktrackerNewL1Block, 5),
+		enryptedCmts: make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
+		commitments:  make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
+		winners:      make(map[int64]*blocktracker.BlocktrackerNewL1Block),
+		metrics:      newMetrics(),
+		logger:       logger,
 	}
 }
 
@@ -268,12 +272,14 @@ func (t *Tracker) handleNewL1Block(
 		// for bidder to open is only in cases of slashes as he will get refund. Only one
 		// of bidder or provider should open the commitment as 1 of the txns would
 		// fail. This delay is to ensure this.
+		t.logger.Info("bidder detected, processing 2 blocks behind the current one")
 		t.winners[newL1Block.BlockNumber.Int64()] = newL1Block
 		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-2]
 		if !ok {
 			return nil
 		}
 		newL1Block = pastBlock
+		t.logger.Info("processing past block", "blockNumber", pastBlock.BlockNumber)
 		for k := range t.winners {
 			if k < pastBlock.BlockNumber.Int64() {
 				delete(t.winners, k)
@@ -283,6 +289,7 @@ func (t *Tracker) handleNewL1Block(
 
 	commitments, err := t.store.GetCommitmentsByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
+		t.logger.Error("failed to get commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
 		return err
 	}
 
@@ -290,7 +297,10 @@ func (t *Tracker) handleNewL1Block(
 	settled := 0
 	for _, commitment := range commitments {
 		if commitment.CommitmentIndex == nil {
-			failedCommitments = append(failedCommitments, commitment.TxnHash)
+			t.logger.Debug("commitment index not found", "commitment", commitment)
+			if commitment.TxnHash != (common.Hash{}) {
+				failedCommitments = append(failedCommitments, commitment.TxnHash)
+			}
 			continue
 		}
 		if common.BytesToAddress(commitment.ProviderAddress).Cmp(newL1Block.Winner) != 0 {
@@ -324,6 +334,7 @@ func (t *Tracker) handleNewL1Block(
 			bidAmt,
 			uint64(commitment.PreConfirmation.Bid.BlockNumber),
 			commitment.PreConfirmation.Bid.TxHash,
+			commitment.PreConfirmation.Bid.RevertingTxHashes,
 			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
 			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
 			commitment.PreConfirmation.Bid.Signature,
@@ -345,15 +356,11 @@ func (t *Tracker) handleNewL1Block(
 
 	err = t.store.DeleteCommitmentByBlockNumber(newL1Block.BlockNumber.Int64())
 	if err != nil {
-		t.logger.Error("failed to delete commitments by block number", "error", err)
+		t.logger.Error("failed to delete commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
 		return err
 	}
 
 	openDuration := time.Since(openStart)
-	t.metrics.totalCommitmentsToOpen.Add(float64(len(commitments)))
-	t.metrics.totalOpenedCommitments.Add(float64(settled))
-	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
-
 	t.logger.Info("commitments opened",
 		"blockNumber", newL1Block.BlockNumber,
 		"total", len(commitments),
@@ -362,7 +369,12 @@ func (t *Tracker) handleNewL1Block(
 		"duration", openDuration,
 	)
 
+	t.metrics.totalCommitmentsToOpen.Add(float64(len(commitments)))
+	t.metrics.totalOpenedCommitments.Add(float64(settled))
+	t.metrics.blockCommitmentProcessDuration.Set(float64(openDuration))
+
 	if len(failedCommitments) > 0 {
+		t.logger.Info("processing failed commitments", "count", len(failedCommitments))
 		receipts, err := t.receiptGetter.BatchReceipts(ctx, failedCommitments)
 		if err != nil {
 			t.logger.Warn("failed to get receipts for failed commitments", "error", err)

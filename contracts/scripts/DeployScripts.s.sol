@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
-import "forge-std/Script.sol";
-import "../contracts/BidderRegistry.sol";
-import "../contracts/ProviderRegistry.sol";
-import "../contracts/PreConfCommitmentStore.sol";
-import "../contracts/Oracle.sol";
-import "../contracts/Whitelist.sol";
+
+// solhint-disable no-console
+// solhint-disable one-contract-per-file
+
+pragma solidity 0.8.20;
+
+import {Script} from "forge-std/Script.sol";
+import {BidderRegistry} from "../contracts/BidderRegistry.sol";
+import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
+import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
+import {Oracle} from "../contracts/Oracle.sol";
+import {Whitelist} from "../contracts/Whitelist.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import "../contracts/BlockTracker.sol";
+import {BlockTracker} from "../contracts/BlockTracker.sol";
+import {console} from "forge-std/console.sol";
 
 // Deploys core contracts
 contract DeployScript is Script {
@@ -23,16 +29,19 @@ contract DeployScript is Script {
         uint64 commitmentDispatchWindow = 2000;
         uint256 blocksPerWindow = 10;
 
+        address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
+        require(oracleKeystoreAddress != address(0), "missing Oracle keystore address");
+
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (msg.sender, blocksPerWindow))
+            abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, oracleKeystoreAddress, msg.sender))
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
         console.log("BlockTracker:", address(blockTracker));
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
-            abi.encodeCall(BidderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, address(blockTracker), blocksPerWindow))
+            abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, msg.sender, address(blockTracker), blocksPerWindow))
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry:", address(bidderRegistry));
@@ -63,36 +72,13 @@ contract DeployScript is Script {
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
-            abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), msg.sender))
+            abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), oracleKeystoreAddress, msg.sender))
         );
         Oracle oracle = Oracle(payable(oracleProxy));
         console.log("Oracle:", address(oracle));
 
         preConfCommitmentStore.updateOracle(address(oracle));
         console.log("PreConfCommitmentStoreWithOracle:", address(oracle));
-
-        vm.stopBroadcast();
-    }
-}
-
-contract TransferOwnership is Script {
-    function run() external {
-        vm.startBroadcast();
-
-        address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
-        require(oracleKeystoreAddress != address(0), "Oracle keystore address not provided");
-
-        address blockTrackerProxy = vm.envAddress("BLOCK_TRACKER_ADDRESS");
-        require(blockTrackerProxy != address(0), "Block tracker not provided");
-        BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
-        blockTracker.transferOwnership(oracleKeystoreAddress);
-        console.log("BlockTracker owner:", blockTracker.owner());
-
-        address oracleProxy = vm.envAddress("ORACLE_ADDRESS");
-        require(oracleProxy != address(0), "Oracle proxy not provided");
-        Oracle oracle = Oracle(payable(oracleProxy));
-        oracle.transferOwnership(oracleKeystoreAddress);
-        console.log("Oracle owner:", oracle.owner());
 
         vm.stopBroadcast();
     }
@@ -110,7 +96,7 @@ contract DeployWhitelist is Script {
         address hypERC20Addr = vm.envAddress("HYP_ERC20_ADDR");
         require(
             hypERC20Addr != address(0),
-            "Address to whitelist not provided"
+            "hypERC20 addr not provided"
         );
 
         address whitelistProxy = Upgrades.deployUUPSProxy(

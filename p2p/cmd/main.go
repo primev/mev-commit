@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	contracts "github.com/primev/mev-commit/contracts-abi/config"
 	mevcommit "github.com/primev/mev-commit/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/node"
@@ -176,6 +178,12 @@ var (
 		Usage:   "address of the bidder registry contract",
 		EnvVars: []string{"MEV_COMMIT_BIDDER_REGISTRY_ADDR"},
 		Value:   contracts.TestnetContracts.BidderRegistry,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid bidder registry address: %s", s)
+			}
+			return nil
+		},
 	})
 
 	optionProviderRegistryAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -183,6 +191,12 @@ var (
 		Usage:   "address of the provider registry contract",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_REGISTRY_ADDR"},
 		Value:   contracts.TestnetContracts.ProviderRegistry,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid provider registry address: %s", s)
+			}
+			return nil
+		},
 	})
 
 	optionPreconfStoreAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -190,6 +204,12 @@ var (
 		Usage:   "address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
 		Value:   contracts.TestnetContracts.PreconfCommitmentStore,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid preconfirmation commitment store address: %s", s)
+			}
+			return nil
+		},
 	})
 
 	optionBlockTrackerAddr = altsrc.NewStringFlag(&cli.StringFlag{
@@ -197,6 +217,25 @@ var (
 		Usage:   "address of the block tracker contract",
 		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
 		Value:   contracts.TestnetContracts.BlockTracker,
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid block tracker address: %s", s)
+			}
+			return nil
+		},
+	})
+
+	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "autodeposit-amount",
+		Usage:   "amount to auto deposit",
+		EnvVars: []string{"MEV_COMMIT_AUTODEPOSIT_AMOUNT"},
+	})
+
+	optionAutodepositEnabled = altsrc.NewBoolFlag(&cli.BoolFlag{
+		Name:    "autodeposit-enabled",
+		Usage:   "enable auto deposit",
+		EnvVars: []string{"MEV_COMMIT_AUTODEPOSIT_ENABLED"},
+		Value:   false,
 	})
 
 	optionSettlementRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
@@ -236,6 +275,41 @@ var (
 		Usage:   "Path to the server TLS private key",
 		EnvVars: []string{"MEV_COMMIT_SERVER_TLS_PRIVATE_KEY"},
 	})
+
+	optionProviderWhitelist = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:    "provider-whitelist",
+		Usage:   "list of provider addresses to whitelist for bids",
+		EnvVars: []string{"MEV_COMMIT_PROVIDER_WHITELIST"},
+		Action: func(ctx *cli.Context, vals []string) error {
+			for i, v := range vals {
+				if !common.IsHexAddress(v) {
+					return fmt.Errorf("invalid provider address at index %d: %s", i, v)
+				}
+			}
+			return nil
+		},
+	})
+
+	optionGasLimit = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "gas-limit",
+		Usage:   "Use predefined gas limit for transactions",
+		EnvVars: []string{"MEV_COMMIT_GAS_LIMIT"},
+		Value:   1000000,
+	})
+
+	optionGasTipCap = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "gas-tip-cap",
+		Usage:   "Use predefined gas tip cap for transactions",
+		EnvVars: []string{"MEV_COMMIT_GAS_TIP_CAP"},
+		Value:   "1000000000", // 1 gWEI
+	})
+
+	optionGasFeeCap = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "gas-fee-cap",
+		Usage:   "Use predefined gas fee cap for transactions",
+		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
+		Value:   "2000000000", // 2 gWEI
+	})
 )
 
 func main() {
@@ -260,12 +334,18 @@ func main() {
 		optionProviderRegistryAddr,
 		optionPreconfStoreAddr,
 		optionBlockTrackerAddr,
+		optionAutodepositAmount,
+		optionAutodepositEnabled,
 		optionSettlementRPCEndpoint,
 		optionSettlementWSRPCEndpoint,
 		optionNATAddr,
 		optionNATPort,
 		optionServerTLSCert,
 		optionServerTLSPrivateKey,
+		optionProviderWhitelist,
+		optionGasLimit,
+		optionGasTipCap,
+		optionGasFeeCap,
 	}
 
 	app := &cli.App{
@@ -326,10 +406,39 @@ func launchNodeWithConfig(c *cli.Context) error {
 		natAddr = fmt.Sprintf("%s:%d", c.String(optionNATAddr.Name), c.Int(optionNATPort.Name))
 	}
 
+	var (
+		autodepositAmount *big.Int
+		ok                bool
+	)
+	if c.String(optionAutodepositAmount.Name) != "" && c.Bool(optionAutodepositEnabled.Name) {
+		autodepositAmount, ok = new(big.Int).SetString(c.String(optionAutodepositAmount.Name), 10)
+		if !ok {
+			return fmt.Errorf("failed to parse autodeposit amount %q", c.String(optionAutodepositAmount.Name))
+		}
+	}
 	crtFile := c.String(optionServerTLSCert.Name)
 	keyFile := c.String(optionServerTLSPrivateKey.Name)
 	if (crtFile == "") != (keyFile == "") {
 		return fmt.Errorf("both -%s and -%s must be provided to enable TLS", optionServerTLSCert.Name, optionServerTLSPrivateKey.Name)
+	}
+
+	whitelist := make([]common.Address, 0, len(c.StringSlice(optionProviderWhitelist.Name)))
+	for _, addr := range c.StringSlice(optionProviderWhitelist.Name) {
+		whitelist = append(whitelist, common.HexToAddress(addr))
+	}
+
+	var gasTipCap, gasFeeCap *big.Int
+	if c.String(optionGasTipCap.Name) != "" {
+		gasTipCap, ok = new(big.Int).SetString(c.String(optionGasTipCap.Name), 10)
+		if !ok {
+			return fmt.Errorf("failed to parse gas tip cap %q", c.String(optionGasTipCap.Name))
+		}
+	}
+	if c.String(optionGasFeeCap.Name) != "" {
+		gasFeeCap, ok = new(big.Int).SetString(c.String(optionGasFeeCap.Name), 10)
+		if !ok {
+			return fmt.Errorf("failed to parse gas fee cap %q", c.String(optionGasFeeCap.Name))
+		}
 	}
 
 	nd, err := node.NewNode(&node.Options{
@@ -346,11 +455,16 @@ func launchNodeWithConfig(c *cli.Context) error {
 		ProviderRegistryContract: c.String(optionProviderRegistryAddr.Name),
 		BidderRegistryContract:   c.String(optionBidderRegistryAddr.Name),
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
+		AutodepositAmount:        autodepositAmount,
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
 		NatAddr:                  natAddr,
 		TLSCertificateFile:       crtFile,
 		TLSPrivateKeyFile:        keyFile,
+		ProviderWhitelist:        whitelist,
+		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
+		DefaultGasTipCap:         gasTipCap,
+		DefaultGasFeeCap:         gasFeeCap,
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

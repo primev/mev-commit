@@ -8,6 +8,10 @@ Is P2P software that creates a network of execution providers and bidders.
 Bidders can broadcast bids to providers and receive commitments from them.
 A high throughput POA EVM chain settles the bids at the end of a block slot.
 
+## Documentation
+
+For detailed documentation, visit the [mev-commit docs](https://docs.primev.xyz/).
+
 ## Main Components
   - [mev-commit client](p2p)
   - [mev-commit-oracle](oracle)

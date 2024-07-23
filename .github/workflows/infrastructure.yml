@@ -1,11 +1,7 @@
 name: infrastructure
 
 on:
-  workflow_run:
-    workflows:
-      - ci
-    types:
-      - completed
+  workflow_call:
   workflow_dispatch:
     inputs:
       profile:
@@ -33,9 +29,9 @@ on:
         type: choice
         options:
           - lax1
-          - nyc1
-          - nyc2
+          - chi1
           - mia2
+          - mia3
         default: 'lax'
 
 permissions:
@@ -48,11 +44,18 @@ concurrency:
 jobs:
   cluster:
     name: Setup and Test Nomad Cluster
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
+      - name: Print System Information
+        run: |
+          echo "CPU INFO:"
+          lscpu
+          echo
+          echo "MEMORY INFO:"
+          free -h
+
       - name: Setup Environment
         run: |
           RUNNER_START_TIME="$(date +%s)"
@@ -64,6 +67,7 @@ jobs:
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
           CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
+          CLUSTER_L1_RPC_URL_FLAG="--l1-rpc-url ${{ secrets.L1_RPC_URL }}"
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
           TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target_machine }})" || echo "127.0.0.1")
 
@@ -73,6 +77,7 @@ jobs:
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DATADOG_KEY_FLAG=${CLUSTER_DATADOG_KEY_FLAG}" >> ${GITHUB_ENV}
+          echo "CLUSTER_L1_RPC_URL_FLAG=${CLUSTER_L1_RPC_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> ${GITHUB_ENV}
           echo "TARGET_MACHINE_IP=${TARGET_MACHINE_IP}" >> ${GITHUB_ENV}
 
@@ -104,7 +109,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ github.event.workflow_run.head_branch || github.event.inputs.branch || github.ref }}
 
       - name: Setup Cache
         uses: actions/cache@v4
@@ -131,6 +136,8 @@ jobs:
           sudo add-apt-repository --yes ppa:ethereum/ethereum
           sudo apt-get update
           sudo apt-get install --yes goreleaser ethereum
+          python3 -m venv primevenv
+          source primevenv/bin/activate
           pip install boto3 botocore
           pipx inject ansible-core botocore boto3
 
@@ -143,9 +150,9 @@ jobs:
             ANSIBLE_CONNECTION=""
             export ANSIBLE_HOST_KEY_CHECKING=false
 
-            mkdir -p ~/.ssh && \
-            chmod 700 ~/.ssh && \
-            echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519 && \
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            echo "${{ secrets.INFRASTRUCTURE_DEPLOYMENT_KEY }}" > ~/.ssh/id_ed25519
             chmod 600 ~/.ssh/id_ed25519
           fi
 
@@ -187,7 +194,7 @@ jobs:
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' }}
         run: |
           START_TIME="$(date +%s)"
-          ./cluster.sh init ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh init ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
           echo "INIT_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
@@ -195,7 +202,7 @@ jobs:
       - name: Deploy Cluster
         run: |
           START_TIME="$(date +%s)"
-          ./cluster.sh deploy ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${CLUSTER_DATADOG_KEY_FLAG} ${CLUSTER_DEBUG_FLAG}
+          ./cluster.sh deploy ${CLUSTER_ENVIRONMENT_FLAG} ${CLUSTER_PROFILE_FLAG} ${CLUSTER_LOGS_FLAG} ${CLUSTER_DATADOG_KEY_FLAG} ${CLUSTER_L1_RPC_URL_FLAG} ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
           echo "DEPLOY_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
@@ -254,6 +261,49 @@ jobs:
           EOH
           )
           curl -X POST -H 'Content-type: application/json' --data "${PAYLOAD}" "${{ secrets.SLACK_CI_CHANNEL_WEBHOOK_URL }}"
+
+      - name: Collect Cluster Logs
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && failure() }}
+        run: |
+          NOMAD_SERVER="http://${TARGET_MACHINE_IP}:4646"
+          journalctl -u nomad > nomad.log
+          curl -s ${NOMAD_SERVER}/v1/jobs > nomad_jobs.json
+
+          ALLOC_IDS=$(curl -s ${NOMAD_SERVER}/v1/allocations | jq -r '.[].ID')
+          for ALLOC_ID in ${ALLOC_IDS}; do
+            JOB=$(curl -s ${NOMAD_SERVER}/v1/allocation/${ALLOC_ID} | jq -r '.JobID')
+            TASKS=$(curl -s ${NOMAD_SERVER}/v1/allocation/${ALLOC_ID} | jq -r '.TaskStates | keys[]')
+
+            for TASK in ${TASKS}; do
+              STDOUT=$(curl -s "${NOMAD_SERVER}/v1/client/fs/logs/${ALLOC_ID}?task=${TASK}&type=stdout")
+              if [ "$(jq -e .Data <<< "${STDOUT}" 2> /dev/null)" != "null" ]; then
+                echo ${STDOUT} | jq -r '.Data' | base64 -d > "${ALLOC_ID}_${JOB}_${TASK}_stdout.log"
+              else
+                echo "Failed to fetch stdout log for ${ALLOC_ID}_${JOB}_${TASK}:"
+                echo ${STDOUT}
+              fi
+
+              STDERR=$(curl -s "${NOMAD_SERVER}/v1/client/fs/logs/${ALLOC_ID}?task=${TASK}&type=stderr")
+              if [ "$(jq -e .Data <<< "${STDERR}" 2> /dev/null)" != "null" ]; then
+                echo ${STDERR} | jq -r '.Data' | base64 -d > "${ALLOC_ID}_${JOB}_${TASK}_stderr.log"
+              else
+                echo "Failed to fetch stderr log for ${ALLOC_ID}_${JOB}_${TASK}:"
+                echo ${STDERR}
+              fi
+            done
+          done
+
+      - name: Upload Debug Artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-artifacts
+          path: |
+            /tmp/dist/
+            nomad_jobs.json
+            nomad.log
+            *_stdout.log
+            *_stderr.log
 
       - name: Initialize Debug Shell
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && failure() }}

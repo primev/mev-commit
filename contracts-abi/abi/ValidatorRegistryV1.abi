@@ -27,6 +27,13 @@
   },
   {
     "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "addStake",
     "inputs": [
       {
@@ -116,14 +123,14 @@
             "internalType": "bool"
           },
           {
-            "name": "balance",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
             "name": "withdrawalAddress",
             "type": "address",
             "internalType": "address"
+          },
+          {
+            "name": "balance",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "unstakeHeight",
@@ -265,6 +272,19 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -436,14 +456,14 @@
         "internalType": "bool"
       },
       {
-        "name": "balance",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "withdrawalAddress",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "unstakeHeight",
@@ -570,6 +590,25 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferStarted",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -919,7 +958,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidReceive",
     "inputs": []
   },
   {

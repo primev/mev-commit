@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 interface IWhitelist {
     function mint(address _mintTo, uint256 _amount) external;

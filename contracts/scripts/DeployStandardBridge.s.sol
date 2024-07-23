@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
-import "forge-std/Script.sol";
+
+// solhint-disable no-console
+// solhint-disable one-contract-per-file
+
+pragma solidity 0.8.20;
+
+import {Script} from "forge-std/Script.sol";
 import {SettlementGateway} from "../contracts/standard-bridge/SettlementGateway.sol";
 import {L1Gateway} from "../contracts/standard-bridge/L1Gateway.sol";
 import {Whitelist} from "../contracts/Whitelist.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {console} from "forge-std/console.sol";
 
 contract DeploySettlementGateway is Script {
     function run() external {
@@ -39,11 +45,11 @@ contract DeploySettlementGateway is Script {
         console.log("Settlement gateway has been whitelisted. Gateway contract address:", address(gateway));
 
         string memory jsonOutput = string.concat(
-            '{"settlement_gateway_addr": "',
+            "{'settlement_gateway_addr': '",
             Strings.toHexString(address(gateway)),
-            '", "whitelist_addr": "',
+            "', 'whitelist_addr': '",
             Strings.toHexString(address(whitelist)),
-            '"}'
+            "'}"
         );
         console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput); 
 
@@ -70,9 +76,9 @@ contract DeployL1Gateway is Script {
             address(gateway));
         
         string memory jsonOutput = string.concat(
-            '{"l1_gateway_addr": "',
+            "{'l1_gateway_addr': '",
             Strings.toHexString(address(gateway)),
-            '"}'
+            "'}"
         );
         console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput);
 

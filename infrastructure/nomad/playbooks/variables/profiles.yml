@@ -1,5 +1,4 @@
 datacenter: "dc1"
-l1_rpc_url: "https://eth-holesky.g.alchemy.com/v2/WqNEQeeexFLQwECjxCPpdep0uvCgn8Yj"
 
 artifacts:
   bidder_emulator: &bidder_emulator_artifact
@@ -452,6 +451,8 @@ jobs:
     template: mev-commit-oracle.nomad.j2
     artifacts:
       - *oracle_artifact
+      - auth_token:
+          name: oracle_register_provider_api_auth_token
       - keystore:
           name: oracle_keystore
           allocation: true

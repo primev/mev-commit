@@ -10,6 +10,45 @@ consumes:
 produces:
   - application/json
 paths:
+  /v1/bidder/auto_deposit/{amount}:
+    post:
+      summary: AutoDeposit
+      description: AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+      operationId: Bidder_AutoDeposit
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1AutoDepositResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: amount
+          description: Amount of ETH to be deposited in wei.
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1BidderAutoDepositBody'
+  /v1/bidder/auto_deposit_status:
+    get:
+      summary: AutoDepositStatus
+      description: AutoDepositStatus is called by the bidder node to get the status of the auto deposit.
+      operationId: Bidder_AutoDepositStatus
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1AutoDepositStatusResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/bid:
     post:
       summary: SendBid
@@ -37,6 +76,27 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/bidderapiv1Bid'
+  /v1/bidder/cancel_auto_deposit:
+    post:
+      summary: CancelAutoDeposit
+      description: CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+      operationId: Bidder_CancelAutoDeposit
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1CancelAutoDepositResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: body
+          description: Request to cancel AutoDeposit.
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1CancelAutoDepositRequest'
   /v1/bidder/deposit/{amount}:
     post:
       summary: Deposit
@@ -90,20 +150,6 @@ paths:
           required: false
           type: string
           format: uint64
-  /v1/bidder/get_min_deposit:
-    get:
-      summary: GetMinDeposit
-      description: GetMinDeposit is called by the bidder to get the minimum deposit required in the bidder registry to make bids.
-      operationId: Bidder_GetMinDeposit
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1DepositResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
   /v1/bidder/withdraw:
     post:
       summary: Withdraw
@@ -125,7 +171,49 @@ paths:
           required: false
           type: string
           format: uint64
+  /v1/bidder/withdraw_from_windows:
+    post:
+      summary: WithdrawFromWindows
+      description: WithdrawFromWindows is called by the bidder node to withdraw funds from multiple windows.
+      operationId: Bidder_WithdrawFromWindows
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1WithdrawFromWindowsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: body
+          description: Withdraw deposit from the bidder registry.
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1WithdrawFromWindowsRequest'
 definitions:
+  bidderapiv1AutoDeposit:
+    type: object
+    properties:
+      depositedAmount:
+        type: string
+        description: Deposited amount of ETH in wei.
+      windowNumber:
+        type: string
+        format: uint64
+        description: Window number for the deposit.
+      isCurrent:
+        type: boolean
+        description: Indicates if the window is the current window.
+      startBlockNumber:
+        type: string
+        format: uint64
+        description: The initial L1 block number for the window.
+      endBlockNumber:
+        type: string
+        format: uint64
+        description: The final L1 block number for the window.
   bidderapiv1Bid:
     type: object
     example:
@@ -157,6 +245,11 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the bid ends decaying.
+      revertingTxHashes:
+        type: array
+        items:
+          type: string
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
     description: Unsigned bid message from bidders to the bidder mev-commit node.
     title: Bid message
     required:
@@ -182,6 +275,78 @@ definitions:
       '@type':
         type: string
     additionalProperties: {}
+  v1AutoDepositResponse:
+    type: object
+    example:
+      amount_per_window: "1000000000000000000"
+      start_window_number: "1"
+    properties:
+      startWindowNumber:
+        type: string
+        format: uint64
+      amountPerWindow:
+        type: string
+    description: Response on AutoDeposit request.
+    title: AutoDeposit response
+  v1AutoDepositStatusResponse:
+    type: object
+    example:
+      isAutodepositEnabled: true
+      window_balances:
+        - depositedAmount: "1000000000000000000"
+          window_number: 1
+        - depositedAmount: "1000000000000000000"
+          window_number: 2
+        - depositedAmount: "1000000000000000000"
+          window_number: 3
+    properties:
+      windowBalances:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/bidderapiv1AutoDeposit'
+      isAutodepositEnabled:
+        type: boolean
+    description: AutoDeposit status from the bidder registry.
+    title: AutoDeposit status response
+  v1BidderAutoDepositBody:
+    type: object
+    example:
+      amount: "1000000000000000000"
+      window_number: 1
+    properties:
+      windowNumber:
+        type: string
+        format: uint64
+        description: Optional window number for querying deposit. If not specified, the current block number is used.
+      blockNumber:
+        type: string
+        format: uint64
+        description: Optional block number for querying deposit. If specified, calculate window based on this block number.
+    description: Deposit for bids to be issued by the bidder in wei.
+    title: Deposit request
+  v1CancelAutoDepositRequest:
+    type: object
+    properties:
+      withdraw:
+        type: boolean
+    description: Request to cancel AutoDeposit.
+    title: CancelAutoDeposit request
+  v1CancelAutoDepositResponse:
+    type: object
+    example:
+      window_numbers:
+        - 1
+        - 2
+        - 3
+    properties:
+      windowNumbers:
+        type: array
+        items:
+          type: string
+          format: uint64
+    description: CancelAutoDeposit deposit from the bidder registry.
+    title: CancelAutoDeposit response
   v1Commitment:
     type: object
     properties:
@@ -225,6 +390,11 @@ definitions:
         type: string
         format: int64
         description: Timestamp at which the commitment is published.
+      revertingTxHashes:
+        type: array
+        items:
+          type: string
+        description: Optional array of tx hashes that are allowed to revert or be discarded.
   v1DepositResponse:
     type: object
     example:
@@ -238,6 +408,42 @@ definitions:
         format: uint64
     description: Get deposit for bidder in the bidder registry.
     title: Deposit response
+  v1WithdrawFromWindowsRequest:
+    type: object
+    example:
+      window_numbers:
+        - 1
+        - 2
+        - 3
+    properties:
+      windowNumbers:
+        type: array
+        items:
+          type: string
+          format: uint64
+        description: Window numbers for withdrawing deposits.
+    description: Withdraw deposit from the bidder registry.
+    title: Withdraw from multiple windows request
+    required:
+      - windowNumbers
+  v1WithdrawFromWindowsResponse:
+    type: object
+    example:
+      withdraw_responses:
+        - amount: "1000000000000000000"
+          window_number: 1
+        - amount: "1000000000000000000"
+          window_number: 2
+        - amount: "1000000000000000000"
+          window_number: 3
+    properties:
+      withdrawResponses:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/v1WithdrawResponse'
+    description: Withdraw deposit from the bidder registry.
+    title: Withdraw from multiple windows response
   v1WithdrawResponse:
     type: object
     example:

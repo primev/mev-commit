@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
 interface IProviderRegistry {
-    function registerAndStake() external payable;
-
-    function checkStake(address provider) external view returns (uint256);
+    function registerAndStake(bytes calldata blsPublicKey) external payable;
 
     function depositFunds() external payable;
 
@@ -14,4 +12,6 @@ interface IProviderRegistry {
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external;
+
+    function checkStake(address provider) external view returns (uint256);
 }

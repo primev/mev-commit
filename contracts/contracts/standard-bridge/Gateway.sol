@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.20;
+pragma solidity 0.8.20;
 
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * @dev Gateway contract for standard bridge. 
  */
-abstract contract Gateway is OwnableUpgradeable, UUPSUpgradeable {   
+abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {   
     
     // @dev index for tracking transfer initiations.
     // Also total number of transfers initiated from this gateway.
@@ -27,38 +27,7 @@ abstract contract Gateway is OwnableUpgradeable, UUPSUpgradeable {
     // The counterparty's finalization fee (wei), included for UX purposes
     uint256 public counterpartyFee;
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
-
-    function initiateTransfer(address _recipient, uint256 _amount
-    ) external payable returns (uint256 returnIdx) {
-        require(_amount >= counterpartyFee, "Amount must cover counterpartys finalization fee");
-        _decrementMsgSender(_amount);
-        ++transferInitiatedIdx;
-        emit TransferInitiated(msg.sender, _recipient, _amount, transferInitiatedIdx);
-        return transferInitiatedIdx;
-    }
-    // @dev where _decrementMsgSender is implemented by inheriting contract.
-    function _decrementMsgSender(uint256 _amount) internal virtual;
-
-    modifier onlyRelayer() {
-        require(msg.sender == relayer, "Only relayer can call this function");
-        _;
-    }
-
-    function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx
-    ) external onlyRelayer {
-        require(_amount >= finalizationFee, "Amount must cover finalization fee");
-        require(_counterpartyIdx == transferFinalizedIdx, "Invalid counterparty index. Transfers must be relayed FIFO");
-        uint256 amountAfterFee = _amount - finalizationFee;
-        _fund(amountAfterFee, _recipient);
-        _fund(finalizationFee, relayer);
-        ++transferFinalizedIdx;
-        emit TransferFinalized(_recipient, _amount, _counterpartyIdx);
-    }
-    // @dev where _fund is implemented by inheriting contract.
-    function _fund(uint256 _amount, address _toFund) internal virtual;
-
-    /**
+        /**
      * @dev Emitted when a cross chain transfer is initiated.
      * @param sender Address initiating the transfer. Indexed for efficient filtering.
      * @param recipient Address receiving the tokens. Indexed for efficient filtering.
@@ -76,4 +45,38 @@ abstract contract Gateway is OwnableUpgradeable, UUPSUpgradeable {
      */
     event TransferFinalized(
         address indexed recipient, uint256 amount, uint256 indexed counterpartyIdx);
+
+    modifier onlyRelayer() {
+        require(msg.sender == relayer, "sender is not relayer");
+        _;
+    }
+
+    function initiateTransfer(address _recipient, uint256 _amount
+    ) external payable returns (uint256 returnIdx) {
+        require(_amount >= counterpartyFee, "Amount too small");
+        _decrementMsgSender(_amount);
+        ++transferInitiatedIdx;
+        emit TransferInitiated(msg.sender, _recipient, _amount, transferInitiatedIdx);
+        return transferInitiatedIdx;
+    }
+
+    function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx
+    ) external onlyRelayer {
+        require(_amount >= finalizationFee, "Amount too small");
+        require(_counterpartyIdx == transferFinalizedIdx, "Invalid counterparty index");
+        uint256 amountAfterFee = _amount - finalizationFee;
+        _fund(amountAfterFee, _recipient);
+        _fund(finalizationFee, relayer);
+        ++transferFinalizedIdx;
+        emit TransferFinalized(_recipient, _amount, _counterpartyIdx);
+    }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    // @dev where _decrementMsgSender is implemented by inheriting contract.
+    function _decrementMsgSender(uint256 _amount) internal virtual;
+
+    // @dev where _fund is implemented by inheriting contract.
+    function _fund(uint256 _amount, address _toFund) internal virtual;
 }
