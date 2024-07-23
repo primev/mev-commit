@@ -52,4 +52,7 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/primev/mev-commit/contracts-abi => ../../../contracts-abi
+replace (
+	github.com/primev/mev-commit/contracts-abi => ../../../contracts-abi
+	github.com/ethereum/go-ethereum => github.com/ethereum/go-ethereum v1.13.14
+)
