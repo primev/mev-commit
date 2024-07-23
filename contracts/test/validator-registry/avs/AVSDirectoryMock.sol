@@ -25,8 +25,6 @@ contract AVSDirectoryMock is IAVSDirectory, Test {
         isOperatorRegistered[operator] = false;
     }
 
-
-
     function registerOperatorToAVS(
         address operator,
         ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
