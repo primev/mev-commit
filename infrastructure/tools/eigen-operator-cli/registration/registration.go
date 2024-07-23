@@ -123,7 +123,10 @@ func (c *Command) initialize(ctx *cli.Context) error {
 func (c *Command) RegisterOperator(ctx *cli.Context) error {
 
 	c.Logger.Info("Registering operator...")
-	c.initialize(ctx)
+	err := c.initialize(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize: %w", err)
+	}
 
 	operatorRegInfo, err := c.avsContractWithSesh.avs.GetOperatorRegInfo(
 		&bind.CallOpts{Context: ctx.Context}, c.signer.GetAddress())
