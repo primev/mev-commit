@@ -234,8 +234,9 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				t.logger.Info("no winners to open commitments")
 				continue
 			}
+			t.logger.Info("stored block winners", "count", len(winners))
 			oldBlockNos := make([]int64, 0)
-			slices.DeleteFunc(winners, func(item *store.BlockWinner) bool {
+			winners = slices.DeleteFunc(winners, func(item *store.BlockWinner) bool {
 				// the last block is the latest, so if any of the previous blocks are
 				// older than the allowed delay, we should not open the commitments
 				if winners[len(winners)-1].BlockNumber-item.BlockNumber > allowedDelayToOpenCommitment {
@@ -265,6 +266,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					continue
 				}
 			}
+			t.logger.Info("opening commitments", "count", len(winners))
 			for _, winner := range winners {
 				if err := t.openCommitments(egCtx, winner); err != nil {
 					t.logger.Error("failed to open commitments", "error", err)

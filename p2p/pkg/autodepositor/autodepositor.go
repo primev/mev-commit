@@ -139,7 +139,7 @@ func (adt *AutoDepositTracker) doInitialDeposit(ctx context.Context, startWindow
 
 	// Check if the deposit is already made. If the nodes was down for a short period
 	// and the deposits were already made, we should not make the deposit again.
-	slices.DeleteFunc(newDeposits, func(i *big.Int) bool {
+	newDeposits = slices.DeleteFunc(newDeposits, func(i *big.Int) bool {
 		return adt.store.IsDepositMade(ctx, i)
 	})
 
