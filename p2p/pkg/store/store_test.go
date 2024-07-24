@@ -89,7 +89,7 @@ func TestStore(t *testing.T) {
 			}
 		}
 
-		err = st.DeleteCommitmentByBlockNumber(1)
+		err = st.ClearBlockNumber(1)
 		if err != nil {
 			t.Fatal(err)
 		}
