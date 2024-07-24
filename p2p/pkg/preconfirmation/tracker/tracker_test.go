@@ -5,11 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -70,7 +70,7 @@ func TestTracker(t *testing.T) {
 				From: common.HexToAddress("0x1234"),
 			}, nil
 		},
-		util.NewTestLogger(io.Discard),
+		util.NewTestLogger(os.Stdout),
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -307,6 +307,86 @@ func TestTracker(t *testing.T) {
 				c.PreConfirmation.SharedSecret,
 				oc.sharedSecretKey,
 			)
+		}
+	}
+
+	cancel()
+
+	<-doneChan
+}
+
+func TestTrackerIgnoreOldBlocks(t *testing.T) {
+	t.Parallel()
+
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	evtMgr := events.NewListener(
+		util.NewTestLogger(os.Stdout),
+		&btABI,
+		&pcABI,
+		&brABI,
+	)
+
+	st := store.NewStore()
+
+	for b := range []int64{1, 12, 13} {
+		if err := st.AddWinner(&store.BlockWinner{
+			BlockNumber: int64(b),
+			Winner:      common.HexToAddress("0x1234"),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	contract := &testPreconfContract{
+		openedCommitments: make(chan openedCommitment, 10),
+	}
+
+	tracker := preconftracker.NewTracker(
+		p2p.PeerTypeProvider,
+		common.HexToAddress("0x1234"),
+		evtMgr,
+		st,
+		contract,
+		&testReceiptGetter{count: 1},
+		func(context.Context) (*bind.TransactOpts, error) {
+			return &bind.TransactOpts{
+				From: common.HexToAddress("0x1234"),
+			}, nil
+		},
+		util.NewTestLogger(os.Stdout),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	doneChan := tracker.Start(ctx)
+
+	startTime := time.Now()
+	for {
+		winners, err := st.BlockWinners()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(winners) == 0 {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		if time.Since(startTime) > 5*time.Second {
+			t.Fatal("timed out waiting for block winners to be cleared")
 		}
 	}
 

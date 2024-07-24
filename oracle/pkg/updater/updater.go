@@ -130,11 +130,8 @@ func NewUpdater(
 		oracle:         oracle,
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
-		// the buffered channel here is required to ensure that the event processing
-		// does not block the event manager. This event involves making a settlement
-		// transaction on the blockchain, which can take a while to complete.
-		openedCmts:    make(chan *preconf.PreconfcommitmentstoreCommitmentStored, 200),
-		encryptedCmts: make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
+		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
+		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
 	}, nil
 }
 
