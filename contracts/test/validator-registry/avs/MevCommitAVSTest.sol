@@ -98,8 +98,6 @@ contract MevCommitAVSTest is Test {
 
     function testRegisterOperator() public {
 
-        avsDirectoryMock.setAVS(address(mevCommitAVS));
-
         bytes32 digestHash = avsDirectoryMock.calculateOperatorAVSRegistrationDigestHash({
             operator: operator,
             avs: address(mevCommitAVS),

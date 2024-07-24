@@ -36,7 +36,7 @@ contract AVSDirectoryMock is IAVSDirectory, Test {
 
         bytes32 operatorRegistrationDigestHash = calculateOperatorAVSRegistrationDigestHash({
             operator: operator,
-            avs: avs_,
+            avs: msg.sender,
             salt: operatorSignature.salt,
             expiry: operatorSignature.expiry
         });
@@ -49,10 +49,6 @@ contract AVSDirectoryMock is IAVSDirectory, Test {
 
         isOperatorRegistered[operator] = true;
         emit OperatorAVSRegistrationStatusUpdated(operator, msg.sender, OperatorAVSRegistrationStatus.REGISTERED);
-    }
-
-    function setAVS(address _avs) external {
-        avs_ = _avs;
     }
 
     function deregisterOperatorFromAVS(address operator) external override {
