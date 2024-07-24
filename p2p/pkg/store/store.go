@@ -28,6 +28,12 @@ const (
 
 	// txns related keys
 	txNS = "tx/"
+
+	// local deposit entries
+	depositNS = "dep/"
+
+	// block winners
+	blockWinnerNS = "bw/"
 )
 
 var (
@@ -55,6 +61,14 @@ var (
 	txKey = func(txHash common.Hash) string {
 		return fmt.Sprintf("%s%s", txNS, txHash.Hex())
 	}
+
+	depositKey = func(window *big.Int) string {
+		return fmt.Sprintf("%s%s", depositNS, window)
+	}
+
+	blockWinnerKey = func(blockNumber int64) string {
+		return fmt.Sprintf("%s%d", blockWinnerNS, blockNumber)
+	}
 )
 
 type Store struct {
@@ -66,6 +80,11 @@ type EncryptedPreConfirmationWithDecrypted struct {
 	*preconfpb.EncryptedPreConfirmation
 	*preconfpb.PreConfirmation
 	TxnHash common.Hash
+}
+
+type BlockWinner struct {
+	BlockNumber int64
+	Winner      common.Address
 }
 
 func NewStore() *Store {
@@ -114,12 +133,15 @@ func (s *Store) GetCommitmentsByBlockNumber(blockNum int64) ([]*EncryptedPreConf
 	return commitments, nil
 }
 
-func (s *Store) DeleteCommitmentByBlockNumber(blockNum int64) error {
+func (s *Store) ClearBlockNumber(blockNum int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	blockCommitmentsKey := blockCommitmentPrefix(blockNum)
 	_ = s.Tree.DeletePrefix(blockCommitmentsKey)
+
+	blockWinnerKey := blockWinnerKey(blockNum)
+	_, _ = s.Tree.Delete(blockWinnerKey)
 	return nil
 }
 
@@ -146,6 +168,26 @@ func (s *Store) SetCommitmentIndexByCommitmentDigest(cDigest, cIndex [32]byte) e
 	})
 
 	return nil
+}
+
+func (s *Store) AddWinner(blockWinner *BlockWinner) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, _ = s.Tree.Insert(blockWinnerKey(blockWinner.BlockNumber), blockWinner)
+	return nil
+}
+
+func (s *Store) BlockWinners() ([]*BlockWinner, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	winners := make([]*BlockWinner, 0)
+	s.Tree.WalkPrefix(blockWinnerNS, func(key string, value interface{}) bool {
+		winners = append(winners, value.(*BlockWinner))
+		return false
+	})
+	return winners, nil
 }
 
 func (s *Store) SetAESKey(bidder common.Address, key []byte) error {
@@ -373,4 +415,58 @@ func (s *Store) PendingTxns() ([]*TxnDetails, error) {
 		return int(a.Created - b.Created)
 	})
 	return txns, nil
+}
+
+func (s *Store) StoreDeposits(ctx context.Context, window []*big.Int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, w := range window {
+		_, _ = s.Tree.Insert(depositKey(w), struct{}{})
+	}
+	return nil
+}
+
+func (s *Store) ListDeposits(ctx context.Context, till *big.Int) ([]*big.Int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	deposits := make([]*big.Int, 0)
+	s.Tree.WalkPrefix(depositNS, func(key string, value interface{}) bool {
+		parts := strings.Split(key, "/")
+		if len(parts) != 2 {
+			return false
+		}
+		w, ok := new(big.Int).SetString(parts[1], 10)
+		if !ok {
+			return false
+		}
+		if till == nil || (till != nil && w.Cmp(till) != 1) {
+			deposits = append(deposits, w)
+		}
+		return false
+	})
+
+	return deposits, nil
+}
+
+func (s *Store) ClearDeposits(ctx context.Context, windows []*big.Int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, w := range windows {
+		key := depositKey(w)
+		_, _ = s.Tree.Delete(key)
+	}
+
+	return nil
+}
+
+func (s *Store) IsDepositMade(ctx context.Context, window *big.Int) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	key := depositKey(window)
+	_, ok := s.Tree.Get(key)
+	return ok
 }
