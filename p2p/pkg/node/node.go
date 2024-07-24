@@ -125,7 +125,7 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
-	store := store.NewStore()
+	storage := store.NewStore()
 
 	contracts, err := getContractABIs(opts)
 	if err != nil {
@@ -149,7 +149,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	// TODO: Having this block setting here because the store is in-memory.
 	// Once we have a database, this should be removed.
-	err = store.SetLastBlock(lastBlock)
+	err = storage.SetLastBlock(lastBlock)
 	if err != nil {
 		opts.Logger.Error("failed to set last block", "error", err)
 		return nil, errors.Join(err, nd.Close())
@@ -169,14 +169,14 @@ func NewNode(opts *Options) (*Node, error) {
 	if opts.WSRPCEndpoint != "" {
 		// Use WS publisher if WSRPCEndpoint is set
 		evtPublisher = publisher.NewWSPublisher(
-			store,
+			storage,
 			opts.Logger.With("component", "ws_publisher"),
 			contractRPC,
 			evtMgr,
 		)
 	} else {
 		evtPublisher = publisher.NewHTTPPublisher(
-			store,
+			storage,
 			opts.Logger.With("component", "http_publisher"),
 			contractRPC,
 			evtMgr,
@@ -194,7 +194,7 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.KeySigner.GetAddress(),
 		contractRPC,
 		txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "txmonitor")),
-		store,
+		storage,
 		opts.Logger.With("component", "txmonitor"),
 		1024,
 	)
@@ -246,7 +246,7 @@ func NewNode(opts *Options) (*Node, error) {
 			providerRegistry: providerRegistry,
 			from:             opts.KeySigner.GetAddress(),
 		},
-		Store:          store,
+		Store:          storage,
 		Logger:         opts.Logger.With("component", "p2p"),
 		ListenPort:     opts.P2PPort,
 		ListenAddr:     opts.P2PAddr,
@@ -295,7 +295,7 @@ func NewNode(opts *Options) (*Node, error) {
 	grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
 
 	debugService := debugapi.NewService(
-		store,
+		storage,
 		txmonitor.NewCanceller(
 			chainID,
 			contractRPC,
@@ -350,7 +350,7 @@ func NewNode(opts *Options) (*Node, error) {
 			peerType,
 			opts.KeySigner.GetAddress(),
 			evtMgr,
-			store,
+			storage,
 			commitmentDA,
 			txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "evm_helper")),
 			optsGetter,
@@ -382,12 +382,12 @@ func NewNode(opts *Options) (*Node, error) {
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(
 				blocksPerWindow,
-				store,
+				storage,
 				evtMgr,
 				opts.Logger.With("component", "depositmanager"),
 			)
 			startables = append(startables, depositMgr.(*depositmanager.DepositManager))
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, storage)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())
@@ -411,7 +411,7 @@ func NewNode(opts *Options) (*Node, error) {
 				p2pSvc,
 				opts.KeySigner,
 				nil,
-				store,
+				storage,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 				nil,
@@ -425,13 +425,13 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.Error("failed to generate AES key", "error", err)
 				return nil, errors.Join(err, nd.Close())
 			}
-			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
+			err = storage.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
 			if err != nil {
 				opts.Logger.Error("failed to set AES key", "error", err)
 				return nil, errors.Join(err, nd.Close())
 			}
 
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, storage)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())
@@ -456,6 +456,7 @@ func NewNode(opts *Options) (*Node, error) {
 				bidderRegistry,
 				blockTrackerSession,
 				optsGetter,
+				storage,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
@@ -487,7 +488,7 @@ func NewNode(opts *Options) (*Node, error) {
 				p2pSvc,
 				opts.KeySigner,
 				aesKey,
-				store,
+				storage,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 				opts.ProviderWhitelist,
