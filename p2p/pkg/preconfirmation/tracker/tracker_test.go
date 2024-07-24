@@ -342,9 +342,9 @@ func TestTrackerIgnoreOldBlocks(t *testing.T) {
 
 	st := store.NewStore()
 
-	for b := range []int64{1, 12, 13} {
+	for _, b := range []int64{1, 12, 13} {
 		if err := st.AddWinner(&store.BlockWinner{
-			BlockNumber: int64(b),
+			BlockNumber: b,
 			Winner:      common.HexToAddress("0x1234"),
 		}); err != nil {
 			t.Fatal(err)
