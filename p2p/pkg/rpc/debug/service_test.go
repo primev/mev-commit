@@ -10,14 +10,14 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
-	store "github.com/primev/mev-commit/p2p/pkg/txnstore"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/stretchr/testify/assert"
 )
 
 type mockStore struct{}
 
-func (m *mockStore) PendingTxns() ([]*store.TxnDetails, error) {
-	return []*store.TxnDetails{
+func (m *mockStore) PendingTxns() ([]*txmonitor.TxnDetails, error) {
+	return []*txmonitor.TxnDetails{
 		{
 			Hash:    common.HexToHash("0x00001"),
 			Nonce:   1,

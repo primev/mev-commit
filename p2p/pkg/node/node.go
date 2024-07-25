@@ -456,12 +456,14 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
+			autodepositorStore := autodepositorstore.New(store)
+
 			autoDeposit := autodepositor.New(
 				evtMgr,
 				bidderRegistry,
 				blockTrackerSession,
 				optsGetter,
-				autodepositorstore.New(store),
+				autodepositorStore,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
@@ -484,6 +486,7 @@ func NewNode(opts *Options) (*Node, error) {
 				monitor,
 				optsGetter,
 				autoDeposit,
+				autodepositorStore,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)

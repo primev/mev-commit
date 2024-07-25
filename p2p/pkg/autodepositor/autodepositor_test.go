@@ -16,7 +16,8 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -76,7 +77,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
-	st := store.NewStore()
+	st := store.New(inmemstorage.New())
 
 	// Create AutoDepositTracker instance
 	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, logger)
@@ -175,7 +176,7 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
-	st := store.NewStore()
+	st := store.New(inmemstorage.New())
 
 	// Create AutoDepositTracker instance
 	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, logger)
@@ -213,7 +214,7 @@ func TestAutoDepositTracker_Stop_NotRunning(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
-	st := store.NewStore()
+	st := store.New(inmemstorage.New())
 
 	// Create AutoDepositTracker instance
 	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, logger)
@@ -256,7 +257,7 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
-	st := store.NewStore()
+	st := store.New(inmemstorage.New())
 
 	// Create AutoDepositTracker instance
 	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, logger)

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/lib/pq"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 )
 
 var settlementType = `
@@ -397,6 +398,34 @@ func (s *Store) PendingTxnCount() (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (s *Store) PendingTxns() ([]*txmonitor.TxnDetails, error) {
+	rows, err := s.db.Query("SELECT hash, nonce FROM sent_transactions WHERE settled = false")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var txns []*txmonitor.TxnDetails
+	for rows.Next() {
+		var hashBase64 string
+		var nonce uint64
+		if err := rows.Scan(&hashBase64, &nonce); err != nil {
+			return nil, err
+		}
+
+		hash, err := base64.StdEncoding.DecodeString(hashBase64)
+		if err != nil {
+			return nil, err
+		}
+
+		txns = append(txns, &txmonitor.TxnDetails{
+			Hash:  common.BytesToHash(hash),
+			Nonce: nonce,
+		})
+	}
+	return txns, nil
 }
 
 func (s *Store) LastBlock() (uint64, error) {

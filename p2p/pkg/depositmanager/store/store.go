@@ -151,3 +151,20 @@ func (s *Store) RefundBalanceForBlock(
 	newAmount := new(big.Int).Add(new(big.Int).SetBytes(val), amount)
 	return s.st.Put(blockBalanceKey(window, bidder, blockNumber), newAmount.Bytes())
 }
+
+func (s *Store) BalanceEntries(windowNumber *big.Int) (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	entries := 0
+	prefix := balancePrefix(windowNumber)
+	err := s.st.WalkPrefix(prefix, func(key string, val []byte) bool {
+		entries++
+		return false
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return entries, nil
+}

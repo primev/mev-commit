@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 )
 
 const (
@@ -42,12 +43,6 @@ func New(st storage.Storage) *Store {
 // is sent to the blockchain and when the transaction receipt is received. As of now,
 // we do not persist the transaction details, so the update method is used to remove the
 // transaction from the store. This will no longer be seen in the pending transactions list.
-type TxnDetails struct {
-	Hash    common.Hash
-	Nonce   uint64
-	Created int64
-}
-
 // Save implements the txmonitor.Saver interface. It saves the transaction hash and nonce in the store once
 // the transaction is sent to the blockchain.
 func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) error {
@@ -55,7 +50,7 @@ func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) erro
 	defer s.mu.Unlock()
 
 	var b bytes.Buffer
-	if err := gob.NewEncoder(&b).Encode(&TxnDetails{Hash: txHash, Nonce: nonce, Created: time.Now().Unix()}); err != nil {
+	if err := gob.NewEncoder(&b).Encode(&txmonitor.TxnDetails{Hash: txHash, Nonce: nonce, Created: time.Now().Unix()}); err != nil {
 		return err
 	}
 
@@ -74,13 +69,13 @@ func (s *Store) Update(ctx context.Context, txHash common.Hash, status string) e
 	return s.st.Delete(txKey(txHash))
 }
 
-func (s *Store) PendingTxns() ([]*TxnDetails, error) {
+func (s *Store) PendingTxns() ([]*txmonitor.TxnDetails, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	txns := make([]*TxnDetails, 0)
+	txns := make([]*txmonitor.TxnDetails, 0)
 	err := s.st.WalkPrefix(txNS, func(key string, value []byte) bool {
-		txn := new(TxnDetails)
+		txn := new(txmonitor.TxnDetails)
 		if err := gob.NewDecoder(bytes.NewReader(value)).Decode(txn); err != nil {
 			return false
 		}
@@ -91,7 +86,7 @@ func (s *Store) PendingTxns() ([]*TxnDetails, error) {
 		return nil, err
 	}
 
-	slices.SortFunc(txns, func(a, b *TxnDetails) int {
+	slices.SortFunc(txns, func(a, b *txmonitor.TxnDetails) int {
 		return int(a.Created - b.Created)
 	})
 	return txns, nil

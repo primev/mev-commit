@@ -184,3 +184,7 @@ func (t *testSaver) Update(ctx context.Context, txHash common.Hash, status strin
 	t.mu.Unlock()
 	return nil
 }
+
+func (t *testSaver) PendingTxns() ([]*txmonitor.TxnDetails, error) {
+	return nil, nil
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/storage"
 	inmem "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/p2p/pkg/txnstore"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 )
 
 func TestStore_Save(t *testing.T) {
@@ -25,7 +26,7 @@ func TestStore_Save(t *testing.T) {
 	}
 
 	// Verify that the transaction details are saved in the store
-	var txnDetails txnstore.TxnDetails
+	var txnDetails txmonitor.TxnDetails
 	buf, err := st.Get(txnstore.TxKey(txHash))
 	if err != nil {
 		t.Errorf("failed to get transaction details from store: %v", err)
