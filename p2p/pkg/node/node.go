@@ -133,15 +133,15 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
-	var storage storage.Storage
+	var store storage.Storage
 	if opts.DataDir != "" {
-		storage, err = pebblestorage.New(opts.DataDir)
+		store, err = pebblestorage.New(opts.DataDir)
 		if err != nil {
 			opts.Logger.Error("failed to create storage", "error", err)
 			return nil, err
 		}
 	} else {
-		storage = inmem.New()
+		store = inmem.New()
 	}
 
 	contracts, err := getContractABIs(opts)
@@ -191,7 +191,7 @@ func NewNode(opts *Options) (*Node, error) {
 		}),
 	)
 
-	txnStore := txnstore.New(storage)
+	txnStore := txnstore.New(store)
 
 	monitor := txmonitor.New(
 		opts.KeySigner.GetAddress(),
@@ -241,7 +241,7 @@ func NewNode(opts *Options) (*Node, error) {
 		return tOpts, err
 	}
 
-	keysStore := keysstore.New(storage)
+	keysStore := keysstore.New(store)
 
 	p2pSvc, err := libp2p.New(&libp2p.Options{
 		KeySigner: opts.KeySigner,
@@ -355,7 +355,7 @@ func NewNode(opts *Options) (*Node, error) {
 			peerType,
 			opts.KeySigner.GetAddress(),
 			evtMgr,
-			preconfstore.New(storage),
+			preconfstore.New(store),
 			commitmentDA,
 			txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "evm_helper")),
 			optsGetter,
@@ -387,7 +387,7 @@ func NewNode(opts *Options) (*Node, error) {
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(
 				blocksPerWindow,
-				depositmanagerstore.New(storage),
+				depositmanagerstore.New(store),
 				evtMgr,
 				opts.Logger.With("component", "depositmanager"),
 			)
@@ -461,7 +461,7 @@ func NewNode(opts *Options) (*Node, error) {
 				bidderRegistry,
 				blockTrackerSession,
 				optsGetter,
-				autodepositorstore.New(storage),
+				autodepositorstore.New(store),
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 

@@ -19,6 +19,10 @@ func New(path string) (*pebbleStorage, error) {
 	}, nil
 }
 
+func (s *pebbleStorage) Close() error {
+	return s.db.Close()
+}
+
 func (s *pebbleStorage) Get(key string) ([]byte, error) {
 	buf, closer, err := s.db.Get([]byte(key))
 	if err != nil {

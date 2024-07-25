@@ -15,6 +15,10 @@ func New() *inmemStorage {
 	}
 }
 
+func (s *inmemStorage) Close() error {
+	return nil
+}
+
 func (s *inmemStorage) Get(key string) ([]byte, error) {
 	v, found := s.Tree.Get(key)
 	if !found {

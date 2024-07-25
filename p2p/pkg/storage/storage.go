@@ -1,6 +1,9 @@
 package storage
 
-import "errors"
+import (
+	"errors"
+	"io"
+)
 
 var (
 	// ErrKeyNotFound is returned when the key is not found.
@@ -26,6 +29,8 @@ type Writer interface {
 type Storage interface {
 	Reader
 	Writer
+
+	io.Closer
 }
 
 type Batcher interface {
