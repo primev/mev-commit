@@ -83,7 +83,7 @@ func (adt *AutoDepositTracker) Start(
 
 	if startWindow == nil {
 		startWindow = currentOracleWindow
-		// adding +1 as oracle runs one window behind
+		// adding + N as oracle runs N window behind
 		startWindow = new(big.Int).Add(startWindow, adt.oracleWindowOffset)
 	}
 
@@ -200,7 +200,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 					}
 				}
 
-				// Make deposit for the next window. The window event is 1 windows
+				// Make deposit for the next window. The window event is N windows
 				// behind the current window in progress.
 				nextWindow := new(big.Int).Add(window.Window, adt.oracleWindowOffset)
 				nextWindow = new(big.Int).Add(nextWindow, big.NewInt(1))
