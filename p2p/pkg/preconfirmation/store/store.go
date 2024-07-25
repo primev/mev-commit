@@ -73,7 +73,7 @@ func (s *Store) GetCommitments(blockNum int64) ([]*EncryptedPreConfirmationWithD
 	blockCommitmentsKey := blockCommitmentPrefix(blockNum)
 	commitments := make([]*EncryptedPreConfirmationWithDecrypted, 0)
 
-	s.st.WalkPrefix(blockCommitmentsKey, func(key string, value []byte) bool {
+	err := s.st.WalkPrefix(blockCommitmentsKey, func(key string, value []byte) bool {
 		commitment := new(EncryptedPreConfirmationWithDecrypted)
 		err := gob.NewDecoder(bytes.NewReader(value)).Decode(commitment)
 		if err != nil {
@@ -82,6 +82,9 @@ func (s *Store) GetCommitments(blockNum int64) ([]*EncryptedPreConfirmationWithD
 		commitments = append(commitments, commitment)
 		return false
 	})
+	if err != nil {
+		return nil, err
+	}
 	return commitments, nil
 }
 
@@ -108,7 +111,7 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
+	return s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
 		c := new(EncryptedPreConfirmationWithDecrypted)
 		err := gob.NewDecoder(bytes.NewReader(value)).Decode(c)
 		if err != nil {
@@ -118,19 +121,13 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 			c.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
 			var buf bytes.Buffer
 			err = gob.NewEncoder(&buf).Encode(c)
-			if err != nil {
-				return false
-			}
-			err = s.st.Put(key, buf.Bytes())
-			if err != nil {
-				return false
+			if err == nil {
+				_ = s.st.Put(key, buf.Bytes())
 			}
 			return true
 		}
 		return false
 	})
-
-	return nil
 }
 
 func (s *Store) AddWinner(blockWinner *BlockWinner) error {
@@ -151,7 +148,7 @@ func (s *Store) BlockWinners() ([]*BlockWinner, error) {
 	defer s.mu.RUnlock()
 
 	winners := make([]*BlockWinner, 0)
-	s.st.WalkPrefix(blockWinnerNS, func(key string, value []byte) bool {
+	err := s.st.WalkPrefix(blockWinnerNS, func(key string, value []byte) bool {
 		w := new(BlockWinner)
 		err := gob.NewDecoder(bytes.NewReader(value)).Decode(w)
 		if err != nil {
@@ -160,5 +157,8 @@ func (s *Store) BlockWinners() ([]*BlockWinner, error) {
 		winners = append(winners, w)
 		return false
 	})
+	if err != nil {
+		return nil, err
+	}
 	return winners, nil
 }

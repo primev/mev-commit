@@ -58,7 +58,7 @@ func (s *Store) ListDeposits(ctx context.Context, till *big.Int) ([]*big.Int, er
 	defer s.mu.RUnlock()
 
 	deposits := make([]*big.Int, 0)
-	s.st.WalkPrefix(depositNS, func(key string, _ []byte) bool {
+	err := s.st.WalkPrefix(depositNS, func(key string, _ []byte) bool {
 		parts := strings.Split(key, "/")
 		if len(parts) != 2 {
 			return false
@@ -72,6 +72,9 @@ func (s *Store) ListDeposits(ctx context.Context, till *big.Int) ([]*big.Int, er
 		}
 		return false
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	return deposits, nil
 }

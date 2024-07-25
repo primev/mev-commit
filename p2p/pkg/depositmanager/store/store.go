@@ -67,7 +67,7 @@ func (s *Store) ClearBalances(windowNumber *big.Int) ([]*big.Int, error) {
 
 	s.mu.RLock()
 	windows := make([]*big.Int, 0)
-	s.st.WalkPrefix(balanceNS, func(key string, _ []byte) bool {
+	err := s.st.WalkPrefix(balanceNS, func(key string, _ []byte) bool {
 		parts := strings.Split(key, "/")
 		if len(parts) != 3 {
 			return false
@@ -86,6 +86,9 @@ func (s *Store) ClearBalances(windowNumber *big.Int) ([]*big.Int, error) {
 		return false
 	})
 	s.mu.RUnlock()
+	if err != nil {
+		return nil, err
+	}
 
 	s.mu.Lock()
 	for _, w := range windows {
