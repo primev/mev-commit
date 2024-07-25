@@ -20,8 +20,9 @@ import (
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
+	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	preconftracker "github.com/primev/mev-commit/p2p/pkg/preconfirmation/tracker"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/primev/mev-commit/x/util"
@@ -52,7 +53,7 @@ func TestTracker(t *testing.T) {
 		&brABI,
 	)
 
-	st := store.NewStore()
+	st := store.New(inmemstorage.New())
 
 	contract := &testPreconfContract{
 		openedCommitments: make(chan openedCommitment, 10),
@@ -185,7 +186,7 @@ func TestTracker(t *testing.T) {
 
 	for _, c := range opened {
 		oc := <-contract.openedCommitments
-		if !bytes.Equal(c.EncryptedPreConfirmation.CommitmentIndex, oc.encryptedCommitmentIndex[:]) {
+		if !bytes.Equal(c.EncryptedPreConfirmation.Commitment, oc.encryptedCommitmentIndex[:]) {
 			t.Fatalf(
 				"expected commitment index %x, got %x",
 				c.EncryptedPreConfirmation.CommitmentIndex,
@@ -258,7 +259,7 @@ func TestTracker(t *testing.T) {
 
 	for _, c := range opened {
 		oc := <-contract.openedCommitments
-		if !bytes.Equal(c.EncryptedPreConfirmation.CommitmentIndex, oc.encryptedCommitmentIndex[:]) {
+		if !bytes.Equal(c.EncryptedPreConfirmation.Commitment, oc.encryptedCommitmentIndex[:]) {
 			t.Fatalf(
 				"expected commitment index %x, got %x",
 				c.EncryptedPreConfirmation.CommitmentIndex,
@@ -340,7 +341,7 @@ func TestTrackerIgnoreOldBlocks(t *testing.T) {
 		&brABI,
 	)
 
-	st := store.NewStore()
+	st := store.New(inmemstorage.New())
 
 	for _, b := range []int64{1, 12, 13} {
 		if err := st.AddWinner(&store.BlockWinner{

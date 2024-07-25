@@ -9,8 +9,8 @@ import (
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
-	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	store "github.com/primev/mev-commit/p2p/pkg/txnstore"
 	"github.com/stretchr/testify/assert"
 )
 
