@@ -16,7 +16,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/x/contracts/events"
-	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/evmclients"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
@@ -27,7 +27,7 @@ type Tracker struct {
 	evtMgr          events.EventManager
 	store           CommitmentStore
 	preconfContract PreconfContract
-	receiptGetter   txmonitor.BatchReceiptGetter
+	receiptGetter   evmclients.BatchReceiptGetter
 	optsGetter      OptsGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
@@ -75,7 +75,7 @@ func NewTracker(
 	evtMgr events.EventManager,
 	store CommitmentStore,
 	preconfContract PreconfContract,
-	receiptGetter txmonitor.BatchReceiptGetter,
+	receiptGetter evmclients.BatchReceiptGetter,
 	optsGetter OptsGetter,
 	logger *slog.Logger,
 ) *Tracker {
