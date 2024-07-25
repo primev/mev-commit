@@ -30,6 +30,7 @@ type Service struct {
 	watcher              TxWatcher
 	optsGetter           OptsGetter
 	autoDepositTracker   AutoDepositTracker
+	oracleWindowOffset   *big.Int
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
@@ -45,6 +46,7 @@ func NewService(
 	watcher TxWatcher,
 	optsGetter OptsGetter,
 	autoDepositTracker AutoDepositTracker,
+	oracleWindowOffset *big.Int,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -58,6 +60,7 @@ func NewService(
 		logger:               logger,
 		metrics:              newMetrics(),
 		autoDepositTracker:   autoDepositTracker,
+		oracleWindowOffset:   oracleWindowOffset,
 		validator:            validator,
 	}
 }
@@ -226,9 +229,9 @@ func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.D
 	} else if r.BlockNumber != nil {
 		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/s.blocksPerWindow + 1), nil
 	}
-	// Default to two windows ahead of the current window if no specific block or window is given.
-	// This is for the case where the oracle works 2 windows behind the current window.
-	return new(big.Int).SetUint64(currentWindow + 2), nil
+	// Default to N window ahead of the current window if no specific block or window is given.
+	// This is for the case where the oracle works N windows behind the current window.
+	return new(big.Int).SetUint64(currentWindow + s.oracleWindowOffset.Uint64()), nil
 }
 
 func (s *Service) GetDeposit(
@@ -244,8 +247,8 @@ func (s *Service) GetDeposit(
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 		}
-		// as oracle working 2 windows behind the current window, we add + 2 here
-		window = new(big.Int).Add(window, big.NewInt(2))
+		// as oracle working N windows behind the current window, we add + N here
+		window = new(big.Int).Add(window, s.oracleWindowOffset)
 	} else {
 		window = new(big.Int).SetUint64(r.WindowNumber.Value)
 	}
@@ -503,8 +506,8 @@ func (s *Service) AutoDepositStatus(
 ) (*bidderapiv1.AutoDepositStatusResponse, error) {
 	deposits, isAutodepositEnabled, currentWindow := s.autoDepositTracker.GetStatus()
 	if currentWindow != nil {
-		// as oracle working 2 windows behind the current window, we add + 2 here
-		currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
+		// as oracle working N windows behind the current window, we add + N here
+		currentWindow = new(big.Int).Add(currentWindow, s.oracleWindowOffset)
 	}
 	var autoDeposits []*bidderapiv1.AutoDeposit
 	for window, ok := range deposits {

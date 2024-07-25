@@ -22,6 +22,7 @@ type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type BidderRegistryContract interface {
 	DepositForWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
+	DepositForWindow(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error)
 	WithdrawFromWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
 }
 
@@ -39,6 +40,7 @@ type AutoDepositTracker struct {
 	btContract          BlockTrackerContract
 	optsGetter          OptsGetter
 	currentOracleWindow atomic.Value
+	oracleWindowOffset  *big.Int
 	logger              *slog.Logger
 	cancelFunc          context.CancelFunc
 }
@@ -48,15 +50,17 @@ func New(
 	brContract BidderRegistryContract,
 	btContract BlockTrackerContract,
 	optsGetter OptsGetter,
+	oracleWindowOffset *big.Int,
 	logger *slog.Logger,
 ) *AutoDepositTracker {
 	return &AutoDepositTracker{
-		eventMgr:   evtMgr,
-		brContract: brContract,
-		btContract: btContract,
-		optsGetter: optsGetter,
-		windowChan: make(chan *blocktracker.BlocktrackerNewWindow, 1),
-		logger:     logger,
+		eventMgr:           evtMgr,
+		brContract:         brContract,
+		btContract:         btContract,
+		optsGetter:         optsGetter,
+		oracleWindowOffset: oracleWindowOffset,
+		windowChan:         make(chan *blocktracker.BlocktrackerNewWindow, 1),
+		logger:             logger,
 	}
 }
 
@@ -79,8 +83,8 @@ func (adt *AutoDepositTracker) Start(
 
 	if startWindow == nil {
 		startWindow = currentOracleWindow
-		// adding +2 as oracle runs two windows behind
-		startWindow = new(big.Int).Add(startWindow, big.NewInt(2))
+		// adding +1 as oracle runs one window behind
+		startWindow = new(big.Int).Add(startWindow, adt.oracleWindowOffset)
 	}
 
 	eg, egCtx := errgroup.WithContext(context.Background())
@@ -196,10 +200,11 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 					}
 				}
 
-				// Make deposit for the next window. The window event is 2 windows
-				// behind the current window in progress. So we need to make deposit
-				// for the next window.
-				nextWindow := new(big.Int).Add(window.Window, big.NewInt(3))
+				// Make deposit for the next window. The window event is 1 windows
+				// behind the current window in progress.
+				nextWindow := new(big.Int).Add(window.Window, adt.oracleWindowOffset)
+				nextWindow = new(big.Int).Add(nextWindow, big.NewInt(1))
+				
 				if _, ok := adt.deposits.Load(nextWindow.Uint64()); ok {
 					continue
 				}
@@ -209,8 +214,8 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 					return err
 				}
 				opts.Value = amount
-
-				txn, err := adt.brContract.DepositForWindows(opts, []*big.Int{nextWindow})
+				
+				txn, err := adt.brContract.DepositForWindow(opts, nextWindow)
 				if err != nil {
 					return err
 				}

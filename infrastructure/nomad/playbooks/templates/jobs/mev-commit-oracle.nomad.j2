@@ -184,7 +184,7 @@ job "{{ job.name }}" {
             else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
           }}"
           MEV_ORACLE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
-          MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '20') }}"
+          MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '10') }}"
           MEV_ORACLE_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           {%- raw %}
           MEV_ORACLE_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"

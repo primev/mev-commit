@@ -23,10 +23,15 @@ import (
 type MockBidderRegistryContract struct {
 	DepositForWindowsFunc   func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
 	WithdrawFromWindowsFunc func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
+	DepositForWindowFunc    func(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error)
 }
 
 func (m *MockBidderRegistryContract) DepositForWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
 	return m.DepositForWindowsFunc(opts, windows)
+}
+
+func (m *MockBidderRegistryContract) DepositForWindow(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error) {
+	return m.DepositForWindowFunc(opts, window)
 }
 
 func (m *MockBidderRegistryContract) WithdrawFromWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
@@ -56,6 +61,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	}
 
 	amount := big.NewInt(100)
+	oracleWindowOffset := big.NewInt(1)
 	logger := util.NewTestLogger(os.Stdout)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 	brContract := &MockBidderRegistryContract{
@@ -63,6 +69,9 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 		WithdrawFromWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
+			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+		},
+		DepositForWindowFunc: func(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 	}
@@ -76,7 +85,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	}
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
 
 	// Start AutoDepositTracker
 	ctx := context.Background()
@@ -110,17 +119,13 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 
 	assertStatus(t, true, []uint64{2, 3})
 
-	publishNewWindow(evtMgr, &btABI, big.NewInt(1))
+	publishNewWindow(evtMgr, &btABI, big.NewInt(2))
 
 	assertStatus(t, true, []uint64{2, 3, 4})
 
-	publishNewWindow(evtMgr, &btABI, big.NewInt(2))
-
-	assertStatus(t, true, []uint64{2, 3, 4, 5})
-
 	publishNewWindow(evtMgr, &btABI, big.NewInt(3))
 
-	assertStatus(t, true, []uint64{3, 4, 5, 6})
+	assertStatus(t, true, []uint64{3, 4, 5})
 
 	// Stop AutoDepositTracker
 	windowNumbers, err := adt.Stop()
@@ -129,7 +134,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	}
 
 	// Assert window numbers
-	expectedWindowNumbers := []*big.Int{big.NewInt(3), big.NewInt(4), big.NewInt(5), big.NewInt(6)}
+	expectedWindowNumbers := []*big.Int{big.NewInt(3), big.NewInt(4), big.NewInt(5)}
 	if len(windowNumbers) != len(expectedWindowNumbers) {
 		t.Fatalf("expected %d window numbers, got %d", len(expectedWindowNumbers), len(windowNumbers))
 	}
@@ -162,6 +167,9 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 		DepositForWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
+		DepositForWindowFunc: func(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error) {
+			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+		},
 	}
 	btContract := &MockBlockTrackerContract{
 		GetCurrentWindowFunc: func() (*big.Int, error) {
@@ -172,8 +180,10 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
+	oracleWindowOffset := big.NewInt(1)
+
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
 
 	// Start AutoDepositTracker with a cancelable context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -208,8 +218,10 @@ func TestAutoDepositTracker_Stop_NotRunning(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
+	oracleWindowOffset := big.NewInt(1)
+
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
 
 	// Stop AutoDepositTracker when not running
 	_, err = adt.Stop()
@@ -249,8 +261,10 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
+	oracleWindowOffset := big.NewInt(1)
+
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
 
 	// Assert initial IsWorking status
 	if adt.IsWorking() {

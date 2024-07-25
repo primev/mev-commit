@@ -190,7 +190,7 @@ var (
 		Name:    "laggerd-mode",
 		Usage:   "No of blocks to lag behind for L1 chain",
 		EnvVars: []string{"MEV_ORACLE_LAGGERD_MODE"},
-		Value:   64,
+		Value:   10,
 	})
 
 	optionOverrideWinners = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
