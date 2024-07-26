@@ -143,6 +143,7 @@ func NewNode(opts *Options) (*Node, error) {
 	} else {
 		store = inmem.New()
 	}
+	nd.closers = append(nd.closers, store)
 
 	contracts, err := getContractABIs(opts)
 	if err != nil {

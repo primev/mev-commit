@@ -36,14 +36,6 @@ func (s *Store) StoreDeposits(ctx context.Context, window []*big.Int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if batcher, ok := s.st.(storage.Batcher); ok {
-		batch := batcher.Batch()
-		for _, w := range window {
-			_ = batch.Put(depositKey(w), []byte{})
-		}
-		return batch.Write()
-	}
-
 	for _, w := range window {
 		err := s.st.Put(depositKey(w), []byte{})
 		if err != nil {
@@ -82,14 +74,6 @@ func (s *Store) ListDeposits(ctx context.Context, till *big.Int) ([]*big.Int, er
 func (s *Store) ClearDeposits(ctx context.Context, windows []*big.Int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	if batcher, ok := s.st.(storage.Batcher); ok {
-		batch := batcher.Batch()
-		for _, w := range windows {
-			_ = batch.Delete(depositKey(w))
-		}
-		return batch.Write()
-	}
 
 	for _, w := range windows {
 		err := s.st.Delete(depositKey(w))
