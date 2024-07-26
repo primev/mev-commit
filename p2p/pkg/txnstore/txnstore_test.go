@@ -1,9 +1,7 @@
 package txnstore_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"testing"
 	"time"
 
@@ -12,6 +10,7 @@ import (
 	inmem "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/p2p/pkg/txnstore"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 func TestStore_Save(t *testing.T) {
@@ -31,7 +30,7 @@ func TestStore_Save(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to get transaction details from store: %v", err)
 	}
-	if err := gob.NewDecoder(bytes.NewReader(buf)).Decode(&txnDetails); err != nil {
+	if err := msgpack.Unmarshal(buf, &txnDetails); err != nil {
 		t.Errorf("failed to decode transaction details: %v", err)
 	}
 	if txnDetails.Hash != txHash {
