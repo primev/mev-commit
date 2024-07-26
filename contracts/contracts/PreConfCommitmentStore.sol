@@ -326,6 +326,11 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             "sender is not commiter"
         );
 
+        // Ensure the provider's balance is greater than minStake and no pending withdrawal
+        uint256 providerStake = providerRegistry.checkStake(commiterAddress);
+        require(providerStake >= providerRegistry.minStake(), "Insufficient stake");
+        require(providerRegistry.withdrawalRequests(commiterAddress) == 0, "Pending withdrawal request");
+
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
             commiterAddress,

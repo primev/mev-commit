@@ -198,8 +198,10 @@ contract TestPreConfCommitmentStore is Test {
         // Optional: Ensure the committer has enough ETH if needed for the operation
         vm.deal(committer, 1 ether);
         vm.prank(committer);
+        providerRegistry.registerAndStake{value: 1 ether}(validBLSPubkey);
 
         // Step 2: Store the commitment
+        vm.prank(committer);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
             commitmentDigest,
@@ -336,8 +338,6 @@ contract TestPreConfCommitmentStore is Test {
         (, uint256 providerPk) = makeAddrAndKey("bob");
         (v, r, s) = vm.sign(providerPk, preConfHash);
         signature = abi.encodePacked(r, s, v);
-        
-        
     }
 
     function _bytes32ToHexString(
@@ -370,7 +370,6 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         (address commiter, ) = makeAddrAndKey("bob");
-        vm.deal(commiter, 5 ether);
 
         // Step 2: Store the commitment
         bytes32 encryptedIndex = storeCommitment(
@@ -495,7 +494,10 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
         );
+        vm.deal(commiter, 11 ether);
         vm.startPrank(commiter);
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
+
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
             commitmentHash,
@@ -611,8 +613,7 @@ contract TestPreConfCommitmentStore is Test {
         );
         // Step 2: Store the commitment
         (address commiter, ) = makeAddrAndKey("bob");
-        vm.deal(commiter, 5 ether);
-        
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
         bytes32 commitmentIndex = storeCommitment(
             commiter,
             _testCommitmentAliceBob.bid,
@@ -683,7 +684,7 @@ contract TestPreConfCommitmentStore is Test {
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
+
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
                 _testCommitmentAliceBob.bid,
@@ -700,8 +701,6 @@ contract TestPreConfCommitmentStore is Test {
             providerRegistry.setPreconfirmationsContract(
                 address(preConfCommitmentStore)
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             uint256 blockNumber = 2;
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(blockNumber, "test");
@@ -775,7 +774,7 @@ contract TestPreConfCommitmentStore is Test {
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
+
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
                 _testCommitmentAliceBob.bid,
@@ -789,8 +788,6 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
@@ -863,7 +860,6 @@ contract TestPreConfCommitmentStore is Test {
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
 
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
@@ -878,8 +874,6 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,

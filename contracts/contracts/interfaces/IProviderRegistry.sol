@@ -14,4 +14,8 @@ interface IProviderRegistry {
     ) external;
 
     function checkStake(address provider) external view returns (uint256);
+
+    function minStake() external view returns (uint256);
+
+    function withdrawalRequests(address provider) external view returns (uint256);
 }
