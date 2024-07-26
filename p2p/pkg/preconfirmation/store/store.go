@@ -108,26 +108,35 @@ func (s *Store) DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error 
 }
 
 func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	var cmt *EncryptedPreConfirmationWithDecrypted
 
-	return s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
+	s.mu.RLock()
+	err := s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
 		c := new(EncryptedPreConfirmationWithDecrypted)
 		err := gob.NewDecoder(bytes.NewReader(value)).Decode(c)
 		if err != nil {
 			return false
 		}
 		if bytes.Equal(c.EncryptedPreConfirmation.Commitment, cDigest[:]) {
-			c.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
 			var buf bytes.Buffer
 			err = gob.NewEncoder(&buf).Encode(c)
 			if err == nil {
-				_ = s.st.Put(key, buf.Bytes())
+				cmt = c
 			}
 			return true
 		}
 		return false
 	})
+	s.mu.RUnlock()
+	if err != nil {
+		return err
+	}
+
+	if cmt != nil {
+		cmt.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
+		return s.AddCommitment(cmt)
+	}
+	return nil
 }
 
 func (s *Store) AddWinner(blockWinner *BlockWinner) error {
