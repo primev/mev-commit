@@ -42,8 +42,6 @@ contract ProviderRegistry is
     mapping(address => bytes) public eoaToBlsPubkey;
     /// @dev Mapping of provider to staked amount
     mapping(address => uint256) public providerStakes;
-    /// @dev Mapping of bidder to slashed amount
-    mapping(address => uint256) public bidderAmount;
     /// @dev Mapping of provider to withdrawal request timestamp
     mapping(address => uint256) public withdrawalRequests;
 
@@ -158,7 +156,8 @@ contract ProviderRegistry is
             feeRecipientAmount += feeAmt;
         }
 
-        bidderAmount[bidder] += amtMinusFee;
+        (bool success, ) = payable(bidder).call{value: amtMinusFee}("");
+        require(success, "Transfer to bidder failed");
 
         emit FundsSlashed(provider, amtMinusFee);
     }
@@ -188,19 +187,6 @@ contract ProviderRegistry is
         feeRecipientAmount = 0;
         (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
         require(successFee, "fee recipient transfer failed");
-    }
-
-    /**
-     * @dev Withdraw funds to the bidder.
-     * @param bidder The address of the bidder.
-     */
-    function withdrawBidderAmount(address bidder) external nonReentrant {
-        require(bidderAmount[bidder] > 0, "Bidder Amount is zero");
-
-        bidderAmount[bidder] = 0;
-
-        (bool success, ) = bidder.call{value: bidderAmount[bidder]}("");
-        require(success, "Couldn't transfer to bidder");
     }
 
     /// @dev Requests withdrawal of the staked amount.

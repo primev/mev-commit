@@ -193,9 +193,10 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         address bidder = vm.addr(4);
 
-        providerRegistry.slash(1 ether, provider, payable(bidder),100);
+        vm.expectCall(bidder, 900000000000000000 wei, new bytes(0));
+        providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
-        assertEq(providerRegistry.bidderAmount(bidder), 900000000000000000 wei);
+        assertEq(bidder.balance, 900000000000000000 wei);
         assertEq(providerRegistry.feeRecipientAmount(), 100000000000000000 wei);
         assertEq(providerRegistry.providerStakes(provider), 1 ether);
     }
@@ -210,9 +211,10 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         address bidder = vm.addr(4);
 
-        providerRegistry.slash(1 ether, provider, payable(bidder),100);
+        vm.expectCall(bidder, 900000000000000000 wei, new bytes(0));
+        providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
-        assertEq(providerRegistry.bidderAmount(bidder), 900000000000000000 wei);
+        assertEq(bidder.balance, 900000000000000000 wei);
         assertEq(providerRegistry.providerStakes(provider), 1 ether);
     }
 
@@ -236,7 +238,7 @@ contract ProviderRegistryTest is Test {
         vm.expectRevert(bytes(""));
         vm.prank(address(this));
 
-        providerRegistry.slash(3 ether, provider, payable(bidder),100);
+        providerRegistry.slash(3 ether, provider, payable(bidder), 100);
     }
 
     function test_FeeRecipientAmount() public {
@@ -260,26 +262,10 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function test_WithdrawBidderAmount() public {
-        address bidder = vm.addr(7);
-        vm.deal(bidder, 3 ether);
-        vm.prank(bidder);
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
-
-        providerRegistry.setPreconfirmationsContract(address(this));
-        providerRegistry.slash(1e18 wei, bidder, payable(bidder),100);
-        vm.prank(bidder);
-        providerRegistry.withdrawBidderAmount(bidder);
-        assertEq(
-            providerRegistry.bidderAmount(bidder),
-            0,
-            "BidderAmount should be zero after withdrawal"
-        );
-    }
-
     function test_WithdrawStakedAmountWithoutFeeRecipient() public {
         providerRegistry.setNewFeeRecipient(address(0));
         address newProvider = vm.addr(8);
+        address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
@@ -287,7 +273,7 @@ contract ProviderRegistryTest is Test {
             address(preConfCommitmentStore)
         );
         vm.prank(address(preConfCommitmentStore));
-        providerRegistry.slash(1e18 wei, newProvider, payable(newProvider),100);
+        providerRegistry.slash(1e18 wei, newProvider, payable(bidder),100);
         vm.prank(newProvider);
         providerRegistry.requestWithdrawal();
         vm.warp(block.timestamp + 24 hours); // Move forward in time
@@ -360,6 +346,7 @@ contract ProviderRegistryTest is Test {
 
     function test_WithdrawStakedAmount() public {
         address newProvider = vm.addr(8);
+        address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
@@ -367,7 +354,7 @@ contract ProviderRegistryTest is Test {
             address(preConfCommitmentStore)
         );
         vm.prank(address(preConfCommitmentStore));
-        providerRegistry.slash(1e18 wei, newProvider, payable(newProvider),100);
+        providerRegistry.slash(1e18 wei, newProvider, payable(bidder),100);
         vm.prank(newProvider);
         providerRegistry.requestWithdrawal();
         vm.warp(block.timestamp + 24 hours); // Move forward in time

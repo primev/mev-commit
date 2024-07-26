@@ -728,7 +728,7 @@ contract TestPreConfCommitmentStore is Test {
 
             assertEq(bidderRegistry.lockedFunds(bidder, depositWindow), 2 ether - _testCommitmentAliceBob.bid);
             assertEq(bidderRegistry.providerAmount(commiter), 0 ether);
-            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
+            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid + 2); // +2 is the slashed funds from provider
         }
         // commitmentHash value is internal to contract and not asserted  
     }
