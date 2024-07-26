@@ -67,7 +67,7 @@ func (s *Store) ListDeposits(ctx context.Context, till *big.Int) ([]*big.Int, er
 		if !ok {
 			return false
 		}
-		if till == nil || (till != nil && w.Cmp(till) != 1) {
+		if till == nil || w.Cmp(till) != 1 {
 			deposits = append(deposits, w)
 		}
 		return false

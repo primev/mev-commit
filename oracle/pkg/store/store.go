@@ -425,6 +425,9 @@ func (s *Store) PendingTxns() ([]*txmonitor.TxnDetails, error) {
 			Nonce: nonce,
 		})
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return txns, nil
 }
 
