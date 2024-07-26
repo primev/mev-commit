@@ -908,6 +908,59 @@ contract TestPreConfCommitmentStore is Test {
         }
     }
 
+    function test_storeEncryptedCommitment_InsufficientStake() public {
+        // Step 1: Prepare the commitment information and signature
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+
+        // Step 2: Attempt to store the commitment and expect it to fail due to insufficient stake
+        vm.prank(committer);
+        vm.expectRevert("Insufficient stake");
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            1000
+        );
+    }
+
+    function test_storeEncryptedCommitment_PendingWithdrawal() public {
+        // Step 1: Prepare the commitment information and signature
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+
+        // Ensure the committer has enough ETH for the required stake
+        vm.deal(committer, 2 ether);
+        vm.prank(committer);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+
+        // Request a withdrawal to create a pending withdrawal request
+        vm.prank(committer);
+        providerRegistry.requestWithdrawal();
+
+        // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
+        vm.prank(committer);
+        vm.expectRevert("Pending withdrawal request");
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            1000
+        );
+    }
+
     function _bytesToHexString(
         bytes memory _bytes
     ) internal pure returns (string memory) {
