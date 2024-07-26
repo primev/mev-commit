@@ -215,7 +215,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 					adt.logger.Info("withdraw from windows", "hash", txn.Hash(), "windows", withdrawWindows)
 					err = adt.store.ClearDeposits(egCtx, withdrawWindows)
 					if err != nil {
-						return err
+						return fmt.Errorf("failed to clear deposits: %w", err)
 					}
 				}
 
@@ -245,7 +245,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 				)
 				err = adt.store.StoreDeposits(egCtx, []*big.Int{nextWindow})
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to store deposits: %w", err)
 				}
 			}
 		}
