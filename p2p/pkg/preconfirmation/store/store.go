@@ -2,13 +2,13 @@ package store
 
 import (
 	"bytes"
-	"encoding/gob"
 	"fmt"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 const (
@@ -58,12 +58,11 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 
 	key := commitmentKey(commitment.Bid.BlockNumber, commitment.EncryptedPreConfirmation.Commitment)
 
-	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(commitment)
+	buf, err := msgpack.Marshal(commitment)
 	if err != nil {
 		return err
 	}
-	return s.st.Put(key, buf.Bytes())
+	return s.st.Put(key, buf)
 }
 
 func (s *Store) GetCommitments(blockNum int64) ([]*EncryptedPreConfirmationWithDecrypted, error) {
@@ -75,7 +74,7 @@ func (s *Store) GetCommitments(blockNum int64) ([]*EncryptedPreConfirmationWithD
 
 	err := s.st.WalkPrefix(blockCommitmentsKey, func(key string, value []byte) bool {
 		commitment := new(EncryptedPreConfirmationWithDecrypted)
-		err := gob.NewDecoder(bytes.NewReader(value)).Decode(commitment)
+		err := msgpack.Unmarshal(value, commitment)
 		if err != nil {
 			return false
 		}
@@ -113,16 +112,12 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 	s.mu.RLock()
 	err := s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
 		c := new(EncryptedPreConfirmationWithDecrypted)
-		err := gob.NewDecoder(bytes.NewReader(value)).Decode(c)
+		err := msgpack.Unmarshal(value, c)
 		if err != nil {
 			return false
 		}
 		if bytes.Equal(c.EncryptedPreConfirmation.Commitment, cDigest[:]) {
-			var buf bytes.Buffer
-			err = gob.NewEncoder(&buf).Encode(c)
-			if err == nil {
-				cmt = c
-			}
+			cmt = c
 			return true
 		}
 		return false
@@ -143,13 +138,12 @@ func (s *Store) AddWinner(blockWinner *BlockWinner) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(blockWinner)
+	buf, err := msgpack.Marshal(blockWinner)
 	if err != nil {
 		return err
 	}
 
-	return s.st.Put(blockWinnerKey(blockWinner.BlockNumber), buf.Bytes())
+	return s.st.Put(blockWinnerKey(blockWinner.BlockNumber), buf)
 }
 
 func (s *Store) BlockWinners() ([]*BlockWinner, error) {
@@ -159,7 +153,7 @@ func (s *Store) BlockWinners() ([]*BlockWinner, error) {
 	winners := make([]*BlockWinner, 0)
 	err := s.st.WalkPrefix(blockWinnerNS, func(key string, value []byte) bool {
 		w := new(BlockWinner)
-		err := gob.NewDecoder(bytes.NewReader(value)).Decode(w)
+		err := msgpack.Unmarshal(value, w)
 		if err != nil {
 			return false
 		}

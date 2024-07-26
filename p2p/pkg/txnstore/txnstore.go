@@ -1,9 +1,7 @@
 package txnstore
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"fmt"
 	"slices"
 	"sync"
@@ -12,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 const (
@@ -49,12 +48,12 @@ func (s *Store) Save(ctx context.Context, txHash common.Hash, nonce uint64) erro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var b bytes.Buffer
-	if err := gob.NewEncoder(&b).Encode(&txmonitor.TxnDetails{Hash: txHash, Nonce: nonce, Created: time.Now().Unix()}); err != nil {
+	buf, err := msgpack.Marshal(&txmonitor.TxnDetails{Hash: txHash, Nonce: nonce, Created: time.Now().Unix()})
+	if err != nil {
 		return err
 	}
 
-	return s.st.Put(txKey(txHash), b.Bytes())
+	return s.st.Put(txKey(txHash), buf)
 }
 
 // Update implements the txmonitor.Saver interface. It is called to update the status of the
@@ -76,7 +75,8 @@ func (s *Store) PendingTxns() ([]*txmonitor.TxnDetails, error) {
 	txns := make([]*txmonitor.TxnDetails, 0)
 	err := s.st.WalkPrefix(txNS, func(key string, value []byte) bool {
 		txn := new(txmonitor.TxnDetails)
-		if err := gob.NewDecoder(bytes.NewReader(value)).Decode(txn); err != nil {
+		err := msgpack.Unmarshal(value, txn)
+		if err != nil {
 			return false
 		}
 		txns = append(txns, txn)
