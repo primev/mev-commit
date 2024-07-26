@@ -26,9 +26,16 @@ var (
 	ErrMonitorClosed = errors.New("monitor was closed")
 )
 
+type TxnDetails struct {
+	Hash    common.Hash
+	Nonce   uint64
+	Created int64
+}
+
 type Saver interface {
 	Save(ctx context.Context, txHash common.Hash, nonce uint64) error
 	Update(ctx context.Context, txHash common.Hash, status string) error
+	PendingTxns() ([]*TxnDetails, error)
 }
 
 type EVMHelper interface {
@@ -90,6 +97,15 @@ func New(
 		newTxAdded:    make(chan struct{}),
 		nonceUpdate:   make(chan struct{}),
 		blockUpdate:   make(chan waitCheck),
+	}
+
+	pending, err := saver.PendingTxns()
+	if err != nil {
+		logger.Error("failed to get pending transactions", "err", err)
+	}
+
+	for _, txn := range pending {
+		m.WatchTx(txn.Hash, txn.Nonce)
 	}
 
 	return m
@@ -388,4 +404,8 @@ func (noopSaver) Save(ctx context.Context, txHash common.Hash, nonce uint64) err
 
 func (noopSaver) Update(ctx context.Context, txHash common.Hash, status string) error {
 	return nil
+}
+
+func (noopSaver) PendingTxns() ([]*TxnDetails, error) {
+	return nil, nil
 }

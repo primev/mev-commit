@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
-	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -37,7 +37,7 @@ func NewService(
 }
 
 type Store interface {
-	PendingTxns() ([]*store.TxnDetails, error)
+	PendingTxns() ([]*txmonitor.TxnDetails, error)
 }
 
 type Canceller interface {

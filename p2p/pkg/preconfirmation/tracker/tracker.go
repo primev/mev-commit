@@ -15,7 +15,7 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,14 +45,14 @@ type Tracker struct {
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type CommitmentStore interface {
-	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
-	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
+	GetCommitments(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
+	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted) error
 	ClearBlockNumber(blockNum int64) error
 	DeleteCommitmentByDigest(
 		blockNum int64,
 		digest [32]byte,
 	) error
-	SetCommitmentIndexByCommitmentDigest(
+	SetCommitmentIndexByDigest(
 		commitmentDigest,
 		commitmentIndex [32]byte,
 	) error
@@ -308,8 +308,7 @@ func (t *Tracker) TrackCommitment(
 	ctx context.Context,
 	commitment *store.EncryptedPreConfirmationWithDecrypted,
 ) error {
-	t.store.AddCommitment(commitment)
-	return nil
+	return t.store.AddCommitment(commitment)
 }
 
 func (t *Tracker) Metrics() []prometheus.Collector {
@@ -346,7 +345,7 @@ func (t *Tracker) openCommitments(
 ) error {
 	openStart := time.Now()
 
-	commitments, err := t.store.GetCommitmentsByBlockNumber(newL1Block.BlockNumber)
+	commitments, err := t.store.GetCommitments(newL1Block.BlockNumber)
 	if err != nil {
 		t.logger.Error("failed to get commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
 		return err
@@ -455,7 +454,7 @@ func (t *Tracker) handleEncryptedCommitmentStored(
 	ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored,
 ) error {
 	t.metrics.totalEncryptedCommitments.Inc()
-	return t.store.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
+	return t.store.SetCommitmentIndexByDigest(ec.CommitmentDigest, ec.CommitmentIndex)
 }
 
 func (t *Tracker) handleCommitmentStored(
