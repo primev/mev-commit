@@ -36,29 +36,30 @@ contract ProviderRegistry is
     /// @dev Fee recipient
     address public feeRecipient;
 
-    /// @dev Mapping from provider address to whether they are registered or not
+    /// @dev Mapping of provider to registration status
     mapping(address => bool) public providerRegistered;
-
-    /// @dev Mapping from a provider's EOA address to their BLS public key
+    /// @dev Mapping of provider to BLS public key
     mapping(address => bytes) public eoaToBlsPubkey;
-
-    /// @dev Mapping from provider addresses to their staked amount
+    /// @dev Mapping of provider to staked amount
     mapping(address => uint256) public providerStakes;
-
-    /// @dev Amount assigned to bidders
+    /// @dev Mapping of bidder to slashed amount
     mapping(address => uint256) public bidderAmount;
+    /// @dev Mapping of provider to withdrawal request timestamp
+    mapping(address => uint256) public withdrawalRequests;
 
-    /// @dev Event for provider registration
+    /// @dev Event emitted when a provider is registered
     event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
-
-    /// @dev Event for depositing funds
+    /// @dev Event emitted when funds are deposited
     event FundsDeposited(address indexed provider, uint256 amount);
-
-    /// @dev Event for slashing funds
+    /// @dev Event emitted when funds are slashed
     event FundsSlashed(address indexed provider, uint256 amount);
+    /// @dev Event emitted when withdrawal is requested
+    event WithdrawalRequested(address indexed provider, uint256 timestamp);
+    /// @dev Event emitted when withdrawal is completed
+    event WithdrawalCompleted(address indexed provider, uint256 amount);
 
     /**
-     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
+     * @dev Modifier to restrict function to only pre-confirmations contract.
      */
     modifier onlyPreConfirmationEngine() {
         require(
@@ -146,16 +147,11 @@ contract ProviderRegistry is
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreConfirmationEngine {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) /
-            PERCENT;
-        require(
-            providerStakes[provider] >= residualAmt,
-            "Insufficient funds to slash"
-        );
+        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
+        require(providerStakes[provider] >= residualAmt, "Insufficient funds to slash");
         providerStakes[provider] -= residualAmt;
 
-        uint256 feeAmt = (residualAmt * uint256(feePercent) * PRECISION) /
-            PERCENT;
+        uint256 feeAmt = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
         uint256 amtMinusFee = residualAmt - feeAmt;
 
         if (feeRecipient != address(0)) {
@@ -207,40 +203,37 @@ contract ProviderRegistry is
         require(success, "Couldn't transfer to bidder");
     }
 
-    /**
-     * @dev Withdraw staked amount for the provider.
-     * @param provider The address of the provider.
-     */
-    function withdrawStakedAmount(
-        address payable provider
-    ) external nonReentrant {
-        require(msg.sender == provider, "Only provider can unstake");
-        uint256 stake = providerStakes[provider];
-        providerStakes[provider] = 0;
+    /// @dev Requests withdrawal of the staked amount.
+    function requestWithdrawal() external {
+        require(providerStakes[msg.sender] > 0, "No stake to withdraw");
+        withdrawalRequests[msg.sender] = block.timestamp;
+        emit WithdrawalRequested(msg.sender, block.timestamp);
+    }
+
+    /// @dev Withdraws the staked amount after 24 hours of withdrawal request.
+    function withdrawStakedAmount() external nonReentrant {
+        require(withdrawalRequests[msg.sender] > 0, "No withdrawal request");
+        require(block.timestamp >= withdrawalRequests[msg.sender] + 24 hours, "24 hours have not passed");
+        
+        uint256 stake = providerStakes[msg.sender];
+        providerStakes[msg.sender] = 0;
+        withdrawalRequests[msg.sender] = 0;
         require(stake > 0, "Provider Staked Amount is zero");
-        require(
-            preConfirmationsContract != address(0),
-            "preconf contract not set"
-        );
+        require(preConfirmationsContract != address(0), "preconf contract not set");
 
         uint256 providerPendingCommitmentsCount = PreConfCommitmentStore(
             payable(preConfirmationsContract)
-        ).commitmentsCount(provider);
+        ).commitmentsCount(msg.sender);
 
-        require(
-            providerPendingCommitmentsCount == 0,
-            "provider commitments are pending"
-        );
+        require(providerPendingCommitmentsCount == 0, "provider commitments are pending");
 
-        (bool success, ) = provider.call{value: stake}("");
+        (bool success, ) = msg.sender.call{value: stake}("");
         require(success, "stake transfer failed");
+
+        emit WithdrawalCompleted(msg.sender, stake);
     }
 
-    /**
-     * @dev Check the stake of a provider.
-     * @param provider The address of the provider.
-     * @return The staked amount for the provider.
-     */
+    /// @dev Returns the stake of a provider.
     function checkStake(address provider) external view returns (uint256) {
         return providerStakes[provider];
     }
