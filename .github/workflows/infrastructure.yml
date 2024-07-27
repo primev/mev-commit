@@ -67,7 +67,7 @@ jobs:
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
           CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
-          CLUSTER_L1_RPC_URL_FLAG="--l1-rpc-url https://eth-holesky.g.alchemy.com/v2/lHOPxQcFX0HGe-32bZcNbBoayrjbXAUS"
+          CLUSTER_L1_RPC_URL_FLAG="--l1-rpc-url https://eth-sepolia.g.alchemy.com/v2/lHOPxQcFX0HGe-32bZcNbBoayrjbXAUS"
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
           TARGET_MACHINE_IP=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "$(dig +short ${{ github.event.inputs.target_machine }})" || echo "127.0.0.1")
 
