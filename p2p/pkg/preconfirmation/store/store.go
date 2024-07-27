@@ -1,7 +1,7 @@
 package store
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 	"sync"
 
@@ -16,6 +16,8 @@ const (
 
 	// block winners
 	blockWinnerNS = "bw/"
+
+	cmtIndexNS = "ci/"
 )
 
 var (
@@ -27,6 +29,9 @@ var (
 	}
 	blockWinnerKey = func(blockNumber int64) string {
 		return fmt.Sprintf("%s%d", blockWinnerNS, blockNumber)
+	}
+	cmtIndexKey = func(cIndex []byte) string {
+		return fmt.Sprintf("%s%s", cmtIndexNS, string(cIndex))
 	}
 )
 
@@ -52,9 +57,23 @@ func New(st storage.Storage) *Store {
 	}
 }
 
-func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted) error {
+func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted) (err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	var writer storage.Writer
+	if w, ok := s.st.(storage.Batcher); ok {
+		batch := w.Batch()
+		writer = batch
+		defer func() {
+			if err == nil {
+				err = batch.Write()
+			}
+		}()
+
+	} else {
+		writer = s.st
+	}
 
 	key := commitmentKey(commitment.Bid.BlockNumber, commitment.EncryptedPreConfirmation.Commitment)
 
@@ -62,7 +81,16 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 	if err != nil {
 		return err
 	}
-	return s.st.Put(key, buf)
+
+	if err := writer.Put(key, buf); err != nil {
+		return err
+	}
+
+	cIndexKey := cmtIndexKey(commitment.EncryptedPreConfirmation.Commitment)
+	blkNumBuf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(blkNumBuf, uint64(commitment.Bid.BlockNumber))
+
+	return writer.Put(cIndexKey, blkNumBuf)
 }
 
 func (s *Store) GetCommitments(blockNum int64) ([]*EncryptedPreConfirmationWithDecrypted, error) {
@@ -107,18 +135,50 @@ func (s *Store) DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error 
 }
 
 func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
-	var cmt *EncryptedPreConfirmationWithDecrypted
-
 	s.mu.RLock()
-	err := s.st.WalkPrefix(commitmentNS, func(key string, value []byte) bool {
-		c := new(EncryptedPreConfirmationWithDecrypted)
-		err := msgpack.Unmarshal(value, c)
-		if err != nil {
-			return false
-		}
-		if bytes.Equal(c.EncryptedPreConfirmation.Commitment, cDigest[:]) {
-			cmt = c
-			return true
+	blkNumBuf, err := s.st.Get(cmtIndexKey(cDigest[:]))
+	s.mu.RUnlock()
+	switch {
+	case err == storage.ErrKeyNotFound:
+		// this would happen for most of the commitments as the node only
+		// stores the commitments it is involved in.
+		return nil
+	case err != nil:
+		return err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	blkNum := binary.LittleEndian.Uint64(blkNumBuf)
+	commitmentKey := commitmentKey(int64(blkNum), cDigest[:])
+	cmtBuf, err := s.st.Get(commitmentKey)
+	if err != nil {
+		return err
+	}
+
+	cmt := new(EncryptedPreConfirmationWithDecrypted)
+	err = msgpack.Unmarshal(cmtBuf, cmt)
+	if err != nil {
+		return err
+	}
+
+	cmt.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
+	buf, err := msgpack.Marshal(cmt)
+	if err != nil {
+		return err
+	}
+
+	return s.st.Put(commitmentKey, buf)
+}
+
+func (s *Store) ClearCommitmentIndexes(uptoBlock int64) error {
+	keys := make([]string, 0)
+	s.mu.RLock()
+	err := s.st.WalkPrefix(cmtIndexNS, func(key string, val []byte) bool {
+		blkNum := binary.LittleEndian.Uint64([]byte(val))
+		if blkNum < uint64(uptoBlock) {
+			keys = append(keys, key)
 		}
 		return false
 	})
@@ -127,10 +187,16 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 		return err
 	}
 
-	if cmt != nil {
-		cmt.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
-		return s.AddCommitment(cmt)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, key := range keys {
+		err := s.st.Delete(key)
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 

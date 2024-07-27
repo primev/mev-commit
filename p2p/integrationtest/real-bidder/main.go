@@ -173,24 +173,31 @@ func main() {
 		txns     []string
 	}
 
-	blockChans := make([]chan blockWithTxns, *bidWorkers)
+	blockChans := make([]chan *blockWithTxns, *bidWorkers)
 	for i := 0; i < *bidWorkers; i++ {
-		blockChans[i] = make(chan blockWithTxns, 1)
+		blockChans[i] = make(chan *blockWithTxns, 1)
 	}
 
 	wg.Add(1)
 	go func(logger *slog.Logger) {
 		defer wg.Done()
 
-		currentBlkNum := int64(0)
-		for {
-			block, blkNum, err := RetreivedBlock(rpcClient)
-			if err != nil || len(block) == 0 {
-				logger.Error("failed to get block", "err", err)
+		currentBlkNum := uint64(0)
+		ticker := time.NewTicker(2 * time.Second)
+		for _ = range ticker.C {
+			blkNum, err := rpcClient.BlockNumber(context.Background())
+			if err != nil {
+				logger.Error("failed to get block number", "err", err)
+				continue
 			}
 
-			if currentBlkNum == blkNum {
-				time.Sleep(1 * time.Second)
+			if blkNum <= currentBlkNum {
+				continue
+			}
+
+			block, err := RetrieveTxns(rpcClient, blkNum)
+			if err != nil {
+				logger.Error("failed to get block", "err", err)
 				continue
 			}
 
@@ -199,8 +206,8 @@ func main() {
 				txns := make([]string, len(block))
 				copy(txns, block)
 
-				ch <- blockWithTxns{
-					blockNum: blkNum,
+				ch <- &blockWithTxns{
+					blockNum: int64(blkNum),
 					txns:     txns,
 				}
 			}
@@ -209,13 +216,16 @@ func main() {
 
 	for i := 0; i < *bidWorkers; i++ {
 		wg.Add(1)
-		go func(logger *slog.Logger, newBlockChan <-chan blockWithTxns) {
+		go func(logger *slog.Logger, newBlockChan <-chan *blockWithTxns) {
 			defer wg.Done()
 			ticker := time.NewTicker(200 * time.Millisecond)
-			currentBlock := blockWithTxns{}
+			currentBlock := &blockWithTxns{}
 			for {
 				select {
 				case block := <-newBlockChan:
+					if block.blockNum <= currentBlock.blockNum {
+						continue
+					}
 					currentBlock = block
 				case <-ticker.C:
 				}
@@ -238,7 +248,6 @@ func main() {
 				err = sendBid(
 					bidderClient,
 					logger,
-					rpcClient,
 					currentBlock.txns[bundleStart:bundleEnd],
 					currentBlock.blockNum,
 					(time.Now().UnixMilli())-int64(startTimeDiff),
@@ -254,14 +263,10 @@ func main() {
 	wg.Wait()
 }
 
-func RetreivedBlock(rpcClient *ethclient.Client) ([]string, int64, error) {
-	blkNum, err := rpcClient.BlockNumber(context.Background())
-	if err != nil {
-		return nil, -1, err
-	}
+func RetrieveTxns(rpcClient *ethclient.Client, blkNum uint64) ([]string, error) {
 	fullBlock, err := rpcClient.BlockByNumber(context.Background(), big.NewInt(int64(blkNum)))
 	if err != nil {
-		return nil, -1, err
+		return nil, err
 	}
 
 	blockTxns := []string{}
@@ -270,18 +275,24 @@ func RetreivedBlock(rpcClient *ethclient.Client) ([]string, int64, error) {
 		blockTxns = append(blockTxns, strings.TrimPrefix(txn.Hash().Hex(), "0x"))
 	}
 
-	return blockTxns, int64(blkNum), nil
+	if len(blockTxns) == 0 {
+		return nil, errors.New("no txns in block")
+	}
+
+	return blockTxns, nil
 }
 
 func sendBid(
 	bidderClient pb.BidderClient,
 	logger *slog.Logger,
-	rpcClient *ethclient.Client,
 	txnHashes []string,
 	blkNum int64,
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
 ) error {
+	if len(txnHashes) == 0 {
+		return errors.New("no txns to send")
+	}
 	amount := rand.Intn(200000)
 	amount += 100000
 

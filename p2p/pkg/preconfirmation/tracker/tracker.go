@@ -56,6 +56,7 @@ type CommitmentStore interface {
 		commitmentDigest,
 		commitmentIndex [32]byte,
 	) error
+	ClearCommitmentIndexes(upto int64) error
 	AddWinner(winner *store.BlockWinner) error
 	BlockWinners() ([]*store.BlockWinner, error)
 }
@@ -276,6 +277,10 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		}
 	})
 
+	eg.Go(func() error {
+		return t.clearCommitments(egCtx)
+	})
+
 	if t.peerType == p2p.PeerTypeBidder {
 		eg.Go(func() error {
 			for {
@@ -447,6 +452,35 @@ func (t *Tracker) openCommitments(
 	}
 
 	return nil
+}
+
+func (t *Tracker) clearCommitments(ctx context.Context) error {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+		winners, err := t.store.BlockWinners()
+		if err != nil {
+			return err
+		}
+
+		if len(winners) == 0 {
+			continue
+		}
+
+		// clear commitment indexes for all the blocks before the oldest winner
+		err = t.store.ClearCommitmentIndexes(winners[0].BlockNumber)
+		if err != nil {
+			return err
+		}
+
+		t.logger.Info("commitment indexes cleared", "blockNumber", winners[0].BlockNumber)
+	}
 }
 
 func (t *Tracker) handleEncryptedCommitmentStored(

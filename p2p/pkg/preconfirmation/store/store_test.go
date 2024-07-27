@@ -73,6 +73,43 @@ func TestStore_ClearBlockNumber(t *testing.T) {
 	}
 }
 
+func TestStore_ClearCommitmentIndex(t *testing.T) {
+	inmemstore := inmem.New()
+	st := store.New(inmemstore)
+	commitment := &store.EncryptedPreConfirmationWithDecrypted{
+		EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+			Commitment: []byte("commitment"),
+		},
+		PreConfirmation: &preconfpb.PreConfirmation{
+			Bid: &preconfpb.Bid{
+				BlockNumber: 1,
+			},
+		},
+	}
+	err := st.AddCommitment(commitment)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = st.ClearCommitmentIndexes(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entries := 0
+	err = inmemstore.WalkPrefix("ci/", func(_ string, _ []byte) bool {
+		entries++
+		return false
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if entries != 0 {
+		t.Fatalf("expected 0 entries, got %d", entries)
+	}
+}
+
 func TestStore_DeleteCommitmentByDigest(t *testing.T) {
 	st := store.New(inmem.New())
 	digest := [32]byte{}
