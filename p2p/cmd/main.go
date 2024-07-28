@@ -62,7 +62,7 @@ var (
 		Name:    "data-dir",
 		Usage:   "path to data directory",
 		EnvVars: []string{"MEV_COMMIT_DATA_DIR"},
-		// Value:   filepath.Join(defaultConfigDir, defaultDataDir),
+		Value:   filepath.Join(defaultConfigDir, defaultDataDir),
 	})
 
 	optionPrivKeyFile = altsrc.NewStringFlag(&cli.StringFlag{
