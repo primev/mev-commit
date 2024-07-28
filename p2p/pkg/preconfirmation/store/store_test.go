@@ -97,7 +97,7 @@ func TestStore_ClearCommitmentIndex(t *testing.T) {
 	}
 
 	entries := 0
-	err = inmemstore.WalkPrefix("ci/", func(_ string, _ []byte) bool {
+	err = inmemstore.WalkPrefix(store.CmtIndexNS, func(_ string, _ []byte) bool {
 		entries++
 		return false
 	})

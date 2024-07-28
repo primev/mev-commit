@@ -55,7 +55,7 @@ job "{{ job.name }}" {
       }
       {% elif profile == 'stressnet' %}
       resources {
-        cpu = 2000
+        cpu = 4000
         memory = 4096
       }
       {% endif %}

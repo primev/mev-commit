@@ -66,7 +66,10 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 		batch := w.Batch()
 		writer = batch
 		defer func() {
-			if err == nil {
+			switch {
+			case err != nil:
+				batch.Reset()
+			case err == nil:
 				err = batch.Write()
 			}
 		}()

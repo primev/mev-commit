@@ -184,7 +184,7 @@ func main() {
 
 		currentBlkNum := uint64(0)
 		ticker := time.NewTicker(2 * time.Second)
-		for _ = range ticker.C {
+		for range ticker.C {
 			blkNum, err := rpcClient.BlockNumber(context.Background())
 			if err != nil {
 				logger.Error("failed to get block number", "err", err)
@@ -234,7 +234,7 @@ func main() {
 					continue
 				}
 
-				bundleLen := rand.Intn(10)
+				bundleLen := rand.Intn(10) + 1
 				bundleStart := rand.Intn(len(currentBlock.txns))
 				bundleEnd := bundleStart + bundleLen
 				if bundleEnd > len(currentBlock.txns) {
