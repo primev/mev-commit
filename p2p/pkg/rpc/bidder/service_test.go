@@ -19,7 +19,9 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -216,6 +218,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	sender := &testSender{noOfPreconfs: 2}
 	blockTrackerContract := &testBlockTrackerContract{lastBlockNumber: blocksPerWindow + 1, blocksPerWindow: blocksPerWindow, blockNumberToWinner: make(map[uint64]common.Address)}
 	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
+	store := autodepositorstore.New(inmemstorage.New())
 	srvImpl := bidderapi.NewService(
 		owner,
 		blockTrackerContract.blocksPerWindow,
@@ -231,6 +234,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 			}, nil
 		},
 		testAutoDepositTracker,
+		store,
 		logger,
 	)
 

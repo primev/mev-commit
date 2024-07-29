@@ -30,6 +30,7 @@ const (
 	defaultKeyFile   = "key"
 	defaultSecret    = "secret"
 	defaultKeystore  = "keystore"
+	defaultDataDir   = "db"
 )
 
 var (
@@ -56,6 +57,13 @@ var (
 		Usage:   "path to config file",
 		EnvVars: []string{"MEV_COMMIT_CONFIG"},
 	}
+
+	optionDataDir = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "data-dir",
+		Usage:   "path to data directory",
+		EnvVars: []string{"MEV_COMMIT_DATA_DIR"},
+		Value:   filepath.Join(defaultConfigDir, defaultDataDir),
+	})
 
 	optionPrivKeyFile = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "priv-key-file",
@@ -315,6 +323,7 @@ var (
 func main() {
 	flags := []cli.Flag{
 		optionConfig,
+		optionDataDir,
 		optionPeerType,
 		optionPrivKeyFile,
 		optionKeystorePassword,
@@ -441,8 +450,15 @@ func launchNodeWithConfig(c *cli.Context) error {
 		}
 	}
 
+	if c.String(optionDataDir.Name) != "" {
+		if err := os.MkdirAll(c.String(optionDataDir.Name), 0700); err != nil {
+			return fmt.Errorf("failed to create data directory: %w", err)
+		}
+	}
+
 	nd, err := node.NewNode(&node.Options{
 		KeySigner:                keysigner,
+		DataDir:                  c.String(optionDataDir.Name),
 		Secret:                   c.String(optionSecret.Name),
 		PeerType:                 c.String(optionPeerType.Name),
 		P2PPort:                  c.Int(optionP2PPort.Name),

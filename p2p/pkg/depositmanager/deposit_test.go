@@ -14,7 +14,8 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	depositstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -35,7 +36,7 @@ func TestDepositManager(t *testing.T) {
 	logger := util.NewTestLogger(io.Discard)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 
-	st := store.NewStore()
+	st := depositstore.New(inmemstorage.New())
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -116,7 +117,11 @@ func TestDepositManager(t *testing.T) {
 
 	publishNewWindow(evtMgr, &btABI, big.NewInt(12))
 	for {
-		if st.Len() == 0 {
+		count, err := st.BalanceEntries(big.NewInt(1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count == 0 {
 			break
 		}
 		time.Sleep(1 * time.Second)
