@@ -66,7 +66,7 @@ import (
 
 const (
 	grpcServerDialTimeout = 5 * time.Second
-	allowedL2Blocks       = 50
+	allowedL2Blocks       = 200
 )
 
 type Options struct {
