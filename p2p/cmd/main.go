@@ -31,6 +31,8 @@ const (
 	defaultSecret    = "secret"
 	defaultKeystore  = "keystore"
 	defaultDataDir   = "db"
+
+	defaultOracleWindowOffset = 1
 )
 
 var (
@@ -318,13 +320,6 @@ var (
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
 		Value:   "2000000000", // 2 gWEI
 	})
-
-	optionOracleWindowOffset = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "oracle-window-offset",
-		Usage:   "Offset for the oracle window",
-		EnvVars: []string{"MEV_COMMIT_ORACLE_WINDOW_OFFSET"},
-		Value:   1,
-	})
 )
 
 func main() {
@@ -362,7 +357,6 @@ func main() {
 		optionGasLimit,
 		optionGasTipCap,
 		optionGasFeeCap,
-		optionOracleWindowOffset,
 	}
 
 	app := &cli.App{
@@ -489,7 +483,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
 		DefaultGasTipCap:         gasTipCap,
 		DefaultGasFeeCap:         gasFeeCap,
-		OracleWindowOffset:       big.NewInt(c.Int64(optionOracleWindowOffset.Name)),
+		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

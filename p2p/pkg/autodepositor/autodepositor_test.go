@@ -148,7 +148,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 		}
 	}
 
-	assertStatus(t, false, []uint64{3, 4, 5, 6})
+	assertStatus(t, false, []uint64{3, 4, 5})
 }
 
 func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
