@@ -229,7 +229,7 @@ func NewNode(opts *Options) (*Node, error) {
 			}
 			processedBlkNum := progressstore.lastBlock.Load()
 			if blkNum > processedBlkNum+allowedL2Blocks {
-				return fmt.Errorf("mev-commit chain events is too far behind: %d current %d", processedBlkNum, blkNum)
+				return fmt.Errorf("mev-commit chain events out of sync: %d/%d", processedBlkNum, blkNum)
 			}
 			return nil
 		}),
