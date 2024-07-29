@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -14,11 +15,15 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
+)
+
+const (
+	allowedDelayToOpenCommitment = 10
 )
 
 type Tracker struct {
@@ -32,7 +37,7 @@ type Tracker struct {
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
-	winners         map[int64]*blocktracker.BlocktrackerNewL1Block
+	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
 }
@@ -40,17 +45,20 @@ type Tracker struct {
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type CommitmentStore interface {
-	GetCommitmentsByBlockNumber(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
-	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted)
-	DeleteCommitmentByBlockNumber(blockNum int64) error
+	GetCommitments(blockNum int64) ([]*store.EncryptedPreConfirmationWithDecrypted, error)
+	AddCommitment(commitment *store.EncryptedPreConfirmationWithDecrypted) error
+	ClearBlockNumber(blockNum int64) error
 	DeleteCommitmentByDigest(
 		blockNum int64,
 		digest [32]byte,
 	) error
-	SetCommitmentIndexByCommitmentDigest(
+	SetCommitmentIndexByDigest(
 		commitmentDigest,
 		commitmentIndex [32]byte,
 	) error
+	ClearCommitmentIndexes(upto int64) error
+	AddWinner(winner *store.BlockWinner) error
+	BlockWinners() ([]*store.BlockWinner, error)
 }
 
 type PreconfContract interface {
@@ -87,15 +95,12 @@ func NewTracker(
 		preconfContract: preconfContract,
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
-		// Buffered channels to avoid blocking the event manager. The buffer size
-		// should be enough to allow the tracker time to process commitments for a block
-		// which involves opening commitments on-chain.
-		newL1Blocks:  make(chan *blocktracker.BlocktrackerNewL1Block, 5),
-		enryptedCmts: make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
-		commitments:  make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
-		winners:      make(map[int64]*blocktracker.BlocktrackerNewL1Block),
-		metrics:      newMetrics(),
-		logger:       logger,
+		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
+		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
+		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
+		triggerOpen:     make(chan struct{}),
+		metrics:         newMetrics(),
+		logger:          logger,
 	}
 }
 
@@ -178,25 +183,18 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 	}
 
 	eg.Go(func() error {
-		select {
-		case <-egCtx.Done():
-			t.logger.Info("err listener context done")
-			return nil
-		case err := <-sub.Err():
-			return fmt.Errorf("event subscription error: %w", err)
-		}
-	})
-
-	eg.Go(func() error {
 		for {
 			select {
 			case <-egCtx.Done():
 				t.logger.Info("handleNewL1Block context done")
 				return nil
+			case err := <-sub.Err():
+				return fmt.Errorf("event subscription error: %w", err)
 			case newL1Block := <-t.newL1Blocks:
 				if err := t.handleNewL1Block(egCtx, newL1Block); err != nil {
 					return err
 				}
+				t.triggerOpenCommitments()
 			}
 		}
 	})
@@ -207,12 +205,80 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			case <-egCtx.Done():
 				t.logger.Info("handleEncryptedCommitmentStored context done")
 				return nil
+			case err := <-sub.Err():
+				return fmt.Errorf("event subscription error: %w", err)
 			case ec := <-t.enryptedCmts:
 				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
 					return err
 				}
 			}
 		}
+	})
+
+	eg.Go(func() error {
+		tick := time.NewTicker(2 * time.Second)
+		defer tick.Stop()
+		for {
+			select {
+			case <-egCtx.Done():
+				t.logger.Info("openCommitments context done")
+				return nil
+			case <-t.triggerOpen:
+			case <-tick.C:
+			}
+			winners, err := t.store.BlockWinners()
+			if err != nil {
+				t.logger.Error("failed to get block winners", "error", err)
+				continue
+			}
+			if len(winners) == 0 {
+				t.logger.Info("no winners to open commitments")
+				continue
+			}
+			t.logger.Info("stored block winners", "count", len(winners))
+			oldBlockNos := make([]int64, 0)
+			winners = slices.DeleteFunc(winners, func(item *store.BlockWinner) bool {
+				// the last block is the latest, so if any of the previous blocks are
+				// older than the allowed delay, we should not open the commitments
+				if winners[len(winners)-1].BlockNumber-item.BlockNumber > allowedDelayToOpenCommitment {
+					oldBlockNos = append(oldBlockNos, item.BlockNumber)
+					return true
+				}
+				return false
+			})
+			// cleanup old state
+			for _, oldBlockNo := range oldBlockNos {
+				if err := t.store.ClearBlockNumber(oldBlockNo); err != nil {
+					t.logger.Error("failed to delete commitments by block number", "blockNumber", oldBlockNo, "error", err)
+				}
+				t.logger.Info("old block commitments deleted", "blockNumber", oldBlockNo)
+			}
+			if t.peerType == p2p.PeerTypeBidder {
+				if len(winners) > 2 {
+					// Bidders should process the block 2 behind the current one. Ideally the
+					// provider should open the commitment as they get the reward, so the incentive
+					// for bidder to open is only in cases of slashes as he will get refund. Only one
+					// of bidder or provider should open the commitment as 1 of the txns would
+					// fail. This delay is to ensure this.
+					t.logger.Info("bidder detected, processing 2 blocks behind the current one")
+					winners = winners[:len(winners)-2]
+				} else {
+					t.logger.Info("no winners to open commitments")
+					continue
+				}
+			}
+			t.logger.Info("opening commitments", "count", len(winners))
+			for _, winner := range winners {
+				if err := t.openCommitments(egCtx, winner); err != nil {
+					t.logger.Error("failed to open commitments", "error", err)
+					return err
+				}
+			}
+		}
+	})
+
+	eg.Go(func() error {
+		return t.clearCommitments(egCtx)
 	})
 
 	if t.peerType == p2p.PeerTypeBidder {
@@ -222,6 +288,8 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				case <-egCtx.Done():
 					t.logger.Info("handleCommitmentStored context done")
 					return nil
+				case err := <-sub.Err():
+					return fmt.Errorf("event subscription error: %w", err)
 				case cs := <-t.commitments:
 					if err := t.handleCommitmentStored(egCtx, cs); err != nil {
 						return err
@@ -245,12 +313,18 @@ func (t *Tracker) TrackCommitment(
 	ctx context.Context,
 	commitment *store.EncryptedPreConfirmationWithDecrypted,
 ) error {
-	t.store.AddCommitment(commitment)
-	return nil
+	return t.store.AddCommitment(commitment)
 }
 
 func (t *Tracker) Metrics() []prometheus.Collector {
 	return t.metrics.Metrics()
+}
+
+func (t *Tracker) triggerOpenCommitments() {
+	select {
+	case t.triggerOpen <- struct{}{}:
+	default:
+	}
 }
 
 func (t *Tracker) handleNewL1Block(
@@ -264,30 +338,19 @@ func (t *Tracker) handleNewL1Block(
 		"window", newL1Block.Window,
 	)
 
+	return t.store.AddWinner(&store.BlockWinner{
+		BlockNumber: newL1Block.BlockNumber.Int64(),
+		Winner:      newL1Block.Winner,
+	})
+}
+
+func (t *Tracker) openCommitments(
+	ctx context.Context,
+	newL1Block *store.BlockWinner,
+) error {
 	openStart := time.Now()
 
-	if t.peerType == p2p.PeerTypeBidder {
-		// Bidders should process the block 1 behind the current one. Ideally the
-		// provider should open the commitment as they get the reward, so the incentive
-		// for bidder to open is only in cases of slashes as he will get refund. Only one
-		// of bidder or provider should open the commitment as 1 of the txns would
-		// fail. This delay is to ensure this.
-		t.logger.Info("bidder detected, processing 2 blocks behind the current one")
-		t.winners[newL1Block.BlockNumber.Int64()] = newL1Block
-		pastBlock, ok := t.winners[newL1Block.BlockNumber.Int64()-2]
-		if !ok {
-			return nil
-		}
-		newL1Block = pastBlock
-		t.logger.Info("processing past block", "blockNumber", pastBlock.BlockNumber)
-		for k := range t.winners {
-			if k < pastBlock.BlockNumber.Int64() {
-				delete(t.winners, k)
-			}
-		}
-	}
-
-	commitments, err := t.store.GetCommitmentsByBlockNumber(newL1Block.BlockNumber.Int64())
+	commitments, err := t.store.GetCommitments(newL1Block.BlockNumber)
 	if err != nil {
 		t.logger.Error("failed to get commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
 		return err
@@ -354,7 +417,7 @@ func (t *Tracker) handleNewL1Block(
 		settled++
 	}
 
-	err = t.store.DeleteCommitmentByBlockNumber(newL1Block.BlockNumber.Int64())
+	err = t.store.ClearBlockNumber(newL1Block.BlockNumber)
 	if err != nil {
 		t.logger.Error("failed to delete commitments by block number", "blockNumber", newL1Block.BlockNumber, "error", err)
 		return err
@@ -391,12 +454,41 @@ func (t *Tracker) handleNewL1Block(
 	return nil
 }
 
+func (t *Tracker) clearCommitments(ctx context.Context) error {
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+		winners, err := t.store.BlockWinners()
+		if err != nil {
+			return err
+		}
+
+		if len(winners) == 0 {
+			continue
+		}
+
+		// clear commitment indexes for all the blocks before the oldest winner
+		err = t.store.ClearCommitmentIndexes(winners[0].BlockNumber)
+		if err != nil {
+			return err
+		}
+
+		t.logger.Info("commitment indexes cleared", "blockNumber", winners[0].BlockNumber)
+	}
+}
+
 func (t *Tracker) handleEncryptedCommitmentStored(
 	ctx context.Context,
 	ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored,
 ) error {
 	t.metrics.totalEncryptedCommitments.Inc()
-	return t.store.SetCommitmentIndexByCommitmentDigest(ec.CommitmentDigest, ec.CommitmentIndex)
+	return t.store.SetCommitmentIndexByDigest(ec.CommitmentDigest, ec.CommitmentIndex)
 }
 
 func (t *Tracker) handleCommitmentStored(

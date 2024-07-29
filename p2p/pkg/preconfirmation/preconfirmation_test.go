@@ -20,8 +20,8 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
+	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
-	"github.com/primev/mev-commit/p2p/pkg/store"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
 )
 

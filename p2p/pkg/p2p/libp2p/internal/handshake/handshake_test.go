@@ -11,10 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/libp2p/go-libp2p/core"
+	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 )
 
@@ -56,7 +57,7 @@ func TestHandshake(t *testing.T) {
 
 		address2 := common.HexToAddress("0x2")
 		ks2 := mockkeysigner.NewMockKeySigner(privKey2, address2)
-		store1 := store.NewStore()
+		store1 := keysstore.New(inmemstorage.New())
 		nikePrivateKey1, err := ecdh.P256().GenerateKey(rand.Reader)
 		if err != nil {
 			t.Fatal(err)
@@ -91,7 +92,7 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		store2 := store.NewStore()
+		store2 := keysstore.New(inmemstorage.New())
 		nikePrivateKey2, err := ecdh.P256().GenerateKey(rand.Reader)
 		if err != nil {
 			t.Fatal(err)

@@ -30,21 +30,28 @@ import (
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
+	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
+	depositmanagerstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
+	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
+	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	preconftracker "github.com/primev/mev-commit/p2p/pkg/preconfirmation/tracker"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
 	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/p2p/pkg/storage"
+	inmem "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
+	pebblestorage "github.com/primev/mev-commit/p2p/pkg/storage/pebble"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/p2p/pkg/txnstore"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
@@ -62,6 +69,7 @@ const (
 
 type Options struct {
 	Version                  string
+	DataDir                  string
 	KeySigner                keysigner.KeySigner
 	Secret                   string
 	PeerType                 string
@@ -125,7 +133,17 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
-	store := store.NewStore()
+	var store storage.Storage
+	if opts.DataDir != "" {
+		store, err = pebblestorage.New(opts.DataDir)
+		if err != nil {
+			opts.Logger.Error("failed to create storage", "error", err)
+			return nil, err
+		}
+	} else {
+		store = inmem.New()
+	}
+	nd.closers = append(nd.closers, store)
 
 	contracts, err := getContractABIs(opts)
 	if err != nil {
@@ -141,22 +159,6 @@ func NewNode(opts *Options) (*Node, error) {
 		contractAddrs = append(contractAddrs, addr)
 	}
 
-	lastBlock, err := contractRPC.BlockNumber(context.Background())
-	if err != nil {
-		opts.Logger.Error("failed to get last block", "error", err)
-		return nil, errors.Join(err, nd.Close())
-	}
-
-	// TODO: Having this block setting here because the store is in-memory.
-	// Once we have a database, this should be removed.
-	err = store.SetLastBlock(lastBlock)
-	if err != nil {
-		opts.Logger.Error("failed to set last block", "error", err)
-		return nil, errors.Join(err, nd.Close())
-	}
-
-	opts.Logger.Info("node set latest block", "lastBlock", lastBlock)
-
 	evtMgr := events.NewListener(
 		opts.Logger.With("component", "events"),
 		abis...,
@@ -169,14 +171,14 @@ func NewNode(opts *Options) (*Node, error) {
 	if opts.WSRPCEndpoint != "" {
 		// Use WS publisher if WSRPCEndpoint is set
 		evtPublisher = publisher.NewWSPublisher(
-			store,
+			&progressStore{contractRPC},
 			opts.Logger.With("component", "ws_publisher"),
 			contractRPC,
 			evtMgr,
 		)
 	} else {
 		evtPublisher = publisher.NewHTTPPublisher(
-			store,
+			&progressStore{contractRPC},
 			opts.Logger.With("component", "http_publisher"),
 			contractRPC,
 			evtMgr,
@@ -190,11 +192,13 @@ func NewNode(opts *Options) (*Node, error) {
 		}),
 	)
 
+	txnStore := txnstore.New(store)
+
 	monitor := txmonitor.New(
 		opts.KeySigner.GetAddress(),
 		contractRPC,
 		txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "txmonitor")),
-		store,
+		txnStore,
 		opts.Logger.With("component", "txmonitor"),
 		1024,
 	)
@@ -238,6 +242,8 @@ func NewNode(opts *Options) (*Node, error) {
 		return tOpts, err
 	}
 
+	keysStore := keysstore.New(store)
+
 	p2pSvc, err := libp2p.New(&libp2p.Options{
 		KeySigner: opts.KeySigner,
 		Secret:    opts.Secret,
@@ -246,7 +252,7 @@ func NewNode(opts *Options) (*Node, error) {
 			providerRegistry: providerRegistry,
 			from:             opts.KeySigner.GetAddress(),
 		},
-		Store:          store,
+		Store:          keysStore,
 		Logger:         opts.Logger.With("component", "p2p"),
 		ListenPort:     opts.P2PPort,
 		ListenAddr:     opts.P2PAddr,
@@ -295,7 +301,7 @@ func NewNode(opts *Options) (*Node, error) {
 	grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
 
 	debugService := debugapi.NewService(
-		store,
+		txnStore,
 		txmonitor.NewCanceller(
 			chainID,
 			contractRPC,
@@ -350,7 +356,7 @@ func NewNode(opts *Options) (*Node, error) {
 			peerType,
 			opts.KeySigner.GetAddress(),
 			evtMgr,
-			store,
+			preconfstore.New(store),
 			commitmentDA,
 			txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "evm_helper")),
 			optsGetter,
@@ -382,12 +388,12 @@ func NewNode(opts *Options) (*Node, error) {
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(
 				blocksPerWindow,
-				store,
+				depositmanagerstore.New(store),
 				evtMgr,
 				opts.Logger.With("component", "depositmanager"),
 			)
 			startables = append(startables, depositMgr.(*depositmanager.DepositManager))
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())
@@ -411,7 +417,7 @@ func NewNode(opts *Options) (*Node, error) {
 				p2pSvc,
 				opts.KeySigner,
 				nil,
-				store,
+				keysStore,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 				nil,
@@ -425,13 +431,13 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.Error("failed to generate AES key", "error", err)
 				return nil, errors.Join(err, nd.Close())
 			}
-			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
+			err = keysStore.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
 			if err != nil {
 				opts.Logger.Error("failed to set AES key", "error", err)
 				return nil, errors.Join(err, nd.Close())
 			}
 
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())
@@ -451,11 +457,14 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
+			autodepositorStore := autodepositorstore.New(store)
+
 			autoDeposit := autodepositor.New(
 				evtMgr,
 				bidderRegistry,
 				blockTrackerSession,
 				optsGetter,
+				autodepositorStore,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
@@ -478,6 +487,7 @@ func NewNode(opts *Options) (*Node, error) {
 				monitor,
 				optsGetter,
 				autoDeposit,
+				autodepositorStore,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
@@ -487,7 +497,7 @@ func NewNode(opts *Options) (*Node, error) {
 				p2pSvc,
 				opts.KeySigner,
 				aesKey,
-				store,
+				keysStore,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 				opts.ProviderWhitelist,
@@ -749,4 +759,16 @@ func (p *providerStakeChecker) CheckProviderRegistered(ctx context.Context, prov
 	}
 
 	return stake.Cmp(minStake) >= 0
+}
+
+type progressStore struct {
+	contractRPC *ethclient.Client
+}
+
+func (p *progressStore) LastBlock() (uint64, error) {
+	return p.contractRPC.BlockNumber(context.Background())
+}
+
+func (p *progressStore) SetLastBlock(block uint64) error {
+	return nil
 }
