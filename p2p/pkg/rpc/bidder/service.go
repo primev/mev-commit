@@ -30,6 +30,7 @@ type Service struct {
 	watcher              TxWatcher
 	optsGetter           OptsGetter
 	autoDepositTracker   AutoDepositTracker
+	store                DepositStore
 	oracleWindowOffset   *big.Int
 	logger               *slog.Logger
 	metrics              *metrics
@@ -46,6 +47,7 @@ func NewService(
 	watcher TxWatcher,
 	optsGetter OptsGetter,
 	autoDepositTracker AutoDepositTracker,
+	store DepositStore,
 	oracleWindowOffset *big.Int,
 	logger *slog.Logger,
 ) *Service {
@@ -61,6 +63,7 @@ func NewService(
 		metrics:              newMetrics(),
 		autoDepositTracker:   autoDepositTracker,
 		oracleWindowOffset:   oracleWindowOffset,
+		store:                store,
 		validator:            validator,
 	}
 }
@@ -94,6 +97,15 @@ type TxWatcher interface {
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
+
+type DepositStore interface {
+	// StoreDeposits stores the deposited windows.
+	StoreDeposits(ctx context.Context, windows []*big.Int) error
+	// ClearDeposits clears the deposits for the given windows.
+	ClearDeposits(ctx context.Context, windows []*big.Int) error
+	// IsDepositMade checks if the deposit is already made for the given window.
+	IsDepositMade(ctx context.Context, window *big.Int) bool
+}
 
 func (s *Service) SendBid(
 	bid *bidderapiv1.Bid,
@@ -202,6 +214,11 @@ func (s *Service) Deposit(
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
+	err = s.store.StoreDeposits(ctx, []*big.Int{windowToDeposit})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "storing deposits: %v", err)
+	}
+
 	for _, log := range receipt.Logs {
 		if registration, err := s.registryContract.ParseBidderRegistered(*log); err == nil {
 			s.logger.Info("deposit successful", "amount", registration.DepositedAmount, "window", registration.WindowNumber)
@@ -304,6 +321,11 @@ func (s *Service) Withdraw(
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	err = s.store.ClearDeposits(ctx, []*big.Int{window})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "clearing deposits: %v", err)
 	}
 
 	for _, log := range receipt.Logs {
@@ -417,6 +439,11 @@ func (s *Service) CancelAutoDeposit(
 					}
 					if receipt.Status != types.ReceiptStatusSuccessful {
 						s.logger.Error("receipt status", "status", receipt.Status)
+						return
+					}
+					err = s.store.ClearDeposits(context.Background(), windows)
+					if err != nil {
+						s.logger.Error("clearing deposits", "error", err)
 					}
 					return
 				}
@@ -471,6 +498,11 @@ func (s *Service) WithdrawFromWindows(
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	err = s.store.ClearDeposits(ctx, windows)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "clearing deposits: %v", err)
 	}
 
 	var amountsAndWindows []*bidderapiv1.WithdrawResponse

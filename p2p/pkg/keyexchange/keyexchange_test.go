@@ -18,10 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
+	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
 	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 )
@@ -58,8 +59,8 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		Type:       p2p.PeerTypeBidder,
 	}
 
-	bidderStore := store.NewStore()
-	providerStore := store.NewStore()
+	bidderStore := keysstore.New(inmemstorage.New())
+	providerStore := keysstore.New(inmemstorage.New())
 
 	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
 	if err != nil {
@@ -159,8 +160,8 @@ func TestKeyExchange_Whitelist(t *testing.T) {
 		Type:       p2p.PeerTypeBidder,
 	}
 
-	bidderStore := store.NewStore()
-	providerStore := store.NewStore()
+	bidderStore := keysstore.New(inmemstorage.New())
+	providerStore := keysstore.New(inmemstorage.New())
 
 	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
 	if err != nil {

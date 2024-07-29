@@ -16,6 +16,8 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
+	"github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -84,8 +86,10 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 		return &bind.TransactOpts{}, nil
 	}
 
+	st := store.New(inmemstorage.New())
+
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, oracleWindowOffset, logger)
 
 	// Start AutoDepositTracker
 	ctx := context.Background()
@@ -144,7 +148,7 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 		}
 	}
 
-	assertStatus(t, false, []uint64{})
+	assertStatus(t, false, []uint64{3, 4, 5, 6})
 }
 
 func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
@@ -181,9 +185,10 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 	}
 
 	oracleWindowOffset := big.NewInt(1)
+	st := store.New(inmemstorage.New())
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, oracleWindowOffset, logger)
 
 	// Start AutoDepositTracker with a cancelable context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -219,9 +224,10 @@ func TestAutoDepositTracker_Stop_NotRunning(t *testing.T) {
 	}
 
 	oracleWindowOffset := big.NewInt(1)
+	st := store.New(inmemstorage.New())
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, oracleWindowOffset, logger)
 
 	// Stop AutoDepositTracker when not running
 	_, err = adt.Stop()
@@ -262,9 +268,10 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 	}
 
 	oracleWindowOffset := big.NewInt(1)
+	st := store.New(inmemstorage.New())
 
 	// Create AutoDepositTracker instance
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, oracleWindowOffset, logger)
+	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, oracleWindowOffset, logger)
 
 	// Assert initial IsWorking status
 	if adt.IsWorking() {
