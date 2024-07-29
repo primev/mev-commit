@@ -93,6 +93,7 @@ type Options struct {
 	DefaultGasLimit          uint64
 	DefaultGasTipCap         *big.Int
 	DefaultGasFeeCap         *big.Int
+	OracleWindowOffset       *big.Int
 }
 
 type Node struct {
@@ -465,6 +466,7 @@ func NewNode(opts *Options) (*Node, error) {
 				blockTrackerSession,
 				optsGetter,
 				autodepositorStore,
+				opts.OracleWindowOffset,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
@@ -488,6 +490,7 @@ func NewNode(opts *Options) (*Node, error) {
 				optsGetter,
 				autoDeposit,
 				autodepositorStore,
+				opts.OracleWindowOffset,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)

@@ -115,7 +115,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 				dm.logger.Info("clear balances set balances context done")
 				return nil
 			case window := <-dm.windowChan:
-				windowToClear := new(big.Int).Sub(window.Window, big.NewInt(2))
+				windowToClear := new(big.Int).Sub(window.Window, big.NewInt(1))
 				windows, err := dm.store.ClearBalances(windowToClear)
 				if err != nil {
 					dm.logger.Error("failed to clear balances", "error", err, "window", windowToClear)
