@@ -49,6 +49,28 @@ func (t *testRegistryContract) ParseProviderRegistered(log types.Log) (*provider
 	}, nil
 }
 
+func (t *testRegistryContract) ParseWithdrawalCompleted(log types.Log) (*providerregistry.ProviderregistryWithdrawalCompleted, error) {
+	return &providerregistry.ProviderregistryWithdrawalCompleted{
+		Provider: common.Address{},
+		Amount:   t.stake,
+	}, nil
+}
+
+func (t *testRegistryContract) ParseWithdrawalRequested(log types.Log) (*providerregistry.ProviderregistryWithdrawalRequested, error) {
+	return &providerregistry.ProviderregistryWithdrawalRequested{
+		Provider: common.Address{},
+		Timestamp:   new(big.Int).SetInt64(time.Now().Unix()),
+	}, nil
+}
+
+func (t *testRegistryContract) RequestWithdrawal(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
+func (t *testRegistryContract) WithdrawStakedAmount(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
 type testWatcher struct{}
 
 func (t *testWatcher) WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
@@ -405,4 +427,40 @@ func TestBidHandling(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithdrawStakedAmount(t *testing.T) {
+	t.Parallel()
+
+	client, _ := startServer(t)
+
+	t.Run("withdraw stake", func(t *testing.T) {
+		_, err := client.RegisterStake(context.Background(), &providerapiv1.StakeRequest{
+			Amount:       "1000000000000000000",
+			BlsPublicKey: "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456",
+		})
+		if err != nil {
+			t.Fatalf("error depositing stake: %v", err)
+		}
+		withdrawalResp, err := client.WithdrawStake(context.Background(), &providerapiv1.EmptyMessage{})
+		if err != nil {
+			t.Fatalf("error withdrawing stake: %v", err)
+		}
+		if withdrawalResp.Amount != "1000000000000000000" {
+			t.Fatalf("expected amount to be 1000000000000000000, got %v", withdrawalResp.Amount)
+		}
+	})
+}
+
+func TestRequestWithdrawal(t *testing.T) {
+	t.Parallel()
+
+	client, _ := startServer(t)
+
+	t.Run("request withdrawal", func(t *testing.T) {
+		_, err := client.RequestWithdrawal(context.Background(), &providerapiv1.EmptyMessage{})
+		if err != nil {
+			t.Fatalf("error requesting withdrawal: %v", err)
+		}
+	})
 }

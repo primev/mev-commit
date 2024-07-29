@@ -86,6 +86,20 @@ paths:
           required: true
           type: string
           pattern: ^(0x)?[a-fA-F0-9]{96}$
+  /v1/provider/request_withdrawal:
+    post:
+      summary: RequestWithdrawal
+      description: RequestWithdrawal is called by the provider to request a withdrawal from the provider registry.
+      operationId: Provider_RequestWithdrawal
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/providerapiv1EmptyMessage'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/provider/send_processed_bids:
     post:
       summary: SendProcessedBids
@@ -109,6 +123,20 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/v1BidResponse'
+  /v1/provider/withdraw_stake:
+    post:
+      summary: WithdrawStake
+      description: WithdrawStake is called by the provider to withdraw its stake from the provider registry.
+      operationId: Provider_WithdrawStake
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1WithdrawalResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
 definitions:
   googlerpcStatus:
     type: object
@@ -220,3 +248,12 @@ definitions:
         type: string
     description: Get staked amount for provider in the provider registry.
     title: Stake response
+  v1WithdrawalResponse:
+    type: object
+    example:
+      amount: "1000000000000000000"
+    properties:
+      amount:
+        type: string
+    description: Withdrawal amount for provider in the provider registry.
+    title: Withdrawal response

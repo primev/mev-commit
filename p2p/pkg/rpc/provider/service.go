@@ -45,6 +45,10 @@ type ProviderRegistryContract interface {
 	CheckStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
+	ParseWithdrawalCompleted(types.Log) (*providerregistry.ProviderregistryWithdrawalCompleted, error)
+	ParseWithdrawalRequested(types.Log) (*providerregistry.ProviderregistryWithdrawalRequested, error)
+	WithdrawStakedAmount(opts *bind.TransactOpts) (*types.Transaction, error)
+	RequestWithdrawal(opts *bind.TransactOpts) (*types.Transaction, error)
 }
 
 type Watcher interface {
@@ -267,4 +271,72 @@ func (s *Service) GetMinStake(
 	}
 
 	return &providerapiv1.StakeResponse{Amount: stakeAmount.String()}, nil
+}
+
+func (s *Service) WithdrawStake(
+	ctx context.Context,
+	_ *providerapiv1.EmptyMessage,
+) (*providerapiv1.WithdrawalResponse, error) {
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	tx, err := s.registryContract.WithdrawStakedAmount(opts)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawing stake: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.registryContract.ParseWithdrawalCompleted(*log); err == nil {
+			s.logger.Info("stake withdrawn", "amount", withdrawal.Amount)
+			return &providerapiv1.WithdrawalResponse{Amount: withdrawal.Amount.String()}, nil
+		}
+	}
+
+	s.logger.Error("no withdrawal event found")
+	return nil, status.Error(codes.Internal, "no withdrawal event found")
+}
+
+func (s *Service) RequestWithdrawal(
+	ctx context.Context,
+	_ *providerapiv1.EmptyMessage,
+) (*providerapiv1.EmptyMessage, error) {
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	tx, err := s.registryContract.RequestWithdrawal(opts)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "requesting withdrawal: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.registryContract.ParseWithdrawalRequested(*log); err == nil {
+			s.logger.Info("withdrawal requested", "timestamp", withdrawal.Timestamp)
+			return &providerapiv1.EmptyMessage{}, nil
+		}
+	}
+
+	s.logger.Error("no withdrawal request event found")
+	return nil, status.Error(codes.Internal, "no withdrawal request event found")
 }
