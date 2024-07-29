@@ -50,6 +50,9 @@ Add your private key to the SSH agent:
 ssh-add /path/to/your/private_key
 ```
 
+Prepare `ansible.cfg` File: This file contains the configuration settings for Ansible and is also used to specify the location of the inventory file.
+There is a sample `ansible.cfg.example` file located in this directory. Copy this file if you're happy with the default settings or create your own.
+
 Prepare `hosts.ini` File: This file contains the IP addresses of your Nomad servers and clients. Replace the sample IP addresses with the actual IP addresses of your machines.
 ```ini
 [nomad_servers]
@@ -92,6 +95,9 @@ Test the connection to the target machines:
 ```shell
 ansible all --inventory path/to/your/hosts.ini --module-name ping
 ```
+
+> The `ansible.cfg.example` refers to the `hosts.ini` file in the same directory.
+> If you have a different location for your inventory file, update the `inventory` setting in your `ansible.cfg` file.
 
 ## Cluster Management
 
