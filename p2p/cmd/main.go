@@ -31,6 +31,8 @@ const (
 	defaultSecret    = "secret"
 	defaultKeystore  = "keystore"
 	defaultDataDir   = "db"
+
+	defaultOracleWindowOffset = 1
 )
 
 var (
@@ -481,6 +483,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
 		DefaultGasTipCap:         gasTipCap,
 		DefaultGasFeeCap:         gasFeeCap,
+		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
