@@ -218,6 +218,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 	sender := &testSender{noOfPreconfs: 2}
 	blockTrackerContract := &testBlockTrackerContract{lastBlockNumber: blocksPerWindow + 1, blocksPerWindow: blocksPerWindow, blockNumberToWinner: make(map[uint64]common.Address)}
 	testAutoDepositTracker := &testAutoDepositTracker{deposits: make(map[uint64]bool)}
+	oracleWindowOffset := big.NewInt(1)
 	store := autodepositorstore.New(inmemstorage.New())
 	srvImpl := bidderapi.NewService(
 		owner,
@@ -235,6 +236,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 		},
 		testAutoDepositTracker,
 		store,
+		oracleWindowOffset,
 		logger,
 	)
 

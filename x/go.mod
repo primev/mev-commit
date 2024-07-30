@@ -7,6 +7,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/prometheus/client_golang v1.19.1
+	google.golang.org/grpc v1.64.0
 )
 
 require (

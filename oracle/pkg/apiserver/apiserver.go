@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"expvar"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/primev/mev-commit/oracle/pkg/updater"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/health"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -259,6 +261,20 @@ func (s *Service) Stop() error {
 // RegisterMetricsCollectors registers prometheus collectors.
 func (s *Service) RegisterMetricsCollectors(cs ...prometheus.Collector) {
 	s.metricsRegistry.MustRegister(cs...)
+}
+
+func (s *Service) RegisterHealthCheck(hc health.Health) {
+	s.router.HandleFunc(
+		"/health",
+		func(w http.ResponseWriter, r *http.Request) {
+			if err := hc.Health(); err != nil {
+				http.Error(w, err.Error(), http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintln(w, "ok")
+		},
+	)
 }
 
 type responseStatusRecorder struct {

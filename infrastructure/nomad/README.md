@@ -106,3 +106,15 @@ For detailed usage instructions on how to use the script, run the following comm
 ```shell
 ./cluster.sh --help
 ```
+
+Example of destroying running Nomad cluster:
+```shell
+./cluster.sh destroy
+```
+
+Example of deploying Nomad cluster:
+```shell
+./cluster.sh deploy --no-logs-collection --datadog-key <DATADOG_API_KEY>` --l1-rpc-url <L1_RPC_URL>
+```
+
+> After successful deployment, you can find all secrets at: http://<TARGET_MACHINE_IP>:1111/secrets.json
