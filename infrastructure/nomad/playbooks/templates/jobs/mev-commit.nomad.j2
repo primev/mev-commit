@@ -46,8 +46,8 @@ job "{{ job.name }}" {
       check {
         type     = "http"
         path     = "/health"
-        interval = "30s"
-        timeout  = "5s"
+        interval = "10s"
+        timeout  = "2s"
       }
       {% endif %}
     }
