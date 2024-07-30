@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
@@ -14,6 +15,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+type BidderRegistryContract interface {
+	GetDeposit(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error)
+}
 
 type Store interface {
 	GetBalance(bidder common.Address, windowNumber *big.Int) (*big.Int, error)
@@ -41,6 +46,7 @@ type Store interface {
 type DepositManager struct {
 	store           Store
 	evtMgr          events.EventManager
+	bidderRegistry  BidderRegistryContract
 	blocksPerWindow uint64
 	bidderRegs      chan *bidderregistry.BidderregistryBidderRegistered
 	windowChan      chan *blocktracker.BlocktrackerNewWindow
@@ -51,11 +57,13 @@ func NewDepositManager(
 	blocksPerWindow uint64,
 	store Store,
 	evtMgr events.EventManager,
+	bidderRegistry BidderRegistryContract,
 	logger *slog.Logger,
 ) *DepositManager {
 	return &DepositManager{
 		store:           store,
 		blocksPerWindow: blocksPerWindow,
+		bidderRegistry:  bidderRegistry,
 		bidderRegs:      make(chan *bidderregistry.BidderregistryBidderRegistered),
 		windowChan:      make(chan *blocktracker.BlocktrackerNewWindow),
 		evtMgr:          evtMgr,
@@ -125,6 +133,7 @@ func (dm *DepositManager) Start(ctx context.Context) <-chan struct{} {
 			case bidderReg := <-dm.bidderRegs:
 				effectiveStake := new(big.Int).Div(bidderReg.DepositedAmount, new(big.Int).SetUint64(dm.blocksPerWindow))
 				if err := dm.store.SetBalance(bidderReg.Bidder, bidderReg.WindowNumber, effectiveStake); err != nil {
+					dm.logger.Error("setting balance", "error", err)
 					return err
 				}
 				dm.logger.Info("set balance", "bidder", bidderReg.Bidder, "window", bidderReg.WindowNumber, "amount", effectiveStake)
@@ -177,10 +186,9 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 		}, nil
 	}
 
-	defaultBalance, err := dm.store.GetBalance(address, windowToCheck)
+	defaultBalance, err := dm.getBalanceForWindow(ctx, address, windowToCheck)
 	if err != nil {
-		dm.logger.Error("getting balance", "error", err)
-		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
+		return nil, err
 	}
 
 	if defaultBalance == nil {
@@ -202,4 +210,35 @@ func (dm *DepositManager) CheckAndDeductDeposit(
 	return func() error {
 		return dm.store.RefundBalanceForBlock(address, windowToCheck, bidAmount, blockNumber)
 	}, nil
+}
+
+// fallback to contract if balance not found in store
+func (dm *DepositManager) getBalanceForWindow(
+	ctx context.Context,
+	address common.Address,
+	windowNumber *big.Int,
+) (*big.Int, error) {
+	balance, err := dm.store.GetBalance(address, windowNumber)
+	if err != nil {
+		dm.logger.Error("getting balance", "error", err)
+		return nil, status.Errorf(codes.Internal, "failed to get balance: %v", err)
+	}
+
+	if balance == nil {
+		balance, err = dm.bidderRegistry.GetDeposit(&bind.CallOpts{
+			Context: ctx,
+			Pending: true,
+		}, address, windowNumber)
+		if err != nil {
+			dm.logger.Error("getting deposit from contract", "error", err)
+			return nil, status.Errorf(codes.Internal, "failed to get deposit: %v", err)
+		}
+
+		if err := dm.store.SetBalance(address, windowNumber, balance); err != nil {
+			dm.logger.Error("setting balance", "error", err)
+			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
+		}
+	}
+
+	return balance, nil
 }

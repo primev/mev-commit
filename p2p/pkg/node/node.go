@@ -110,7 +110,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 	srv := apiserver.New(opts.Version, opts.Logger.With("component", "apiserver"))
 	peerType := p2p.FromString(opts.PeerType)
-	healthChecker := health.New()
 
 	var (
 		contractRPC *ethclient.Client
@@ -410,6 +409,7 @@ func NewNode(opts *Options) (*Node, error) {
 				blocksPerWindow,
 				depositmanagerstore.New(store),
 				evtMgr,
+				bidderRegistry,
 				opts.Logger.With("component", "depositmanager"),
 			)
 			startables = append(
@@ -544,6 +544,7 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	healthChecker := health.New()
 
 	for _, s := range startables {
 		closeChan := s.Startable.Start(ctx)
