@@ -287,7 +287,7 @@ message Bid {
   }, (buf.validate.field).cel = {
         id: "tx_hashes",
         message: "tx_hashes must be a valid array of transaction hashes.",
-        expression: "this.all(r, r.matches('^[a-fA-F0-9]{64}$')) && size(this) > 0"
+        expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{64}$')) && size(this) > 0"
   }];
   string amount = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block."
@@ -323,7 +323,7 @@ message Bid {
   }, (buf.validate.field).cel = {
       id: "reverting_tx_hashes",
       message: "reverting_tx_hashes must be an array of valid transaction hashes.",
-      expression: "this.all(r, r.matches('^[a-fA-F0-9]{64}$'))"
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{64}$'))"
   }];
 };
 
