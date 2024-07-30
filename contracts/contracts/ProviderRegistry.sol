@@ -81,7 +81,7 @@ contract ProviderRegistry is
      * @param _feeRecipient The address that receives fee
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
-     * @param _withdrawalDelay The withdrawal delay in seconds.
+     * @param _withdrawalDelay The withdrawal delay in milliseconds.
      */
     function initialize(
         uint256 _minStake,
