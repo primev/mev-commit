@@ -165,7 +165,7 @@ contract ProviderRegistry is
         if (feeRecipient != address(0)) {
             feeRecipientAmount += feeAmt;
         } else {
-            protocolFeeAmount += feeAmt
+            protocolFeeAmount += feeAmt;
         }
 
         (bool success, ) = payable(bidder).call{value: amtMinusFee}("");
