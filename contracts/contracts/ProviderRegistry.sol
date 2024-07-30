@@ -27,6 +27,9 @@ contract ProviderRegistry is
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
 
+    /// @dev Amount assigned to protocol fee
+    uint256 public protocolFeeAmount;
+
     /// @dev Address of the pre-confirmations contract
     address public preConfirmationsContract;
 
@@ -161,6 +164,8 @@ contract ProviderRegistry is
 
         if (feeRecipient != address(0)) {
             feeRecipientAmount += feeAmt;
+        } else {
+            protocolFeeAmount += feeAmt
         }
 
         (bool success, ) = payable(bidder).call{value: amtMinusFee}("");
@@ -232,6 +237,20 @@ contract ProviderRegistry is
         require(success, "stake transfer failed");
 
         emit Withdraw(msg.sender, providerStake);
+    }
+
+    /**
+     * @dev Withdraw protocol fee.
+     * @param treasuryAddress The address of the treasury.
+     */
+    function withdrawProtocolFee(
+        address payable treasuryAddress
+    ) external onlyOwner nonReentrant {
+        uint256 _protocolFeeAmount = protocolFeeAmount;
+        protocolFeeAmount = 0;
+        require(_protocolFeeAmount != 0, "insufficient protocol fee amount");
+        (bool success, ) = treasuryAddress.call{value: _protocolFeeAmount}("");
+        require(success, "transfer failed");
     }
 
     /**
