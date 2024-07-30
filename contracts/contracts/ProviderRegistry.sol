@@ -234,7 +234,6 @@ contract ProviderRegistry is
         emit Withdraw(msg.sender, providerStake);
     }
 
-
     /**
      * @dev Check the stake of a provider.
      * @param provider The address of the provider.
@@ -247,12 +246,6 @@ contract ProviderRegistry is
     /// @dev Returns the BLS public key corresponding to a provider's staked EOA address.
     function getBLSKey(address provider) external view returns (bytes memory) {
         return eoaToBlsPubkey[provider];
-    }
-
-    /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
-    function isProviderValid(address provider) public view {
-        require(providerStakes[provider] >= minStake, "Insufficient stake");
-        require(withdrawalRequests[provider] == 0, "Pending withdrawal request");
     }
 
     /**
@@ -269,6 +262,12 @@ contract ProviderRegistry is
         providerStakes[msg.sender] = msg.value;
         providerRegistered[msg.sender] = true;
         emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
+    }
+
+    /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
+    function isProviderValid(address provider) public view {
+        require(providerStakes[provider] >= minStake, "Insufficient stake");
+        require(withdrawalRequests[provider] == 0, "Pending withdrawal request");
     }
 
     // solhint-disable-next-line no-empty-blocks
