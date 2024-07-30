@@ -882,27 +882,6 @@ func (_Providerregistry *ProviderregistryTransactorSession) RenounceOwnership() 
 	return _Providerregistry.Contract.RenounceOwnership(&_Providerregistry.TransactOpts)
 }
 
-// RequestWithdrawal is a paid mutator transaction binding the contract method 0xdbaf2145.
-//
-// Solidity: function requestWithdrawal() returns()
-func (_Providerregistry *ProviderregistryTransactor) RequestWithdrawal(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Providerregistry.contract.Transact(opts, "requestWithdrawal")
-}
-
-// RequestWithdrawal is a paid mutator transaction binding the contract method 0xdbaf2145.
-//
-// Solidity: function requestWithdrawal() returns()
-func (_Providerregistry *ProviderregistrySession) RequestWithdrawal() (*types.Transaction, error) {
-	return _Providerregistry.Contract.RequestWithdrawal(&_Providerregistry.TransactOpts)
-}
-
-// RequestWithdrawal is a paid mutator transaction binding the contract method 0xdbaf2145.
-//
-// Solidity: function requestWithdrawal() returns()
-func (_Providerregistry *ProviderregistryTransactorSession) RequestWithdrawal() (*types.Transaction, error) {
-	return _Providerregistry.Contract.RequestWithdrawal(&_Providerregistry.TransactOpts)
-}
-
 // SetNewFeePercent is a paid mutator transaction binding the contract method 0xfb22febf.
 //
 // Solidity: function setNewFeePercent(uint16 newFeePercent) returns()
