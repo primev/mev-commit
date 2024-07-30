@@ -384,7 +384,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.unstake();
         vm.warp(block.timestamp + 23 hours); // Move forward less than 24 hours
         vm.prank(newProvider);
-        vm.expectRevert("Period has not passed");
+        vm.expectRevert("Delay has not passed");
         providerRegistry.withdraw();
     }
 
