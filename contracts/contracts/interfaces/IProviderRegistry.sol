@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 interface IProviderRegistry {
     function registerAndStake(bytes calldata blsPublicKey) external payable;
 
-    function depositFunds() external payable;
+    function stake() external payable;
 
     function slash(
         uint256 amt,
@@ -12,8 +12,8 @@ interface IProviderRegistry {
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external;
-
-    function checkStake(address provider) external view returns (uint256);
+    
+    function isProviderValid(address commiterAddress) external view;
 
     function minStake() external view returns (uint256);
 

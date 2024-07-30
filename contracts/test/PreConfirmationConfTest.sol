@@ -39,7 +39,7 @@ contract TestPreConfCommitmentStore is Test {
     uint256 public blocksPerWindow;
     BidderRegistry public bidderRegistry;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-
+    uint256 public withdrawalDelay;
     function setUp() public {
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -60,12 +60,12 @@ contract TestPreConfCommitmentStore is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         blocksPerWindow = 10;
-
+        withdrawalDelay = 24 * 3600; // 24 hours
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this))
+                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay)
             )
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -949,7 +949,7 @@ contract TestPreConfCommitmentStore is Test {
 
         // Request a withdrawal to create a pending withdrawal request
         vm.prank(committer);
-        providerRegistry.requestWithdrawal();
+        providerRegistry.unstake();
 
         // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
         vm.prank(committer);

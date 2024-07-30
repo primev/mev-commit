@@ -27,6 +27,9 @@ contract ProviderRegistry is
     /// @dev Amount assigned to feeRecipient
     uint256 public feeRecipientAmount;
 
+    /// @dev Amount assigned to protocol fee
+    uint256 public protocolFeeAmount;
+
     /// @dev Address of the pre-confirmations contract
     address public preConfirmationsContract;
 
@@ -36,11 +39,14 @@ contract ProviderRegistry is
     /// @dev Fee recipient
     address public feeRecipient;
 
-    /// @dev Mapping of provider to registration status
+    /// @dev Configurable withdrawal delay in milliseconds
+    uint256 public withdrawalDelay;
+
+    /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
-    /// @dev Mapping of provider to BLS public key
+    /// @dev Mapping from a provider's EOA address to their BLS public key
     mapping(address => bytes) public eoaToBlsPubkey;
-    /// @dev Mapping of provider to staked amount
+    /// @dev Mapping from provider addresses to their staked amount
     mapping(address => uint256) public providerStakes;
     /// @dev Mapping of provider to withdrawal request timestamp
     mapping(address => uint256) public withdrawalRequests;
@@ -52,9 +58,11 @@ contract ProviderRegistry is
     /// @dev Event emitted when funds are slashed
     event FundsSlashed(address indexed provider, uint256 amount);
     /// @dev Event emitted when withdrawal is requested
-    event WithdrawalRequested(address indexed provider, uint256 timestamp);
+    event Unstake(address indexed provider, uint256 timestamp);
     /// @dev Event emitted when withdrawal is completed
-    event WithdrawalCompleted(address indexed provider, uint256 amount);
+    event Withdraw(address indexed provider, uint256 amount);
+    /// @dev Event emitted when the withdrawal delay is updated
+    event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
 
     /**
      * @dev Modifier to restrict function to only pre-confirmations contract.
@@ -73,16 +81,19 @@ contract ProviderRegistry is
      * @param _feeRecipient The address that receives fee
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
+     * @param _withdrawalDelay The withdrawal delay in milliseconds.
      */
     function initialize(
         uint256 _minStake,
         address _feeRecipient,
         uint16 _feePercent,
-        address _owner
+        address _owner,
+        uint256 _withdrawalDelay
     ) external initializer {
         minStake = _minStake;
         feeRecipient = _feeRecipient;
         feePercent = _feePercent;
+        withdrawalDelay = _withdrawalDelay;
         __Ownable_init(_owner);
     }
 
@@ -122,9 +133,9 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Deposit more funds into the provider's stake.
+     * @dev Stake more funds into the provider's stake.
      */
-    function depositFunds() external payable {
+    function stake() external payable {
         require(providerRegistered[msg.sender], "Provider not registered");
         providerStakes[msg.sender] += msg.value;
         emit FundsDeposited(msg.sender, msg.value);
@@ -154,6 +165,8 @@ contract ProviderRegistry is
 
         if (feeRecipient != address(0)) {
             feeRecipientAmount += feeAmt;
+        } else {
+            protocolFeeAmount += feeAmt;
         }
 
         (bool success, ) = payable(bidder).call{value: amtMinusFee}("");
@@ -180,6 +193,14 @@ contract ProviderRegistry is
         feePercent = newFeePercent;
     }
 
+    /// @dev Sets the withdrawal delay. Can only be called by the owner.
+    /// @param _withdrawalDelay The new withdrawal delay in milliseconds 
+    /// as mev-commit chain is running with milliseconds.
+    function setWithdrawalDelay(uint256 _withdrawalDelay) external onlyOwner {
+        withdrawalDelay = _withdrawalDelay;
+        emit WithdrawalDelayUpdated(_withdrawalDelay);
+    }
+
     /**
      * @dev Reward funds to the fee receipt.
      */
@@ -189,22 +210,23 @@ contract ProviderRegistry is
         require(successFee, "fee recipient transfer failed");
     }
 
-    /// @dev Requests withdrawal of the staked amount.
-    function requestWithdrawal() external {
-        require(providerStakes[msg.sender] > 0, "No stake to withdraw");
+    /// @dev Requests unstake of the staked amount.
+    function unstake() external {
+        require(providerStakes[msg.sender] != 0, "No stake to withdraw");
+        require(withdrawalRequests[msg.sender] == 0, "Unstake request exists");
         withdrawalRequests[msg.sender] = block.timestamp;
-        emit WithdrawalRequested(msg.sender, block.timestamp);
+        emit Unstake(msg.sender, block.timestamp);
     }
 
-    /// @dev Withdraws the staked amount after 24 hours of withdrawal request.
-    function withdrawStakedAmount() external nonReentrant {
-        require(withdrawalRequests[msg.sender] > 0, "No withdrawal request");
-        require(block.timestamp >= withdrawalRequests[msg.sender] + 24 hours, "24 hours have not passed");
-        
-        uint256 stake = providerStakes[msg.sender];
+    /// @dev Completes the withdrawal of the staked amount.
+    function withdraw() external nonReentrant {
+        require(withdrawalRequests[msg.sender] != 0, "No unstake request");
+        require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalDelay, "Delay has not passed");
+
+        uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
         withdrawalRequests[msg.sender] = 0;
-        require(stake > 0, "Provider Staked Amount is zero");
+        require(providerStake != 0, "Provider Staked Amount is zero");
         require(preConfirmationsContract != address(0), "preconf contract not set");
 
         uint256 providerPendingCommitmentsCount = PreConfCommitmentStore(
@@ -213,14 +235,32 @@ contract ProviderRegistry is
 
         require(providerPendingCommitmentsCount == 0, "provider commitments are pending");
 
-        (bool success, ) = msg.sender.call{value: stake}("");
+        (bool success, ) = msg.sender.call{value: providerStake}("");
         require(success, "stake transfer failed");
 
-        emit WithdrawalCompleted(msg.sender, stake);
+        emit Withdraw(msg.sender, providerStake);
     }
 
-    /// @dev Returns the stake of a provider.
-    function checkStake(address provider) external view returns (uint256) {
+    /**
+     * @dev Withdraw protocol fee.
+     * @param treasuryAddress The address of the treasury.
+     */
+    function withdrawProtocolFee(
+        address payable treasuryAddress
+    ) external onlyOwner nonReentrant {
+        uint256 _protocolFeeAmount = protocolFeeAmount;
+        protocolFeeAmount = 0;
+        require(_protocolFeeAmount != 0, "insufficient protocol fee amount");
+        (bool success, ) = treasuryAddress.call{value: _protocolFeeAmount}("");
+        require(success, "transfer failed");
+    }
+
+    /**
+     * @dev Get provider staked amount.
+     * @param provider The address of the provider.
+     * @return The staked amount for the provider.
+     */
+    function getProviderStake(address provider) external view returns (uint256) {
         return providerStakes[provider];
     }
 
@@ -243,6 +283,12 @@ contract ProviderRegistry is
         providerStakes[msg.sender] = msg.value;
         providerRegistered[msg.sender] = true;
         emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
+    }
+
+    /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
+    function isProviderValid(address provider) public view {
+        require(providerStakes[provider] >= minStake, "Insufficient stake");
+        require(withdrawalRequests[provider] == 0, "Pending withdrawal request");
     }
 
     // solhint-disable-next-line no-empty-blocks
