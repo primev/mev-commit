@@ -86,20 +86,6 @@ paths:
           required: true
           type: string
           pattern: ^(0x)?[a-fA-F0-9]{96}$
-  /v1/provider/request_withdrawal:
-    post:
-      summary: RequestWithdrawal
-      description: RequestWithdrawal is called by the provider to request a withdrawal from the provider registry.
-      operationId: Provider_RequestWithdrawal
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/providerapiv1EmptyMessage'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
   /v1/provider/send_processed_bids:
     post:
       summary: SendProcessedBids
@@ -123,6 +109,20 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/v1BidResponse'
+  /v1/provider/unstake:
+    post:
+      summary: Unstake
+      description: Unstake is called by the provider to request a unstake from the provider registry.
+      operationId: Provider_Unstake
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/providerapiv1EmptyMessage'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/provider/withdraw_stake:
     post:
       summary: WithdrawStake

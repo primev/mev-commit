@@ -59,11 +59,11 @@ service Provider {
   rpc WithdrawStake(EmptyMessage) returns (WithdrawalResponse) {
     option (google.api.http) = {post: "/v1/provider/withdraw_stake"};
   }
-  // RequestWithdrawal
+  // Unstake
   //
-  // RequestWithdrawal is called by the provider to request a withdrawal from the provider registry.
-  rpc RequestWithdrawal(EmptyMessage) returns (EmptyMessage) {
-    option (google.api.http) = {post: "/v1/provider/request_withdrawal"};
+  // Unstake is called by the provider to request a unstake from the provider registry.
+  rpc Unstake(EmptyMessage) returns (EmptyMessage) {
+    option (google.api.http) = {post: "/v1/provider/unstake"};
   }
 }
 

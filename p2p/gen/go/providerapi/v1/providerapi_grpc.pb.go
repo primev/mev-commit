@@ -25,7 +25,7 @@ const (
 	Provider_GetStake_FullMethodName          = "/providerapi.v1.Provider/GetStake"
 	Provider_GetMinStake_FullMethodName       = "/providerapi.v1.Provider/GetMinStake"
 	Provider_WithdrawStake_FullMethodName     = "/providerapi.v1.Provider/WithdrawStake"
-	Provider_RequestWithdrawal_FullMethodName = "/providerapi.v1.Provider/RequestWithdrawal"
+	Provider_Unstake_FullMethodName           = "/providerapi.v1.Provider/Unstake"
 )
 
 // ProviderClient is the client API for Provider service.
@@ -58,10 +58,10 @@ type ProviderClient interface {
 	//
 	// WithdrawStake is called by the provider to withdraw its stake from the provider registry.
 	WithdrawStake(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*WithdrawalResponse, error)
-	// RequestWithdrawal
+	// Unstake
 	//
-	// RequestWithdrawal is called by the provider to request a withdrawal from the provider registry.
-	RequestWithdrawal(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*EmptyMessage, error)
+	// Unstake is called by the provider to request a unstake from the provider registry.
+	Unstake(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*EmptyMessage, error)
 }
 
 type providerClient struct {
@@ -180,10 +180,10 @@ func (c *providerClient) WithdrawStake(ctx context.Context, in *EmptyMessage, op
 	return out, nil
 }
 
-func (c *providerClient) RequestWithdrawal(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*EmptyMessage, error) {
+func (c *providerClient) Unstake(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*EmptyMessage, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(EmptyMessage)
-	err := c.cc.Invoke(ctx, Provider_RequestWithdrawal_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Provider_Unstake_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -220,10 +220,10 @@ type ProviderServer interface {
 	//
 	// WithdrawStake is called by the provider to withdraw its stake from the provider registry.
 	WithdrawStake(context.Context, *EmptyMessage) (*WithdrawalResponse, error)
-	// RequestWithdrawal
+	// Unstake
 	//
-	// RequestWithdrawal is called by the provider to request a withdrawal from the provider registry.
-	RequestWithdrawal(context.Context, *EmptyMessage) (*EmptyMessage, error)
+	// Unstake is called by the provider to request a unstake from the provider registry.
+	Unstake(context.Context, *EmptyMessage) (*EmptyMessage, error)
 	mustEmbedUnimplementedProviderServer()
 }
 
@@ -249,8 +249,8 @@ func (UnimplementedProviderServer) GetMinStake(context.Context, *EmptyMessage) (
 func (UnimplementedProviderServer) WithdrawStake(context.Context, *EmptyMessage) (*WithdrawalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WithdrawStake not implemented")
 }
-func (UnimplementedProviderServer) RequestWithdrawal(context.Context, *EmptyMessage) (*EmptyMessage, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RequestWithdrawal not implemented")
+func (UnimplementedProviderServer) Unstake(context.Context, *EmptyMessage) (*EmptyMessage, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Unstake not implemented")
 }
 func (UnimplementedProviderServer) mustEmbedUnimplementedProviderServer() {}
 
@@ -384,20 +384,20 @@ func _Provider_WithdrawStake_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Provider_RequestWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Provider_Unstake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EmptyMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProviderServer).RequestWithdrawal(ctx, in)
+		return srv.(ProviderServer).Unstake(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Provider_RequestWithdrawal_FullMethodName,
+		FullMethod: Provider_Unstake_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServer).RequestWithdrawal(ctx, req.(*EmptyMessage))
+		return srv.(ProviderServer).Unstake(ctx, req.(*EmptyMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -426,8 +426,8 @@ var Provider_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Provider_WithdrawStake_Handler,
 		},
 		{
-			MethodName: "RequestWithdrawal",
-			Handler:    _Provider_RequestWithdrawal_Handler,
+			MethodName: "Unstake",
+			Handler:    _Provider_Unstake_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

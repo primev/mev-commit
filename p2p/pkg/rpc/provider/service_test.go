@@ -49,25 +49,25 @@ func (t *testRegistryContract) ParseProviderRegistered(log types.Log) (*provider
 	}, nil
 }
 
-func (t *testRegistryContract) ParseWithdrawalCompleted(log types.Log) (*providerregistry.ProviderregistryWithdrawalCompleted, error) {
-	return &providerregistry.ProviderregistryWithdrawalCompleted{
+func (t *testRegistryContract) ParseWithdraw(log types.Log) (*providerregistry.ProviderregistryWithdraw, error) {
+	return &providerregistry.ProviderregistryWithdraw{
 		Provider: common.Address{},
 		Amount:   t.stake,
 	}, nil
 }
 
-func (t *testRegistryContract) ParseWithdrawalRequested(log types.Log) (*providerregistry.ProviderregistryWithdrawalRequested, error) {
-	return &providerregistry.ProviderregistryWithdrawalRequested{
+func (t *testRegistryContract) ParseUnstake(log types.Log) (*providerregistry.ProviderregistryUnstake, error) {
+	return &providerregistry.ProviderregistryUnstake{
 		Provider: common.Address{},
 		Timestamp:   new(big.Int).SetInt64(time.Now().Unix()),
 	}, nil
 }
 
-func (t *testRegistryContract) RequestWithdrawal(opts *bind.TransactOpts) (*types.Transaction, error) {
+func (t *testRegistryContract) Unstake(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func (t *testRegistryContract) WithdrawStakedAmount(opts *bind.TransactOpts) (*types.Transaction, error) {
+func (t *testRegistryContract) Withdraw(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
@@ -458,7 +458,7 @@ func TestRequestWithdrawal(t *testing.T) {
 	client, _ := startServer(t)
 
 	t.Run("request withdrawal", func(t *testing.T) {
-		_, err := client.RequestWithdrawal(context.Background(), &providerapiv1.EmptyMessage{})
+		_, err := client.Unstake(context.Background(), &providerapiv1.EmptyMessage{})
 		if err != nil {
 			t.Fatalf("error requesting withdrawal: %v", err)
 		}

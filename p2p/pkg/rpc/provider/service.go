@@ -45,10 +45,10 @@ type ProviderRegistryContract interface {
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
-	ParseWithdrawalCompleted(types.Log) (*providerregistry.ProviderregistryWithdrawalCompleted, error)
-	ParseWithdrawalRequested(types.Log) (*providerregistry.ProviderregistryWithdrawalRequested, error)
-	WithdrawStakedAmount(opts *bind.TransactOpts) (*types.Transaction, error)
-	RequestWithdrawal(opts *bind.TransactOpts) (*types.Transaction, error)
+	ParseUnstake(types.Log) (*providerregistry.ProviderregistryUnstake, error)
+	ParseWithdraw(types.Log) (*providerregistry.ProviderregistryWithdraw, error)
+	Withdraw(opts *bind.TransactOpts) (*types.Transaction, error)
+	Unstake(opts *bind.TransactOpts) (*types.Transaction, error)
 }
 
 type Watcher interface {
@@ -282,7 +282,7 @@ func (s *Service) WithdrawStake(
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
-	tx, err := s.registryContract.WithdrawStakedAmount(opts)
+	tx, err := s.registryContract.Withdraw(opts)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "withdrawing stake: %v", err)
 	}
@@ -297,7 +297,7 @@ func (s *Service) WithdrawStake(
 	}
 
 	for _, log := range receipt.Logs {
-		if withdrawal, err := s.registryContract.ParseWithdrawalCompleted(*log); err == nil {
+		if withdrawal, err := s.registryContract.ParseWithdraw(*log); err == nil {
 			s.logger.Info("stake withdrawn", "amount", withdrawal.Amount)
 			return &providerapiv1.WithdrawalResponse{Amount: withdrawal.Amount.String()}, nil
 		}
@@ -307,7 +307,7 @@ func (s *Service) WithdrawStake(
 	return nil, status.Error(codes.Internal, "no withdrawal event found")
 }
 
-func (s *Service) RequestWithdrawal(
+func (s *Service) Unstake(
 	ctx context.Context,
 	_ *providerapiv1.EmptyMessage,
 ) (*providerapiv1.EmptyMessage, error) {
@@ -316,7 +316,7 @@ func (s *Service) RequestWithdrawal(
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
-	tx, err := s.registryContract.RequestWithdrawal(opts)
+	tx, err := s.registryContract.Unstake(opts)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "requesting withdrawal: %v", err)
 	}
@@ -331,7 +331,7 @@ func (s *Service) RequestWithdrawal(
 	}
 
 	for _, log := range receipt.Logs {
-		if withdrawal, err := s.registryContract.ParseWithdrawalRequested(*log); err == nil {
+		if withdrawal, err := s.registryContract.ParseUnstake(*log); err == nil {
 			s.logger.Info("withdrawal requested", "timestamp", withdrawal.Timestamp)
 			return &providerapiv1.EmptyMessage{}, nil
 		}
