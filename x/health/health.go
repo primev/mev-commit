@@ -44,7 +44,7 @@ type GrpcClientConn interface {
 // GrpcHealthCheck returns a health check that checks the state of the gRPC connection.
 func GrpcGatewayHealthCheck(conn GrpcClientConn) HealthCheck {
 	return HealthCheckFunc(func() error {
-		if conn.GetState() != connectivity.Ready {
+		if conn.GetState() == connectivity.TransientFailure {
 			return fmt.Errorf("grpc gateway: %s", conn.GetState())
 		}
 		return nil
