@@ -72,15 +72,8 @@ job "{{ job.name }}" {
           {{ end }}
 
           {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
-            {{- if contains "http" .Tags }}
-          URL="https://{{ .Address }}:{{ .Port }}/health"
-          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
-            echo "Unreachable endpoint: ${URL}"
-            exit 1
-          fi
-
-              {{- range nomadService "mev-commit-geth-bootnode1" }}
-                {{- if contains "http" .Tags }}
+            {{- range nomadService "mev-commit-geth-bootnode1" }}
+              {{- if contains "http" .Tags }}
           ADDRESS=$(cat "${KEYSTORE_FILE}" | jq -r '.address')
           cast send \
             --keystore "${KEYSTORE_FILE}" \
@@ -97,9 +90,7 @@ job "{{ job.name }}" {
               echo "Failed to send funds to: ${ADDRESS}"
               exit 1
             fi
-                {{- end }}
               {{- end }}
-
             {{- end }}
           {{- end }}
           {% endraw %}

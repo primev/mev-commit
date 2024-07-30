@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
@@ -56,9 +57,9 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -109,6 +110,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	srv := apiserver.New(opts.Version, opts.Logger.With("component", "apiserver"))
 	peerType := p2p.FromString(opts.PeerType)
+	healthChecker := health.New()
 
 	var (
 		contractRPC *ethclient.Client
@@ -127,6 +129,8 @@ func NewNode(opts *Options) (*Node, error) {
 			return nil, err
 		}
 	}
+
+	progressstore := &progressStore{contractRPC: contractRPC}
 
 	chainID, err := contractRPC.ChainID(context.Background())
 	if err != nil {
@@ -166,20 +170,20 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 	srv.RegisterMetricsCollectors(evtMgr.Metrics()...)
 
-	var startables []Startable
+	var startables []StartableObjWithDesc
 	var evtPublisher PublisherStartable
 
 	if opts.WSRPCEndpoint != "" {
 		// Use WS publisher if WSRPCEndpoint is set
 		evtPublisher = publisher.NewWSPublisher(
-			&progressStore{contractRPC},
+			progressstore,
 			opts.Logger.With("component", "ws_publisher"),
 			contractRPC,
 			evtMgr,
 		)
 	} else {
 		evtPublisher = publisher.NewHTTPPublisher(
-			&progressStore{contractRPC},
+			progressstore,
 			opts.Logger.With("component", "http_publisher"),
 			contractRPC,
 			evtMgr,
@@ -188,9 +192,12 @@ func NewNode(opts *Options) (*Node, error) {
 
 	startables = append(
 		startables,
-		StartableFunc(func(ctx context.Context) <-chan struct{} {
-			return evtPublisher.Start(ctx, contractAddrs...)
-		}),
+		StartableObjWithDesc{
+			Desc: "events_publisher",
+			Startable: StartableFunc(func(ctx context.Context) <-chan struct{} {
+				return evtPublisher.Start(ctx, contractAddrs...)
+			}),
+		},
 	)
 
 	txnStore := txnstore.New(store)
@@ -203,7 +210,13 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.Logger.With("component", "txmonitor"),
 		1024,
 	)
-	startables = append(startables, monitor)
+	startables = append(
+		startables,
+		StartableObjWithDesc{
+			Desc:      "txmonitor",
+			Startable: monitor,
+		},
+	)
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
 
 	contractsBackend := transactor.NewMetricsWrapper(
@@ -363,7 +376,13 @@ func NewNode(opts *Options) (*Node, error) {
 			optsGetter,
 			opts.Logger.With("component", "tracker"),
 		)
-		startables = append(startables, tracker)
+		startables = append(
+			startables,
+			StartableObjWithDesc{
+				Desc:      "tracker",
+				Startable: tracker,
+			},
+		)
 		srv.RegisterMetricsCollectors(tracker.Metrics()...)
 
 		bpwBigInt, err := blockTrackerSession.GetBlocksPerWindow()
@@ -393,7 +412,13 @@ func NewNode(opts *Options) (*Node, error) {
 				evtMgr,
 				opts.Logger.With("component", "depositmanager"),
 			)
-			startables = append(startables, depositMgr.(*depositmanager.DepositManager))
+			startables = append(
+				startables,
+				StartableObjWithDesc{
+					Desc:      "deposit_manager",
+					Startable: depositMgr.(*depositmanager.DepositManager),
+				},
+			)
 			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
@@ -521,7 +546,9 @@ func NewNode(opts *Options) (*Node, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	for _, s := range startables {
-		nd.closers = append(nd.closers, channelCloserFunc(s.Start(ctx)))
+		closeChan := s.Startable.Start(ctx)
+		healthChecker.Register(health.CloseChannelHealthCheck(s.Desc, closeChan))
+		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
 	}
 
 	nd.cancelFunc = cancel
@@ -581,6 +608,8 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, errors.New("dialing of grpc server failed")
 	}
 
+	healthChecker.Register(health.GrpcGatewayHealthCheck(grpcConn))
+
 	handlerCtx, handlerCancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer handlerCancel()
 
@@ -612,10 +641,11 @@ func NewNode(opts *Options) (*Node, error) {
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/plain")
-				if s := grpcConn.GetState(); s != connectivity.Ready {
-					http.Error(w, fmt.Sprintf("grpc server is %s", s), http.StatusBadGateway)
+				if err := healthChecker.Health(); err != nil {
+					http.Error(w, err.Error(), http.StatusServiceUnavailable)
 					return
 				}
+				w.WriteHeader(http.StatusOK)
 				fmt.Fprintln(w, "ok")
 			},
 		),
@@ -730,6 +760,11 @@ type PublisherStartable interface {
 	Start(ctx context.Context, contracts ...common.Address) <-chan struct{}
 }
 
+type StartableObjWithDesc struct {
+	Startable Startable
+	Desc      string
+}
+
 type Startable interface {
 	Start(ctx context.Context) <-chan struct{}
 }
@@ -766,6 +801,7 @@ func (p *providerStakeChecker) CheckProviderRegistered(ctx context.Context, prov
 
 type progressStore struct {
 	contractRPC *ethclient.Client
+	lastBlock   atomic.Uint64
 }
 
 func (p *progressStore) LastBlock() (uint64, error) {
@@ -773,5 +809,6 @@ func (p *progressStore) LastBlock() (uint64, error) {
 }
 
 func (p *progressStore) SetLastBlock(block uint64) error {
+	p.lastBlock.Store(block)
 	return nil
 }
