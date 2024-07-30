@@ -60,32 +60,6 @@
   },
   {
     "type": "function",
-    "name": "checkStake",
-    "inputs": [
-      {
-        "name": "provider",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "depositFunds",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
     "name": "eoaToBlsPubkey",
     "inputs": [
       {
@@ -163,6 +137,25 @@
   },
   {
     "type": "function",
+    "name": "getProviderStake",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -184,10 +177,28 @@
         "name": "_owner",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_withdrawalPeriod",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isProviderValid",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -314,13 +325,6 @@
   },
   {
     "type": "function",
-    "name": "requestWithdrawal",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setNewFeePercent",
     "inputs": [
       {
@@ -360,6 +364,19 @@
   },
   {
     "type": "function",
+    "name": "setWithdrawalPeriod",
+    "inputs": [
+      {
+        "name": "_withdrawalPeriod",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "slash",
     "inputs": [
       {
@@ -388,6 +405,13 @@
   },
   {
     "type": "function",
+    "name": "stake",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -396,6 +420,13 @@
         "internalType": "address"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unstake",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -419,6 +450,13 @@
   },
   {
     "type": "function",
+    "name": "withdraw",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "withdrawFeeRecipientAmount",
     "inputs": [],
     "outputs": [],
@@ -426,10 +464,16 @@
   },
   {
     "type": "function",
-    "name": "withdrawStakedAmount",
+    "name": "withdrawalPeriod",
     "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -566,6 +610,25 @@
   },
   {
     "type": "event",
+    "name": "Unstake",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Upgraded",
     "inputs": [
       {
@@ -579,7 +642,7 @@
   },
   {
     "type": "event",
-    "name": "WithdrawalCompleted",
+    "name": "Withdraw",
     "inputs": [
       {
         "name": "provider",
@@ -598,16 +661,10 @@
   },
   {
     "type": "event",
-    "name": "WithdrawalRequested",
+    "name": "WithdrawalPeriodUpdated",
     "inputs": [
       {
-        "name": "provider",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
+        "name": "newWithdrawalPeriod",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"

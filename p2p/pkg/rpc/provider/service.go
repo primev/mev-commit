@@ -42,7 +42,7 @@ type Service struct {
 
 type ProviderRegistryContract interface {
 	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
-	CheckStake(*bind.CallOpts, common.Address) (*big.Int, error)
+	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
 }
@@ -243,7 +243,7 @@ func (s *Service) GetStake(
 	ctx context.Context,
 	_ *providerapiv1.EmptyMessage,
 ) (*providerapiv1.StakeResponse, error) {
-	stakeAmount, err := s.registryContract.CheckStake(&bind.CallOpts{
+	stakeAmount, err := s.registryContract.GetProviderStake(&bind.CallOpts{
 		Context: ctx,
 		From:    s.owner,
 	}, s.owner)
