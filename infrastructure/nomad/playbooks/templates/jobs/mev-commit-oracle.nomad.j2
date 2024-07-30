@@ -45,7 +45,6 @@ job "{{ job.name }}" {
       {% if port_name == "http" %}
       check {
         type     = "http"
-        protocol = "https"
         path     = "/health"
         interval = "10s"
         timeout  = "2s"
