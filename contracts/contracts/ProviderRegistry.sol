@@ -210,7 +210,7 @@ contract ProviderRegistry is
         require(successFee, "fee recipient transfer failed");
     }
 
-    /// @dev Requests withdrawal of the staked amount.
+    /// @dev Requests unstake of the staked amount.
     function unstake() external {
         require(providerStakes[msg.sender] != 0, "No stake to withdraw");
         require(withdrawalRequests[msg.sender] == 0, "Unstake request exists");
