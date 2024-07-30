@@ -48,7 +48,7 @@ func TestGrpcGatewayHealthCheck(t *testing.T) {
 	t.Parallel()
 
 	t.Run("NotReady", func(t *testing.T) {
-		conn := &MockGrpcClientConn{State: connectivity.Connecting}
+		conn := &MockGrpcClientConn{State: connectivity.TransientFailure}
 
 		check := health.GrpcGatewayHealthCheck(conn)
 		err := check.Check()
