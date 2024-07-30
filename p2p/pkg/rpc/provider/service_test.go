@@ -34,7 +34,7 @@ func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPubl
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func (t *testRegistryContract) CheckStake(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
+func (t *testRegistryContract) GetProviderStake(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
 	return t.stake, nil
 }
 

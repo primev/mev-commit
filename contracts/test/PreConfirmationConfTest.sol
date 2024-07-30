@@ -39,7 +39,7 @@ contract TestPreConfCommitmentStore is Test {
     uint256 public blocksPerWindow;
     BidderRegistry public bidderRegistry;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-
+    uint256 public withdrawalDelay;
     function setUp() public {
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -60,12 +60,12 @@ contract TestPreConfCommitmentStore is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         blocksPerWindow = 10;
-
+        withdrawalDelay = 24 * 3600; // 24 hours
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this))
+                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay)
             )
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -198,8 +198,10 @@ contract TestPreConfCommitmentStore is Test {
         // Optional: Ensure the committer has enough ETH if needed for the operation
         vm.deal(committer, 1 ether);
         vm.prank(committer);
+        providerRegistry.registerAndStake{value: 1 ether}(validBLSPubkey);
 
         // Step 2: Store the commitment
+        vm.prank(committer);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
             commitmentDigest,
@@ -336,8 +338,6 @@ contract TestPreConfCommitmentStore is Test {
         (, uint256 providerPk) = makeAddrAndKey("bob");
         (v, r, s) = vm.sign(providerPk, preConfHash);
         signature = abi.encodePacked(r, s, v);
-        
-        
     }
 
     function _bytes32ToHexString(
@@ -370,7 +370,6 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         (address commiter, ) = makeAddrAndKey("bob");
-        vm.deal(commiter, 5 ether);
 
         // Step 2: Store the commitment
         bytes32 encryptedIndex = storeCommitment(
@@ -495,7 +494,10 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
         );
+        vm.deal(commiter, 11 ether);
         vm.startPrank(commiter);
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
+
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
             commitmentHash,
@@ -611,8 +613,7 @@ contract TestPreConfCommitmentStore is Test {
         );
         // Step 2: Store the commitment
         (address commiter, ) = makeAddrAndKey("bob");
-        vm.deal(commiter, 5 ether);
-        
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
         bytes32 commitmentIndex = storeCommitment(
             commiter,
             _testCommitmentAliceBob.bid,
@@ -683,7 +684,7 @@ contract TestPreConfCommitmentStore is Test {
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
+
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
                 _testCommitmentAliceBob.bid,
@@ -700,8 +701,6 @@ contract TestPreConfCommitmentStore is Test {
             providerRegistry.setPreconfirmationsContract(
                 address(preConfCommitmentStore)
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             uint256 blockNumber = 2;
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(blockNumber, "test");
@@ -728,7 +727,7 @@ contract TestPreConfCommitmentStore is Test {
 
             assertEq(bidderRegistry.lockedFunds(bidder, depositWindow), 2 ether - _testCommitmentAliceBob.bid);
             assertEq(bidderRegistry.providerAmount(commiter), 0 ether);
-            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
+            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid + 2); // +2 is the slashed funds from provider
         }
         // commitmentHash value is internal to contract and not asserted  
     }
@@ -775,7 +774,7 @@ contract TestPreConfCommitmentStore is Test {
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
+
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
                 _testCommitmentAliceBob.bid,
@@ -789,8 +788,6 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
@@ -863,7 +860,6 @@ contract TestPreConfCommitmentStore is Test {
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
 
             bytes32 encryptedIndex = storeCommitment(
                 commiter,
@@ -878,8 +874,6 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             blockTracker.addBuilderAddress("test", commiter);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
@@ -912,6 +906,59 @@ contract TestPreConfCommitmentStore is Test {
             assertEq(bidderRegistry.providerAmount(commiter), 0 ether);
             assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
         }
+    }
+
+    function test_storeEncryptedCommitment_InsufficientStake() public {
+        // Step 1: Prepare the commitment information and signature
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+
+        // Step 2: Attempt to store the commitment and expect it to fail due to insufficient stake
+        vm.prank(committer);
+        vm.expectRevert("Insufficient stake");
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            1000
+        );
+    }
+
+    function test_storeEncryptedCommitment_PendingWithdrawal() public {
+        // Step 1: Prepare the commitment information and signature
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+
+        // Ensure the committer has enough ETH for the required stake
+        vm.deal(committer, 2 ether);
+        vm.prank(committer);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+
+        // Request a withdrawal to create a pending withdrawal request
+        vm.prank(committer);
+        providerRegistry.unstake();
+
+        // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
+        vm.prank(committer);
+        vm.expectRevert("Pending withdrawal request");
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            1000
+        );
     }
 
     function _bytesToHexString(

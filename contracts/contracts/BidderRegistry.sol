@@ -356,7 +356,9 @@ contract BidderRegistry is
 
         // Check if bid exceeds the available amount for the block
         if (availableAmount < bid) {
-            // todo: burn it, until oracle will do the calculation and transfers
+            (bool success, ) = payable(bidder).call{value: bid - availableAmount}("");
+            require(success, "couldn't transfer to bidder");
+
             bid = uint64(availableAmount);
         }
 

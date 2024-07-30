@@ -326,6 +326,9 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             "sender is not commiter"
         );
 
+        // Ensure the provider's balance is greater than minStake and no pending withdrawal
+        providerRegistry.isProviderValid(commiterAddress);
+        
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
             commiterAddress,
