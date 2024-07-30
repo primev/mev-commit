@@ -193,8 +193,9 @@ contract ProviderRegistry is
         feePercent = newFeePercent;
     }
 
-    /// @dev Sets the withdrawal period. Can only be called by the owner.
-    /// @param _withdrawalDelay The new withdrawal period in seconds.
+    /// @dev Sets the withdrawal delay. Can only be called by the owner.
+    /// @param _withdrawalDelay The new withdrawal delay in milliseconds 
+    /// as mev-commit chain is running with milliseconds.
     function setWithdrawalDelay(uint256 _withdrawalDelay) external onlyOwner {
         withdrawalDelay = _withdrawalDelay;
         emit WithdrawalDelayUpdated(_withdrawalDelay);
