@@ -256,7 +256,7 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Check the stake of a provider.
+     * @dev Get provider staked amount.
      * @param provider The address of the provider.
      * @return The staked amount for the provider.
      */
