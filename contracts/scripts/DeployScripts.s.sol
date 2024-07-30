@@ -28,7 +28,7 @@ contract DeployScript is Script {
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
         uint256 blocksPerWindow = 10;
-        uint256 withdrawalDelay = 24 * 3600; // 24 hours
+        uint256 withdrawalDelay = 24 * 3600 * 1000; // 24 hours in milliseconds
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
         require(oracleKeystoreAddress != address(0), "missing Oracle keystore address");
 

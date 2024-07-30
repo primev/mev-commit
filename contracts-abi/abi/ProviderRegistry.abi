@@ -179,7 +179,7 @@
         "internalType": "address"
       },
       {
-        "name": "_withdrawalPeriod",
+        "name": "_withdrawalDelay",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -377,10 +377,10 @@
   },
   {
     "type": "function",
-    "name": "setWithdrawalPeriod",
+    "name": "setWithdrawalDelay",
     "inputs": [
       {
-        "name": "_withdrawalPeriod",
+        "name": "_withdrawalDelay",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -490,7 +490,7 @@
   },
   {
     "type": "function",
-    "name": "withdrawalPeriod",
+    "name": "withdrawalDelay",
     "inputs": [],
     "outputs": [
       {
@@ -687,10 +687,10 @@
   },
   {
     "type": "event",
-    "name": "WithdrawalPeriodUpdated",
+    "name": "WithdrawalDelayUpdated",
     "inputs": [
       {
-        "name": "newWithdrawalPeriod",
+        "name": "newWithdrawalDelay",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"

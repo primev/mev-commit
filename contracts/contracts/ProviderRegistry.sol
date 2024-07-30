@@ -39,8 +39,8 @@ contract ProviderRegistry is
     /// @dev Fee recipient
     address public feeRecipient;
 
-    /// @dev Configurable withdrawal period in seconds
-    uint256 public withdrawalPeriod;
+    /// @dev Configurable withdrawal delay in milliseconds
+    uint256 public withdrawalDelay;
 
     /// @dev Mapping of provider to registration status
     mapping(address => bool) public providerRegistered;
@@ -62,7 +62,7 @@ contract ProviderRegistry is
     /// @dev Event emitted when withdrawal is completed
     event Withdraw(address indexed provider, uint256 amount);
     /// @dev Event emitted when the withdrawal period is updated
-    event WithdrawalPeriodUpdated(uint256 newWithdrawalPeriod);
+    event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
 
     /**
      * @dev Mapping from provider address to whether they are registered or not.
@@ -81,18 +81,19 @@ contract ProviderRegistry is
      * @param _feeRecipient The address that receives fee
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
+     * @param _withdrawalDelay The withdrawal delay in seconds.
      */
     function initialize(
         uint256 _minStake,
         address _feeRecipient,
         uint16 _feePercent,
         address _owner,
-        uint256 _withdrawalPeriod
+        uint256 _withdrawalDelay
     ) external initializer {
         minStake = _minStake;
         feeRecipient = _feeRecipient;
         feePercent = _feePercent;
-        withdrawalPeriod = _withdrawalPeriod;
+        withdrawalDelay = _withdrawalDelay;
         __Ownable_init(_owner);
     }
 
@@ -193,10 +194,10 @@ contract ProviderRegistry is
     }
 
     /// @dev Sets the withdrawal period. Can only be called by the owner.
-    /// @param _withdrawalPeriod The new withdrawal period in seconds.
-    function setWithdrawalPeriod(uint256 _withdrawalPeriod) external onlyOwner {
-        withdrawalPeriod = _withdrawalPeriod;
-        emit WithdrawalPeriodUpdated(_withdrawalPeriod);
+    /// @param _withdrawalDelay The new withdrawal period in seconds.
+    function setWithdrawalDelay(uint256 _withdrawalDelay) external onlyOwner {
+        withdrawalDelay = _withdrawalDelay;
+        emit WithdrawalDelayUpdated(_withdrawalDelay);
     }
 
     /**
@@ -219,7 +220,7 @@ contract ProviderRegistry is
     /// @dev Completes the withdrawal of the staked amount.
     function withdraw() external nonReentrant {
         require(withdrawalRequests[msg.sender] != 0, "No unstake request");
-        require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalPeriod, "Period has not passed");
+        require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalDelay, "Delay has not passed");
 
         uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
