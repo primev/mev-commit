@@ -452,15 +452,20 @@ func launchNodeWithConfig(c *cli.Context) error {
 		}
 	}
 
+	dbPath := ""
 	if c.String(optionDataDir.Name) != "" {
-		if err := os.MkdirAll(c.String(optionDataDir.Name), 0700); err != nil {
+		dbPath, err = util.ResolveFilePath(c.String(optionDataDir.Name))
+		if err != nil {
+			return fmt.Errorf("failed to resolve data directory: %w", err)
+		}
+		if err := os.MkdirAll(dbPath, 0700); err != nil {
 			return fmt.Errorf("failed to create data directory: %w", err)
 		}
 	}
 
 	nd, err := node.NewNode(&node.Options{
 		KeySigner:                keysigner,
-		DataDir:                  c.String(optionDataDir.Name),
+		DataDir:                  dbPath,
 		Secret:                   c.String(optionSecret.Name),
 		PeerType:                 c.String(optionPeerType.Name),
 		P2PPort:                  c.Int(optionP2PPort.Name),

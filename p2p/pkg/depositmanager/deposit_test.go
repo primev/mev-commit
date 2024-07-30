@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
@@ -19,6 +20,18 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/util"
 )
+
+type MockBidderRegistryContract struct {
+	GetDepositFunc func(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error)
+}
+
+func (m *MockBidderRegistryContract) GetDeposit(
+	opts *bind.CallOpts,
+	bidder common.Address,
+	window *big.Int,
+) (*big.Int, error) {
+	return m.GetDepositFunc(opts, bidder, window)
+}
 
 func TestDepositManager(t *testing.T) {
 	t.Parallel()
@@ -37,10 +50,19 @@ func TestDepositManager(t *testing.T) {
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 
 	st := depositstore.New(inmemstorage.New())
+	bidderRegistry := &MockBidderRegistryContract{
+		GetDepositFunc: func(
+			opts *bind.CallOpts,
+			bidder common.Address,
+			window *big.Int,
+		) (*big.Int, error) {
+			return big.NewInt(0), nil
+		},
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	dm := depositmanager.NewDepositManager(10, st, evtMgr, logger)
+	dm := depositmanager.NewDepositManager(10, st, evtMgr, bidderRegistry, logger)
 	done := dm.Start(ctx)
 
 	// no deposit
