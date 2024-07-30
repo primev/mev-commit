@@ -46,7 +46,7 @@ contract ProviderRegistry is
     mapping(address => bool) public providerRegistered;
     /// @dev Mapping from a provider's EOA address to their BLS public key
     mapping(address => bytes) public eoaToBlsPubkey;
-    /// @dev Mapping of provider to staked amount
+    /// @dev Mapping from provider addresses to their staked amount
     mapping(address => uint256) public providerStakes;
     /// @dev Mapping of provider to withdrawal request timestamp
     mapping(address => uint256) public withdrawalRequests;
