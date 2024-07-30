@@ -87,6 +87,7 @@ jobs:
 
           ADDITIONAL_MODULES=(
           "${GITHUB_WORKSPACE}/external/geth"
+          "${GITHUB_WORKSPACE}/indexer"
           )
 
           ALL_MODULES=$(printf "%s\n" "${WORKSPACE_MODULES}" "${ADDITIONAL_MODULES[@]}")
