@@ -44,7 +44,6 @@ job "{{ job.name }}" {
       provider = "nomad"
       {% if port_name == "http" %}
       check {
-        name     = "HTTP Health Check"
         type     = "http"
         path     = "/health"
         interval = "30s"
