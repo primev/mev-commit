@@ -41,6 +41,13 @@ func (m *MockBidderRegistryContract) WithdrawFromWindows(opts *bind.TransactOpts
 }
 
 func (m *MockBidderRegistryContract) GetDeposit(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error) {
+	if opts.Context != nil {
+		select {
+		case <-opts.Context.Done():
+			return nil, opts.Context.Err()
+		default:
+		}
+	}
 	return big.NewInt(0), nil
 }
 
