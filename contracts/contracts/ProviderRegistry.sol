@@ -213,7 +213,7 @@ contract ProviderRegistry is
 
     /// @dev Completes the withdrawal of the staked amount.
     function withdraw() external nonReentrant {
-        require(withdrawalRequests[msg.sender] > 0, "No unstake request");
+        require(withdrawalRequests[msg.sender] != 0, "No unstake request");
         require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalPeriod, "Period has not passed");
 
         uint256 providerStake = providerStakes[msg.sender];
