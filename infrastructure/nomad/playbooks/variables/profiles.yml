@@ -570,16 +570,16 @@ profiles:
       - *mev_commit_provider_node3_funder_job
       - *mev_commit_provider_emulator_nodes_job
       - *mev_commit_oracle_job
-      - *mev_commit_bidder_node1_job
-      - *mev_commit_bidder_node1_funder_job
-      - *mev_commit_bidder_node2_job
-      - *mev_commit_bidder_node2_funder_job
-      - *mev_commit_bidder_node3_job
-      - *mev_commit_bidder_node3_funder_job
-      - *mev_commit_bidder_node4_job
-      - *mev_commit_bidder_node4_funder_job
-      - *mev_commit_bidder_node5_job
-      - *mev_commit_bidder_node5_funder_job
-      - *mev_commit_bidder_emulator_nodes_job
+      # - *mev_commit_bidder_node1_job
+      # - *mev_commit_bidder_node1_funder_job
+      # - *mev_commit_bidder_node2_job
+      # - *mev_commit_bidder_node2_funder_job
+      # - *mev_commit_bidder_node3_job
+      # - *mev_commit_bidder_node3_funder_job
+      # - *mev_commit_bidder_node4_job
+      # - *mev_commit_bidder_node4_funder_job
+      # - *mev_commit_bidder_node5_job
+      # - *mev_commit_bidder_node5_funder_job
+      # - *mev_commit_bidder_emulator_nodes_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
