@@ -66,7 +66,8 @@ import (
 
 const (
 	grpcServerDialTimeout = 5 * time.Second
-	allowedL2Blocks       = 200
+	// this is equivalent to node being 1 window behind
+	allowedL2Blocks = 600
 )
 
 type Options struct {
