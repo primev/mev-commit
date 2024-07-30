@@ -61,7 +61,7 @@ contract ProviderRegistry is
     event Unstake(address indexed provider, uint256 timestamp);
     /// @dev Event emitted when withdrawal is completed
     event Withdraw(address indexed provider, uint256 amount);
-    /// @dev Event emitted when the withdrawal period is updated
+    /// @dev Event emitted when the withdrawal delay is updated
     event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
 
     /**
