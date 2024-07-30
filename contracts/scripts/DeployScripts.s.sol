@@ -28,7 +28,7 @@ contract DeployScript is Script {
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
         uint256 blocksPerWindow = 10;
-
+        uint256 withdrawalDelay = 24 * 3600; // 24 hours
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
         require(oracleKeystoreAddress != address(0), "missing Oracle keystore address");
 
@@ -48,7 +48,7 @@ contract DeployScript is Script {
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
-            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender))
+            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, withdrawalDelay))
         );
         ProviderRegistry providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
         console.log("ProviderRegistry:", address(providerRegistry));
