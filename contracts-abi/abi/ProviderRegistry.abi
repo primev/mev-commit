@@ -254,6 +254,19 @@
   },
   {
     "type": "function",
+    "name": "protocolFeeAmount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "providerRegistered",
     "inputs": [
       {
@@ -459,6 +472,19 @@
     "type": "function",
     "name": "withdrawFeeRecipientAmount",
     "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawProtocolFee",
+    "inputs": [
+      {
+        "name": "treasuryAddress",
+        "type": "address",
+        "internalType": "address payable"
+      }
+    ],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
