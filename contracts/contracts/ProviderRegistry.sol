@@ -42,7 +42,7 @@ contract ProviderRegistry is
     /// @dev Configurable withdrawal delay in milliseconds
     uint256 public withdrawalDelay;
 
-    /// @dev Mapping of provider to registration status
+    /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
     /// @dev Mapping from a provider's EOA address to their BLS public key
     mapping(address => bytes) public eoaToBlsPubkey;
