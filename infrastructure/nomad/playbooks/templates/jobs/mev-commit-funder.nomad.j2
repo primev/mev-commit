@@ -72,8 +72,8 @@ job "{{ job.name }}" {
           {{ end }}
 
           {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
-              {{- range nomadService "mev-commit-geth-bootnode1" }}
-                {{- if contains "http" .Tags }}
+            {{- range nomadService "mev-commit-geth-bootnode1" }}
+              {{- if contains "http" .Tags }}
           ADDRESS=$(cat "${KEYSTORE_FILE}" | jq -r '.address')
           cast send \
             --keystore "${KEYSTORE_FILE}" \
@@ -90,9 +90,7 @@ job "{{ job.name }}" {
               echo "Failed to send funds to: ${ADDRESS}"
               exit 1
             fi
-                {{- end }}
               {{- end }}
-
             {{- end }}
           {{- end }}
           {% endraw %}
