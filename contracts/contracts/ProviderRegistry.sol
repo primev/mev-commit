@@ -226,7 +226,7 @@ contract ProviderRegistry is
         uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
         withdrawalRequests[msg.sender] = 0;
-        require(providerStake > 0, "Provider Staked Amount is zero");
+        require(providerStake != 0, "Provider Staked Amount is zero");
         require(preConfirmationsContract != address(0), "preconf contract not set");
 
         uint256 providerPendingCommitmentsCount = PreConfCommitmentStore(
