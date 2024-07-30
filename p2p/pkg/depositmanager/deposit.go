@@ -240,5 +240,9 @@ func (dm *DepositManager) getBalanceForWindow(
 		}
 	}
 
+	if balance.Cmp(big.NewInt(0)) == 0 {
+		return nil, nil
+	}
+
 	return balance, nil
 }
