@@ -66,8 +66,6 @@ import (
 
 const (
 	grpcServerDialTimeout = 5 * time.Second
-	// this is equivalent to node being 1 window behind
-	allowedL2Blocks = 600
 )
 
 type Options struct {
@@ -220,24 +218,6 @@ func NewNode(opts *Options) (*Node, error) {
 		},
 	)
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
-
-	// health check to ensure eventManager doesnt lag behind the chain.
-	healthChecker.Register(
-		health.HealthCheckFunc(func() error {
-			processedBlkNum := progressstore.lastBlock.Load()
-			if processedBlkNum == 0 {
-				return nil
-			}
-			blkNum, err := contractRPC.BlockNumber(context.Background())
-			if err != nil {
-				return fmt.Errorf("failed to get mev-commit chain block number: %w", err)
-			}
-			if blkNum > processedBlkNum+allowedL2Blocks {
-				return fmt.Errorf("mev-commit chain events out of sync: %d/%d", processedBlkNum, blkNum)
-			}
-			return nil
-		}),
-	)
 
 	contractsBackend := transactor.NewMetricsWrapper(
 		transactor.NewTransactor(

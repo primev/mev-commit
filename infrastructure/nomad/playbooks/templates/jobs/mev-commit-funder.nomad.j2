@@ -71,6 +71,7 @@ job "{{ job.name }}" {
           echo '{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${KEYSTORE_FILE}"
           {{ end }}
 
+          {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
               {{- range nomadService "mev-commit-geth-bootnode1" }}
                 {{- if contains "http" .Tags }}
           ADDRESS=$(cat "${KEYSTORE_FILE}" | jq -r '.address')
