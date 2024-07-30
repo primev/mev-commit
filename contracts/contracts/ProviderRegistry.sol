@@ -65,7 +65,7 @@ contract ProviderRegistry is
     event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
 
     /**
-     * @dev Modifier to restrict function to only pre-confirmations contract.
+     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
     modifier onlyPreConfirmationEngine() {
         require(
