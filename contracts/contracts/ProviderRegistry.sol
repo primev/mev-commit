@@ -59,6 +59,10 @@ contract ProviderRegistry is
     event Withdraw(address indexed provider, uint256 amount);
     /// @dev Event emitted when the withdrawal delay is updated
     event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
+    /// @dev Event emitted when the protocol fee recipient is updated
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    /// @dev Event emitted when the fee payout period in blocks is updated
+    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
@@ -179,6 +183,7 @@ contract ProviderRegistry is
      */
     function setNewProtocolFeeRecipient(address newFeeRecipient) external onlyOwner {
         protocolFeeTracker.recipient = newFeeRecipient;
+        emit ProtocolFeeRecipientUpdated(newFeeRecipient);
     }
 
     /**
@@ -202,6 +207,7 @@ contract ProviderRegistry is
     /// @param _feePayoutPeriodBlocks The new fee payout period in blocks
     function setFeePayoutPeriodBlocks(uint256 _feePayoutPeriodBlocks) external onlyOwner {
         protocolFeeTracker.payoutPeriodBlocks = _feePayoutPeriodBlocks;
+        emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
     /// @dev Requests unstake of the staked amount.

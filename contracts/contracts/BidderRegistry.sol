@@ -88,6 +88,12 @@ contract BidderRegistry is
         uint256 indexed amount
     );
 
+    /// @dev Event emitted when the protocol fee recipient is updated
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+
+    /// @dev Event emitted when the fee payout period in blocks is updated
+    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
@@ -377,6 +383,7 @@ contract BidderRegistry is
      */
     function setNewProtocolFeeRecipient(address newProtocolFeeRecipient) external onlyOwner {
         protocolFeeTracker.recipient = newProtocolFeeRecipient;
+        emit ProtocolFeeRecipientUpdated(newProtocolFeeRecipient);
     }
 
     /**
@@ -395,6 +402,7 @@ contract BidderRegistry is
      */
     function setNewFeePayoutPeriodBlocks(uint256 newFeePayoutPeriodBlocks) external onlyOwner {
         protocolFeeTracker.payoutPeriodBlocks = newFeePayoutPeriodBlocks;
+        emit FeePayoutPeriodBlocksUpdated(newFeePayoutPeriodBlocks);
     }
 
     /**

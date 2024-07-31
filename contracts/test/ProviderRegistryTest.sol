@@ -27,6 +27,8 @@ contract ProviderRegistryTest is Test {
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address recipient);
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
     function setUp() public {
         testNumber = 42;
@@ -160,6 +162,8 @@ contract ProviderRegistryTest is Test {
     function test_SetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit ProtocolFeeRecipientUpdated(newRecipient);
         providerRegistry.setNewProtocolFeeRecipient(newRecipient);
         (address recipient, , ,) = providerRegistry.protocolFeeTracker();
         assertEq(recipient, newRecipient);
@@ -173,6 +177,8 @@ contract ProviderRegistryTest is Test {
 
     function test_SetNewFeePayoutPeriodBlocks() public {
         vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit FeePayoutPeriodBlocksUpdated(890);
         providerRegistry.setFeePayoutPeriodBlocks(890);
         (, , , uint256 payoutPeriodBlocks) = providerRegistry.protocolFeeTracker();
         assertEq(payoutPeriodBlocks, 890);

@@ -23,6 +23,8 @@ contract BidderRegistryTest is Test {
     event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
 
     event FeeTransfer(uint256 amount, address recipient);
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
     function setUp() public {
         testNumber = 42;
@@ -114,6 +116,8 @@ contract BidderRegistryTest is Test {
     function test_SetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit ProtocolFeeRecipientUpdated(newRecipient);
         bidderRegistry.setNewProtocolFeeRecipient(newRecipient);
         (address recipient, , , ) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, newRecipient);
@@ -127,6 +131,8 @@ contract BidderRegistryTest is Test {
 
     function test_SetNewFeePayoutPeriodBlocks() public {
         vm.prank(address(this));
+        vm.expectEmit(true, true, true, true);
+        emit FeePayoutPeriodBlocksUpdated(890);
         bidderRegistry.setNewFeePayoutPeriodBlocks(890);
         (, , , uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(payoutPeriodBlocks, 890);

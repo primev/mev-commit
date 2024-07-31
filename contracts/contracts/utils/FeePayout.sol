@@ -20,7 +20,7 @@ library FeePayout {
     /// @dev Initialize a new fee tracker in storage
     function init(Tracker storage self, address _recipient, uint256 _payoutPeriodBlocks) internal {
         require(_recipient != address(0), "fee recipient is zero");
-        require(_payoutPeriodBlocks > 0, "pay period must be positive");
+        require(_payoutPeriodBlocks != 0, "pay period must be positive");
         self.recipient = _recipient;
         self.accumulatedAmount = 0;
         self.lastPayoutBlock = block.number;
