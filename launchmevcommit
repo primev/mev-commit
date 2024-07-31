@@ -186,7 +186,6 @@ cleanup() {
   if [ -z "${cleaned_up}" ] && kill -0 ${pid} 2>/dev/null; then
     log_info "Killing mev-commit node with PID ${pid}"
     kill -SIGINT ${pid}
-
     log_info "Waiting for ${grace_period} seconds before force killing..."
     sleep ${grace_period}
 
