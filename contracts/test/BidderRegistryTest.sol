@@ -47,9 +47,9 @@ contract BidderRegistryTest is Test {
     }
 
     function testVerifyInitialContractState() public {
-        (address recipient, uint256 period, uint256 lastPayoutBlock, uint256 accumulatedAmount) = bidderRegistry.protocolFeeTracker();
+        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
-        assertEq(period, 100);
+        assertEq(payoutPeriodBlocks, feePayoutPeriodBlocks);
         assertEq(lastPayoutBlock, block.number);
         assertEq(accumulatedAmount, 0);
         assertEq(bidderRegistry.feePercent(), feePercent);
@@ -113,7 +113,6 @@ contract BidderRegistryTest is Test {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
         bidderRegistry.setNewProtocolFeeRecipient(newRecipient);
-
         (address recipient, , , ) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, newRecipient);
     }

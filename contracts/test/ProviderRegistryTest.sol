@@ -21,7 +21,7 @@ contract ProviderRegistryTest is Test {
     BlockTracker public blockTracker;
     uint256 public blocksPerWindow;
     uint256 public withdrawalDelay;
-    bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     uint256 public protocolFeePayoutPeriodBlocks;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
@@ -85,28 +85,28 @@ contract ProviderRegistryTest is Test {
         vm.deal(address(this), 100 ether);
     }
 
-    function test_VerifyInitialContractState() public view {
+    function testVerifyInitialContractState() public {
         assertEq(providerRegistry.minStake(), 1e18 wei);
         assertEq(feePercent, feePercent);
         assertEq(withdrawalDelay, withdrawalDelay);
         assertEq(providerRegistry.feePercent(), feePercent);
         assertEq(providerRegistry.preConfirmationsContract(), address(0));
         assertEq(providerRegistry.providerRegistered(provider), false);
-        (address recipient, uint256 period, uint256 lastPayoutBlock, uint256 accumulatedAmount) = bidderRegistry.protocolFeeTracker();
+        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
-        assertEq(period, protocolFeePayoutPeriodBlocks);
-        assertEq(lastPayoutBlock, 0);
+        assertEq(payoutPeriodBlocks, protocolFeePayoutPeriodBlocks);
+        assertEq(lastPayoutBlock, block.number);
         assertEq(accumulatedAmount, 0);
     }
 
-    function testFail_ProviderStakeAndRegisterMinStake() public {
+    function testFailProviderStakeAndRegisterMinStake() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert(bytes(""));
         providerRegistry.registerAndStake{value: 1 wei}(validBLSPubkey);
     }
 
-    function testFail_ProviderStakeAndRegisterInvalidBLSKey() public {
+    function testFailProviderStakeAndRegisterInvalidBLSKey() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert("Invalid BLS public key length");
@@ -114,7 +114,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 1 wei}(blsPublicKey);
     }
 
-    function test_ProviderStakeAndRegister() public {
+    function testProviderStakeAndRegister() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectEmit(true, false, false, true);
@@ -132,7 +132,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerStakeStored, 1e18 wei);
     }
 
-    function testFail_ProviderStakeAndRegisterAlreadyRegistered() public {
+    function testFailProviderStakeAndRegisterAlreadyRegistered() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
@@ -140,7 +140,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 1 wei}(validBLSPubkey);
     }
 
-    function testFail_receive() public {
+    function testFailReceive() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert(bytes(""));
@@ -148,7 +148,7 @@ contract ProviderRegistryTest is Test {
         require(success, "Couldn't transfer to provider");
     }
 
-    function testFail_fallback() public {
+    function testFailFallback() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert(bytes(""));
@@ -156,33 +156,33 @@ contract ProviderRegistryTest is Test {
         require(success, "Couldn't transfer to provider");
     }
 
-    function test_SetNewFeeRecipient() public {
+    function testSetNewFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
         providerRegistry.setNewProtocolFeeRecipient(newRecipient);
-        (address recipient, , ,) = bidderRegistry.protocolFeeTracker();
+        (address recipient, , ,) = providerRegistry.protocolFeeTracker();
         assertEq(recipient, newRecipient);
     }
 
-    function testFail_SetNewFeeRecipient() public {
+    function testFailSetNewFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
         providerRegistry.setNewProtocolFeeRecipient(newRecipient);
     }
 
-    function test_SetNewFeePercent() public {
+    function testSetNewFeePercent() public {
         vm.prank(address(this));
         providerRegistry.setNewFeePercent(uint16(25));
 
         assertEq(providerRegistry.feePercent(), uint16(25));
     }
 
-    function testFail_SetNewFeePercent() public {
+    function testFailSetNewFeePercent() public {
         vm.expectRevert(bytes(""));
         providerRegistry.setNewFeePercent(uint16(25));
     }
 
-    function test_SetPreConfContract() public {
+    function testSetPreConfContract() public {
         vm.prank(address(this));
         address newPreConfContract = vm.addr(3);
         providerRegistry.setPreconfirmationsContract(newPreConfContract);
@@ -193,13 +193,13 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function testFail_SetPreConfContract() public {
+    function testFailSetPreConfContract() public {
         vm.prank(address(this));
         vm.expectRevert(bytes(""));
         providerRegistry.setPreconfirmationsContract(address(0));
     }
 
-    function test_shouldSlashProvider() public {
+    function testShouldSlashProvider() public {
         providerRegistry.setPreconfirmationsContract(address(this));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
@@ -214,7 +214,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.providerStakes(provider), 1 ether);
     }
 
-    function test_shouldSlashProviderWithoutFeeRecipient() public {
+    function testShouldSlashProviderWithoutFeeRecipient() public {
         vm.prank(address(this));
         providerRegistry.setNewProtocolFeeRecipient(address(0));
         providerRegistry.setPreconfirmationsContract(address(this));
@@ -231,7 +231,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.providerStakes(provider), 1 ether);
     }
 
-    function testFail_shouldRetrieveFundsNotPreConf() public {
+    function testFailShouldRetrieveFundsNotPreConf() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
@@ -240,7 +240,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(1 ether, provider, payable(bidder),100);
     }
 
-    function testFail_shouldRetrieveFundsGreaterThanStake() public {
+    function testFailShouldRetrieveFundsGreaterThanStake() public {
         vm.prank(address(this));
         providerRegistry.setPreconfirmationsContract(address(this));
 
@@ -254,7 +254,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(3 ether, provider, payable(bidder), 100);
     }
 
-    function test_FeeRecipientAmount() public {
+    function testFeeRecipientAmount() public {
         providerRegistry.setNewProtocolFeeRecipient(vm.addr(6));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
@@ -276,7 +276,7 @@ contract ProviderRegistryTest is Test {
         // );
     }
 
-    function test_WithdrawStakedAmountWithoutFeeRecipient() public {
+    function testWithdrawStakedAmountWithoutFeeRecipient() public {
         providerRegistry.setNewProtocolFeeRecipient(address(0));
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
@@ -305,7 +305,7 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function testFail_WithdrawStakedAmountUnauthorized() public {
+    function testFailWithdrawStakedAmountUnauthorized() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
@@ -316,7 +316,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.withdraw();
     }
 
-    function test_RegisterAndStake() public {
+    function testRegisterAndStake() public {
         address newProvider = vm.addr(5);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
@@ -333,7 +333,7 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function testFail_WithdrawStakedAmountWithoutCommitments() public {
+    function testFailWithdrawStakedAmountWithoutCommitments() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
@@ -344,7 +344,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.withdraw();
     }
 
-    function test_RequestWithdrawal() public {
+    function testRequestWithdrawal() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
@@ -358,7 +358,7 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function test_WithdrawStakedAmount() public {
+    function testWithdrawStakedAmount() public {
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);
@@ -386,7 +386,7 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function test_WithdrawStakedAmountBefore24Hours() public {
+    function testWithdrawStakedAmountBefore24Hours() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
@@ -399,7 +399,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.withdraw();
     }
 
-    function test_WithdrawStakedAmountWithoutRequest() public {
+    function testWithdrawStakedAmountWithoutRequest() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
