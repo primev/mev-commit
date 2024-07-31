@@ -446,6 +446,14 @@ contract BidderRegistry is
     }
 
     /**
+     * @dev Manually withdraws accumulated protocol fees to the recipient
+     * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
+     */
+    function manuallyWithdrawProtocolFee() external onlyOwner {
+        FeePayout.transferToRecipient(protocolFeeTracker);
+    }
+
+    /**
      * @dev Get the amount assigned to a provider.
      * @param provider The address of the provider.
      */
