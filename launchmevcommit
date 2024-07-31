@@ -181,9 +181,9 @@ parse_args() {
 # The function is idempotent and only kills the process once.
 cleanup() {
   local pid="${1}"
-  if [ -z "${cleaned_up}" ] && kill -SIGINT ${pid} 2>/dev/null; then
+  if [ -z "${cleaned_up}" ] && kill -0 ${pid} 2>/dev/null; then
     log_info "Killing mev-commit node with PID ${pid}"
-    kill ${pid}
+    kill -SIGINT ${pid}
   fi
   cleaned_up=true
   exit 0
