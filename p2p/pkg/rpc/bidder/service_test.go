@@ -499,6 +499,15 @@ func TestSendBid(t *testing.T) {
 			decayEndTimestamp:   20,
 			err:                 "",
 		},
+		{
+			name:                "success",
+			txHexs:              []string{common.HexToHash("0x0000ab").Hex()},
+			amount:              "1000000000000000000",
+			blockNum:            1,
+			decayStartTimestamp: 10,
+			decayEndTimestamp:   20,
+			err:                 "",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rcv, err := client.SendBid(context.Background(), &bidderapiv1.Bid{
