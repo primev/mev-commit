@@ -703,6 +703,19 @@
   },
   {
     "type": "event",
+    "name": "FeePayoutPeriodBlocksUpdated",
+    "inputs": [
+      {
+        "name": "newFeePayoutPeriodBlocks",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "FeeTransfer",
     "inputs": [
       {
@@ -832,6 +845,19 @@
       },
       {
         "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProtocolFeeRecipientUpdated",
+    "inputs": [
+      {
+        "name": "newProtocolFeeRecipient",
         "type": "address",
         "indexed": true,
         "internalType": "address"
