@@ -225,16 +225,21 @@ func (dm *DepositManager) getBalanceForWindow(
 	}
 
 	if balance == nil {
+		dm.logger.Info("balance not found in store", "address", address.Hex(), "window", windowNumber)
 		balance, err = dm.bidderRegistry.GetDeposit(&bind.CallOpts{
 			Context: ctx,
-			Pending: true,
 		}, address, windowNumber)
 		if err != nil {
 			dm.logger.Error("getting deposit from contract", "error", err)
 			return nil, status.Errorf(codes.Internal, "failed to get deposit: %v", err)
 		}
 
-		if err := dm.store.SetBalance(address, windowNumber, balance); err != nil {
+		// The set balance will only set the max amount that can be used in a block for
+		// the given window. The actual balance will be deducted in the CheckAndDeductDeposit.
+		// This prevents the need to synchrnoize the balance update from the events. They
+		// update the same value.
+		effectiveBalance := new(big.Int).Div(balance, new(big.Int).SetUint64(dm.blocksPerWindow))
+		if err := dm.store.SetBalance(address, windowNumber, effectiveBalance); err != nil {
 			dm.logger.Error("setting balance", "error", err)
 			return nil, status.Errorf(codes.Internal, "failed to set balance: %v", err)
 		}
