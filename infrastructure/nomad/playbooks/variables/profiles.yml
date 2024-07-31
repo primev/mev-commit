@@ -583,3 +583,23 @@ profiles:
       - *mev_commit_bidder_emulator_nodes_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
+
+  manual-test:
+    jobs:
+      - *artifacts_job
+      - *datadog_agent_logs_collector_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *contracts_deployer_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_provider_node2_job
+      - *mev_commit_provider_node2_funder_job
+      - *mev_commit_provider_node3_job
+      - *mev_commit_provider_node3_funder_job
+      - *mev_commit_provider_emulator_nodes_job
+      - *mev_commit_oracle_job
+      - *mev_commit_faucet_job
+      - *datadog_agent_metrics_collector_job

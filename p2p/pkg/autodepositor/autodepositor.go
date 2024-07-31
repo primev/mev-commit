@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -24,6 +25,7 @@ type BidderRegistryContract interface {
 	DepositForWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
 	DepositForWindow(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error)
 	WithdrawFromWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
+	GetDeposit(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error)
 }
 
 type BlockTrackerContract interface {
@@ -144,7 +146,7 @@ func (adt *AutoDepositTracker) doInitialDeposit(ctx context.Context, startWindow
 	// Check if the deposit is already made. If the nodes was down for a short period
 	// and the deposits were already made, we should not make the deposit again.
 	newDeposits = slices.DeleteFunc(newDeposits, func(i *big.Int) bool {
-		return adt.store.IsDepositMade(ctx, i)
+		return adt.isDeposited(ctx, i)
 	})
 
 	if len(newDeposits) == 0 {
@@ -227,7 +229,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 				// behind the current window in progress.
 				nextWindow := new(big.Int).Add(window.Window, adt.oracleWindowOffset)
 				nextWindow = new(big.Int).Add(nextWindow, big.NewInt(1))
-				if adt.store.IsDepositMade(egCtx, nextWindow) {
+				if adt.isDeposited(egCtx, nextWindow) {
 					continue
 				}
 
@@ -305,4 +307,28 @@ func (adt *AutoDepositTracker) GetStatus() (map[uint64]bool, bool, *big.Int) {
 	}
 
 	return deposits, isWorking, currentOracleWindow
+}
+
+func (adt *AutoDepositTracker) isDeposited(ctx context.Context, window *big.Int) bool {
+	if adt.store.IsDepositMade(ctx, window) {
+		return true
+	}
+
+	opts, err := adt.optsGetter(ctx)
+	if err != nil {
+		adt.logger.Error("failed to get transact opts", "err", err)
+		return false
+	}
+
+	// fallback to contract call if the local state was not flushed properly
+	deposit, err := adt.brContract.GetDeposit(&bind.CallOpts{
+		Context: ctx,
+		From:    opts.From,
+	}, opts.From, window)
+	if err != nil {
+		adt.logger.Error("failed to get deposit", "err", err)
+		return false
+	}
+
+	return deposit.Cmp(big.NewInt(0)) > 0
 }
