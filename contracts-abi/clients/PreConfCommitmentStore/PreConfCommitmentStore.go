@@ -950,12 +950,12 @@ func (_Preconfcommitmentstore *PreconfcommitmentstoreCallerSession) GetTxnHashFr
 	return _Preconfcommitmentstore.Contract.GetTxnHashFromCommitment(&_Preconfcommitmentstore.CallOpts, commitmentIndex)
 }
 
-// Oracle is a free data retrieval call binding the contract method 0x7dc0d1d0.
+// OracleContract is a free data retrieval call binding the contract method 0xbece7532.
 //
-// Solidity: function oracle() view returns(address)
-func (_Preconfcommitmentstore *PreconfcommitmentstoreCaller) Oracle(opts *bind.CallOpts) (common.Address, error) {
+// Solidity: function oracleContract() view returns(address)
+func (_Preconfcommitmentstore *PreconfcommitmentstoreCaller) OracleContract(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _Preconfcommitmentstore.contract.Call(opts, &out, "oracle")
+	err := _Preconfcommitmentstore.contract.Call(opts, &out, "oracleContract")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -967,18 +967,18 @@ func (_Preconfcommitmentstore *PreconfcommitmentstoreCaller) Oracle(opts *bind.C
 
 }
 
-// Oracle is a free data retrieval call binding the contract method 0x7dc0d1d0.
+// OracleContract is a free data retrieval call binding the contract method 0xbece7532.
 //
-// Solidity: function oracle() view returns(address)
-func (_Preconfcommitmentstore *PreconfcommitmentstoreSession) Oracle() (common.Address, error) {
-	return _Preconfcommitmentstore.Contract.Oracle(&_Preconfcommitmentstore.CallOpts)
+// Solidity: function oracleContract() view returns(address)
+func (_Preconfcommitmentstore *PreconfcommitmentstoreSession) OracleContract() (common.Address, error) {
+	return _Preconfcommitmentstore.Contract.OracleContract(&_Preconfcommitmentstore.CallOpts)
 }
 
-// Oracle is a free data retrieval call binding the contract method 0x7dc0d1d0.
+// OracleContract is a free data retrieval call binding the contract method 0xbece7532.
 //
-// Solidity: function oracle() view returns(address)
-func (_Preconfcommitmentstore *PreconfcommitmentstoreCallerSession) Oracle() (common.Address, error) {
-	return _Preconfcommitmentstore.Contract.Oracle(&_Preconfcommitmentstore.CallOpts)
+// Solidity: function oracleContract() view returns(address)
+func (_Preconfcommitmentstore *PreconfcommitmentstoreCallerSession) OracleContract() (common.Address, error) {
+	return _Preconfcommitmentstore.Contract.OracleContract(&_Preconfcommitmentstore.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -1218,23 +1218,23 @@ func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactorSession) AcceptOw
 
 // Initialize is a paid mutator transaction binding the contract method 0xd8d0cbc1.
 //
-// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracle, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
-func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactor) Initialize(opts *bind.TransactOpts, _providerRegistry common.Address, _bidderRegistry common.Address, _oracle common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfcommitmentstore.contract.Transact(opts, "initialize", _providerRegistry, _bidderRegistry, _oracle, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
+// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
+func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactor) Initialize(opts *bind.TransactOpts, _providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
+	return _Preconfcommitmentstore.contract.Transact(opts, "initialize", _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0xd8d0cbc1.
 //
-// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracle, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
-func (_Preconfcommitmentstore *PreconfcommitmentstoreSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracle common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfcommitmentstore.Contract.Initialize(&_Preconfcommitmentstore.TransactOpts, _providerRegistry, _bidderRegistry, _oracle, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
+// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
+func (_Preconfcommitmentstore *PreconfcommitmentstoreSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
+	return _Preconfcommitmentstore.Contract.Initialize(&_Preconfcommitmentstore.TransactOpts, _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0xd8d0cbc1.
 //
-// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracle, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
-func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactorSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracle common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfcommitmentstore.Contract.Initialize(&_Preconfcommitmentstore.TransactOpts, _providerRegistry, _bidderRegistry, _oracle, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
+// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
+func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactorSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
+	return _Preconfcommitmentstore.Contract.Initialize(&_Preconfcommitmentstore.TransactOpts, _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
 }
 
 // InitiateReward is a paid mutator transaction binding the contract method 0x03faf979.
@@ -1405,25 +1405,25 @@ func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactorSession) UpdateCo
 	return _Preconfcommitmentstore.Contract.UpdateCommitmentDispatchWindow(&_Preconfcommitmentstore.TransactOpts, newDispatchWindow)
 }
 
-// UpdateOracle is a paid mutator transaction binding the contract method 0x1cb44dfc.
+// UpdateOracleContract is a paid mutator transaction binding the contract method 0xd3bab58f.
 //
-// Solidity: function updateOracle(address newOracle) returns()
-func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactor) UpdateOracle(opts *bind.TransactOpts, newOracle common.Address) (*types.Transaction, error) {
-	return _Preconfcommitmentstore.contract.Transact(opts, "updateOracle", newOracle)
+// Solidity: function updateOracleContract(address newOracleContract) returns()
+func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactor) UpdateOracleContract(opts *bind.TransactOpts, newOracleContract common.Address) (*types.Transaction, error) {
+	return _Preconfcommitmentstore.contract.Transact(opts, "updateOracleContract", newOracleContract)
 }
 
-// UpdateOracle is a paid mutator transaction binding the contract method 0x1cb44dfc.
+// UpdateOracleContract is a paid mutator transaction binding the contract method 0xd3bab58f.
 //
-// Solidity: function updateOracle(address newOracle) returns()
-func (_Preconfcommitmentstore *PreconfcommitmentstoreSession) UpdateOracle(newOracle common.Address) (*types.Transaction, error) {
-	return _Preconfcommitmentstore.Contract.UpdateOracle(&_Preconfcommitmentstore.TransactOpts, newOracle)
+// Solidity: function updateOracleContract(address newOracleContract) returns()
+func (_Preconfcommitmentstore *PreconfcommitmentstoreSession) UpdateOracleContract(newOracleContract common.Address) (*types.Transaction, error) {
+	return _Preconfcommitmentstore.Contract.UpdateOracleContract(&_Preconfcommitmentstore.TransactOpts, newOracleContract)
 }
 
-// UpdateOracle is a paid mutator transaction binding the contract method 0x1cb44dfc.
+// UpdateOracleContract is a paid mutator transaction binding the contract method 0xd3bab58f.
 //
-// Solidity: function updateOracle(address newOracle) returns()
-func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactorSession) UpdateOracle(newOracle common.Address) (*types.Transaction, error) {
-	return _Preconfcommitmentstore.Contract.UpdateOracle(&_Preconfcommitmentstore.TransactOpts, newOracle)
+// Solidity: function updateOracleContract(address newOracleContract) returns()
+func (_Preconfcommitmentstore *PreconfcommitmentstoreTransactorSession) UpdateOracleContract(newOracleContract common.Address) (*types.Transaction, error) {
+	return _Preconfcommitmentstore.Contract.UpdateOracleContract(&_Preconfcommitmentstore.TransactOpts, newOracleContract)
 }
 
 // UpdateProviderRegistry is a paid mutator transaction binding the contract method 0x92d2e3e7.

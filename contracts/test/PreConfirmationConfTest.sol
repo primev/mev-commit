@@ -301,7 +301,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testGetBidHash2() public {
+    function testGetBidHash2() public view {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,

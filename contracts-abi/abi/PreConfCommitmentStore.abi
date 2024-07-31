@@ -717,7 +717,7 @@
         "internalType": "address"
       },
       {
-        "name": "_oracle",
+        "name": "_oracleContract",
         "type": "address",
         "internalType": "address"
       },
@@ -847,7 +847,7 @@
   },
   {
     "type": "function",
-    "name": "oracle",
+    "name": "oracleContract",
     "inputs": [],
     "outputs": [
       {
@@ -987,10 +987,10 @@
   },
   {
     "type": "function",
-    "name": "updateOracle",
+    "name": "updateOracleContract",
     "inputs": [
       {
-        "name": "newOracle",
+        "name": "newOracleContract",
         "type": "address",
         "internalType": "address"
       }
