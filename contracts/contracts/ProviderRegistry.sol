@@ -205,9 +205,11 @@ contract ProviderRegistry is
      * @dev Reward funds to the fee receipt.
      */
     function withdrawFeeRecipientAmount() external nonReentrant {
+        uint256 amount = feeRecipientAmount;
         feeRecipientAmount = 0;
-        (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
-        require(successFee, "fee recipient transfer failed");
+        require(amount != 0, "fee amount is zero");
+        (bool successFee, ) = feeRecipient.call{value: amount}("");
+        require(successFee, "fee transfer failed");
     }
 
     /// @dev Requests unstake of the staked amount.
