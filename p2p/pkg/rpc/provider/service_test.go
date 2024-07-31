@@ -58,8 +58,8 @@ func (t *testRegistryContract) ParseWithdraw(log types.Log) (*providerregistry.P
 
 func (t *testRegistryContract) ParseUnstake(log types.Log) (*providerregistry.ProviderregistryUnstake, error) {
 	return &providerregistry.ProviderregistryUnstake{
-		Provider: common.Address{},
-		Timestamp:   new(big.Int).SetInt64(time.Now().Unix()),
+		Provider:  common.Address{},
+		Timestamp: new(big.Int).SetInt64(time.Now().Unix()),
 	}, nil
 }
 
