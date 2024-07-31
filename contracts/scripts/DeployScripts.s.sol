@@ -26,6 +26,7 @@ contract DeployScript is Script {
             0x68bC10674b265f266b4b1F079Fa06eF4045c3ab9
         );
         uint16 feePercent = 2;
+        uint16 slashPercent = 5;
         uint64 commitmentDispatchWindow = 2000;
         uint256 blocksPerWindow = 10;
         uint256 withdrawalDelay = 24 * 3600 * 1000; // 24 hours in milliseconds
@@ -48,7 +49,7 @@ contract DeployScript is Script {
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
-            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, withdrawalDelay))
+            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, slashPercent, msg.sender, withdrawalDelay))
         );
         ProviderRegistry providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
         console.log("ProviderRegistry:", address(providerRegistry));
