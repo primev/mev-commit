@@ -22,7 +22,7 @@ contract BidderRegistryTest is Test {
     /// @dev Event emitted when a bidder is registered with their staked amount
     event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
 
-    event FeeTransfer(uint256 amount, address recipient);
+    event FeeTransfer(uint256 amount, address indexed recipient);
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
