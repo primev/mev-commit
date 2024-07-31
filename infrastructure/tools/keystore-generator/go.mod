@@ -1,4 +1,4 @@
-module keystoreGenerator
+module github.com/primev/mev-commit/infrastructure/tools/keystore-generator
 
 go 1.21.2
 

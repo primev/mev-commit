@@ -176,7 +176,7 @@
     - name: Build keystore-generator
       ansible.builtin.shell: |
         BINARY_PATH="{{ dist_dir }}/keystore-generator-{{ environments[env].version }}"
-        go build -o "${BINARY_PATH}" ./infrastructure/tools/keystore-generator/cmd/main.go
+        go build -o "${BINARY_PATH}" ./infrastructure/tools/keystore-generator/main.go
         echo "${BINARY_PATH}"
       args:
         chdir: "{{ root_dir }}"
