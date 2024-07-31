@@ -26,6 +26,7 @@ contract ProviderRegistryTest is Test {
     event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
+    event FeeTransfer(uint256 amount, address recipient);
 
     function setUp() public {
         testNumber = 42;
@@ -85,7 +86,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(address(this), 100 ether);
     }
 
-    function testVerifyInitialContractState() public {
+    function testVerifyInitialContractState() public view {
         assertEq(providerRegistry.minStake(), 1e18 wei);
         assertEq(feePercent, feePercent);
         assertEq(withdrawalDelay, withdrawalDelay);
@@ -254,26 +255,43 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(3 ether, provider, payable(bidder), 100);
     }
 
-    function testFeeRecipientAmount() public {
+    function testProtocolFeeBehavior() public {
         providerRegistry.setNewProtocolFeeRecipient(vm.addr(6));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
 
+        address bidder = vm.addr(4);
+
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         providerRegistry.setPreconfirmationsContract(address(this));
-        providerRegistry.slash(1e18 wei, provider, payable(provider),50);
+        providerRegistry.slash(1e18 wei, provider, payable(bidder), 50);
         assertEq(
             providerRegistry.getAccumulatedProtocolFee(),
             5e16 wei,
             "FeeRecipientAmount should match"
         );
-        // TODO: withdraw here via blocks
-        // providerRegistry.withdrawFeeRecipientAmount();
-        // assertEq(
-        //     providerRegistry.feeRecipientAmount(),
-        //     0,
-        //     "FeeRecipientAmount should be zero after withdrawal"
-        // );
+
+        address newProvider = vm.addr(11);
+        vm.deal(newProvider, 3 ether);
+        vm.prank(newProvider);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+
+        vm.roll(350); // roll past protocol fee payout period
+
+        vm.expectEmit(true, true, true, true);
+        emit FeeTransfer(1e17 wei, vm.addr(6));
+        providerRegistry.slash(1e18 wei, newProvider, payable(bidder), 50);
+
+        assertEq(
+            providerRegistry.getAccumulatedProtocolFee(),
+            0,
+            "Accumulated protocol fee should be zero"
+        );
+        assertEq(
+            vm.addr(6).balance,
+            1e17 wei,
+            "FeeRecipient should have received 1e17 wei"
+        );
     }
 
     function testWithdrawStakedAmountWithoutFeeRecipient() public {

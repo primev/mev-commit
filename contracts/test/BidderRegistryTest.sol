@@ -22,6 +22,8 @@ contract BidderRegistryTest is Test {
     /// @dev Event emitted when a bidder is registered with their staked amount
     event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
 
+    event FeeTransfer(uint256 amount, address recipient);
+
     function setUp() public {
         testNumber = 42;
         feePercent = 10;
@@ -46,7 +48,7 @@ contract BidderRegistryTest is Test {
         vm.deal(address(this), 1000 ether);
     }
 
-    function testVerifyInitialContractState() public {
+    function testVerifyInitialContractState() public view {
         (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
         assertEq(payoutPeriodBlocks, feePayoutPeriodBlocks);
@@ -258,33 +260,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
     }
 
-    // function testwithdrawFeeRecipientAmount() public {
-    //     bidderRegistry.setPreconfirmationsContract(address(this));
-    //     uint256 currentWindow = blockTracker.getCurrentWindow();
-    //     uint256 nextWindow = currentWindow + 1;
-    //     vm.prank(bidder);
-    //     bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
-    //     address provider = vm.addr(4);
-    //     uint256 balanceBefore = feeRecipient.balance;
-    //     bytes32 bidID = keccak256("1234");
-    //     uint64 blockNumber = uint64(blocksPerWindow + 2);
-    //     blockTracker.addBuilderAddress("test", provider);
-    //     blockTracker.recordL1Block(blockNumber, "test");
-
-    //     bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
-    //     bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
-    //     bidderRegistry.withdrawFeeRecipientAmount();
-    //     uint256 balanceAfter = feeRecipient.balance;
-    //     assertEq(balanceAfter - balanceBefore, 100000000000000000);
-    //     assertEq(bidderRegistry.feeRecipientAmount(), 0);
-    //     assertEq(bidderRegistry.getFeeRecipientAmount(), 0);
-    // }
-
-    // function testFailwithdrawFeeRecipientAmount() public {
-    //     bidderRegistry.setPreconfirmationsContract(address(this));
-    //     bidderRegistry.withdrawFeeRecipientAmount();
-    // }
-
     function testwithdrawProviderAmount() public {
         bidderRegistry.setPreconfirmationsContract(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
@@ -316,52 +291,6 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         bidderRegistry.withdrawProviderAmount(payable(provider));
     }
-
-    // TODO: delete these tests and add new test for fee payout tracker
-
-    // function testwithdrawProtocolFee() public {
-    //     address provider = vm.addr(4);
-    //     bidderRegistry.setPreconfirmationsContract(address(this));
-    //     bidderRegistry.setNewFeeRecipient(address(0));
-    //     uint256 currentWindow = blockTracker.getCurrentWindow();
-    //     uint256 nextWindow = currentWindow + 1;
-    //     vm.prank(bidder);
-    //     bidderRegistry.depositForWindow{value: 128 ether}(nextWindow);
-    //     uint256 balanceBefore = address(bidder).balance;
-    //     bytes32 bidID = keccak256("1234");
-    //     uint64 blockNumber = uint64(blocksPerWindow + 2);
-    //     blockTracker.addBuilderAddress("test", provider);
-    //     blockTracker.recordL1Block(blockNumber, "test");
-
-    //     bidderRegistry.openBid(bidID, 2 ether, bidder, blockNumber);
-    //     bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 100);
-    //     vm.prank(bidderRegistry.owner());
-    //     bidderRegistry.withdrawProtocolFee(payable(address(bidder)));
-    //     uint256 balanceAfter = address(bidder).balance;
-    //     assertEq(balanceAfter - balanceBefore, 200000000000000000);
-    //     assertEq(bidderRegistry.protocolFeeAmount(), 0);
-    // }
-
-    // function testFailwithdrawProtocolFee() public {
-    //     bidderRegistry.setPreconfirmationsContract(address(this));
-    //     bidderRegistry.setNewFeeRecipient(address(0));
-    //     vm.prank(bidder);
-    //     uint256 currentWindow = blockTracker.getCurrentWindow();
-    //     uint256 nextWindow = currentWindow + 1;
-    //     bidderRegistry.depositForWindow{value: 5 ether}(nextWindow);
-    //     vm.prank(bidderRegistry.owner());
-    //     bidderRegistry.withdrawProtocolFee(payable(address(bidder)));
-    // }
-
-    // function testFailwithdrawProtocolFeeNotOwner() public {
-    //     bidderRegistry.setPreconfirmationsContract(address(this));
-    //     bidderRegistry.setNewFeeRecipient(address(0));
-    //     vm.prank(bidder);
-    //     uint256 currentWindow = blockTracker.getCurrentWindow();
-    //     uint256 nextWindow = currentWindow + 1;
-    //     bidderRegistry.depositForWindow{value: 5 ether}(nextWindow);
-    //     bidderRegistry.withdrawProtocolFee(payable(address(bidder)));
-    // }
 
     function testDepositForWindows() public {
         uint256[] memory windows = new uint256[](3);
@@ -466,5 +395,50 @@ contract BidderRegistryTest is Test {
         assertEq(storedBidder, testBidder);
         assertEq(storedBidAmt, expectedBid);
         assertEq(uint(storedState), uint(IBidderRegistry.State.PreConfirmed));
+    }
+
+    function testProtocolFeePayout() public {
+        (, , uint256 lastPayoutBlock,) = bidderRegistry.protocolFeeTracker();
+        assertEq(lastPayoutBlock, 1);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
+        vm.roll(250); // roll past protocol fee payout period
+
+        bidderRegistry.setPreconfirmationsContract(address(this));
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        vm.prank(bidder);
+        bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
+        address provider = vm.addr(4);
+        uint256 balanceBefore = feeRecipient.balance;
+        bytes32 bidID = keccak256("1234");
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        blockTracker.addBuilderAddress("test", provider);
+        blockTracker.recordL1Block(blockNumber, "test");
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
+        vm.expectEmit(true, true, true, true);
+        emit FeeTransfer(100000000000000000, feeRecipient);
+        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
+        uint256 balanceAfter = feeRecipient.balance;
+        assertEq(balanceAfter - balanceBefore, 100000000000000000);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
+    }
+
+    function testProtocolFeeAccumulation() public {
+        bidderRegistry.setPreconfirmationsContract(address(this));
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        vm.prank(bidder);
+        bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
+        address provider = vm.addr(4);
+        uint256 balanceBefore = feeRecipient.balance;
+        bytes32 bidID = keccak256("1234");
+        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        blockTracker.addBuilderAddress("test", provider);
+        blockTracker.recordL1Block(blockNumber, "test");
+        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
+        uint256 balanceAfter = feeRecipient.balance;
+        assertEq(balanceAfter - balanceBefore, 0);
+        assertEq(bidderRegistry.getAccumulatedProtocolFee(), 100000000000000000);
     }
 }

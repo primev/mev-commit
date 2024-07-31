@@ -176,7 +176,7 @@ contract TestPreConfCommitmentStore is Test {
         assert(commitmentHash != bytes32(0));        
     }
 
-    function testInitialize() public {
+    function testInitialize() public view {
         assertEq(preConfCommitmentStore.oracleContract(), oracleContract);
         assertEq(
             address(preConfCommitmentStore.providerRegistry()),

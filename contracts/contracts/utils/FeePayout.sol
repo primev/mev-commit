@@ -29,18 +29,19 @@ library FeePayout {
 
     /// @dev Transfers the accumulated fees to the recipient and resets the tracker
     /// @param tracker The FeePayout.Tracker struct
-    function transferToRecipient(Tracker memory tracker) internal {
-        (bool success, ) = payable(tracker.recipient).call{value: tracker.accumulatedAmount}("");
+    function transferToRecipient(Tracker storage tracker) internal {
+        uint256 amountToPay = tracker.accumulatedAmount;
+        (bool success, ) = payable(tracker.recipient).call{value: amountToPay}("");
         require(success, "transfer to recipient failed");
         tracker.accumulatedAmount = 0;
         tracker.lastPayoutBlock = block.number;
-        emit FeeTransfer(tracker.accumulatedAmount, tracker.recipient);
+        emit FeeTransfer(amountToPay, tracker.recipient);
     }
 
     /// @dev Checks if a fee payout is due
     /// @param tracker The FeePayout.Tracker struct
     /// @return true if a payout is due, false otherwise
-    function isPayoutDue(Tracker memory tracker) internal view returns (bool) {
+    function isPayoutDue(Tracker storage tracker) internal view returns (bool) {
         return block.number > tracker.lastPayoutBlock + tracker.payoutPeriodBlocks;
     }
 }
