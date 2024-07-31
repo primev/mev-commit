@@ -257,12 +257,14 @@ contract ProviderRegistryTest is Test {
             5e16 wei,
             "FeeRecipientAmount should match"
         );
+        assertEq(provider.balance, 3 ether, "Provider should not have received fee yet");
         providerRegistry.withdrawFeeRecipientAmount();
         assertEq(
             providerRegistry.feeRecipientAmount(),
             0,
             "FeeRecipientAmount should be zero after withdrawal"
         );
+        assertEq(provider.balance, 3 ether + 5e16 wei, "Provider should have received fee");
     }
 
     function test_WithdrawStakedAmountWithoutFeeRecipient() public {
