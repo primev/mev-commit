@@ -88,13 +88,8 @@ contract ProviderRegistry is
         uint256 _withdrawalDelay,
         uint256 _protocolFeePayoutPeriodBlocks
     ) external initializer {
+        FeePayout.init(protocolFeeTracker, _protocolFeeRecipient, _protocolFeePayoutPeriodBlocks);
         minStake = _minStake;
-        protocolFeeTracker = FeePayout.Tracker({
-            recipient: _protocolFeeRecipient,
-            accumulatedAmount: 0,
-            lastPayoutBlock: block.number,
-            payoutPeriodBlocks: _protocolFeePayoutPeriodBlocks
-        });
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
         __Ownable_init(_owner);
