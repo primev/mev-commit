@@ -501,8 +501,8 @@ func NewNode(opts *Options) (*Node, error) {
 					opts.Logger.Error("failed to start auto deposit tracker", "error", err)
 					return nil, errors.Join(err, nd.Close())
 				}
-				nd.autoDeposit = autoDeposit
 			}
+			nd.autoDeposit = autoDeposit
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
