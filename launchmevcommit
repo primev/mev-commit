@@ -181,9 +181,20 @@ parse_args() {
 # The function is idempotent and only kills the process once.
 cleanup() {
   local pid="${1}"
+  local grace_period=5  # Set grace period in seconds
+
   if [ -z "${cleaned_up}" ] && kill -0 ${pid} 2>/dev/null; then
     log_info "Killing mev-commit node with PID ${pid}"
     kill -SIGINT ${pid}
+
+    log_info "Waiting for ${grace_period} seconds before force killing..."
+    sleep ${grace_period}
+
+    if kill -0 ${pid} 2>/dev/null; then
+      log_warn "Process ${pid} still running, force killing now."
+      kill -9 ${pid}
+    fi
+
     if wait ${pid}; then
       log_info "mev-commit node with PID ${pid} has been killed"
     else
