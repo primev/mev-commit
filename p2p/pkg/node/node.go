@@ -791,7 +791,7 @@ func (p *providerStakeChecker) CheckProviderRegistered(ctx context.Context, prov
 		return false
 	}
 
-	stake, err := p.providerRegistry.CheckStake(callOpts, provider)
+	stake, err := p.providerRegistry.GetProviderStake(callOpts, provider)
 	if err != nil {
 		return false
 	}

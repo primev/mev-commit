@@ -81,35 +81,51 @@ jobs:
           check-latest: true
           cache-dependency-path: go.work.sum
 
-      - name: Determine Workspace Modules
+      - name: Determine Modules
         run: |
-          echo $(go list -f '{{.Dir}}' -m)
-          echo "GO_LINT_DIRS=$(go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | tr '\n' ' ')" >> ${GITHUB_ENV}
+          WORKSPACE_MODULES=$(go list -f '{{.Dir}}' -m)
+
+          ADDITIONAL_MODULES=(
+          "${GITHUB_WORKSPACE}/external/geth"
+          )
+
+          ALL_MODULES=$(printf "%s\n" "${WORKSPACE_MODULES}" "${ADDITIONAL_MODULES[@]}")
+
+          echo "GO_MODULES<<EOF" >> ${GITHUB_ENV}
+          echo "${ALL_MODULES}" >> ${GITHUB_ENV}
+          echo "EOF" >> ${GITHUB_ENV}
+          echo "GO_LINT_MODULES=$(printf "%s " $(echo "${ALL_MODULES}" | sed 's|$|/...|' | grep -v '/external/geth'))" >> ${GITHUB_ENV}
 
       - name: Run Gofmt
-        run: go list -f '{{.Dir}}' -m | xargs gofmt -d -e -l
+        run: |
+          GOFMT_OUTPUT=$(echo ${GO_MODULES} | tr ' ' '\n' | xargs gofmt -d -e -l)
+          if [ -n "${GOFMT_OUTPUT}" ]; then
+            echo "The following files are not formatted correctly:"
+            echo "${GOFMT_OUTPUT}"
+            exit 1
+          fi
 
       - name: Run Tidy & Workspace Sync
         run: |
-          go list -f '{{.Dir}}' -m | xargs -L1 go mod tidy -C
+          echo ${GO_MODULES} | tr ' ' '\n' | xargs -L1 go mod tidy -C
           go work sync
           git checkout ${{ github.event.pull_request.head.ref }}
           git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work/go.work.sum files" && exit 1)
           git reset --hard HEAD
 
       - name: Run Lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.57.2
-          args: --timeout 15m --verbose ${{ env.GO_LINT_DIRS }}
-          skip-cache: true # TODO(mrekucci): remove when the following issue is solved https://github.com/golangci/golangci-lint-action/issues/135#issuecomment-2039548548
+          version: v1.59
+          args: --timeout 15m --verbose ${{ env.GO_LINT_MODULES }}
 
       - name: Run Build
-        run: go list -f '{{.Dir}}/...' -m | xargs go build
+        run: echo ${GO_MODULES} | tr ' ' '\n' | xargs -I {} sh -c 'go build -C {} -v ./...'
+        env:
+          GOWORK: off
 
-        # TODO(mrekucci): Re-enable /external/geth module when tests are passing.
       - name: Run Test
-        run: go list -f '{{.Dir}}/...' -m | grep -v '/external/geth' | xargs go test -short -race
+        run: echo ${GO_MODULES} | tr ' ' '\n' | grep -v '/external/geth' | xargs -I {} sh -c 'go test -short -race {}/...'
 
       - name: Setup Protobuf
         uses: bufbuild/buf-setup-action@v1.31.0

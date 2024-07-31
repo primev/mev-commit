@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import {BidderRegistry} from "../contracts/BidderRegistry.sol";
 import {BlockTracker} from "../contracts/BlockTracker.sol";
+import {IBidderRegistry} from "../contracts/interfaces/IBidderRegistry.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
@@ -452,5 +453,44 @@ contract BidderRegistryTest is Test {
             uint256 maxBid = bidderRegistry.maxBidPerBlock(bidder, currentWindow + i);
             assertEq(maxBid, 0);
         }
+    }
+
+    function test_openBid_transferExcessBid() public {
+        bytes32 commitmentDigest = keccak256("commitment");
+        uint256 bid = 3 ether;
+        address testBidder = vm.addr(2);
+        uint64 blockNumber = uint64(blocksPerWindow + 1);
+        
+        // Deal some ETH to the test bidder
+        vm.deal(testBidder, 10 ether);
+
+        // Simulate the pre-confirmations contract
+        bidderRegistry.setPreconfirmationsContract(address(this));
+        
+        // Deposit some funds for the next window
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        vm.prank(testBidder);
+        bidderRegistry.depositForWindow{value: 4 ether}(nextWindow);
+        
+        // Ensure the used amount is less than the max bid per block
+        uint256 maxBid = bidderRegistry.maxBidPerBlock(testBidder, nextWindow);
+        uint256 usedAmount = bidderRegistry.usedFunds(testBidder, blockNumber);
+        uint256 availableAmount = maxBid > usedAmount ? maxBid - usedAmount : 0;
+        
+        // Open a bid that exceeds the available amount
+        vm.prank(address(this));
+        bidderRegistry.openBid(commitmentDigest, bid, testBidder, blockNumber);
+        
+        // Verify that the excess bid was transferred back to the test bidder
+        uint256 expectedBid = availableAmount;
+        uint256 testBidderBalance = testBidder.balance;
+        assertEq(testBidderBalance, 10 ether - 4 ether + (bid - expectedBid));
+        
+        // Verify the bid state
+        (address storedBidder, uint256 storedBidAmt, IBidderRegistry.State storedState) = bidderRegistry.bidPayment(commitmentDigest);
+        assertEq(storedBidder, testBidder);
+        assertEq(storedBidAmt, expectedBid);
+        assertEq(uint(storedState), uint(IBidderRegistry.State.PreConfirmed));
     }
 }

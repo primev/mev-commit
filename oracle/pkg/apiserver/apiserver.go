@@ -145,7 +145,7 @@ func (s *Service) registerProvider(token string) http.Handler {
 			return
 		}
 
-		stake, err := s.providerRegistry.CheckStake(providerAddress)
+		stake, err := s.providerRegistry.GetProviderStake(providerAddress)
 		if err != nil {
 			http.Error(w, "Failed to check provider stake", http.StatusInternalServerError)
 			return

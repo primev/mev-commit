@@ -127,7 +127,7 @@ describe("Preconf", function () {
       .registerAndStake({ value: ethers.parseEther("2.0") });
     await txn.wait();
 
-    const firstAddrStake = await providerRegistry.checkStake(addr1.address);
+    const firstAddrStake = await providerRegistry.getProviderStake(addr1.address);
     expect(ethers.formatEther(firstAddrStake)).to.equal("2.0");
   });
 
