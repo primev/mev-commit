@@ -372,10 +372,12 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigc
+		_ = <-sigc
 		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
 		cancel()
 		<-sigc
@@ -386,6 +388,9 @@ func main() {
 	if err := app.RunContext(ctx, os.Args); err != nil {
 		fmt.Fprintln(app.Writer, "exited with error:", err)
 	}
+
+	fmt.Fprintln(app.Writer, "exited successfully")
+	os.Exit(0)
 }
 
 func initializeApplication(c *cli.Context) error {
