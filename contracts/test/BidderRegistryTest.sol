@@ -48,7 +48,7 @@ contract BidderRegistryTest is Test {
         vm.deal(address(this), 1000 ether);
     }
 
-    function testVerifyInitialContractState() public view {
+    function test_VerifyInitialContractState() public view {
         (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
         assertEq(payoutPeriodBlocks, feePayoutPeriodBlocks);
@@ -59,7 +59,7 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.bidderRegistered(bidder), false);
     }
 
-    function testBidderStakeAndRegister() public {
+    function test_BidderStakeAndRegister() public {
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
 
@@ -90,28 +90,28 @@ contract BidderRegistryTest is Test {
         assertEq(bidderStakeStored2, 2 ether);
     }
 
-    function testFailBidderStakeAndRegisterAlreadyRegistered() public {
+    function testFail_BidderStakeAndRegisterAlreadyRegistered() public {
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 2e18 wei}(2);
         vm.expectRevert(bytes(""));
         bidderRegistry.depositForWindow{value: 1 wei}(2);
     }
 
-    function testFailReceive() public {
+    function testFail_Receive() public {
         vm.prank(bidder);
         vm.expectRevert(bytes(""));
         (bool success, ) = address(bidderRegistry).call{value: 1 wei}("");
         require(success, "couldn't transfer to bidder");
     }
 
-    function testFailFallback() public {
+    function testFail_Fallback() public {
         vm.prank(bidder);
         vm.expectRevert(bytes(""));
         (bool success, ) = address(bidderRegistry).call{value: 1 wei}("");
         require(success, "couldn't transfer to bidder");
     }
 
-    function testSetNewProtocolFeeRecipient() public {
+    function test_SetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
         bidderRegistry.setNewProtocolFeeRecipient(newRecipient);
@@ -119,49 +119,49 @@ contract BidderRegistryTest is Test {
         assertEq(recipient, newRecipient);
     }
 
-    function testFailSetNewProtocolFeeRecipient() public {
+    function testFail_SetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
         bidderRegistry.setNewProtocolFeeRecipient(newRecipient);
     }
 
-    function testSetNewFeePayoutPeriodBlocks() public {
+    function test_SetNewFeePayoutPeriodBlocks() public {
         vm.prank(address(this));
         bidderRegistry.setNewFeePayoutPeriodBlocks(890);
         (, , , uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(payoutPeriodBlocks, 890);
     }
 
-    function testFailSetNewFeePayoutPeriodBlocks() public {
+    function testFail_SetNewFeePayoutPeriodBlocks() public {
         vm.expectRevert(bytes(""));
         bidderRegistry.setNewFeePayoutPeriodBlocks(83424);
     }
 
-    function testSetNewFeePercent() public {
+    function test_SetNewFeePercent() public {
         vm.prank(address(this));
         bidderRegistry.setNewFeePercent(uint16(25));
         assertEq(bidderRegistry.feePercent(), uint16(25));
     }
 
-    function testFailSetNewFeePercent() public {
+    function testFail_SetNewFeePercent() public {
         vm.expectRevert(bytes(""));
         bidderRegistry.setNewFeePercent(uint16(25));
     }
 
-    function testSetPreConfContract() public {
+    function test_SetPreConfContract() public {
         vm.prank(address(this));
         address newPreConfContract = vm.addr(3);
         bidderRegistry.setPreconfirmationsContract(newPreConfContract);
         assertEq(bidderRegistry.preConfirmationsContract(), newPreConfContract);
     }
 
-    function testFailSetPreConfContract() public {
+    function testFail_SetPreConfContract() public {
         vm.prank(address(this));
         vm.expectRevert(bytes(""));
         bidderRegistry.setPreconfirmationsContract(address(0));
     }
 
-    function testshouldRetrieveFunds() public {
+    function test_shouldRetrieveFunds() public {
         bytes32 bidID = keccak256("1234");
         bidderRegistry.setPreconfirmationsContract(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
@@ -185,7 +185,7 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.lockedFunds(bidder, nextWindow), 63 ether);
     }
 
-    function testshouldRetrieveFundsWithDecay() public {
+    function test_shouldRetrieveFundsWithDecay() public {
         bytes32 bidID = keccak256("1234");
         bidderRegistry.setPreconfirmationsContract(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
@@ -213,7 +213,7 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.lockedFunds(bidder, nextWindow), 63 ether);
     }
 
-    function testshouldReturnFunds() public {
+    function test_shouldReturnFunds() public {
         bytes32 bidID = keccak256("1234");
         bidderRegistry.setPreconfirmationsContract(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
@@ -241,7 +241,7 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.lockedFunds(bidder, nextWindow), 63 ether);
     }
 
-    function testFailshouldRetrieveFundsNotPreConf() public {
+    function testFail_shouldRetrieveFundsNotPreConf() public {
         vm.prank(bidder);
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
@@ -254,7 +254,7 @@ contract BidderRegistryTest is Test {
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
     }
 
-    function testFailshouldRetrieveFundsGreaterThanStake() public {
+    function testFail_shouldRetrieveFundsGreaterThanStake() public {
         vm.prank(address(this));
         bidderRegistry.setPreconfirmationsContract(address(this));
 
@@ -272,7 +272,7 @@ contract BidderRegistryTest is Test {
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
     }
 
-    function testwithdrawProviderAmount() public {
+    function test_withdrawProviderAmount() public {
         bidderRegistry.setPreconfirmationsContract(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
@@ -294,7 +294,7 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.providerAmount(provider), 0);
     }
 
-    function testFailwithdrawProviderAmount() public {
+    function testFail_withdrawProviderAmount() public {
         bidderRegistry.setPreconfirmationsContract(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
@@ -304,7 +304,7 @@ contract BidderRegistryTest is Test {
         bidderRegistry.withdrawProviderAmount(payable(provider));
     }
 
-    function testDepositForWindows() public {
+    function test_DepositForWindows() public {
         uint256[] memory windows = new uint256[](3);
         uint256 currentWindow = blockTracker.getCurrentWindow();
         for (uint256 i = 0; i < windows.length; ++i) {
@@ -331,7 +331,7 @@ contract BidderRegistryTest is Test {
         assertEq(isBidderRegistered, true);
     }
 
-    function testWithdrawFromWindows() public {
+    function test_WithdrawFromWindows() public {
         uint256[] memory windows = new uint256[](3);
         uint256 currentWindow = blockTracker.getCurrentWindow();
         for (uint256 i = 0; i < windows.length; ++i) {
@@ -370,7 +370,7 @@ contract BidderRegistryTest is Test {
         }
     }
 
-    function testopenBidtransferExcessBid() public {
+    function test_OpenBidtransferExcessBid() public {
         bytes32 commitmentDigest = keccak256("commitment");
         uint256 bid = 3 ether;
         address testBidder = vm.addr(2);
@@ -409,7 +409,7 @@ contract BidderRegistryTest is Test {
         assertEq(uint(storedState), uint(IBidderRegistry.State.PreConfirmed));
     }
 
-    function testProtocolFeePayout() public {
+    function test_ProtocolFeePayout() public {
         (, , uint256 lastPayoutBlock,) = bidderRegistry.protocolFeeTracker();
         assertEq(lastPayoutBlock, 1);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
@@ -435,7 +435,7 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
     }
 
-    function testProtocolFeeAccumulation() public {
+    function test_ProtocolFeeAccumulation() public {
         bidderRegistry.setPreconfirmationsContract(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;

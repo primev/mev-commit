@@ -125,7 +125,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testGetBidHash1() public {
+    function test_GetBidHash1() public {
         // Step 1: Prepare the test commitment data
         PreConfCommitmentStore.CommitmentParams memory testCommitment = IPreConfCommitmentStore.CommitmentParams({
             txnHash: "0xkartik",
@@ -176,7 +176,7 @@ contract TestPreConfCommitmentStore is Test {
         assert(commitmentHash != bytes32(0));        
     }
 
-    function testInitialize() public view {
+    function test_Initialize() public view {
         assertEq(preConfCommitmentStore.oracleContract(), oracleContract);
         assertEq(
             address(preConfCommitmentStore.providerRegistry()),
@@ -188,7 +188,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testStoreEncryptedCommitment() public {
+    function test_StoreEncryptedCommitment() public {
         // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -230,7 +230,7 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(commitment.commitmentSignature, commitmentSignature);
     }
 
-    function testStoreCommitmentFailureDueToTimestampValidation() public {
+    function test_StoreCommitmentFailureDueToTimestampValidation() public {
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
         );
@@ -254,7 +254,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testStoreCommitmentFailureDueToTimestampValidationWithNewWindow()
+    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
     public
     {
         bytes32 commitmentDigest = keccak256(
@@ -279,13 +279,13 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testUpdateOracle() public {
+    function test_UpdateOracle() public {
         address newOracle = address(0x123);
         preConfCommitmentStore.updateOracleContract(newOracle);
         assertEq(preConfCommitmentStore.oracleContract(), newOracle);
     }
 
-    function testUpdateProviderRegistry() public {
+    function test_UpdateProviderRegistry() public {
         preConfCommitmentStore.updateProviderRegistry(feeRecipient);
         assertEq(
             address(preConfCommitmentStore.providerRegistry()),
@@ -293,7 +293,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testUpdateBidderRegistry() public {
+    function test_UpdateBidderRegistry() public {
         preConfCommitmentStore.updateBidderRegistry(feeRecipient);
         assertEq(
             address(preConfCommitmentStore.bidderRegistry()),
@@ -301,7 +301,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testGetBidHash2() public view {
+    function test_GetBidHash2() public view {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
@@ -313,7 +313,7 @@ contract TestPreConfCommitmentStore is Test {
         assertEq(bidHash, _testCommitmentAliceBob.bidDigest);
     }
 
-    function testGetCommitmentDigest() public {
+    function test_GetCommitmentDigest() public {
         (, uint256 bidderPk) = makeAddrAndKey("alice");
         
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
@@ -346,7 +346,7 @@ contract TestPreConfCommitmentStore is Test {
         signature = abi.encodePacked(r, s, v);
     }
 
-    function testStoreCommitment() public {
+    function test_StoreCommitment() public {
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
         vm.prank(bidder);
@@ -586,7 +586,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testGetCommitment() public {
+    function test_GetCommitment() public {
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
         uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(
@@ -635,7 +635,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testInitiateSlash() public {
+    function test_InitiateSlash() public {
         // Assuming you have a stored commitment
         {
             (address bidder, ) = makeAddrAndKey("alice");
@@ -726,7 +726,7 @@ contract TestPreConfCommitmentStore is Test {
         // commitmentHash value is internal to contract and not asserted  
     }
 
-    function testInitiateReward() public {
+    function test_InitiateReward() public {
         // Assuming you have a stored commitment
         {
             (address bidder, ) = makeAddrAndKey("alice");
@@ -812,7 +812,7 @@ contract TestPreConfCommitmentStore is Test {
         }
     }
 
-    function testInitiateRewardFullyDecayed() public {
+    function test_InitiateRewardFullyDecayed() public {
         // Assuming you have a stored commitment
         {
             (address bidder, ) = makeAddrAndKey("alice");
@@ -902,7 +902,7 @@ contract TestPreConfCommitmentStore is Test {
         }
     }
 
-    function testStoreEncryptedCommitmentInsufficientStake() public {
+    function test_StoreEncryptedCommitmentInsufficientStake() public {
         // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -924,7 +924,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function testStoreEncryptedCommitmentPendingWithdrawal() public {
+    function test_StoreEncryptedCommitmentPendingWithdrawal() public {
         // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
