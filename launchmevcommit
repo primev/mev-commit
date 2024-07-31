@@ -184,8 +184,13 @@ cleanup() {
   if [ -z "${cleaned_up}" ] && kill -0 ${pid} 2>/dev/null; then
     log_info "Killing mev-commit node with PID ${pid}"
     kill -SIGINT ${pid}
+    if wait ${pid}; then
+      log_info "mev-commit node with PID ${pid} has been killed"
+    else
+      log_error "Failed to kill mev-commit node with PID ${pid}"
+    fi
+    cleaned_up=true
   fi
-  cleaned_up=true
   exit 0
 }
 
@@ -236,6 +241,7 @@ main() {
   fi
 
   trap "cleanup ${pid}" EXIT SIGINT SIGTERM
+
   log_info "To kill mev-commit, exit the script with Ctrl+C"
 
   local address=$(cast wallet address --private-key "0x$(cat ${ROOT_PATH}/key)")
@@ -277,5 +283,8 @@ main() {
 
   wait ${pid}
 }
+
+# Global flag for cleanup
+cleaned_up=false
 
 main "$@" || exit 1
