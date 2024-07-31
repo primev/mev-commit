@@ -15,7 +15,7 @@ interface IPreConfCommitmentStore {
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
         uint64 dispatchTimestamp;
-        address commiter;
+        address committer;
         uint256 bid;
         bytes32 bidHash;
         bytes32 commitmentHash;
@@ -43,7 +43,7 @@ interface IPreConfCommitmentStore {
     /// @dev Struct for all the information around encrypted preconfirmations commitment
     struct EncrPreConfCommitment {
         bool isUsed;
-        address commiter;
+        address committer;
         uint64 dispatchTimestamp;
         bytes32 commitmentDigest;
         bytes commitmentSignature;
@@ -53,7 +53,7 @@ interface IPreConfCommitmentStore {
     event CommitmentStored(
         bytes32 indexed commitmentIndex,
         address bidder,
-        address commiter,
+        address committer,
         uint256 bid,
         uint64 blockNumber,
         bytes32 bidHash,
@@ -71,7 +71,7 @@ interface IPreConfCommitmentStore {
     /// @dev Event to log successful encrypted commitment storage
     event EncryptedCommitmentStored(
         bytes32 indexed commitmentIndex,
-        address commiter,
+        address committer,
         bytes32 commitmentDigest,
         bytes commitmentSignature,
         uint64 dispatchTimestamp
@@ -287,11 +287,11 @@ interface IPreConfCommitmentStore {
      * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
      * @param params The commitment params associated with the commitment.
      * @return preConfHash The hash of the pre-confirmation commitment.
-     * @return commiterAddress The address of the committer recovered from the commitment signature.
+     * @return committerAddress The address of the committer recovered from the commitment signature.
      */
     function verifyPreConfCommitment(
         CommitmentParams memory params
-    ) external pure returns (bytes32 preConfHash, address commiterAddress);
+    ) external pure returns (bytes32 preConfHash, address committerAddress);
 
     /**
      * @dev Computes the index of a commitment.

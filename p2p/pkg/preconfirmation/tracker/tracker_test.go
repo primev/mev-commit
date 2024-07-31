@@ -133,7 +133,7 @@ func TestTracker(t *testing.T) {
 		}
 
 		err = publishEncCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
-			Commiter:            common.BytesToAddress(c.PreConfirmation.ProviderAddress),
+			Committer:           common.BytesToAddress(c.PreConfirmation.ProviderAddress),
 			CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", i+1)),
 			CommitmentDigest:    common.BytesToHash(c.EncryptedPreConfirmation.Commitment),
 			CommitmentSignature: c.EncryptedPreConfirmation.Signature,
@@ -152,7 +152,7 @@ func TestTracker(t *testing.T) {
 	err = publishCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
-		Commiter:            common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
+		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
 		Bid:                 amount,
 		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
 		BidHash:             common.BytesToHash(commitments[4].PreConfirmation.Bid.Digest),
@@ -465,7 +465,7 @@ func publishEncCommitment(
 ) error {
 	event := pcABI.Events["EncryptedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
-		ec.Commiter,
+		ec.Committer,
 		ec.CommitmentDigest,
 		ec.CommitmentSignature,
 		ec.DispatchTimestamp,
@@ -498,7 +498,7 @@ func publishCommitment(
 	event := pcABI.Events["CommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		c.Bidder,
-		c.Commiter,
+		c.Committer,
 		c.Bid,
 		c.BlockNumber,
 		c.BidHash,

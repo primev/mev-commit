@@ -412,7 +412,7 @@ func (t *Tracker) openCommitments(
 		t.logger.Info("opened commitment",
 			"txHash", txHash, "duration", duration,
 			"blockNumber", newL1Block.BlockNumber,
-			"commiter", common.Bytes2Hex(commitment.ProviderAddress),
+			"committer", common.Bytes2Hex(commitment.ProviderAddress),
 		)
 		settled++
 	}

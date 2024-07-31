@@ -105,7 +105,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         IPreConfCommitmentStore.PreConfCommitment
             memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
-            commitment.commiter == builder &&
+            commitment.committer == builder &&
             commitment.blockNumber == blockNumber
         ) {
             _processCommitment(
