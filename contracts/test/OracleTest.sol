@@ -32,6 +32,7 @@ contract OracleTest is Test {
     uint256 public blocksPerWindow;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     uint256 public constant withdrawalDelay = 24 * 3600; // 24 hours
+    uint256 public constant protocolFeePayoutPeriodBlocks = 100;
     struct TestCommitment {
         uint64 bid;
         uint64 blockNumber;
@@ -85,7 +86,7 @@ contract OracleTest is Test {
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay)
+                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay, protocolFeePayoutPeriodBlocks)
             )
         );
         providerRegistry = ProviderRegistry(payable(proxy));
@@ -107,7 +108,8 @@ contract OracleTest is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    blocksPerWindow
+                    blocksPerWindow,
+                    protocolFeePayoutPeriodBlocks
                 )
             )
         );
@@ -151,7 +153,7 @@ contract OracleTest is Test {
 
         vm.stopPrank();
 
-        preConfCommitmentStore.updateOracle(address(oracle));
+        preConfCommitmentStore.updateOracleContract(address(oracle));
         bidderRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );

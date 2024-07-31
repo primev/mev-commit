@@ -31,7 +31,7 @@ var (
 
 // ProviderregistryMetaData contains all meta data concerning the Providerregistry contract.
 var ProviderregistryMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"PERCENT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"PRECISION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"eoaToBlsPubkey\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"feePercent\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"feeRecipient\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"feeRecipientAmount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBLSKey\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProviderStake\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_minStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_feeRecipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_feePercent\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_withdrawalDelay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isProviderValid\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minStake\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"preConfirmationsContract\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"protocolFeeAmount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"providerRegistered\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"providerStakes\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerAndStake\",\"inputs\":[{\"name\":\"blsPublicKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNewFeePercent\",\"inputs\":[{\"name\":\"newFeePercent\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNewFeeRecipient\",\"inputs\":[{\"name\":\"newFeeRecipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPreconfirmationsContract\",\"inputs\":[{\"name\":\"contractAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setWithdrawalDelay\",\"inputs\":[{\"name\":\"_withdrawalDelay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slash\",\"inputs\":[{\"name\":\"amt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"addresspayable\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"stake\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstake\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawFeeRecipientAmount\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawProtocolFee\",\"inputs\":[{\"name\":\"treasuryAddress\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawalDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdrawalRequests\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"FundsDeposited\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FundsSlashed\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProviderRegistered\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"stakedAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"blsPublicKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unstake\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Withdraw\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalDelayUpdated\",\"inputs\":[{\"name\":\"newWithdrawalDelay\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"PERCENT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"PRECISION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"eoaToBlsPubkey\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"feePercent\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getAccumulatedProtocolFee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBLSKey\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getProviderStake\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_minStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_protocolFeeRecipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_feePercent\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_withdrawalDelay\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_protocolFeePayoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isProviderValid\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"manuallyWithdrawProtocolFee\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"minStake\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"preConfirmationsContract\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"protocolFeeTracker\",\"inputs\":[],\"outputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"accumulatedAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"lastPayoutBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"payoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"providerRegistered\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"providerStakes\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerAndStake\",\"inputs\":[{\"name\":\"blsPublicKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setFeePayoutPeriodBlocks\",\"inputs\":[{\"name\":\"_feePayoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNewFeePercent\",\"inputs\":[{\"name\":\"newFeePercent\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNewProtocolFeeRecipient\",\"inputs\":[{\"name\":\"newFeeRecipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPreconfirmationsContract\",\"inputs\":[{\"name\":\"contractAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setWithdrawalDelay\",\"inputs\":[{\"name\":\"_withdrawalDelay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slash\",\"inputs\":[{\"name\":\"amt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"provider\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"addresspayable\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"stake\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstake\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawalDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdrawalRequests\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"FeePayoutPeriodBlocksUpdated\",\"inputs\":[{\"name\":\"newFeePayoutPeriodBlocks\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FeeTransfer\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FundsDeposited\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FundsSlashed\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProtocolFeeRecipientUpdated\",\"inputs\":[{\"name\":\"newProtocolFeeRecipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProviderRegistered\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"stakedAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"blsPublicKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unstake\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Withdraw\",\"inputs\":[{\"name\":\"provider\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalDelayUpdated\",\"inputs\":[{\"name\":\"newWithdrawalDelay\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
 }
 
 // ProviderregistryABI is the input ABI used to generate the binding from.
@@ -335,43 +335,12 @@ func (_Providerregistry *ProviderregistryCallerSession) FeePercent() (uint16, er
 	return _Providerregistry.Contract.FeePercent(&_Providerregistry.CallOpts)
 }
 
-// FeeRecipient is a free data retrieval call binding the contract method 0x46904840.
+// GetAccumulatedProtocolFee is a free data retrieval call binding the contract method 0x2dde2218.
 //
-// Solidity: function feeRecipient() view returns(address)
-func (_Providerregistry *ProviderregistryCaller) FeeRecipient(opts *bind.CallOpts) (common.Address, error) {
+// Solidity: function getAccumulatedProtocolFee() view returns(uint256)
+func (_Providerregistry *ProviderregistryCaller) GetAccumulatedProtocolFee(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Providerregistry.contract.Call(opts, &out, "feeRecipient")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// FeeRecipient is a free data retrieval call binding the contract method 0x46904840.
-//
-// Solidity: function feeRecipient() view returns(address)
-func (_Providerregistry *ProviderregistrySession) FeeRecipient() (common.Address, error) {
-	return _Providerregistry.Contract.FeeRecipient(&_Providerregistry.CallOpts)
-}
-
-// FeeRecipient is a free data retrieval call binding the contract method 0x46904840.
-//
-// Solidity: function feeRecipient() view returns(address)
-func (_Providerregistry *ProviderregistryCallerSession) FeeRecipient() (common.Address, error) {
-	return _Providerregistry.Contract.FeeRecipient(&_Providerregistry.CallOpts)
-}
-
-// FeeRecipientAmount is a free data retrieval call binding the contract method 0xe0ae4ebd.
-//
-// Solidity: function feeRecipientAmount() view returns(uint256)
-func (_Providerregistry *ProviderregistryCaller) FeeRecipientAmount(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Providerregistry.contract.Call(opts, &out, "feeRecipientAmount")
+	err := _Providerregistry.contract.Call(opts, &out, "getAccumulatedProtocolFee")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -383,18 +352,18 @@ func (_Providerregistry *ProviderregistryCaller) FeeRecipientAmount(opts *bind.C
 
 }
 
-// FeeRecipientAmount is a free data retrieval call binding the contract method 0xe0ae4ebd.
+// GetAccumulatedProtocolFee is a free data retrieval call binding the contract method 0x2dde2218.
 //
-// Solidity: function feeRecipientAmount() view returns(uint256)
-func (_Providerregistry *ProviderregistrySession) FeeRecipientAmount() (*big.Int, error) {
-	return _Providerregistry.Contract.FeeRecipientAmount(&_Providerregistry.CallOpts)
+// Solidity: function getAccumulatedProtocolFee() view returns(uint256)
+func (_Providerregistry *ProviderregistrySession) GetAccumulatedProtocolFee() (*big.Int, error) {
+	return _Providerregistry.Contract.GetAccumulatedProtocolFee(&_Providerregistry.CallOpts)
 }
 
-// FeeRecipientAmount is a free data retrieval call binding the contract method 0xe0ae4ebd.
+// GetAccumulatedProtocolFee is a free data retrieval call binding the contract method 0x2dde2218.
 //
-// Solidity: function feeRecipientAmount() view returns(uint256)
-func (_Providerregistry *ProviderregistryCallerSession) FeeRecipientAmount() (*big.Int, error) {
-	return _Providerregistry.Contract.FeeRecipientAmount(&_Providerregistry.CallOpts)
+// Solidity: function getAccumulatedProtocolFee() view returns(uint256)
+func (_Providerregistry *ProviderregistryCallerSession) GetAccumulatedProtocolFee() (*big.Int, error) {
+	return _Providerregistry.Contract.GetAccumulatedProtocolFee(&_Providerregistry.CallOpts)
 }
 
 // GetBLSKey is a free data retrieval call binding the contract method 0xb50c522e.
@@ -612,35 +581,59 @@ func (_Providerregistry *ProviderregistryCallerSession) PreConfirmationsContract
 	return _Providerregistry.Contract.PreConfirmationsContract(&_Providerregistry.CallOpts)
 }
 
-// ProtocolFeeAmount is a free data retrieval call binding the contract method 0x8ec9c93b.
+// ProtocolFeeTracker is a free data retrieval call binding the contract method 0x291af92c.
 //
-// Solidity: function protocolFeeAmount() view returns(uint256)
-func (_Providerregistry *ProviderregistryCaller) ProtocolFeeAmount(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function protocolFeeTracker() view returns(address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks)
+func (_Providerregistry *ProviderregistryCaller) ProtocolFeeTracker(opts *bind.CallOpts) (struct {
+	Recipient          common.Address
+	AccumulatedAmount  *big.Int
+	LastPayoutBlock    *big.Int
+	PayoutPeriodBlocks *big.Int
+}, error) {
 	var out []interface{}
-	err := _Providerregistry.contract.Call(opts, &out, "protocolFeeAmount")
+	err := _Providerregistry.contract.Call(opts, &out, "protocolFeeTracker")
 
+	outstruct := new(struct {
+		Recipient          common.Address
+		AccumulatedAmount  *big.Int
+		LastPayoutBlock    *big.Int
+		PayoutPeriodBlocks *big.Int
+	})
 	if err != nil {
-		return *new(*big.Int), err
+		return *outstruct, err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Recipient = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.AccumulatedAmount = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.LastPayoutBlock = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.PayoutPeriodBlocks = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
 
-	return out0, err
+	return *outstruct, err
 
 }
 
-// ProtocolFeeAmount is a free data retrieval call binding the contract method 0x8ec9c93b.
+// ProtocolFeeTracker is a free data retrieval call binding the contract method 0x291af92c.
 //
-// Solidity: function protocolFeeAmount() view returns(uint256)
-func (_Providerregistry *ProviderregistrySession) ProtocolFeeAmount() (*big.Int, error) {
-	return _Providerregistry.Contract.ProtocolFeeAmount(&_Providerregistry.CallOpts)
+// Solidity: function protocolFeeTracker() view returns(address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks)
+func (_Providerregistry *ProviderregistrySession) ProtocolFeeTracker() (struct {
+	Recipient          common.Address
+	AccumulatedAmount  *big.Int
+	LastPayoutBlock    *big.Int
+	PayoutPeriodBlocks *big.Int
+}, error) {
+	return _Providerregistry.Contract.ProtocolFeeTracker(&_Providerregistry.CallOpts)
 }
 
-// ProtocolFeeAmount is a free data retrieval call binding the contract method 0x8ec9c93b.
+// ProtocolFeeTracker is a free data retrieval call binding the contract method 0x291af92c.
 //
-// Solidity: function protocolFeeAmount() view returns(uint256)
-func (_Providerregistry *ProviderregistryCallerSession) ProtocolFeeAmount() (*big.Int, error) {
-	return _Providerregistry.Contract.ProtocolFeeAmount(&_Providerregistry.CallOpts)
+// Solidity: function protocolFeeTracker() view returns(address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks)
+func (_Providerregistry *ProviderregistryCallerSession) ProtocolFeeTracker() (struct {
+	Recipient          common.Address
+	AccumulatedAmount  *big.Int
+	LastPayoutBlock    *big.Int
+	PayoutPeriodBlocks *big.Int
+}, error) {
+	return _Providerregistry.Contract.ProtocolFeeTracker(&_Providerregistry.CallOpts)
 }
 
 // ProviderRegistered is a free data retrieval call binding the contract method 0xab255b41.
@@ -819,25 +812,46 @@ func (_Providerregistry *ProviderregistryTransactorSession) AcceptOwnership() (*
 	return _Providerregistry.Contract.AcceptOwnership(&_Providerregistry.TransactOpts)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xe919dbae.
+// Initialize is a paid mutator transaction binding the contract method 0xc8387461.
 //
-// Solidity: function initialize(uint256 _minStake, address _feeRecipient, uint16 _feePercent, address _owner, uint256 _withdrawalDelay) returns()
-func (_Providerregistry *ProviderregistryTransactor) Initialize(opts *bind.TransactOpts, _minStake *big.Int, _feeRecipient common.Address, _feePercent uint16, _owner common.Address, _withdrawalDelay *big.Int) (*types.Transaction, error) {
-	return _Providerregistry.contract.Transact(opts, "initialize", _minStake, _feeRecipient, _feePercent, _owner, _withdrawalDelay)
+// Solidity: function initialize(uint256 _minStake, address _protocolFeeRecipient, uint16 _feePercent, address _owner, uint256 _withdrawalDelay, uint256 _protocolFeePayoutPeriodBlocks) returns()
+func (_Providerregistry *ProviderregistryTransactor) Initialize(opts *bind.TransactOpts, _minStake *big.Int, _protocolFeeRecipient common.Address, _feePercent uint16, _owner common.Address, _withdrawalDelay *big.Int, _protocolFeePayoutPeriodBlocks *big.Int) (*types.Transaction, error) {
+	return _Providerregistry.contract.Transact(opts, "initialize", _minStake, _protocolFeeRecipient, _feePercent, _owner, _withdrawalDelay, _protocolFeePayoutPeriodBlocks)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xe919dbae.
+// Initialize is a paid mutator transaction binding the contract method 0xc8387461.
 //
-// Solidity: function initialize(uint256 _minStake, address _feeRecipient, uint16 _feePercent, address _owner, uint256 _withdrawalDelay) returns()
-func (_Providerregistry *ProviderregistrySession) Initialize(_minStake *big.Int, _feeRecipient common.Address, _feePercent uint16, _owner common.Address, _withdrawalDelay *big.Int) (*types.Transaction, error) {
-	return _Providerregistry.Contract.Initialize(&_Providerregistry.TransactOpts, _minStake, _feeRecipient, _feePercent, _owner, _withdrawalDelay)
+// Solidity: function initialize(uint256 _minStake, address _protocolFeeRecipient, uint16 _feePercent, address _owner, uint256 _withdrawalDelay, uint256 _protocolFeePayoutPeriodBlocks) returns()
+func (_Providerregistry *ProviderregistrySession) Initialize(_minStake *big.Int, _protocolFeeRecipient common.Address, _feePercent uint16, _owner common.Address, _withdrawalDelay *big.Int, _protocolFeePayoutPeriodBlocks *big.Int) (*types.Transaction, error) {
+	return _Providerregistry.Contract.Initialize(&_Providerregistry.TransactOpts, _minStake, _protocolFeeRecipient, _feePercent, _owner, _withdrawalDelay, _protocolFeePayoutPeriodBlocks)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xe919dbae.
+// Initialize is a paid mutator transaction binding the contract method 0xc8387461.
 //
-// Solidity: function initialize(uint256 _minStake, address _feeRecipient, uint16 _feePercent, address _owner, uint256 _withdrawalDelay) returns()
-func (_Providerregistry *ProviderregistryTransactorSession) Initialize(_minStake *big.Int, _feeRecipient common.Address, _feePercent uint16, _owner common.Address, _withdrawalDelay *big.Int) (*types.Transaction, error) {
-	return _Providerregistry.Contract.Initialize(&_Providerregistry.TransactOpts, _minStake, _feeRecipient, _feePercent, _owner, _withdrawalDelay)
+// Solidity: function initialize(uint256 _minStake, address _protocolFeeRecipient, uint16 _feePercent, address _owner, uint256 _withdrawalDelay, uint256 _protocolFeePayoutPeriodBlocks) returns()
+func (_Providerregistry *ProviderregistryTransactorSession) Initialize(_minStake *big.Int, _protocolFeeRecipient common.Address, _feePercent uint16, _owner common.Address, _withdrawalDelay *big.Int, _protocolFeePayoutPeriodBlocks *big.Int) (*types.Transaction, error) {
+	return _Providerregistry.Contract.Initialize(&_Providerregistry.TransactOpts, _minStake, _protocolFeeRecipient, _feePercent, _owner, _withdrawalDelay, _protocolFeePayoutPeriodBlocks)
+}
+
+// ManuallyWithdrawProtocolFee is a paid mutator transaction binding the contract method 0xdbf63530.
+//
+// Solidity: function manuallyWithdrawProtocolFee() returns()
+func (_Providerregistry *ProviderregistryTransactor) ManuallyWithdrawProtocolFee(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _Providerregistry.contract.Transact(opts, "manuallyWithdrawProtocolFee")
+}
+
+// ManuallyWithdrawProtocolFee is a paid mutator transaction binding the contract method 0xdbf63530.
+//
+// Solidity: function manuallyWithdrawProtocolFee() returns()
+func (_Providerregistry *ProviderregistrySession) ManuallyWithdrawProtocolFee() (*types.Transaction, error) {
+	return _Providerregistry.Contract.ManuallyWithdrawProtocolFee(&_Providerregistry.TransactOpts)
+}
+
+// ManuallyWithdrawProtocolFee is a paid mutator transaction binding the contract method 0xdbf63530.
+//
+// Solidity: function manuallyWithdrawProtocolFee() returns()
+func (_Providerregistry *ProviderregistryTransactorSession) ManuallyWithdrawProtocolFee() (*types.Transaction, error) {
+	return _Providerregistry.Contract.ManuallyWithdrawProtocolFee(&_Providerregistry.TransactOpts)
 }
 
 // RegisterAndStake is a paid mutator transaction binding the contract method 0x8e3d03f6.
@@ -882,6 +896,27 @@ func (_Providerregistry *ProviderregistryTransactorSession) RenounceOwnership() 
 	return _Providerregistry.Contract.RenounceOwnership(&_Providerregistry.TransactOpts)
 }
 
+// SetFeePayoutPeriodBlocks is a paid mutator transaction binding the contract method 0x7cbf9f6e.
+//
+// Solidity: function setFeePayoutPeriodBlocks(uint256 _feePayoutPeriodBlocks) returns()
+func (_Providerregistry *ProviderregistryTransactor) SetFeePayoutPeriodBlocks(opts *bind.TransactOpts, _feePayoutPeriodBlocks *big.Int) (*types.Transaction, error) {
+	return _Providerregistry.contract.Transact(opts, "setFeePayoutPeriodBlocks", _feePayoutPeriodBlocks)
+}
+
+// SetFeePayoutPeriodBlocks is a paid mutator transaction binding the contract method 0x7cbf9f6e.
+//
+// Solidity: function setFeePayoutPeriodBlocks(uint256 _feePayoutPeriodBlocks) returns()
+func (_Providerregistry *ProviderregistrySession) SetFeePayoutPeriodBlocks(_feePayoutPeriodBlocks *big.Int) (*types.Transaction, error) {
+	return _Providerregistry.Contract.SetFeePayoutPeriodBlocks(&_Providerregistry.TransactOpts, _feePayoutPeriodBlocks)
+}
+
+// SetFeePayoutPeriodBlocks is a paid mutator transaction binding the contract method 0x7cbf9f6e.
+//
+// Solidity: function setFeePayoutPeriodBlocks(uint256 _feePayoutPeriodBlocks) returns()
+func (_Providerregistry *ProviderregistryTransactorSession) SetFeePayoutPeriodBlocks(_feePayoutPeriodBlocks *big.Int) (*types.Transaction, error) {
+	return _Providerregistry.Contract.SetFeePayoutPeriodBlocks(&_Providerregistry.TransactOpts, _feePayoutPeriodBlocks)
+}
+
 // SetNewFeePercent is a paid mutator transaction binding the contract method 0xfb22febf.
 //
 // Solidity: function setNewFeePercent(uint16 newFeePercent) returns()
@@ -903,25 +938,25 @@ func (_Providerregistry *ProviderregistryTransactorSession) SetNewFeePercent(new
 	return _Providerregistry.Contract.SetNewFeePercent(&_Providerregistry.TransactOpts, newFeePercent)
 }
 
-// SetNewFeeRecipient is a paid mutator transaction binding the contract method 0xa26652ea.
+// SetNewProtocolFeeRecipient is a paid mutator transaction binding the contract method 0x184ac28e.
 //
-// Solidity: function setNewFeeRecipient(address newFeeRecipient) returns()
-func (_Providerregistry *ProviderregistryTransactor) SetNewFeeRecipient(opts *bind.TransactOpts, newFeeRecipient common.Address) (*types.Transaction, error) {
-	return _Providerregistry.contract.Transact(opts, "setNewFeeRecipient", newFeeRecipient)
+// Solidity: function setNewProtocolFeeRecipient(address newFeeRecipient) returns()
+func (_Providerregistry *ProviderregistryTransactor) SetNewProtocolFeeRecipient(opts *bind.TransactOpts, newFeeRecipient common.Address) (*types.Transaction, error) {
+	return _Providerregistry.contract.Transact(opts, "setNewProtocolFeeRecipient", newFeeRecipient)
 }
 
-// SetNewFeeRecipient is a paid mutator transaction binding the contract method 0xa26652ea.
+// SetNewProtocolFeeRecipient is a paid mutator transaction binding the contract method 0x184ac28e.
 //
-// Solidity: function setNewFeeRecipient(address newFeeRecipient) returns()
-func (_Providerregistry *ProviderregistrySession) SetNewFeeRecipient(newFeeRecipient common.Address) (*types.Transaction, error) {
-	return _Providerregistry.Contract.SetNewFeeRecipient(&_Providerregistry.TransactOpts, newFeeRecipient)
+// Solidity: function setNewProtocolFeeRecipient(address newFeeRecipient) returns()
+func (_Providerregistry *ProviderregistrySession) SetNewProtocolFeeRecipient(newFeeRecipient common.Address) (*types.Transaction, error) {
+	return _Providerregistry.Contract.SetNewProtocolFeeRecipient(&_Providerregistry.TransactOpts, newFeeRecipient)
 }
 
-// SetNewFeeRecipient is a paid mutator transaction binding the contract method 0xa26652ea.
+// SetNewProtocolFeeRecipient is a paid mutator transaction binding the contract method 0x184ac28e.
 //
-// Solidity: function setNewFeeRecipient(address newFeeRecipient) returns()
-func (_Providerregistry *ProviderregistryTransactorSession) SetNewFeeRecipient(newFeeRecipient common.Address) (*types.Transaction, error) {
-	return _Providerregistry.Contract.SetNewFeeRecipient(&_Providerregistry.TransactOpts, newFeeRecipient)
+// Solidity: function setNewProtocolFeeRecipient(address newFeeRecipient) returns()
+func (_Providerregistry *ProviderregistryTransactorSession) SetNewProtocolFeeRecipient(newFeeRecipient common.Address) (*types.Transaction, error) {
+	return _Providerregistry.Contract.SetNewProtocolFeeRecipient(&_Providerregistry.TransactOpts, newFeeRecipient)
 }
 
 // SetPreconfirmationsContract is a paid mutator transaction binding the contract method 0xf6c7e476.
@@ -1092,48 +1127,6 @@ func (_Providerregistry *ProviderregistryTransactorSession) Withdraw() (*types.T
 	return _Providerregistry.Contract.Withdraw(&_Providerregistry.TransactOpts)
 }
 
-// WithdrawFeeRecipientAmount is a paid mutator transaction binding the contract method 0x7e5713d8.
-//
-// Solidity: function withdrawFeeRecipientAmount() returns()
-func (_Providerregistry *ProviderregistryTransactor) WithdrawFeeRecipientAmount(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _Providerregistry.contract.Transact(opts, "withdrawFeeRecipientAmount")
-}
-
-// WithdrawFeeRecipientAmount is a paid mutator transaction binding the contract method 0x7e5713d8.
-//
-// Solidity: function withdrawFeeRecipientAmount() returns()
-func (_Providerregistry *ProviderregistrySession) WithdrawFeeRecipientAmount() (*types.Transaction, error) {
-	return _Providerregistry.Contract.WithdrawFeeRecipientAmount(&_Providerregistry.TransactOpts)
-}
-
-// WithdrawFeeRecipientAmount is a paid mutator transaction binding the contract method 0x7e5713d8.
-//
-// Solidity: function withdrawFeeRecipientAmount() returns()
-func (_Providerregistry *ProviderregistryTransactorSession) WithdrawFeeRecipientAmount() (*types.Transaction, error) {
-	return _Providerregistry.Contract.WithdrawFeeRecipientAmount(&_Providerregistry.TransactOpts)
-}
-
-// WithdrawProtocolFee is a paid mutator transaction binding the contract method 0x668fb6dc.
-//
-// Solidity: function withdrawProtocolFee(address treasuryAddress) returns()
-func (_Providerregistry *ProviderregistryTransactor) WithdrawProtocolFee(opts *bind.TransactOpts, treasuryAddress common.Address) (*types.Transaction, error) {
-	return _Providerregistry.contract.Transact(opts, "withdrawProtocolFee", treasuryAddress)
-}
-
-// WithdrawProtocolFee is a paid mutator transaction binding the contract method 0x668fb6dc.
-//
-// Solidity: function withdrawProtocolFee(address treasuryAddress) returns()
-func (_Providerregistry *ProviderregistrySession) WithdrawProtocolFee(treasuryAddress common.Address) (*types.Transaction, error) {
-	return _Providerregistry.Contract.WithdrawProtocolFee(&_Providerregistry.TransactOpts, treasuryAddress)
-}
-
-// WithdrawProtocolFee is a paid mutator transaction binding the contract method 0x668fb6dc.
-//
-// Solidity: function withdrawProtocolFee(address treasuryAddress) returns()
-func (_Providerregistry *ProviderregistryTransactorSession) WithdrawProtocolFee(treasuryAddress common.Address) (*types.Transaction, error) {
-	return _Providerregistry.Contract.WithdrawProtocolFee(&_Providerregistry.TransactOpts, treasuryAddress)
-}
-
 // Fallback is a paid mutator transaction binding the contract fallback function.
 //
 // Solidity: fallback() payable returns()
@@ -1174,6 +1167,295 @@ func (_Providerregistry *ProviderregistrySession) Receive() (*types.Transaction,
 // Solidity: receive() payable returns()
 func (_Providerregistry *ProviderregistryTransactorSession) Receive() (*types.Transaction, error) {
 	return _Providerregistry.Contract.Receive(&_Providerregistry.TransactOpts)
+}
+
+// ProviderregistryFeePayoutPeriodBlocksUpdatedIterator is returned from FilterFeePayoutPeriodBlocksUpdated and is used to iterate over the raw logs and unpacked data for FeePayoutPeriodBlocksUpdated events raised by the Providerregistry contract.
+type ProviderregistryFeePayoutPeriodBlocksUpdatedIterator struct {
+	Event *ProviderregistryFeePayoutPeriodBlocksUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ProviderregistryFeePayoutPeriodBlocksUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ProviderregistryFeePayoutPeriodBlocksUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ProviderregistryFeePayoutPeriodBlocksUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ProviderregistryFeePayoutPeriodBlocksUpdatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ProviderregistryFeePayoutPeriodBlocksUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ProviderregistryFeePayoutPeriodBlocksUpdated represents a FeePayoutPeriodBlocksUpdated event raised by the Providerregistry contract.
+type ProviderregistryFeePayoutPeriodBlocksUpdated struct {
+	NewFeePayoutPeriodBlocks *big.Int
+	Raw                      types.Log // Blockchain specific contextual infos
+}
+
+// FilterFeePayoutPeriodBlocksUpdated is a free log retrieval operation binding the contract event 0x1b8b3f7fd7594ce5b7155b4c56b19bd6a1eac8c1ec5d941635acf104c8db3571.
+//
+// Solidity: event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks)
+func (_Providerregistry *ProviderregistryFilterer) FilterFeePayoutPeriodBlocksUpdated(opts *bind.FilterOpts, newFeePayoutPeriodBlocks []*big.Int) (*ProviderregistryFeePayoutPeriodBlocksUpdatedIterator, error) {
+
+	var newFeePayoutPeriodBlocksRule []interface{}
+	for _, newFeePayoutPeriodBlocksItem := range newFeePayoutPeriodBlocks {
+		newFeePayoutPeriodBlocksRule = append(newFeePayoutPeriodBlocksRule, newFeePayoutPeriodBlocksItem)
+	}
+
+	logs, sub, err := _Providerregistry.contract.FilterLogs(opts, "FeePayoutPeriodBlocksUpdated", newFeePayoutPeriodBlocksRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ProviderregistryFeePayoutPeriodBlocksUpdatedIterator{contract: _Providerregistry.contract, event: "FeePayoutPeriodBlocksUpdated", logs: logs, sub: sub}, nil
+}
+
+// WatchFeePayoutPeriodBlocksUpdated is a free log subscription operation binding the contract event 0x1b8b3f7fd7594ce5b7155b4c56b19bd6a1eac8c1ec5d941635acf104c8db3571.
+//
+// Solidity: event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks)
+func (_Providerregistry *ProviderregistryFilterer) WatchFeePayoutPeriodBlocksUpdated(opts *bind.WatchOpts, sink chan<- *ProviderregistryFeePayoutPeriodBlocksUpdated, newFeePayoutPeriodBlocks []*big.Int) (event.Subscription, error) {
+
+	var newFeePayoutPeriodBlocksRule []interface{}
+	for _, newFeePayoutPeriodBlocksItem := range newFeePayoutPeriodBlocks {
+		newFeePayoutPeriodBlocksRule = append(newFeePayoutPeriodBlocksRule, newFeePayoutPeriodBlocksItem)
+	}
+
+	logs, sub, err := _Providerregistry.contract.WatchLogs(opts, "FeePayoutPeriodBlocksUpdated", newFeePayoutPeriodBlocksRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ProviderregistryFeePayoutPeriodBlocksUpdated)
+				if err := _Providerregistry.contract.UnpackLog(event, "FeePayoutPeriodBlocksUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseFeePayoutPeriodBlocksUpdated is a log parse operation binding the contract event 0x1b8b3f7fd7594ce5b7155b4c56b19bd6a1eac8c1ec5d941635acf104c8db3571.
+//
+// Solidity: event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks)
+func (_Providerregistry *ProviderregistryFilterer) ParseFeePayoutPeriodBlocksUpdated(log types.Log) (*ProviderregistryFeePayoutPeriodBlocksUpdated, error) {
+	event := new(ProviderregistryFeePayoutPeriodBlocksUpdated)
+	if err := _Providerregistry.contract.UnpackLog(event, "FeePayoutPeriodBlocksUpdated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ProviderregistryFeeTransferIterator is returned from FilterFeeTransfer and is used to iterate over the raw logs and unpacked data for FeeTransfer events raised by the Providerregistry contract.
+type ProviderregistryFeeTransferIterator struct {
+	Event *ProviderregistryFeeTransfer // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ProviderregistryFeeTransferIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ProviderregistryFeeTransfer)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ProviderregistryFeeTransfer)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ProviderregistryFeeTransferIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ProviderregistryFeeTransferIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ProviderregistryFeeTransfer represents a FeeTransfer event raised by the Providerregistry contract.
+type ProviderregistryFeeTransfer struct {
+	Amount    *big.Int
+	Recipient common.Address
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// FilterFeeTransfer is a free log retrieval operation binding the contract event 0x445bb6587d6cd09e272a0d1e5179e772b547dbf1041b6163f86bb62e86f25031.
+//
+// Solidity: event FeeTransfer(uint256 amount, address indexed recipient)
+func (_Providerregistry *ProviderregistryFilterer) FilterFeeTransfer(opts *bind.FilterOpts, recipient []common.Address) (*ProviderregistryFeeTransferIterator, error) {
+
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+
+	logs, sub, err := _Providerregistry.contract.FilterLogs(opts, "FeeTransfer", recipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ProviderregistryFeeTransferIterator{contract: _Providerregistry.contract, event: "FeeTransfer", logs: logs, sub: sub}, nil
+}
+
+// WatchFeeTransfer is a free log subscription operation binding the contract event 0x445bb6587d6cd09e272a0d1e5179e772b547dbf1041b6163f86bb62e86f25031.
+//
+// Solidity: event FeeTransfer(uint256 amount, address indexed recipient)
+func (_Providerregistry *ProviderregistryFilterer) WatchFeeTransfer(opts *bind.WatchOpts, sink chan<- *ProviderregistryFeeTransfer, recipient []common.Address) (event.Subscription, error) {
+
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+
+	logs, sub, err := _Providerregistry.contract.WatchLogs(opts, "FeeTransfer", recipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ProviderregistryFeeTransfer)
+				if err := _Providerregistry.contract.UnpackLog(event, "FeeTransfer", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseFeeTransfer is a log parse operation binding the contract event 0x445bb6587d6cd09e272a0d1e5179e772b547dbf1041b6163f86bb62e86f25031.
+//
+// Solidity: event FeeTransfer(uint256 amount, address indexed recipient)
+func (_Providerregistry *ProviderregistryFilterer) ParseFeeTransfer(log types.Log) (*ProviderregistryFeeTransfer, error) {
+	event := new(ProviderregistryFeeTransfer)
+	if err := _Providerregistry.contract.UnpackLog(event, "FeeTransfer", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // ProviderregistryFundsDepositedIterator is returned from FilterFundsDeposited and is used to iterate over the raw logs and unpacked data for FundsDeposited events raised by the Providerregistry contract.
@@ -1900,6 +2182,150 @@ func (_Providerregistry *ProviderregistryFilterer) WatchOwnershipTransferred(opt
 func (_Providerregistry *ProviderregistryFilterer) ParseOwnershipTransferred(log types.Log) (*ProviderregistryOwnershipTransferred, error) {
 	event := new(ProviderregistryOwnershipTransferred)
 	if err := _Providerregistry.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ProviderregistryProtocolFeeRecipientUpdatedIterator is returned from FilterProtocolFeeRecipientUpdated and is used to iterate over the raw logs and unpacked data for ProtocolFeeRecipientUpdated events raised by the Providerregistry contract.
+type ProviderregistryProtocolFeeRecipientUpdatedIterator struct {
+	Event *ProviderregistryProtocolFeeRecipientUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ProviderregistryProtocolFeeRecipientUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ProviderregistryProtocolFeeRecipientUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ProviderregistryProtocolFeeRecipientUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ProviderregistryProtocolFeeRecipientUpdatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ProviderregistryProtocolFeeRecipientUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ProviderregistryProtocolFeeRecipientUpdated represents a ProtocolFeeRecipientUpdated event raised by the Providerregistry contract.
+type ProviderregistryProtocolFeeRecipientUpdated struct {
+	NewProtocolFeeRecipient common.Address
+	Raw                     types.Log // Blockchain specific contextual infos
+}
+
+// FilterProtocolFeeRecipientUpdated is a free log retrieval operation binding the contract event 0xc1b5345cce283376356748dc57f2dfa7120431d016fc7ca9ba641bc65f91411d.
+//
+// Solidity: event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient)
+func (_Providerregistry *ProviderregistryFilterer) FilterProtocolFeeRecipientUpdated(opts *bind.FilterOpts, newProtocolFeeRecipient []common.Address) (*ProviderregistryProtocolFeeRecipientUpdatedIterator, error) {
+
+	var newProtocolFeeRecipientRule []interface{}
+	for _, newProtocolFeeRecipientItem := range newProtocolFeeRecipient {
+		newProtocolFeeRecipientRule = append(newProtocolFeeRecipientRule, newProtocolFeeRecipientItem)
+	}
+
+	logs, sub, err := _Providerregistry.contract.FilterLogs(opts, "ProtocolFeeRecipientUpdated", newProtocolFeeRecipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return &ProviderregistryProtocolFeeRecipientUpdatedIterator{contract: _Providerregistry.contract, event: "ProtocolFeeRecipientUpdated", logs: logs, sub: sub}, nil
+}
+
+// WatchProtocolFeeRecipientUpdated is a free log subscription operation binding the contract event 0xc1b5345cce283376356748dc57f2dfa7120431d016fc7ca9ba641bc65f91411d.
+//
+// Solidity: event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient)
+func (_Providerregistry *ProviderregistryFilterer) WatchProtocolFeeRecipientUpdated(opts *bind.WatchOpts, sink chan<- *ProviderregistryProtocolFeeRecipientUpdated, newProtocolFeeRecipient []common.Address) (event.Subscription, error) {
+
+	var newProtocolFeeRecipientRule []interface{}
+	for _, newProtocolFeeRecipientItem := range newProtocolFeeRecipient {
+		newProtocolFeeRecipientRule = append(newProtocolFeeRecipientRule, newProtocolFeeRecipientItem)
+	}
+
+	logs, sub, err := _Providerregistry.contract.WatchLogs(opts, "ProtocolFeeRecipientUpdated", newProtocolFeeRecipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ProviderregistryProtocolFeeRecipientUpdated)
+				if err := _Providerregistry.contract.UnpackLog(event, "ProtocolFeeRecipientUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseProtocolFeeRecipientUpdated is a log parse operation binding the contract event 0xc1b5345cce283376356748dc57f2dfa7120431d016fc7ca9ba641bc65f91411d.
+//
+// Solidity: event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient)
+func (_Providerregistry *ProviderregistryFilterer) ParseProtocolFeeRecipientUpdated(log types.Log) (*ProviderregistryProtocolFeeRecipientUpdated, error) {
+	event := new(ProviderregistryProtocolFeeRecipientUpdated)
+	if err := _Providerregistry.contract.UnpackLog(event, "ProtocolFeeRecipientUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

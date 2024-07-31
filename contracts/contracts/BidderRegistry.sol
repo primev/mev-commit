@@ -4,10 +4,10 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-
 import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
 import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
+import {FeePayout} from "./utils/FeePayout.sol";
 
 /// @title Bidder Registry
 /// @author Kartik Chopra
@@ -18,15 +18,11 @@ contract BidderRegistry is
     ReentrancyGuardUpgradeable,
     UUPSUpgradeable
 {
+    using FeePayout for FeePayout.Tracker;
+
     /// @dev For improved precision
     uint256 constant public PRECISION = 10 ** 25;
     uint256 constant public PERCENT = 100 * PRECISION;
-
-    /// @dev Amount assigned to feeRecipient
-    uint256 public feeRecipientAmount;
-
-    /// @dev protocol fee, left over amount when there is no fee recipient assigned
-    uint256 public protocolFeeAmount;
 
     /// @dev Address of the pre-confirmations contract
     address public preConfirmationsContract;
@@ -37,8 +33,8 @@ contract BidderRegistry is
     /// @dev Block tracker contract
     IBlockTracker public blockTrackerContract;
 
-    /// @dev Fee recipient
-    address public feeRecipient;
+    /// Struct enabling automatic protocol fee payouts
+    FeePayout.Tracker public protocolFeeTracker;
 
     /// @dev Mapping for if bidder is registered
     mapping(address => bool) public bidderRegistered;
@@ -92,6 +88,12 @@ contract BidderRegistry is
         uint256 indexed amount
     );
 
+    /// @dev Event emitted when the protocol fee recipient is updated
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+
+    /// @dev Event emitted when the fee payout period in blocks is updated
+    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
@@ -105,20 +107,22 @@ contract BidderRegistry is
 
     /**
      * @dev Initializes the contract with a minimum deposit requirement.
-     * @param _feeRecipient The address that receives fee
+     * @param _protocolFeeRecipient The address that accumulates protocol fees
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _blockTracker The address of the block tracker contract.
      * @param _blocksPerWindow The number of blocks per window.
+     * @param _feePayoutPeriodBlocks The number of blocks for the fee payout period
      */
     function initialize(
-        address _feeRecipient,
+        address _protocolFeeRecipient,
         uint16 _feePercent,
         address _owner,
         address _blockTracker,
-        uint256 _blocksPerWindow
+        uint256 _blocksPerWindow,
+        uint256 _feePayoutPeriodBlocks
     ) external initializer {
-        feeRecipient = _feeRecipient;
+        FeePayout.init(protocolFeeTracker, _protocolFeeRecipient, _feePayoutPeriodBlocks);
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
         blocksPerWindow = _blocksPerWindow;
@@ -272,10 +276,9 @@ contract BidderRegistry is
             PERCENT;
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
-        if (feeRecipient != address(0)) {
-            feeRecipientAmount += feeAmt;
-        } else {
-            protocolFeeAmount += feeAmt;
+        protocolFeeTracker.accumulatedAmount += feeAmt;
+        if (FeePayout.isPayoutDue(protocolFeeTracker)) {
+            FeePayout.transferToRecipient(protocolFeeTracker);
         }
 
         providerAmount[provider] += amtMinusFeeAndDecay;
@@ -376,10 +379,11 @@ contract BidderRegistry is
     /**
      * @notice Sets the new fee recipient
      * @dev onlyOwner restriction
-     * @param newFeeRecipient The address to transfer the slashed funds to.
+     * @param newProtocolFeeRecipient The new address to accumulate protocol fees
      */
-    function setNewFeeRecipient(address newFeeRecipient) external onlyOwner {
-        feeRecipient = newFeeRecipient;
+    function setNewProtocolFeeRecipient(address newProtocolFeeRecipient) external onlyOwner {
+        protocolFeeTracker.recipient = newProtocolFeeRecipient;
+        emit ProtocolFeeRecipientUpdated(newProtocolFeeRecipient);
     }
 
     /**
@@ -391,15 +395,14 @@ contract BidderRegistry is
         feePercent = newFeePercent;
     }
 
-    /**
-     * @dev Withdraw funds to the fee recipient.
+    /** 
+     * @notice Sets the new fee payout period in blocks
+     * @dev onlyOwner restriction
+     * @param newFeePayoutPeriodBlocks The new fee payout period in blocks
      */
-    function withdrawFeeRecipientAmount() external nonReentrant {
-        uint256 amount = feeRecipientAmount;
-        feeRecipientAmount = 0;
-        require(amount != 0, "fee amount is zero");
-        (bool successFee, ) = feeRecipient.call{value: amount}("");
-        require(successFee, "fee transfer failed");
+    function setNewFeePayoutPeriodBlocks(uint256 newFeePayoutPeriodBlocks) external onlyOwner {
+        protocolFeeTracker.payoutPeriodBlocks = newFeePayoutPeriodBlocks;
+        emit FeePayoutPeriodBlocksUpdated(newFeePayoutPeriodBlocks);
     }
 
     /**
@@ -451,17 +454,11 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Withdraw protocol fee.
-     * @param treasuryAddress The address of the treasury.
+     * @dev Manually withdraws accumulated protocol fees to the recipient
+     * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
-    function withdrawProtocolFee(
-        address payable treasuryAddress
-    ) external onlyOwner nonReentrant {
-        uint256 _protocolFeeAmount = protocolFeeAmount;
-        protocolFeeAmount = 0;
-        require(_protocolFeeAmount != 0, "insufficient protocol fee amount");
-        (bool success, ) = treasuryAddress.call{value: _protocolFeeAmount}("");
-        require(success, "transfer failed");
+    function manuallyWithdrawProtocolFee() external onlyOwner {
+        FeePayout.transferToRecipient(protocolFeeTracker);
     }
 
     /**
@@ -475,13 +472,6 @@ contract BidderRegistry is
     }
 
     /**
-     * @dev Get the amount assigned to the fee recipient (treasury).
-     */
-    function getFeeRecipientAmount() external view onlyOwner returns (uint256) {
-        return feeRecipientAmount;
-    }
-
-    /**
      * @dev Check the deposit of a bidder.
      * @param bidder The address of the bidder.
      * @param window The window for which the deposit is being checked.
@@ -492,6 +482,11 @@ contract BidderRegistry is
         uint256 window
     ) external view returns (uint256) {
         return lockedFunds[bidder][window];
+    }
+
+    /// @return protocolFee amount not yet transferred to recipient
+    function getAccumulatedProtocolFee() external view returns (uint256) {
+        return protocolFeeTracker.accumulatedAmount;
     }
 
     // solhint-disable-next-line no-empty-blocks

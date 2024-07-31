@@ -92,20 +92,7 @@
   },
   {
     "type": "function",
-    "name": "feeRecipient",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "feeRecipientAmount",
+    "name": "getAccumulatedProtocolFee",
     "inputs": [],
     "outputs": [
       {
@@ -164,7 +151,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "_feeRecipient",
+        "name": "_protocolFeeRecipient",
         "type": "address",
         "internalType": "address"
       },
@@ -180,6 +167,11 @@
       },
       {
         "name": "_withdrawalDelay",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_protocolFeePayoutPeriodBlocks",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -199,6 +191,13 @@
     ],
     "outputs": [],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "manuallyWithdrawProtocolFee",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -254,11 +253,26 @@
   },
   {
     "type": "function",
-    "name": "protocolFeeAmount",
+    "name": "protocolFeeTracker",
     "inputs": [],
     "outputs": [
       {
-        "name": "",
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "accumulatedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "lastPayoutBlock",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "payoutPeriodBlocks",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -338,6 +352,19 @@
   },
   {
     "type": "function",
+    "name": "setFeePayoutPeriodBlocks",
+    "inputs": [
+      {
+        "name": "_feePayoutPeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setNewFeePercent",
     "inputs": [
       {
@@ -351,7 +378,7 @@
   },
   {
     "type": "function",
-    "name": "setNewFeeRecipient",
+    "name": "setNewProtocolFeeRecipient",
     "inputs": [
       {
         "name": "newFeeRecipient",
@@ -470,26 +497,6 @@
   },
   {
     "type": "function",
-    "name": "withdrawFeeRecipientAmount",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "withdrawProtocolFee",
-    "inputs": [
-      {
-        "name": "treasuryAddress",
-        "type": "address",
-        "internalType": "address payable"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "withdrawalDelay",
     "inputs": [],
     "outputs": [
@@ -519,6 +526,38 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "FeePayoutPeriodBlocksUpdated",
+    "inputs": [
+      {
+        "name": "newFeePayoutPeriodBlocks",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeeTransfer",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -602,6 +641,19 @@
       },
       {
         "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProtocolFeeRecipientUpdated",
+    "inputs": [
+      {
+        "name": "newProtocolFeeRecipient",
         "type": "address",
         "indexed": true,
         "internalType": "address"

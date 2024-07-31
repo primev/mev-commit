@@ -113,10 +113,10 @@ interface IPreConfCommitmentStore {
     function updateCommitmentDispatchWindow(uint64 newDispatchWindow) external;
 
     /**
-     * @dev Updates the address of the oracle.
-     * @param newOracle The new oracle address.
+     * @dev Updates the address of the oracle contract.
+     * @param newOracleContract The new oracle contract address.
      */
-    function updateOracle(address newOracle) external;
+    function updateOracleContract(address newOracleContract) external;
 
     /**
      * @dev Updates the address of the bidder registry.
