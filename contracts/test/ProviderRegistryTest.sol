@@ -157,7 +157,7 @@ contract ProviderRegistryTest is Test {
         require(success, "Couldn't transfer to provider");
     }
 
-    function testSetNewFeeRecipient() public {
+    function testSetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
         providerRegistry.setNewProtocolFeeRecipient(newRecipient);
@@ -165,10 +165,22 @@ contract ProviderRegistryTest is Test {
         assertEq(recipient, newRecipient);
     }
 
-    function testFailSetNewFeeRecipient() public {
+    function testFailSetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
         providerRegistry.setNewProtocolFeeRecipient(newRecipient);
+    }
+
+    function testSetNewFeePayoutPeriodBlocks() public {
+        vm.prank(address(this));
+        providerRegistry.setFeePayoutPeriodBlocks(890);
+        (, , , uint256 payoutPeriodBlocks) = providerRegistry.protocolFeeTracker();
+        assertEq(payoutPeriodBlocks, 890);
+    }
+
+    function testFailSetNewFeePayoutPeriodBlocks() public {
+        vm.expectRevert(bytes(""));
+        providerRegistry.setFeePayoutPeriodBlocks(83424);
     }
 
     function testSetNewFeePercent() public {

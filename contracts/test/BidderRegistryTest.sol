@@ -111,7 +111,7 @@ contract BidderRegistryTest is Test {
         require(success, "couldn't transfer to bidder");
     }
 
-    function testSetNewFeeRecipient() public {
+    function testSetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
         bidderRegistry.setNewProtocolFeeRecipient(newRecipient);
@@ -119,10 +119,22 @@ contract BidderRegistryTest is Test {
         assertEq(recipient, newRecipient);
     }
 
-    function testFailSetNewFeeRecipient() public {
+    function testFailSetNewProtocolFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
         bidderRegistry.setNewProtocolFeeRecipient(newRecipient);
+    }
+
+    function testSetNewFeePayoutPeriodBlocks() public {
+        vm.prank(address(this));
+        bidderRegistry.setNewFeePayoutPeriodBlocks(890);
+        (, , , uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
+        assertEq(payoutPeriodBlocks, 890);
+    }
+
+    function testFailSetNewFeePayoutPeriodBlocks() public {
+        vm.expectRevert(bytes(""));
+        bidderRegistry.setNewFeePayoutPeriodBlocks(83424);
     }
 
     function testSetNewFeePercent() public {
