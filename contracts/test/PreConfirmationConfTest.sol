@@ -40,6 +40,7 @@ contract TestPreConfCommitmentStore is Test {
     BidderRegistry public bidderRegistry;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     uint256 public withdrawalDelay;
+    uint256 public protocolFeePayoutPeriodBlocks;
     function setUp() public {
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -61,11 +62,12 @@ contract TestPreConfCommitmentStore is Test {
         feeRecipient = vm.addr(9);
         blocksPerWindow = 10;
         withdrawalDelay = 24 * 3600; // 24 hours
+        protocolFeePayoutPeriodBlocks = 100;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay)
+                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay, protocolFeePayoutPeriodBlocks)
             )
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -88,7 +90,8 @@ contract TestPreConfCommitmentStore is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    blocksPerWindow
+                    blocksPerWindow,
+                    protocolFeePayoutPeriodBlocks
                 )
             )
         );
@@ -172,7 +175,7 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function test_Initialize() public view {
-        assertEq(preConfCommitmentStore.oracle(), feeRecipient);
+        assertEq(preConfCommitmentStore.oracleContract(), address(0x0));
         assertEq(
             address(preConfCommitmentStore.providerRegistry()),
             address(providerRegistry)
@@ -275,8 +278,9 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function test_UpdateOracle() public {
-        preConfCommitmentStore.updateOracle(feeRecipient);
-        assertEq(preConfCommitmentStore.oracle(), feeRecipient);
+        address newOracle = address(0x123);
+        preConfCommitmentStore.updateOracleContract(newOracle);
+        assertEq(preConfCommitmentStore.oracleContract(), newOracle);
     }
 
     function test_UpdateProviderRegistry() public {

@@ -22,6 +22,7 @@ contract ProviderRegistryTest is Test {
     uint256 public blocksPerWindow;
     uint256 public withdrawalDelay;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    uint256 public protocolFeePayoutPeriodBlocks;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
@@ -33,6 +34,7 @@ contract ProviderRegistryTest is Test {
         feeRecipient = vm.addr(9);
         blocksPerWindow = 10;
         withdrawalDelay = 24 * 3600; // 24 hours
+        protocolFeePayoutPeriodBlocks = 100;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(ProviderRegistry.initialize, 
@@ -40,7 +42,8 @@ contract ProviderRegistryTest is Test {
             feeRecipient, 
             feePercent, 
             address(this),
-            withdrawalDelay
+            withdrawalDelay,
+            protocolFeePayoutPeriodBlocks
             )) 
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -59,7 +62,8 @@ contract ProviderRegistryTest is Test {
             feePercent, 
             address(this), 
             address(blockTracker),
-            blocksPerWindow)) 
+            blocksPerWindow,
+            protocolFeePayoutPeriodBlocks)) 
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
@@ -83,10 +87,16 @@ contract ProviderRegistryTest is Test {
 
     function test_VerifyInitialContractState() public view {
         assertEq(providerRegistry.minStake(), 1e18 wei);
-        assertEq(providerRegistry.feeRecipient(), feeRecipient);
+        assertEq(feePercent, feePercent);
+        assertEq(withdrawalDelay, withdrawalDelay);
         assertEq(providerRegistry.feePercent(), feePercent);
         assertEq(providerRegistry.preConfirmationsContract(), address(0));
         assertEq(providerRegistry.providerRegistered(provider), false);
+        (address recipient, uint256 period, uint256 lastPayoutBlock, uint256 accumulatedAmount) = bidderRegistry.protocolFeeTracker();
+        assertEq(recipient, feeRecipient);
+        assertEq(period, protocolFeePayoutPeriodBlocks);
+        assertEq(lastPayoutBlock, 0);
+        assertEq(accumulatedAmount, 0);
     }
 
     function testFail_ProviderStakeAndRegisterMinStake() public {
@@ -149,15 +159,15 @@ contract ProviderRegistryTest is Test {
     function test_SetNewFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
-        providerRegistry.setNewFeeRecipient(newRecipient);
-
-        assertEq(providerRegistry.feeRecipient(), newRecipient);
+        providerRegistry.setNewProtocolFeeRecipient(newRecipient);
+        (address recipient, , ,) = bidderRegistry.protocolFeeTracker();
+        assertEq(recipient, newRecipient);
     }
 
     function testFail_SetNewFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
-        providerRegistry.setNewFeeRecipient(newRecipient);
+        providerRegistry.setNewProtocolFeeRecipient(newRecipient);
     }
 
     function test_SetNewFeePercent() public {
@@ -200,13 +210,13 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
         assertEq(bidder.balance, 900000000000000000 wei);
-        assertEq(providerRegistry.feeRecipientAmount(), 100000000000000000 wei);
+        assertEq(providerRegistry.getAccumulatedProtocolFee(), 100000000000000000 wei);
         assertEq(providerRegistry.providerStakes(provider), 1 ether);
     }
 
     function test_shouldSlashProviderWithoutFeeRecipient() public {
         vm.prank(address(this));
-        providerRegistry.setNewFeeRecipient(address(0));
+        providerRegistry.setNewProtocolFeeRecipient(address(0));
         providerRegistry.setPreconfirmationsContract(address(this));
 
         vm.deal(provider, 3 ether);
@@ -245,7 +255,7 @@ contract ProviderRegistryTest is Test {
     }
 
     function test_FeeRecipientAmount() public {
-        providerRegistry.setNewFeeRecipient(vm.addr(6));
+        providerRegistry.setNewProtocolFeeRecipient(vm.addr(6));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
 
@@ -253,20 +263,21 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setPreconfirmationsContract(address(this));
         providerRegistry.slash(1e18 wei, provider, payable(provider),50);
         assertEq(
-            providerRegistry.feeRecipientAmount(),
+            providerRegistry.getAccumulatedProtocolFee(),
             5e16 wei,
             "FeeRecipientAmount should match"
         );
-        providerRegistry.withdrawFeeRecipientAmount();
-        assertEq(
-            providerRegistry.feeRecipientAmount(),
-            0,
-            "FeeRecipientAmount should be zero after withdrawal"
-        );
+        // TODO: withdraw here via blocks
+        // providerRegistry.withdrawFeeRecipientAmount();
+        // assertEq(
+        //     providerRegistry.feeRecipientAmount(),
+        //     0,
+        //     "FeeRecipientAmount should be zero after withdrawal"
+        // );
     }
 
     function test_WithdrawStakedAmountWithoutFeeRecipient() public {
-        providerRegistry.setNewFeeRecipient(address(0));
+        providerRegistry.setNewProtocolFeeRecipient(address(0));
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);

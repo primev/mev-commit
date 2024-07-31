@@ -20,42 +20,64 @@ contract DeployScript is Script {
     function run() external {
         vm.startBroadcast();
 
-        // Replace these with your contract's constructor parameters
         uint256 minStake = 1 ether;
-        address feeRecipient = address(
-            0x68bC10674b265f266b4b1F079Fa06eF4045c3ab9
+        address protocolFeeRecipient = address(
+            0xfA0B0f5d298d28EFE4d35641724141ef19C05684 // Placeholder for now, L1 preconf.eth address
         );
         uint16 feePercent = 2;
         uint64 commitmentDispatchWindow = 2000;
         uint256 blocksPerWindow = 10;
         uint256 withdrawalDelay = 24 * 3600 * 1000; // 24 hours in milliseconds
+        uint256 protocolFeePayoutPeriodBlocks = 5 * 3600; // 1 hour with 200ms blocks
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
         require(oracleKeystoreAddress != address(0), "missing Oracle keystore address");
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, oracleKeystoreAddress, msg.sender))
+            abi.encodeCall(BlockTracker.initialize,
+            (blocksPerWindow, // blocksPerWindow_ param 
+            oracleKeystoreAddress, // oracleAccount_ param
+            msg.sender)) // owner_ param
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
         console.log("BlockTracker:", address(blockTracker));
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
-            abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, msg.sender, address(blockTracker), blocksPerWindow))
+            abi.encodeCall(BidderRegistry.initialize,
+            (protocolFeeRecipient, // _protocolFeeRecipient param
+            feePercent, // _feePercent param
+            msg.sender, // _owner param
+            address(blockTracker), // _blockTracker param
+            blocksPerWindow, // _blocksPerWindow param
+            protocolFeePayoutPeriodBlocks)) // _protocolFeePayoutPeriodBlocks param
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         console.log("BidderRegistry:", address(bidderRegistry));
 
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
-            abi.encodeCall(ProviderRegistry.initialize, (minStake, feeRecipient, feePercent, msg.sender, withdrawalDelay))
+            abi.encodeCall(ProviderRegistry.initialize,
+            (minStake, // _minStake param
+            protocolFeeRecipient, // _protocolFeeRecipient param
+            feePercent, // _feePercent param
+            msg.sender, // _owner param
+            withdrawalDelay, // _withdrawalDelay param
+            protocolFeePayoutPeriodBlocks)) // _protocolFeePayoutPeriodBlocks param
         );
         ProviderRegistry providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
         console.log("ProviderRegistry:", address(providerRegistry));
 
         address preconfCommitmentStoreProxy = Upgrades.deployUUPSProxy(
             "PreConfCommitmentStore.sol",
-            abi.encodeCall(PreConfCommitmentStore.initialize, (address(providerRegistry), address(bidderRegistry), feeRecipient, msg.sender, address(blockTracker), commitmentDispatchWindow, blocksPerWindow))
+            abi.encodeCall(PreConfCommitmentStore.initialize,
+            (address(providerRegistry), // _providerRegistry param
+            address(bidderRegistry), // _bidderRegistry param
+            address(0x0), // _oracleContract param, updated later in script. 
+            msg.sender, // _owner param
+            address(blockTracker), // _blockTracker param
+            commitmentDispatchWindow, // _commitmentDispatchWindow param
+            blocksPerWindow)) // _blocksPerWindow param
         );
         PreConfCommitmentStore preConfCommitmentStore = PreConfCommitmentStore(payable(preconfCommitmentStoreProxy));
         console.log("PreConfCommitmentStore:", address(preConfCommitmentStore));
@@ -72,12 +94,16 @@ contract DeployScript is Script {
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
-            abi.encodeCall(Oracle.initialize, (address(preConfCommitmentStore), address(blockTracker), oracleKeystoreAddress, msg.sender))
+            abi.encodeCall(Oracle.initialize,
+            (address(preConfCommitmentStore), // preConfContract_ param
+            address(blockTracker), // blockTrackerContract_ param
+            oracleKeystoreAddress, // oracleAcount_ param
+            msg.sender)) // owner_ param
         );
         Oracle oracle = Oracle(payable(oracleProxy));
         console.log("Oracle:", address(oracle));
 
-        preConfCommitmentStore.updateOracle(address(oracle));
+        preConfCommitmentStore.updateOracleContract(address(oracle));
         console.log("PreConfCommitmentStoreWithOracle:", address(oracle));
 
         vm.stopBroadcast();

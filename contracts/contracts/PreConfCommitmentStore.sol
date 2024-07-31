@@ -57,8 +57,8 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     // Represents the dispatch window in milliseconds
     uint64 public commitmentDispatchWindow;
 
-    /// @dev Address of the oracle
-    address public oracle;
+    /// @dev Address of the oracle contract
+    address public oracleContract;
 
     /// @dev The number of blocks per window
     uint256 public blocksPerWindow;
@@ -84,10 +84,10 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     mapping(bytes32 => EncrPreConfCommitment) public encryptedCommitments;
 
     /**
-     * @dev Makes sure transaction sender is oracle
+     * @dev Makes sure transaction sender is oracle contract
      */
-    modifier onlyOracle() {
-        require(msg.sender == oracle, "sender is not oracle");
+    modifier onlyOracleContract() {
+        require(msg.sender == oracleContract, "sender is not oracle contract");
         _;
     }
 
@@ -95,29 +95,28 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
      * @param _providerRegistry The address of the provider registry.
      * @param _bidderRegistry The address of the bidder registry.
-     * @param _blockTracker The address of the block tracker.
-     * @param _oracle The address of the oracle.
+     * @param _oracleContract The address of the oracle contract.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
+     * @param _blockTracker The address of the block tracker.
      * @param _commitmentDispatchWindow The dispatch window for commitments.
      * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
         address _providerRegistry,
         address _bidderRegistry,
-        address _oracle,
+        address _oracleContract,
         address _owner,
         address _blockTracker,
         uint64 _commitmentDispatchWindow,
         uint256 _blocksPerWindow
     ) external initializer {
-        oracle = _oracle;
-        blockTracker = IBlockTracker(_blockTracker);
         providerRegistry = IProviderRegistry(_providerRegistry);
         bidderRegistry = IBidderRegistry(_bidderRegistry);
-        blocksPerWindow = _blocksPerWindow;
+        oracleContract = _oracleContract;
         __Ownable_init(_owner);
-
+        blockTracker = IBlockTracker(_blockTracker);
         commitmentDispatchWindow = _commitmentDispatchWindow;
+        blocksPerWindow = _blocksPerWindow;
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -151,11 +150,11 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     }
 
     /**
-     * @dev Updates the address of the oracle.
-     * @param newOracle The new oracle address.
+     * @dev Updates the address of the oracle contract.
+     * @param newOracleContract The new oracle contract address.
      */
-    function updateOracle(address newOracle) external onlyOwner {
-        oracle = newOracle;
+    function updateOracleContract(address newOracleContract) external onlyOwner {
+        oracleContract = newOracleContract;
     }
 
     /**
@@ -361,7 +360,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     function initiateSlash(
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
-    ) public onlyOracle {
+    ) public onlyOracleContract {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
         require(!commitment.isUsed, "Commitment already used");
 
@@ -390,7 +389,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     function initiateReward(
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
-    ) public onlyOracle {
+    ) public onlyOracleContract {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
         require(!commitment.isUsed, "Commitment already used");
         
