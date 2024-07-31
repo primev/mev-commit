@@ -15,7 +15,7 @@ library FeePayout {
     }
 
     /// @dev Event emitted when fees are transferred to the recipient.
-    event FeeTransfer(uint256 amount, address recipient);
+    event FeeTransfer(uint256 amount, address indexed recipient);
 
     /// @dev Initialize a new fee tracker in storage
     function init(Tracker storage self, address _recipient, uint256 _payoutPeriodBlocks) internal {
