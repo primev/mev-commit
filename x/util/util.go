@@ -78,7 +78,7 @@ func ResolveFilePath(path string) (string, error) {
 		return "", fmt.Errorf("path is empty")
 	}
 
-	if strings.HasPrefix(path, "~") {
+	if path[0] == '~' {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
