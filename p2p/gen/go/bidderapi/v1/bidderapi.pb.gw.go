@@ -328,6 +328,7 @@ func local_request_Bidder_Withdraw_0(ctx context.Context, marshaler runtime.Mars
 // UnaryRPC     :call BidderServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterBidderHandlerFromEndpoint instead.
+// GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, server BidderServer) error {
 
 	mux.Handle("POST", pattern_Bidder_SendBid_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -550,7 +551,7 @@ func RegisterBidderHandler(ctx context.Context, mux *runtime.ServeMux, conn *grp
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "BidderClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "BidderClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "BidderClient" to call the correct interceptors.
+// "BidderClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, client BidderClient) error {
 
 	mux.Handle("POST", pattern_Bidder_SendBid_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
