@@ -695,7 +695,7 @@ contract OracleTest is Test {
     }
 
     function constructAndStoreEncryptedCommitment(
-        address commiterAddress,
+        address committerAddress,
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -739,7 +739,7 @@ contract OracleTest is Test {
 
         (v, r, s) = vm.sign(signerPk, commitmentHash);
         commitmentSignature = abi.encodePacked(r, s, v);
-        vm.startPrank(commiterAddress);
+        vm.startPrank(committerAddress);
         bytes32 encryptedCommitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
                 commitmentHash,

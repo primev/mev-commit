@@ -239,12 +239,13 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             "Invalid commitment digest"
         );
 
-        address commiterAddress = commitmentDigest.recover(commitmentSignature);
+        address committerAddress = commitmentDigest.recover(commitmentSignature);
 
         address winner = blockTracker.getBlockWinner(blockNumber);
         require(
-            (msg.sender == winner && winner == commiterAddress) ||
-                msg.sender == bidderAddress,
+            winner == committerAddress && 
+            (msg.sender == winner ||
+            msg.sender == bidderAddress),
             "invalid sender"
         );
 
@@ -255,7 +256,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             decayStartTimeStamp,
             decayEndTimeStamp,
             encryptedCommitment.dispatchTimestamp,
-            commiterAddress,
+            committerAddress,
             bid,
             bHash,
             commitmentDigest,
@@ -280,12 +281,12 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             blockNumber
         );
 
-        ++commitmentsCount[commiterAddress];
+        ++commitmentsCount[committerAddress];
 
         emit CommitmentStored(
             commitmentIndex,
             bidderAddress,
-            commiterAddress,
+            committerAddress,
             bid,
             blockNumber,
             bHash,
@@ -319,19 +320,19 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         // Check if the dispatch timestamp is within the allowed dispatch window
         require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
 
-        address commiterAddress = commitmentDigest.recover(commitmentSignature);
+        address committerAddress = commitmentDigest.recover(commitmentSignature);
 
         require(
-            commiterAddress == msg.sender,
-            "sender is not commiter"
+            committerAddress == msg.sender,
+            "sender is not committer"
         );
 
         // Ensure the provider's balance is greater than minStake and no pending withdrawal
-        providerRegistry.isProviderValid(commiterAddress);
+        providerRegistry.isProviderValid(committerAddress);
         
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
-            commiterAddress,
+            committerAddress,
             dispatchTimestamp,
             commitmentDigest,
             commitmentSignature
@@ -343,7 +344,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
 
         emit EncryptedCommitmentStored(
             commitmentIndex,
-            commiterAddress,
+            committerAddress,
             commitmentDigest,
             commitmentSignature,
             dispatchTimestamp
@@ -365,7 +366,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         require(!commitment.isUsed, "Commitment already used");
 
         commitment.isUsed = true;
-        --commitmentsCount[commitment.commiter];
+        --commitmentsCount[commitment.committer];
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,
@@ -374,7 +375,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
 
         providerRegistry.slash(
             commitment.bid,
-            commitment.commiter,
+            commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
         );
@@ -399,12 +400,12 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         );
 
         commitment.isUsed = true;
-        --commitmentsCount[commitment.commiter];
+        --commitmentsCount[commitment.committer];
 
         bidderRegistry.retrieveFunds(
             windowToSettle,
             commitment.commitmentHash,
-            payable(commitment.commiter),
+            payable(commitment.committer),
             residualBidPercentAfterDecay
         );
     }
@@ -555,13 +556,13 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
      * @param params The commitment params associated with the commitment.
      * @return preConfHash The hash of the pre-confirmation commitment.
-     * @return commiterAddress The address of the committer recovered from the commitment signature.
+     * @return committerAddress The address of the committer recovered from the commitment signature.
      */
     function verifyPreConfCommitment(
         CommitmentParams memory params
-    ) public pure returns (bytes32 preConfHash, address commiterAddress) {
+    ) public pure returns (bytes32 preConfHash, address committerAddress) {
         preConfHash = _getPreConfHash(params);
-        commiterAddress = preConfHash.recover(params.commitmentSignature);
+        committerAddress = preConfHash.recover(params.commitmentSignature);
     }
 
     /**

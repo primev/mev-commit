@@ -136,13 +136,13 @@ func TestUpdater(t *testing.T) {
 		}
 
 		if i%2 == 0 {
-			encCommitment.Commiter = builderAddr
-			commitment.Commiter = builderAddr
+			encCommitment.Committer = builderAddr
+			commitment.Committer = builderAddr
 			encCommitments = append(encCommitments, encCommitment)
 			commitments = append(commitments, commitment)
 		} else {
-			encCommitment.Commiter = otherBuilderAddr
-			commitment.Commiter = otherBuilderAddr
+			encCommitment.Committer = otherBuilderAddr
+			commitment.Committer = otherBuilderAddr
 			encCommitments = append(encCommitments, encCommitment)
 			commitments = append(commitments, commitment)
 		}
@@ -159,14 +159,14 @@ func TestUpdater(t *testing.T) {
 
 		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
@@ -262,7 +262,7 @@ func TestUpdater(t *testing.T) {
 			if !bytes.Equal(enc.commitmentIdx, ec.CommitmentIndex[:]) {
 				t.Fatal("wrong commitment index")
 			}
-			if !bytes.Equal(enc.committer, ec.Commiter.Bytes()) {
+			if !bytes.Equal(enc.committer, ec.Committer.Bytes()) {
 				t.Fatal("wrong committer")
 			}
 			if !bytes.Equal(enc.commitmentHash, ec.CommitmentDigest[:]) {
@@ -282,7 +282,7 @@ func TestUpdater(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if c.Commiter.Cmp(otherBuilderAddr) == 0 {
+		if c.Committer.Cmp(otherBuilderAddr) == 0 {
 			continue
 		}
 
@@ -296,7 +296,7 @@ func TestUpdater(t *testing.T) {
 			if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
 				t.Fatal("wrong block number")
 			}
-			if commitment.builder != c.Commiter {
+			if commitment.builder != c.Committer {
 				t.Fatal("wrong builder")
 			}
 			if commitment.isSlash {
@@ -320,7 +320,7 @@ func TestUpdater(t *testing.T) {
 			if settlement.blockNum != 5 {
 				t.Fatal("wrong block number")
 			}
-			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+			if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
 				t.Fatal("wrong builder")
 			}
 			if settlement.amount.Uint64() != 10 {
@@ -400,13 +400,13 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		}
 
 		if i%2 == 0 {
-			encCommitment.Commiter = builderAddr
-			commitment.Commiter = builderAddr
+			encCommitment.Committer = builderAddr
+			commitment.Committer = builderAddr
 			encCommitments = append(encCommitments, encCommitment)
 			commitments = append(commitments, commitment)
 		} else {
-			encCommitment.Commiter = otherBuilderAddr
-			commitment.Commiter = otherBuilderAddr
+			encCommitment.Committer = otherBuilderAddr
+			commitment.Committer = otherBuilderAddr
 			encCommitments = append(encCommitments, encCommitment)
 			commitments = append(commitments, commitment)
 		}
@@ -423,14 +423,14 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 
 		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
@@ -532,7 +532,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			if !bytes.Equal(enc.commitmentIdx, ec.CommitmentIndex[:]) {
 				t.Fatal("wrong commitment index")
 			}
-			if !bytes.Equal(enc.committer, ec.Commiter.Bytes()) {
+			if !bytes.Equal(enc.committer, ec.Committer.Bytes()) {
 				t.Fatal("wrong committer")
 			}
 			if !bytes.Equal(enc.commitmentHash, ec.CommitmentDigest[:]) {
@@ -552,7 +552,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if c.Commiter.Cmp(otherBuilderAddr) == 0 {
+		if c.Committer.Cmp(otherBuilderAddr) == 0 {
 			continue
 		}
 
@@ -566,7 +566,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
 				t.Fatal("wrong block number")
 			}
-			if commitment.builder != c.Commiter {
+			if commitment.builder != c.Committer {
 				t.Fatal("wrong builder")
 			}
 			if !commitment.isSlash {
@@ -590,7 +590,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			if settlement.blockNum != 5 {
 				t.Fatal("wrong block number")
 			}
-			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+			if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
 				t.Fatal("wrong builder")
 			}
 			if settlement.amount.Uint64() != 10 {
@@ -671,13 +671,13 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		}
 
 		if i%2 == 0 {
-			encCommitment.Commiter = builderAddr
-			commitment.Commiter = builderAddr
+			encCommitment.Committer = builderAddr
+			commitment.Committer = builderAddr
 			encCommitments = append(encCommitments, encCommitment)
 			commitments = append(commitments, commitment)
 		} else {
-			encCommitment.Commiter = otherBuilderAddr
-			commitment.Commiter = otherBuilderAddr
+			encCommitment.Committer = otherBuilderAddr
+			commitment.Committer = otherBuilderAddr
 			encCommitments = append(encCommitments, encCommitment)
 			commitments = append(commitments, commitment)
 		}
@@ -694,14 +694,14 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 
 		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
@@ -803,7 +803,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			if !bytes.Equal(enc.commitmentIdx, ec.CommitmentIndex[:]) {
 				t.Fatal("wrong commitment index")
 			}
-			if !bytes.Equal(enc.committer, ec.Commiter.Bytes()) {
+			if !bytes.Equal(enc.committer, ec.Committer.Bytes()) {
 				t.Fatal("wrong committer")
 			}
 			if !bytes.Equal(enc.commitmentHash, ec.CommitmentDigest[:]) {
@@ -823,7 +823,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if c.Commiter.Cmp(otherBuilderAddr) == 0 {
+		if c.Committer.Cmp(otherBuilderAddr) == 0 {
 			continue
 		}
 
@@ -837,7 +837,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
 				t.Fatal("wrong block number")
 			}
-			if commitment.builder != c.Commiter {
+			if commitment.builder != c.Committer {
 				t.Fatal("wrong builder")
 			}
 			if commitment.isSlash {
@@ -861,7 +861,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			if settlement.blockNum != 5 {
 				t.Fatal("wrong block number")
 			}
-			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+			if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
 				t.Fatal("wrong builder")
 			}
 			if settlement.amount.Uint64() != 10 {
@@ -925,7 +925,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
@@ -1023,7 +1023,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			if commitment.blockNum.Cmp(big.NewInt(5)) != 0 {
 				t.Fatal("wrong block number")
 			}
-			if commitment.builder != c.Commiter {
+			if commitment.builder != c.Committer {
 				t.Fatal("wrong builder")
 			}
 			if !commitment.isSlash {
@@ -1047,7 +1047,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			if settlement.blockNum != 5 {
 				t.Fatal("wrong block number")
 			}
-			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+			if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
 				t.Fatal("wrong builder")
 			}
 			if settlement.amount.Uint64() != 10 {
@@ -1117,7 +1117,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 
 		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
 			CommitmentIndex:     idxBytes,
-			Commiter:            builderAddr,
+			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			RevertingTxHashes:   "",
@@ -1238,7 +1238,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if commitment.blockNum.Cmp(big.NewInt(10)) != 0 {
 				t.Fatal("wrong block number", commitment.blockNum)
 			}
-			if commitment.builder != c.Commiter {
+			if commitment.builder != c.Committer {
 				t.Fatal("wrong builder")
 			}
 			if commitment.isSlash {
@@ -1262,7 +1262,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if settlement.blockNum != 10 {
 				t.Fatal("wrong block number")
 			}
-			if !bytes.Equal(settlement.builder, c.Commiter.Bytes()) {
+			if !bytes.Equal(settlement.builder, c.Committer.Bytes()) {
 				t.Fatal("wrong builder")
 			}
 			if settlement.amount.Uint64() != 10 {
@@ -1443,7 +1443,7 @@ func publishEncCommitment(
 ) error {
 	event := pcABI.Events["EncryptedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
-		ec.Commiter,
+		ec.Committer,
 		ec.CommitmentDigest,
 		ec.CommitmentSignature,
 		ec.DispatchTimestamp,
@@ -1476,7 +1476,7 @@ func publishCommitment(
 	event := pcABI.Events["CommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		c.Bidder,
-		c.Commiter,
+		c.Committer,
 		c.Bid,
 		c.BlockNumber,
 		c.BidHash,

@@ -13,7 +13,7 @@ interface IProviderRegistry {
         uint256 residualBidPercentAfterDecay
     ) external;
     
-    function isProviderValid(address commiterAddress) external view;
+    function isProviderValid(address committerAddress) external view;
 
     function minStake() external view returns (uint256);
 
