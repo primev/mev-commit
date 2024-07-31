@@ -194,6 +194,13 @@
   },
   {
     "type": "function",
+    "name": "manuallyWithdrawProtocolFee",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "minStake",
     "inputs": [],
     "outputs": [
