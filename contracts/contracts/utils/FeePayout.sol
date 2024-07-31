@@ -18,7 +18,7 @@ library FeePayout {
     event FeeTransfer(uint256 amount, address recipient);
 
     /// @dev Initialize a new fee tracker in storage
-    function init(Tracker storage self, address _recipient, uint256 _payoutPeriodBlocks) public {
+    function init(Tracker storage self, address _recipient, uint256 _payoutPeriodBlocks) internal {
         require(_recipient != address(0), "fee recipient is zero");
         require(_payoutPeriodBlocks > 0, "pay period must be positive");
         self.recipient = _recipient;
@@ -29,7 +29,7 @@ library FeePayout {
 
     /// @dev Transfers the accumulated fees to the recipient and resets the tracker
     /// @param tracker The FeePayout.Tracker struct
-    function transferToRecipient(Tracker memory tracker) public {
+    function transferToRecipient(Tracker memory tracker) internal {
         (bool success, ) = payable(tracker.recipient).call{value: tracker.accumulatedAmount}("");
         require(success, "transfer to recipient failed");
         tracker.accumulatedAmount = 0;
@@ -40,7 +40,7 @@ library FeePayout {
     /// @dev Checks if a fee payout is due
     /// @param tracker The FeePayout.Tracker struct
     /// @return true if a payout is due, false otherwise
-    function isPayoutDue(Tracker memory tracker) public view returns (bool) {
+    function isPayoutDue(Tracker memory tracker) internal view returns (bool) {
         return block.number > tracker.lastPayoutBlock + tracker.payoutPeriodBlocks;
     }
 }
