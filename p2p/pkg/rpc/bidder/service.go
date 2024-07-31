@@ -123,8 +123,16 @@ func (s *Service) SendBid(
 		return status.Errorf(codes.InvalidArgument, "validating bid: %v", err)
 	}
 
-	txnsStr := strings.Join(bid.TxHashes, ",")
-	revertingTxHashesStr := strings.Join(bid.RevertingTxHashes, ",")
+	// Helper function to strip "0x" prefix
+	stripPrefix := func(hashes []string) []string {
+		stripped := make([]string, len(hashes))
+		for i, hash := range hashes {
+			stripped[i] = strings.TrimPrefix(hash, "0x")
+		}
+		return stripped
+	}
+	txnsStr := strings.Join(stripPrefix(bid.TxHashes), ",")
+	revertingTxHashesStr := strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
 
 	respC, err := s.sender.SendBid(
 		ctx,
