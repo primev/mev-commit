@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -375,7 +374,7 @@ func main() {
 	defer cancel()
 
 	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigc, os.Interrupt)
 	go func() {
 		<-sigc
 		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
@@ -387,6 +386,7 @@ func main() {
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
 		fmt.Fprintln(app.Writer, "exited with error:", err)
+		os.Exit(1)
 	}
 
 	os.Exit(0)
