@@ -377,7 +377,7 @@ func main() {
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		_ = <-sigc
+		<-sigc
 		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
 		cancel()
 		<-sigc
@@ -389,7 +389,6 @@ func main() {
 		fmt.Fprintln(app.Writer, "exited with error:", err)
 	}
 
-	fmt.Fprintln(app.Writer, "exited successfully")
 	os.Exit(0)
 }
 
