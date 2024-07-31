@@ -374,22 +374,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sigc := make(chan os.Signal, 1)
+	sigc := make(chan os.Signal)
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
-	shutdownInitiated := false
 	go func() {
-		for {
-			select {
-			case <-sigc:
-				if shutdownInitiated {
-					fmt.Fprintln(app.Writer, "force exiting...")
-					os.Exit(1)
-				}
-				fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
-				shutdownInitiated = true
-				cancel()
-			}
-		}
+		<-sigc
+		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
+		cancel()
+		<-sigc
+		fmt.Fprintln(app.Writer, "force exiting...")
+		os.Exit(1)
 	}()
 
 	if err := app.RunContext(ctx, os.Args); err != nil {

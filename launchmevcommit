@@ -183,9 +183,10 @@ cleanup() {
   local pid="${1}"
   local grace_period=5  # Set grace period in seconds
 
-  if [ -z "${cleaned_up}" ] && kill -0 ${pid} 2>/dev/null; then
+  if [ -z "${cleaned_up}" ]; then
+    cleaned_up=true
     log_info "Killing mev-commit node with PID ${pid}"
-    kill -SIGINT ${pid}
+
     log_info "Waiting for ${grace_period} seconds before force killing..."
     sleep ${grace_period}
 
@@ -199,7 +200,6 @@ cleanup() {
     else
       log_error "Failed to kill mev-commit node with PID ${pid}"
     fi
-    cleaned_up=true
   fi
   exit 0
 }
