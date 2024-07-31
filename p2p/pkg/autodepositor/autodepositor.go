@@ -67,14 +67,14 @@ func New(
 	logger *slog.Logger,
 ) *AutoDepositTracker {
 	return &AutoDepositTracker{
-		eventMgr:   evtMgr,
-		brContract: brContract,
-		btContract: btContract,
-		optsGetter: optsGetter,
-		store:      store,
+		eventMgr:           evtMgr,
+		brContract:         brContract,
+		btContract:         btContract,
+		optsGetter:         optsGetter,
+		store:              store,
 		oracleWindowOffset: oracleWindowOffset,
-		windowChan: make(chan *blocktracker.BlocktrackerNewWindow, 1),
-		logger:     logger,
+		windowChan:         make(chan *blocktracker.BlocktrackerNewWindow, 1),
+		logger:             logger,
 	}
 }
 
@@ -236,7 +236,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 					return err
 				}
 				opts.Value = amount
-				
+
 				txn, err := adt.brContract.DepositForWindow(opts, nextWindow)
 				if err != nil {
 					return err
