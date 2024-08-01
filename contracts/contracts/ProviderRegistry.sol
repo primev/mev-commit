@@ -159,21 +159,19 @@ contract ProviderRegistry is
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreConfirmationEngine {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
-        require(providerStakes[provider] >= residualAmt, "Insufficient funds to slash");
-        providerStakes[provider] -= residualAmt;
+        uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
+        require(providerStakes[provider] >= residualAmt + penaltyFee, "Insufficient funds to slash");
+        providerStakes[provider] -= residualAmt + penaltyFee;
 
-        uint256 feeAmt = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
-        uint256 amtMinusFee = residualAmt - feeAmt;
-
-        protocolFeeTracker.accumulatedAmount += feeAmt;
+        protocolFeeTracker.accumulatedAmount += penaltyFee;
         if (FeePayout.isPayoutDue(protocolFeeTracker)) {
             FeePayout.transferToRecipient(protocolFeeTracker);
         }
 
-        (bool success, ) = payable(bidder).call{value: amtMinusFee}("");
+        (bool success, ) = payable(bidder).call{value: residualAmt}("");
         require(success, "Transfer to bidder failed");
 
-        emit FundsSlashed(provider, amtMinusFee);
+        emit FundsSlashed(provider, residualAmt + penaltyFee);
     }
 
     /**

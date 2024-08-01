@@ -225,12 +225,12 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         address bidder = vm.addr(4);
 
-        vm.expectCall(bidder, 900000000000000000 wei, new bytes(0));
+        vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
         providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
-        assertEq(bidder.balance, 900000000000000000 wei);
+        assertEq(bidder.balance, 1000000000000000000 wei);
         assertEq(providerRegistry.getAccumulatedProtocolFee(), 100000000000000000 wei);
-        assertEq(providerRegistry.providerStakes(provider), 1 ether);
+        assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
     }
 
     function test_ShouldSlashProviderWithoutFeeRecipient() public {
@@ -243,11 +243,11 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         address bidder = vm.addr(4);
 
-        vm.expectCall(bidder, 900000000000000000 wei, new bytes(0));
+        vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
         providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
-        assertEq(bidder.balance, 900000000000000000 wei);
-        assertEq(providerRegistry.providerStakes(provider), 1 ether);
+        assertEq(bidder.balance, 1000000000000000000 wei);
+        assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
     }
 
     function testFail_ShouldRetrieveFundsNotPreConf() public {
@@ -336,7 +336,7 @@ contract ProviderRegistryTest is Test {
         );
         assertEq(
             newProvider.balance,
-            2e18 wei,
+            1.9e18 wei,
             "Provider's balance should increase by staked amount"
         );
     }
@@ -417,7 +417,7 @@ contract ProviderRegistryTest is Test {
         );
         assertEq(
             newProvider.balance,
-            2e18 wei,
+            1.9e18 wei,
             "Provider's balance should increase by staked amount"
         );
     }
