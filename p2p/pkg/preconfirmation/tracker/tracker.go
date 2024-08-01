@@ -232,10 +232,10 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				continue
 			}
 			if len(winners) == 0 {
-				t.logger.Info("no winners to open commitments")
+				t.logger.Debug("no winners to open commitments")
 				continue
 			}
-			t.logger.Info("stored block winners", "count", len(winners))
+			t.logger.Debug("stored block winners", "count", len(winners))
 			oldBlockNos := make([]int64, 0)
 			winners = slices.DeleteFunc(winners, func(item *store.BlockWinner) bool {
 				// the last block is the latest, so if any of the previous blocks are
@@ -260,14 +260,14 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					// for bidder to open is only in cases of slashes as he will get refund. Only one
 					// of bidder or provider should open the commitment as 1 of the txns would
 					// fail. This delay is to ensure this.
-					t.logger.Info("bidder detected, processing 2 blocks behind the current one")
+					t.logger.Debug("bidder detected, processing 2 blocks behind the current one")
 					winners = winners[:len(winners)-2]
 				} else {
-					t.logger.Info("no winners to open commitments")
+					t.logger.Debug("no winners to open commitments")
 					continue
 				}
 			}
-			t.logger.Info("opening commitments", "count", len(winners))
+			t.logger.Debug("opening commitments", "winners", len(winners))
 			for _, winner := range winners {
 				if err := t.openCommitments(egCtx, winner); err != nil {
 					t.logger.Error("failed to open commitments", "error", err)
