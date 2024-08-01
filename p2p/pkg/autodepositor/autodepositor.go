@@ -172,7 +172,7 @@ func (adt *AutoDepositTracker) initSub(egCtx context.Context) (events.Subscripti
 	evt := events.NewEventHandler(
 		"NewWindow",
 		func(update *blocktracker.BlocktrackerNewWindow) {
-			adt.logger.Info(
+			adt.logger.Debug(
 				"new window event",
 				"window", update.Window,
 			)

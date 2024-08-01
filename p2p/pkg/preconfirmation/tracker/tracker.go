@@ -331,7 +331,7 @@ func (t *Tracker) handleNewL1Block(
 	ctx context.Context,
 	newL1Block *blocktracker.BlocktrackerNewL1Block,
 ) error {
-	t.logger.Info(
+	t.logger.Debug(
 		"new L1 Block event received",
 		"blockNumber", newL1Block.BlockNumber,
 		"winner", newL1Block.Winner,
