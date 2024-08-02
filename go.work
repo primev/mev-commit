@@ -6,6 +6,6 @@ use (
 	./infrastructure/tools/keystore-generator
 	./oracle
 	./p2p
-	./x
 	./testing
+	./x
 )
