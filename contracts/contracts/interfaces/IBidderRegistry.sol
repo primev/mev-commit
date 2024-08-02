@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 interface IBidderRegistry {
-    struct PreConfCommitment {
+    struct OpenedCommitment {
         string txnHash;
         uint256 bid;
         uint64 blockNumber;
@@ -24,7 +24,12 @@ interface IBidderRegistry {
         Withdrawn
     }
 
-    function openBid(bytes32 commitmentDigest, uint256 bid, address bidder, uint64 blockNumber) external;
+    function openBid(
+        bytes32 commitmentDigest,
+        uint256 bid,
+        address bidder,
+        uint64 blockNumber
+    ) external;
 
     function depositForWindow(uint256 window) external payable;
 
@@ -37,5 +42,8 @@ interface IBidderRegistry {
 
     function unlockFunds(uint256 windowToSettle, bytes32 bidID) external;
 
-    function getDeposit(address bidder, uint256 window) external view returns (uint256);
+    function getDeposit(
+        address bidder,
+        uint256 window
+    ) external view returns (uint256);
 }

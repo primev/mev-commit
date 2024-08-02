@@ -11,6 +11,7 @@ import {BlockTracker} from "../contracts/BlockTracker.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
+import "forge-std/console.sol";
 
 contract TestPreConfCommitmentStore is Test {
     struct TestCommitment {
@@ -52,9 +53,9 @@ contract TestPreConfCommitmentStore is Test {
             10,
             20,
             0x9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900,
-            0x8257770d4be5c4b622e6bd6b45ff8deb6602235f3aa844b774eb21800eb4923a,
+            0x47662cacd554166e7a1835d52ccc33ffe9d3be42e07c316e5828cd7c3584d954,
             hex"f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c81b",
-            hex"8101af732be6879be2cea25a792b3dcc8a5372b5e7636e8348445351a6dd079c534bcaf61e3f7fb4f9f45238e4068a8a5fe20d0204c7644d25b12c60fa9540421c",
+            hex"85402f77f929e8e82f559eb2eb5d32f7bba6f39f4f7273e29a888233996c949955678d601fc8c26edbd862f79548e2112f5a7442403189c15515ec43cf3fea221b",
             15,
             bytes("0xsecret")
         );
@@ -324,7 +325,7 @@ contract TestPreConfCommitmentStore is Test {
 
     function test_GetCommitmentDigest() public {
         (, uint256 bidderPk) = makeAddrAndKey("alice");
-        
+
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
@@ -336,6 +337,7 @@ contract TestPreConfCommitmentStore is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bytes memory signature = abi.encodePacked(r, s, v);
+        console.logBytes(signature);
         bytes memory sharedSecretKey = bytes("0xsecret");
         bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
             _testCommitmentAliceBob.txnHash,
@@ -353,6 +355,7 @@ contract TestPreConfCommitmentStore is Test {
         (, uint256 providerPk) = makeAddrAndKey("bob");
         (v, r, s) = vm.sign(providerPk, preConfHash);
         signature = abi.encodePacked(r, s, v);
+        console.logBytes(signature);
     }
 
     function test_StoreCommitment() public {
@@ -458,7 +461,7 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
-            .commitments(preConfHash);
+            .openedCommitments(preConfHash);
         assertEq(isUsed, false);
 
         return bidHash;
@@ -553,7 +556,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public view {
-        PreConfCommitmentStore.PreConfCommitment
+        PreConfCommitmentStore.OpenedCommitment
             memory commitment = preConfCommitmentStore.getCommitment(index);
 
         PreConfCommitmentStore.CommitmentParams
@@ -684,7 +687,7 @@ contract TestPreConfCommitmentStore is Test {
 
             // Verify that the commitment has not been set before
             (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
-                .commitments(preConfHash);
+                .openedCommitments(preConfHash);
             assert(isUsed == false);
             (address committer, ) = makeAddrAndKey("bob");
 
@@ -724,7 +727,7 @@ contract TestPreConfCommitmentStore is Test {
             preConfCommitmentStore.initiateSlash(index, 100);
 
             (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
-                .commitments(index);
+                .openedCommitments(index);
             // Verify that the commitment has been deleted
             assert(isUsed == true);
 
@@ -775,7 +778,7 @@ contract TestPreConfCommitmentStore is Test {
 
             // Verify that the commitment has not been used before
             (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
-                .commitments(preConfHash);
+                .openedCommitments(preConfHash);
             assert(isUsed == false);
             (address committer, ) = makeAddrAndKey("bob");
 
@@ -814,7 +817,7 @@ contract TestPreConfCommitmentStore is Test {
             preConfCommitmentStore.initiateReward(index, 100);
 
             (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
-                .commitments(index);
+                .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
@@ -862,7 +865,7 @@ contract TestPreConfCommitmentStore is Test {
 
             // Verify that the commitment has not been used before
             (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
-                .commitments(preConfHash);
+                .openedCommitments(preConfHash);
             assert(isUsed == false);
             (address committer, ) = makeAddrAndKey("bob");
 
@@ -902,7 +905,7 @@ contract TestPreConfCommitmentStore is Test {
             preConfCommitmentStore.initiateReward(index, 0);
 
             (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
-                .commitments(index);
+                .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted

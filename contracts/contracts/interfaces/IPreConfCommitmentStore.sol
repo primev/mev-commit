@@ -7,7 +7,7 @@ pragma solidity 0.8.20;
  */
 interface IPreConfCommitmentStore {
     /// @dev Struct for all the information around preconfirmations commitment
-    struct PreConfCommitment {
+    struct OpenedCommitment {
         address bidder;
         bool isUsed;
         uint64 blockNumber;
@@ -201,11 +201,11 @@ interface IPreConfCommitmentStore {
     /**
      * @dev Gets a commitment by its index.
      * @param commitmentIndex The index of the commitment.
-     * @return A PreConfCommitment structure representing the commitment.
+     * @return A OpenedCommitment structure representing the commitment.
      */
     function getCommitment(
         bytes32 commitmentIndex
-    ) external view returns (PreConfCommitment memory);
+    ) external view returns (OpenedCommitment memory);
 
     /**
      * @dev Gets an unopened commitment by its index.
@@ -298,7 +298,7 @@ interface IPreConfCommitmentStore {
      * @return The computed index of the commitment.
      */
     function getCommitmentIndex(
-        PreConfCommitment memory commitment
+        OpenedCommitment memory commitment
     ) external pure returns (bytes32);
 
     /**

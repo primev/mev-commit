@@ -25,7 +25,7 @@ contract PreConfCommitmentStore is
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "PreConfCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
@@ -39,7 +39,7 @@ contract PreConfCommitmentStore is
         keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version)"),
-                keccak256("PreConfCommitment"),
+                keccak256("OpenedCommitment"),
                 keccak256("1")
             )
         );
@@ -78,9 +78,9 @@ contract PreConfCommitmentStore is
     /// @dev Mapping from provider to commitments count
     mapping(address => uint256) public commitmentsCount;
 
-    /// @dev Commitment Hash -> Commitemnt
+    /// @dev Commitment Hash -> Opened Commitemnt
     /// @dev Only stores valid commitments
-    mapping(bytes32 => PreConfCommitment) public commitments;
+    mapping(bytes32 => OpenedCommitment) public openedCommitments;
 
     /// @dev Unopened Commitment Hash -> Unopened Commitment
     /// @dev Only stores valid unopened commitments
@@ -253,7 +253,7 @@ contract PreConfCommitmentStore is
             "invalid sender"
         );
 
-        PreConfCommitment memory newCommitment = PreConfCommitment(
+        OpenedCommitment memory newCommitment = OpenedCommitment(
             bidderAddress,
             false,
             blockNumber,
@@ -274,7 +274,7 @@ contract PreConfCommitmentStore is
         commitmentIndex = getCommitmentIndex(newCommitment);
 
         // Store the new commitment
-        commitments[commitmentIndex] = newCommitment;
+        openedCommitments[commitmentIndex] = newCommitment;
         // Mark the unopened commitment as used
         unopenedCommitment.isUsed = true;
 
@@ -365,7 +365,7 @@ contract PreConfCommitmentStore is
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract {
-        PreConfCommitment storage commitment = commitments[commitmentIndex];
+        OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
         require(!commitment.isUsed, "Commitment already used");
 
         commitment.isUsed = true;
@@ -394,7 +394,7 @@ contract PreConfCommitmentStore is
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract {
-        PreConfCommitment storage commitment = commitments[commitmentIndex];
+        OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
         require(!commitment.isUsed, "Commitment already used");
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
@@ -421,18 +421,18 @@ contract PreConfCommitmentStore is
     function getTxnHashFromCommitment(
         bytes32 commitmentIndex
     ) public view returns (string memory txnHash) {
-        return commitments[commitmentIndex].txnHash;
+        return openedCommitments[commitmentIndex].txnHash;
     }
 
     /**
      * @dev Get a commitment by its commitmentIndex.
      * @param commitmentIndex The index of the commitment.
-     * @return A PreConfCommitment structure representing the commitment.
+     * @return A OpenedCommitment structure representing the commitment.
      */
     function getCommitment(
         bytes32 commitmentIndex
-    ) public view returns (PreConfCommitment memory) {
-        return commitments[commitmentIndex];
+    ) public view returns (OpenedCommitment memory) {
+        return openedCommitments[commitmentIndex];
     }
 
     /**
@@ -574,7 +574,7 @@ contract PreConfCommitmentStore is
      * @return The index of the commitment.
      */
     function getCommitmentIndex(
-        PreConfCommitment memory commitment
+        OpenedCommitment memory commitment
     ) public pure returns (bytes32) {
         return
             keccak256(
