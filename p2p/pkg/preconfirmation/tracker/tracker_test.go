@@ -132,7 +132,7 @@ func TestTracker(t *testing.T) {
 			continue
 		}
 
-		err = publishEncCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		err = publishEncCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			Committer:           common.BytesToAddress(c.PreConfirmation.ProviderAddress),
 			CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", i+1)),
 			CommitmentDigest:    common.BytesToHash(c.EncryptedPreConfirmation.Commitment),
@@ -160,7 +160,7 @@ func TestTracker(t *testing.T) {
 		DecayEndTimeStamp:   uint64(commitments[4].PreConfirmation.Bid.DecayEndTimestamp),
 		TxnHash:             commitments[4].PreConfirmation.Bid.TxHash,
 		RevertingTxHashes:   commitments[4].PreConfirmation.Bid.RevertingTxHashes,
-		CommitmentHash:      common.BytesToHash(commitments[4].PreConfirmation.Digest),
+		CommitmentDigest:    common.BytesToHash(commitments[4].PreConfirmation.Digest),
 		BidSignature:        commitments[4].PreConfirmation.Bid.Signature,
 		CommitmentSignature: commitments[4].PreConfirmation.Signature,
 		DispatchTimestamp:   uint64(1),
@@ -461,9 +461,9 @@ func (t *testReceiptGetter) BatchReceipts(_ context.Context, txns []common.Hash)
 func publishEncCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	ec preconf.PreconfcommitmentstoreEncryptedCommitmentStored,
+	ec preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
 ) error {
-	event := pcABI.Events["EncryptedCommitmentStored"]
+	event := pcABI.Events["UnopenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		ec.Committer,
 		ec.CommitmentDigest,
@@ -506,7 +506,7 @@ func publishCommitment(
 		c.DecayEndTimeStamp,
 		c.TxnHash,
 		c.RevertingTxHashes,
-		c.CommitmentHash,
+		c.CommitmentDigest,
 		c.BidSignature,
 		c.CommitmentSignature,
 		c.DispatchTimestamp,

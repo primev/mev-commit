@@ -102,7 +102,7 @@ type Updater struct {
 	oracle         Oracle
 	evtMgr         events.EventManager
 	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
-	encryptedCmts  chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored
+	unopenedCmts   chan *preconf.PreconfcommitmentstoreUnopenedCommitmentStored
 	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
 	currentWindow  atomic.Int64
 	metrics        *metrics
@@ -131,7 +131,7 @@ func NewUpdater(
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
 		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
-		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
+		unopenedCmts:   make(chan *preconf.PreconfcommitmentstoreUnopenedCommitmentStored),
 	}, nil
 }
 
@@ -145,11 +145,11 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	ev1 := events.NewEventHandler(
-		"EncryptedCommitmentStored",
-		func(update *preconf.PreconfcommitmentstoreEncryptedCommitmentStored) {
+		"UnopenedCommitmentStored",
+		func(update *preconf.PreconfcommitmentstoreUnopenedCommitmentStored) {
 			select {
 			case <-egCtx.Done():
-			case u.encryptedCmts <- update:
+			case u.unopenedCmts <- update:
 			}
 		},
 	)
@@ -193,7 +193,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 			select {
 			case <-egCtx.Done():
 				return nil
-			case ec := <-u.encryptedCmts:
+			case ec := <-u.unopenedCmts:
 				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
 					// ignore duplicate private key constraint
 					if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -237,7 +237,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 
 func (u *Updater) handleEncryptedCommitment(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreEncryptedCommitmentStored,
+	update *preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
 ) error {
 	err := u.winnerRegister.AddEncryptedCommitment(
 		ctx,
@@ -451,7 +451,7 @@ func (u *Updater) addSettlement(
 		int64(update.BlockNumber),
 		update.Bid,
 		update.Committer.Bytes(),
-		update.CommitmentHash[:],
+		update.CommitmentDigest[:],
 		settlementType,
 		decayPercentage,
 		window,

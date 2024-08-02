@@ -84,7 +84,7 @@ func (t *testProcessor) ProcessBid(
 
 type testCommitmentDA struct{}
 
-func (t *testCommitmentDA) StoreEncryptedCommitment(
+func (t *testCommitmentDA) StoreUnopenedCommitment(
 	_ *bind.TransactOpts,
 	_ [32]byte,
 	_ []byte,

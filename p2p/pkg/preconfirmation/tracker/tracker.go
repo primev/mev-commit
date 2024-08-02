@@ -35,7 +35,7 @@ type Tracker struct {
 	receiptGetter   txmonitor.BatchReceiptGetter
 	optsGetter      OptsGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
-	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
+	unopenedCmts    chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored
 	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
 	triggerOpen     chan struct{}
 	metrics         *metrics
@@ -96,7 +96,7 @@ func NewTracker(
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
-		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
+		unopenedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
 		triggerOpen:     make(chan struct{}),
 		metrics:         newMetrics(),
@@ -121,12 +121,12 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			},
 		),
 		events.NewEventHandler(
-			"EncryptedCommitmentStored",
-			func(ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored) {
+			"UnopenedCommitmentStored",
+			func(ec *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored) {
 				select {
 				case <-egCtx.Done():
-					t.logger.Info("EncryptedCommitmentStored context done")
-				case t.enryptedCmts <- ec:
+					t.logger.Info("UnopenedCommitmentStored context done")
+				case t.unopenedCmts <- ec:
 				}
 			},
 		),
@@ -203,12 +203,12 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		for {
 			select {
 			case <-egCtx.Done():
-				t.logger.Info("handleEncryptedCommitmentStored context done")
+				t.logger.Info("handleUnopenedCommitmentStored context done")
 				return nil
 			case err := <-sub.Err():
 				return fmt.Errorf("event subscription error: %w", err)
-			case ec := <-t.enryptedCmts:
-				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
+			case ec := <-t.unopenedCmts:
+				if err := t.handleUnopenedCommitmentStored(egCtx, ec); err != nil {
 					return err
 				}
 			}
@@ -483,9 +483,9 @@ func (t *Tracker) clearCommitments(ctx context.Context) error {
 	}
 }
 
-func (t *Tracker) handleEncryptedCommitmentStored(
+func (t *Tracker) handleUnopenedCommitmentStored(
 	ctx context.Context,
-	ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored,
+	ec *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored,
 ) error {
 	t.metrics.totalEncryptedCommitments.Inc()
 	return t.store.SetCommitmentIndexByDigest(ec.CommitmentDigest, ec.CommitmentIndex)
@@ -497,5 +497,5 @@ func (t *Tracker) handleCommitmentStored(
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
-	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
+	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentDigest)
 }

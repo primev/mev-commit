@@ -109,13 +109,13 @@ func TestUpdater(t *testing.T) {
 		}))
 	}
 
-	encCommitments := make([]preconf.PreconfcommitmentstoreEncryptedCommitmentStored, 0)
+	encCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
 	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		encCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -126,7 +126,7 @@ func TestUpdater(t *testing.T) {
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -157,7 +157,7 @@ func TestUpdater(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		encCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -170,7 +170,7 @@ func TestUpdater(t *testing.T) {
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -373,13 +373,13 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		}))
 	}
 
-	encCommitments := make([]preconf.PreconfcommitmentstoreEncryptedCommitmentStored, 0)
+	encCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
 	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		encCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -390,7 +390,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -421,7 +421,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		encCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -434,7 +434,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -644,13 +644,13 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		}))
 	}
 
-	encCommitments := make([]preconf.PreconfcommitmentstoreEncryptedCommitmentStored, 0)
+	encCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
 	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		encCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -661,7 +661,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -692,7 +692,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		encCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -705,7 +705,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -929,7 +929,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -1122,7 +1122,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			RevertingTxHashes:   "",
 			BlockNumber:         blockNum,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -1439,9 +1439,9 @@ func (t *testOracle) ProcessBuilderCommitmentForBlockNumber(
 func publishEncCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	ec preconf.PreconfcommitmentstoreEncryptedCommitmentStored,
+	ec preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
 ) error {
-	event := pcABI.Events["EncryptedCommitmentStored"]
+	event := pcABI.Events["UnopenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		ec.Committer,
 		ec.CommitmentDigest,
@@ -1484,7 +1484,7 @@ func publishCommitment(
 		c.DecayEndTimeStamp,
 		c.TxnHash,
 		c.RevertingTxHashes,
-		c.CommitmentHash,
+		c.CommitmentDigest,
 		c.BidSignature,
 		c.CommitmentSignature,
 		c.DispatchTimestamp,
