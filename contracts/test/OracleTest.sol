@@ -554,7 +554,7 @@ contract OracleTest is Test {
         bytes32 bidHash = getBidHash(txnHash, revertingTxHashes, bid, blockNumber);
         bytes memory bidSignature = getBidSignature(bidderPk, bidHash);
         
-        bytes32 commitmentHash = getCommitmentHash(
+        bytes32 commitmentDigest = getCommitmentDigest(
             txnHash,
             revertingTxHashes,
             bid,
@@ -565,13 +565,13 @@ contract OracleTest is Test {
         
         bytes memory commitmentSignature = getCommitmentSignature(
             signerPk,
-            commitmentHash
+            commitmentDigest
         );
         
 
         bytes32 unopenedCommitmentIndex = storeUnopenedCommitment(
             provider,
-            commitmentHash,
+            commitmentDigest,
             commitmentSignature,
             dispatchTimestamp
         );
@@ -615,7 +615,7 @@ contract OracleTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function getCommitmentHash(
+    function getCommitmentDigest(
         string memory txnHash,
         string memory revertingTxHashes,
         uint64 bid,
@@ -639,22 +639,22 @@ contract OracleTest is Test {
 
     function getCommitmentSignature(
         uint256 signerPk,
-        bytes32 commitmentHash
+        bytes32 commitmentDigest
     ) public pure returns (bytes memory) {
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, commitmentHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, commitmentDigest);
         return abi.encodePacked(r, s, v);
     }
 
     function storeUnopenedCommitment(
         address provider,
-        bytes32 commitmentHash,
+        bytes32 commitmentDigest,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32) {
         vm.startPrank(provider);
         bytes32 unopenedCommitmentIndex = preConfCommitmentStore
             .storeUnopenedCommitment(
-                commitmentHash,
+                commitmentDigest,
                 commitmentSignature,
                 dispatchTimestamp
             );
@@ -727,7 +727,7 @@ contract OracleTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bidSignature = abi.encodePacked(r, s, v);
 
-        bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
+        bytes32 commitmentDigest = preConfCommitmentStore.getPreConfHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -739,12 +739,12 @@ contract OracleTest is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
-        (v, r, s) = vm.sign(signerPk, commitmentHash);
+        (v, r, s) = vm.sign(signerPk, commitmentDigest);
         commitmentSignature = abi.encodePacked(r, s, v);
         vm.startPrank(committerAddress);
         bytes32 unopenedCommitmentIndex = preConfCommitmentStore
             .storeUnopenedCommitment(
-                commitmentHash,
+                commitmentDigest,
                 commitmentSignature,
                 dispatchTimestamp
             );

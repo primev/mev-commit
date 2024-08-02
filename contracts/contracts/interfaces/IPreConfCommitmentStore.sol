@@ -17,7 +17,7 @@ interface IPreConfCommitmentStore {
         address committer;
         uint256 bid;
         bytes32 bidHash;
-        bytes32 commitmentHash;
+        bytes32 commitmentDigest;
         bytes bidSignature;
         bytes commitmentSignature;
         bytes sharedSecretKey;
@@ -60,7 +60,7 @@ interface IPreConfCommitmentStore {
         uint64 decayEndTimeStamp,
         string txnHash,
         string revertingTxHashes,
-        bytes32 commitmentHash,
+        bytes32 commitmentDigest,
         bytes bidSignature,
         bytes commitmentSignature,
         uint64 dispatchTimestamp,

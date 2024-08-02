@@ -8,7 +8,7 @@ interface IBidderRegistry {
         uint64 blockNumber;
         string bidHash;
         string bidSignature;
-        string commitmentHash;
+        string commitmentDigest;
         string commitmentSignature;
     }
 

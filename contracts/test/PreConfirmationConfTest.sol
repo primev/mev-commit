@@ -167,7 +167,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory bidSignature = abi.encodePacked(r, s, v);
 
         // Step 3: Calculate the commitment hash using the getPreConfHash function
-        bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
+        bytes32 commitmentDigest = preConfCommitmentStore.getPreConfHash(
             testCommitment.txnHash,
             testCommitment.revertingTxHashes,
             testCommitment.bid,
@@ -183,7 +183,7 @@ contract TestPreConfCommitmentStore is Test {
         assert(bidHash != bytes32(0));
 
         // Step 5: Verify the commitment hash is correctly generated and not zero
-        assert(commitmentHash != bytes32(0));
+        assert(commitmentDigest != bytes32(0));
     }
 
     function test_Initialize() public view {
@@ -489,7 +489,7 @@ contract TestPreConfCommitmentStore is Test {
             decayEndTimestamp
         );
 
-        bytes32 commitmentHash = preConfCommitmentStore.getPreConfHash(
+        bytes32 commitmentDigest = preConfCommitmentStore.getPreConfHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -506,7 +506,7 @@ contract TestPreConfCommitmentStore is Test {
 
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeUnopenedCommitment(
-                commitmentHash,
+                commitmentDigest,
                 commitmentSignature,
                 dispatchTimestamp
             );
@@ -738,7 +738,7 @@ contract TestPreConfCommitmentStore is Test {
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);
             assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid + 2); // +2 is the slashed funds from provider
         }
-        // commitmentHash value is internal to contract and not asserted
+        // commitmentDigest value is internal to contract and not asserted
     }
 
     function test_InitiateReward() public {
@@ -820,7 +820,7 @@ contract TestPreConfCommitmentStore is Test {
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
-            // commitmentHash value is internal to contract and not asserted
+            // commitmentDigest value is internal to contract and not asserted
             assertEq(
                 bidderRegistry.lockedFunds(bidder, depositWindow),
                 2 ether - _testCommitmentAliceBob.bid
@@ -908,7 +908,7 @@ contract TestPreConfCommitmentStore is Test {
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
-            // commitmentHash value is internal to contract and not asserted
+            // commitmentDigest value is internal to contract and not asserted
 
             assertEq(
                 bidderRegistry.lockedFunds(bidder, window),

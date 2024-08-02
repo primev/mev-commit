@@ -383,7 +383,7 @@ contract PreConfCommitmentStore is
             residualBidPercentAfterDecay
         );
 
-        bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentHash);
+        bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentDigest);
     }
 
     /**
@@ -407,7 +407,7 @@ contract PreConfCommitmentStore is
 
         bidderRegistry.retrieveFunds(
             windowToSettle,
-            commitment.commitmentHash,
+            commitment.commitmentDigest,
             payable(commitment.committer),
             residualBidPercentAfterDecay
         );
@@ -579,7 +579,7 @@ contract PreConfCommitmentStore is
         return
             keccak256(
                 abi.encodePacked(
-                    commitment.commitmentHash,
+                    commitment.commitmentDigest,
                     commitment.commitmentSignature
                 )
             );
