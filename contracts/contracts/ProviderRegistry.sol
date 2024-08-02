@@ -4,9 +4,9 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-
 import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
 import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
+import {FeePayout} from "./utils/FeePayout.sol";
 
 /// @title Provider Registry
 /// @author Kartik Chopra
@@ -17,6 +17,8 @@ contract ProviderRegistry is
     UUPSUpgradeable,
     ReentrancyGuardUpgradeable
 {
+    using FeePayout for FeePayout.Tracker;
+
     /// @dev For improved precision
     uint256 public constant PRECISION = 10 ** 25;
     uint256 public constant PERCENT = 100 * PRECISION;
@@ -24,23 +26,17 @@ contract ProviderRegistry is
     /// @dev Minimum stake required for registration
     uint256 public minStake;
 
-    /// @dev Amount assigned to feeRecipient
-    uint256 public feeRecipientAmount;
-
-    /// @dev Amount assigned to protocol fee
-    uint256 public protocolFeeAmount;
-
     /// @dev Address of the pre-confirmations contract
     address public preConfirmationsContract;
 
     /// @dev Fee percent that would be taken by protocol when provider is slashed
     uint16 public feePercent;
 
-    /// @dev Fee recipient
-    address public feeRecipient;
-
     /// @dev Configurable withdrawal delay in milliseconds
     uint256 public withdrawalDelay;
+
+    /// Struct enabling automatic protocol fee payouts
+    FeePayout.Tracker public protocolFeeTracker;
 
     /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
@@ -63,6 +59,10 @@ contract ProviderRegistry is
     event Withdraw(address indexed provider, uint256 amount);
     /// @dev Event emitted when the withdrawal delay is updated
     event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
+    /// @dev Event emitted when the protocol fee recipient is updated
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    /// @dev Event emitted when the fee payout period in blocks is updated
+    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
@@ -78,20 +78,22 @@ contract ProviderRegistry is
     /**
      * @dev Initializes the contract with a minimum stake requirement.
      * @param _minStake The minimum stake required for provider registration.
-     * @param _feeRecipient The address that receives fee
+     * @param _protocolFeeRecipient The address that accumulates protocol fees
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _withdrawalDelay The withdrawal delay in milliseconds.
+     * @param _protocolFeePayoutPeriodBlocks The min number of blocks between protocol fee payouts
      */
     function initialize(
         uint256 _minStake,
-        address _feeRecipient,
+        address _protocolFeeRecipient,
         uint16 _feePercent,
         address _owner,
-        uint256 _withdrawalDelay
+        uint256 _withdrawalDelay,
+        uint256 _protocolFeePayoutPeriodBlocks
     ) external initializer {
+        FeePayout.init(protocolFeeTracker, _protocolFeeRecipient, _protocolFeePayoutPeriodBlocks);
         minStake = _minStake;
-        feeRecipient = _feeRecipient;
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
         __Ownable_init(_owner);
@@ -163,10 +165,9 @@ contract ProviderRegistry is
         uint256 feeAmt = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
         uint256 amtMinusFee = residualAmt - feeAmt;
 
-        if (feeRecipient != address(0)) {
-            feeRecipientAmount += feeAmt;
-        } else {
-            protocolFeeAmount += feeAmt;
+        protocolFeeTracker.accumulatedAmount += feeAmt;
+        if (FeePayout.isPayoutDue(protocolFeeTracker)) {
+            FeePayout.transferToRecipient(protocolFeeTracker);
         }
 
         (bool success, ) = payable(bidder).call{value: amtMinusFee}("");
@@ -176,12 +177,13 @@ contract ProviderRegistry is
     }
 
     /**
-     * @notice Sets the new fee recipient
+     * @notice Sets a new protocol fee recipient
      * @dev onlyOwner restriction
-     * @param newFeeRecipient The address to transfer the slashed funds to.
+     * @param newFeeRecipient The address of the new protocol fee recipient
      */
-    function setNewFeeRecipient(address newFeeRecipient) external onlyOwner {
-        feeRecipient = newFeeRecipient;
+    function setNewProtocolFeeRecipient(address newFeeRecipient) external onlyOwner {
+        protocolFeeTracker.recipient = newFeeRecipient;
+        emit ProtocolFeeRecipientUpdated(newFeeRecipient);
     }
 
     /**
@@ -201,13 +203,11 @@ contract ProviderRegistry is
         emit WithdrawalDelayUpdated(_withdrawalDelay);
     }
 
-    /**
-     * @dev Reward funds to the fee receipt.
-     */
-    function withdrawFeeRecipientAmount() external nonReentrant {
-        feeRecipientAmount = 0;
-        (bool successFee, ) = feeRecipient.call{value: feeRecipientAmount}("");
-        require(successFee, "fee recipient transfer failed");
+    /// @dev Sets the fee payout period in blocks
+    /// @param _feePayoutPeriodBlocks The new fee payout period in blocks
+    function setFeePayoutPeriodBlocks(uint256 _feePayoutPeriodBlocks) external onlyOwner {
+        protocolFeeTracker.payoutPeriodBlocks = _feePayoutPeriodBlocks;
+        emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
     /// @dev Requests unstake of the staked amount.
@@ -242,17 +242,11 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Withdraw protocol fee.
-     * @param treasuryAddress The address of the treasury.
+     * @dev Manually withdraws accumulated protocol fees to the recipient
+     * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
-    function withdrawProtocolFee(
-        address payable treasuryAddress
-    ) external onlyOwner nonReentrant {
-        uint256 _protocolFeeAmount = protocolFeeAmount;
-        protocolFeeAmount = 0;
-        require(_protocolFeeAmount != 0, "insufficient protocol fee amount");
-        (bool success, ) = treasuryAddress.call{value: _protocolFeeAmount}("");
-        require(success, "transfer failed");
+    function manuallyWithdrawProtocolFee() external onlyOwner {
+        FeePayout.transferToRecipient(protocolFeeTracker);
     }
 
     /**
@@ -267,6 +261,11 @@ contract ProviderRegistry is
     /// @dev Returns the BLS public key corresponding to a provider's staked EOA address.
     function getBLSKey(address provider) external view returns (bytes memory) {
         return eoaToBlsPubkey[provider];
+    }
+
+    /// @return protocolFee amount not yet transferred to recipient
+    function getAccumulatedProtocolFee() external view returns (uint256) {
+        return protocolFeeTracker.accumulatedAmount;
     }
 
     /**

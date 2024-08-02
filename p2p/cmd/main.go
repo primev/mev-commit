@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -400,9 +403,25 @@ func main() {
 		Action:  initializeApplication,
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigc
+		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
+		cancel()
+		<-sigc
+		fmt.Fprintln(app.Writer, "force exiting...")
+		os.Exit(1)
+	}()
+
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		fmt.Fprintln(app.Writer, "exited with error:", err)
 	}
+
+	os.Exit(0)
 }
 
 func initializeApplication(c *cli.Context) error {
@@ -484,8 +503,13 @@ func launchNodeWithConfig(c *cli.Context) error {
 		}
 	}
 
+	dbPath := ""
 	if c.String(optionDataDir.Name) != "" {
-		if err := os.MkdirAll(c.String(optionDataDir.Name), 0700); err != nil {
+		dbPath, err = util.ResolveFilePath(c.String(optionDataDir.Name))
+		if err != nil {
+			return fmt.Errorf("failed to resolve data directory: %w", err)
+		}
+		if err := os.MkdirAll(dbPath, 0700); err != nil {
 			return fmt.Errorf("failed to create data directory: %w", err)
 		}
 	}
@@ -519,6 +543,31 @@ func launchNodeWithConfig(c *cli.Context) error {
 		OracleWindowOffset:        big.NewInt(defaultOracleWindowOffset),
 		BeaconAPIURL:              c.String(optionBeaconAPIURL.Name),
 		L1RPCURL:                  c.String(optionL1RPCURL.Name),
+		KeySigner:                keysigner,
+		DataDir:                  dbPath,
+		Secret:                   c.String(optionSecret.Name),
+		PeerType:                 c.String(optionPeerType.Name),
+		P2PPort:                  c.Int(optionP2PPort.Name),
+		P2PAddr:                  c.String(optionP2PAddr.Name),
+		HTTPAddr:                 httpAddr,
+		RPCAddr:                  rpcAddr,
+		Logger:                   logger,
+		Bootnodes:                c.StringSlice(optionBootnodes.Name),
+		PreconfContract:          c.String(optionPreconfStoreAddr.Name),
+		ProviderRegistryContract: c.String(optionProviderRegistryAddr.Name),
+		BidderRegistryContract:   c.String(optionBidderRegistryAddr.Name),
+		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
+		AutodepositAmount:        autodepositAmount,
+		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
+		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
+		NatAddr:                  natAddr,
+		TLSCertificateFile:       crtFile,
+		TLSPrivateKeyFile:        keyFile,
+		ProviderWhitelist:        whitelist,
+		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
+		DefaultGasTipCap:         gasTipCap,
+		DefaultGasFeeCap:         gasFeeCap,
+		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

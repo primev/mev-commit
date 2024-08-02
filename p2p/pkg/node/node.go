@@ -116,7 +116,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 	srv := apiserver.New(opts.Version, opts.Logger.With("component", "apiserver"))
 	peerType := p2p.FromString(opts.PeerType)
-	healthChecker := health.New()
 
 	var (
 		contractRPC *ethclient.Client
@@ -416,6 +415,7 @@ func NewNode(opts *Options) (*Node, error) {
 				blocksPerWindow,
 				depositmanagerstore.New(store),
 				evtMgr,
+				bidderRegistry,
 				opts.Logger.With("component", "depositmanager"),
 			)
 			startables = append(
@@ -507,8 +507,8 @@ func NewNode(opts *Options) (*Node, error) {
 					opts.Logger.Error("failed to start auto deposit tracker", "error", err)
 					return nil, errors.Join(err, nd.Close())
 				}
-				nd.autoDeposit = autoDeposit
 			}
+			nd.autoDeposit = autoDeposit
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
@@ -596,6 +596,7 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	healthChecker := health.New()
 
 	for _, s := range startables {
 		closeChan := s.Startable.Start(ctx)
@@ -774,13 +775,10 @@ func (n *Node) Close() error {
 	}
 
 	var err error
+	_, err = n.autoDeposit.Stop()
+
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
-	}
-
-	_, adErr := n.autoDeposit.Stop()
-	if adErr != nil && !errors.Is(adErr, autodepositor.ErrNotRunning) {
-		return errors.Join(err, adErr)
 	}
 
 	return err

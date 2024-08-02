@@ -40,6 +40,17 @@ func (m *MockBidderRegistryContract) WithdrawFromWindows(opts *bind.TransactOpts
 	return m.WithdrawFromWindowsFunc(opts, windows)
 }
 
+func (m *MockBidderRegistryContract) GetDeposit(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error) {
+	if opts.Context != nil {
+		select {
+		case <-opts.Context.Done():
+			return nil, opts.Context.Err()
+		default:
+		}
+	}
+	return big.NewInt(0), nil
+}
+
 type MockBlockTrackerContract struct {
 	GetCurrentWindowFunc func() (*big.Int, error)
 }

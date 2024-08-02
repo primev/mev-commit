@@ -11,6 +11,7 @@ on:
           - devnet
           - testnet
           - stressnet
+          - manual-test
         default: 'devnet'
       all_targets:
         description: 'All Arch & Os Targets'
