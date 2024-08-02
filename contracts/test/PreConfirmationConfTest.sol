@@ -336,7 +336,6 @@ contract TestPreConfCommitmentStore is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        console.logBytes(signature);
         bytes memory sharedSecretKey = bytes("0xsecret");
         bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
             _testCommitmentAliceBob.txnHash,
