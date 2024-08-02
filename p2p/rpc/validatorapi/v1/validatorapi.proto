@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package validatorapi.v1;
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "google/api/annotations.proto";
+import "buf/validate/validate.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Validator API";
+    version: "1.0.0-alpha";
+    license: {
+      name: "Business Source License 1.1";
+      url: "https://github.com/primev/mev-commit/blob/main/LICENSE";
+    };
+  };
+};
+
+service Validator {
+    // GetEpoch
+    //
+    // GetEpoch is called by the bidder to get the current epoch, the current justified epoch, the previous justified epoch, and the finalized epoch.
+    rpc GetEpoch(EmptyMessage) returns (EpochResponse) {
+        option (google.api.http) = {get: "/v1/validator/get_epoch"};
+    }
+    // GetValidators
+    //
+    // GetValidators is called by the bidder to get the validators for a given epoch.
+    rpc GetValidators(GetValidatorsRequest) returns (GetValidatorsResponse) {
+        option (google.api.http) = {get: "/v1/validator/get_validators"};
+    }
+}
+
+message EmptyMessage {};
+
+message EpochResponse {
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+        json_schema: {
+            title: "EpochResponse";
+            description: "Response for GetCurrentEpoch";
+        }
+        example: "{\"current_epoch\": 5, \"current_justified_epoch\": 4, \"previous_justified_epoch\": 3, \"finalized_epoch\": 4}"
+    };
+    uint64 current_epoch = 1;
+    uint64 current_justified_epoch = 2;
+    uint64 previous_justified_epoch = 3;
+    uint64 finalized_epoch = 4;
+}
+
+message GetValidatorsRequest {
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+        json_schema: {
+            title: "GetValidatorsRequest";
+            description: "Request for GetValidators";
+        }
+    };
+    uint64 epoch = 1;
+}
+
+message SlotInfo {
+    string BLSKey = 1;
+    bool isActive = 2;
+}
+
+message GetValidatorsResponse {
+    map<uint64, SlotInfo> items = 1; 
+}

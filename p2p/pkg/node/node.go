@@ -22,13 +22,15 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	mevcommitavs "github.com/primev/mev-commit/contracts-abi/clients/MEVCommitAVS"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+	validatorregistry "github.com/primev/mev-commit/contracts-abi/clients/ValidatorRegistryV1"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
 	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
@@ -46,6 +48,7 @@ import (
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
 	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
+	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
@@ -69,32 +72,35 @@ const (
 )
 
 type Options struct {
-	Version                  string
-	DataDir                  string
-	KeySigner                keysigner.KeySigner
-	Secret                   string
-	PeerType                 string
-	Logger                   *slog.Logger
-	P2PPort                  int
-	P2PAddr                  string
-	HTTPAddr                 string
-	RPCAddr                  string
-	Bootnodes                []string
-	PreconfContract          string
-	BlockTrackerContract     string
-	ProviderRegistryContract string
-	BidderRegistryContract   string
-	AutodepositAmount        *big.Int
-	RPCEndpoint              string
-	WSRPCEndpoint            string
-	NatAddr                  string
-	TLSCertificateFile       string
-	TLSPrivateKeyFile        string
-	ProviderWhitelist        []common.Address
-	DefaultGasLimit          uint64
-	DefaultGasTipCap         *big.Int
-	DefaultGasFeeCap         *big.Int
-	OracleWindowOffset       *big.Int
+	Version                   string
+	DataDir                   string
+	KeySigner                 keysigner.KeySigner
+	Secret                    string
+	PeerType                  string
+	Logger                    *slog.Logger
+	P2PPort                   int
+	P2PAddr                   string
+	HTTPAddr                  string
+	RPCAddr                   string
+	Bootnodes                 []string
+	PreconfContract           string
+	BlockTrackerContract      string
+	ProviderRegistryContract  string
+	BidderRegistryContract    string
+	ValidatorRegistryContract string
+	AutodepositAmount         *big.Int
+	RPCEndpoint               string
+	WSRPCEndpoint             string
+	NatAddr                   string
+	TLSCertificateFile        string
+	TLSPrivateKeyFile         string
+	ProviderWhitelist         []common.Address
+	DefaultGasLimit           uint64
+	DefaultGasTipCap          *big.Int
+	DefaultGasFeeCap          *big.Int
+	OracleWindowOffset        *big.Int
+	BeaconAPIURL              string
+	L1RPCURL                  string
 }
 
 type Node struct {
@@ -357,7 +363,7 @@ func NewNode(opts *Options) (*Node, error) {
 			},
 		}
 
-		commitmentDA, err := preconfcommitmentstore.NewPreconfcommitmentstore(
+		commitmentDA, err := preconf.NewPreconfcommitmentstore(
 			common.HexToAddress(opts.PreconfContract),
 			contractsBackend,
 		)
@@ -520,6 +526,52 @@ func NewNode(opts *Options) (*Node, error) {
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
+			if opts.ValidatorRegistryContract != "" {
+				l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
+				if err != nil {
+					opts.Logger.Error("failed to connect to rpc", "error", err)
+					return nil, err
+				}
+
+				// validatorRegistryCaller, err := validatorregistry.NewValidatorregistryv1Caller(
+				// 	common.HexToAddress(opts.ValidatorRegistryContract),
+				// 	l1ContractRPC,
+				// )
+				// if err != nil {
+				// 	opts.Logger.Error("failed to instantiate validator registry contract", "error", err)
+				// 	return nil, err
+				// }
+
+				// validatorRegistrySession := &validatorregistry.Validatorregistryv1CallerSession{
+				// 	Contract: validatorRegistryCaller,
+				// 	CallOpts: bind.CallOpts{
+				// 		From: opts.KeySigner.GetAddress(),
+				// 	},
+				// }
+
+				mevCommitAVSCaller, err := mevcommitavs.NewMevcommitavsCaller(
+					common.HexToAddress(opts.ValidatorRegistryContract),
+					l1ContractRPC,
+				)
+				if err != nil {
+					opts.Logger.Error("failed to instantiate mev commit avs contract", "error", err)
+					return nil, err
+				}
+
+				mevCommitAVSSession := &mevcommitavs.MevcommitavsCallerSession{
+					Contract: mevCommitAVSCaller,
+					CallOpts: bind.CallOpts{
+						From: opts.KeySigner.GetAddress(),
+					},
+				}
+
+				validatorAPI := validatorapi.NewService(
+					opts.BeaconAPIURL,
+					mevCommitAVSSession,
+					opts.Logger.With("component", "validatorapi"),
+				)
+				validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
+			}
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
@@ -633,6 +685,13 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.Logger.Error("failed to register bidder handler", "err", err)
 			return nil, errors.Join(err, nd.Close())
 		}
+		if opts.ValidatorRegistryContract != "" {
+			err = validatorapiv1.RegisterValidatorHandler(handlerCtx, gatewayMux, grpcConn)
+			if err != nil {
+				opts.Logger.Error("failed to register validator handler", "err", err)
+				return nil, errors.Join(err, nd.Close())
+			}
+		}
 	}
 
 	srv.ChainHandlers("/", gatewayMux)
@@ -699,6 +758,12 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 		return nil, err
 	}
 	abis[common.HexToAddress(opts.BidderRegistryContract)] = &brABI
+
+	vrABI, err := abi.JSON(strings.NewReader(validatorregistry.Validatorregistryv1ABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[common.HexToAddress(opts.ValidatorRegistryContract)] = &vrABI
 
 	return abis, nil
 }

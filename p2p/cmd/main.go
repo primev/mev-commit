@@ -33,6 +33,9 @@ const (
 	defaultDataDir   = "db"
 
 	defaultOracleWindowOffset = 1
+
+	defaultBeaconAPIURL = "http://52.11.201.67:3500"
+	defaultL1RPCURL     = "https://eth-holesky.g.alchemy.com/v2/grGIfM5eDQdGW6TugpTo7RrHZsxeAVrr"
 )
 
 var (
@@ -235,6 +238,18 @@ var (
 		},
 	})
 
+	optionValidatorRegistryAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "validator-registry-contract",
+		Usage:   "address of the validator registry contract",
+		EnvVars: []string{"MEV_COMMIT_VALIDATOR_REGISTRY_ADDR"},
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid validator registry address: %s", s)
+			}
+			return nil
+		},
+	})
+
 	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "autodeposit-amount",
 		Usage:   "amount to auto deposit",
@@ -320,6 +335,20 @@ var (
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
 		Value:   "2000000000", // 2 gWEI
 	})
+
+	optionBeaconAPIURL = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "beacon-api-url",
+		Usage:   "URL of the beacon chain API",
+		EnvVars: []string{"MEV_COMMIT_BEACON_API_URL"},
+		Value:   defaultBeaconAPIURL,
+	})
+
+	optionL1RPCURL = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "l1-rpc-url",
+		Usage:   "URL for L1 RPC",
+		EnvVars: []string{"MEV_COMMIT_L1_RPC_URL"},
+		Value:   defaultL1RPCURL,
+	})
 )
 
 func main() {
@@ -345,6 +374,7 @@ func main() {
 		optionProviderRegistryAddr,
 		optionPreconfStoreAddr,
 		optionBlockTrackerAddr,
+		optionValidatorRegistryAddr,
 		optionAutodepositAmount,
 		optionAutodepositEnabled,
 		optionSettlementRPCEndpoint,
@@ -357,6 +387,8 @@ func main() {
 		optionGasLimit,
 		optionGasTipCap,
 		optionGasFeeCap,
+		optionBeaconAPIURL,
+		optionL1RPCURL,
 	}
 
 	app := &cli.App{
@@ -459,31 +491,34 @@ func launchNodeWithConfig(c *cli.Context) error {
 	}
 
 	nd, err := node.NewNode(&node.Options{
-		KeySigner:                keysigner,
-		DataDir:                  c.String(optionDataDir.Name),
-		Secret:                   c.String(optionSecret.Name),
-		PeerType:                 c.String(optionPeerType.Name),
-		P2PPort:                  c.Int(optionP2PPort.Name),
-		P2PAddr:                  c.String(optionP2PAddr.Name),
-		HTTPAddr:                 httpAddr,
-		RPCAddr:                  rpcAddr,
-		Logger:                   logger,
-		Bootnodes:                c.StringSlice(optionBootnodes.Name),
-		PreconfContract:          c.String(optionPreconfStoreAddr.Name),
-		ProviderRegistryContract: c.String(optionProviderRegistryAddr.Name),
-		BidderRegistryContract:   c.String(optionBidderRegistryAddr.Name),
-		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
-		AutodepositAmount:        autodepositAmount,
-		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
-		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
-		NatAddr:                  natAddr,
-		TLSCertificateFile:       crtFile,
-		TLSPrivateKeyFile:        keyFile,
-		ProviderWhitelist:        whitelist,
-		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
-		DefaultGasTipCap:         gasTipCap,
-		DefaultGasFeeCap:         gasFeeCap,
-		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
+		KeySigner:                 keysigner,
+		DataDir:                   c.String(optionDataDir.Name),
+		Secret:                    c.String(optionSecret.Name),
+		PeerType:                  c.String(optionPeerType.Name),
+		P2PPort:                   c.Int(optionP2PPort.Name),
+		P2PAddr:                   c.String(optionP2PAddr.Name),
+		HTTPAddr:                  httpAddr,
+		RPCAddr:                   rpcAddr,
+		Logger:                    logger,
+		Bootnodes:                 c.StringSlice(optionBootnodes.Name),
+		PreconfContract:           c.String(optionPreconfStoreAddr.Name),
+		ProviderRegistryContract:  c.String(optionProviderRegistryAddr.Name),
+		BidderRegistryContract:    c.String(optionBidderRegistryAddr.Name),
+		BlockTrackerContract:      c.String(optionBlockTrackerAddr.Name),
+		ValidatorRegistryContract: c.String(optionValidatorRegistryAddr.Name),
+		AutodepositAmount:         autodepositAmount,
+		RPCEndpoint:               c.String(optionSettlementRPCEndpoint.Name),
+		WSRPCEndpoint:             c.String(optionSettlementWSRPCEndpoint.Name),
+		NatAddr:                   natAddr,
+		TLSCertificateFile:        crtFile,
+		TLSPrivateKeyFile:         keyFile,
+		ProviderWhitelist:         whitelist,
+		DefaultGasLimit:           uint64(c.Int(optionGasLimit.Name)),
+		DefaultGasTipCap:          gasTipCap,
+		DefaultGasFeeCap:          gasFeeCap,
+		OracleWindowOffset:        big.NewInt(defaultOracleWindowOffset),
+		BeaconAPIURL:              c.String(optionBeaconAPIURL.Name),
+		L1RPCURL:                  c.String(optionL1RPCURL.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
