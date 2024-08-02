@@ -11,7 +11,6 @@ import {BlockTracker} from "../contracts/BlockTracker.sol";
 
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
-import "forge-std/console.sol";
 
 contract TestPreConfCommitmentStore is Test {
     struct TestCommitment {
@@ -355,7 +354,6 @@ contract TestPreConfCommitmentStore is Test {
         (, uint256 providerPk) = makeAddrAndKey("bob");
         (v, r, s) = vm.sign(providerPk, preConfHash);
         signature = abi.encodePacked(r, s, v);
-        console.logBytes(signature);
     }
 
     function test_StoreCommitment() public {
