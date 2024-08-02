@@ -6,7 +6,6 @@ pragma solidity 0.8.20;
  * @dev Interface for PreConfCommitmentStore
  */
 interface IPreConfCommitmentStore {
-
     /// @dev Struct for all the information around preconfirmations commitment
     struct PreConfCommitment {
         address bidder;
@@ -40,8 +39,8 @@ interface IPreConfCommitmentStore {
         bytes sharedSecretKey;
     }
 
-    /// @dev Struct for all the information around encrypted preconfirmations commitment
-    struct EncrPreConfCommitment {
+    /// @dev Struct for all the information around unopened preconfirmations commitment
+    struct UnopenedCommitment {
         bool isUsed;
         address committer;
         uint64 dispatchTimestamp;
@@ -68,8 +67,8 @@ interface IPreConfCommitmentStore {
         bytes sharedSecretKey
     );
 
-    /// @dev Event to log successful encrypted commitment storage
-    event EncryptedCommitmentStored(
+    /// @dev Event to log successful unopened commitment storage
+    event UnopenedCommitmentStored(
         bytes32 indexed commitmentIndex,
         address committer,
         bytes32 commitmentDigest,
@@ -132,7 +131,7 @@ interface IPreConfCommitmentStore {
 
     /**
      * @dev Opens a commitment.
-     * @param encryptedCommitmentIndex The index of the encrypted commitment.
+     * @param unopenedCommitmentIndex The index of the unopened commitment.
      * @param bid The bid amount.
      * @param blockNumber The block number.
      * @param txnHash The transaction hash.
@@ -145,7 +144,7 @@ interface IPreConfCommitmentStore {
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
-        bytes32 encryptedCommitmentIndex,
+        bytes32 unopenedCommitmentIndex,
         uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -158,13 +157,13 @@ interface IPreConfCommitmentStore {
     ) external returns (bytes32 commitmentIndex);
 
     /**
-     * @dev Stores an encrypted commitment.
+     * @dev Stores an unopened commitment.
      * @param commitmentDigest The digest of the commitment.
      * @param commitmentSignature The signature of the commitment.
      * @param dispatchTimestamp The timestamp at which the commitment is dispatched.
      * @return commitmentIndex The index of the stored commitment.
      */
-    function storeEncryptedCommitment(
+    function storeUnopenedCommitment(
         bytes32 commitmentDigest,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
@@ -209,13 +208,13 @@ interface IPreConfCommitmentStore {
     ) external view returns (PreConfCommitment memory);
 
     /**
-     * @dev Gets an encrypted commitment by its index.
-     * @param commitmentIndex The index of the encrypted commitment.
-     * @return An EncrPreConfCommitment structure representing the encrypted commitment.
+     * @dev Gets an unopened commitment by its index.
+     * @param commitmentIndex The index of the unopened commitment.
+     * @return An UnopenedCommitment structure representing the unopened commitment.
      */
-    function getEncryptedCommitment(
+    function getUnopenedCommitment(
         bytes32 commitmentIndex
-    ) external view returns (EncrPreConfCommitment memory);
+    ) external view returns (UnopenedCommitment memory);
 
     /**
      * @dev Computes the bid hash for a given set of parameters.
@@ -303,11 +302,11 @@ interface IPreConfCommitmentStore {
     ) external pure returns (bytes32);
 
     /**
-     * @dev Computes the index of an encrypted commitment.
-     * @param commitment The encrypted commitment to compute the index for.
-     * @return The computed index of the encrypted commitment.
+     * @dev Computes the index of an unopened commitment.
+     * @param commitment The unopened commitment to compute the index for.
+     * @return The computed index of the unopened commitment.
      */
-    function getEncryptedCommitmentIndex(
-        EncrPreConfCommitment memory commitment
+    function getUnopenedCommitmentIndex(
+        UnopenedCommitment memory commitment
     ) external pure returns (bytes32);
 }

@@ -489,7 +489,7 @@ contract OracleTest is Test {
                 commitments[i],
                 bidSignatures[i],
                 commitmentSignatures[i]
-            ) = constructAndStoreEncryptedCommitment(
+            ) = constructAndStoreUnopenedCommitment(
                 provider,
                 bid,
                 blockNumber,
@@ -569,7 +569,7 @@ contract OracleTest is Test {
         );
         
 
-        bytes32 encryptedCommitmentIndex = storeEncryptedCommitment(
+        bytes32 unopenedCommitmentIndex = storeUnopenedCommitment(
             provider,
             commitmentHash,
             commitmentSignature,
@@ -579,7 +579,7 @@ contract OracleTest is Test {
 
         commitmentIndex = openCommitment(
             provider,
-            encryptedCommitmentIndex,
+            unopenedCommitmentIndex,
             bid,
             blockNumber,
             txnHash,
@@ -645,21 +645,21 @@ contract OracleTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function storeEncryptedCommitment(
+    function storeUnopenedCommitment(
         address provider,
         bytes32 commitmentHash,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
     ) public returns (bytes32) {
         vm.startPrank(provider);
-        bytes32 encryptedCommitmentIndex = preConfCommitmentStore
-            .storeEncryptedCommitment(
+        bytes32 unopenedCommitmentIndex = preConfCommitmentStore
+            .storeUnopenedCommitment(
                 commitmentHash,
                 commitmentSignature,
                 dispatchTimestamp
             );
         vm.stopPrank();
-        return encryptedCommitmentIndex;
+        return unopenedCommitmentIndex;
     }
 
     function recordBlockData(address provider, uint64 blockNumber) public {
@@ -671,7 +671,7 @@ contract OracleTest is Test {
 
     function openCommitment(
         address provider,
-        bytes32 encryptedCommitmentIndex,
+        bytes32 unopenedCommitmentIndex,
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -681,7 +681,7 @@ contract OracleTest is Test {
     ) public returns (bytes32) {
         vm.startPrank(provider);
         bytes32 commitmentIndex = preConfCommitmentStore.openCommitment(
-            encryptedCommitmentIndex,
+            unopenedCommitmentIndex,
             bid,
             blockNumber,
             txnHash,
@@ -696,7 +696,7 @@ contract OracleTest is Test {
         return commitmentIndex;
     }
 
-    function constructAndStoreEncryptedCommitment(
+    function constructAndStoreUnopenedCommitment(
         address committerAddress,
         uint64 bid,
         uint64 blockNumber,
@@ -742,14 +742,14 @@ contract OracleTest is Test {
         (v, r, s) = vm.sign(signerPk, commitmentHash);
         commitmentSignature = abi.encodePacked(r, s, v);
         vm.startPrank(committerAddress);
-        bytes32 encryptedCommitmentIndex = preConfCommitmentStore
-            .storeEncryptedCommitment(
+        bytes32 unopenedCommitmentIndex = preConfCommitmentStore
+            .storeUnopenedCommitment(
                 commitmentHash,
                 commitmentSignature,
                 dispatchTimestamp
             );
         vm.stopPrank();
-        return (encryptedCommitmentIndex, bidSignature, commitmentSignature);
+        return (unopenedCommitmentIndex, bidSignature, commitmentSignature);
     }
 
     function _bytesToHexString(

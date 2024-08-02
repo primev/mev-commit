@@ -15,8 +15,11 @@ import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
  */
-contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradeable, UUPSUpgradeable {
-
+contract PreConfCommitmentStore is
+    IPreConfCommitmentStore,
+    Ownable2StepUpgradeable,
+    UUPSUpgradeable
+{
     using ECDSA for bytes32;
 
     /// @dev EIP-712 Type Hash for preconfirmation commitment
@@ -79,9 +82,9 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     /// @dev Only stores valid commitments
     mapping(bytes32 => PreConfCommitment) public commitments;
 
-    /// @dev Encrypted Commitment Hash -> Encrypted Commitment
-    /// @dev Only stores valid encrypted commitments
-    mapping(bytes32 => EncrPreConfCommitment) public encryptedCommitments;
+    /// @dev Unopened Commitment Hash -> Unopened Commitment
+    /// @dev Only stores valid unopened commitments
+    mapping(bytes32 => UnopenedCommitment) public unopenedCommitments;
 
     /**
      * @dev Makes sure transaction sender is oracle contract
@@ -153,7 +156,9 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      * @dev Updates the address of the oracle contract.
      * @param newOracleContract The new oracle contract address.
      */
-    function updateOracleContract(address newOracleContract) external onlyOwner {
+    function updateOracleContract(
+        address newOracleContract
+    ) external onlyOwner {
         oracleContract = newOracleContract;
     }
 
@@ -176,10 +181,10 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     ) external onlyOwner {
         providerRegistry = IProviderRegistry(newProviderRegistry);
     }
-    
+
     /**
      * @dev Open a commitment
-     * @param encryptedCommitmentIndex The index of the encrypted commitment
+     * @param unopenedCommitmentIndex The index of the unopened commitment
      * @param bid The bid amount
      * @param blockNumber The block number
      * @param txnHash The transaction hash
@@ -192,7 +197,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      * @return commitmentIndex The index of the stored commitment
      */
     function openCommitment(
-        bytes32 encryptedCommitmentIndex,
+        bytes32 unopenedCommitmentIndex,
         uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -227,24 +232,24 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             _bytesToHexString(sharedSecretKey)
         );
 
-        EncrPreConfCommitment
-            storage encryptedCommitment = encryptedCommitments[
-                encryptedCommitmentIndex
-            ];
+        UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
+            unopenedCommitmentIndex
+        ];
 
-        require(!encryptedCommitment.isUsed, "Commitment already used");
+        require(!unopenedCommitment.isUsed, "Commitment already used");
         require(
-            encryptedCommitment.commitmentDigest == commitmentDigest,
+            unopenedCommitment.commitmentDigest == commitmentDigest,
             "Invalid commitment digest"
         );
 
-        address committerAddress = commitmentDigest.recover(commitmentSignature);
+        address committerAddress = commitmentDigest.recover(
+            commitmentSignature
+        );
 
         address winner = blockTracker.getBlockWinner(blockNumber);
         require(
-            winner == committerAddress && 
-            (msg.sender == winner ||
-            msg.sender == bidderAddress),
+            winner == committerAddress &&
+                (msg.sender == winner || msg.sender == bidderAddress),
             "invalid sender"
         );
 
@@ -254,7 +259,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
-            encryptedCommitment.dispatchTimestamp,
+            unopenedCommitment.dispatchTimestamp,
             committerAddress,
             bid,
             bHash,
@@ -270,8 +275,8 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
 
         // Store the new commitment
         commitments[commitmentIndex] = newCommitment;
-        // Mark the encrypted commitment as used
-        encryptedCommitment.isUsed = true;
+        // Mark the unopened commitment as used
+        unopenedCommitment.isUsed = true;
 
         bidderRegistry.openBid(
             commitmentDigest,
@@ -296,20 +301,20 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             commitmentDigest,
             bidSignature,
             commitmentSignature,
-            encryptedCommitment.dispatchTimestamp,
+            unopenedCommitment.dispatchTimestamp,
             sharedSecretKey
         );
         return commitmentIndex;
     }
 
     /**
-     * @dev Store an encrypted commitment.
+     * @dev Store an unopened commitment.
      * @param commitmentDigest The digest of the commitment.
      * @param commitmentSignature The signature of the commitment.
      * @param dispatchTimestamp The timestamp at which the commitment is dispatched.
      * @return commitmentIndex The index of the stored commitment
      */
-    function storeEncryptedCommitment(
+    function storeUnopenedCommitment(
         bytes32 commitmentDigest,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
@@ -319,17 +324,16 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         // Check if the dispatch timestamp is within the allowed dispatch window
         require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
 
-        address committerAddress = commitmentDigest.recover(commitmentSignature);
-
-        require(
-            committerAddress == msg.sender,
-            "sender is not committer"
+        address committerAddress = commitmentDigest.recover(
+            commitmentSignature
         );
+
+        require(committerAddress == msg.sender, "sender is not committer");
 
         // Ensure the provider's balance is greater than minStake and no pending withdrawal
         providerRegistry.isProviderValid(committerAddress);
-        
-        EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
+
+        UnopenedCommitment memory newCommitment = UnopenedCommitment(
             false,
             committerAddress,
             dispatchTimestamp,
@@ -337,11 +341,11 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             commitmentSignature
         );
 
-        commitmentIndex = getEncryptedCommitmentIndex(newCommitment);
+        commitmentIndex = getUnopenedCommitmentIndex(newCommitment);
 
-        encryptedCommitments[commitmentIndex] = newCommitment;
+        unopenedCommitments[commitmentIndex] = newCommitment;
 
-        emit EncryptedCommitmentStored(
+        emit UnopenedCommitmentStored(
             commitmentIndex,
             committerAddress,
             commitmentDigest,
@@ -392,7 +396,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     ) public onlyOracleContract {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
         require(!commitment.isUsed, "Commitment already used");
-        
+
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,
             blocksPerWindow
@@ -436,10 +440,10 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      * @param commitmentIndex The index of the commitment.
      * @return txnHash The transaction hash.
      */
-    function getEncryptedCommitment(
+    function getUnopenedCommitment(
         bytes32 commitmentIndex
-    ) public view returns (EncrPreConfCommitment memory) {
-        return encryptedCommitments[commitmentIndex];
+    ) public view returns (UnopenedCommitment memory) {
+        return unopenedCommitments[commitmentIndex];
     }
 
     /**
@@ -582,12 +586,12 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     }
 
     /**
-     * @dev Get the index of an encrypted commitment.
+     * @dev Get the index of an unopened commitment.
      * @param commitment The commitment to get the index for.
      * @return The index of the commitment.
      */
-    function getEncryptedCommitmentIndex(
-        EncrPreConfCommitment memory commitment
+    function getUnopenedCommitmentIndex(
+        UnopenedCommitment memory commitment
     ) public pure returns (bytes32) {
         return
             keccak256(

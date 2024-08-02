@@ -38,7 +38,8 @@ contract TestPreConfCommitmentStore is Test {
     BlockTracker public blockTracker;
     uint256 public blocksPerWindow;
     BidderRegistry public bidderRegistry;
-    bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    bytes public validBLSPubkey =
+        hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     uint256 public withdrawalDelay;
     uint256 public protocolFeePayoutPeriodBlocks;
     address public oracleContract;
@@ -69,7 +70,14 @@ contract TestPreConfCommitmentStore is Test {
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay, protocolFeePayoutPeriodBlocks)
+                (
+                    minStake,
+                    feeRecipient,
+                    feePercent,
+                    address(this),
+                    withdrawalDelay,
+                    protocolFeePayoutPeriodBlocks
+                )
             )
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -127,18 +135,19 @@ contract TestPreConfCommitmentStore is Test {
 
     function test_GetBidHash1() public {
         // Step 1: Prepare the test commitment data
-        PreConfCommitmentStore.CommitmentParams memory testCommitment = IPreConfCommitmentStore.CommitmentParams({
-            txnHash: "0xkartik",
-            revertingTxHashes: "0xkartik",
-            bid: 2,
-            blockNumber: 2,
-            decayStartTimeStamp: 10,
-            decayEndTimeStamp: 20,
-            sharedSecretKey: bytes("0xsecret"),
-            bidHash: hex"9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900",
-            bidSignature: hex"c2ab6e530f6b09337e53e1192857fa10017cdb488cf2a07e0aa4457571492b8c6bff93cbda4e003336656b4ecf8ff46bd1d408b310acdf07be4925a1a8fee4471c",
-            commitmentSignature: hex"5b3000290d4f347b94146eb37f66d5368aed18fb8713bf78620abe40ae3de7f635f7ed161801c31ea10e736d88e6fd2a2286bbd59385161dd24c9fefd2568f341b"
-        });
+        PreConfCommitmentStore.CommitmentParams
+            memory testCommitment = IPreConfCommitmentStore.CommitmentParams({
+                txnHash: "0xkartik",
+                revertingTxHashes: "0xkartik",
+                bid: 2,
+                blockNumber: 2,
+                decayStartTimeStamp: 10,
+                decayEndTimeStamp: 20,
+                sharedSecretKey: bytes("0xsecret"),
+                bidHash: hex"9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900",
+                bidSignature: hex"c2ab6e530f6b09337e53e1192857fa10017cdb488cf2a07e0aa4457571492b8c6bff93cbda4e003336656b4ecf8ff46bd1d408b310acdf07be4925a1a8fee4471c",
+                commitmentSignature: hex"5b3000290d4f347b94146eb37f66d5368aed18fb8713bf78620abe40ae3de7f635f7ed161801c31ea10e736d88e6fd2a2286bbd59385161dd24c9fefd2568f341b"
+            });
         // Step 2: Calculate the bid hash using the getBidHash function
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             testCommitment.txnHash,
@@ -173,7 +182,7 @@ contract TestPreConfCommitmentStore is Test {
         assert(bidHash != bytes32(0));
 
         // Step 5: Verify the commitment hash is correctly generated and not zero
-        assert(commitmentHash != bytes32(0));        
+        assert(commitmentHash != bytes32(0));
     }
 
     function test_Initialize() public view {
@@ -188,7 +197,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_StoreEncryptedCommitment() public {
+    function test_StoreUnopenedCommitment() public {
         // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -208,21 +217,21 @@ contract TestPreConfCommitmentStore is Test {
         // Step 2: Store the commitment
         vm.prank(committer);
         bytes32 commitmentIndex = preConfCommitmentStore
-            .storeEncryptedCommitment(
-            commitmentDigest,
-            commitmentSignature,
-            1000
-        );
+            .storeUnopenedCommitment(
+                commitmentDigest,
+                commitmentSignature,
+                1000
+            );
 
         // Step 3: Verify the results
         // a. Check that the commitment index is correctly generated and not zero
         assert(commitmentIndex != bytes32(0));
 
         // b. Retrieve the commitment by index and verify its properties
-        PreConfCommitmentStore.EncrPreConfCommitment
-        memory commitment = preConfCommitmentStore.getEncryptedCommitment(
-            commitmentIndex
-        );
+        PreConfCommitmentStore.UnopenedCommitment
+            memory commitment = preConfCommitmentStore.getUnopenedCommitment(
+                commitmentIndex
+            );
 
         // c. Assertions to verify the stored commitment matches the input
         assertEq(commitment.committer, committer);
@@ -247,7 +256,7 @@ contract TestPreConfCommitmentStore is Test {
         vm.warp(1000);
         vm.expectRevert("Invalid dispatch timestamp");
 
-        preConfCommitmentStore.storeEncryptedCommitment(
+        preConfCommitmentStore.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp
@@ -255,7 +264,7 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
-    public
+        public
     {
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -272,7 +281,7 @@ contract TestPreConfCommitmentStore is Test {
         preConfCommitmentStore.updateCommitmentDispatchWindow(200);
         vm.warp(201 + _testCommitmentAliceBob.dispatchTimestamp);
         vm.expectRevert("Invalid dispatch timestamp");
-        preConfCommitmentStore.storeEncryptedCommitment(
+        preConfCommitmentStore.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp
@@ -366,7 +375,7 @@ contract TestPreConfCommitmentStore is Test {
         (address committer, ) = makeAddrAndKey("bob");
 
         // Step 2: Store the commitment
-        bytes32 encryptedIndex = storeCommitment(
+        bytes32 unopenedIndex = storeCommitment(
             committer,
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
@@ -387,7 +396,7 @@ contract TestPreConfCommitmentStore is Test {
         // Step 4: Open the commitment
         bytes32 index = openCommitment(
             bidder,
-            encryptedIndex,
+            unopenedIndex,
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.txnHash,
@@ -448,7 +457,7 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
-        (,bool isUsed , , , , , , , , , , , , ,) = preConfCommitmentStore
+        (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
             .commitments(preConfHash);
         assertEq(isUsed, false);
 
@@ -493,18 +502,18 @@ contract TestPreConfCommitmentStore is Test {
         providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
 
         bytes32 commitmentIndex = preConfCommitmentStore
-            .storeEncryptedCommitment(
-            commitmentHash,
-            commitmentSignature,
-            dispatchTimestamp
-        );
+            .storeUnopenedCommitment(
+                commitmentHash,
+                commitmentSignature,
+                dispatchTimestamp
+            );
         vm.stopPrank();
         return commitmentIndex;
     }
 
     function openCommitment(
         address msgSender,
-        bytes32 encryptedCommitmentIndex,
+        bytes32 unopenedCommitmentIndex,
         uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -517,7 +526,7 @@ contract TestPreConfCommitmentStore is Test {
     ) public returns (bytes32) {
         vm.prank(msgSender);
         bytes32 commitmentIndex = preConfCommitmentStore.openCommitment(
-            encryptedCommitmentIndex,
+            unopenedCommitmentIndex,
             bid,
             blockNumber,
             txnHash,
@@ -545,22 +554,24 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory sharedSecretKey
     ) public view {
         PreConfCommitmentStore.PreConfCommitment
-        memory commitment = preConfCommitmentStore.getCommitment(index);
+            memory commitment = preConfCommitmentStore.getCommitment(index);
 
-        PreConfCommitmentStore.CommitmentParams memory commitmentParams = IPreConfCommitmentStore.CommitmentParams({
-            txnHash: txnHash,
-            revertingTxHashes: revertingTxHashes,
-            bid: bid,
-            blockNumber: blockNumber,
-            decayStartTimeStamp: decayStartTimestamp,
-            decayEndTimeStamp: decayEndTimestamp,
-            bidHash: commitment.bidHash,
-            bidSignature: bidSignature,
-            commitmentSignature: commitmentSignature,
-            sharedSecretKey: sharedSecretKey
-        });
+        PreConfCommitmentStore.CommitmentParams
+            memory commitmentParams = IPreConfCommitmentStore.CommitmentParams({
+                txnHash: txnHash,
+                revertingTxHashes: revertingTxHashes,
+                bid: bid,
+                blockNumber: blockNumber,
+                decayStartTimeStamp: decayStartTimestamp,
+                decayEndTimeStamp: decayEndTimestamp,
+                bidHash: commitment.bidHash,
+                bidSignature: bidSignature,
+                commitmentSignature: commitmentSignature,
+                sharedSecretKey: sharedSecretKey
+            });
 
-        (, address committerAddress) = preConfCommitmentStore.verifyPreConfCommitment(commitmentParams);
+        (, address committerAddress) = preConfCommitmentStore
+            .verifyPreConfCommitment(commitmentParams);
 
         assertNotEq(committerAddress, address(0));
         assertEq(commitment.bid, bid, "Stored bid should match input bid");
@@ -621,9 +632,9 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.dispatchTimestamp,
             _testCommitmentAliceBob.sharedSecretKey
         );
-        PreConfCommitmentStore.EncrPreConfCommitment
-        memory storedCommitment = preConfCommitmentStore
-            .getEncryptedCommitment(commitmentIndex);
+        PreConfCommitmentStore.UnopenedCommitment
+            memory storedCommitment = preConfCommitmentStore
+                .getUnopenedCommitment(commitmentIndex);
 
         assertEq(
             storedCommitment.commitmentDigest,
@@ -646,9 +657,7 @@ contract TestPreConfCommitmentStore is Test {
                     _testCommitmentAliceBob.blockNumber,
                     blocksPerWindow
                 );
-            bidderRegistry.depositForWindow{value: 2 ether}(
-                depositWindow
-            );
+            bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(
@@ -674,12 +683,12 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been set before
-            (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
+            (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address committer, ) = makeAddrAndKey("bob");
 
-            bytes32 encryptedIndex = storeCommitment(
+            bytes32 unopenedIndex = storeCommitment(
                 committer,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
@@ -700,7 +709,7 @@ contract TestPreConfCommitmentStore is Test {
             blockTracker.recordL1Block(blockNumber, "test");
             bytes32 index = openCommitment(
                 committer,
-                encryptedIndex,
+                unopenedIndex,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -714,16 +723,19 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(oracleContract);
             preConfCommitmentStore.initiateSlash(index, 100);
 
-            (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
-            .commitments(index);
+            (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(index);
             // Verify that the commitment has been deleted
             assert(isUsed == true);
 
-            assertEq(bidderRegistry.lockedFunds(bidder, depositWindow), 2 ether - _testCommitmentAliceBob.bid);
+            assertEq(
+                bidderRegistry.lockedFunds(bidder, depositWindow),
+                2 ether - _testCommitmentAliceBob.bid
+            );
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);
             assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid + 2); // +2 is the slashed funds from provider
         }
-        // commitmentHash value is internal to contract and not asserted  
+        // commitmentHash value is internal to contract and not asserted
     }
 
     function test_InitiateReward() public {
@@ -737,9 +749,7 @@ contract TestPreConfCommitmentStore is Test {
                     _testCommitmentAliceBob.blockNumber,
                     blocksPerWindow
                 );
-            bidderRegistry.depositForWindow{value: 2 ether}(
-                depositWindow
-            );
+            bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(
@@ -762,14 +772,14 @@ contract TestPreConfCommitmentStore is Test {
                 _bytesToHexString(_testCommitmentAliceBob.bidSignature),
                 _bytesToHexString(_testCommitmentAliceBob.sharedSecretKey)
             );
-            
+
             // Verify that the commitment has not been used before
-            (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
+            (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address committer, ) = makeAddrAndKey("bob");
 
-            bytes32 encryptedIndex = storeCommitment(
+            bytes32 unopenedIndex = storeCommitment(
                 committer,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
@@ -789,7 +799,7 @@ contract TestPreConfCommitmentStore is Test {
             );
             bytes32 index = openCommitment(
                 committer,
-                encryptedIndex,
+                unopenedIndex,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -803,12 +813,15 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(oracleContract);
             preConfCommitmentStore.initiateReward(index, 100);
 
-            (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
-            .commitments(index);
+            (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
-            assertEq(bidderRegistry.lockedFunds(bidder, depositWindow), 2 ether - _testCommitmentAliceBob.bid);
+            assertEq(
+                bidderRegistry.lockedFunds(bidder, depositWindow),
+                2 ether - _testCommitmentAliceBob.bid
+            );
         }
     }
 
@@ -818,14 +831,12 @@ contract TestPreConfCommitmentStore is Test {
             (address bidder, ) = makeAddrAndKey("alice");
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                _testCommitmentAliceBob.blockNumber,
-                blocksPerWindow
-            );
+                    _testCommitmentAliceBob.blockNumber,
+                    blocksPerWindow
+                );
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
-            bidderRegistry.depositForWindow{value: 2 ether}(
-                depositWindow
-            );
+            bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(
@@ -850,12 +861,12 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
+            (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
             (address committer, ) = makeAddrAndKey("bob");
 
-            bytes32 encryptedIndex = storeCommitment(
+            bytes32 unopenedIndex = storeCommitment(
                 committer,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
@@ -875,7 +886,7 @@ contract TestPreConfCommitmentStore is Test {
             );
             bytes32 index = openCommitment(
                 committer,
-                encryptedIndex,
+                unopenedIndex,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -890,19 +901,22 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(oracleContract);
             preConfCommitmentStore.initiateReward(index, 0);
 
-            (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
-            .commitments(index);
+            (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+                .commitments(index);
             // Verify that the commitment has been marked as used
             assert(isUsed == true);
             // commitmentHash value is internal to contract and not asserted
 
-            assertEq(bidderRegistry.lockedFunds(bidder, window), 2 ether - _testCommitmentAliceBob.bid);
+            assertEq(
+                bidderRegistry.lockedFunds(bidder, window),
+                2 ether - _testCommitmentAliceBob.bid
+            );
             assertEq(bidderRegistry.providerAmount(committer), 0 ether);
             assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
         }
     }
 
-    function test_StoreEncryptedCommitmentInsufficientStake() public {
+    function test_StoreUnopenedCommitmentInsufficientStake() public {
         // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -917,14 +931,14 @@ contract TestPreConfCommitmentStore is Test {
         // Step 2: Attempt to store the commitment and expect it to fail due to insufficient stake
         vm.prank(committer);
         vm.expectRevert("Insufficient stake");
-        preConfCommitmentStore.storeEncryptedCommitment(
+        preConfCommitmentStore.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             1000
         );
     }
 
-    function test_StoreEncryptedCommitmentPendingWithdrawal() public {
+    function test_StoreUnopenedCommitmentPendingWithdrawal() public {
         // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -948,7 +962,7 @@ contract TestPreConfCommitmentStore is Test {
         // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
         vm.prank(committer);
         vm.expectRevert("Pending withdrawal request");
-        preConfCommitmentStore.storeEncryptedCommitment(
+        preConfCommitmentStore.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             1000
