@@ -149,7 +149,7 @@ func TestTracker(t *testing.T) {
 		t.Fatalf("failed to parse bid amount %s", commitments[4].PreConfirmation.Bid.BidAmount)
 	}
 	// this commitment should not be opened again
-	err = publishCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreCommitmentStored{
+	err = publishCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
@@ -493,9 +493,9 @@ func publishEncCommitment(
 func publishCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	c preconf.PreconfcommitmentstoreCommitmentStored,
+	c preconf.PreconfcommitmentstoreOpenedCommitmentStored,
 ) error {
-	event := pcABI.Events["CommitmentStored"]
+	event := pcABI.Events["OpenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		c.Bidder,
 		c.Committer,

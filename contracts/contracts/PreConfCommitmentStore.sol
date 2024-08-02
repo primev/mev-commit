@@ -287,7 +287,7 @@ contract PreConfCommitmentStore is
 
         ++commitmentsCount[committerAddress];
 
-        emit CommitmentStored(
+        emit OpenedCommitmentStored(
             commitmentIndex,
             bidderAddress,
             committerAddress,

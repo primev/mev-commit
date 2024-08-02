@@ -36,7 +36,7 @@ type Tracker struct {
 	optsGetter      OptsGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
 	unopenedCmts    chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored
-	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
+	commitments     chan *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored
 	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
@@ -97,7 +97,7 @@ func NewTracker(
 		optsGetter:      optsGetter,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		unopenedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored),
-		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
+		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored),
 		triggerOpen:     make(chan struct{}),
 		metrics:         newMetrics(),
 		logger:          logger,
@@ -150,11 +150,11 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		evts = append(
 			evts,
 			events.NewEventHandler(
-				"CommitmentStored",
-				func(cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored) {
+				"OpenedCommitmentStored",
+				func(cs *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored) {
 					select {
 					case <-egCtx.Done():
-						t.logger.Info("CommitmentStored context done")
+						t.logger.Info("OpenedCommitmentStored context done")
 					case t.commitments <- cs:
 					}
 				},
@@ -291,7 +291,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				case err := <-sub.Err():
 					return fmt.Errorf("event subscription error: %w", err)
 				case cs := <-t.commitments:
-					if err := t.handleCommitmentStored(egCtx, cs); err != nil {
+					if err := t.handleOpenedCommitmentStored(egCtx, cs); err != nil {
 						return err
 					}
 				}
@@ -491,9 +491,9 @@ func (t *Tracker) handleUnopenedCommitmentStored(
 	return t.store.SetCommitmentIndexByDigest(ec.CommitmentDigest, ec.CommitmentIndex)
 }
 
-func (t *Tracker) handleCommitmentStored(
+func (t *Tracker) handleOpenedCommitmentStored(
 	ctx context.Context,
-	cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored,
+	cs *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored,
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.

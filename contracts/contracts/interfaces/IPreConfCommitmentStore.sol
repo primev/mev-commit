@@ -49,7 +49,7 @@ interface IPreConfCommitmentStore {
     }
 
     /// @dev Event to log successful commitment storage
-    event CommitmentStored(
+    event OpenedCommitmentStored(
         bytes32 indexed commitmentIndex,
         address bidder,
         address committer,

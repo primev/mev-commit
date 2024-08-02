@@ -103,7 +103,7 @@ type Updater struct {
 	evtMgr         events.EventManager
 	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
 	unopenedCmts   chan *preconf.PreconfcommitmentstoreUnopenedCommitmentStored
-	openedCmts     chan *preconf.PreconfcommitmentstoreCommitmentStored
+	openedCmts     chan *preconf.PreconfcommitmentstoreOpenedCommitmentStored
 	currentWindow  atomic.Int64
 	metrics        *metrics
 	receiptBatcher txmonitor.BatchReceiptGetter
@@ -130,7 +130,7 @@ func NewUpdater(
 		oracle:         oracle,
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
-		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
+		openedCmts:     make(chan *preconf.PreconfcommitmentstoreOpenedCommitmentStored),
 		unopenedCmts:   make(chan *preconf.PreconfcommitmentstoreUnopenedCommitmentStored),
 	}, nil
 }
@@ -155,8 +155,8 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 	)
 
 	ev2 := events.NewEventHandler(
-		"CommitmentStored",
-		func(update *preconf.PreconfcommitmentstoreCommitmentStored) {
+		"OpenedCommitmentStored",
+		func(update *preconf.PreconfcommitmentstoreOpenedCommitmentStored) {
 			select {
 			case <-egCtx.Done():
 			case u.openedCmts <- update:
@@ -266,7 +266,7 @@ func (u *Updater) handleEncryptedCommitment(
 
 func (u *Updater) handleOpenedCommitment(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreCommitmentStored,
+	update *preconf.PreconfcommitmentstoreOpenedCommitmentStored,
 ) error {
 	u.metrics.CommitmentsReceivedCount.Inc()
 	alreadySettled, err := u.winnerRegister.IsSettled(ctx, update.CommitmentIndex[:])
@@ -394,7 +394,7 @@ func (u *Updater) handleOpenedCommitment(
 
 func (u *Updater) settle(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreCommitmentStored,
+	update *preconf.PreconfcommitmentstoreOpenedCommitmentStored,
 	settlementType SettlementType,
 	decayPercentage int64,
 	window int64,
@@ -437,7 +437,7 @@ func (u *Updater) settle(
 
 func (u *Updater) addSettlement(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreCommitmentStored,
+	update *preconf.PreconfcommitmentstoreOpenedCommitmentStored,
 	settlementType SettlementType,
 	decayPercentage int64,
 	window int64,
