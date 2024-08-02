@@ -41,11 +41,14 @@ contract DeployHolesky is BaseDeploy {
     address constant public SLASH_RECEIVER = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
     uint256 constant public UNSTAKE_PERIOD_BLOCKS = 32 * 3; // 2 epoch finalization time + settlement buffer
 
+    // This is the most important field. On mainnet it'll be the primev multisig.
+    address constant public OWNER = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
+
     function run() external {
         require(block.chainid == 17000, "must deploy on Holesky");
         vm.startBroadcast();
         deployValidatorRegistry(MIN_STAKE, SLASH_AMOUNT,
-           SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, msg.sender);
+           SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, OWNER);
         vm.stopBroadcast();
     }
 }
