@@ -9,7 +9,7 @@ interface IPreConfCommitmentStore {
     /// @dev Struct for all the information around preconfirmations commitment
     struct OpenedCommitment {
         address bidder;
-        bool isUsed;
+        bool isUsed; // Flag to check if the commitment is used for slashing or rewarding
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
@@ -41,7 +41,7 @@ interface IPreConfCommitmentStore {
 
     /// @dev Struct for all the information around unopened preconfirmations commitment
     struct UnopenedCommitment {
-        bool isUsed;
+        bool isUsed; // Flag to check if the commitment is opened already
         address committer;
         uint64 dispatchTimestamp;
         bytes32 commitmentDigest;
