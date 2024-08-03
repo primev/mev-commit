@@ -48,7 +48,7 @@ interface IPreConfCommitmentStore {
         bytes commitmentSignature;
     }
 
-    /// @dev Event to log successful commitment storage
+    /// @dev Event to log successful opened commitment storage
     event OpenedCommitmentStored(
         bytes32 indexed commitmentIndex,
         address bidder,
