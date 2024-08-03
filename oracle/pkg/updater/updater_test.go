@@ -192,8 +192,8 @@ func TestUpdater(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		unopenedCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -456,8 +456,8 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		unopenedCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -727,8 +727,8 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		unopenedCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -1154,8 +1154,8 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		unopenedCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -1319,7 +1319,7 @@ type testWinnerRegister struct {
 	winners         []testWinner
 	setttlementIdxs [][]byte
 	settlements     chan testSettlement
-	unopenedCommit       chan testEncryptedCommitment
+	unopenedCommit  chan testEncryptedCommitment
 }
 
 func (t *testWinnerRegister) IsSettled(ctx context.Context, commitmentIdx []byte) (bool, error) {
