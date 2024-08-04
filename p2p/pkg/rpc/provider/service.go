@@ -42,9 +42,13 @@ type Service struct {
 
 type ProviderRegistryContract interface {
 	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
-	CheckStake(*bind.CallOpts, common.Address) (*big.Int, error)
+	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
+	ParseUnstake(types.Log) (*providerregistry.ProviderregistryUnstake, error)
+	ParseWithdraw(types.Log) (*providerregistry.ProviderregistryWithdraw, error)
+	Withdraw(opts *bind.TransactOpts) (*types.Transaction, error)
+	Unstake(opts *bind.TransactOpts) (*types.Transaction, error)
 }
 
 type Watcher interface {
@@ -243,7 +247,7 @@ func (s *Service) GetStake(
 	ctx context.Context,
 	_ *providerapiv1.EmptyMessage,
 ) (*providerapiv1.StakeResponse, error) {
-	stakeAmount, err := s.registryContract.CheckStake(&bind.CallOpts{
+	stakeAmount, err := s.registryContract.GetProviderStake(&bind.CallOpts{
 		Context: ctx,
 		From:    s.owner,
 	}, s.owner)
@@ -267,4 +271,72 @@ func (s *Service) GetMinStake(
 	}
 
 	return &providerapiv1.StakeResponse{Amount: stakeAmount.String()}, nil
+}
+
+func (s *Service) WithdrawStake(
+	ctx context.Context,
+	_ *providerapiv1.EmptyMessage,
+) (*providerapiv1.WithdrawalResponse, error) {
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	tx, err := s.registryContract.Withdraw(opts)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "withdrawing stake: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.registryContract.ParseWithdraw(*log); err == nil {
+			s.logger.Info("stake withdrawn", "amount", withdrawal.Amount)
+			return &providerapiv1.WithdrawalResponse{Amount: withdrawal.Amount.String()}, nil
+		}
+	}
+
+	s.logger.Error("no withdrawal event found")
+	return nil, status.Error(codes.Internal, "no withdrawal event found")
+}
+
+func (s *Service) Unstake(
+	ctx context.Context,
+	_ *providerapiv1.EmptyMessage,
+) (*providerapiv1.EmptyMessage, error) {
+	opts, err := s.optsGetter(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
+	}
+
+	tx, err := s.registryContract.Unstake(opts)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "requesting withdrawal: %v", err)
+	}
+
+	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	for _, log := range receipt.Logs {
+		if withdrawal, err := s.registryContract.ParseUnstake(*log); err == nil {
+			s.logger.Info("withdrawal requested", "timestamp", withdrawal.Timestamp)
+			return &providerapiv1.EmptyMessage{}, nil
+		}
+	}
+
+	s.logger.Error("no withdrawal request event found")
+	return nil, status.Error(codes.Internal, "no withdrawal request event found")
 }

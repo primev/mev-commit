@@ -19,7 +19,6 @@ builds:
       - goos: windows
         goarch: arm64
     dir: ./infrastructure/tools/keystore-generator
-    main: ./cmd
     binary: "{{ .ProjectName }}"
 
 archives:

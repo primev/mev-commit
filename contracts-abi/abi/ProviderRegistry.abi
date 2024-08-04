@@ -60,51 +60,6 @@
   },
   {
     "type": "function",
-    "name": "bidderAmount",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "checkStake",
-    "inputs": [
-      {
-        "name": "provider",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "depositFunds",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
     "name": "eoaToBlsPubkey",
     "inputs": [
       {
@@ -137,20 +92,7 @@
   },
   {
     "type": "function",
-    "name": "feeRecipient",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "feeRecipientAmount",
+    "name": "getAccumulatedProtocolFee",
     "inputs": [],
     "outputs": [
       {
@@ -182,6 +124,25 @@
   },
   {
     "type": "function",
+    "name": "getProviderStake",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -190,7 +151,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "_feeRecipient",
+        "name": "_protocolFeeRecipient",
         "type": "address",
         "internalType": "address"
       },
@@ -203,8 +164,38 @@
         "name": "_owner",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_withdrawalDelay",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "_protocolFeePayoutPeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isProviderValid",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "manuallyWithdrawProtocolFee",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -256,6 +247,34 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "protocolFeeTracker",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "accumulatedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "lastPayoutBlock",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "payoutPeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -333,6 +352,19 @@
   },
   {
     "type": "function",
+    "name": "setFeePayoutPeriodBlocks",
+    "inputs": [
+      {
+        "name": "_feePayoutPeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setNewFeePercent",
     "inputs": [
       {
@@ -346,7 +378,7 @@
   },
   {
     "type": "function",
-    "name": "setNewFeeRecipient",
+    "name": "setNewProtocolFeeRecipient",
     "inputs": [
       {
         "name": "newFeeRecipient",
@@ -365,6 +397,19 @@
         "name": "contractAddress",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setWithdrawalDelay",
+    "inputs": [
+      {
+        "name": "_withdrawalDelay",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -400,6 +445,13 @@
   },
   {
     "type": "function",
+    "name": "stake",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -408,6 +460,13 @@
         "internalType": "address"
       }
     ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unstake",
+    "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
@@ -431,36 +490,74 @@
   },
   {
     "type": "function",
-    "name": "withdrawBidderAmount",
-    "inputs": [
-      {
-        "name": "bidder",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "withdrawFeeRecipientAmount",
+    "name": "withdraw",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "withdrawStakedAmount",
-    "inputs": [
+    "name": "withdrawalDelay",
+    "inputs": [],
+    "outputs": [
       {
-        "name": "provider",
-        "type": "address",
-        "internalType": "address payable"
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdrawalRequests",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "FeePayoutPeriodBlocksUpdated",
+    "inputs": [
+      {
+        "name": "newFeePayoutPeriodBlocks",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeeTransfer",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -553,6 +650,19 @@
   },
   {
     "type": "event",
+    "name": "ProtocolFeeRecipientUpdated",
+    "inputs": [
+      {
+        "name": "newProtocolFeeRecipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ProviderRegistered",
     "inputs": [
       {
@@ -578,6 +688,25 @@
   },
   {
     "type": "event",
+    "name": "Unstake",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Upgraded",
     "inputs": [
       {
@@ -585,6 +714,38 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Withdraw",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WithdrawalDelayUpdated",
+    "inputs": [
+      {
+        "name": "newWithdrawalDelay",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

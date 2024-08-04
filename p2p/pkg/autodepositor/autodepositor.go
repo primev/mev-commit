@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -22,23 +23,38 @@ type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
 type BidderRegistryContract interface {
 	DepositForWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
+	DepositForWindow(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error)
 	WithdrawFromWindows(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error)
+	GetDeposit(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error)
 }
 
 type BlockTrackerContract interface {
 	GetCurrentWindow() (*big.Int, error)
 }
 
+type DepositStore interface {
+	// StoreDeposits stores the deposited windows.
+	StoreDeposits(ctx context.Context, windows []*big.Int) error
+	// ListDeposits lists the deposited windows upto and including the lastWindow.
+	// If lastWindow is nil, it lists all deposits.
+	ListDeposits(ctx context.Context, lastWindow *big.Int) ([]*big.Int, error)
+	// ClearDeposits clears the deposits for the given windows.
+	ClearDeposits(ctx context.Context, windows []*big.Int) error
+	// IsDepositMade checks if the deposit is already made for the given window.
+	IsDepositMade(ctx context.Context, window *big.Int) bool
+}
+
 type AutoDepositTracker struct {
 	startMu             sync.Mutex
 	isWorking           bool
 	eventMgr            events.EventManager
-	deposits            sync.Map
 	windowChan          chan *blocktracker.BlocktrackerNewWindow
 	brContract          BidderRegistryContract
 	btContract          BlockTrackerContract
+	store               DepositStore
 	optsGetter          OptsGetter
 	currentOracleWindow atomic.Value
+	oracleWindowOffset  *big.Int
 	logger              *slog.Logger
 	cancelFunc          context.CancelFunc
 }
@@ -48,15 +64,19 @@ func New(
 	brContract BidderRegistryContract,
 	btContract BlockTrackerContract,
 	optsGetter OptsGetter,
+	store DepositStore,
+	oracleWindowOffset *big.Int,
 	logger *slog.Logger,
 ) *AutoDepositTracker {
 	return &AutoDepositTracker{
-		eventMgr:   evtMgr,
-		brContract: brContract,
-		btContract: btContract,
-		optsGetter: optsGetter,
-		windowChan: make(chan *blocktracker.BlocktrackerNewWindow, 1),
-		logger:     logger,
+		eventMgr:           evtMgr,
+		brContract:         brContract,
+		btContract:         btContract,
+		optsGetter:         optsGetter,
+		store:              store,
+		oracleWindowOffset: oracleWindowOffset,
+		windowChan:         make(chan *blocktracker.BlocktrackerNewWindow, 1),
+		logger:             logger,
 	}
 }
 
@@ -79,8 +99,8 @@ func (adt *AutoDepositTracker) Start(
 
 	if startWindow == nil {
 		startWindow = currentOracleWindow
-		// adding +2 as oracle runs two windows behind
-		startWindow = new(big.Int).Add(startWindow, big.NewInt(2))
+		// adding + N as oracle runs N window behind
+		startWindow = new(big.Int).Add(startWindow, adt.oracleWindowOffset)
 	}
 
 	eg, egCtx := errgroup.WithContext(context.Background())
@@ -121,23 +141,31 @@ func (adt *AutoDepositTracker) Start(
 
 func (adt *AutoDepositTracker) doInitialDeposit(ctx context.Context, startWindow, amount *big.Int) error {
 	nextWindow := new(big.Int).Add(startWindow, big.NewInt(1))
+	newDeposits := []*big.Int{startWindow, nextWindow}
+
+	// Check if the deposit is already made. If the nodes was down for a short period
+	// and the deposits were already made, we should not make the deposit again.
+	newDeposits = slices.DeleteFunc(newDeposits, func(i *big.Int) bool {
+		return adt.isDeposited(ctx, i)
+	})
+
+	if len(newDeposits) == 0 {
+		return nil
+	}
 
 	opts, err := adt.optsGetter(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get transact opts: %w", err)
 	}
-	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(2))
+	opts.Value = big.NewInt(0).Mul(amount, big.NewInt(int64(len(newDeposits))))
 
 	// Make initial deposit for the first two windows
-	_, err = adt.brContract.DepositForWindows(opts, []*big.Int{startWindow, nextWindow})
+	_, err = adt.brContract.DepositForWindows(opts, newDeposits)
 	if err != nil {
 		return fmt.Errorf("failed to deposit for windows: %w", err)
 	}
 
-	adt.deposits.Store(startWindow.Uint64(), true)
-	adt.deposits.Store(nextWindow.Uint64(), true)
-
-	return nil
+	return adt.store.StoreDeposits(ctx, newDeposits)
 }
 
 func (adt *AutoDepositTracker) initSub(egCtx context.Context) (events.Subscription, error) {
@@ -173,15 +201,15 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 				return fmt.Errorf("error in autodeposit event subscription: %w", err)
 			case window := <-adt.windowChan:
 				adt.currentOracleWindow.Store(window.Window)
-				withdrawWindows := make([]*big.Int, 0)
-				adt.deposits.Range(func(key, value interface{}) bool {
-					if key.(uint64) < window.Window.Uint64() {
-						withdrawWindows = append(withdrawWindows, new(big.Int).SetUint64(key.(uint64)))
-					}
-					return true
-				})
-
-				if len(withdrawWindows) > 0 {
+				withdrawWindows, err := adt.store.ListDeposits(egCtx, new(big.Int).Sub(window.Window, big.NewInt(1)))
+				switch {
+				case err != nil:
+					adt.logger.Error("failed to list deposits", "err", err)
+					return err
+				case len(withdrawWindows) == 0:
+					adt.logger.Info("no deposits to withdraw")
+				case len(withdrawWindows) > 0:
+					adt.logger.Info("deposits to withdraw", "windows", withdrawWindows)
 					opts, err := adt.optsGetter(egCtx)
 					if err != nil {
 						return err
@@ -191,16 +219,17 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 						return err
 					}
 					adt.logger.Info("withdraw from windows", "hash", txn.Hash(), "windows", withdrawWindows)
-					for _, window := range withdrawWindows {
-						adt.deposits.Delete(window.Uint64())
+					err = adt.store.ClearDeposits(egCtx, withdrawWindows)
+					if err != nil {
+						return fmt.Errorf("failed to clear deposits: %w", err)
 					}
 				}
 
-				// Make deposit for the next window. The window event is 2 windows
-				// behind the current window in progress. So we need to make deposit
-				// for the next window.
-				nextWindow := new(big.Int).Add(window.Window, big.NewInt(3))
-				if _, ok := adt.deposits.Load(nextWindow.Uint64()); ok {
+				// Make deposit for the next window. The window event is N windows
+				// behind the current window in progress.
+				nextWindow := new(big.Int).Add(window.Window, adt.oracleWindowOffset)
+				nextWindow = new(big.Int).Add(nextWindow, big.NewInt(1))
+				if adt.isDeposited(egCtx, nextWindow) {
 					continue
 				}
 
@@ -210,7 +239,7 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 				}
 				opts.Value = amount
 
-				txn, err := adt.brContract.DepositForWindows(opts, []*big.Int{nextWindow})
+				txn, err := adt.brContract.DepositForWindow(opts, nextWindow)
 				if err != nil {
 					return err
 				}
@@ -220,7 +249,10 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 					"window", nextWindow,
 					"amount", amount,
 				)
-				adt.deposits.Store(nextWindow.Uint64(), true)
+				err = adt.store.StoreDeposits(egCtx, []*big.Int{nextWindow})
+				if err != nil {
+					return fmt.Errorf("failed to store deposits: %w", err)
+				}
 			}
 		}
 	})
@@ -236,17 +268,11 @@ func (adt *AutoDepositTracker) Stop() ([]*big.Int, error) {
 	if adt.cancelFunc != nil {
 		adt.cancelFunc()
 	}
-	var windowNumbers []*big.Int
 
-	adt.deposits.Range(func(key, value interface{}) bool {
-		windowNumbers = append(windowNumbers, new(big.Int).SetUint64(key.(uint64)))
-		adt.deposits.Delete(key)
-		return true
-	})
-
-	slices.SortFunc(windowNumbers, func(i, j *big.Int) int {
-		return i.Cmp(j)
-	})
+	windowNumbers, err := adt.store.ListDeposits(context.Background(), nil)
+	if err != nil {
+		adt.logger.Error("failed to list deposits", "err", err)
+	}
 
 	adt.isWorking = false
 
@@ -266,11 +292,14 @@ func (adt *AutoDepositTracker) GetStatus() (map[uint64]bool, bool, *big.Int) {
 	isWorking := adt.isWorking
 	adt.startMu.Unlock()
 
+	windows, err := adt.store.ListDeposits(context.Background(), nil)
+	if err != nil {
+		adt.logger.Error("failed to list deposits", "err", err)
+	}
 	deposits := make(map[uint64]bool)
-	adt.deposits.Range(func(key, value interface{}) bool {
-		deposits[key.(uint64)] = value.(bool)
-		return true
-	})
+	for _, w := range windows {
+		deposits[w.Uint64()] = true
+	}
 
 	var currentOracleWindow *big.Int
 	if val := adt.currentOracleWindow.Load(); val != nil {
@@ -278,4 +307,28 @@ func (adt *AutoDepositTracker) GetStatus() (map[uint64]bool, bool, *big.Int) {
 	}
 
 	return deposits, isWorking, currentOracleWindow
+}
+
+func (adt *AutoDepositTracker) isDeposited(ctx context.Context, window *big.Int) bool {
+	if adt.store.IsDepositMade(ctx, window) {
+		return true
+	}
+
+	opts, err := adt.optsGetter(ctx)
+	if err != nil {
+		adt.logger.Error("failed to get transact opts", "err", err)
+		return false
+	}
+
+	// fallback to contract call if the local state was not flushed properly
+	deposit, err := adt.brContract.GetDeposit(&bind.CallOpts{
+		Context: ctx,
+		From:    opts.From,
+	}, opts.From, window)
+	if err != nil {
+		adt.logger.Error("failed to get deposit", "err", err)
+		return false
+	}
+
+	return deposit.Cmp(big.NewInt(0)) > 0
 }

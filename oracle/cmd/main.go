@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -190,7 +193,7 @@ var (
 		Name:    "laggerd-mode",
 		Usage:   "No of blocks to lag behind for L1 chain",
 		EnvVars: []string{"MEV_ORACLE_LAGGERD_MODE"},
-		Value:   64,
+		Value:   10,
 	})
 
 	optionOverrideWinners = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
@@ -284,9 +287,22 @@ func main() {
 					return initializeApplication(c)
 				},
 			},
-		}}
+		},
+	}
 
-	if err := app.Run(os.Args); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigc
+		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
+		cancel()
+		<-sigc
+		fmt.Fprintln(app.Writer, "force exiting...")
+		os.Exit(1)
+	}()
+
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		fmt.Fprintf(app.Writer, "exited with error: %v\n", err)
 	}
 }

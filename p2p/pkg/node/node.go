@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
@@ -30,28 +31,35 @@ import (
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
+	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
+	depositmanagerstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
+	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
+	preconfstore "github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	preconftracker "github.com/primev/mev-commit/p2p/pkg/preconfirmation/tracker"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
 	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	"github.com/primev/mev-commit/p2p/pkg/storage"
+	inmem "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
+	pebblestorage "github.com/primev/mev-commit/p2p/pkg/storage/pebble"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
+	"github.com/primev/mev-commit/p2p/pkg/txnstore"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -62,6 +70,7 @@ const (
 
 type Options struct {
 	Version                  string
+	DataDir                  string
 	KeySigner                keysigner.KeySigner
 	Secret                   string
 	PeerType                 string
@@ -85,6 +94,7 @@ type Options struct {
 	DefaultGasLimit          uint64
 	DefaultGasTipCap         *big.Int
 	DefaultGasFeeCap         *big.Int
+	OracleWindowOffset       *big.Int
 }
 
 type Node struct {
@@ -119,13 +129,25 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}
 
+	progressstore := &progressStore{contractRPC: contractRPC}
+
 	chainID, err := contractRPC.ChainID(context.Background())
 	if err != nil {
 		opts.Logger.Error("failed to get chain ID", "error", err)
 		return nil, err
 	}
 
-	store := store.NewStore()
+	var store storage.Storage
+	if opts.DataDir != "" {
+		store, err = pebblestorage.New(opts.DataDir)
+		if err != nil {
+			opts.Logger.Error("failed to create storage", "error", err)
+			return nil, err
+		}
+	} else {
+		store = inmem.New()
+	}
+	nd.closers = append(nd.closers, store)
 
 	contracts, err := getContractABIs(opts)
 	if err != nil {
@@ -141,42 +163,26 @@ func NewNode(opts *Options) (*Node, error) {
 		contractAddrs = append(contractAddrs, addr)
 	}
 
-	lastBlock, err := contractRPC.BlockNumber(context.Background())
-	if err != nil {
-		opts.Logger.Error("failed to get last block", "error", err)
-		return nil, errors.Join(err, nd.Close())
-	}
-
-	// TODO: Having this block setting here because the store is in-memory.
-	// Once we have a database, this should be removed.
-	err = store.SetLastBlock(lastBlock)
-	if err != nil {
-		opts.Logger.Error("failed to set last block", "error", err)
-		return nil, errors.Join(err, nd.Close())
-	}
-
-	opts.Logger.Info("node set latest block", "lastBlock", lastBlock)
-
 	evtMgr := events.NewListener(
 		opts.Logger.With("component", "events"),
 		abis...,
 	)
 	srv.RegisterMetricsCollectors(evtMgr.Metrics()...)
 
-	var startables []Startable
+	var startables []StartableObjWithDesc
 	var evtPublisher PublisherStartable
 
 	if opts.WSRPCEndpoint != "" {
 		// Use WS publisher if WSRPCEndpoint is set
 		evtPublisher = publisher.NewWSPublisher(
-			store,
+			progressstore,
 			opts.Logger.With("component", "ws_publisher"),
 			contractRPC,
 			evtMgr,
 		)
 	} else {
 		evtPublisher = publisher.NewHTTPPublisher(
-			store,
+			progressstore,
 			opts.Logger.With("component", "http_publisher"),
 			contractRPC,
 			evtMgr,
@@ -185,20 +191,31 @@ func NewNode(opts *Options) (*Node, error) {
 
 	startables = append(
 		startables,
-		StartableFunc(func(ctx context.Context) <-chan struct{} {
-			return evtPublisher.Start(ctx, contractAddrs...)
-		}),
+		StartableObjWithDesc{
+			Desc: "events_publisher",
+			Startable: StartableFunc(func(ctx context.Context) <-chan struct{} {
+				return evtPublisher.Start(ctx, contractAddrs...)
+			}),
+		},
 	)
+
+	txnStore := txnstore.New(store)
 
 	monitor := txmonitor.New(
 		opts.KeySigner.GetAddress(),
 		contractRPC,
 		txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "txmonitor")),
-		store,
+		txnStore,
 		opts.Logger.With("component", "txmonitor"),
 		1024,
 	)
-	startables = append(startables, monitor)
+	startables = append(
+		startables,
+		StartableObjWithDesc{
+			Desc:      "txmonitor",
+			Startable: monitor,
+		},
+	)
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
 
 	contractsBackend := transactor.NewMetricsWrapper(
@@ -238,6 +255,8 @@ func NewNode(opts *Options) (*Node, error) {
 		return tOpts, err
 	}
 
+	keysStore := keysstore.New(store)
+
 	p2pSvc, err := libp2p.New(&libp2p.Options{
 		KeySigner: opts.KeySigner,
 		Secret:    opts.Secret,
@@ -246,7 +265,7 @@ func NewNode(opts *Options) (*Node, error) {
 			providerRegistry: providerRegistry,
 			from:             opts.KeySigner.GetAddress(),
 		},
-		Store:          store,
+		Store:          keysStore,
 		Logger:         opts.Logger.With("component", "p2p"),
 		ListenPort:     opts.P2PPort,
 		ListenAddr:     opts.P2PAddr,
@@ -295,7 +314,7 @@ func NewNode(opts *Options) (*Node, error) {
 	grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
 
 	debugService := debugapi.NewService(
-		store,
+		txnStore,
 		txmonitor.NewCanceller(
 			chainID,
 			contractRPC,
@@ -350,13 +369,19 @@ func NewNode(opts *Options) (*Node, error) {
 			peerType,
 			opts.KeySigner.GetAddress(),
 			evtMgr,
-			store,
+			preconfstore.New(store),
 			commitmentDA,
 			txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "evm_helper")),
 			optsGetter,
 			opts.Logger.With("component", "tracker"),
 		)
-		startables = append(startables, tracker)
+		startables = append(
+			startables,
+			StartableObjWithDesc{
+				Desc:      "tracker",
+				Startable: tracker,
+			},
+		)
 		srv.RegisterMetricsCollectors(tracker.Metrics()...)
 
 		bpwBigInt, err := blockTrackerSession.GetBlocksPerWindow()
@@ -382,12 +407,19 @@ func NewNode(opts *Options) (*Node, error) {
 			srv.RegisterMetricsCollectors(providerAPI.Metrics()...)
 			depositMgr = depositmanager.NewDepositManager(
 				blocksPerWindow,
-				store,
+				depositmanagerstore.New(store),
 				evtMgr,
+				bidderRegistry,
 				opts.Logger.With("component", "depositmanager"),
 			)
-			startables = append(startables, depositMgr.(*depositmanager.DepositManager))
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			startables = append(
+				startables,
+				StartableObjWithDesc{
+					Desc:      "deposit_manager",
+					Startable: depositMgr.(*depositmanager.DepositManager),
+				},
+			)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())
@@ -411,7 +443,7 @@ func NewNode(opts *Options) (*Node, error) {
 				p2pSvc,
 				opts.KeySigner,
 				nil,
-				store,
+				keysStore,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 				nil,
@@ -425,13 +457,13 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.Error("failed to generate AES key", "error", err)
 				return nil, errors.Join(err, nd.Close())
 			}
-			err = store.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
+			err = keysStore.SetAESKey(opts.KeySigner.GetAddress(), aesKey)
 			if err != nil {
 				opts.Logger.Error("failed to set AES key", "error", err)
 				return nil, errors.Join(err, nd.Close())
 			}
 
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, store)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())
@@ -451,11 +483,15 @@ func NewNode(opts *Options) (*Node, error) {
 
 			srv.RegisterMetricsCollectors(preconfProto.Metrics()...)
 
+			autodepositorStore := autodepositorstore.New(store)
+
 			autoDeposit := autodepositor.New(
 				evtMgr,
 				bidderRegistry,
 				blockTrackerSession,
 				optsGetter,
+				autodepositorStore,
+				opts.OracleWindowOffset,
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
@@ -465,8 +501,8 @@ func NewNode(opts *Options) (*Node, error) {
 					opts.Logger.Error("failed to start auto deposit tracker", "error", err)
 					return nil, errors.Join(err, nd.Close())
 				}
-				nd.autoDeposit = autoDeposit
 			}
+			nd.autoDeposit = autoDeposit
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
@@ -478,6 +514,8 @@ func NewNode(opts *Options) (*Node, error) {
 				monitor,
 				optsGetter,
 				autoDeposit,
+				autodepositorStore,
+				opts.OracleWindowOffset,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
@@ -487,7 +525,7 @@ func NewNode(opts *Options) (*Node, error) {
 				p2pSvc,
 				opts.KeySigner,
 				aesKey,
-				store,
+				keysStore,
 				opts.Logger.With("component", "keyexchange_protocol"),
 				signer.New(),
 				opts.ProviderWhitelist,
@@ -506,9 +544,12 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	healthChecker := health.New()
 
 	for _, s := range startables {
-		nd.closers = append(nd.closers, channelCloserFunc(s.Start(ctx)))
+		closeChan := s.Startable.Start(ctx)
+		healthChecker.Register(health.CloseChannelHealthCheck(s.Desc, closeChan))
+		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
 	}
 
 	nd.cancelFunc = cancel
@@ -568,6 +609,8 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, errors.New("dialing of grpc server failed")
 	}
 
+	healthChecker.Register(health.GrpcGatewayHealthCheck(grpcConn))
+
 	handlerCtx, handlerCancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer handlerCancel()
 
@@ -599,10 +642,11 @@ func NewNode(opts *Options) (*Node, error) {
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/plain")
-				if s := grpcConn.GetState(); s != connectivity.Ready {
-					http.Error(w, fmt.Sprintf("grpc server is %s", s), http.StatusBadGateway)
+				if err := healthChecker.Health(); err != nil {
+					http.Error(w, err.Error(), http.StatusServiceUnavailable)
 					return
 				}
+				w.WriteHeader(http.StatusOK)
 				fmt.Fprintln(w, "ok")
 			},
 		),
@@ -666,13 +710,10 @@ func (n *Node) Close() error {
 	}
 
 	var err error
+	_, err = n.autoDeposit.Stop()
+
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
-	}
-
-	_, adErr := n.autoDeposit.Stop()
-	if adErr != nil && !errors.Is(adErr, autodepositor.ErrNotRunning) {
-		return errors.Join(err, adErr)
 	}
 
 	return err
@@ -717,6 +758,11 @@ type PublisherStartable interface {
 	Start(ctx context.Context, contracts ...common.Address) <-chan struct{}
 }
 
+type StartableObjWithDesc struct {
+	Startable Startable
+	Desc      string
+}
+
 type Startable interface {
 	Start(ctx context.Context) <-chan struct{}
 }
@@ -743,10 +789,24 @@ func (p *providerStakeChecker) CheckProviderRegistered(ctx context.Context, prov
 		return false
 	}
 
-	stake, err := p.providerRegistry.CheckStake(callOpts, provider)
+	stake, err := p.providerRegistry.GetProviderStake(callOpts, provider)
 	if err != nil {
 		return false
 	}
 
 	return stake.Cmp(minStake) >= 0
+}
+
+type progressStore struct {
+	contractRPC *ethclient.Client
+	lastBlock   atomic.Uint64
+}
+
+func (p *progressStore) LastBlock() (uint64, error) {
+	return p.contractRPC.BlockNumber(context.Background())
+}
+
+func (p *progressStore) SetLastBlock(block uint64) error {
+	p.lastBlock.Store(block)
+	return nil
 }

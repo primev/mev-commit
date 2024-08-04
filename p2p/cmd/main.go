@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -30,6 +33,9 @@ const (
 	defaultKeyFile   = "key"
 	defaultSecret    = "secret"
 	defaultKeystore  = "keystore"
+	defaultDataDir   = "db"
+
+	defaultOracleWindowOffset = 1
 )
 
 var (
@@ -56,6 +62,13 @@ var (
 		Usage:   "path to config file",
 		EnvVars: []string{"MEV_COMMIT_CONFIG"},
 	}
+
+	optionDataDir = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "data-dir",
+		Usage:   "path to data directory",
+		EnvVars: []string{"MEV_COMMIT_DATA_DIR"},
+		Value:   filepath.Join(defaultConfigDir, defaultDataDir),
+	})
 
 	optionPrivKeyFile = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "priv-key-file",
@@ -315,6 +328,7 @@ var (
 func main() {
 	flags := []cli.Flag{
 		optionConfig,
+		optionDataDir,
 		optionPeerType,
 		optionPrivKeyFile,
 		optionKeystorePassword,
@@ -357,9 +371,25 @@ func main() {
 		Action:  initializeApplication,
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigc
+		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
+		cancel()
+		<-sigc
+		fmt.Fprintln(app.Writer, "force exiting...")
+		os.Exit(1)
+	}()
+
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		fmt.Fprintln(app.Writer, "exited with error:", err)
 	}
+
+	os.Exit(0)
 }
 
 func initializeApplication(c *cli.Context) error {
@@ -441,8 +471,20 @@ func launchNodeWithConfig(c *cli.Context) error {
 		}
 	}
 
+	dbPath := ""
+	if c.String(optionDataDir.Name) != "" {
+		dbPath, err = util.ResolveFilePath(c.String(optionDataDir.Name))
+		if err != nil {
+			return fmt.Errorf("failed to resolve data directory: %w", err)
+		}
+		if err := os.MkdirAll(dbPath, 0700); err != nil {
+			return fmt.Errorf("failed to create data directory: %w", err)
+		}
+	}
+
 	nd, err := node.NewNode(&node.Options{
 		KeySigner:                keysigner,
+		DataDir:                  dbPath,
 		Secret:                   c.String(optionSecret.Name),
 		PeerType:                 c.String(optionPeerType.Name),
 		P2PPort:                  c.Int(optionP2PPort.Name),
@@ -465,6 +507,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		DefaultGasLimit:          uint64(c.Int(optionGasLimit.Name)),
 		DefaultGasTipCap:         gasTipCap,
 		DefaultGasFeeCap:         gasFeeCap,
+		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

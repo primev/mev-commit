@@ -191,7 +191,7 @@
         "internalType": "uint64"
       },
       {
-        "name": "commiter",
+        "name": "committer",
         "type": "address",
         "internalType": "address"
       },
@@ -274,7 +274,7 @@
         "internalType": "bool"
       },
       {
-        "name": "commiter",
+        "name": "committer",
         "type": "address",
         "internalType": "address"
       },
@@ -387,7 +387,7 @@
             "internalType": "uint64"
           },
           {
-            "name": "commiter",
+            "name": "committer",
             "type": "address",
             "internalType": "address"
           },
@@ -476,7 +476,7 @@
             "internalType": "uint64"
           },
           {
-            "name": "commiter",
+            "name": "committer",
             "type": "address",
             "internalType": "address"
           },
@@ -554,7 +554,7 @@
             "internalType": "bool"
           },
           {
-            "name": "commiter",
+            "name": "committer",
             "type": "address",
             "internalType": "address"
           },
@@ -593,7 +593,7 @@
             "internalType": "bool"
           },
           {
-            "name": "commiter",
+            "name": "committer",
             "type": "address",
             "internalType": "address"
           },
@@ -717,7 +717,7 @@
         "internalType": "address"
       },
       {
-        "name": "_oracle",
+        "name": "_oracleContract",
         "type": "address",
         "internalType": "address"
       },
@@ -847,7 +847,7 @@
   },
   {
     "type": "function",
-    "name": "oracle",
+    "name": "oracleContract",
     "inputs": [],
     "outputs": [
       {
@@ -987,10 +987,10 @@
   },
   {
     "type": "function",
-    "name": "updateOracle",
+    "name": "updateOracleContract",
     "inputs": [
       {
-        "name": "newOracle",
+        "name": "newOracleContract",
         "type": "address",
         "internalType": "address"
       }
@@ -1152,7 +1152,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "commiterAddress",
+        "name": "committerAddress",
         "type": "address",
         "internalType": "address"
       }
@@ -1176,7 +1176,7 @@
         "internalType": "address"
       },
       {
-        "name": "commiter",
+        "name": "committer",
         "type": "address",
         "indexed": false,
         "internalType": "address"
@@ -1267,7 +1267,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "commiter",
+        "name": "committer",
         "type": "address",
         "indexed": false,
         "internalType": "address"

@@ -30,6 +30,8 @@ type Service struct {
 	watcher              TxWatcher
 	optsGetter           OptsGetter
 	autoDepositTracker   AutoDepositTracker
+	store                DepositStore
+	oracleWindowOffset   *big.Int
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
@@ -45,6 +47,8 @@ func NewService(
 	watcher TxWatcher,
 	optsGetter OptsGetter,
 	autoDepositTracker AutoDepositTracker,
+	store DepositStore,
+	oracleWindowOffset *big.Int,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -58,6 +62,8 @@ func NewService(
 		logger:               logger,
 		metrics:              newMetrics(),
 		autoDepositTracker:   autoDepositTracker,
+		oracleWindowOffset:   oracleWindowOffset,
+		store:                store,
 		validator:            validator,
 	}
 }
@@ -92,6 +98,15 @@ type TxWatcher interface {
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
 
+type DepositStore interface {
+	// StoreDeposits stores the deposited windows.
+	StoreDeposits(ctx context.Context, windows []*big.Int) error
+	// ClearDeposits clears the deposits for the given windows.
+	ClearDeposits(ctx context.Context, windows []*big.Int) error
+	// IsDepositMade checks if the deposit is already made for the given window.
+	IsDepositMade(ctx context.Context, window *big.Int) bool
+}
+
 func (s *Service) SendBid(
 	bid *bidderapiv1.Bid,
 	srv bidderapiv1.Bidder_SendBidServer,
@@ -108,8 +123,16 @@ func (s *Service) SendBid(
 		return status.Errorf(codes.InvalidArgument, "validating bid: %v", err)
 	}
 
-	txnsStr := strings.Join(bid.TxHashes, ",")
-	revertingTxHashesStr := strings.Join(bid.RevertingTxHashes, ",")
+	// Helper function to strip "0x" prefix
+	stripPrefix := func(hashes []string) []string {
+		stripped := make([]string, len(hashes))
+		for i, hash := range hashes {
+			stripped[i] = strings.TrimPrefix(hash, "0x")
+		}
+		return stripped
+	}
+	txnsStr := strings.Join(stripPrefix(bid.TxHashes), ",")
+	revertingTxHashesStr := strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
 
 	respC, err := s.sender.SendBid(
 		ctx,
@@ -199,6 +222,11 @@ func (s *Service) Deposit(
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
+	err = s.store.StoreDeposits(ctx, []*big.Int{windowToDeposit})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "storing deposits: %v", err)
+	}
+
 	for _, log := range receipt.Logs {
 		if registration, err := s.registryContract.ParseBidderRegistered(*log); err == nil {
 			s.logger.Info("deposit successful", "amount", registration.DepositedAmount, "window", registration.WindowNumber)
@@ -226,9 +254,9 @@ func (s *Service) calculateWindowToDeposit(ctx context.Context, r *bidderapiv1.D
 	} else if r.BlockNumber != nil {
 		return new(big.Int).SetUint64((r.BlockNumber.Value-1)/s.blocksPerWindow + 1), nil
 	}
-	// Default to two windows ahead of the current window if no specific block or window is given.
-	// This is for the case where the oracle works 2 windows behind the current window.
-	return new(big.Int).SetUint64(currentWindow + 2), nil
+	// Default to N window ahead of the current window if no specific block or window is given.
+	// This is for the case where the oracle works N windows behind the current window.
+	return new(big.Int).SetUint64(currentWindow + s.oracleWindowOffset.Uint64()), nil
 }
 
 func (s *Service) GetDeposit(
@@ -244,8 +272,8 @@ func (s *Service) GetDeposit(
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 		}
-		// as oracle working 2 windows behind the current window, we add + 2 here
-		window = new(big.Int).Add(window, big.NewInt(2))
+		// as oracle working N windows behind the current window, we add + N here
+		window = new(big.Int).Add(window, s.oracleWindowOffset)
 	} else {
 		window = new(big.Int).SetUint64(r.WindowNumber.Value)
 	}
@@ -301,6 +329,11 @@ func (s *Service) Withdraw(
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+	}
+
+	err = s.store.ClearDeposits(ctx, []*big.Int{window})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "clearing deposits: %v", err)
 	}
 
 	for _, log := range receipt.Logs {
@@ -414,6 +447,11 @@ func (s *Service) CancelAutoDeposit(
 					}
 					if receipt.Status != types.ReceiptStatusSuccessful {
 						s.logger.Error("receipt status", "status", receipt.Status)
+						return
+					}
+					err = s.store.ClearDeposits(context.Background(), windows)
+					if err != nil {
+						s.logger.Error("clearing deposits", "error", err)
 					}
 					return
 				}
@@ -470,6 +508,11 @@ func (s *Service) WithdrawFromWindows(
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
+	err = s.store.ClearDeposits(ctx, windows)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "clearing deposits: %v", err)
+	}
+
 	var amountsAndWindows []*bidderapiv1.WithdrawResponse
 	for _, log := range receipt.Logs {
 		if withdrawal, err := s.registryContract.ParseBidderWithdrawal(*log); err == nil {
@@ -503,8 +546,8 @@ func (s *Service) AutoDepositStatus(
 ) (*bidderapiv1.AutoDepositStatusResponse, error) {
 	deposits, isAutodepositEnabled, currentWindow := s.autoDepositTracker.GetStatus()
 	if currentWindow != nil {
-		// as oracle working 2 windows behind the current window, we add + 2 here
-		currentWindow = new(big.Int).Add(currentWindow, big.NewInt(2))
+		// as oracle working N windows behind the current window, we add + N here
+		currentWindow = new(big.Int).Add(currentWindow, s.oracleWindowOffset)
 	}
 	var autoDeposits []*bidderapiv1.AutoDeposit
 	for window, ok := range deposits {

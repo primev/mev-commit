@@ -12,8 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
+	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +34,7 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		bidderStore := store.NewStore()
+		bidderStore := keysstore.New(inmemstorage.New())
 		err = bidderStore.SetAESKey(address, aesKey)
 		if err != nil {
 			t.Fatal(err)
@@ -49,7 +50,7 @@ func TestBids(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		providerStore := store.NewStore()
+		providerStore := keysstore.New(inmemstorage.New())
 		err = providerStore.SetAESKey(address, aesKey)
 		if err != nil {
 			t.Fatal(err)
@@ -87,7 +88,7 @@ func TestBids(t *testing.T) {
 		}
 
 		keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
-		bidderStore := store.NewStore()
+		bidderStore := keysstore.New(inmemstorage.New())
 		err = bidderStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
 		if err != nil {
 			t.Fatal(err)
@@ -103,7 +104,7 @@ func TestBids(t *testing.T) {
 
 		bidderAddress := crypto.PubkeyToAddress(bidderKey.PublicKey)
 		keySigner = mockkeysigner.NewMockKeySigner(providerKey, crypto.PubkeyToAddress(providerKey.PublicKey))
-		providerStore := store.NewStore()
+		providerStore := keysstore.New(inmemstorage.New())
 		err = providerStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
 		if err != nil {
 			t.Fatal(err)
@@ -323,7 +324,7 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	bidderStore := store.NewStore()
+	bidderStore := keysstore.New(inmemstorage.New())
 	err = bidderStore.SetAESKey(address, aesKey)
 	if err != nil {
 		b.Fatal(err)
@@ -363,7 +364,7 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	}
 
 	keySigner := mockkeysigner.NewMockKeySigner(bidderKey, crypto.PubkeyToAddress(bidderKey.PublicKey))
-	bidderStore := store.NewStore()
+	bidderStore := keysstore.New(inmemstorage.New())
 	err = bidderStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
 	if err != nil {
 		b.Fatal(err)
@@ -378,7 +379,7 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	}
 
 	keySigner = mockkeysigner.NewMockKeySigner(providerKey, crypto.PubkeyToAddress(providerKey.PublicKey))
-	providerStore := store.NewStore()
+	providerStore := keysstore.New(inmemstorage.New())
 	err = providerStore.SetAESKey(crypto.PubkeyToAddress(bidderKey.PublicKey), aesKey)
 	if err != nil {
 		b.Fatal(err)

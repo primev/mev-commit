@@ -130,11 +130,8 @@ func NewUpdater(
 		oracle:         oracle,
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
-		// the buffered channel here is required to ensure that the event processing
-		// does not block the event manager. This event involves making a settlement
-		// transaction on the blockchain, which can take a while to complete.
-		openedCmts:    make(chan *preconf.PreconfcommitmentstoreCommitmentStored, 200),
-		encryptedCmts: make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
+		openedCmts:     make(chan *preconf.PreconfcommitmentstoreCommitmentStored),
+		encryptedCmts:  make(chan *preconf.PreconfcommitmentstoreEncryptedCommitmentStored),
 	}, nil
 }
 
@@ -245,7 +242,7 @@ func (u *Updater) handleEncryptedCommitment(
 	err := u.winnerRegister.AddEncryptedCommitment(
 		ctx,
 		update.CommitmentIndex[:],
-		update.Commiter.Bytes(),
+		update.Committer.Bytes(),
 		update.CommitmentDigest[:],
 		update.CommitmentSignature,
 		update.DispatchTimestamp,
@@ -319,13 +316,13 @@ func (u *Updater) handleOpenedCommitment(
 		return nil
 	}
 
-	if common.BytesToAddress(winner.Winner).Cmp(update.Commiter) != 0 {
+	if common.BytesToAddress(winner.Winner).Cmp(update.Committer) != 0 {
 		// The winner is not the committer of the commitment
 		u.logger.Info(
 			"winner is not the committer",
 			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 			"winner", common.Bytes2Hex(winner.Winner),
-			"committer", update.Commiter.Hex(),
+			"committer", update.Committer.Hex(),
 			"blockNumber", update.BlockNumber,
 		)
 		return nil
@@ -405,7 +402,7 @@ func (u *Updater) settle(
 	commitmentPostingTxn, err := u.oracle.ProcessBuilderCommitmentForBlockNumber(
 		update.CommitmentIndex,
 		big.NewInt(0).SetUint64(update.BlockNumber),
-		update.Commiter,
+		update.Committer,
 		settlementType == SettlementTypeSlash,
 		big.NewInt(decayPercentage),
 	)
@@ -453,7 +450,7 @@ func (u *Updater) addSettlement(
 		update.TxnHash,
 		int64(update.BlockNumber),
 		update.Bid,
-		update.Commiter.Bytes(),
+		update.Committer.Bytes(),
 		update.CommitmentHash[:],
 		settlementType,
 		decayPercentage,

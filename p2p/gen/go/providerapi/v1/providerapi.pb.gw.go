@@ -198,10 +198,47 @@ func local_request_Provider_GetMinStake_0(ctx context.Context, marshaler runtime
 
 }
 
+func request_Provider_WithdrawStake_0(ctx context.Context, marshaler runtime.Marshaler, client ProviderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq EmptyMessage
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.WithdrawStake(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_Provider_WithdrawStake_0(ctx context.Context, marshaler runtime.Marshaler, server ProviderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq EmptyMessage
+	var metadata runtime.ServerMetadata
+
+	msg, err := server.WithdrawStake(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
+func request_Provider_Unstake_0(ctx context.Context, marshaler runtime.Marshaler, client ProviderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq EmptyMessage
+	var metadata runtime.ServerMetadata
+
+	msg, err := client.Unstake(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_Provider_Unstake_0(ctx context.Context, marshaler runtime.Marshaler, server ProviderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq EmptyMessage
+	var metadata runtime.ServerMetadata
+
+	msg, err := server.Unstake(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 // RegisterProviderHandlerServer registers the http handlers for service Provider to "mux".
 // UnaryRPC     :call ProviderServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterProviderHandlerFromEndpoint instead.
+// GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterProviderHandlerServer(ctx context.Context, mux *runtime.ServeMux, server ProviderServer) error {
 
 	mux.Handle("GET", pattern_Provider_ReceiveBids_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -293,6 +330,56 @@ func RegisterProviderHandlerServer(ctx context.Context, mux *runtime.ServeMux, s
 
 	})
 
+	mux.Handle("POST", pattern_Provider_WithdrawStake_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/providerapi.v1.Provider/WithdrawStake", runtime.WithHTTPPathPattern("/v1/provider/withdraw_stake"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_Provider_WithdrawStake_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Provider_WithdrawStake_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_Provider_Unstake_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/providerapi.v1.Provider/Unstake", runtime.WithHTTPPathPattern("/v1/provider/unstake"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_Provider_Unstake_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Provider_Unstake_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -331,7 +418,7 @@ func RegisterProviderHandler(ctx context.Context, mux *runtime.ServeMux, conn *g
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "ProviderClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "ProviderClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "ProviderClient" to call the correct interceptors.
+// "ProviderClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterProviderHandlerClient(ctx context.Context, mux *runtime.ServeMux, client ProviderClient) error {
 
 	mux.Handle("GET", pattern_Provider_ReceiveBids_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
@@ -444,6 +531,50 @@ func RegisterProviderHandlerClient(ctx context.Context, mux *runtime.ServeMux, c
 
 	})
 
+	mux.Handle("POST", pattern_Provider_WithdrawStake_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/providerapi.v1.Provider/WithdrawStake", runtime.WithHTTPPathPattern("/v1/provider/withdraw_stake"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Provider_WithdrawStake_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Provider_WithdrawStake_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_Provider_Unstake_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/providerapi.v1.Provider/Unstake", runtime.WithHTTPPathPattern("/v1/provider/unstake"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Provider_Unstake_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Provider_Unstake_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -457,6 +588,10 @@ var (
 	pattern_Provider_GetStake_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "provider", "get_stake"}, ""))
 
 	pattern_Provider_GetMinStake_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "provider", "get_min_stake"}, ""))
+
+	pattern_Provider_WithdrawStake_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "provider", "withdraw_stake"}, ""))
+
+	pattern_Provider_Unstake_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "provider", "unstake"}, ""))
 )
 
 var (
@@ -469,4 +604,8 @@ var (
 	forward_Provider_GetStake_0 = runtime.ForwardResponseMessage
 
 	forward_Provider_GetMinStake_0 = runtime.ForwardResponseMessage
+
+	forward_Provider_WithdrawStake_0 = runtime.ForwardResponseMessage
+
+	forward_Provider_Unstake_0 = runtime.ForwardResponseMessage
 )

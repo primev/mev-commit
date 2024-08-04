@@ -9,15 +9,29 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	"github.com/primev/mev-commit/p2p/pkg/depositmanager"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	depositstore "github.com/primev/mev-commit/p2p/pkg/depositmanager/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/util"
 )
+
+type MockBidderRegistryContract struct {
+	GetDepositFunc func(opts *bind.CallOpts, bidder common.Address, window *big.Int) (*big.Int, error)
+}
+
+func (m *MockBidderRegistryContract) GetDeposit(
+	opts *bind.CallOpts,
+	bidder common.Address,
+	window *big.Int,
+) (*big.Int, error) {
+	return m.GetDepositFunc(opts, bidder, window)
+}
 
 func TestDepositManager(t *testing.T) {
 	t.Parallel()
@@ -35,11 +49,20 @@ func TestDepositManager(t *testing.T) {
 	logger := util.NewTestLogger(io.Discard)
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 
-	st := store.NewStore()
+	st := depositstore.New(inmemstorage.New())
+	bidderRegistry := &MockBidderRegistryContract{
+		GetDepositFunc: func(
+			opts *bind.CallOpts,
+			bidder common.Address,
+			window *big.Int,
+		) (*big.Int, error) {
+			return big.NewInt(0), nil
+		},
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	dm := depositmanager.NewDepositManager(10, st, evtMgr, logger)
+	dm := depositmanager.NewDepositManager(10, st, evtMgr, bidderRegistry, logger)
 	done := dm.Start(ctx)
 
 	// no deposit
@@ -116,7 +139,11 @@ func TestDepositManager(t *testing.T) {
 
 	publishNewWindow(evtMgr, &btABI, big.NewInt(12))
 	for {
-		if st.Len() == 0 {
+		count, err := st.BalanceEntries(big.NewInt(1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count == 0 {
 			break
 		}
 		time.Sleep(1 * time.Second)

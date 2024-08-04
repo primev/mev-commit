@@ -31,7 +31,8 @@ contract OracleTest is Test {
     bytes public sharedSecretKey;
     uint256 public blocksPerWindow;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-
+    uint256 public constant withdrawalDelay = 24 * 3600; // 24 hours
+    uint256 public constant protocolFeePayoutPeriodBlocks = 100;
     struct TestCommitment {
         uint64 bid;
         uint64 blockNumber;
@@ -85,7 +86,7 @@ contract OracleTest is Test {
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this))
+                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay, protocolFeePayoutPeriodBlocks)
             )
         );
         providerRegistry = ProviderRegistry(payable(proxy));
@@ -107,7 +108,8 @@ contract OracleTest is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    blocksPerWindow
+                    blocksPerWindow,
+                    protocolFeePayoutPeriodBlocks
                 )
             )
         );
@@ -151,7 +153,7 @@ contract OracleTest is Test {
 
         vm.stopPrank();
 
-        preConfCommitmentStore.updateOracle(address(oracle));
+        preConfCommitmentStore.updateOracleContract(address(oracle));
         bidderRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
@@ -257,7 +259,7 @@ contract OracleTest is Test {
         );
         vm.stopPrank();
         assertEq(
-            providerRegistry.checkStake(provider) + ((bid * 50) / 100),
+            providerRegistry.getProviderStake(provider) + ((bid * 50) / 100),
             250 ether
         );
     }
@@ -330,7 +332,7 @@ contract OracleTest is Test {
             50
         );
         vm.stopPrank();
-        assertEq(providerRegistry.checkStake(provider), 250 ether - bid);
+        assertEq(providerRegistry.getProviderStake(provider), 250 ether - bid);
         assertEq(
             bidderRegistry.getProviderAmount(provider),
             (((bid * (100 - feePercent)) / 100) * residualAfterDecay) / 100
@@ -444,7 +446,7 @@ contract OracleTest is Test {
             100
         );
         vm.stopPrank();
-        assertEq(providerRegistry.checkStake(provider), 250 ether - bid * 4);
+        assertEq(providerRegistry.getProviderStake(provider), 250 ether - bid * 4);
         assertEq(bidderRegistry.getProviderAmount(provider), 0);
     }
 
@@ -535,7 +537,7 @@ contract OracleTest is Test {
             );
         }
         vm.stopPrank();
-        assertEq(providerRegistry.checkStake(provider), 250 ether);
+        assertEq(providerRegistry.getProviderStake(provider), 250 ether);
         assertEq(bidderRegistry.getProviderAmount(provider), 4 * bid);
     }
 
@@ -695,7 +697,7 @@ contract OracleTest is Test {
     }
 
     function constructAndStoreEncryptedCommitment(
-        address commiterAddress,
+        address committerAddress,
         uint64 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -739,7 +741,7 @@ contract OracleTest is Test {
 
         (v, r, s) = vm.sign(signerPk, commitmentHash);
         commitmentSignature = abi.encodePacked(r, s, v);
-        vm.startPrank(commiterAddress);
+        vm.startPrank(committerAddress);
         bytes32 encryptedCommitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
                 commitmentHash,

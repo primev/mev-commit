@@ -13,9 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
-	"github.com/primev/mev-commit/p2p/pkg/store"
+	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
@@ -57,7 +58,7 @@ func newTestService(t *testing.T) *libp2p.Service {
 		ListenAddr: "0.0.0.0",
 		PeerType:   p2p.PeerTypeProvider,
 		Register:   &testRegistry{},
-		Store:      store.NewStore(),
+		Store:      keysstore.New(inmemstorage.New()),
 		Logger:     newTestLogger(t, os.Stdout),
 	})
 	if err != nil {
@@ -241,7 +242,7 @@ func TestBootstrap(t *testing.T) {
 		ListenAddr: "0.0.0.0",
 		PeerType:   p2p.PeerTypeProvider,
 		Register:   &testRegistry{},
-		Store:      store.NewStore(),
+		Store:      keysstore.New(inmemstorage.New()),
 		Logger:     newTestLogger(t, os.Stdout),
 	}
 

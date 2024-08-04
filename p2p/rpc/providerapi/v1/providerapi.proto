@@ -53,6 +53,18 @@ service Provider {
   rpc GetMinStake(EmptyMessage) returns (StakeResponse) {
     option (google.api.http) = {get: "/v1/provider/get_min_stake"};
   }
+  // WithdrawStake
+  //
+  // WithdrawStake is called by the provider to withdraw its stake from the provider registry.
+  rpc WithdrawStake(EmptyMessage) returns (WithdrawalResponse) {
+    option (google.api.http) = {post: "/v1/provider/withdraw_stake"};
+  }
+  // Unstake
+  //
+  // Unstake is called by the provider to request a unstake from the provider registry.
+  rpc Unstake(EmptyMessage) returns (EmptyMessage) {
+    option (google.api.http) = {post: "/v1/provider/unstake"};
+  }
 }
 
 message StakeRequest {
@@ -92,6 +104,17 @@ message StakeResponse {
   };
   string amount = 1;
   string bls_public_key = 2;
+};
+
+message WithdrawalResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Withdrawal response"
+      description: "Withdrawal amount for provider in the provider registry."
+    }
+    example: "{\"amount\": \"1000000000000000000\"}"
+  };
+  string amount = 1;
 };
 
 message EmptyMessage {};

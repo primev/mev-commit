@@ -5,6 +5,8 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -69,4 +71,21 @@ func NewLogger(lvl, logFmt, tags string, sink io.Writer) (*slog.Logger, error) {
 	}
 
 	return logger.With(args...), nil
+}
+
+func ResolveFilePath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("path is empty")
+	}
+
+	if path[0] == '~' {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+
+		return filepath.Join(home, path[1:]), nil
+	}
+
+	return path, nil
 }

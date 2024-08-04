@@ -42,6 +42,14 @@ job "{{ job.name }}" {
       port = "{{ port_name }}"
       tags = ["{{ port_name }}"]
       provider = "nomad"
+      {% if port_name == "http" %}
+      check {
+        type     = "http"
+        path     = "/health"
+        interval = "10s"
+        timeout  = "2s"
+      }
+      {% endif %}
     }
     {% endfor %}
 
@@ -149,7 +157,8 @@ job "{{ job.name }}" {
       }
       {% elif profile == 'stressnet' %}
       resources {
-        memory = 1024
+        cpu = 4000
+        memory = 4096
       }
       {% endif %}
 
@@ -184,7 +193,7 @@ job "{{ job.name }}" {
             else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
           }}"
           MEV_ORACLE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
-          MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '20') }}"
+          MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '10') }}"
           MEV_ORACLE_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           {%- raw %}
           MEV_ORACLE_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
@@ -240,10 +249,6 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-provider-node1" }}
             {{- if contains "http" .Tags }}
           URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
-          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
-            echo "Unreachable {{ .Name }} endpoint: ${URL}"
-            exit 1
-          fi
           ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
           if [ -n "${ETH_ADDRESS}" ]; then
             if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
@@ -258,10 +263,6 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-provider-node2" }}
             {{- if contains "http" .Tags }}
           URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
-          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
-            echo "Unreachable {{ .Name }} endpoint: ${URL}"
-            exit 1
-          fi
           ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
           if [ -n "${ETH_ADDRESS}" ]; then
             if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
@@ -276,10 +277,6 @@ job "{{ job.name }}" {
           {{- range nomadService "mev-commit-provider-node3" }}
             {{- if contains "http" .Tags }}
           URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
-          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
-            echo "Unreachable {{ .Name }} endpoint: ${URL}"
-            exit 1
-          fi
           ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
           if [ -n "${ETH_ADDRESS}" ]; then
             if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
@@ -303,10 +300,6 @@ job "{{ job.name }}" {
             {{ if contains "http" .Tags }}
           URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
           CONTRACTS_FILE="/local/contracts.json"
-          if ! timeout 5m bash -c 'until httping -sq -c 1 "'${URL}'"; do sleep 1; done'; then
-            echo "Unreachable endpoint: ${URL}"
-            exit 1
-          fi
           curl -s -o "${CONTRACTS_FILE}" "${URL}"
           export MEV_ORACLE_PROVIDERREGISTRY_CONTRACT_ADDR="$(jq -r '.ProviderRegistry' ${CONTRACTS_FILE})"
           export MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR="$(jq -r '.BidderRegistry' ${CONTRACTS_FILE})"

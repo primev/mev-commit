@@ -30,6 +30,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
@@ -71,6 +72,7 @@ type Node struct {
 
 func NewNode(opts *Options) (*Node, error) {
 	nd := &Node{logger: opts.Logger}
+	healthChecker := health.New()
 
 	db, err := initDB(opts)
 	if err != nil {
@@ -117,6 +119,7 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 
 	monitorClosed := monitor.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("txmonitor", monitorClosed))
 
 	txnMgr := transactor.NewTransactor(
 		settlementClient,
@@ -240,6 +243,7 @@ func NewNode(opts *Options) (*Node, error) {
 		blockTrackerTransactor,
 	)
 	l1LisClosed := l1Lis.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("l1_listener", l1LisClosed))
 
 	updtr, err := updater.NewUpdater(
 		nd.logger.With("component", "updater"),
@@ -256,6 +260,7 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	updtrClosed := updtr.Start(ctx)
+	healthChecker.Register(health.CloseChannelHealthCheck("updater", updtrClosed))
 
 	providerRegistry, err := providerregistry.NewProviderregistryCaller(
 		opts.ProviderRegistryContractAddr,
@@ -286,12 +291,14 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 
 	pubDone := eventsPublisher.Start(ctx, contractAddrs...)
+	healthChecker.Register(health.CloseChannelHealthCheck("events_publisher", pubDone))
 
 	srv.RegisterMetricsCollectors(l1Lis.Metrics()...)
 	srv.RegisterMetricsCollectors(updtr.Metrics()...)
 	srv.RegisterMetricsCollectors(monitor.Metrics()...)
 	srv.RegisterMetricsCollectors(evtMgr.Metrics()...)
 	srv.RegisterMetricsCollectors(settlementRPC.Metrics()...)
+	srv.RegisterHealthCheck(healthChecker)
 
 	srvClosed := srv.Start(fmt.Sprintf(":%d", opts.HTTPPort))
 

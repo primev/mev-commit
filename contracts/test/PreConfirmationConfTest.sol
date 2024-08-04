@@ -38,8 +38,10 @@ contract TestPreConfCommitmentStore is Test {
     BlockTracker public blockTracker;
     uint256 public blocksPerWindow;
     BidderRegistry public bidderRegistry;
-    bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-
+    bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    uint256 public withdrawalDelay;
+    uint256 public protocolFeePayoutPeriodBlocks;
+    address public oracleContract;
     function setUp() public {
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -60,12 +62,14 @@ contract TestPreConfCommitmentStore is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         blocksPerWindow = 10;
-
+        withdrawalDelay = 24 * 3600; // 24 hours
+        protocolFeePayoutPeriodBlocks = 100;
+        oracleContract = address(0x6793);
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this))
+                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay, protocolFeePayoutPeriodBlocks)
             )
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -88,7 +92,8 @@ contract TestPreConfCommitmentStore is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    blocksPerWindow
+                    blocksPerWindow,
+                    protocolFeePayoutPeriodBlocks
                 )
             )
         );
@@ -101,7 +106,7 @@ contract TestPreConfCommitmentStore is Test {
                 (
                     address(providerRegistry), // Provider Registry
                     address(bidderRegistry), // User Registry
-                    feeRecipient, // Oracle
+                    oracleContract, // Oracle
                     address(this),
                     address(blockTracker), // Block Tracker
                     500,
@@ -120,7 +125,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_getBidHash() public {
+    function test_GetBidHash1() public {
         // Step 1: Prepare the test commitment data
         PreConfCommitmentStore.CommitmentParams memory testCommitment = IPreConfCommitmentStore.CommitmentParams({
             txnHash: "0xkartik",
@@ -172,7 +177,7 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function test_Initialize() public view {
-        assertEq(preConfCommitmentStore.oracle(), feeRecipient);
+        assertEq(preConfCommitmentStore.oracleContract(), oracleContract);
         assertEq(
             address(preConfCommitmentStore.providerRegistry()),
             address(providerRegistry)
@@ -183,7 +188,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_storeEncryptedCommitment() public {
+    function test_StoreEncryptedCommitment() public {
         // Step 1: Prepare the commitment information and signature
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
@@ -198,8 +203,10 @@ contract TestPreConfCommitmentStore is Test {
         // Optional: Ensure the committer has enough ETH if needed for the operation
         vm.deal(committer, 1 ether);
         vm.prank(committer);
+        providerRegistry.registerAndStake{value: 1 ether}(validBLSPubkey);
 
         // Step 2: Store the commitment
+        vm.prank(committer);
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
             commitmentDigest,
@@ -218,7 +225,7 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         // c. Assertions to verify the stored commitment matches the input
-        assertEq(commitment.commiter, committer);
+        assertEq(commitment.committer, committer);
         assertEq(commitment.commitmentDigest, commitmentDigest);
         assertEq(commitment.commitmentSignature, commitmentSignature);
     }
@@ -273,8 +280,9 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function test_UpdateOracle() public {
-        preConfCommitmentStore.updateOracle(feeRecipient);
-        assertEq(preConfCommitmentStore.oracle(), feeRecipient);
+        address newOracle = address(0x123);
+        preConfCommitmentStore.updateOracleContract(newOracle);
+        assertEq(preConfCommitmentStore.oracleContract(), newOracle);
     }
 
     function test_UpdateProviderRegistry() public {
@@ -293,7 +301,7 @@ contract TestPreConfCommitmentStore is Test {
         );
     }
 
-    function test_GetBidHash() public view {
+    function test_GetBidHash2() public view {
         bytes32 bidHash = preConfCommitmentStore.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
@@ -336,20 +344,6 @@ contract TestPreConfCommitmentStore is Test {
         (, uint256 providerPk) = makeAddrAndKey("bob");
         (v, r, s) = vm.sign(providerPk, preConfHash);
         signature = abi.encodePacked(r, s, v);
-        
-        
-    }
-
-    function _bytes32ToHexString(
-        bytes32 _bytes32
-    ) internal pure returns (string memory) {
-        bytes memory HEXCHARS = "0123456789abcdef";
-        bytes memory _string = new bytes(64);
-        for (uint8 i = 0; i < 32; ++i) {
-            _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
-            _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
-        }
-        return string(_string);
     }
 
     function test_StoreCommitment() public {
@@ -369,12 +363,11 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.bidSignature
         );
 
-        (address commiter, ) = makeAddrAndKey("bob");
-        vm.deal(commiter, 5 ether);
+        (address committer, ) = makeAddrAndKey("bob");
 
         // Step 2: Store the commitment
         bytes32 encryptedIndex = storeCommitment(
-            commiter,
+            committer,
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.txnHash,
@@ -388,7 +381,7 @@ contract TestPreConfCommitmentStore is Test {
         );
 
         // Step 3: Move to the next window
-        blockTracker.addBuilderAddress("test", address(this));
+        blockTracker.addBuilderAddress("test", committer);
         blockTracker.recordL1Block(2, "test");
 
         // Step 4: Open the commitment
@@ -463,7 +456,7 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function storeCommitment(
-        address commiter,
+        address committer,
         uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -495,7 +488,10 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(bidSignature),
             _bytesToHexString(sharedSecretKey)
         );
-        vm.startPrank(commiter);
+        vm.deal(committer, 11 ether);
+        vm.startPrank(committer);
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
+
         bytes32 commitmentIndex = preConfCommitmentStore
             .storeEncryptedCommitment(
             commitmentHash,
@@ -564,9 +560,9 @@ contract TestPreConfCommitmentStore is Test {
             sharedSecretKey: sharedSecretKey
         });
 
-        (, address commiterAddress) = preConfCommitmentStore.verifyPreConfCommitment(commitmentParams);
+        (, address committerAddress) = preConfCommitmentStore.verifyPreConfCommitment(commitmentParams);
 
-        assertNotEq(commiterAddress, address(0));
+        assertNotEq(committerAddress, address(0));
         assertEq(commitment.bid, bid, "Stored bid should match input bid");
         assertEq(
             commitment.blockNumber,
@@ -610,11 +606,10 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.bidSignature
         );
         // Step 2: Store the commitment
-        (address commiter, ) = makeAddrAndKey("bob");
-        vm.deal(commiter, 5 ether);
-        
+        (address committer, ) = makeAddrAndKey("bob");
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
         bytes32 commitmentIndex = storeCommitment(
-            commiter,
+            committer,
             _testCommitmentAliceBob.bid,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.txnHash,
@@ -682,10 +677,10 @@ contract TestPreConfCommitmentStore is Test {
             (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
-            (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
+            (address committer, ) = makeAddrAndKey("bob");
+
             bytes32 encryptedIndex = storeCommitment(
-                commiter,
+                committer,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -700,13 +695,11 @@ contract TestPreConfCommitmentStore is Test {
             providerRegistry.setPreconfirmationsContract(
                 address(preConfCommitmentStore)
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
             uint256 blockNumber = 2;
-            blockTracker.addBuilderAddress("test", commiter);
+            blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(blockNumber, "test");
             bytes32 index = openCommitment(
-                commiter,
+                committer,
                 encryptedIndex,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
@@ -718,7 +711,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(feeRecipient);
+            vm.prank(oracleContract);
             preConfCommitmentStore.initiateSlash(index, 100);
 
             (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
@@ -727,8 +720,8 @@ contract TestPreConfCommitmentStore is Test {
             assert(isUsed == true);
 
             assertEq(bidderRegistry.lockedFunds(bidder, depositWindow), 2 ether - _testCommitmentAliceBob.bid);
-            assertEq(bidderRegistry.providerAmount(commiter), 0 ether);
-            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
+            assertEq(bidderRegistry.providerAmount(committer), 0 ether);
+            assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid + 2); // +2 is the slashed funds from provider
         }
         // commitmentHash value is internal to contract and not asserted  
     }
@@ -774,10 +767,10 @@ contract TestPreConfCommitmentStore is Test {
             (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
-            (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
+            (address committer, ) = makeAddrAndKey("bob");
+
             bytes32 encryptedIndex = storeCommitment(
-                commiter,
+                committer,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -789,15 +782,13 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
-            blockTracker.addBuilderAddress("test", commiter);
+            blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 "test"
             );
             bytes32 index = openCommitment(
-                commiter,
+                committer,
                 encryptedIndex,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
@@ -809,7 +800,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(feeRecipient);
+            vm.prank(oracleContract);
             preConfCommitmentStore.initiateReward(index, 100);
 
             (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
@@ -862,11 +853,10 @@ contract TestPreConfCommitmentStore is Test {
             (,bool isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
                 .commitments(preConfHash);
             assert(isUsed == false);
-            (address commiter, ) = makeAddrAndKey("bob");
-            vm.deal(commiter, 5 ether);
+            (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 encryptedIndex = storeCommitment(
-                commiter,
+                committer,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
                 _testCommitmentAliceBob.txnHash,
@@ -878,15 +868,13 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            vm.prank(commiter);
-            providerRegistry.registerAndStake{value: 4 ether}(validBLSPubkey);
-            blockTracker.addBuilderAddress("test", commiter);
+            blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 "test"
             );
             bytes32 index = openCommitment(
-                commiter,
+                committer,
                 encryptedIndex,
                 _testCommitmentAliceBob.bid,
                 _testCommitmentAliceBob.blockNumber,
@@ -899,7 +887,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.sharedSecretKey
             );
             uint256 window = blockTracker.getCurrentWindow();
-            vm.prank(feeRecipient);
+            vm.prank(oracleContract);
             preConfCommitmentStore.initiateReward(index, 0);
 
             (,isUsed, , , , , , , , , , , , ,) = preConfCommitmentStore
@@ -909,19 +897,84 @@ contract TestPreConfCommitmentStore is Test {
             // commitmentHash value is internal to contract and not asserted
 
             assertEq(bidderRegistry.lockedFunds(bidder, window), 2 ether - _testCommitmentAliceBob.bid);
-            assertEq(bidderRegistry.providerAmount(commiter), 0 ether);
+            assertEq(bidderRegistry.providerAmount(committer), 0 ether);
             assertEq(bidder.balance, 3 ether + _testCommitmentAliceBob.bid);
         }
+    }
+
+    function test_StoreEncryptedCommitmentInsufficientStake() public {
+        // Step 1: Prepare the commitment information and signature
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+
+        // Step 2: Attempt to store the commitment and expect it to fail due to insufficient stake
+        vm.prank(committer);
+        vm.expectRevert("Insufficient stake");
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            1000
+        );
+    }
+
+    function test_StoreEncryptedCommitmentPendingWithdrawal() public {
+        // Step 1: Prepare the commitment information and signature
+        bytes32 commitmentDigest = keccak256(
+            abi.encodePacked("commitment data")
+        );
+        (address committer, uint256 committerPk) = makeAddrAndKey("committer");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            committerPk,
+            commitmentDigest
+        );
+        bytes memory commitmentSignature = abi.encodePacked(r, s, v);
+
+        // Ensure the committer has enough ETH for the required stake
+        vm.deal(committer, 2 ether);
+        vm.prank(committer);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+
+        // Request a withdrawal to create a pending withdrawal request
+        vm.prank(committer);
+        providerRegistry.unstake();
+
+        // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
+        vm.prank(committer);
+        vm.expectRevert("Pending withdrawal request");
+        preConfCommitmentStore.storeEncryptedCommitment(
+            commitmentDigest,
+            commitmentSignature,
+            1000
+        );
     }
 
     function _bytesToHexString(
         bytes memory _bytes
     ) internal pure returns (string memory) {
-        bytes memory HEXCHARS = "0123456789abcdef";
+        bytes memory hexChars = "0123456789abcdef";
         bytes memory _string = new bytes(_bytes.length * 2);
         for (uint256 i = 0; i < _bytes.length; ++i) {
-            _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
-            _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
+            _string[i * 2] = hexChars[uint8(_bytes[i] >> 4)];
+            _string[1 + i * 2] = hexChars[uint8(_bytes[i] & 0x0f)];
+        }
+        return string(_string);
+    }
+
+    function _bytes32ToHexString(
+        bytes32 _bytes32
+    ) internal pure returns (string memory) {
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory _string = new bytes(64);
+        for (uint8 i = 0; i < 32; ++i) {
+            _string[i * 2] = hexChars[uint8(_bytes32[i] >> 4)];
+            _string[1 + i * 2] = hexChars[uint8(_bytes32[i] & 0x0f)];
         }
         return string(_string);
     }

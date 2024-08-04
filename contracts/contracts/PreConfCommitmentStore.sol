@@ -57,8 +57,8 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     // Represents the dispatch window in milliseconds
     uint64 public commitmentDispatchWindow;
 
-    /// @dev Address of the oracle
-    address public oracle;
+    /// @dev Address of the oracle contract
+    address public oracleContract;
 
     /// @dev The number of blocks per window
     uint256 public blocksPerWindow;
@@ -84,10 +84,10 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     mapping(bytes32 => EncrPreConfCommitment) public encryptedCommitments;
 
     /**
-     * @dev Makes sure transaction sender is oracle
+     * @dev Makes sure transaction sender is oracle contract
      */
-    modifier onlyOracle() {
-        require(msg.sender == oracle, "sender is not oracle");
+    modifier onlyOracleContract() {
+        require(msg.sender == oracleContract, "sender is not oracle contract");
         _;
     }
 
@@ -95,29 +95,28 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
      * @param _providerRegistry The address of the provider registry.
      * @param _bidderRegistry The address of the bidder registry.
-     * @param _blockTracker The address of the block tracker.
-     * @param _oracle The address of the oracle.
+     * @param _oracleContract The address of the oracle contract.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
+     * @param _blockTracker The address of the block tracker.
      * @param _commitmentDispatchWindow The dispatch window for commitments.
      * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
         address _providerRegistry,
         address _bidderRegistry,
-        address _oracle,
+        address _oracleContract,
         address _owner,
         address _blockTracker,
         uint64 _commitmentDispatchWindow,
         uint256 _blocksPerWindow
     ) external initializer {
-        oracle = _oracle;
-        blockTracker = IBlockTracker(_blockTracker);
         providerRegistry = IProviderRegistry(_providerRegistry);
         bidderRegistry = IBidderRegistry(_bidderRegistry);
-        blocksPerWindow = _blocksPerWindow;
+        oracleContract = _oracleContract;
         __Ownable_init(_owner);
-
+        blockTracker = IBlockTracker(_blockTracker);
         commitmentDispatchWindow = _commitmentDispatchWindow;
+        blocksPerWindow = _blocksPerWindow;
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -151,11 +150,11 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     }
 
     /**
-     * @dev Updates the address of the oracle.
-     * @param newOracle The new oracle address.
+     * @dev Updates the address of the oracle contract.
+     * @param newOracleContract The new oracle contract address.
      */
-    function updateOracle(address newOracle) external onlyOwner {
-        oracle = newOracle;
+    function updateOracleContract(address newOracleContract) external onlyOwner {
+        oracleContract = newOracleContract;
     }
 
     /**
@@ -239,12 +238,13 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             "Invalid commitment digest"
         );
 
-        address commiterAddress = commitmentDigest.recover(commitmentSignature);
+        address committerAddress = commitmentDigest.recover(commitmentSignature);
 
         address winner = blockTracker.getBlockWinner(blockNumber);
         require(
-            (msg.sender == winner && winner == commiterAddress) ||
-                msg.sender == bidderAddress,
+            winner == committerAddress && 
+            (msg.sender == winner ||
+            msg.sender == bidderAddress),
             "invalid sender"
         );
 
@@ -255,7 +255,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             decayStartTimeStamp,
             decayEndTimeStamp,
             encryptedCommitment.dispatchTimestamp,
-            commiterAddress,
+            committerAddress,
             bid,
             bHash,
             commitmentDigest,
@@ -280,12 +280,12 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
             blockNumber
         );
 
-        ++commitmentsCount[commiterAddress];
+        ++commitmentsCount[committerAddress];
 
         emit CommitmentStored(
             commitmentIndex,
             bidderAddress,
-            commiterAddress,
+            committerAddress,
             bid,
             blockNumber,
             bHash,
@@ -319,16 +319,19 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         // Check if the dispatch timestamp is within the allowed dispatch window
         require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
 
-        address commiterAddress = commitmentDigest.recover(commitmentSignature);
+        address committerAddress = commitmentDigest.recover(commitmentSignature);
 
         require(
-            commiterAddress == msg.sender,
-            "sender is not commiter"
+            committerAddress == msg.sender,
+            "sender is not committer"
         );
 
+        // Ensure the provider's balance is greater than minStake and no pending withdrawal
+        providerRegistry.isProviderValid(committerAddress);
+        
         EncrPreConfCommitment memory newCommitment = EncrPreConfCommitment(
             false,
-            commiterAddress,
+            committerAddress,
             dispatchTimestamp,
             commitmentDigest,
             commitmentSignature
@@ -340,7 +343,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
 
         emit EncryptedCommitmentStored(
             commitmentIndex,
-            commiterAddress,
+            committerAddress,
             commitmentDigest,
             commitmentSignature,
             dispatchTimestamp
@@ -357,12 +360,12 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     function initiateSlash(
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
-    ) public onlyOracle {
+    ) public onlyOracleContract {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
         require(!commitment.isUsed, "Commitment already used");
 
         commitment.isUsed = true;
-        --commitmentsCount[commitment.commiter];
+        --commitmentsCount[commitment.committer];
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,
@@ -371,7 +374,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
 
         providerRegistry.slash(
             commitment.bid,
-            commitment.commiter,
+            commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
         );
@@ -386,7 +389,7 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
     function initiateReward(
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
-    ) public onlyOracle {
+    ) public onlyOracleContract {
         PreConfCommitment storage commitment = commitments[commitmentIndex];
         require(!commitment.isUsed, "Commitment already used");
         
@@ -396,12 +399,12 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
         );
 
         commitment.isUsed = true;
-        --commitmentsCount[commitment.commiter];
+        --commitmentsCount[commitment.committer];
 
         bidderRegistry.retrieveFunds(
             windowToSettle,
             commitment.commitmentHash,
-            payable(commitment.commiter),
+            payable(commitment.committer),
             residualBidPercentAfterDecay
         );
     }
@@ -552,13 +555,13 @@ contract PreConfCommitmentStore is IPreConfCommitmentStore, Ownable2StepUpgradea
      * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
      * @param params The commitment params associated with the commitment.
      * @return preConfHash The hash of the pre-confirmation commitment.
-     * @return commiterAddress The address of the committer recovered from the commitment signature.
+     * @return committerAddress The address of the committer recovered from the commitment signature.
      */
     function verifyPreConfCommitment(
         CommitmentParams memory params
-    ) public pure returns (bytes32 preConfHash, address commiterAddress) {
+    ) public pure returns (bytes32 preConfHash, address committerAddress) {
         preConfHash = _getPreConfHash(params);
-        commiterAddress = preConfHash.recover(params.commitmentSignature);
+        committerAddress = preConfHash.recover(params.commitmentSignature);
     }
 
     /**
