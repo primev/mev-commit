@@ -49,14 +49,14 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        module: [ infrastructure/tools/keystore-generator,  p2p/integrationtest/real-bidder, p2p/integrationtest/provider, bridge/standard/bridge-v1, external/geth, oracle, p2p]
+        module: [ external/geth ]
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Setup Cache
         uses: actions/cache@v4
