@@ -22,10 +22,9 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
-	mevcommitavs "github.com/primev/mev-commit/contracts-abi/clients/MEVCommitAVS"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
-	validatorregistry "github.com/primev/mev-commit/contracts-abi/clients/ValidatorRegistryV1"
+	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
@@ -72,35 +71,35 @@ const (
 )
 
 type Options struct {
-	Version                   string
-	DataDir                   string
-	KeySigner                 keysigner.KeySigner
-	Secret                    string
-	PeerType                  string
-	Logger                    *slog.Logger
-	P2PPort                   int
-	P2PAddr                   string
-	HTTPAddr                  string
-	RPCAddr                   string
-	Bootnodes                 []string
-	PreconfContract           string
-	BlockTrackerContract      string
-	ProviderRegistryContract  string
-	BidderRegistryContract    string
-	ValidatorRegistryContract string
-	AutodepositAmount         *big.Int
-	RPCEndpoint               string
-	WSRPCEndpoint             string
-	NatAddr                   string
-	TLSCertificateFile        string
-	TLSPrivateKeyFile         string
-	ProviderWhitelist         []common.Address
-	DefaultGasLimit           uint64
-	DefaultGasTipCap          *big.Int
-	DefaultGasFeeCap          *big.Int
-	OracleWindowOffset        *big.Int
-	BeaconAPIURL              string
-	L1RPCURL                  string
+	Version                  string
+	DataDir                  string
+	KeySigner                keysigner.KeySigner
+	Secret                   string
+	PeerType                 string
+	Logger                   *slog.Logger
+	P2PPort                  int
+	P2PAddr                  string
+	HTTPAddr                 string
+	RPCAddr                  string
+	Bootnodes                []string
+	PreconfContract          string
+	BlockTrackerContract     string
+	ProviderRegistryContract string
+	BidderRegistryContract   string
+	ValidatorRouterContract  string
+	AutodepositAmount        *big.Int
+	RPCEndpoint              string
+	WSRPCEndpoint            string
+	NatAddr                  string
+	TLSCertificateFile       string
+	TLSPrivateKeyFile        string
+	ProviderWhitelist        []common.Address
+	DefaultGasLimit          uint64
+	DefaultGasTipCap         *big.Int
+	DefaultGasFeeCap         *big.Int
+	OracleWindowOffset       *big.Int
+	BeaconAPIURL             string
+	L1RPCURL                 string
 }
 
 type Node struct {
@@ -526,40 +525,24 @@ func NewNode(opts *Options) (*Node, error) {
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
-			if opts.ValidatorRegistryContract != "" {
+			if opts.ValidatorRouterContract != "" {
 				l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
 				if err != nil {
 					opts.Logger.Error("failed to connect to rpc", "error", err)
 					return nil, err
 				}
 
-				// validatorRegistryCaller, err := validatorregistry.NewValidatorregistryv1Caller(
-				// 	common.HexToAddress(opts.ValidatorRegistryContract),
-				// 	l1ContractRPC,
-				// )
-				// if err != nil {
-				// 	opts.Logger.Error("failed to instantiate validator registry contract", "error", err)
-				// 	return nil, err
-				// }
-
-				// validatorRegistrySession := &validatorregistry.Validatorregistryv1CallerSession{
-				// 	Contract: validatorRegistryCaller,
-				// 	CallOpts: bind.CallOpts{
-				// 		From: opts.KeySigner.GetAddress(),
-				// 	},
-				// }
-
-				mevCommitAVSCaller, err := mevcommitavs.NewMevcommitavsCaller(
-					common.HexToAddress(opts.ValidatorRegistryContract),
+				validatorRouterCaller, err := validatorrouter.NewValidatoroptinrouterCaller(
+					common.HexToAddress(opts.ValidatorRouterContract),
 					l1ContractRPC,
 				)
 				if err != nil {
-					opts.Logger.Error("failed to instantiate mev commit avs contract", "error", err)
+					opts.Logger.Error("failed to instantiate validator router contract", "error", err)
 					return nil, err
 				}
 
-				mevCommitAVSSession := &mevcommitavs.MevcommitavsCallerSession{
-					Contract: mevCommitAVSCaller,
+				validatorRouterSession := &validatorrouter.ValidatoroptinrouterCallerSession{
+					Contract: validatorRouterCaller,
 					CallOpts: bind.CallOpts{
 						From: opts.KeySigner.GetAddress(),
 					},
@@ -567,7 +550,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 				validatorAPI := validatorapi.NewService(
 					opts.BeaconAPIURL,
-					mevCommitAVSSession,
+					validatorRouterSession,
 					opts.Logger.With("component", "validatorapi"),
 				)
 				validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
@@ -686,7 +669,7 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.Logger.Error("failed to register bidder handler", "err", err)
 			return nil, errors.Join(err, nd.Close())
 		}
-		if opts.ValidatorRegistryContract != "" {
+		if opts.ValidatorRouterContract != "" {
 			err = validatorapiv1.RegisterValidatorHandler(handlerCtx, gatewayMux, grpcConn)
 			if err != nil {
 				opts.Logger.Error("failed to register validator handler", "err", err)
@@ -760,11 +743,11 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 	}
 	abis[common.HexToAddress(opts.BidderRegistryContract)] = &brABI
 
-	vrABI, err := abi.JSON(strings.NewReader(validatorregistry.Validatorregistryv1ABI))
+	vrABI, err := abi.JSON(strings.NewReader(validatorrouter.ValidatoroptinrouterABI))
 	if err != nil {
 		return nil, err
 	}
-	abis[common.HexToAddress(opts.ValidatorRegistryContract)] = &vrABI
+	abis[common.HexToAddress(opts.ValidatorRouterContract)] = &vrABI
 
 	return abis, nil
 }

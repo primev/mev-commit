@@ -241,13 +241,13 @@ var (
 		},
 	})
 
-	optionValidatorRegistryAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "validator-registry-contract",
-		Usage:   "address of the validator registry contract",
-		EnvVars: []string{"MEV_COMMIT_VALIDATOR_REGISTRY_ADDR"},
+	optionValidatorRouterAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "validator-router-contract",
+		Usage:   "address of the validator router contract",
+		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
-				return fmt.Errorf("invalid validator registry address: %s", s)
+				return fmt.Errorf("invalid validator router address: %s", s)
 			}
 			return nil
 		},
@@ -377,7 +377,7 @@ func main() {
 		optionProviderRegistryAddr,
 		optionPreconfStoreAddr,
 		optionBlockTrackerAddr,
-		optionValidatorRegistryAddr,
+		optionValidatorRouterAddr,
 		optionAutodepositAmount,
 		optionAutodepositEnabled,
 		optionSettlementRPCEndpoint,
@@ -529,7 +529,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		ProviderRegistryContract:  c.String(optionProviderRegistryAddr.Name),
 		BidderRegistryContract:    c.String(optionBidderRegistryAddr.Name),
 		BlockTrackerContract:      c.String(optionBlockTrackerAddr.Name),
-		ValidatorRegistryContract: c.String(optionValidatorRegistryAddr.Name),
+		ValidatorRouterContract: c.String(optionValidatorRouterAddr.Name),
 		AutodepositAmount:         autodepositAmount,
 		RPCEndpoint:               c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:             c.String(optionSettlementWSRPCEndpoint.Name),

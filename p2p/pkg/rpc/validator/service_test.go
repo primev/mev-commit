@@ -17,16 +17,19 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type MockValidatorRegistryContract struct {
+type MockValidatorRouterContract struct {
 	ExpectedCalls map[string]interface{}
 }
 
-func (m *MockValidatorRegistryContract) IsValidatorOptedIn(valBLSPubKey []byte) (bool, error) {
-	key := string(valBLSPubKey)
-	if result, ok := m.ExpectedCalls[key]; ok {
-		return result.(bool), nil
+func (m *MockValidatorRouterContract) AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]bool, error) {
+	results := make([]bool, len(valBLSPubKeys))
+	for i, key := range valBLSPubKeys {
+		if m.ExpectedCalls[string(key)] == nil {
+			return nil, errors.New("unexpected call")
+		}
+		results[i] = m.ExpectedCalls[string(key)].(bool)
 	}
-	return false, errors.New("not found")
+	return results, nil
 }
 
 func TestGetEpoch(t *testing.T) {
@@ -37,9 +40,9 @@ func TestGetEpoch(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	mockValidatorRegistry := &MockValidatorRegistryContract{}
+	mockValidatorRouter := &MockValidatorRouterContract{}
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRegistry, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
 
 	resp, err := service.GetEpoch(context.Background(), &validatorapiv1.EmptyMessage{})
 	if err != nil {
@@ -56,9 +59,9 @@ func TestGetEpoch_HTTPError(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	mockValidatorRegistry := &MockValidatorRegistryContract{}
+	mockValidatorRouter := &MockValidatorRouterContract{}
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRegistry, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
 
 	_, err := service.GetEpoch(context.Background(), &validatorapiv1.EmptyMessage{})
 	if err == nil || status.Code(err) != codes.Internal {
@@ -74,7 +77,7 @@ func TestGetValidators(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	mockValidatorRegistry := &MockValidatorRegistryContract{
+	mockValidatorRouter := &MockValidatorRouterContract{
 		ExpectedCalls: map[string]interface{}{
 			string(hexutil.MustDecode("0x1234567890abcdef")): true,
 			string(hexutil.MustDecode("0xfedcba0987654321")): false,
@@ -82,7 +85,7 @@ func TestGetValidators(t *testing.T) {
 	}
 
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRegistry, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	resp, err := service.GetValidators(context.Background(), req)
@@ -110,9 +113,9 @@ func TestGetValidators_HTTPError(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	mockValidatorRegistry := &MockValidatorRegistryContract{}
+	mockValidatorRouter := &MockValidatorRouterContract{}
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRegistry, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	_, err := service.GetValidators(context.Background(), req)
@@ -135,7 +138,7 @@ func TestGetValidators_EpochZero(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	mockValidatorRegistry := &MockValidatorRegistryContract{
+	mockValidatorRouter := &MockValidatorRouterContract{
 		ExpectedCalls: map[string]interface{}{
 			string(hexutil.MustDecode("0x1234567890abcdef")): true,
 			string(hexutil.MustDecode("0xfedcba0987654321")): false,
@@ -143,7 +146,7 @@ func TestGetValidators_EpochZero(t *testing.T) {
 	}
 
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRegistry, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 0}
 	resp, err := service.GetValidators(context.Background(), req)

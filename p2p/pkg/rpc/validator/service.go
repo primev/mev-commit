@@ -15,26 +15,26 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type ValidatorRegistryContract interface {
-	IsValidatorOptedIn(valBLSPubKey []byte) (bool, error)
+type ValidatorRouterContract interface {
+	AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]bool, error)
 }
 
 type OptsGetter func(context.Context) (*bind.CallOpts, error)
 
 type Service struct {
 	validatorapiv1.UnimplementedValidatorServer
-	apiURL            string
-	validatorRegistry ValidatorRegistryContract
-	logger            *slog.Logger
-	metrics           *metrics
+	apiURL          string
+	validatorRouter ValidatorRouterContract
+	logger          *slog.Logger
+	metrics         *metrics
 }
 
-func NewService(apiURL string, validatorRegistry ValidatorRegistryContract, logger *slog.Logger) *Service {
+func NewService(apiURL string, validatorRouter ValidatorRouterContract, logger *slog.Logger) *Service {
 	return &Service{
-		apiURL:            apiURL,
-		validatorRegistry: validatorRegistry,
-		logger:            logger,
-		metrics:           newMetrics(),
+		apiURL:          apiURL,
+		validatorRouter: validatorRouter,
+		logger:          logger,
+		metrics:         newMetrics(),
 	}
 }
 
@@ -150,7 +150,8 @@ func (s *Service) GetValidators(
 		return nil, status.Errorf(codes.Internal, "decoding response: %v", err)
 	}
 
-	validators := make(map[uint64]*validatorapiv1.SlotInfo)
+	validators := make(map[uint64]*validatorapiv1.SlotInfo, len(dutiesResp.Data))
+	validatorsKeys := make([][]byte, 0, len(dutiesResp.Data))
 	for _, duty := range dutiesResp.Data {
 		pubkeyBytes, err := hexutil.Decode(duty.Pubkey)
 		if err != nil {
@@ -158,12 +159,14 @@ func (s *Service) GetValidators(
 			continue
 		}
 
-		s.logger.Info("checking if validator is opted in", "pubkey", len(pubkeyBytes))
-		optedIn, err := s.validatorRegistry.IsValidatorOptedIn(pubkeyBytes)
-		if err != nil {
-			s.logger.Error("checking if validator is opted in", "error", err)
-			continue
-		}
+		validatorsKeys = append(validatorsKeys, pubkeyBytes)
+	}
+	areValidatorsOptedIn, err := s.validatorRouter.AreValidatorsOptedIn(validatorsKeys[:2])
+	if err != nil {
+		s.logger.Error("checking if validators are opted in", "error", err)
+		return nil, status.Errorf(codes.Internal, "checking if validators are opted in: %v", err)
+	}
+	for i, duty := range dutiesResp.Data {
 		slot, err := strconv.ParseUint(duty.Slot, 10, 64)
 		if err != nil {
 			s.logger.Error("parsing slot number", "error", err)
@@ -171,7 +174,7 @@ func (s *Service) GetValidators(
 		}
 		validators[slot] = &validatorapiv1.SlotInfo{
 			BLSKey:   duty.Pubkey,
-			IsActive: optedIn,
+			IsActive: areValidatorsOptedIn[i],
 		}
 	}
 
