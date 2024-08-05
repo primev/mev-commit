@@ -302,7 +302,7 @@ func (p *Preconfirmation) handleBid(
 	case st := <-statusC:
 		switch st.Status {
 		case providerapiv1.BidResponse_STATUS_REJECTED:
-			return status.Errorf(codes.Internal, "bid rejected")
+			return nil
 		case providerapiv1.BidResponse_STATUS_ACCEPTED:
 			constructStartTime := time.Now()
 			preConfirmation, encryptedPreConfirmation, err := p.encryptor.ConstructEncryptedPreConfirmation(bid)
