@@ -151,7 +151,6 @@ func (p *Preconfirmation) SendBid(
 		wg.Add(1)
 		go func(provider p2p.Peer) {
 			defer wg.Done()
-
 			logger := p.logger.With("provider", provider, "bid", txHash)
 
 			providerStream, err := p.streamer.NewStream(
@@ -173,6 +172,7 @@ func (p *Preconfirmation) SendBid(
 			}
 			p.metrics.SentBidsCount.Inc()
 
+			writeToReadStartTime := time.Now()
 			encryptedPreConfirmation := new(preconfpb.EncryptedPreConfirmation)
 			err = providerStream.ReadMsg(ctx, encryptedPreConfirmation)
 			if err != nil {
@@ -180,6 +180,7 @@ func (p *Preconfirmation) SendBid(
 				logger.Error("reading message", "error", err)
 				return
 			}
+			writeToReadDuration := time.Since(writeToReadStartTime).Seconds()
 
 			_ = providerStream.Close()
 
@@ -197,6 +198,9 @@ func (p *Preconfirmation) SendBid(
 			}
 			verifyDuration := time.Since(verifyStartTime).Seconds()
 			p.metrics.VerifyPreconfDurationSummary.Observe(verifyDuration)
+
+			wireLatency := time.Since(time.Unix(0, encryptedPreConfirmation.DispatchTimestamp)).Seconds()
+			logger.Info("successfully received preconf", "provider", providerAddress, "bid", txHash, "totalDuration", writeToReadDuration, "wireLatency", wireLatency)
 
 			preConfirmation := &preconfpb.PreConfirmation{
 				Bid:               bid,

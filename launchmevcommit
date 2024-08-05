@@ -2,7 +2,7 @@
 
 # Default binary path and root path for mev-commit.
 ROOT_PATH="${HOME}/.mev-commit"
-BINARY_PATH="${ROOT_PATH}/mev-commit"
+BINARY_PATH="./p2p/bin/mev-commit"
 
 # Default mev-commit configuration values.
 NODE_TYPE="bidder"
@@ -11,14 +11,6 @@ RPC_URL="wss://chainrpc-wss.${DOMAIN}"
 FAUCET_URL="https://faucet.${DOMAIN}"
 BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
 CONTRACTS_URL="https://contracts.${DOMAIN}"
-
-# Default mev-commit binary download values.
-ARTIFACTS_URL="https://github.com/primev/mev-commit/releases/latest/download/"
-VERSION="__VERSION__"
-if [ "${VERSION}" == "__VERSION__" ]; then
-  TAG="$(curl -sIL -o /dev/null -w %{url_effective} https://github.com/primev/mev-commit/releases/latest | sed 's:.*/::')"
-  VERSION="${TAG:1}"
-fi
 
 # Rewrites the default values if the target machine IP is provided.
 # This is useful when running the script in dev environments.
@@ -81,49 +73,6 @@ check_utils() {
   if [ ${#missing_utils[@]} -ne 0 ]; then
     log_error "The following utilities are required and not installed: ${missing_utils[*]}"
     exit 1
-  fi
-}
-
-# Downloads and installs the mev-commit binary.
-install_mev_commit() {
-  local file="mev-commit_${VERSION}_"
-  case "$(uname -s):$(uname -m)" in
-    Linux:x86_64)
-      file+="Linux_x86_64.tar.gz"
-      ;;
-    Linux:arm64)
-      file+="Linux_arm64.tar.gz"
-      ;;
-    Darwin:x86_64)
-      file+="Darwin_x86_64.tar.gz"
-      ;;
-    Darwin:arm64)
-      file+="Darwin_arm64.tar.gz"
-      ;;
-    WindowsNT:x86_64)
-      file+="Windows_x86_64.zip"
-      ;;
-    *)
-      log_error "Unsupported system ($(uname -a))"
-      exit 1
-      ;;
-  esac
-
-  if [ ! -f "${ROOT_PATH}/${file}" ]; then
-    log_info "Installing mev-commit..."
-    http_status=$(curl -sL -w "%{http_code}" "${ARTIFACTS_URL}/${file}" -o "${ROOT_PATH}/${file}")
-    if [ "${http_status}" -ne 200 ]; then
-      log_error "Failed to download file from ${ARTIFACTS_URL}/${file}, status code: ${http_status}"
-      rm -f "${ROOT_PATH}/${file}"
-      exit 1
-    fi
-    tar -xzf "${ROOT_PATH}/${file}" -C "${ROOT_PATH}"
-    if [ $? -ne 0 ]; then
-      log_error "Failed to extract mev-commit binary"
-      exit 1
-    fi
-  else
-    log_info "Binary is already installed"
   fi
 }
 
@@ -218,7 +167,6 @@ main() {
 
   check_utils
   parse_args "$@"
-  install_mev_commit
 
   if [ ! -x "$(command -v forge)" ] && [ ! -d "${HOME}/.foundry/bin" ]; then
     log_info "Installing foundry..."
