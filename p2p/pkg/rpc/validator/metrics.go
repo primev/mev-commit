@@ -8,8 +8,8 @@ const (
 )
 
 type metrics struct {
-	FetchedEpochDataCount   prometheus.Counter
-	FetchedValidatorsCount  prometheus.Counter
+	FetchedEpochDataCount  prometheus.Counter
+	FetchedValidatorsCount prometheus.Counter
 }
 
 func newMetrics() *metrics {
