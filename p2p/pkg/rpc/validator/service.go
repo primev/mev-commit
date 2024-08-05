@@ -161,7 +161,7 @@ func (s *Service) GetValidators(
 
 		validatorsKeys = append(validatorsKeys, pubkeyBytes)
 	}
-	areValidatorsOptedIn, err := s.validatorRouter.AreValidatorsOptedIn(validatorsKeys[:2])
+	areValidatorsOptedIn, err := s.validatorRouter.AreValidatorsOptedIn(validatorsKeys)
 	if err != nil {
 		s.logger.Error("checking if validators are opted in", "error", err)
 		return nil, status.Errorf(codes.Internal, "checking if validators are opted in: %v", err)
