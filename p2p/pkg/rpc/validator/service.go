@@ -88,9 +88,20 @@ func (s *Service) GetEpoch(
 		return nil, status.Errorf(codes.Internal, "decoding response: %v", err)
 	}
 
-	currentEpoch := parseEpoch(checkpointsResp.Data.CurrentJustified.Epoch)
-	previousJustifiedEpoch := parseEpoch(checkpointsResp.Data.PreviousJustified.Epoch)
-	finalizedEpoch := parseEpoch(checkpointsResp.Data.Finalized.Epoch)
+	currentEpoch, err := strconv.ParseUint(checkpointsResp.Data.CurrentJustified.Epoch, 10, 64)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "parsing current justified epoch: %v", err)
+	}
+
+	previousJustifiedEpoch, err := strconv.ParseUint(checkpointsResp.Data.PreviousJustified.Epoch, 10, 64)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "parsing previous justified epoch: %v", err)
+	}
+
+	finalizedEpoch, err := strconv.ParseUint(checkpointsResp.Data.Finalized.Epoch, 10, 64)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "parsing finalized epoch: %v", err)
+	}
 
 	s.logger.Info("fetched epoch data", "current_epoch", currentEpoch, "current_justified_epoch", currentEpoch, "previous_justified_epoch", previousJustifiedEpoch, "finalized_epoch", finalizedEpoch)
 	s.metrics.FetchedEpochDataCount.Inc()
@@ -101,12 +112,6 @@ func (s *Service) GetEpoch(
 		PreviousJustifiedEpoch: previousJustifiedEpoch,
 		FinalizedEpoch:         finalizedEpoch,
 	}, nil
-}
-
-func parseEpoch(epochStr string) uint64 {
-	var epoch uint64
-	fmt.Sscanf(epochStr, "%d", &epoch)
-	return epoch
 }
 
 func (s *Service) GetValidators(
