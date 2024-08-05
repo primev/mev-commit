@@ -103,7 +103,7 @@ func (e *evmHelper) TraceTransaction(ctx context.Context, txHash common.Hash) (*
 
 // BatchReceipts retrieves multiple receipts for a list of transaction hashes.
 func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]Result, error) {
-	e.logger.Info("Starting BatchReceipts", "txHashes", txHashes)
+	e.logger.Debug("Starting BatchReceipts", "txHashes", txHashes)
 	batch := make([]rpc.BatchElem, len(txHashes))
 
 	for i, hash := range txHashes {
@@ -118,14 +118,14 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 	var receipts []Result
 	var err error
 	for attempts := 0; attempts < 50; attempts++ {
-		e.logger.Info("Attempting batch call", "attempt", attempts+1)
+		e.logger.Debug("Attempting batch call", "attempt", attempts+1)
 		// Execute the batch request
 		err = e.client.BatchCallContext(context.Background(), batch)
 		if err != nil {
 			e.logger.Error("Batch call attempt failed", "attempt", attempts+1, "error", err)
 			time.Sleep(1 * time.Second)
 		} else {
-			e.logger.Info("Batch call attempt succeeded", "attempt", attempts+1)
+			e.logger.Debug("Batch call attempt succeeded", "attempt", attempts+1)
 			break
 		}
 	}
@@ -162,6 +162,6 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 		}
 	}
 
-	e.logger.Info("BatchReceipts completed successfully", "receipts", receipts)
+	e.logger.Debug("BatchReceipts completed successfully", "receipts", receipts)
 	return receipts, nil
 }
