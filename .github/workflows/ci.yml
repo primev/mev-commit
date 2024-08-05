@@ -119,6 +119,8 @@ jobs:
         with:
           version: v1.59
           args: --timeout 15m --verbose ${{ env.GO_LINT_MODULES }}
+        env:
+          GOWORK: off
 
       - name: Run Build
         run: echo ${GO_MODULES} | tr ' ' '\n' | xargs -I {} sh -c 'go build -C {} -v ./...'
