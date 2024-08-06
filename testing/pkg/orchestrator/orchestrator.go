@@ -34,6 +34,8 @@ type Orchestrator interface {
 	Events() events.EventManager
 	Logger() *slog.Logger
 
+	L1RPC() *ethclient.Client
+
 	io.Closer
 }
 
@@ -61,6 +63,7 @@ type Bootnode interface {
 }
 
 type Options struct {
+	L1RPCEndpoint               string
 	SettlementRPCEndpoint       string
 	ProviderRegistryAddress     common.Address
 	BlockTrackerContractAddress common.Address
@@ -155,6 +158,7 @@ type orchestrator struct {
 	bidders   []Bidder
 	bootnodes []Bootnode
 
+	l1RPC      *ethclient.Client
 	evtMgr     events.EventManager
 	logger     *slog.Logger
 	pubCancel  context.CancelFunc
@@ -171,6 +175,10 @@ func (o *orchestrator) Bidders() []Bidder {
 
 func (o *orchestrator) Bootnodes() []Bootnode {
 	return o.bootnodes
+}
+
+func (o *orchestrator) L1RPC() *ethclient.Client {
+	return o.l1RPC
 }
 
 func (o *orchestrator) Events() events.EventManager {
@@ -263,6 +271,11 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 		evtMgr,
 	)
 
+	l1RPC, err := ethclient.Dial(opts.L1RPCEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := evtPublisher.Start(ctx, contractAddrs...)
 
@@ -270,6 +283,7 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 		providers:  providers,
 		bidders:    bidders,
 		bootnodes:  bootnodes,
+		l1RPC:      l1RPC,
 		evtMgr:     evtMgr,
 		logger:     opts.Logger,
 		pubCancel:  cancel,

@@ -17,10 +17,17 @@ import (
 
 var (
 	optionSettlementRPCEndpoint = &cli.StringFlag{
-		Name:    "settlement-rpc-endpoint",
-		Usage:   "Settlement RPC endpoint",
-		Value:   "http://localhost:8545",
-		EnvVars: []string{"MEV_COMMIT_TEST_SETTLEMENT_RPC_ENDPOINT"},
+		Name:     "settlement-rpc-endpoint",
+		Usage:    "Settlement RPC endpoint",
+		Required: true,
+		EnvVars:  []string{"MEV_COMMIT_TEST_SETTLEMENT_RPC_ENDPOINT"},
+	}
+
+	optionL1RPCEndpoint = &cli.StringFlag{
+		Name:     "l1-rpc-endpoint",
+		Usage:    "L1 RPC endpoint",
+		Required: true,
+		EnvVars:  []string{"MEV_COMMIT_TEST_L1_RPC_ENDPOINT"},
 	}
 
 	optionProviderRegistryAddress = &cli.StringFlag{
@@ -76,6 +83,9 @@ var (
 		Usage:   "Bootnode RPC addresses",
 		EnvVars: []string{"MEV_COMMIT_TEST_BOOTNODE_RPC_ADDRESSES"},
 		Action: func(c *cli.Context, addresses []string) error {
+			if len(addresses) == 0 {
+				return fmt.Errorf("at least one bootnode RPC address is required")
+			}
 			for _, address := range addresses {
 				if _, _, err := net.SplitHostPort(address); err != nil {
 					return fmt.Errorf("invalid bootnode RPC address")
@@ -90,6 +100,9 @@ var (
 		Usage:   "Provider RPC addresses",
 		EnvVars: []string{"MEV_COMMIT_TEST_PROVIDER_RPC_ADDRESSES"},
 		Action: func(c *cli.Context, addresses []string) error {
+			if len(addresses) == 0 {
+				return fmt.Errorf("at least one provider RPC address is required")
+			}
 			for _, address := range addresses {
 				if _, _, err := net.SplitHostPort(address); err != nil {
 					return fmt.Errorf("invalid provider RPC address")
@@ -104,6 +117,9 @@ var (
 		Usage:   "Bidder RPC addresses",
 		EnvVars: []string{"MEV_COMMIT_TEST_BIDDER_RPC_ADDRESSES"},
 		Action: func(c *cli.Context, addresses []string) error {
+			if len(addresses) == 0 {
+				return fmt.Errorf("at least one bidder RPC address is required")
+			}
 			for _, address := range addresses {
 				if _, _, err := net.SplitHostPort(address); err != nil {
 					return fmt.Errorf("invalid bidder RPC address")
@@ -160,6 +176,7 @@ func main() {
 		Usage: "MEV commit test",
 		Flags: []cli.Flag{
 			optionSettlementRPCEndpoint,
+			optionL1RPCEndpoint,
 			optionProviderRegistryAddress,
 			optionBidderRegistryAddress,
 			optionPreconfContractAddress,
@@ -182,24 +199,6 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	settlementRPCEndpoint := c.String(optionSettlementRPCEndpoint.Name)
-	providerRegistryAddress := c.String(optionProviderRegistryAddress.Name)
-	bidderRegistryAddress := c.String(optionBidderRegistryAddress.Name)
-	preconfContractAddress := c.String(optionPreconfContractAddress.Name)
-	blocktrackerContractAddress := c.String(optionBlocktrackerContractAddress.Name)
-	bootnodeRPCAddresses := c.StringSlice(optionBootnodeRPCAddresses.Name)
-	providerRPCAddresses := c.StringSlice(optionProviderRPCAddresses.Name)
-	bidderRPCAddresses := c.StringSlice(optionBidderRPCAddresses.Name)
-
-	fmt.Println("Settlement RPC endpoint:", settlementRPCEndpoint)
-	fmt.Println("Provider registry address:", providerRegistryAddress)
-	fmt.Println("Bidder registry address:", bidderRegistryAddress)
-	fmt.Println("Preconfirmation contract address:", preconfContractAddress)
-	fmt.Println("Blocktracker contract address:", blocktrackerContractAddress)
-	fmt.Println("Bootnode RPC addresses:", bootnodeRPCAddresses)
-	fmt.Println("Provider RPC addresses:", providerRPCAddresses)
-	fmt.Println("Bidder RPC addresses:", bidderRPCAddresses)
-
 	logger, err := util.NewLogger(
 		c.String(optionLogLevel.Name),
 		c.String(optionLogFmt.Name),
@@ -210,17 +209,22 @@ func run(c *cli.Context) error {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
-	o, err := orchestrator.NewOrchestrator(orchestrator.Options{
-		SettlementRPCEndpoint:       settlementRPCEndpoint,
-		ProviderRegistryAddress:     common.HexToAddress(providerRegistryAddress),
-		BidderRegistryAddress:       common.HexToAddress(bidderRegistryAddress),
-		PreconfContractAddress:      common.HexToAddress(preconfContractAddress),
-		BlockTrackerContractAddress: common.HexToAddress(blocktrackerContractAddress),
-		BootnodeRPCAddresses:        bootnodeRPCAddresses,
-		ProviderRPCAddresses:        providerRPCAddresses,
-		BidderRPCAddresses:          bidderRPCAddresses,
+	opts := orchestrator.Options{
+		SettlementRPCEndpoint:       c.String(optionSettlementRPCEndpoint.Name),
+		L1RPCEndpoint:               c.String(optionL1RPCEndpoint.Name),
+		ProviderRegistryAddress:     common.HexToAddress(c.String(optionProviderRegistryAddress.Name)),
+		BidderRegistryAddress:       common.HexToAddress(c.String(optionBidderRegistryAddress.Name)),
+		PreconfContractAddress:      common.HexToAddress(c.String(optionPreconfContractAddress.Name)),
+		BlockTrackerContractAddress: common.HexToAddress(c.String(optionBlocktrackerContractAddress.Name)),
+		BootnodeRPCAddresses:        c.StringSlice(optionBootnodeRPCAddresses.Name),
+		ProviderRPCAddresses:        c.StringSlice(optionProviderRPCAddresses.Name),
+		BidderRPCAddresses:          c.StringSlice(optionBidderRPCAddresses.Name),
 		Logger:                      logger,
-	})
+	}
+
+	logger.Info("running with options", "options", opts)
+
+	o, err := orchestrator.NewOrchestrator(opts)
 
 	if err != nil {
 		return err
