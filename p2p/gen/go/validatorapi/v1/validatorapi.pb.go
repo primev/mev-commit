@@ -23,44 +23,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type EmptyMessage struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *EmptyMessage) Reset() {
-	*x = EmptyMessage{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[0]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *EmptyMessage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EmptyMessage) ProtoMessage() {}
-
-func (x *EmptyMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[0]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EmptyMessage.ProtoReflect.Descriptor instead.
-func (*EmptyMessage) Descriptor() ([]byte, []int) {
-	return file_validatorapi_v1_validatorapi_proto_rawDescGZIP(), []int{0}
-}
-
 type GetValidatorsRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -72,7 +34,7 @@ type GetValidatorsRequest struct {
 func (x *GetValidatorsRequest) Reset() {
 	*x = GetValidatorsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[1]
+		mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -85,7 +47,7 @@ func (x *GetValidatorsRequest) String() string {
 func (*GetValidatorsRequest) ProtoMessage() {}
 
 func (x *GetValidatorsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[1]
+	mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -98,7 +60,7 @@ func (x *GetValidatorsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetValidatorsRequest.ProtoReflect.Descriptor instead.
 func (*GetValidatorsRequest) Descriptor() ([]byte, []int) {
-	return file_validatorapi_v1_validatorapi_proto_rawDescGZIP(), []int{1}
+	return file_validatorapi_v1_validatorapi_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetValidatorsRequest) GetEpoch() uint64 {
@@ -120,7 +82,7 @@ type SlotInfo struct {
 func (x *SlotInfo) Reset() {
 	*x = SlotInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[2]
+		mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -133,7 +95,7 @@ func (x *SlotInfo) String() string {
 func (*SlotInfo) ProtoMessage() {}
 
 func (x *SlotInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[2]
+	mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -146,7 +108,7 @@ func (x *SlotInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SlotInfo.ProtoReflect.Descriptor instead.
 func (*SlotInfo) Descriptor() ([]byte, []int) {
-	return file_validatorapi_v1_validatorapi_proto_rawDescGZIP(), []int{2}
+	return file_validatorapi_v1_validatorapi_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SlotInfo) GetBLSKey() string {
@@ -174,7 +136,7 @@ type GetValidatorsResponse struct {
 func (x *GetValidatorsResponse) Reset() {
 	*x = GetValidatorsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[3]
+		mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -187,7 +149,7 @@ func (x *GetValidatorsResponse) String() string {
 func (*GetValidatorsResponse) ProtoMessage() {}
 
 func (x *GetValidatorsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[3]
+	mi := &file_validatorapi_v1_validatorapi_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -200,7 +162,7 @@ func (x *GetValidatorsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetValidatorsResponse.ProtoReflect.Descriptor instead.
 func (*GetValidatorsResponse) Descriptor() ([]byte, []int) {
-	return file_validatorapi_v1_validatorapi_proto_rawDescGZIP(), []int{3}
+	return file_validatorapi_v1_validatorapi_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetValidatorsResponse) GetItems() map[uint64]*SlotInfo {
@@ -223,7 +185,6 @@ var file_validatorapi_v1_validatorapi_proto_rawDesc = []byte{
 	0x69, 0x2f, 0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x2e, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x1a, 0x1b, 0x62, 0x75, 0x66, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74,
 	0x65, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x22, 0x0e, 0x0a, 0x0c, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
 	0x22, 0x64, 0x0a, 0x14, 0x47, 0x65, 0x74, 0x56, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x6f, 0x72,
 	0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x65, 0x70, 0x6f, 0x63,
 	0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x65, 0x70, 0x6f, 0x63, 0x68, 0x3a, 0x36,
@@ -291,19 +252,18 @@ func file_validatorapi_v1_validatorapi_proto_rawDescGZIP() []byte {
 	return file_validatorapi_v1_validatorapi_proto_rawDescData
 }
 
-var file_validatorapi_v1_validatorapi_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_validatorapi_v1_validatorapi_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_validatorapi_v1_validatorapi_proto_goTypes = []interface{}{
-	(*EmptyMessage)(nil),          // 0: validatorapi.v1.EmptyMessage
-	(*GetValidatorsRequest)(nil),  // 1: validatorapi.v1.GetValidatorsRequest
-	(*SlotInfo)(nil),              // 2: validatorapi.v1.SlotInfo
-	(*GetValidatorsResponse)(nil), // 3: validatorapi.v1.GetValidatorsResponse
-	nil,                           // 4: validatorapi.v1.GetValidatorsResponse.ItemsEntry
+	(*GetValidatorsRequest)(nil),  // 0: validatorapi.v1.GetValidatorsRequest
+	(*SlotInfo)(nil),              // 1: validatorapi.v1.SlotInfo
+	(*GetValidatorsResponse)(nil), // 2: validatorapi.v1.GetValidatorsResponse
+	nil,                           // 3: validatorapi.v1.GetValidatorsResponse.ItemsEntry
 }
 var file_validatorapi_v1_validatorapi_proto_depIdxs = []int32{
-	4, // 0: validatorapi.v1.GetValidatorsResponse.items:type_name -> validatorapi.v1.GetValidatorsResponse.ItemsEntry
-	2, // 1: validatorapi.v1.GetValidatorsResponse.ItemsEntry.value:type_name -> validatorapi.v1.SlotInfo
-	1, // 2: validatorapi.v1.Validator.GetValidators:input_type -> validatorapi.v1.GetValidatorsRequest
-	3, // 3: validatorapi.v1.Validator.GetValidators:output_type -> validatorapi.v1.GetValidatorsResponse
+	3, // 0: validatorapi.v1.GetValidatorsResponse.items:type_name -> validatorapi.v1.GetValidatorsResponse.ItemsEntry
+	1, // 1: validatorapi.v1.GetValidatorsResponse.ItemsEntry.value:type_name -> validatorapi.v1.SlotInfo
+	0, // 2: validatorapi.v1.Validator.GetValidators:input_type -> validatorapi.v1.GetValidatorsRequest
+	2, // 3: validatorapi.v1.Validator.GetValidators:output_type -> validatorapi.v1.GetValidatorsResponse
 	3, // [3:4] is the sub-list for method output_type
 	2, // [2:3] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
@@ -318,18 +278,6 @@ func file_validatorapi_v1_validatorapi_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_validatorapi_v1_validatorapi_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EmptyMessage); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_validatorapi_v1_validatorapi_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetValidatorsRequest); i {
 			case 0:
 				return &v.state
@@ -341,7 +289,7 @@ func file_validatorapi_v1_validatorapi_proto_init() {
 				return nil
 			}
 		}
-		file_validatorapi_v1_validatorapi_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_validatorapi_v1_validatorapi_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SlotInfo); i {
 			case 0:
 				return &v.state
@@ -353,7 +301,7 @@ func file_validatorapi_v1_validatorapi_proto_init() {
 				return nil
 			}
 		}
-		file_validatorapi_v1_validatorapi_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+		file_validatorapi_v1_validatorapi_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*GetValidatorsResponse); i {
 			case 0:
 				return &v.state
@@ -372,7 +320,7 @@ func file_validatorapi_v1_validatorapi_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_validatorapi_v1_validatorapi_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
