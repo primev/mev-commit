@@ -36,9 +36,6 @@ const (
 	defaultDataDir   = "db"
 
 	defaultOracleWindowOffset = 1
-
-	defaultBeaconAPIURL = "http://52.11.201.67:3500"
-	defaultL1RPCURL     = "https://eth-holesky.g.alchemy.com/v2/grGIfM5eDQdGW6TugpTo7RrHZsxeAVrr"
 )
 
 var (
@@ -343,14 +340,12 @@ var (
 		Name:    "beacon-api-url",
 		Usage:   "URL of the beacon chain API",
 		EnvVars: []string{"MEV_COMMIT_BEACON_API_URL"},
-		Value:   defaultBeaconAPIURL,
 	})
 
 	optionL1RPCURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "l1-rpc-url",
 		Usage:   "URL for L1 RPC",
 		EnvVars: []string{"MEV_COMMIT_L1_RPC_URL"},
-		Value:   defaultL1RPCURL,
 	})
 )
 
