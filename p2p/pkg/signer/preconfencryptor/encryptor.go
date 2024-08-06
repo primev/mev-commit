@@ -32,7 +32,7 @@ var (
 )
 
 type Encryptor interface {
-	ConstructEncryptedBid(string, string, int64, int64, int64, string) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error)
+	ConstructEncryptedBid(string, string, int64, int64, int64, string, string) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error)
 	ConstructEncryptedPreConfirmation(*preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error)
 	VerifyBid(*preconfpb.Bid) (*common.Address, error)
 	VerifyEncryptedPreConfirmation(providerNikePK *ecdh.PublicKey, bidderNikeSC *ecdh.PrivateKey, bidHash []byte, c *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error)
@@ -86,6 +86,7 @@ func (e *encryptor) ConstructEncryptedBid(
 	decayStartTimeStamp int64,
 	decayEndTimeStamp int64,
 	revertingTxHashes string,
+	serializedTxns string,
 ) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
 	if txHash == "" || bidAmt == "" || blockNumber == 0 {
 		return nil, nil, nil, ErrMissingRequiredFields
@@ -98,6 +99,7 @@ func (e *encryptor) ConstructEncryptedBid(
 		DecayStartTimestamp: decayStartTimeStamp,
 		DecayEndTimestamp:   decayEndTimeStamp,
 		RevertingTxHashes:   revertingTxHashes,
+		SerializedTxns:      serializedTxns,
 	}
 
 	bidHash, err := GetBidHash(bid)

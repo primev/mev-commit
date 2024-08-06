@@ -45,7 +45,7 @@ type testEncryptor struct {
 	preConfirmationSigner    common.Address
 }
 
-func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64, _ string) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
+func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64, _ string, _ string) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
 	return t.bid, t.encryptedBid, t.nikePrivateKey, nil
 }
 

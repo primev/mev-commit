@@ -320,6 +320,7 @@ func sendBid(
 		BlockNumber:         int64(blkNum) + 5,
 		DecayStartTimestamp: time.Now().UnixMilli() - (time.Duration(8 * time.Second).Milliseconds()),
 		DecayEndTimestamp:   time.Now().UnixMilli() + (time.Duration(8 * time.Second).Milliseconds()),
+		SerializedTxns:      []string{"Kartik", "is", "a", "cool", "boy"},
 	}
 
 	logger.Info("sending bid", "bid", bid)
