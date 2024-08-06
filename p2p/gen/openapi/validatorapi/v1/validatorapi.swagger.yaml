@@ -10,20 +10,6 @@ consumes:
 produces:
   - application/json
 paths:
-  /v1/validator/get_epoch:
-    get:
-      summary: GetEpoch
-      description: GetEpoch is called by the bidder to get the current epoch, the current justified epoch, the previous justified epoch, and the finalized epoch.
-      operationId: Validator_GetEpoch
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1EpochResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
   /v1/validator/get_validators:
     get:
       summary: GetValidators
@@ -64,28 +50,6 @@ definitions:
       '@type':
         type: string
     additionalProperties: {}
-  v1EpochResponse:
-    type: object
-    example:
-      current_epoch: 5
-      current_justified_epoch: 4
-      finalized_epoch: 4
-      previous_justified_epoch: 3
-    properties:
-      currentEpoch:
-        type: string
-        format: uint64
-      currentJustifiedEpoch:
-        type: string
-        format: uint64
-      previousJustifiedEpoch:
-        type: string
-        format: uint64
-      finalizedEpoch:
-        type: string
-        format: uint64
-    description: Response for GetCurrentEpoch
-    title: EpochResponse
   v1GetValidatorsResponse:
     type: object
     properties:
@@ -98,5 +62,5 @@ definitions:
     properties:
       BLSKey:
         type: string
-      isActive:
+      isOptedIn:
         type: boolean

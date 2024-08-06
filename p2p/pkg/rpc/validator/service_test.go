@@ -32,43 +32,6 @@ func (m *MockValidatorRouterContract) AreValidatorsOptedIn(valBLSPubKeys [][]byt
 	return results, nil
 }
 
-func TestGetEpoch(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"data":{"previous_justified":{"epoch":"100"},"current_justified":{"epoch":"101"},"finalized":{"epoch":"100"}}}`)
-	}))
-	defer mockServer.Close()
-
-	mockValidatorRouter := &MockValidatorRouterContract{}
-	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
-
-	resp, err := service.GetEpoch(context.Background(), &validatorapiv1.EmptyMessage{})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if resp.CurrentEpoch != 102 || resp.CurrentJustifiedEpoch != 101 || resp.PreviousJustifiedEpoch != 100 || resp.FinalizedEpoch != 100 {
-		t.Fatalf("unexpected epoch response: %v", resp)
-	}
-}
-
-func TestGetEpoch_HTTPError(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer mockServer.Close()
-
-	mockValidatorRouter := &MockValidatorRouterContract{}
-	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
-
-	_, err := service.GetEpoch(context.Background(), &validatorapiv1.EmptyMessage{})
-	if err == nil || status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error, got %v", err)
-	}
-}
-
 func TestGetValidators(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -97,12 +60,12 @@ func TestGetValidators(t *testing.T) {
 	}
 
 	slot1 := resp.Items[1]
-	if slot1 == nil || slot1.BLSKey != "0x1234567890abcdef" || !slot1.IsActive {
+	if slot1 == nil || slot1.BLSKey != "0x1234567890abcdef" || !slot1.IsOptedIn {
 		t.Fatalf("unexpected slot1: %v", slot1)
 	}
 
 	slot2 := resp.Items[2]
-	if slot2 == nil || slot2.BLSKey != "0xfedcba0987654321" || slot2.IsActive {
+	if slot2 == nil || slot2.BLSKey != "0xfedcba0987654321" || slot2.IsOptedIn {
 		t.Fatalf("unexpected slot2: %v", slot2)
 	}
 }
@@ -158,12 +121,12 @@ func TestGetValidators_EpochZero(t *testing.T) {
 	}
 
 	slot1 := resp.Items[1]
-	if slot1 == nil || slot1.BLSKey != "0x1234567890abcdef" || !slot1.IsActive {
+	if slot1 == nil || slot1.BLSKey != "0x1234567890abcdef" || !slot1.IsOptedIn {
 		t.Fatalf("unexpected slot1: %v", slot1)
 	}
 
 	slot2 := resp.Items[2]
-	if slot2 == nil || slot2.BLSKey != "0xfedcba0987654321" || slot2.IsActive {
+	if slot2 == nil || slot2.BLSKey != "0xfedcba0987654321" || slot2.IsOptedIn {
 		t.Fatalf("unexpected slot2: %v", slot2)
 	}
 }

@@ -19,7 +19,6 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Validator_GetEpoch_FullMethodName      = "/validatorapi.v1.Validator/GetEpoch"
 	Validator_GetValidators_FullMethodName = "/validatorapi.v1.Validator/GetValidators"
 )
 
@@ -27,10 +26,6 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ValidatorClient interface {
-	// GetEpoch
-	//
-	// GetEpoch is called by the bidder to get the current epoch, the current justified epoch, the previous justified epoch, and the finalized epoch.
-	GetEpoch(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*EpochResponse, error)
 	// GetValidators
 	//
 	// GetValidators is called by the bidder to get the validators for a given epoch.
@@ -43,16 +38,6 @@ type validatorClient struct {
 
 func NewValidatorClient(cc grpc.ClientConnInterface) ValidatorClient {
 	return &validatorClient{cc}
-}
-
-func (c *validatorClient) GetEpoch(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*EpochResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(EpochResponse)
-	err := c.cc.Invoke(ctx, Validator_GetEpoch_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *validatorClient) GetValidators(ctx context.Context, in *GetValidatorsRequest, opts ...grpc.CallOption) (*GetValidatorsResponse, error) {
@@ -69,10 +54,6 @@ func (c *validatorClient) GetValidators(ctx context.Context, in *GetValidatorsRe
 // All implementations must embed UnimplementedValidatorServer
 // for forward compatibility.
 type ValidatorServer interface {
-	// GetEpoch
-	//
-	// GetEpoch is called by the bidder to get the current epoch, the current justified epoch, the previous justified epoch, and the finalized epoch.
-	GetEpoch(context.Context, *EmptyMessage) (*EpochResponse, error)
 	// GetValidators
 	//
 	// GetValidators is called by the bidder to get the validators for a given epoch.
@@ -87,9 +68,6 @@ type ValidatorServer interface {
 // pointer dereference when methods are called.
 type UnimplementedValidatorServer struct{}
 
-func (UnimplementedValidatorServer) GetEpoch(context.Context, *EmptyMessage) (*EpochResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetEpoch not implemented")
-}
 func (UnimplementedValidatorServer) GetValidators(context.Context, *GetValidatorsRequest) (*GetValidatorsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetValidators not implemented")
 }
@@ -112,24 +90,6 @@ func RegisterValidatorServer(s grpc.ServiceRegistrar, srv ValidatorServer) {
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&Validator_ServiceDesc, srv)
-}
-
-func _Validator_GetEpoch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EmptyMessage)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ValidatorServer).GetEpoch(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Validator_GetEpoch_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ValidatorServer).GetEpoch(ctx, req.(*EmptyMessage))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Validator_GetValidators_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -157,10 +117,6 @@ var Validator_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "validatorapi.v1.Validator",
 	HandlerType: (*ValidatorServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "GetEpoch",
-			Handler:    _Validator_GetEpoch_Handler,
-		},
 		{
 			MethodName: "GetValidators",
 			Handler:    _Validator_GetValidators_Handler,

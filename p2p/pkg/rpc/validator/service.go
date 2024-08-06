@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"google.golang.org/grpc/codes"
@@ -18,8 +17,6 @@ import (
 type ValidatorRouterContract interface {
 	AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]bool, error)
 }
-
-type OptsGetter func(context.Context) (*bind.CallOpts, error)
 
 type Service struct {
 	validatorapiv1.UnimplementedValidatorServer
@@ -59,76 +56,72 @@ type ProposerDutiesResponse struct {
 	} `json:"data"`
 }
 
-func (s *Service) GetEpoch(
+func (s *Service) GetValidators(
 	ctx context.Context,
-	_ *validatorapiv1.EmptyMessage,
-) (*validatorapiv1.EpochResponse, error) {
+	req *validatorapiv1.GetValidatorsRequest,
+) (*validatorapiv1.GetValidatorsResponse, error) {
+	currentEpoch, err := s.fetchCurrentEpoch(ctx, req.Epoch)
+	if err != nil {
+		return nil, err
+	}
+
+	dutiesResp, err := s.fetchProposerDuties(ctx, currentEpoch)
+	if err != nil {
+		return nil, err
+	}
+
+	validators, err := s.processValidators(dutiesResp)
+	if err != nil {
+		return nil, err
+	}
+
+	s.logger.Info("fetched validators for epoch", "current_epoch", currentEpoch, "validators", validators)
+	s.metrics.FetchedValidatorsCount.Inc()
+
+	return &validatorapiv1.GetValidatorsResponse{
+		Items: validators,
+	}, nil
+}
+
+func (s *Service) fetchCurrentEpoch(ctx context.Context, epoch uint64) (uint64, error) {
+	if epoch != 0 {
+		return epoch, nil
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.apiURL+"/eth/v1/beacon/states/head/finality_checkpoints", nil)
 	if err != nil {
 		s.logger.Error("creating request", "error", err)
-		return nil, status.Errorf(codes.Internal, "creating request: %v", err)
+		return 0, status.Errorf(codes.Internal, "creating request: %v", err)
 	}
 
 	req.Header.Set("accept", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		s.logger.Error("making request", "error", err)
-		return nil, status.Errorf(codes.Internal, "making request: %v", err)
+		return 0, status.Errorf(codes.Internal, "making request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		s.logger.Error("unexpected status code", "status", resp.StatusCode)
-		return nil, status.Errorf(codes.Internal, "unexpected status code: %v", resp.StatusCode)
+		return 0, status.Errorf(codes.Internal, "unexpected status code: %v", resp.StatusCode)
 	}
 
 	var checkpointsResp FinalityCheckpointsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&checkpointsResp); err != nil {
 		s.logger.Error("decoding response", "error", err)
-		return nil, status.Errorf(codes.Internal, "decoding response: %v", err)
+		return 0, status.Errorf(codes.Internal, "decoding response: %v", err)
 	}
 
-	currentEpoch, err := strconv.ParseUint(checkpointsResp.Data.CurrentJustified.Epoch, 10, 64)
+	currentJustifiedEpoch, err := strconv.ParseUint(checkpointsResp.Data.CurrentJustified.Epoch, 10, 64)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "parsing current justified epoch: %v", err)
+		return 0, status.Errorf(codes.Internal, "parsing current justified epoch: %v", err)
 	}
 
-	previousJustifiedEpoch, err := strconv.ParseUint(checkpointsResp.Data.PreviousJustified.Epoch, 10, 64)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "parsing previous justified epoch: %v", err)
-	}
-
-	finalizedEpoch, err := strconv.ParseUint(checkpointsResp.Data.Finalized.Epoch, 10, 64)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "parsing finalized epoch: %v", err)
-	}
-
-	s.logger.Info("fetched epoch data", "current_epoch", currentEpoch, "current_justified_epoch", currentEpoch, "previous_justified_epoch", previousJustifiedEpoch, "finalized_epoch", finalizedEpoch)
-	s.metrics.FetchedEpochDataCount.Inc()
-
-	return &validatorapiv1.EpochResponse{
-		CurrentEpoch:           currentEpoch + 1,
-		CurrentJustifiedEpoch:  currentEpoch,
-		PreviousJustifiedEpoch: previousJustifiedEpoch,
-		FinalizedEpoch:         finalizedEpoch,
-	}, nil
+	return currentJustifiedEpoch + 1, nil
 }
 
-func (s *Service) GetValidators(
-	ctx context.Context,
-	req *validatorapiv1.GetValidatorsRequest,
-) (*validatorapiv1.GetValidatorsResponse, error) {
-	epoch := req.Epoch
-
-	// If epoch is zero, fetch the current epoch
-	if epoch == 0 {
-		epochResponse, err := s.GetEpoch(ctx, &validatorapiv1.EmptyMessage{})
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "fetching current epoch: %v", err)
-		}
-		epoch = epochResponse.CurrentEpoch
-	}
-
+func (s *Service) fetchProposerDuties(ctx context.Context, epoch uint64) (*ProposerDutiesResponse, error) {
 	url := fmt.Sprintf("%s/eth/v1/validator/duties/proposer/%d", s.apiURL, epoch)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -155,6 +148,10 @@ func (s *Service) GetValidators(
 		return nil, status.Errorf(codes.Internal, "decoding response: %v", err)
 	}
 
+	return &dutiesResp, nil
+}
+
+func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uint64]*validatorapiv1.SlotInfo, error) {
 	validators := make(map[uint64]*validatorapiv1.SlotInfo, len(dutiesResp.Data))
 	validatorsKeys := make([][]byte, 0, len(dutiesResp.Data))
 	for _, duty := range dutiesResp.Data {
@@ -166,11 +163,13 @@ func (s *Service) GetValidators(
 
 		validatorsKeys = append(validatorsKeys, pubkeyBytes)
 	}
+
 	areValidatorsOptedIn, err := s.validatorRouter.AreValidatorsOptedIn(validatorsKeys)
 	if err != nil {
 		s.logger.Error("checking if validators are opted in", "error", err)
 		return nil, status.Errorf(codes.Internal, "checking if validators are opted in: %v", err)
 	}
+
 	for i, duty := range dutiesResp.Data {
 		slot, err := strconv.ParseUint(duty.Slot, 10, 64)
 		if err != nil {
@@ -178,15 +177,10 @@ func (s *Service) GetValidators(
 			continue
 		}
 		validators[slot] = &validatorapiv1.SlotInfo{
-			BLSKey:   duty.Pubkey,
-			IsActive: areValidatorsOptedIn[i],
+			BLSKey:    duty.Pubkey,
+			IsOptedIn: areValidatorsOptedIn[i],
 		}
 	}
 
-	s.logger.Info("fetched validators for epoch", "epoch", epoch, "validators", validators)
-	s.metrics.FetchedValidatorsCount.Inc()
-
-	return &validatorapiv1.GetValidatorsResponse{
-		Items: validators,
-	}, nil
+	return validators, nil
 }
