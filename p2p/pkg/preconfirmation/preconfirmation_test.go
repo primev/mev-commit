@@ -211,7 +211,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 
 		svc.SetPeerHandler(server, p.Streams()[0])
 
-		respC, err := p.SendBid(context.Background(), bid.TxHash, bid.BidAmount, bid.BlockNumber, bid.DecayStartTimestamp, bid.DecayEndTimestamp, "")
+		respC, err := p.SendBid(context.Background(), bid.TxHash, bid.BidAmount, bid.BlockNumber, bid.DecayStartTimestamp, bid.DecayEndTimestamp, "", "")
 		if err != nil {
 			t.Fatal(err)
 		}

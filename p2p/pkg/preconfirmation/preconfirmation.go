@@ -120,6 +120,7 @@ func (p *Preconfirmation) SendBid(
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
 	revertingTxHashes string,
+	serializedTxns string,
 ) (chan *preconfpb.PreConfirmation, error) {
 	startTime := time.Now()
 	bid, encryptedBid, nikePrivateKey, err := p.encryptor.ConstructEncryptedBid(

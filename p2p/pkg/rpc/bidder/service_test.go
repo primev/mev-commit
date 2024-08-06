@@ -53,6 +53,7 @@ func (s *testSender) SendBid(
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
 	revertedTxns string,
+	serializedTxns string,
 ) (chan *preconfpb.PreConfirmation, error) {
 	s.bids = append(s.bids, bid{
 		txHex:    txHex,
