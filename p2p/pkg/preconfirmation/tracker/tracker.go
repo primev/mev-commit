@@ -35,8 +35,8 @@ type Tracker struct {
 	receiptGetter   txmonitor.BatchReceiptGetter
 	optsGetter      OptsGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
-	enryptedCmts    chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored
-	commitments     chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored
+	unopenedCmts    chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored
+	commitments     chan *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored
 	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
@@ -96,8 +96,8 @@ func NewTracker(
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
-		enryptedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored),
-		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreCommitmentStored),
+		unopenedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored),
+		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored),
 		triggerOpen:     make(chan struct{}),
 		metrics:         newMetrics(),
 		logger:          logger,
@@ -121,12 +121,12 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			},
 		),
 		events.NewEventHandler(
-			"EncryptedCommitmentStored",
-			func(ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored) {
+			"UnopenedCommitmentStored",
+			func(ec *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored) {
 				select {
 				case <-egCtx.Done():
-					t.logger.Info("EncryptedCommitmentStored context done")
-				case t.enryptedCmts <- ec:
+					t.logger.Info("UnopenedCommitmentStored context done")
+				case t.unopenedCmts <- ec:
 				}
 			},
 		),
@@ -150,11 +150,11 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		evts = append(
 			evts,
 			events.NewEventHandler(
-				"CommitmentStored",
-				func(cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored) {
+				"OpenedCommitmentStored",
+				func(cs *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored) {
 					select {
 					case <-egCtx.Done():
-						t.logger.Info("CommitmentStored context done")
+						t.logger.Info("OpenedCommitmentStored context done")
 					case t.commitments <- cs:
 					}
 				},
@@ -203,12 +203,12 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		for {
 			select {
 			case <-egCtx.Done():
-				t.logger.Info("handleEncryptedCommitmentStored context done")
+				t.logger.Info("handleUnopenedCommitmentStored context done")
 				return nil
 			case err := <-sub.Err():
 				return fmt.Errorf("event subscription error: %w", err)
-			case ec := <-t.enryptedCmts:
-				if err := t.handleEncryptedCommitmentStored(egCtx, ec); err != nil {
+			case ec := <-t.unopenedCmts:
+				if err := t.handleUnopenedCommitmentStored(egCtx, ec); err != nil {
 					return err
 				}
 			}
@@ -291,7 +291,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				case err := <-sub.Err():
 					return fmt.Errorf("event subscription error: %w", err)
 				case cs := <-t.commitments:
-					if err := t.handleCommitmentStored(egCtx, cs); err != nil {
+					if err := t.handleOpenedCommitmentStored(egCtx, cs); err != nil {
 						return err
 					}
 				}
@@ -483,19 +483,19 @@ func (t *Tracker) clearCommitments(ctx context.Context) error {
 	}
 }
 
-func (t *Tracker) handleEncryptedCommitmentStored(
+func (t *Tracker) handleUnopenedCommitmentStored(
 	ctx context.Context,
-	ec *preconfcommstore.PreconfcommitmentstoreEncryptedCommitmentStored,
+	ec *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored,
 ) error {
 	t.metrics.totalEncryptedCommitments.Inc()
 	return t.store.SetCommitmentIndexByDigest(ec.CommitmentDigest, ec.CommitmentIndex)
 }
 
-func (t *Tracker) handleCommitmentStored(
+func (t *Tracker) handleOpenedCommitmentStored(
 	ctx context.Context,
-	cs *preconfcommstore.PreconfcommitmentstoreCommitmentStored,
+	cs *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored,
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
-	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentHash)
+	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentDigest)
 }

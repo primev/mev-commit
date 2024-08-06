@@ -6,11 +6,10 @@ pragma solidity 0.8.20;
  * @dev Interface for PreConfCommitmentStore
  */
 interface IPreConfCommitmentStore {
-
     /// @dev Struct for all the information around preconfirmations commitment
-    struct PreConfCommitment {
+    struct OpenedCommitment {
         address bidder;
-        bool isUsed;
+        bool isSettled; // Flag to check if the commitment is settled with slashing or rewarding
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
@@ -18,7 +17,7 @@ interface IPreConfCommitmentStore {
         address committer;
         uint256 bid;
         bytes32 bidHash;
-        bytes32 commitmentHash;
+        bytes32 commitmentDigest;
         bytes bidSignature;
         bytes commitmentSignature;
         bytes sharedSecretKey;
@@ -40,17 +39,17 @@ interface IPreConfCommitmentStore {
         bytes sharedSecretKey;
     }
 
-    /// @dev Struct for all the information around encrypted preconfirmations commitment
-    struct EncrPreConfCommitment {
-        bool isUsed;
+    /// @dev Struct for all the information around unopened preconfirmations commitment
+    struct UnopenedCommitment {
+        bool isOpened; // Flag to check if the commitment is opened already
         address committer;
         uint64 dispatchTimestamp;
         bytes32 commitmentDigest;
         bytes commitmentSignature;
     }
 
-    /// @dev Event to log successful commitment storage
-    event CommitmentStored(
+    /// @dev Event to log successful opened commitment storage
+    event OpenedCommitmentStored(
         bytes32 indexed commitmentIndex,
         address bidder,
         address committer,
@@ -61,15 +60,15 @@ interface IPreConfCommitmentStore {
         uint64 decayEndTimeStamp,
         string txnHash,
         string revertingTxHashes,
-        bytes32 commitmentHash,
+        bytes32 commitmentDigest,
         bytes bidSignature,
         bytes commitmentSignature,
         uint64 dispatchTimestamp,
         bytes sharedSecretKey
     );
 
-    /// @dev Event to log successful encrypted commitment storage
-    event EncryptedCommitmentStored(
+    /// @dev Event to log successful unopened commitment storage
+    event UnopenedCommitmentStored(
         bytes32 indexed commitmentIndex,
         address committer,
         bytes32 commitmentDigest,
@@ -132,7 +131,7 @@ interface IPreConfCommitmentStore {
 
     /**
      * @dev Opens a commitment.
-     * @param encryptedCommitmentIndex The index of the encrypted commitment.
+     * @param unopenedCommitmentIndex The index of the unopened commitment.
      * @param bid The bid amount.
      * @param blockNumber The block number.
      * @param txnHash The transaction hash.
@@ -145,7 +144,7 @@ interface IPreConfCommitmentStore {
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
-        bytes32 encryptedCommitmentIndex,
+        bytes32 unopenedCommitmentIndex,
         uint256 bid,
         uint64 blockNumber,
         string memory txnHash,
@@ -158,13 +157,13 @@ interface IPreConfCommitmentStore {
     ) external returns (bytes32 commitmentIndex);
 
     /**
-     * @dev Stores an encrypted commitment.
+     * @dev Stores an unopened commitment.
      * @param commitmentDigest The digest of the commitment.
      * @param commitmentSignature The signature of the commitment.
      * @param dispatchTimestamp The timestamp at which the commitment is dispatched.
      * @return commitmentIndex The index of the stored commitment.
      */
-    function storeEncryptedCommitment(
+    function storeUnopenedCommitment(
         bytes32 commitmentDigest,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
@@ -202,20 +201,20 @@ interface IPreConfCommitmentStore {
     /**
      * @dev Gets a commitment by its index.
      * @param commitmentIndex The index of the commitment.
-     * @return A PreConfCommitment structure representing the commitment.
+     * @return A OpenedCommitment structure representing the commitment.
      */
     function getCommitment(
         bytes32 commitmentIndex
-    ) external view returns (PreConfCommitment memory);
+    ) external view returns (OpenedCommitment memory);
 
     /**
-     * @dev Gets an encrypted commitment by its index.
-     * @param commitmentIndex The index of the encrypted commitment.
-     * @return An EncrPreConfCommitment structure representing the encrypted commitment.
+     * @dev Gets an unopened commitment by its index.
+     * @param commitmentIndex The index of the unopened commitment.
+     * @return An UnopenedCommitment structure representing the unopened commitment.
      */
-    function getEncryptedCommitment(
+    function getUnopenedCommitment(
         bytes32 commitmentIndex
-    ) external view returns (EncrPreConfCommitment memory);
+    ) external view returns (UnopenedCommitment memory);
 
     /**
      * @dev Computes the bid hash for a given set of parameters.
@@ -294,20 +293,20 @@ interface IPreConfCommitmentStore {
     ) external pure returns (bytes32 preConfHash, address committerAddress);
 
     /**
-     * @dev Computes the index of a commitment.
+     * @dev Computes the index of an opened commitment.
      * @param commitment The commitment to compute the index for.
      * @return The computed index of the commitment.
      */
-    function getCommitmentIndex(
-        PreConfCommitment memory commitment
+    function getOpenedCommitmentIndex(
+        OpenedCommitment memory commitment
     ) external pure returns (bytes32);
 
     /**
-     * @dev Computes the index of an encrypted commitment.
-     * @param commitment The encrypted commitment to compute the index for.
-     * @return The computed index of the encrypted commitment.
+     * @dev Computes the index of an unopened commitment.
+     * @param commitment The unopened commitment to compute the index for.
+     * @return The computed index of the unopened commitment.
      */
-    function getEncryptedCommitmentIndex(
-        EncrPreConfCommitment memory commitment
+    function getUnopenedCommitmentIndex(
+        UnopenedCommitment memory commitment
     ) external pure returns (bytes32);
 }

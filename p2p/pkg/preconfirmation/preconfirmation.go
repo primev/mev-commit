@@ -63,7 +63,7 @@ type Tracker interface {
 }
 
 type PreconfContract interface {
-	StoreEncryptedCommitment(
+	StoreUnopenedCommitment(
 		opts *bind.TransactOpts,
 		commitmentDigest [32]byte,
 		commitmentSignature []byte,
@@ -322,7 +322,7 @@ func (p *Preconfirmation) handleBid(
 				return status.Errorf(codes.Internal, "failed to get transact opts: %v", err)
 			}
 
-			txn, err := p.commitmentDA.StoreEncryptedCommitment(
+			txn, err := p.commitmentDA.StoreUnopenedCommitment(
 				opts,
 				commitmentDigest,
 				encryptedPreConfirmation.Signature,
