@@ -16,7 +16,6 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
@@ -51,10 +50,6 @@ var (
 
 	fundsRewardedKey = func(cmtDigest []byte) string {
 		return fmt.Sprintf("frw/%s", string(cmtDigest))
-	}
-
-	fundsSlashedKey = func(c *providerregistry.ProviderregistryFundsSlashed) string {
-		return fmt.Sprintf("ps/%s", c.Provider)
 	}
 
 	blkKey = func(bNo uint64) string {
@@ -228,12 +223,13 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
+	count := 0
+	lastWinnerBlock := 0
 DONE:
 	for {
-		count := 0
-		lastWinnerBlock := 0
 		select {
 		case <-egCtx.Done():
+			egCancel()
 			return nil
 		case <-tick.C:
 			if count == noOfBids {
@@ -248,6 +244,7 @@ DONE:
 				for _, b := range bidders {
 					entry, err := getRandomBid(cluster, store)
 					if err != nil {
+						egCancel()
 						return err
 					}
 					bidderIn[b.EthAddress()] <- entry
