@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -169,8 +170,9 @@ func main() {
 	}
 
 	type blockWithTxns struct {
-		blockNum int64
-		txns     []string
+		blockNum       int64
+		txns           []string
+		serializedTxns []string
 	}
 
 	blockChans := make([]chan *blockWithTxns, *bidWorkers)
@@ -195,7 +197,7 @@ func main() {
 				continue
 			}
 
-			block, err := RetrieveTxns(rpcClient, blkNum)
+			block, serializedTxns, err := RetrieveTxns(rpcClient, blkNum)
 			if err != nil {
 				logger.Error("failed to get block", "err", err)
 				continue
@@ -207,8 +209,9 @@ func main() {
 				copy(txns, block)
 
 				ch <- &blockWithTxns{
-					blockNum: int64(blkNum),
-					txns:     txns,
+					blockNum:       int64(blkNum),
+					txns:           txns,
+					serializedTxns: serializedTxns,
 				}
 			}
 		}
@@ -249,6 +252,7 @@ func main() {
 					bidderClient,
 					logger,
 					currentBlock.txns[bundleStart:bundleEnd],
+					currentBlock.serializedTxns[bundleStart:bundleEnd],
 					currentBlock.blockNum,
 					(time.Now().UnixMilli())-int64(startTimeDiff),
 					(time.Now().UnixMilli())+int64(endTimeDiff),
@@ -262,30 +266,37 @@ func main() {
 
 	wg.Wait()
 }
-
-func RetrieveTxns(rpcClient *ethclient.Client, blkNum uint64) ([]string, error) {
+func RetrieveTxns(rpcClient *ethclient.Client, blkNum uint64) ([]string, []string, error) {
 	fullBlock, err := rpcClient.BlockByNumber(context.Background(), big.NewInt(int64(blkNum)))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	blockTxns := []string{}
+	serializedTxns := []string{}
 	txns := fullBlock.Transactions()
 	for _, txn := range txns {
 		blockTxns = append(blockTxns, strings.TrimPrefix(txn.Hash().Hex(), "0x"))
+		var buf bytes.Buffer
+		err := txn.EncodeRLP(&buf)
+		if err != nil {
+			return nil, nil, err
+		}
+		serializedTxns = append(serializedTxns, buf.String())
 	}
 
 	if len(blockTxns) == 0 {
-		return nil, errors.New("no txns in block")
+		return nil, nil, errors.New("no txns in block")
 	}
 
-	return blockTxns, nil
+	return blockTxns, serializedTxns, nil
 }
 
 func sendBid(
 	bidderClient pb.BidderClient,
 	logger *slog.Logger,
 	txnHashes []string,
+	serializedTxns []string,
 	blkNum int64,
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
@@ -305,6 +316,7 @@ func sendBid(
 		BlockNumber:         int64(blkNum),
 		DecayStartTimestamp: decayStartTimestamp,
 		DecayEndTimestamp:   decayEndTimestamp,
+		SerializedTxns:      []string{"Kartik", "is", "a", "cool", "guy"},
 	}
 
 	logger.Info("sending bid", "bid", bid)
