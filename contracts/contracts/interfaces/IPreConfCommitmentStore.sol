@@ -9,7 +9,7 @@ interface IPreConfCommitmentStore {
     /// @dev Struct for all the information around preconfirmations commitment
     struct OpenedCommitment {
         address bidder;
-        bool isUsed; // Flag to check if the commitment is used for slashing or rewarding
+        bool isSettled; // Flag to check if the commitment is settled with slashing or rewarding
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
@@ -41,7 +41,7 @@ interface IPreConfCommitmentStore {
 
     /// @dev Struct for all the information around unopened preconfirmations commitment
     struct UnopenedCommitment {
-        bool isUsed; // Flag to check if the commitment is opened already
+        bool isOpened; // Flag to check if the commitment is opened already
         address committer;
         uint64 dispatchTimestamp;
         bytes32 commitmentDigest;
@@ -293,11 +293,11 @@ interface IPreConfCommitmentStore {
     ) external pure returns (bytes32 preConfHash, address committerAddress);
 
     /**
-     * @dev Computes the index of a commitment.
+     * @dev Computes the index of an opened commitment.
      * @param commitment The commitment to compute the index for.
      * @return The computed index of the commitment.
      */
-    function getCommitmentIndex(
+    function getOpenedCommitmentIndex(
         OpenedCommitment memory commitment
     ) external pure returns (bytes32);
 

@@ -236,7 +236,7 @@ contract PreConfCommitmentStore is
             unopenedCommitmentIndex
         ];
 
-        require(!unopenedCommitment.isUsed, "Commitment already used");
+        require(!unopenedCommitment.isOpened, "Commitment already opened");
         require(
             unopenedCommitment.commitmentDigest == commitmentDigest,
             "Invalid commitment digest"
@@ -271,12 +271,12 @@ contract PreConfCommitmentStore is
             revertingTxHashes
         );
 
-        commitmentIndex = getCommitmentIndex(newCommitment);
+        commitmentIndex = getOpenedCommitmentIndex(newCommitment);
 
         // Store the new commitment
         openedCommitments[commitmentIndex] = newCommitment;
-        // Mark the unopened commitment as used
-        unopenedCommitment.isUsed = true;
+        // Mark the unopened commitment as opened
+        unopenedCommitment.isOpened = true;
 
         bidderRegistry.openBid(
             commitmentDigest,
@@ -366,9 +366,9 @@ contract PreConfCommitmentStore is
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract {
         OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isUsed, "Commitment already used");
+        require(!commitment.isSettled, "Commitment already settled");
 
-        commitment.isUsed = true;
+        commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
@@ -395,14 +395,14 @@ contract PreConfCommitmentStore is
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract {
         OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isUsed, "Commitment already used");
+        require(!commitment.isSettled, "Commitment already settled");
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,
             blocksPerWindow
         );
 
-        commitment.isUsed = true;
+        commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
 
         bidderRegistry.retrieveFunds(
@@ -569,11 +569,11 @@ contract PreConfCommitmentStore is
     }
 
     /**
-     * @dev Get the index of a commitment.
+     * @dev Get the index of an opened commitment.
      * @param commitment The commitment to get the index for.
      * @return The index of the commitment.
      */
-    function getCommitmentIndex(
+    function getOpenedCommitmentIndex(
         OpenedCommitment memory commitment
     ) public pure returns (bytes32) {
         return

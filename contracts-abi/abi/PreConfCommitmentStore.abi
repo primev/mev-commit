@@ -234,7 +234,7 @@
             "internalType": "address"
           },
           {
-            "name": "isUsed",
+            "name": "isSettled",
             "type": "bool",
             "internalType": "bool"
           },
@@ -310,7 +310,7 @@
   },
   {
     "type": "function",
-    "name": "getCommitmentIndex",
+    "name": "getOpenedCommitmentIndex",
     "inputs": [
       {
         "name": "commitment",
@@ -323,7 +323,7 @@
             "internalType": "address"
           },
           {
-            "name": "isUsed",
+            "name": "isSettled",
             "type": "bool",
             "internalType": "bool"
           },
@@ -499,7 +499,7 @@
         "internalType": "struct IPreConfCommitmentStore.UnopenedCommitment",
         "components": [
           {
-            "name": "isUsed",
+            "name": "isOpened",
             "type": "bool",
             "internalType": "bool"
           },
@@ -538,7 +538,7 @@
         "internalType": "struct IPreConfCommitmentStore.UnopenedCommitment",
         "components": [
           {
-            "name": "isUsed",
+            "name": "isOpened",
             "type": "bool",
             "internalType": "bool"
           },
@@ -734,7 +734,7 @@
         "internalType": "address"
       },
       {
-        "name": "isUsed",
+        "name": "isSettled",
         "type": "bool",
         "internalType": "bool"
       },
@@ -932,7 +932,7 @@
     ],
     "outputs": [
       {
-        "name": "isUsed",
+        "name": "isOpened",
         "type": "bool",
         "internalType": "bool"
       },

@@ -132,7 +132,7 @@ func TestTracker(t *testing.T) {
 			continue
 		}
 
-		err = publishEncCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		err = publishUnopenedCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			Committer:           common.BytesToAddress(c.PreConfirmation.ProviderAddress),
 			CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", i+1)),
 			CommitmentDigest:    common.BytesToHash(c.EncryptedPreConfirmation.Commitment),
@@ -149,7 +149,7 @@ func TestTracker(t *testing.T) {
 		t.Fatalf("failed to parse bid amount %s", commitments[4].PreConfirmation.Bid.BidAmount)
 	}
 	// this commitment should not be opened again
-	err = publishCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
@@ -458,7 +458,7 @@ func (t *testReceiptGetter) BatchReceipts(_ context.Context, txns []common.Hash)
 	return results, nil
 }
 
-func publishEncCommitment(
+func publishUnopenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
 	ec preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
@@ -490,7 +490,7 @@ func publishEncCommitment(
 	return nil
 }
 
-func publishCommitment(
+func publishOpenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
 	c preconf.PreconfcommitmentstoreOpenedCommitmentStored,

@@ -251,7 +251,7 @@ func TestUpdater(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, ec := range unopenedCommitments {
-		if err := publishEncCommitment(evtMgr, &pcABI, ec); err != nil {
+		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
 			t.Fatal(err)
 		}
 
@@ -278,7 +278,7 @@ func TestUpdater(t *testing.T) {
 	}
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -521,7 +521,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, ec := range unopenedCommitments {
-		if err := publishEncCommitment(evtMgr, &pcABI, ec); err != nil {
+		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
 			t.Fatal(err)
 		}
 
@@ -548,7 +548,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	}
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -792,7 +792,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, ec := range unopenedCommitments {
-		if err := publishEncCommitment(evtMgr, &pcABI, ec); err != nil {
+		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
 			t.Fatal(err)
 		}
 
@@ -819,7 +819,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 	}
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1009,7 +1009,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1215,7 +1215,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, w)
 
 	for i, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1436,7 +1436,7 @@ func (t *testOracle) ProcessBuilderCommitmentForBlockNumber(
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func publishEncCommitment(
+func publishUnopenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
 	ec preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
@@ -1468,7 +1468,7 @@ func publishEncCommitment(
 	return nil
 }
 
-func publishCommitment(
+func publishOpenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
 	c preconf.PreconfcommitmentstoreOpenedCommitmentStored,

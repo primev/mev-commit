@@ -457,9 +457,9 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
-        (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+        (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
             .openedCommitments(preConfHash);
-        assertEq(isUsed, false);
+        assertEq(isSettled, false);
 
         return bidHash;
     }
@@ -683,9 +683,9 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been set before
-            (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .openedCommitments(preConfHash);
-            assert(isUsed == false);
+            assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
@@ -723,10 +723,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(oracleContract);
             preConfCommitmentStore.initiateSlash(index, 100);
 
-            (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .openedCommitments(index);
             // Verify that the commitment has been deleted
-            assert(isUsed == true);
+            assert(isSettled == true);
 
             assertEq(
                 bidderRegistry.lockedFunds(bidder, depositWindow),
@@ -774,9 +774,9 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .openedCommitments(preConfHash);
-            assert(isUsed == false);
+            assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
@@ -813,10 +813,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(oracleContract);
             preConfCommitmentStore.initiateReward(index, 100);
 
-            (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
-            assert(isUsed == true);
+            assert(isSettled == true);
             // commitmentDigest value is internal to contract and not asserted
             assertEq(
                 bidderRegistry.lockedFunds(bidder, depositWindow),
@@ -861,9 +861,9 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .openedCommitments(preConfHash);
-            assert(isUsed == false);
+            assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
 
             bytes32 unopenedIndex = storeCommitment(
@@ -901,10 +901,10 @@ contract TestPreConfCommitmentStore is Test {
             vm.prank(oracleContract);
             preConfCommitmentStore.initiateReward(index, 0);
 
-            (, isUsed, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
-            assert(isUsed == true);
+            assert(isSettled == true);
             // commitmentDigest value is internal to contract and not asserted
 
             assertEq(
