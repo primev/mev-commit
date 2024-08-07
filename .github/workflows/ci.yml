@@ -21,217 +21,17 @@ concurrency:
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
-  # go-modules:
-  #   name: Test and Build Go Modules
-  #   runs-on: ubuntu-24.04
-  #   timeout-minutes: 60
-
-  #   steps:
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         submodules: recursive
-
-  #     - name: Setup Cache
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: |
-  #           ~/go/pkg/mod
-  #           ~/.cache/go-build
-  #         key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
-  #         restore-keys: ${{ runner.os }}-go-
-
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: 1.22
-  #         check-latest: true
-  #         cache-dependency-path: go.work.sum
-
-  #     - name: Determine Modules
-  #       run: |
-  #         WORKSPACE_MODULES=$(go list -f '{{.Dir}}' -m)
-
-  #         ADDITIONAL_MODULES=(
-  #         "${GITHUB_WORKSPACE}/external/geth"
-  #         )
-
-  #         ALL_MODULES=$(printf "%s\n" "${WORKSPACE_MODULES}" "${ADDITIONAL_MODULES[@]}")
-
-  #         echo "GO_MODULES<<EOF" >> ${GITHUB_ENV}
-  #         echo "${ALL_MODULES}" >> ${GITHUB_ENV}
-  #         echo "EOF" >> ${GITHUB_ENV}
-  #         echo "GO_LINT_MODULES=$(printf "%s " $(echo "${ALL_MODULES}" | sed 's|$|/...|' | grep -v '/external/geth'))" >> ${GITHUB_ENV}
-
-  #     - name: Run Gofmt
-  #       run: |
-  #         GOFMT_OUTPUT=$(echo ${GO_MODULES} | tr ' ' '\n' | xargs gofmt -d -e -l)
-  #         if [ -n "${GOFMT_OUTPUT}" ]; then
-  #           echo "The following files are not formatted correctly:"
-  #           echo "${GOFMT_OUTPUT}"
-  #           exit 1
-  #         fi
-
-  #     - name: Run Tidy & Workspace Sync
-  #       run: |
-  #         echo ${GO_MODULES} | tr ' ' '\n' | xargs -L1 go mod tidy -C
-  #         go work sync
-  #         git checkout ${{ github.event.pull_request.head.ref }}
-  #         git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work/go.work.sum files" && exit 1)
-  #         git reset --hard HEAD
-
-  #     - name: Run Lint
-  #       uses: golangci/golangci-lint-action@v6
-  #       with:
-  #         version: v1.59
-  #         args: --timeout 15m --verbose ${{ env.GO_LINT_MODULES }}
-
-  #     - name: Run Build
-  #       run: echo ${GO_MODULES} | tr ' ' '\n' | xargs -I {} sh -c 'go build -C {} -v ./...'
-  #       env:
-  #         GOWORK: off
-
-  #     - name: Run Test
-  #       run: echo ${GO_MODULES} | tr ' ' '\n' | grep -v '/external/geth' | xargs -I {} sh -c 'go test -short -race {}/...'
-
-  #     - name: Setup Protobuf
-  #       uses: bufbuild/buf-setup-action@v1.31.0
-
-  #     - name: Protobuf Version
-  #       run: buf --version
-
-  #     - name: Check Protobuf Parity
-  #       run: |
-  #         make bufgen
-  #         git checkout ${{ github.event.pull_request.head.ref }}
-  #         git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
-  #         git reset --hard HEAD
-  #       working-directory: p2p
-
-  # foundry:
-  #   name: Foundry Checks and Reports
-  #   runs-on: ubuntu-24.04
-  #   timeout-minutes: 30
-  #   defaults:
-  #     run:
-  #       working-directory: contracts
-
-  #   steps:
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         submodules: recursive
-
-  #     - name: Install Foundry
-  #       uses: foundry-rs/foundry-toolchain@v1
-
-  #     - name: Print Versions
-  #       run: |
-  #         git --version
-  #         node --version
-  #         npm --version
-  #         forge --version
-
-  #     - name: Run Tests
-  #       run: forge clean && forge test -vvv --via-ir
-
-  #     - name: Run Snapshot
-  #       run: forge clean && forge snapshot --via-ir
-
-  #     - name: Run Coverage
-  #       run: forge clean && forge coverage --ir-minimum
-
-  # contracts:
-  #   name: Test and Build Contracts Scripts
-  #   runs-on: ubuntu-24.04
-  #   timeout-minutes: 30
-  #   defaults:
-  #     run:
-  #       working-directory: contracts
-
-  #   strategy:
-  #     matrix:
-  #       node-version: [ 18.x, 20.x ] # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
-  #   steps:
-  #     - name: Checkout Code
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-
-  #     - name: Use Node.js ${{ matrix.node-version }}
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: ${{ matrix.node-version }}
-  #         cache-dependency-path: ./contracts/package-lock.json
-  #         cache: npm
-
-  #     - name: Install Foundry
-  #       uses: foundry-rs/foundry-toolchain@v1
-
-  #     - name: Install Hardhat
-  #       run: npm install -g hardhat
-
-  #     - name: Install solhint
-  #       run: npm install -g solhint
-
-  #     - name: Install Dependencies
-  #       run: npm install
-
-  #     - name: Print Versions
-  #       run: |
-  #         git --version
-  #         node --version
-  #         npm --version
-  #         forge --version
-  #         solhint --version
-
-  #     - name: Build
-  #       run: npm run build --if-present
-
-  #     - name: Install abigen
-  #       run: |
-  #         sudo add-apt-repository -y ppa:ethereum/ethereum
-  #         sudo apt-get update
-  #         sudo apt-get install -y ethereum
-  #         abigen --version
-
-  #     - name: Check ABI Parity
-  #       run: |
-  #         bash script.sh
-  #         git checkout ${{ github.event.pull_request.head.ref }}
-  #         git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
-  #         git reset --hard HEAD
-  #       working-directory: contracts-abi
-
-  #     - name: Run solhint solidity linter
-  #       run: solhint '**/*.sol'
-  #       working-directory: contracts
-
-  infrastructure:
-    uses: ./.github/workflows/infrastructure.yml
-    secrets: inherit
-    # needs:
-    #   - go-modules
-    #   - foundry
-    #   - contracts
-
-  integrationtests:
-    name: Run integration tests
+  go-modules:
+    name: Test and Build Go Modules
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: testing
-    needs:
-      - infrastructure
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
 
       - name: Setup Cache
         uses: actions/cache@v4
@@ -247,35 +47,172 @@ jobs:
         with:
           go-version: 1.22
           check-latest: true
-          cache-dependency-path: ../go.work.sum
+          cache-dependency-path: go.work.sum
 
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Set Environment Variables
+      - name: Determine Modules
         run: |
-          CONTRACTS_JSON=$(curl -s http://127.0.0.1:1010/contracts.json)
-          export MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.ProviderRegistry')
-          export MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BidderRegistry')
-          export MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BlockTracker')
-          export MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.PreConfCommitmentStore')
-          export MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.Oracle')
-          export MEV_COMMIT_TEST_L1_RPC_ENDPOINT="${{ secrets.L1_RPC_URL }}"
+          WORKSPACE_MODULES=$(go list -f '{{.Dir}}' -m)
 
-      - name: Print Environment Variables
+          ADDITIONAL_MODULES=(
+          "${GITHUB_WORKSPACE}/external/geth"
+          )
+
+          ALL_MODULES=$(printf "%s\n" "${WORKSPACE_MODULES}" "${ADDITIONAL_MODULES[@]}")
+
+          echo "GO_MODULES<<EOF" >> ${GITHUB_ENV}
+          echo "${ALL_MODULES}" >> ${GITHUB_ENV}
+          echo "EOF" >> ${GITHUB_ENV}
+          echo "GO_LINT_MODULES=$(printf "%s " $(echo "${ALL_MODULES}" | sed 's|$|/...|' | grep -v '/external/geth'))" >> ${GITHUB_ENV}
+
+      - name: Run Gofmt
         run: |
-          echo "MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS: $MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS"
-          echo "MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS: $MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS"
-          echo "MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS: $MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS"
-          echo "MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS: $MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS"
-          echo "MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS: $MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS"
+          GOFMT_OUTPUT=$(echo ${GO_MODULES} | tr ' ' '\n' | xargs gofmt -d -e -l)
+          if [ -n "${GOFMT_OUTPUT}" ]; then
+            echo "The following files are not formatted correctly:"
+            echo "${GOFMT_OUTPUT}"
+            exit 1
+          fi
 
-      - name: Build Integration Test Binary
-        run: go build -o mev-commit-test ./cmd/main.go
+      - name: Run Tidy & Workspace Sync
+        run: |
+          echo ${GO_MODULES} | tr ' ' '\n' | xargs -L1 go mod tidy -C
+          go work sync
+          git checkout ${{ github.event.pull_request.head.ref }}
+          git diff --name-only --exit-code . || (echo "Golang modules/workspace not in sync with go.mod/go.sum/go.work/go.work.sum files" && exit 1)
+          git reset --hard HEAD
 
-      - name: Run Integration Tests
-        run: ./mev-commit-test \
-            --settlement-rpc-endpoint 127.0.0.1:8545 \
-            --bootnode-rpc-addresses 127.0.0.1:13524 \
-            --provider-rpc-addresses 127.0.0.1:13624 \
-            --bidder-rpc-addresses 127.0.0.1:13724
+      - name: Run Lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
+          args: --timeout 15m --verbose ${{ env.GO_LINT_MODULES }}
+
+      - name: Run Build
+        run: echo ${GO_MODULES} | tr ' ' '\n' | xargs -I {} sh -c 'go build -C {} -v ./...'
+        env:
+          GOWORK: off
+
+      - name: Run Test
+        run: echo ${GO_MODULES} | tr ' ' '\n' | grep -v '/external/geth' | xargs -I {} sh -c 'go test -short -race {}/...'
+
+      - name: Setup Protobuf
+        uses: bufbuild/buf-setup-action@v1.31.0
+
+      - name: Protobuf Version
+        run: buf --version
+
+      - name: Check Protobuf Parity
+        run: |
+          make bufgen
+          git checkout ${{ github.event.pull_request.head.ref }}
+          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
+          git reset --hard HEAD
+        working-directory: p2p
+
+  foundry:
+    name: Foundry Checks and Reports
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: contracts
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Print Versions
+        run: |
+          git --version
+          node --version
+          npm --version
+          forge --version
+
+      - name: Run Tests
+        run: forge clean && forge test -vvv --via-ir
+
+      - name: Run Snapshot
+        run: forge clean && forge snapshot --via-ir
+
+      - name: Run Coverage
+        run: forge clean && forge coverage --ir-minimum
+
+  contracts:
+    name: Test and Build Contracts Scripts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: contracts
+
+    strategy:
+      matrix:
+        node-version: [ 18.x, 20.x ] # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache-dependency-path: ./contracts/package-lock.json
+          cache: npm
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Hardhat
+        run: npm install -g hardhat
+
+      - name: Install solhint
+        run: npm install -g solhint
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Print Versions
+        run: |
+          git --version
+          node --version
+          npm --version
+          forge --version
+          solhint --version
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Install abigen
+        run: |
+          sudo add-apt-repository -y ppa:ethereum/ethereum
+          sudo apt-get update
+          sudo apt-get install -y ethereum
+          abigen --version
+
+      - name: Check ABI Parity
+        run: |
+          bash script.sh
+          git checkout ${{ github.event.pull_request.head.ref }}
+          git diff --name-only --exit-code . || (echo "Generated files not in parity with the source files." && exit 1)
+          git reset --hard HEAD
+        working-directory: contracts-abi
+
+      - name: Run solhint solidity linter
+        run: solhint '**/*.sol'
+        working-directory: contracts
+
+  infrastructure:
+    uses: ./.github/workflows/infrastructure.yml
+    secrets: inherit
+    needs:
+      - go-modules
+      - foundry
+      - contracts
