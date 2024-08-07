@@ -23,12 +23,13 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
-	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/apiserver"
 	"github.com/primev/mev-commit/p2p/pkg/autodepositor"
 	autodepositorstore "github.com/primev/mev-commit/p2p/pkg/autodepositor/store"
@@ -46,6 +47,7 @@ import (
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
 	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
+	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
 	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
@@ -84,6 +86,7 @@ type Options struct {
 	BlockTrackerContract     string
 	ProviderRegistryContract string
 	BidderRegistryContract   string
+	ValidatorRouterContract  string
 	AutodepositAmount        *big.Int
 	RPCEndpoint              string
 	WSRPCEndpoint            string
@@ -95,6 +98,8 @@ type Options struct {
 	DefaultGasTipCap         *big.Int
 	DefaultGasFeeCap         *big.Int
 	OracleWindowOffset       *big.Int
+	BeaconAPIURL             string
+	L1RPCURL                 string
 }
 
 type Node struct {
@@ -356,7 +361,7 @@ func NewNode(opts *Options) (*Node, error) {
 			},
 		}
 
-		commitmentDA, err := preconfcommitmentstore.NewPreconfcommitmentstore(
+		commitmentDA, err := preconf.NewPreconfcommitmentstore(
 			common.HexToAddress(opts.PreconfContract),
 			contractsBackend,
 		)
@@ -520,6 +525,36 @@ func NewNode(opts *Options) (*Node, error) {
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
+			if opts.ValidatorRouterContract != "" {
+				l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
+				if err != nil {
+					opts.Logger.Error("failed to connect to rpc", "error", err)
+					return nil, err
+				}
+
+				validatorRouterCaller, err := validatorrouter.NewValidatoroptinrouterCaller(
+					common.HexToAddress(opts.ValidatorRouterContract),
+					l1ContractRPC,
+				)
+				if err != nil {
+					opts.Logger.Error("failed to instantiate validator router contract", "error", err)
+					return nil, err
+				}
+
+				validatorRouterSession := &validatorrouter.ValidatoroptinrouterCallerSession{
+					Contract: validatorRouterCaller,
+					CallOpts: bind.CallOpts{
+						From: opts.KeySigner.GetAddress(),
+					},
+				}
+
+				validatorAPI := validatorapi.NewService(
+					opts.BeaconAPIURL,
+					validatorRouterSession,
+					opts.Logger.With("component", "validatorapi"),
+				)
+				validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
+			}
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
@@ -634,6 +669,13 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.Logger.Error("failed to register bidder handler", "err", err)
 			return nil, errors.Join(err, nd.Close())
 		}
+		if opts.ValidatorRouterContract != "" {
+			err = validatorapiv1.RegisterValidatorHandler(handlerCtx, gatewayMux, grpcConn)
+			if err != nil {
+				opts.Logger.Error("failed to register validator handler", "err", err)
+				return nil, errors.Join(err, nd.Close())
+			}
+		}
 	}
 
 	srv.ChainHandlers("/", gatewayMux)
@@ -700,6 +742,12 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 		return nil, err
 	}
 	abis[common.HexToAddress(opts.BidderRegistryContract)] = &brABI
+
+	vrABI, err := abi.JSON(strings.NewReader(validatorrouter.ValidatoroptinrouterABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[common.HexToAddress(opts.ValidatorRouterContract)] = &vrABI
 
 	return abis, nil
 }
