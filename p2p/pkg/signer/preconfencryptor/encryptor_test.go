@@ -230,7 +230,7 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "8257770d4be5c4b622e6bd6b45ff8deb6602235f3aa844b774eb21800eb4923a"
+		expHash := "47662cacd554166e7a1835d52ccc33ffe9d3be42e07c316e5828cd7c3584d954"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}

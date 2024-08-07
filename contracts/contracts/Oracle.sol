@@ -29,7 +29,10 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     IBlockTracker private _blockTrackerContract;
 
     /// @dev Event emitted when the oracle account is set.
-    event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
+    event OracleAccountSet(
+        address indexed oldOracleAccount,
+        address indexed newOracleAccount
+    );
 
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
@@ -100,9 +103,9 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         require(
             residualBidPercentAfterDecay <= 100,
             "residBidPercentAfterDecay > 100%"
-        ); 
+        );
 
-        IPreConfCommitmentStore.PreConfCommitment
+        IPreConfCommitmentStore.OpenedCommitment
             memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
             commitment.committer == builder &&

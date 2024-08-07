@@ -340,7 +340,7 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 		domainTypeHash = crypto.Keccak256Hash(
 			[]byte("EIP712Domain(string name,string version)"),
 		)
-		nameHash           = crypto.Keccak256Hash([]byte("PreConfCommitment"))
+		nameHash           = crypto.Keccak256Hash([]byte("OpenedCommitment"))
 		versionHash        = crypto.Keccak256Hash([]byte("1"))
 		domainSeparatorBid = crypto.Keccak256Hash(
 			append(append(domainTypeHash.Bytes(), nameHash.Bytes()...), versionHash.Bytes()...),
@@ -354,7 +354,7 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation) ([]byte, error) {
 
 	// EIP712_COMMITMENT_TYPEHASH
 	eip712MessageTypeHash := crypto.Keccak256Hash(
-		[]byte("PreConfCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"),
+		[]byte("OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"),
 	)
 
 	// Convert the txnHash to a byte array and hash it
