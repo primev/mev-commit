@@ -151,95 +151,6 @@
   },
   {
     "type": "function",
-    "name": "commitments",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "bidder",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "isUsed",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "committer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "bid",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "bidHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "commitmentHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "commitmentSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "sharedSecretKey",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "commitmentsCount",
     "inputs": [
       {
@@ -253,45 +164,6 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "encryptedCommitments",
-    "inputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "isUsed",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "committer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "commitmentDigest",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "commitmentSignature",
-        "type": "bytes",
-        "internalType": "bytes"
       }
     ],
     "stateMutability": "view"
@@ -354,7 +226,7 @@
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.PreConfCommitment",
+        "internalType": "struct IPreConfCommitmentStore.OpenedCommitment",
         "components": [
           {
             "name": "bidder",
@@ -362,7 +234,7 @@
             "internalType": "address"
           },
           {
-            "name": "isUsed",
+            "name": "isSettled",
             "type": "bool",
             "internalType": "bool"
           },
@@ -402,7 +274,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "commitmentHash",
+            "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -438,12 +310,12 @@
   },
   {
     "type": "function",
-    "name": "getCommitmentIndex",
+    "name": "getOpenedCommitmentIndex",
     "inputs": [
       {
         "name": "commitment",
         "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.PreConfCommitment",
+        "internalType": "struct IPreConfCommitmentStore.OpenedCommitment",
         "components": [
           {
             "name": "bidder",
@@ -451,7 +323,7 @@
             "internalType": "address"
           },
           {
-            "name": "isUsed",
+            "name": "isSettled",
             "type": "bool",
             "internalType": "bool"
           },
@@ -491,7 +363,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "commitmentHash",
+            "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -519,98 +391,6 @@
             "name": "revertingTxHashes",
             "type": "string",
             "internalType": "string"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "pure"
-  },
-  {
-    "type": "function",
-    "name": "getEncryptedCommitment",
-    "inputs": [
-      {
-        "name": "commitmentIndex",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.EncrPreConfCommitment",
-        "components": [
-          {
-            "name": "isUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "committer",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "commitmentDigest",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "commitmentSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getEncryptedCommitmentIndex",
-    "inputs": [
-      {
-        "name": "commitment",
-        "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.EncrPreConfCommitment",
-        "components": [
-          {
-            "name": "isUsed",
-            "type": "bool",
-            "internalType": "bool"
-          },
-          {
-            "name": "committer",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "dispatchTimestamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "commitmentDigest",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "commitmentSignature",
-            "type": "bytes",
-            "internalType": "bytes"
           }
         ]
       }
@@ -704,6 +484,98 @@
   },
   {
     "type": "function",
+    "name": "getUnopenedCommitment",
+    "inputs": [
+      {
+        "name": "commitmentIndex",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IPreConfCommitmentStore.UnopenedCommitment",
+        "components": [
+          {
+            "name": "isOpened",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "committer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "commitmentDigest",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "commitmentSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getUnopenedCommitmentIndex",
+    "inputs": [
+      {
+        "name": "commitment",
+        "type": "tuple",
+        "internalType": "struct IPreConfCommitmentStore.UnopenedCommitment",
+        "components": [
+          {
+            "name": "isOpened",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "committer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "dispatchTimestamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "commitmentDigest",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "commitmentSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -786,7 +658,7 @@
     "name": "openCommitment",
     "inputs": [
       {
-        "name": "encryptedCommitmentIndex",
+        "name": "unopenedCommitmentIndex",
         "type": "bytes32",
         "internalType": "bytes32"
       },
@@ -844,6 +716,95 @@
       }
     ],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "openedCommitments",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "isSettled",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "decayStartTimeStamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "decayEndTimeStamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "committer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "bid",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "bidHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "bidSignature",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "commitmentSignature",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "sharedSecretKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "txnHash",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "revertingTxHashes",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -919,7 +880,7 @@
   },
   {
     "type": "function",
-    "name": "storeEncryptedCommitment",
+    "name": "storeUnopenedCommitment",
     "inputs": [
       {
         "name": "commitmentDigest",
@@ -958,6 +919,45 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unopenedCommitments",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isOpened",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "committer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "commitmentSignature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1161,7 +1161,20 @@
   },
   {
     "type": "event",
-    "name": "CommitmentStored",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OpenedCommitmentStored",
     "inputs": [
       {
         "name": "commitmentIndex",
@@ -1224,7 +1237,7 @@
         "internalType": "string"
       },
       {
-        "name": "commitmentHash",
+        "name": "commitmentDigest",
         "type": "bytes32",
         "indexed": false,
         "internalType": "bytes32"
@@ -1252,56 +1265,6 @@
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "EncryptedCommitmentStored",
-    "inputs": [
-      {
-        "name": "commitmentIndex",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "committer",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "commitmentDigest",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "commitmentSignature",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
-        "name": "dispatchTimestamp",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "Initialized",
-    "inputs": [
-      {
-        "name": "version",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
       }
     ],
     "anonymous": false
@@ -1374,6 +1337,43 @@
       },
       {
         "name": "blockNumber",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "UnopenedCommitmentStored",
+    "inputs": [
+      {
+        "name": "commitmentIndex",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "committer",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "commitmentSignature",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      },
+      {
+        "name": "dispatchTimestamp",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"

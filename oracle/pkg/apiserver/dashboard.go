@@ -70,7 +70,7 @@ func (s *Service) configureDashboard() error {
 		),
 		events.NewEventHandler(
 			"CommitmentStored",
-			func(upd *preconfcommitmentstore.PreconfcommitmentstoreCommitmentStored) {
+			func(upd *preconfcommitmentstore.PreconfcommitmentstoreOpenedCommitmentStored) {
 				s.statMu.Lock()
 				defer s.statMu.Unlock()
 

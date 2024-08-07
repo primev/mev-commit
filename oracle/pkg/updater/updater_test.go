@@ -109,24 +109,24 @@ func TestUpdater(t *testing.T) {
 		}))
 	}
 
-	encCommitments := make([]preconf.PreconfcommitmentstoreEncryptedCommitmentStored, 0)
-	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+	unopenedCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -136,14 +136,14 @@ func TestUpdater(t *testing.T) {
 		}
 
 		if i%2 == 0 {
-			encCommitment.Committer = builderAddr
+			unopenedCommitment.Committer = builderAddr
 			commitment.Committer = builderAddr
-			encCommitments = append(encCommitments, encCommitment)
+			unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 			commitments = append(commitments, commitment)
 		} else {
-			encCommitment.Committer = otherBuilderAddr
+			unopenedCommitment.Committer = otherBuilderAddr
 			commitment.Committer = otherBuilderAddr
-			encCommitments = append(encCommitments, encCommitment)
+			unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 			commitments = append(commitments, commitment)
 		}
 	}
@@ -157,20 +157,20 @@ func TestUpdater(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -178,7 +178,7 @@ func TestUpdater(t *testing.T) {
 			RevertingTxHashes:   "",
 			SharedSecretKey:     []byte("shared_secret_key"),
 		}
-		encCommitments = append(encCommitments, encCommitment)
+		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
 	}
 
@@ -192,8 +192,8 @@ func TestUpdater(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		encCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -250,15 +250,15 @@ func TestUpdater(t *testing.T) {
 	}
 	publishNewWindow(evtMgr, &btABI, w)
 
-	for _, ec := range encCommitments {
-		if err := publishEncCommitment(evtMgr, &pcABI, ec); err != nil {
+	for _, ec := range unopenedCommitments {
+		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
 			t.Fatal(err)
 		}
 
 		select {
 		case <-time.After(5 * time.Second):
 			t.Fatal("timeout")
-		case enc := <-register.encCommit:
+		case enc := <-register.unopenedCommit:
 			if !bytes.Equal(enc.commitmentIdx, ec.CommitmentIndex[:]) {
 				t.Fatal("wrong commitment index")
 			}
@@ -278,7 +278,7 @@ func TestUpdater(t *testing.T) {
 	}
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -373,24 +373,24 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		}))
 	}
 
-	encCommitments := make([]preconf.PreconfcommitmentstoreEncryptedCommitmentStored, 0)
-	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+	unopenedCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -400,14 +400,14 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		}
 
 		if i%2 == 0 {
-			encCommitment.Committer = builderAddr
+			unopenedCommitment.Committer = builderAddr
 			commitment.Committer = builderAddr
-			encCommitments = append(encCommitments, encCommitment)
+			unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 			commitments = append(commitments, commitment)
 		} else {
-			encCommitment.Committer = otherBuilderAddr
+			unopenedCommitment.Committer = otherBuilderAddr
 			commitment.Committer = otherBuilderAddr
-			encCommitments = append(encCommitments, encCommitment)
+			unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 			commitments = append(commitments, commitment)
 		}
 	}
@@ -421,20 +421,20 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -442,7 +442,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			RevertingTxHashes:   "",
 			SharedSecretKey:     []byte("shared_secret_key"),
 		}
-		encCommitments = append(encCommitments, encCommitment)
+		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
 	}
 
@@ -456,8 +456,8 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		encCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -520,15 +520,15 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	}
 	publishNewWindow(evtMgr, &btABI, w)
 
-	for _, ec := range encCommitments {
-		if err := publishEncCommitment(evtMgr, &pcABI, ec); err != nil {
+	for _, ec := range unopenedCommitments {
+		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
 			t.Fatal(err)
 		}
 
 		select {
 		case <-time.After(5 * time.Second):
 			t.Fatal("timeout")
-		case enc := <-register.encCommit:
+		case enc := <-register.unopenedCommit:
 			if !bytes.Equal(enc.commitmentIdx, ec.CommitmentIndex[:]) {
 				t.Fatal("wrong commitment index")
 			}
@@ -548,7 +548,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 	}
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -644,24 +644,24 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		}))
 	}
 
-	encCommitments := make([]preconf.PreconfcommitmentstoreEncryptedCommitmentStored, 0)
-	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+	unopenedCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -671,14 +671,14 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		}
 
 		if i%2 == 0 {
-			encCommitment.Committer = builderAddr
+			unopenedCommitment.Committer = builderAddr
 			commitment.Committer = builderAddr
-			encCommitments = append(encCommitments, encCommitment)
+			unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 			commitments = append(commitments, commitment)
 		} else {
-			encCommitment.Committer = otherBuilderAddr
+			unopenedCommitment.Committer = otherBuilderAddr
 			commitment.Committer = otherBuilderAddr
-			encCommitments = append(encCommitments, encCommitment)
+			unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 			commitments = append(commitments, commitment)
 		}
 	}
@@ -692,20 +692,20 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		encCommitment := preconf.PreconfcommitmentstoreEncryptedCommitmentStored{
+		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -713,7 +713,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			RevertingTxHashes:   bundle,
 			SharedSecretKey:     []byte("shared_secret_key"),
 		}
-		encCommitments = append(encCommitments, encCommitment)
+		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
 	}
 
@@ -727,8 +727,8 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		encCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -791,15 +791,15 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 	}
 	publishNewWindow(evtMgr, &btABI, w)
 
-	for _, ec := range encCommitments {
-		if err := publishEncCommitment(evtMgr, &pcABI, ec); err != nil {
+	for _, ec := range unopenedCommitments {
+		if err := publishUnopenedCommitment(evtMgr, &pcABI, ec); err != nil {
 			t.Fatal(err)
 		}
 
 		select {
 		case <-time.After(5 * time.Second):
 			t.Fatal("timeout")
-		case enc := <-register.encCommit:
+		case enc := <-register.unopenedCommit:
 			if !bytes.Equal(enc.commitmentIdx, ec.CommitmentIndex[:]) {
 				t.Fatal("wrong commitment index")
 			}
@@ -819,7 +819,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 	}
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -912,7 +912,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		}))
 	}
 
-	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
 
 	// constructing bundles
 	for i := 1; i < 10; i++ {
@@ -923,13 +923,13 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			bundle += "," + txns[j].Hash().Hex()
 		}
 
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -1009,7 +1009,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, w)
 
 	for _, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1100,7 +1100,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		}))
 	}
 
-	commitments := make([]preconf.PreconfcommitmentstoreCommitmentStored, 0)
+	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
@@ -1115,14 +1115,14 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			blockNum = 10
 		}
 
-		commitment := preconf.PreconfcommitmentstoreCommitmentStored{
+		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			RevertingTxHashes:   "",
 			BlockNumber:         blockNum,
-			CommitmentHash:      common.HexToHash(fmt.Sprintf("0x%02d", i)),
+			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
@@ -1154,8 +1154,8 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 				},
 			},
 		},
-		settlements: make(chan testSettlement, 1),
-		encCommit:   make(chan testEncryptedCommitment, 1),
+		settlements:    make(chan testSettlement, 1),
+		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
 	l1Client := &testEVMClient{
@@ -1215,7 +1215,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 	publishNewWindow(evtMgr, &btABI, w)
 
 	for i, c := range commitments {
-		if err := publishCommitment(evtMgr, &pcABI, c); err != nil {
+		if err := publishOpenedCommitment(evtMgr, &pcABI, c); err != nil {
 			t.Fatal(err)
 		}
 
@@ -1319,7 +1319,7 @@ type testWinnerRegister struct {
 	winners         []testWinner
 	setttlementIdxs [][]byte
 	settlements     chan testSettlement
-	encCommit       chan testEncryptedCommitment
+	unopenedCommit  chan testEncryptedCommitment
 }
 
 func (t *testWinnerRegister) IsSettled(ctx context.Context, commitmentIdx []byte) (bool, error) {
@@ -1384,7 +1384,7 @@ func (t *testWinnerRegister) AddEncryptedCommitment(
 	commitmentSignature []byte,
 	dispatchTimestamp uint64,
 ) error {
-	t.encCommit <- testEncryptedCommitment{
+	t.unopenedCommit <- testEncryptedCommitment{
 		commitmentIdx:       commitmentIdx,
 		committer:           committer,
 		commitmentHash:      commitmentHash,
@@ -1436,12 +1436,12 @@ func (t *testOracle) ProcessBuilderCommitmentForBlockNumber(
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }
 
-func publishEncCommitment(
+func publishUnopenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	ec preconf.PreconfcommitmentstoreEncryptedCommitmentStored,
+	ec preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
 ) error {
-	event := pcABI.Events["EncryptedCommitmentStored"]
+	event := pcABI.Events["UnopenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		ec.Committer,
 		ec.CommitmentDigest,
@@ -1468,12 +1468,12 @@ func publishEncCommitment(
 	return nil
 }
 
-func publishCommitment(
+func publishOpenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	c preconf.PreconfcommitmentstoreCommitmentStored,
+	c preconf.PreconfcommitmentstoreOpenedCommitmentStored,
 ) error {
-	event := pcABI.Events["CommitmentStored"]
+	event := pcABI.Events["OpenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		c.Bidder,
 		c.Committer,
@@ -1484,7 +1484,7 @@ func publishCommitment(
 		c.DecayEndTimeStamp,
 		c.TxnHash,
 		c.RevertingTxHashes,
-		c.CommitmentHash,
+		c.CommitmentDigest,
 		c.BidSignature,
 		c.CommitmentSignature,
 		c.DispatchTimestamp,
