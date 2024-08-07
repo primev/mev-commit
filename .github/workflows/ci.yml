@@ -7,6 +7,11 @@ on:
   pull_request:
     branches:
       - main
+  workflow_run:
+    workflows:
+      - pr
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -16,43 +21,6 @@ concurrency:
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
-  commitlint:
-    name: Check Commit Message
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install Required Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git curl
-          curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
-
-          npm install conventional-changelog-conventionalcommits
-          npm install --save-dev @commitlint/config-conventional
-          npm install commitlint@latest
-
-      - name: Print Versions
-        run: |
-          git --version
-          node --version
-          npm --version
-          npx commitlint --version
-
-      - name: Validate Current (Last) Commit Message
-        if: github.event_name == 'push'
-        run: npx commitlint --last --verbose
-
-      - name: Validate PR Commit Messages
-        if: github.event_name == 'pull_request'
-        run: npx commitlint --from ${{ github.event.pull_request.head.sha }}~${{ github.event.pull_request.commits }} --to ${{ github.event.pull_request.head.sha }} --verbose
-
   go-modules:
     name: Test and Build Go Modules
     runs-on: ubuntu-24.04
@@ -245,7 +213,6 @@ jobs:
     uses: ./.github/workflows/infrastructure.yml
     secrets: inherit
     needs:
-      - commitlint
       - go-modules
       - foundry
       - contracts

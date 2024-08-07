@@ -1,0 +1,37 @@
+name: pr
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  lint:
+    name: Lint PR Title
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+
+    steps:
+      - name: Lint PR Title
+        run: |
+          REGEX="^(fix|feat|refactor|revert|test|perf|style|chore|docs): [a-z][^.]{0,60}( \\(\\#\\d+\\))?$"
+          if echo "${PR_TITLE}" | grep -Eq "${REGEX}"; then
+            echo -e "PR title is valid: ${PR_TITLE}"
+          else
+            echo -e "Invalid PR title: ${PR_TITLE}"
+            echo -e "PR title must match the following pattern: ${REGEX}"
+            exit 1
+          fi
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
