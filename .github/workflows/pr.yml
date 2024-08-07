@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Lint PR Title
         run: |
-          REGEX="^(fix|feat|refactor|revert|test|perf|style|chore|docs): [a-z][^.]{0,60}( \\(\\#\\d+\\))?$"
+          REGEX="^(fix|feat|refactor|revert|test|perf|style|chore|docs): [a-z][^.]{0,60}$"
           if echo "${PR_TITLE}" | grep -Eq "${REGEX}"; then
             echo -e "PR title is valid: ${PR_TITLE}"
           else
