@@ -36,7 +36,7 @@ contract ProviderRegistry is
     uint256 public withdrawalDelay;
 
     /// Struct enabling automatic protocol fee payouts
-    FeePayout.Tracker public protocolFeeTracker;
+    FeePayout.Tracker public penaltyFeeTracker;
 
     /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
@@ -78,21 +78,21 @@ contract ProviderRegistry is
     /**
      * @dev Initializes the contract with a minimum stake requirement.
      * @param _minStake The minimum stake required for provider registration.
-     * @param _protocolFeeRecipient The address that accumulates protocol fees
+     * @param _penaltyFeeRecipient The address that accumulates protocol fees
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _withdrawalDelay The withdrawal delay in milliseconds.
-     * @param _protocolFeePayoutPeriodBlocks The min number of blocks between protocol fee payouts
+     * @param _penaltyFeePayoutPeriodBlocks The min number of blocks between protocol fee payouts
      */
     function initialize(
         uint256 _minStake,
-        address _protocolFeeRecipient,
+        address _penaltyFeeRecipient,
         uint16 _feePercent,
         address _owner,
         uint256 _withdrawalDelay,
-        uint256 _protocolFeePayoutPeriodBlocks
+        uint256 _penaltyFeePayoutPeriodBlocks
     ) external initializer {
-        FeePayout.init(protocolFeeTracker, _protocolFeeRecipient, _protocolFeePayoutPeriodBlocks);
+        FeePayout.init(penaltyFeeTracker, _penaltyFeeRecipient, _penaltyFeePayoutPeriodBlocks);
         minStake = _minStake;
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
@@ -163,9 +163,9 @@ contract ProviderRegistry is
         require(providerStakes[provider] >= residualAmt + penaltyFee, "Insufficient funds to slash");
         providerStakes[provider] -= residualAmt + penaltyFee;
 
-        protocolFeeTracker.accumulatedAmount += penaltyFee;
-        if (FeePayout.isPayoutDue(protocolFeeTracker)) {
-            FeePayout.transferToRecipient(protocolFeeTracker);
+        penaltyFeeTracker.accumulatedAmount += penaltyFee;
+        if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
+            FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
         (bool success, ) = payable(bidder).call{value: residualAmt}("");
@@ -180,7 +180,7 @@ contract ProviderRegistry is
      * @param newFeeRecipient The address of the new protocol fee recipient
      */
     function setNewProtocolFeeRecipient(address newFeeRecipient) external onlyOwner {
-        protocolFeeTracker.recipient = newFeeRecipient;
+        penaltyFeeTracker.recipient = newFeeRecipient;
         emit ProtocolFeeRecipientUpdated(newFeeRecipient);
     }
 
@@ -204,7 +204,7 @@ contract ProviderRegistry is
     /// @dev Sets the fee payout period in blocks
     /// @param _feePayoutPeriodBlocks The new fee payout period in blocks
     function setFeePayoutPeriodBlocks(uint256 _feePayoutPeriodBlocks) external onlyOwner {
-        protocolFeeTracker.payoutPeriodBlocks = _feePayoutPeriodBlocks;
+        penaltyFeeTracker.payoutPeriodBlocks = _feePayoutPeriodBlocks;
         emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
@@ -244,7 +244,7 @@ contract ProviderRegistry is
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
     function manuallyWithdrawProtocolFee() external onlyOwner {
-        FeePayout.transferToRecipient(protocolFeeTracker);
+        FeePayout.transferToRecipient(penaltyFeeTracker);
     }
 
     /**
@@ -261,9 +261,9 @@ contract ProviderRegistry is
         return eoaToBlsPubkey[provider];
     }
 
-    /// @return protocolFee amount not yet transferred to recipient
+    /// @return penaltyFee amount not yet transferred to recipient
     function getAccumulatedProtocolFee() external view returns (uint256) {
-        return protocolFeeTracker.accumulatedAmount;
+        return penaltyFeeTracker.accumulatedAmount;
     }
 
     /**
