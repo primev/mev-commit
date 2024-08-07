@@ -77,14 +77,14 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 	sub, err := cluster.Events().Subscribe(
 		events.NewEventHandler(
 			"EncryptedCommitmentStored",
-			func(c *preconfcommitmentstore.PreconfcommitmentstoreEncryptedCommitmentStored) {
+			func(c *preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored) {
 				logger.Info("Received encrypted commitment")
 				store.Insert(encryptCmtKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(
 			"CommitmentStored",
-			func(c *preconfcommitmentstore.PreconfcommitmentstoreCommitmentStored) {
+			func(c *preconfcommitmentstore.PreconfcommitmentstoreOpenedCommitmentStored) {
 				logger.Info("Received opened commitment")
 				store.Insert(openCmtKey(c.CommitmentIndex[:]), c)
 			},
@@ -310,7 +310,7 @@ DONE:
 				}
 				if pc.ProviderAddress == strings.TrimPrefix(winner.(*blocktracker.BlocktrackerNewL1Block).Winner.Hex(), "0x") {
 					foundCmt = true
-					ecmt := ec.(*preconfcommitmentstore.PreconfcommitmentstoreEncryptedCommitmentStored)
+					ecmt := ec.(*preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored)
 					_, ok := store.Get(openCmtKey(ecmt.CommitmentIndex[:]))
 					if !ok {
 						logger.Error(
