@@ -2,6 +2,7 @@ package preconf
 
 import (
 	"context"
+	crand "crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -459,7 +460,7 @@ func getRandomBid(
 		} else {
 			// get random tx hash
 			randBytes := make([]byte, 32)
-			rand.Read(randBytes)
+			_, _ = crand.Read(randBytes)
 			txHashes[0] = strings.TrimPrefix(common.BytesToHash(randBytes).String(), "0x")
 		}
 	}
