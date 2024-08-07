@@ -60,7 +60,7 @@ contract ProviderRegistry is
     /// @dev Event emitted when the withdrawal delay is updated
     event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
     /// @dev Event emitted when the protocol fee recipient is updated
-    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
     /// @dev Event emitted when the fee payout period in blocks is updated
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
@@ -179,9 +179,9 @@ contract ProviderRegistry is
      * @dev onlyOwner restriction
      * @param newFeeRecipient The address of the new protocol fee recipient
      */
-    function setNewProtocolFeeRecipient(address newFeeRecipient) external onlyOwner {
+    function setNewPenaltyFeeRecipient(address newFeeRecipient) external onlyOwner {
         penaltyFeeTracker.recipient = newFeeRecipient;
-        emit ProtocolFeeRecipientUpdated(newFeeRecipient);
+        emit PenaltyFeeRecipientUpdated(newFeeRecipient);
     }
 
     /**
@@ -243,7 +243,7 @@ contract ProviderRegistry is
      * @dev Manually withdraws accumulated protocol fees to the recipient
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
-    function manuallyWithdrawProtocolFee() external onlyOwner {
+    function manuallyWithdrawPenaltyFee() external onlyOwner {
         FeePayout.transferToRecipient(penaltyFeeTracker);
     }
 
@@ -262,7 +262,7 @@ contract ProviderRegistry is
     }
 
     /// @return penaltyFee amount not yet transferred to recipient
-    function getAccumulatedProtocolFee() external view returns (uint256) {
+    function getAccumulatedPenaltyFee() external view returns (uint256) {
         return penaltyFeeTracker.accumulatedAmount;
     }
 

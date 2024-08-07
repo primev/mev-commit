@@ -27,7 +27,7 @@ contract ProviderRegistryTest is Test {
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
-    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
     function setUp() public {
@@ -95,7 +95,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.feePercent(), feePercent);
         assertEq(providerRegistry.preConfirmationsContract(), address(0));
         assertEq(providerRegistry.providerRegistered(provider), false);
-        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.penaltyFeeTracker();
+        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
         assertEq(payoutPeriodBlocks, penaltyFeePayoutPeriodBlocks);
         assertEq(lastPayoutBlock, block.number);
@@ -159,20 +159,20 @@ contract ProviderRegistryTest is Test {
         require(success, "Couldn't transfer to provider");
     }
 
-    function test_SetNewProtocolFeeRecipient() public {
+    function test_SetNewPenaltyFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
         vm.expectEmit(true, true, true, true);
-        emit ProtocolFeeRecipientUpdated(newRecipient);
-        providerRegistry.setNewProtocolFeeRecipient(newRecipient);
+        emit PenaltyFeeRecipientUpdated(newRecipient);
+        providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
         (address recipient, , ,) = providerRegistry.penaltyFeeTracker();
         assertEq(recipient, newRecipient);
     }
 
-    function testFail_SetNewProtocolFeeRecipient() public {
+    function testFail_SetNewPenaltyFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
-        providerRegistry.setNewProtocolFeeRecipient(newRecipient);
+        providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
     }
 
     function test_SetNewFeePayoutPeriodBlocks() public {
@@ -229,13 +229,13 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
         assertEq(bidder.balance, 1000000000000000000 wei);
-        assertEq(providerRegistry.getAccumulatedProtocolFee(), 100000000000000000 wei);
+        assertEq(providerRegistry.getAccumulatedPenaltyFee(), 100000000000000000 wei);
         assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
     }
 
     function test_ShouldSlashProviderWithoutFeeRecipient() public {
         vm.prank(address(this));
-        providerRegistry.setNewProtocolFeeRecipient(address(0));
+        providerRegistry.setNewPenaltyFeeRecipient(address(0));
         providerRegistry.setPreconfirmationsContract(address(this));
 
         vm.deal(provider, 3 ether);
@@ -273,8 +273,8 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(3 ether, provider, payable(bidder), 100);
     }
 
-    function test_ProtocolFeeBehavior() public {
-        providerRegistry.setNewProtocolFeeRecipient(vm.addr(6));
+    function test_PenaltyFeeBehavior() public {
+        providerRegistry.setNewPenaltyFeeRecipient(vm.addr(6));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
 
@@ -284,7 +284,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setPreconfirmationsContract(address(this));
         providerRegistry.slash(1e18 wei, provider, payable(bidder), 50);
         assertEq(
-            providerRegistry.getAccumulatedProtocolFee(),
+            providerRegistry.getAccumulatedPenaltyFee(),
             5e16 wei,
             "FeeRecipientAmount should match"
         );
@@ -301,7 +301,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(1e18 wei, newProvider, payable(bidder), 50);
 
         assertEq(
-            providerRegistry.getAccumulatedProtocolFee(),
+            providerRegistry.getAccumulatedPenaltyFee(),
             0,
             "Accumulated protocol fee should be zero"
         );
@@ -313,7 +313,7 @@ contract ProviderRegistryTest is Test {
     }
 
     function test_WithdrawStakedAmountWithoutFeeRecipient() public {
-        providerRegistry.setNewProtocolFeeRecipient(address(0));
+        providerRegistry.setNewPenaltyFeeRecipient(address(0));
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);
