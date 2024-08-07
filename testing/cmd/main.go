@@ -78,6 +78,18 @@ var (
 		},
 	}
 
+	optionOracleContractAddress = &cli.StringFlag{
+		Name:    "oracle-contract-address",
+		Usage:   "Oracle contract address",
+		EnvVars: []string{"MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS"},
+		Action: func(c *cli.Context, address string) error {
+			if !common.IsHexAddress(address) {
+				return fmt.Errorf("invalid oracle address")
+			}
+			return nil
+		},
+	}
+
 	optionBootnodeRPCAddresses = &cli.StringSliceFlag{
 		Name:    "bootnode-rpc-addresses",
 		Usage:   "Bootnode RPC addresses",
@@ -181,6 +193,7 @@ func main() {
 			optionBidderRegistryAddress,
 			optionPreconfContractAddress,
 			optionBlocktrackerContractAddress,
+			optionOracleContractAddress,
 			optionBootnodeRPCAddresses,
 			optionProviderRPCAddresses,
 			optionBidderRPCAddresses,
@@ -216,6 +229,7 @@ func run(c *cli.Context) error {
 		BidderRegistryAddress:       common.HexToAddress(c.String(optionBidderRegistryAddress.Name)),
 		PreconfContractAddress:      common.HexToAddress(c.String(optionPreconfContractAddress.Name)),
 		BlockTrackerContractAddress: common.HexToAddress(c.String(optionBlocktrackerContractAddress.Name)),
+		OracleContractAddress:       common.HexToAddress(c.String(optionOracleContractAddress.Name)),
 		BootnodeRPCAddresses:        c.StringSlice(optionBootnodeRPCAddresses.Name),
 		ProviderRPCAddresses:        c.StringSlice(optionProviderRPCAddresses.Name),
 		BidderRPCAddresses:          c.StringSlice(optionBidderRPCAddresses.Name),
@@ -233,13 +247,13 @@ func run(c *cli.Context) error {
 	defer o.Close()
 
 	// Run test cases
-	for name, tc := range tests.TestCases {
-		logger.Info("running test case", "name", name)
-		if err := tc(context.Background(), o, nil); err != nil {
-			logger.Error("test case failed", "name", name, "error", err)
-			return fmt.Errorf("test case %s failed: %w", name, err)
+	for _, tc := range tests.TestCases {
+		logger.Info("running test case", "name", tc.Name)
+		if err := tc.Run(context.Background(), o, nil); err != nil {
+			logger.Error("test case failed", "name", tc.Name, "error", err)
+			return fmt.Errorf("test case %s failed: %w", tc.Name, err)
 		}
-		logger.Info("test case passed", "name", name)
+		logger.Info("test case passed", "name", tc.Name)
 	}
 
 	logger.Info("all test cases passed")

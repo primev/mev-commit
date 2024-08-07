@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
+	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
@@ -69,6 +70,7 @@ type Options struct {
 	BlockTrackerContractAddress common.Address
 	PreconfContractAddress      common.Address
 	BidderRegistryAddress       common.Address
+	OracleContractAddress       common.Address
 	ProviderRPCAddresses        []string
 	BidderRPCAddresses          []string
 	BootnodeRPCAddresses        []string
@@ -317,6 +319,12 @@ func getContractABIs(opts Options) (map[common.Address]*abi.ABI, error) {
 		return nil, err
 	}
 	abis[opts.ProviderRegistryAddress] = &prABI
+
+	orABI, err := abi.JSON(strings.NewReader(oracle.OracleABI))
+	if err != nil {
+		return nil, err
+	}
+	abis[opts.OracleContractAddress] = &orABI
 
 	return abis, nil
 }

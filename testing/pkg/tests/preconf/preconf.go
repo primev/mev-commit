@@ -2,7 +2,7 @@ package preconf
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/armon/go-radix"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
@@ -76,37 +77,48 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 	// Listen for encrypted commitments, opened commitments, and settlements
 	sub, err := cluster.Events().Subscribe(
 		events.NewEventHandler(
-			"EncryptedCommitmentStored",
+			"UnopenedCommitmentStored",
 			func(c *preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored) {
-				logger.Info("Received encrypted commitment")
+				logger.Info("Received encrypted commitment", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
 				store.Insert(encryptCmtKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(
-			"CommitmentStored",
+			"OpenedCommitmentStored",
 			func(c *preconfcommitmentstore.PreconfcommitmentstoreOpenedCommitmentStored) {
-				logger.Info("Received opened commitment")
+				logger.Info(
+					"Received opened commitment",
+					"digest", hex.EncodeToString(c.CommitmentDigest[:]),
+					"index", hex.EncodeToString(c.CommitmentIndex[:]),
+					"decay_start", c.DecayStartTimeStamp,
+					"decay_end", c.DecayEndTimeStamp,
+					"dispatch_timestamp", c.DispatchTimestamp,
+				)
 				store.Insert(openCmtKey(c.CommitmentIndex[:]), c)
 			},
 		),
 		events.NewEventHandler(
 			"CommitmentProcessed",
 			func(c *oracle.OracleCommitmentProcessed) {
-				logger.Info("Received settlement")
+				logger.Info(
+					"Received settlement",
+					"index", hex.EncodeToString(c.CommitmentIndex[:]),
+					"slash", c.IsSlash,
+				)
 				store.Insert(settleKey(c.CommitmentIndex[:]), c)
 			},
 		),
 		events.NewEventHandler(
 			"FundsRetrieved",
 			func(c *bidderregistry.BidderregistryFundsRetrieved) {
-				logger.Info("Retrieved funds")
+				logger.Info("Retrieved funds", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
 				store.Insert(fundsRetrievedKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(
 			"FundsRewarded",
 			func(c *bidderregistry.BidderregistryFundsRewarded) {
-				logger.Info("Rewarded funds")
+				logger.Info("Rewarded funds", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
 				store.Insert(fundsRewardedKey(c.CommitmentDigest[:]), c)
 			},
 		),
@@ -153,23 +165,23 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 					}
 					val, ok := store.Get(bidKey(bid.TxHashes))
 					if !ok {
-						logger.Error("Bid not found in store", "digest", bid.BidDigest)
+						logger.Error("Bid not found in store", "digest", bid.TxHashes)
 						return fmt.Errorf("bid not found in store")
 					}
 					entry := val.(*BidEntry)
 					if entry.Accept {
-						logger.Info("Bid accepted", "digest", bid.BidDigest)
+						logger.Info("Bid accepted", "entry", entry)
 						err := out.Send(&providerapiv1.BidResponse{
 							BidDigest:         bid.BidDigest,
 							Status:            providerapiv1.BidResponse_STATUS_ACCEPTED,
-							DispatchTimestamp: time.Now().UnixMilli(),
+							DispatchTimestamp: time.Now().UnixMilli() + 100,
 						})
 						if err != nil {
 							logger.Error("Failed to send bid response", "digest", bid.BidDigest)
 							return err
 						}
 					} else {
-						logger.Info("Bid rejected", "digest", bid.BidDigest)
+						logger.Info("Bid rejected", "entry", entry)
 						err := out.Send(&providerapiv1.BidResponse{
 							BidDigest: bid.BidDigest,
 							Status:    providerapiv1.BidResponse_STATUS_REJECTED,
@@ -256,7 +268,7 @@ DONE:
 		}
 	}
 
-	if err := eg.Wait(); err != nil {
+	if err := eg.Wait(); err != nil && !strings.Contains(err.Error(), "context canceled") {
 		return err
 	}
 
@@ -289,7 +301,7 @@ DONE:
 			}
 			foundCmt := false
 			for _, pc := range entry.Preconfs {
-				cmtDigest, err := base64.StdEncoding.DecodeString(pc.CommitmentDigest)
+				cmtDigest, err := hex.DecodeString(pc.CommitmentDigest)
 				if err != nil {
 					logger.Error(
 						"Failed to decode commitment digest",
@@ -308,7 +320,17 @@ DONE:
 					)
 					return fmt.Errorf("encrypted commitment not found")
 				}
-				if pc.ProviderAddress == strings.TrimPrefix(winner.(*blocktracker.BlocktrackerNewL1Block).Winner.Hex(), "0x") {
+				providerAddr, err := hex.DecodeString(pc.ProviderAddress)
+				if err != nil {
+					logger.Error(
+						"Failed to decode provider address",
+						"error", err,
+						"entry", entry,
+						"address", pc.ProviderAddress,
+					)
+					return fmt.Errorf("failed to decode provider address")
+				}
+				if common.BytesToAddress(providerAddr).Cmp(winner.(*blocktracker.BlocktrackerNewL1Block).Winner) == 0 {
 					foundCmt = true
 					ecmt := ec.(*preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored)
 					_, ok := store.Get(openCmtKey(ecmt.CommitmentIndex[:]))
@@ -316,7 +338,7 @@ DONE:
 						logger.Error(
 							"Opened commitment not found",
 							"entry", entry,
-							"index", base64.StdEncoding.EncodeToString(ecmt.CommitmentIndex[:]),
+							"index", hex.EncodeToString(ecmt.CommitmentIndex[:]),
 						)
 						return fmt.Errorf("opened commitment not found")
 					}
@@ -325,7 +347,7 @@ DONE:
 						logger.Error(
 							"Settlement not found",
 							"entry", entry,
-							"index", base64.StdEncoding.EncodeToString(ecmt.CommitmentIndex[:]),
+							"index", hex.EncodeToString(ecmt.CommitmentIndex[:]),
 						)
 						return fmt.Errorf("settlement not found")
 					}
@@ -341,8 +363,32 @@ DONE:
 						}
 					} else {
 						if pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
-							logger.Error("Provider should not be slashed", "entry", entry)
-							return fmt.Errorf("provider should not be slashed")
+							// check if any of the transactions were not successful,
+							// if so, the provider should not be slashed. Test doesnt
+							// handle reverting transactions.
+							failedTxnPresent := false
+							for _, h := range entry.Bid.TxHashes {
+								receipt, err := cluster.L1RPC().TransactionReceipt(
+									context.Background(),
+									common.HexToHash(h),
+								)
+								if err != nil {
+									logger.Error(
+										"failed getting transaction receipt",
+										"error", err,
+										"entry", entry,
+										"hash", h,
+									)
+								}
+								if receipt.Status != types.ReceiptStatusSuccessful {
+									failedTxnPresent = true
+								}
+							}
+							if !failedTxnPresent {
+								logger.Error("Provider should not be slashed", "entry", entry)
+								return fmt.Errorf("provider should not be slashed")
+							}
+							continue
 						}
 						_, ok := store.Get(fundsRewardedKey(cmtDigest))
 						if !ok {
@@ -353,7 +399,11 @@ DONE:
 				}
 			}
 			if !foundCmt {
-				logger.Error("Winner not found in preconfs", "entry", entry)
+				logger.Error(
+					"Winner not found in preconfs",
+					"entry", entry,
+					"winner", winner.(*blocktracker.BlocktrackerNewL1Block).Winner.Hex(),
+				)
 				return fmt.Errorf("winner not found in preconfs")
 			}
 		}
@@ -400,6 +450,19 @@ func getRandomBid(
 	shouldSlash := rand.Intn(100) < 10
 	// amount between 5M and 6M
 	amount := 5_000_000 + rand.Intn(1_000_000)
+
+	if shouldSlash {
+		if len(txHashes) > 1 {
+			rand.Shuffle(len(txHashes), func(i, j int) {
+				txHashes[i], txHashes[j] = txHashes[j], txHashes[i]
+			})
+		} else {
+			// get random tx hash
+			randBytes := make([]byte, 32)
+			rand.Read(randBytes)
+			txHashes[0] = strings.TrimPrefix(common.BytesToHash(randBytes).String(), "0x")
+		}
+	}
 
 	bid := &BidEntry{
 		Bid: &bidderapiv1.Bid{

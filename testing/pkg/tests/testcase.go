@@ -12,10 +12,15 @@ import (
 
 type TestCase func(ctx context.Context, cluster orchestrator.Orchestrator, args any) error
 
-var TestCases = map[string]TestCase{
-	"staking":           staking.Run,
-	"connectivity":      connectivity.Run,
-	"autodeposit":       deposit.RunAutoDeposit,
-	"preconf":           preconf.RunPreconf,
-	"cancelAutodeposit": deposit.RunCancelAutoDeposit,
+type TestEntry struct {
+	Name string
+	Run  TestCase
+}
+
+var TestCases = []TestEntry{
+	{"staking", staking.Run},
+	{"connectivity", connectivity.Run},
+	{"autodeposit", deposit.RunAutoDeposit},
+	{"preconf", preconf.RunPreconf},
+	{"cancelAutodeposit", deposit.RunCancelAutoDeposit},
 }

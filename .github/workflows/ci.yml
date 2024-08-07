@@ -216,3 +216,52 @@ jobs:
       - go-modules
       - foundry
       - contracts
+
+  integrationtests:
+    name: Run integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: testing
+    needs:
+      - infrastructure
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.work.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+          check-latest: true
+          cache-dependency-path: ../go.work.sum
+
+      - name: Run Integration Tests
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          CONTRACTS_JSON=$(curl -s http://127.0.0.1:1010/contracts.json)
+          export MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.ProviderRegistry')
+          export MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BidderRegistry')
+          export MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BlockTracker')
+          export MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.PreConfCommitmentStore')
+          export MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.Oracle')
+          export MEV_COMMIT_TEST_L1_RPC_ENDPOINT="${{ secrets.L1_RPC_URL }}"
+          go build -o mev-commit-test ./cmd/main.go
+          ./mev-commit-test \
+              --settlement-rpc-endpoint 127.0.0.1:8545 \
+              --bootnode-rpc-addresses 127.0.0.1:13524 \
+              --provider-rpc-addresses 127.0.0.1:13624 \
+              --bidder-rpc-addresses 127.0.0.1:13724
