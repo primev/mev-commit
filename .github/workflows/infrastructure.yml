@@ -12,6 +12,7 @@ on:
           - testnet
           - stressnet
           - manual-test
+          - poc
         default: 'devnet'
       all_targets:
         description: 'All Arch & Os Targets'
