@@ -22,7 +22,7 @@ contract ProviderRegistryTest is Test {
     uint256 public blocksPerWindow;
     uint256 public withdrawalDelay;
     bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-    uint256 public protocolFeePayoutPeriodBlocks;
+    uint256 public penaltyFeePayoutPeriodBlocks;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
@@ -37,7 +37,7 @@ contract ProviderRegistryTest is Test {
         feeRecipient = vm.addr(9);
         blocksPerWindow = 10;
         withdrawalDelay = 24 * 3600; // 24 hours
-        protocolFeePayoutPeriodBlocks = 100;
+        penaltyFeePayoutPeriodBlocks = 100;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(ProviderRegistry.initialize, 
@@ -46,7 +46,7 @@ contract ProviderRegistryTest is Test {
             feePercent, 
             address(this),
             withdrawalDelay,
-            protocolFeePayoutPeriodBlocks
+            penaltyFeePayoutPeriodBlocks
             )) 
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -66,7 +66,7 @@ contract ProviderRegistryTest is Test {
             address(this), 
             address(blockTracker),
             blocksPerWindow,
-            protocolFeePayoutPeriodBlocks)) 
+            penaltyFeePayoutPeriodBlocks)) 
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
@@ -95,9 +95,9 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.feePercent(), feePercent);
         assertEq(providerRegistry.preConfirmationsContract(), address(0));
         assertEq(providerRegistry.providerRegistered(provider), false);
-        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
+        (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.penaltyFeeTracker();
         assertEq(recipient, feeRecipient);
-        assertEq(payoutPeriodBlocks, protocolFeePayoutPeriodBlocks);
+        assertEq(payoutPeriodBlocks, penaltyFeePayoutPeriodBlocks);
         assertEq(lastPayoutBlock, block.number);
         assertEq(accumulatedAmount, 0);
     }
@@ -165,7 +165,7 @@ contract ProviderRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit ProtocolFeeRecipientUpdated(newRecipient);
         providerRegistry.setNewProtocolFeeRecipient(newRecipient);
-        (address recipient, , ,) = providerRegistry.protocolFeeTracker();
+        (address recipient, , ,) = providerRegistry.penaltyFeeTracker();
         assertEq(recipient, newRecipient);
     }
 
@@ -180,7 +180,7 @@ contract ProviderRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit FeePayoutPeriodBlocksUpdated(890);
         providerRegistry.setFeePayoutPeriodBlocks(890);
-        (, , , uint256 payoutPeriodBlocks) = providerRegistry.protocolFeeTracker();
+        (, , , uint256 payoutPeriodBlocks) = providerRegistry.penaltyFeeTracker();
         assertEq(payoutPeriodBlocks, 890);
     }
 
