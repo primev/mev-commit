@@ -209,7 +209,7 @@ jobs:
         working-directory: infrastructure/nomad
 
       - name: Run integration tests
-        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && success() && env.CLUSTER_PROFILE_FLAG == 'ci' }}
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && success() }}
         working-directory: testing
         run: |
           CONTRACTS_JSON=$(curl -s http://127.0.0.1:1010/contracts.json)
