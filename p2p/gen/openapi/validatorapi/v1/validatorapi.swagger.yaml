@@ -1,0 +1,66 @@
+swagger: "2.0"
+info:
+  title: Validator API
+  version: 1.0.0-alpha
+  license:
+    name: Business Source License 1.1
+    url: https://github.com/primev/mev-commit/blob/main/LICENSE
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /v1/validator/get_validators:
+    get:
+      summary: GetValidators
+      description: GetValidators is called by the bidder to get the validators for a given epoch.
+      operationId: Validator_GetValidators
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1GetValidatorsResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: epoch
+          in: query
+          required: false
+          type: string
+          format: uint64
+definitions:
+  googlerpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  v1GetValidatorsResponse:
+    type: object
+    properties:
+      items:
+        type: object
+        additionalProperties:
+          $ref: '#/definitions/v1SlotInfo'
+  v1SlotInfo:
+    type: object
+    properties:
+      BLSKey:
+        type: string
+      isOptedIn:
+        type: boolean

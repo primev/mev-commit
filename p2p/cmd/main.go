@@ -238,6 +238,18 @@ var (
 		},
 	})
 
+	optionValidatorRouterAddr = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "validator-router-contract",
+		Usage:   "address of the validator router contract",
+		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
+		Action: func(ctx *cli.Context, s string) error {
+			if !common.IsHexAddress(s) {
+				return fmt.Errorf("invalid validator router address: %s", s)
+			}
+			return nil
+		},
+	})
+
 	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "autodeposit-amount",
 		Usage:   "amount to auto deposit",
@@ -323,6 +335,18 @@ var (
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
 		Value:   "2000000000", // 2 gWEI
 	})
+
+	optionBeaconAPIURL = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "beacon-api-url",
+		Usage:   "URL of the beacon chain API",
+		EnvVars: []string{"MEV_COMMIT_BEACON_API_URL"},
+	})
+
+	optionL1RPCURL = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "l1-rpc-url",
+		Usage:   "URL for L1 RPC",
+		EnvVars: []string{"MEV_COMMIT_L1_RPC_URL"},
+	})
 )
 
 func main() {
@@ -348,6 +372,7 @@ func main() {
 		optionProviderRegistryAddr,
 		optionPreconfStoreAddr,
 		optionBlockTrackerAddr,
+		optionValidatorRouterAddr,
 		optionAutodepositAmount,
 		optionAutodepositEnabled,
 		optionSettlementRPCEndpoint,
@@ -360,6 +385,8 @@ func main() {
 		optionGasLimit,
 		optionGasTipCap,
 		optionGasFeeCap,
+		optionBeaconAPIURL,
+		optionL1RPCURL,
 	}
 
 	app := &cli.App{
@@ -497,6 +524,7 @@ func launchNodeWithConfig(c *cli.Context) error {
 		ProviderRegistryContract: c.String(optionProviderRegistryAddr.Name),
 		BidderRegistryContract:   c.String(optionBidderRegistryAddr.Name),
 		BlockTrackerContract:     c.String(optionBlockTrackerAddr.Name),
+		ValidatorRouterContract:  c.String(optionValidatorRouterAddr.Name),
 		AutodepositAmount:        autodepositAmount,
 		RPCEndpoint:              c.String(optionSettlementRPCEndpoint.Name),
 		WSRPCEndpoint:            c.String(optionSettlementWSRPCEndpoint.Name),
@@ -508,6 +536,8 @@ func launchNodeWithConfig(c *cli.Context) error {
 		DefaultGasTipCap:         gasTipCap,
 		DefaultGasFeeCap:         gasFeeCap,
 		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
+		BeaconAPIURL:             c.String(optionBeaconAPIURL.Name),
+		L1RPCURL:                 c.String(optionL1RPCURL.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
