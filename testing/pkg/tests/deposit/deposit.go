@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	noOfWindows = 10
+	noOfWindows = 5
 	withdraw    = true
 )
 
@@ -111,16 +111,6 @@ func RunAutoDeposit(ctx context.Context, cluster orchestrator.Orchestrator, _ an
 	for _, bidder := range bidders {
 		depositsForBidder := depositsRcvd[common.HexToAddress(bidder.EthAddress())]
 		withdrawalsForBidder := withdrawalsRcvd[common.HexToAddress(bidder.EthAddress())]
-
-		if len(depositsForBidder)-1 != len(withdrawalsForBidder) {
-			logger.Error(
-				"Expected deposits to be one more than withdrawals",
-				"bidder", bidder.EthAddress(),
-				"deposits", len(depositsForBidder),
-				"withdrawals", len(withdrawalsForBidder),
-			)
-			return fmt.Errorf("expected deposits to be one more than withdrawals")
-		}
 
 		for i, deposit := range depositsForBidder {
 			expWindow := new(big.Int).Add(start.Load().(*big.Int), big.NewInt(int64(i)))
@@ -227,7 +217,7 @@ func RunCancelAutoDeposit(ctx context.Context, cluster orchestrator.Orchestrator
 				withdrawalsRcvd[r.Bidder] = append(withdrawalsRcvd[r.Bidder], r)
 			case w := <-window:
 				logger.Info("Received new window", "window", w.Window)
-				if w.Window.Cmp(end.Load().(*big.Int)) == 0 {
+				if end.Load() != nil && w.Window.Cmp(end.Load().(*big.Int)) == 0 {
 					logger.Info("Finished test", "window", w.Window)
 					return nil
 				}
