@@ -35,7 +35,7 @@ contract ProviderRegistry is
     /// @dev Configurable withdrawal delay in milliseconds
     uint256 public withdrawalDelay;
 
-    /// Struct enabling automatic protocol fee payouts
+    /// Struct enabling automatic penalty fee payouts
     FeePayout.Tracker public penaltyFeeTracker;
 
     /// @dev Mapping from provider address to whether they are registered or not
@@ -59,7 +59,7 @@ contract ProviderRegistry is
     event Withdraw(address indexed provider, uint256 amount);
     /// @dev Event emitted when the withdrawal delay is updated
     event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
-    /// @dev Event emitted when the protocol fee recipient is updated
+    /// @dev Event emitted when the penalty fee recipient is updated
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
     /// @dev Event emitted when the fee payout period in blocks is updated
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
@@ -78,11 +78,11 @@ contract ProviderRegistry is
     /**
      * @dev Initializes the contract with a minimum stake requirement.
      * @param _minStake The minimum stake required for provider registration.
-     * @param _penaltyFeeRecipient The address that accumulates protocol fees
-     * @param _feePercent The fee percentage for protocol
+     * @param _penaltyFeeRecipient The address that accumulates penalty fees
+     * @param _feePercent The fee percentage for penalty
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _withdrawalDelay The withdrawal delay in milliseconds.
-     * @param _penaltyFeePayoutPeriodBlocks The min number of blocks between protocol fee payouts
+     * @param _penaltyFeePayoutPeriodBlocks The min number of blocks between penalty fee payouts
      */
     function initialize(
         uint256 _minStake,
@@ -175,9 +175,9 @@ contract ProviderRegistry is
     }
 
     /**
-     * @notice Sets a new protocol fee recipient
+     * @notice Sets a new penalty fee recipient
      * @dev onlyOwner restriction
-     * @param newFeeRecipient The address of the new protocol fee recipient
+     * @param newFeeRecipient The address of the new penalty fee recipient
      */
     function setNewPenaltyFeeRecipient(address newFeeRecipient) external onlyOwner {
         penaltyFeeTracker.recipient = newFeeRecipient;
@@ -240,7 +240,7 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Manually withdraws accumulated protocol fees to the recipient
+     * @dev Manually withdraws accumulated penalty fees to the recipient
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
     function manuallyWithdrawPenaltyFee() external onlyOwner {
