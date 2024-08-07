@@ -92,7 +92,7 @@
   },
   {
     "type": "function",
-    "name": "getAccumulatedProtocolFee",
+    "name": "getAccumulatedPenaltyFee",
     "inputs": [],
     "outputs": [
       {
@@ -151,7 +151,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "_protocolFeeRecipient",
+        "name": "_penaltyFeeRecipient",
         "type": "address",
         "internalType": "address"
       },
@@ -171,7 +171,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "_protocolFeePayoutPeriodBlocks",
+        "name": "_penaltyFeePayoutPeriodBlocks",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -194,7 +194,7 @@
   },
   {
     "type": "function",
-    "name": "manuallyWithdrawProtocolFee",
+    "name": "manuallyWithdrawPenaltyFee",
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -227,33 +227,7 @@
   },
   {
     "type": "function",
-    "name": "pendingOwner",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "preConfirmationsContract",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "protocolFeeTracker",
+    "name": "penaltyFeeTracker",
     "inputs": [],
     "outputs": [
       {
@@ -275,6 +249,32 @@
         "name": "payoutPeriodBlocks",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "preConfirmationsContract",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -378,7 +378,7 @@
   },
   {
     "type": "function",
-    "name": "setNewProtocolFeeRecipient",
+    "name": "setNewPenaltyFeeRecipient",
     "inputs": [
       {
         "name": "newFeeRecipient",
@@ -650,10 +650,10 @@
   },
   {
     "type": "event",
-    "name": "ProtocolFeeRecipientUpdated",
+    "name": "PenaltyFeeRecipientUpdated",
     "inputs": [
       {
-        "name": "newProtocolFeeRecipient",
+        "name": "newPenaltyFeeRecipient",
         "type": "address",
         "indexed": true,
         "internalType": "address"

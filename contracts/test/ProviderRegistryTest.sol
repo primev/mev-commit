@@ -22,12 +22,12 @@ contract ProviderRegistryTest is Test {
     uint256 public blocksPerWindow;
     uint256 public withdrawalDelay;
     bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-    uint256 public protocolFeePayoutPeriodBlocks;
+    uint256 public penaltyFeePayoutPeriodBlocks;
     event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
-    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
     function setUp() public {
@@ -37,7 +37,7 @@ contract ProviderRegistryTest is Test {
         feeRecipient = vm.addr(9);
         blocksPerWindow = 10;
         withdrawalDelay = 24 * 3600; // 24 hours
-        protocolFeePayoutPeriodBlocks = 100;
+        penaltyFeePayoutPeriodBlocks = 100;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
             abi.encodeCall(ProviderRegistry.initialize, 
@@ -46,7 +46,7 @@ contract ProviderRegistryTest is Test {
             feePercent, 
             address(this),
             withdrawalDelay,
-            protocolFeePayoutPeriodBlocks
+            penaltyFeePayoutPeriodBlocks
             )) 
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
@@ -66,7 +66,7 @@ contract ProviderRegistryTest is Test {
             address(this), 
             address(blockTracker),
             blocksPerWindow,
-            protocolFeePayoutPeriodBlocks)) 
+            penaltyFeePayoutPeriodBlocks)) 
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
@@ -97,7 +97,7 @@ contract ProviderRegistryTest is Test {
         assertEq(providerRegistry.providerRegistered(provider), false);
         (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
-        assertEq(payoutPeriodBlocks, protocolFeePayoutPeriodBlocks);
+        assertEq(payoutPeriodBlocks, penaltyFeePayoutPeriodBlocks);
         assertEq(lastPayoutBlock, block.number);
         assertEq(accumulatedAmount, 0);
     }
@@ -159,20 +159,20 @@ contract ProviderRegistryTest is Test {
         require(success, "Couldn't transfer to provider");
     }
 
-    function test_SetNewProtocolFeeRecipient() public {
+    function test_SetNewPenaltyFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.prank(address(this));
         vm.expectEmit(true, true, true, true);
-        emit ProtocolFeeRecipientUpdated(newRecipient);
-        providerRegistry.setNewProtocolFeeRecipient(newRecipient);
-        (address recipient, , ,) = providerRegistry.protocolFeeTracker();
+        emit PenaltyFeeRecipientUpdated(newRecipient);
+        providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
+        (address recipient, , ,) = providerRegistry.penaltyFeeTracker();
         assertEq(recipient, newRecipient);
     }
 
-    function testFail_SetNewProtocolFeeRecipient() public {
+    function testFail_SetNewPenaltyFeeRecipient() public {
         address newRecipient = vm.addr(2);
         vm.expectRevert(bytes(""));
-        providerRegistry.setNewProtocolFeeRecipient(newRecipient);
+        providerRegistry.setNewPenaltyFeeRecipient(newRecipient);
     }
 
     function test_SetNewFeePayoutPeriodBlocks() public {
@@ -180,7 +180,7 @@ contract ProviderRegistryTest is Test {
         vm.expectEmit(true, true, true, true);
         emit FeePayoutPeriodBlocksUpdated(890);
         providerRegistry.setFeePayoutPeriodBlocks(890);
-        (, , , uint256 payoutPeriodBlocks) = providerRegistry.protocolFeeTracker();
+        (, , , uint256 payoutPeriodBlocks) = providerRegistry.penaltyFeeTracker();
         assertEq(payoutPeriodBlocks, 890);
     }
 
@@ -225,17 +225,17 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         address bidder = vm.addr(4);
 
-        vm.expectCall(bidder, 900000000000000000 wei, new bytes(0));
+        vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
         providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
-        assertEq(bidder.balance, 900000000000000000 wei);
-        assertEq(providerRegistry.getAccumulatedProtocolFee(), 100000000000000000 wei);
-        assertEq(providerRegistry.providerStakes(provider), 1 ether);
+        assertEq(bidder.balance, 1000000000000000000 wei);
+        assertEq(providerRegistry.getAccumulatedPenaltyFee(), 100000000000000000 wei);
+        assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
     }
 
     function test_ShouldSlashProviderWithoutFeeRecipient() public {
         vm.prank(address(this));
-        providerRegistry.setNewProtocolFeeRecipient(address(0));
+        providerRegistry.setNewPenaltyFeeRecipient(address(0));
         providerRegistry.setPreconfirmationsContract(address(this));
 
         vm.deal(provider, 3 ether);
@@ -243,11 +243,11 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         address bidder = vm.addr(4);
 
-        vm.expectCall(bidder, 900000000000000000 wei, new bytes(0));
+        vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
         providerRegistry.slash(1 ether, provider, payable(bidder), 100);
 
-        assertEq(bidder.balance, 900000000000000000 wei);
-        assertEq(providerRegistry.providerStakes(provider), 1 ether);
+        assertEq(bidder.balance, 1000000000000000000 wei);
+        assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
     }
 
     function testFail_ShouldRetrieveFundsNotPreConf() public {
@@ -273,8 +273,8 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(3 ether, provider, payable(bidder), 100);
     }
 
-    function test_ProtocolFeeBehavior() public {
-        providerRegistry.setNewProtocolFeeRecipient(vm.addr(6));
+    function test_PenaltyFeeBehavior() public {
+        providerRegistry.setNewPenaltyFeeRecipient(vm.addr(6));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
 
@@ -284,7 +284,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setPreconfirmationsContract(address(this));
         providerRegistry.slash(1e18 wei, provider, payable(bidder), 50);
         assertEq(
-            providerRegistry.getAccumulatedProtocolFee(),
+            providerRegistry.getAccumulatedPenaltyFee(),
             5e16 wei,
             "FeeRecipientAmount should match"
         );
@@ -301,7 +301,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.slash(1e18 wei, newProvider, payable(bidder), 50);
 
         assertEq(
-            providerRegistry.getAccumulatedProtocolFee(),
+            providerRegistry.getAccumulatedPenaltyFee(),
             0,
             "Accumulated protocol fee should be zero"
         );
@@ -313,7 +313,7 @@ contract ProviderRegistryTest is Test {
     }
 
     function test_WithdrawStakedAmountWithoutFeeRecipient() public {
-        providerRegistry.setNewProtocolFeeRecipient(address(0));
+        providerRegistry.setNewPenaltyFeeRecipient(address(0));
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);
@@ -336,7 +336,7 @@ contract ProviderRegistryTest is Test {
         );
         assertEq(
             newProvider.balance,
-            2e18 wei,
+            1.9e18 wei,
             "Provider's balance should increase by staked amount"
         );
     }
@@ -417,7 +417,7 @@ contract ProviderRegistryTest is Test {
         );
         assertEq(
             newProvider.balance,
-            2e18 wei,
+            1.9e18 wei,
             "Provider's balance should increase by staked amount"
         );
     }
