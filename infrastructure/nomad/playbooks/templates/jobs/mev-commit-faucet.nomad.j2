@@ -57,11 +57,7 @@ job "{{ job.name }}" {
           {%- raw %}
           KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
-            {{- if contains "http" .Tags }}
-          SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
+          SETTLEMENT_RPC_ENDPOINT="http://127.0.0.1:8001"
           HTTP_PORT="{% endraw %}{{ job.ports | selectattr('http', 'defined') | map(attribute='http.static') | first }}{% raw %}"
           {% endraw %}
         EOH

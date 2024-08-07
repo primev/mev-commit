@@ -94,11 +94,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           XDG_CONFIG_HOME="local/.config"
           {%- raw %}
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
-            {{- if contains "http" .Tags }}
-          RPC_URL="http://{{ .Address }}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
+          RPC_URL="http://127.0.0.1:8001"
           KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"

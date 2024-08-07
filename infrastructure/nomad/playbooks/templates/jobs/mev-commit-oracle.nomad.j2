@@ -205,14 +205,7 @@ job "{{ job.name }}" {
           MEV_ORACLE_HTTP_PORT="{{ .Port }}"
             {{- end }}
           {{- end }}
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
-            {{- if contains "http" .Tags }}
-          MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP="http://{{ .Address }}:{{ .Port }}"
-            {{- end }}
-            {{- if contains "ws" .Tags }}
-          MEV_ORACLE_SETTLEMENT_RPC_URL_WS="ws://{{ .Address}}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
+          MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP="http://127.0.0.1:8001"
           {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
             {{- if contains "db" .Tags }}
           MEV_ORACLE_PG_HOST="localhost"

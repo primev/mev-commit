@@ -97,14 +97,7 @@ job "{{ job.name }}" {
           MEV_COMMIT_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           MEV_COMMIT_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           MEV_COMMIT_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
-            {{- if contains "http" .Tags }}
-          MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
-            {{- end }}
-            {{- if contains "ws" .Tags }}
-          MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT="ws://{{ .Address}}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
+          MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT="http://127.0.0.1:8001"
           {% endraw %}
           MEV_COMMIT_PEER_TYPE="{{ job.env['type'] }}"
           MEV_COMMIT_HTTP_ADDR="{{ job.env.get('http-address', '0.0.0.0') }}"
