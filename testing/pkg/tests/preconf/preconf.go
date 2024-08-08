@@ -4,6 +4,7 @@ import (
 	"context"
 	crand "crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -61,6 +62,8 @@ var (
 	blkWinnerKey = func(bNo uint64) string {
 		return fmt.Sprintf("blkw/%d", bNo)
 	}
+
+	errNoTxnsInBlock = fmt.Errorf("no transactions in block")
 )
 
 type BidEntry struct {
@@ -257,6 +260,10 @@ DONE:
 				for _, b := range bidders {
 					entry, err := getRandomBid(cluster, store)
 					if err != nil {
+						if errors.Is(err, errNoTxnsInBlock) {
+							logger.Info("No transactions in block")
+							continue
+						}
 						egCancel()
 						return err
 					}
@@ -429,6 +436,10 @@ func getRandomBid(
 			return nil, err
 		}
 		store.Insert(blkKey(blkNum), blk)
+	}
+
+	if len(blk.(*types.Block).Transactions()) == 0 {
+		return nil, errNoTxnsInBlock
 	}
 
 	idx := rand.Intn(len(blk.(*types.Block).Transactions()))
