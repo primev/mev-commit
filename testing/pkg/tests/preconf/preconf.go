@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"reflect"
 	"strings"
 	"time"
 
@@ -465,9 +466,16 @@ func getRandomBid(
 
 	if shouldSlash {
 		if len(txHashes) > 1 {
-			rand.Shuffle(len(txHashes), func(i, j int) {
-				txHashes[i], txHashes[j] = txHashes[j], txHashes[i]
-			})
+			original := make([]string, len(txHashes))
+			copy(original, txHashes)
+			for {
+				rand.Shuffle(len(txHashes), func(i, j int) {
+					txHashes[i], txHashes[j] = txHashes[j], txHashes[i]
+				})
+				if !reflect.DeepEqual(original, txHashes) {
+					break
+				}
+			}
 		} else {
 			// get random tx hash
 			randBytes := make([]byte, 32)
