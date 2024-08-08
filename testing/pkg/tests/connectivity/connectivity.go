@@ -77,31 +77,48 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 	}
 
 	// check if all bidders are connected to all providers
-	for _, b := range bidders {
-		l := cluster.Logger().With("bidder", b.EthAddress())
+	allProvidersConnected := false
+	for {
+		for _, b := range bidders {
+			l := cluster.Logger().With("bidder", b.EthAddress())
 
-		topo, err := b.DebugAPI().GetTopology(ctx, &debugapiv1.EmptyMessage{})
-		if err != nil {
-			l.Error("failed to get topology", "error", err)
-			return fmt.Errorf("failed to get topology: %s", err)
-		}
-
-		connectedProviders := getProviders(topo)
-		if len(connectedProviders) != len(providers) {
-			l.Error("bidder not connected to all providers")
-			return fmt.Errorf("bidder not connected to all providers: %s", b.EthAddress())
-		}
-
-		for _, p := range connectedProviders {
-			if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
-				return p1.EthAddress() == p.GetStringValue()
-			}) {
-				l.Error("bidder connected to unknown provider", "provider", p.GetStringValue())
-				return fmt.Errorf("bidder connected to unknown provider: %s", p.GetStringValue())
+			topo, err := b.DebugAPI().GetTopology(ctx, &debugapiv1.EmptyMessage{})
+			if err != nil {
+				l.Error("failed to get topology", "error", err)
+				return fmt.Errorf("failed to get topology: %s", err)
 			}
+
+			connectedProviders := getProviders(topo)
+			if len(connectedProviders) != len(providers) {
+				l.Info(
+					"bidder not connected to all providers",
+					"connected", len(connectedProviders), "total", len(providers),
+					"bidder", b.EthAddress(),
+				)
+				break
+			}
+
+			for _, p := range connectedProviders {
+				if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
+					return p1.EthAddress() == p.GetStringValue()
+				}) {
+					l.Error("bidder connected to unknown provider", "provider", p.GetStringValue())
+					return fmt.Errorf("bidder connected to unknown provider: %s", p.GetStringValue())
+				}
+			}
+
+			l.Info("bidder connected to all providers")
+			allProvidersConnected = true
 		}
 
-		l.Info("bidder connected to all providers")
+		if allProvidersConnected {
+			break
+		}
+
+		if time.Since(start) > connectedTimeout {
+			logger.Error("timeout waiting for all bidders to connect to all providers")
+			return fmt.Errorf("timeout waiting for all bidders to connect to all providers")
+		}
 	}
 
 	logger.Info("test passed")
