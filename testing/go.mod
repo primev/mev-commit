@@ -11,6 +11,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.1
 	golang.org/x/sync v0.7.0
 	google.golang.org/grpc v1.64.0
+	google.golang.org/protobuf v1.34.2
 )
 
 require (
@@ -55,7 +56,6 @@ require (
 	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240515191416-fc5f0ca64291 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
