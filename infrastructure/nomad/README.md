@@ -107,6 +107,13 @@ For detailed usage instructions on how to use the script, run the following comm
 ./cluster.sh --help
 ```
 
+Example of initializing Nomad cluster:
+```shell
+./cluster.sh init
+```
+
+> The `init` should be run only once, before deploying the Nomad cluster.
+
 Example of destroying running Nomad cluster:
 ```shell
 ./cluster.sh destroy
@@ -114,7 +121,17 @@ Example of destroying running Nomad cluster:
 
 Example of deploying Nomad cluster:
 ```shell
-./cluster.sh deploy --no-logs-collection --datadog-key <DATADOG_API_KEY>` --l1-rpc-url <L1_RPC_URL>
+./cluster.sh deploy --no-logs-collection --datadog-key <DATADOG_API_KEY> --l1-rpc-url <L1_RPC_URL>
 ```
 
-> After successful deployment, you can find all secrets at: http://<TARGET_MACHINE_IP>:1111/secrets.json
+> If only artifacts for a particular architecture and operating system are needed, you 
+> can specify them using the following environment variables ARTIFACTS_GOOS and ARTIFACTS_GOARCH, respectively.
+> This will reduce the number of artifacts generated and thus reduce deployment time.
+>
+> Example:
+> ```shell
+> export ARTIFACTS_GOOS=linux
+> export ARTIFACTS_GOARCH=amd64
+> ```
+
+> After successful deployment, you can find all artifacts (including secrets in the secrets.json file) at: http://<TARGET_MACHINE_IP>:1111
