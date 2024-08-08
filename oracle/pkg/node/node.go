@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"math/rand/v2"
 	"net/url"
 	"strings"
 	"time"
@@ -103,11 +104,22 @@ func NewNode(opts *Options) (*Node, error) {
 
 	l1Client, err := ethclient.Dial(opts.L1RPCUrl)
 	if err != nil {
-		nd.logger.Error("Failed to connect to the L1 Ethereum client", "error", err)
+		nd.logger.Error("failed to connect to the L1 Ethereum client", "error", err)
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	var listenerL1Client l1Listener.EthClient = l1Client
+	if opts.LaggerdMode > 0 {
+		listenerL1Client = &laggerdL1Client{
+			EthClient: listenerL1Client,
+			amount:    opts.LaggerdMode,
+		}
+	}
+	listenerL1Client = &retryL1Client{
+		EthClient:  listenerL1Client,
+		logger:     nd.logger,
+		maxRetries: 30,
+	}
 
 	monitor := txmonitor.New(
 		owner,
@@ -118,6 +130,7 @@ func NewNode(opts *Options) (*Node, error) {
 		1024,
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	monitorClosed := monitor.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("txmonitor", monitorClosed))
 
@@ -163,15 +176,6 @@ func NewNode(opts *Options) (*Node, error) {
 			evtMgr,
 		)
 	}
-
-	var listenerL1Client l1Listener.EthClient
-
-	listenerL1Client = l1Client
-	if opts.LaggerdMode > 0 {
-		listenerL1Client = &laggerdL1Client{EthClient: listenerL1Client, amount: opts.LaggerdMode}
-	}
-
-	listenerL1Client = &infiniteRetryL1Client{EthClient: listenerL1Client, logger: nd.logger}
 
 	blockTracker, err := blocktracker.NewBlocktrackerTransactor(
 		opts.BlockTrackerContractAddr,
@@ -444,60 +448,74 @@ func (w *winnerOverrideL1Client) HeaderByNumber(ctx context.Context, number *big
 	return hdr, nil
 }
 
-type infiniteRetryL1Client struct {
+// errRetry is returned when retry maxRetries is exhausted.
+var errRetry = errors.New("retry attempts exhausted")
+
+// retryL1Client retries the underlying L1Client operations up to maxRetries times.
+// When maxRetries is exhausted, errRetry is returned together with all the errors from the retries.
+// A random delay is introduced between each retry.
+type retryL1Client struct {
 	l1Listener.EthClient
-	logger *slog.Logger
+
+	logger     *slog.Logger
+	maxRetries int
 }
 
-func (i *infiniteRetryL1Client) BlockNumber(ctx context.Context) (uint64, error) {
-	var blkNum uint64
-	var err error
-	for retries := 50; retries > 0; retries-- {
-		blkNum, err = i.EthClient.BlockNumber(ctx)
+func (r *retryL1Client) BlockNumber(ctx context.Context) (uint64, error) {
+	var errs error
+	for i := range r.maxRetries {
+		bn, err := r.EthClient.BlockNumber(ctx)
 		if err == nil {
-			break
+			r.logger.Debug("get block number succeeded", "attempt", i, "block", bn)
+			return bn, err
 		}
-		i.logger.Error("failed to get block number, retrying...", "error", err)
-		time.Sleep(2 * time.Second)
+		errs = errors.Join(errs, err)
+		r.logger.Warn("get block number failed", "attempt", i, "error", err)
+		if i < r.maxRetries-1 {
+			d := time.Duration(1+rand.Int64N(6)) * time.Second
+			r.logger.Info("get block number retry", "in", d)
+			time.Sleep(d)
+		}
 	}
-	if err != nil {
-		return 0, err
-	}
-	return blkNum, nil
+	return 0, errors.Join(errs, fmt.Errorf("get block number: %w", errRetry))
 }
 
-func (i *infiniteRetryL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	var hdr *types.Header
-	var err error
-	for retries := 50; retries > 0; retries-- {
-		hdr, err = i.EthClient.HeaderByNumber(ctx, number)
+func (r *retryL1Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	var errs error
+	for i := range r.maxRetries {
+		b, err := r.EthClient.BlockByNumber(ctx, number)
 		if err == nil {
-			break
+			r.logger.Debug("get block by number succeeded", "attempt", i, "block", b)
+			return b, err
 		}
-		i.logger.Error("failed to get header by number, retrying...", "error", err)
-		time.Sleep(2 * time.Second)
+		errs = errors.Join(errs, err)
+		r.logger.Warn("get block by number failed", "number", number, "attempt", i, "error", err)
+		if i < r.maxRetries-1 {
+			d := time.Duration(1+rand.Int64N(6)) * time.Second
+			r.logger.Info("get block by number retry", "in", d)
+			time.Sleep(d)
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-	return hdr, nil
+	return nil, errors.Join(errs, fmt.Errorf("get block by number: %w", errRetry))
 }
 
-func (i *infiniteRetryL1Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	var blk *types.Block
-	var err error
-	for retries := 50; retries > 0; retries-- {
-		blk, err = i.EthClient.BlockByNumber(ctx, number)
+func (r *retryL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	var errs error
+	for i := range r.maxRetries {
+		hdr, err := r.EthClient.HeaderByNumber(ctx, number)
 		if err == nil {
-			break
+			r.logger.Debug("get header by number succeeded", "attempt", i, "header", hdr)
+			return hdr, err
 		}
-		i.logger.Error("failed to get block by number, retrying...", "error", err)
-		time.Sleep(2 * time.Second)
+		errs = errors.Join(errs, err)
+		r.logger.Warn("get header by number failed", "number", number, "attempt", i, "error", err)
+		if i < r.maxRetries-1 {
+			d := time.Duration(1+rand.Int64N(6)) * time.Second
+			r.logger.Info("get header by number retry", "in", d)
+			time.Sleep(d)
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
-	return blk, nil
+	return nil, errors.Join(errs, fmt.Errorf("get header by number: %w", errRetry))
 }
 
 func setBuilderMapping(
