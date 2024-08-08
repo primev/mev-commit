@@ -41,7 +41,7 @@ func newAccessLogHandler(log *slog.Logger) func(http.Handler) http.Handler {
 			start := time.Now()
 			h.ServeHTTP(recorder, req)
 			log.Info("api access",
-				"status", recorder.status,
+				"http_status", recorder.status,
 				"method", req.Method,
 				"path", req.URL.Path,
 				"duration", time.Since(start),

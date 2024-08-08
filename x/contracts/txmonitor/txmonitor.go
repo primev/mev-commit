@@ -246,7 +246,7 @@ func (m *Monitor) Sent(ctx context.Context, tx *types.Transaction) {
 		}
 		m.logger.Debug("transaction status",
 			"txHash", tx.Hash(),
-			"status", status,
+			"txStatus", status,
 		)
 	}()
 }
