@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdh"
 	"errors"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/libp2p/go-libp2p/core"
@@ -17,7 +18,7 @@ import (
 
 const (
 	ProtocolName    = "handshake"
-	ProtocolVersion = "4.0.0"
+	ProtocolVersion = "5.0.0"
 	StreamName      = "handshake"
 )
 
