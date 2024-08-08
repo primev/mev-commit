@@ -292,128 +292,128 @@ DONE:
 				logger.Error("Bid not accepted but preconfs received", "entry", entry)
 				return fmt.Errorf("bid not accepted but preconfs received")
 			}
-		} else {
-			if len(entry.Preconfs) != len(cluster.Providers()) {
+			continue
+		}
+		if len(entry.Preconfs) != len(cluster.Providers()) {
+			logger.Error(
+				"Bid accepted but not all preconfs received",
+				"entry", entry,
+				"preconfs", len(entry.Preconfs),
+				"providers", len(cluster.Providers()),
+			)
+			return fmt.Errorf("bid accepted but not all preconfs received")
+		}
+		winner, ok := store.Get(blkWinnerKey(uint64(entry.Bid.BlockNumber)))
+		if !ok {
+			logger.Error("Winner not found", "block", entry.Bid.BlockNumber)
+			return fmt.Errorf("winner not found")
+		}
+		foundCmt := false
+		for _, pc := range entry.Preconfs {
+			cmtDigest, err := hex.DecodeString(pc.CommitmentDigest)
+			if err != nil {
 				logger.Error(
-					"Bid accepted but not all preconfs received",
+					"Failed to decode commitment digest",
+					"error", err,
 					"entry", entry,
-					"preconfs", len(entry.Preconfs),
-					"providers", len(cluster.Providers()),
+					"digest", pc.CommitmentDigest,
 				)
-				return fmt.Errorf("bid accepted but not all preconfs received")
+				return fmt.Errorf("failed to decode commitment digest")
 			}
-			winner, ok := store.Get(blkWinnerKey(uint64(entry.Bid.BlockNumber)))
+			ec, ok := store.Get(encryptCmtKey(cmtDigest))
 			if !ok {
-				logger.Error("Winner not found", "block", entry.Bid.BlockNumber)
-				return fmt.Errorf("winner not found")
+				logger.Error(
+					"Encrypted commitment not found",
+					"entry", entry,
+					"digest", pc.CommitmentDigest,
+				)
+				return fmt.Errorf("encrypted commitment not found")
 			}
-			foundCmt := false
-			for _, pc := range entry.Preconfs {
-				cmtDigest, err := hex.DecodeString(pc.CommitmentDigest)
-				if err != nil {
-					logger.Error(
-						"Failed to decode commitment digest",
-						"error", err,
-						"entry", entry,
-						"digest", pc.CommitmentDigest,
-					)
-					return fmt.Errorf("failed to decode commitment digest")
-				}
-				ec, ok := store.Get(encryptCmtKey(cmtDigest))
+			providerAddr, err := hex.DecodeString(pc.ProviderAddress)
+			if err != nil {
+				logger.Error(
+					"Failed to decode provider address",
+					"error", err,
+					"entry", entry,
+					"address", pc.ProviderAddress,
+				)
+				return fmt.Errorf("failed to decode provider address")
+			}
+			if common.BytesToAddress(providerAddr).Cmp(winner.(*blocktracker.BlocktrackerNewL1Block).Winner) == 0 {
+				foundCmt = true
+				ecmt := ec.(*preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored)
+				_, ok := store.Get(openCmtKey(ecmt.CommitmentIndex[:]))
 				if !ok {
 					logger.Error(
-						"Encrypted commitment not found",
+						"Opened commitment not found",
 						"entry", entry,
-						"digest", pc.CommitmentDigest,
+						"index", hex.EncodeToString(ecmt.CommitmentIndex[:]),
 					)
-					return fmt.Errorf("encrypted commitment not found")
+					return fmt.Errorf("opened commitment not found")
 				}
-				providerAddr, err := hex.DecodeString(pc.ProviderAddress)
-				if err != nil {
+				pcmt, ok := store.Get(settleKey(ecmt.CommitmentIndex[:]))
+				if !ok {
 					logger.Error(
-						"Failed to decode provider address",
-						"error", err,
+						"Settlement not found",
 						"entry", entry,
-						"address", pc.ProviderAddress,
+						"index", hex.EncodeToString(ecmt.CommitmentIndex[:]),
 					)
-					return fmt.Errorf("failed to decode provider address")
+					return fmt.Errorf("settlement not found")
 				}
-				if common.BytesToAddress(providerAddr).Cmp(winner.(*blocktracker.BlocktrackerNewL1Block).Winner) == 0 {
-					foundCmt = true
-					ecmt := ec.(*preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored)
-					_, ok := store.Get(openCmtKey(ecmt.CommitmentIndex[:]))
-					if !ok {
-						logger.Error(
-							"Opened commitment not found",
-							"entry", entry,
-							"index", hex.EncodeToString(ecmt.CommitmentIndex[:]),
-						)
-						return fmt.Errorf("opened commitment not found")
+				if entry.ShouldSlash {
+					if !pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
+						logger.Error("Provider should be slashed", "entry", entry)
+						return fmt.Errorf("provider should be slashed")
 					}
-					pcmt, ok := store.Get(settleKey(ecmt.CommitmentIndex[:]))
+					_, ok := store.Get(fundsRetrievedKey(cmtDigest))
 					if !ok {
-						logger.Error(
-							"Settlement not found",
-							"entry", entry,
-							"index", hex.EncodeToString(ecmt.CommitmentIndex[:]),
-						)
-						return fmt.Errorf("settlement not found")
+						logger.Error("Funds not retrieved", "entry", entry)
+						return fmt.Errorf("funds not retrieved")
 					}
-					if entry.ShouldSlash {
-						if !pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
-							logger.Error("Provider should be slashed", "entry", entry)
-							return fmt.Errorf("provider should be slashed")
-						}
-						_, ok := store.Get(fundsRetrievedKey(cmtDigest))
-						if !ok {
-							logger.Error("Funds not retrieved", "entry", entry)
-							return fmt.Errorf("funds not retrieved")
-						}
-					} else {
-						if pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
-							// check if any of the transactions were not successful,
-							// if so, the provider should not be slashed. Test doesnt
-							// handle reverting transactions.
-							failedTxnPresent := false
-							for _, h := range entry.Bid.TxHashes {
-								receipt, err := cluster.L1RPC().TransactionReceipt(
-									context.Background(),
-									common.HexToHash(h),
+				} else {
+					if pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
+						// check if any of the transactions were not successful,
+						// if so, the provider should not be slashed. Test doesnt
+						// handle reverting transactions.
+						failedTxnPresent := false
+						for _, h := range entry.Bid.TxHashes {
+							receipt, err := cluster.L1RPC().TransactionReceipt(
+								context.Background(),
+								common.HexToHash(h),
+							)
+							if err != nil {
+								logger.Error(
+									"failed getting transaction receipt",
+									"error", err,
+									"entry", entry,
+									"hash", h,
 								)
-								if err != nil {
-									logger.Error(
-										"failed getting transaction receipt",
-										"error", err,
-										"entry", entry,
-										"hash", h,
-									)
-								}
-								if receipt.Status != types.ReceiptStatusSuccessful {
-									failedTxnPresent = true
-								}
 							}
-							if !failedTxnPresent {
-								logger.Error("Provider should not be slashed", "entry", entry)
-								return fmt.Errorf("provider should not be slashed")
+							if receipt.Status != types.ReceiptStatusSuccessful {
+								failedTxnPresent = true
 							}
-							continue
 						}
-						_, ok := store.Get(fundsRewardedKey(cmtDigest))
-						if !ok {
-							logger.Error("Funds not rewarded", "entry", entry)
-							return fmt.Errorf("funds not rewarded")
+						if !failedTxnPresent {
+							logger.Error("Provider should not be slashed", "entry", entry)
+							return fmt.Errorf("provider should not be slashed")
 						}
+						continue
+					}
+					_, ok := store.Get(fundsRewardedKey(cmtDigest))
+					if !ok {
+						logger.Error("Funds not rewarded", "entry", entry)
+						return fmt.Errorf("funds not rewarded")
 					}
 				}
 			}
-			if !foundCmt {
-				logger.Error(
-					"Winner not found in preconfs",
-					"entry", entry,
-					"winner", winner.(*blocktracker.BlocktrackerNewL1Block).Winner.Hex(),
-				)
-				return fmt.Errorf("winner not found in preconfs")
-			}
+		}
+		if !foundCmt {
+			logger.Error(
+				"Winner not found in preconfs",
+				"entry", entry,
+				"winner", winner.(*blocktracker.BlocktrackerNewL1Block).Winner.Hex(),
+			)
+			return fmt.Errorf("winner not found in preconfs")
 		}
 	}
 

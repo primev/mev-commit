@@ -102,7 +102,7 @@ func (n *node) Close() error {
 	return n.conn.Close()
 }
 
-func newNode(rpcAddr string, logger *slog.Logger) (*node, error) {
+func newNode(rpcAddr string, logger *slog.Logger) (any, error) {
 	// Since we don't know if the server has TLS enabled on its rpc
 	// endpoint, we try different strategies from most secure to
 	// least secure. In the future, when only TLS-enabled servers
@@ -215,32 +215,36 @@ func (o *orchestrator) Close() error {
 	return errs
 }
 
+func createNodes[T any](rpcAddrs []string, logger *slog.Logger) ([]T, error) {
+	nodes := make([]T, 0, len(rpcAddrs))
+	for _, rpcAddr := range rpcAddrs {
+		n, err := newNode(rpcAddr, logger)
+		if err != nil {
+			return nil, err
+		}
+		tn, ok := n.(T)
+		if !ok {
+			return nil, fmt.Errorf("unexpected node type")
+		}
+		nodes = append(nodes, tn)
+	}
+	return nodes, nil
+}
+
 func NewOrchestrator(opts Options) (Orchestrator, error) {
-	providers := make([]Provider, 0, len(opts.ProviderRPCAddresses))
-	for _, rpcAddr := range opts.ProviderRPCAddresses {
-		n, err := newNode(rpcAddr, opts.Logger)
-		if err != nil {
-			return nil, err
-		}
-		providers = append(providers, n)
+	providers, err := createNodes[Provider](opts.ProviderRPCAddresses, opts.Logger)
+	if err != nil {
+		return nil, err
 	}
 
-	bidders := make([]Bidder, 0, len(opts.BidderRPCAddresses))
-	for _, rpcAddr := range opts.BidderRPCAddresses {
-		n, err := newNode(rpcAddr, opts.Logger)
-		if err != nil {
-			return nil, err
-		}
-		bidders = append(bidders, n)
+	bidders, err := createNodes[Bidder](opts.BidderRPCAddresses, opts.Logger)
+	if err != nil {
+		return nil, err
 	}
 
-	bootnodes := make([]Bootnode, 0, len(opts.BootnodeRPCAddresses))
-	for _, rpcAddr := range opts.BootnodeRPCAddresses {
-		n, err := newNode(rpcAddr, opts.Logger)
-		if err != nil {
-			return nil, err
-		}
-		bootnodes = append(bootnodes, n)
+	bootnodes, err := createNodes[Bootnode](opts.BootnodeRPCAddresses, opts.Logger)
+	if err != nil {
+		return nil, err
 	}
 
 	ethClient, err := ethclient.Dial(opts.SettlementRPCEndpoint)
