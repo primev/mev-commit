@@ -8,6 +8,7 @@ import (
 
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -33,21 +34,17 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 				return fmt.Errorf("failed to get topology: %s", err)
 			}
 
-			connectedBidders := topo.Topology.GetFields()["connected_bidders"].GetListValue()
-			if len(connectedBidders.Values) != len(bidders) {
+			connectedBidders := getBidders(topo)
+			if len(connectedBidders) != len(bidders) {
 				break
 			}
 
-			if topo.Topology.GetFields()["connected_providers"] == nil {
+			connectedProviders := getProviders(topo)
+			if len(connectedProviders) != len(providers) {
 				break
 			}
 
-			connectedProviders := topo.Topology.GetFields()["connected_providers"].GetListValue()
-			if len(connectedProviders.Values) != len(providers) {
-				break
-			}
-
-			for _, p := range connectedProviders.Values {
+			for _, p := range connectedProviders {
 				if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
 					return p1.EthAddress() == p.GetStringValue()
 				}) {
@@ -56,7 +53,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 				}
 			}
 
-			for _, b := range connectedBidders.Values {
+			for _, b := range connectedBidders {
 				if !slices.ContainsFunc(bidders, func(b1 orchestrator.Bidder) bool {
 					return b1.EthAddress() == b.GetStringValue()
 				}) {
@@ -89,13 +86,13 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 			return fmt.Errorf("failed to get topology: %s", err)
 		}
 
-		connectedProviders := topo.Topology.GetFields()["connected_providers"].GetListValue()
-		if len(connectedProviders.Values) != len(providers) {
+		connectedProviders := getProviders(topo)
+		if len(connectedProviders) != len(providers) {
 			l.Error("bidder not connected to all providers")
 			return fmt.Errorf("bidder not connected to all providers: %s", b.EthAddress())
 		}
 
-		for _, p := range connectedProviders.Values {
+		for _, p := range connectedProviders {
 			if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
 				return p1.EthAddress() == p.GetStringValue()
 			}) {
@@ -110,4 +107,24 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 	logger.Info("test passed")
 
 	return nil
+}
+
+func getProviders(topo *debugapiv1.TopologyResponse) []*structpb.Value {
+	providerList := topo.Topology.GetFields()["connected_providers"]
+	if providerList == nil {
+		return nil
+	}
+
+	connectedProviders := providerList.GetListValue()
+	return connectedProviders.Values
+}
+
+func getBidders(topo *debugapiv1.TopologyResponse) []*structpb.Value {
+	bidderList := topo.Topology.GetFields()["connected_bidders"]
+	if bidderList == nil {
+		return nil
+	}
+
+	connectedBidders := bidderList.GetListValue()
+	return connectedBidders.Values
 }
