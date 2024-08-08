@@ -76,7 +76,7 @@ type AutoDepositTracker interface {
 }
 
 type PreconfSender interface {
-	SendBid(ctx context.Context, txnsStr string, amount string, blockNumber int64, decayStartTimestamp int64, decayEndTimestamp int64, revertingTxHashes string) (chan *preconfirmationv1.PreConfirmation, error)
+	SendBid(ctx context.Context, txnsStr string, amount string, blockNumber int64, decayStartTimestamp int64, decayEndTimestamp int64, revertingTxHashes string, serializedTxns string) (chan *preconfirmationv1.PreConfirmation, error)
 }
 
 type BidderRegistryContract interface {
@@ -133,7 +133,7 @@ func (s *Service) SendBid(
 	}
 	txnsStr := strings.Join(stripPrefix(bid.TxHashes), ",")
 	revertingTxHashesStr := strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
-
+	serializedTxnsStr := strings.Join(bid.SerializedTxns, ",")
 	respC, err := s.sender.SendBid(
 		ctx,
 		txnsStr,
@@ -142,6 +142,7 @@ func (s *Service) SendBid(
 		bid.DecayStartTimestamp,
 		bid.DecayEndTimestamp,
 		revertingTxHashesStr,
+		serializedTxnsStr,
 	)
 	if err != nil {
 		s.logger.Error("sending bid", "error", err)

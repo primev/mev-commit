@@ -120,6 +120,7 @@ func (p *Preconfirmation) SendBid(
 	decayStartTimestamp int64,
 	decayEndTimestamp int64,
 	revertingTxHashes string,
+	serializedTxns string,
 ) (chan *preconfpb.PreConfirmation, error) {
 	startTime := time.Now()
 	bid, encryptedBid, nikePrivateKey, err := p.encryptor.ConstructEncryptedBid(
@@ -129,6 +130,7 @@ func (p *Preconfirmation) SendBid(
 		decayStartTimestamp,
 		decayEndTimestamp,
 		revertingTxHashes,
+		serializedTxns,
 	)
 	if err != nil {
 		p.logger.Error("constructing encrypted bid", "error", err, "txHash", txHash)
@@ -291,7 +293,7 @@ func (p *Preconfirmation) handleBid(
 	// try to enqueue for 5 seconds
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-
+	p.logger.Info("received bid with serialized txns", "txns", bid.SerializedTxns)
 	statusC, err := p.processer.ProcessBid(ctx, bid)
 	if err != nil {
 		return err

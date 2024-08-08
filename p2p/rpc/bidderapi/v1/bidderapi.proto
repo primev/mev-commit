@@ -325,6 +325,9 @@ message Bid {
       message: "reverting_tx_hashes must be an array of valid transaction hashes.",
       expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{64}$'))"
   }];
+  repeated string serialized_txns = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional payload for entry of a full serialized array of transactions."
+  }];
 };
 
 message Commitment {
