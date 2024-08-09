@@ -81,6 +81,25 @@ jobs:
       net_restrict: 0.0.0.0/0
       type: signer
 
+  mev_commit_geth_signer_node2: &mev_commit_geth_signer_node2_job
+    name: mev-commit-geth-signer-node2
+    template: mev-commit-geth.nomad.j2
+    artifacts:
+      - *geth_artifact
+      - keystore:
+          name: geth_signer2_keystore
+          allocation: true
+    count: 1
+    ports:
+      - metrics:
+          to: 6060
+        p2p:
+          to: 30312
+    env:
+      ip: 0.0.0.0
+      net_restrict: 0.0.0.0/0
+      type: signer
+  
   mev_commit_geth_member_node: &mev_commit_geth_member_node_job
     name: mev-commit-geth-member-node
     template: mev-commit-geth.nomad.j2
@@ -507,6 +526,7 @@ profiles:
       - *artifacts_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_signer_node2_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -524,6 +544,7 @@ profiles:
       - *datadog_agent_logs_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_signer_node2_job
       - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
@@ -543,6 +564,7 @@ profiles:
       - *datadog_agent_logs_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_signer_node2_job
       - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
@@ -559,6 +581,7 @@ profiles:
       - *datadog_agent_logs_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_signer_node2_job
       - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
@@ -590,6 +613,7 @@ profiles:
       - *datadog_agent_logs_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_signer_node2_job
       - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
