@@ -225,8 +225,8 @@ func (s *Service) Start(addr string) <-chan struct{} {
 			s.router.ServeHTTP(recorder, req)
 			s.logger.Info(
 				"api access",
-				slog.Int("status", recorder.status),
-				slog.String("method", req.Method),
+				slog.Int("http_status", recorder.status),
+				slog.String("http_method", req.Method),
 				slog.String("path", req.URL.Path),
 				slog.Duration("duration", time.Since(start)),
 			)
