@@ -40,27 +40,37 @@ contract ProviderRegistry is
 
     /// @dev Mapping from provider address to whether they are registered or not
     mapping(address => bool) public providerRegistered;
+
     /// @dev Mapping from a provider's EOA address to their BLS public key
     mapping(address => bytes) public eoaToBlsPubkey;
+
     /// @dev Mapping from provider addresses to their staked amount
     mapping(address => uint256) public providerStakes;
+
     /// @dev Mapping of provider to withdrawal request timestamp
     mapping(address => uint256) public withdrawalRequests;
 
     /// @dev Event emitted when a provider is registered
     event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
+
     /// @dev Event emitted when funds are deposited
     event FundsDeposited(address indexed provider, uint256 amount);
+
     /// @dev Event emitted when funds are slashed
     event FundsSlashed(address indexed provider, uint256 amount);
+
     /// @dev Event emitted when withdrawal is requested
     event Unstake(address indexed provider, uint256 timestamp);
+
     /// @dev Event emitted when withdrawal is completed
     event Withdraw(address indexed provider, uint256 amount);
+
     /// @dev Event emitted when the withdrawal delay is updated
     event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
+
     /// @dev Event emitted when the penalty fee recipient is updated
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
+
     /// @dev Event emitted when the fee payout period in blocks is updated
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
@@ -138,9 +148,12 @@ contract ProviderRegistry is
      * @dev Stake more funds into the provider's stake.
      */
     function stake() external payable {
-        require(providerRegistered[msg.sender], "Provider not registered");
-        providerStakes[msg.sender] += msg.value;
-        emit FundsDeposited(msg.sender, msg.value);
+        _stake(msg.sender);
+    }
+
+    /// @dev Delegate stake to a provider.
+    function delegateStake(address provider) external payable {
+        _stake(provider);
     }
 
     /**
@@ -272,20 +285,39 @@ contract ProviderRegistry is
      * The validity of this key must be verified manually off-chain.
      */
     function registerAndStake(bytes calldata blsPublicKey) public payable {
-        require(!providerRegistered[msg.sender], "Provider already registered");
-        require(msg.value >= minStake, "Insufficient stake");
-        require(blsPublicKey.length == 48, "Invalid BLS public key length");
-        
-        eoaToBlsPubkey[msg.sender] = blsPublicKey;
-        providerStakes[msg.sender] = msg.value;
-        providerRegistered[msg.sender] = true;
-        emit ProviderRegistered(msg.sender, msg.value, blsPublicKey);
+        _registerAndStake(msg.sender, blsPublicKey);
+    }
+
+    /**
+     * @dev Register and stake on behalf of a provider.
+     * @param provider Address of the provider.
+     * @param blsPublicKey BLS public key of the provider.
+     */
+    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable {
+        _registerAndStake(provider, blsPublicKey);
     }
 
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
     function isProviderValid(address provider) public view {
         require(providerStakes[provider] >= minStake, "Insufficient stake");
         require(withdrawalRequests[provider] == 0, "Pending withdrawal request");
+    }
+
+    function _stake(address provider) internal {
+        require(providerRegistered[provider], "Provider not registered");
+        providerStakes[provider] += msg.value;
+        emit FundsDeposited(provider, msg.value);
+    }
+
+    function _registerAndStake(address provider, bytes calldata blsPublicKey) internal {
+        require(!providerRegistered[provider], "Provider already registered");
+        require(msg.value >= minStake, "Insufficient stake");
+        require(blsPublicKey.length == 48, "Invalid BLS public key length");
+        
+        eoaToBlsPubkey[provider] = blsPublicKey;
+        providerStakes[provider] = msg.value;
+        providerRegistered[provider] = true;
+        emit ProviderRegistered(provider, msg.value, blsPublicKey);
     }
 
     // solhint-disable-next-line no-empty-blocks
