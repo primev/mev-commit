@@ -142,3 +142,23 @@ contract DeployWhitelist is Script {
         vm.stopBroadcast();
     }
 }
+
+contract UpdateProviderRegistry is Script {
+    function run() external {
+        vm.startBroadcast();
+
+        address providerRegistryProxy = vm.envAddress("PROVIDER_REGISTRY_PROXY_ADDRESS");
+        require(providerRegistryProxy != address(0), "missing ProviderRegistry proxy address");
+
+        // Upgrade the existing ProviderRegistry proxy to the new implementation
+        ProviderRegistry newProviderRegistry = ProviderRegistry(
+            Upgrades.upgradeProxy(
+                providerRegistryProxy,
+                "ProviderRegistry.sol"
+            )
+        );
+        console.log("ProviderRegistry upgraded at:", address(newProviderRegistry));
+        
+        vm.stopBroadcast();
+    }
+}

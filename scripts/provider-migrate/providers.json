@@ -1,0 +1,10 @@
+[
+    {
+        "address": "0x...", 
+        "bls_public_key": "<BLS_PUBLIC_KEY_1>"
+    },
+    {
+        "address": "0x...", 
+        "bls_public_key": "<BLS_PUBLIC_KEY_2>"
+    }
+]
