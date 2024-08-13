@@ -17,7 +17,7 @@ job "{{ job.name }}" {
     }
     {% endif %}
 
-    # Add volume configuration here
+    # Updated volume configuration
     volume "geth-data" {
       type      = "host"
       read_only = false
@@ -46,7 +46,7 @@ job "{{ job.name }}" {
     task "node" {
       driver = "exec"
 
-      # Add volume mount configuration here
+      # Volume mount configuration
       volume_mount {
         volume      = "geth-data"
         destination = "/geth-data"
@@ -92,9 +92,7 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
-          {%- raw %}
-          GETH_DATA_DIR="/geth-data/data-{{ env "NOMAD_ALLOC_INDEX" }}"
-          {% endraw %}
+          GETH_DATA_DIR="/geth-data"
           GENESIS_L1_PATH="local/genesis_{{ version }}.json"
           GETH_BIN_PATH="local/mev-commit-geth"
           NODE_IP="{{ job.env['ip'] }}"
@@ -108,15 +106,15 @@ job "{{ job.name }}" {
           GETH_LOG_TAGS="{{
             job.env['log-tags'].items() | map('join', ':') | join('; ')
             if job.env['log-tags'] is defined and job.env['log-tags']
-            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
+            else 'service:' + job.name
           }}"
           {% if job.env['type'] == 'bootnode' %}
           {%- raw %}
           BOOT_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key }}{{ end }}"
           {% endraw %}
           {% elif job.env['type'] == 'signer' %}
+          GETH_KEYSTORE_DIR="/geth-data/keystore"
           {%- raw %}
-          GETH_KEYSTORE_DIR="/geth-data/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
           {% endraw %}
