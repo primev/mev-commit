@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"slices"
@@ -110,7 +111,7 @@ var (
 				return fmt.Errorf("at least one bootnode RPC address is required")
 			}
 			for _, address := range addresses {
-				if _, err := url.Parse(address); err != nil {
+				if _, _, err := net.SplitHostPort(address); err != nil {
 					return fmt.Errorf("invalid bootnode RPC address: %w", err)
 				}
 			}
@@ -127,7 +128,7 @@ var (
 				return fmt.Errorf("at least one provider RPC address is required")
 			}
 			for _, address := range addresses {
-				if _, err := url.Parse(address); err != nil {
+				if _, _, err := net.SplitHostPort(address); err != nil {
 					return fmt.Errorf("invalid provider RPC address: %w", err)
 				}
 			}
@@ -144,7 +145,7 @@ var (
 				return fmt.Errorf("at least one bidder RPC address is required")
 			}
 			for _, address := range addresses {
-				if _, err := url.Parse(address); err != nil {
+				if _, _, err := net.SplitHostPort(address); err != nil {
 					return fmt.Errorf("invalid bidder RPC address: %w", err)
 				}
 			}
