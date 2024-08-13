@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -13,13 +16,16 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/go-logr/logr"
 	contracts "github.com/primev/mev-commit/contracts-abi/config"
 	mevcommit "github.com/primev/mev-commit/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/node"
 	ks "github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
+	"github.com/primev/mev-commit/x/util/otelutil"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
+	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -347,6 +353,16 @@ var (
 		Usage:   "URL for L1 RPC",
 		EnvVars: []string{"MEV_COMMIT_L1_RPC_URL"},
 	})
+
+	optionOTelCollectorEndpointURL = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "otel-collector-endpoint-url",
+		Usage:   "URL for OpenTelemetry collector endpoint",
+		EnvVars: []string{"MEV_COMMIT_OTEL_COLLECTOR_ENDPOINT_URL"},
+		Action: func(_ *cli.Context, s string) error {
+			_, err := url.Parse(s)
+			return err
+		},
+	})
 )
 
 func main() {
@@ -387,6 +403,7 @@ func main() {
 		optionGasFeeCap,
 		optionBeaconAPIURL,
 		optionL1RPCURL,
+		optionOTelCollectorEndpointURL,
 	}
 
 	app := &cli.App{
@@ -439,7 +456,7 @@ func verifyKeystorePasswordPresence(c *cli.Context) error {
 }
 
 // launchNodeWithConfig configures and starts the p2p node based on the CLI context.
-func launchNodeWithConfig(c *cli.Context) error {
+func launchNodeWithConfig(c *cli.Context) (err error) {
 	logger, err := util.NewLogger(
 		c.String(optionLogLevel.Name),
 		c.String(optionLogFmt.Name),
@@ -506,6 +523,31 @@ func launchNodeWithConfig(c *cli.Context) error {
 		}
 		if err := os.MkdirAll(dbPath, 0700); err != nil {
 			return fmt.Errorf("failed to create data directory: %w", err)
+		}
+	}
+
+	if c.IsSet(optionOTelCollectorEndpointURL.Name) {
+		logger.Info("setting up OpenTelemetry SDK", "endpoint", c.String(optionOTelCollectorEndpointURL.Name))
+		ctx, cancel := context.WithTimeout(c.Context, 5*time.Second)
+		defer cancel()
+		shutdown, err := otelutil.SetupOTelSDK(
+			ctx,
+			c.String(optionOTelCollectorEndpointURL.Name),
+			c.String(optionLogTags.Name),
+		)
+		if err != nil {
+			logger.Warn("failed to setup OpenTelemetry SDK; continuing without telemetry", "error", err)
+		} else {
+			otel.SetLogger(logr.FromSlogHandler(
+				logger.Handler().WithAttrs([]slog.Attr{
+					{Key: "component", Value: slog.StringValue("otel")},
+				}),
+			))
+			defer func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				err = errors.Join(err, shutdown(ctx))
+				cancel()
+			}()
 		}
 	}
 

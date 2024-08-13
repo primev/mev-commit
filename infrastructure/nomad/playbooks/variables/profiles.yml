@@ -504,6 +504,22 @@ jobs:
     count: 1
     type: metrics
 
+  otel_collector: &otel_collector_job
+    name: otel-collector
+    template: otel-collector.nomad.j2
+    count: 1
+    ports:
+      - http:
+          static: 4318
+          to: 4318
+        grpc:
+          static: 4317
+          to: 4317
+        health:
+          to: 80
+        metrics:
+          to: 8888
+
 profiles:
   ci:
     jobs:
@@ -523,6 +539,7 @@ profiles:
     jobs:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
+      - *otel_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job

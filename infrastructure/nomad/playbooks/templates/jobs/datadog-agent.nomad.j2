@@ -67,8 +67,9 @@ job "{{ job.name }}" {
           logs_enabled: true
           api_key: {{ datadog_key }}
           tags:
-            - env:{{ profile }}
+            - env:{{ env }}
             - version:{{ version }}
+
         EOH
         destination = "etc/datadog-agent/datadog.yaml"
       }
@@ -79,7 +80,7 @@ job "{{ job.name }}" {
           logs:
             - type: tcp
               port: 10500
-              source: "{{ profile }}@{{ version }}"
+              source: "{{ env }}@{{ version }}"
               encoding: "utf-8"
         EOH
         destination = "etc/datadog-agent/conf.d/logs-collector.d/conf.yaml"
