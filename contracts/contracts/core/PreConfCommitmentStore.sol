@@ -4,12 +4,11 @@ pragma solidity 0.8.20;
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
-import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
-import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
-import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
-import {IPreConfCommitmentStore} from "./interfaces/IPreConfCommitmentStore.sol";
-import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
+import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
+import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
+import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
+import {IPreConfCommitmentStore} from "../interfaces/IPreConfCommitmentStore.sol";
+import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 
 /**
  * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.

@@ -6,18 +6,17 @@
 pragma solidity 0.8.20;
 
 import {Script} from "forge-std/Script.sol";
-import {BidderRegistry} from "../contracts/BidderRegistry.sol";
-import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
-import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
-import {Oracle} from "../contracts/Oracle.sol";
-import {Whitelist} from "../contracts/Whitelist.sol";
+import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {PreConfCommitmentStore} from "../../contracts/core/PreConfCommitmentStore.sol";
+import {Oracle} from "../../contracts/core/Oracle.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {BlockTracker} from "../contracts/BlockTracker.sol";
+import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {console} from "forge-std/console.sol";
 
-// Deploys core contracts
-contract DeployScript is Script {
+contract DeployTestnet is Script {
     function run() external {
+        require(block.chainid == 17864, "chain ID is not 17864 (testnet env)");
         vm.startBroadcast();
 
         uint256 minStake = 1 ether;
@@ -106,38 +105,6 @@ contract DeployScript is Script {
 
         preConfCommitmentStore.updateOracleContract(address(oracle));
         console.log("PreConfCommitmentStoreWithOracle:", address(oracle));
-
-        vm.stopBroadcast();
-    }
-}
-
-// Deploys whitelist contract and adds HypERC20 to whitelist
-contract DeployWhitelist is Script {
-    function run() external {
-        console.log(
-            "Warning: DeployWhitelist is deprecated and only for backwards compatibility with hyperlane"
-        );
-
-        vm.startBroadcast();
-
-        address hypERC20Addr = vm.envAddress("HYP_ERC20_ADDR");
-        require(
-            hypERC20Addr != address(0),
-            "hypERC20 addr not provided"
-        );
-
-        address whitelistProxy = Upgrades.deployUUPSProxy(
-            "Whitelist.sol",
-            abi.encodeCall(Whitelist.initialize, (msg.sender))
-        );
-        Whitelist whitelist = Whitelist(payable(whitelistProxy));
-        console.log("Whitelist deployed to:", address(whitelist));
-
-        whitelist.addToWhitelist(address(hypERC20Addr));
-        console.log(
-            "Whitelist updated with hypERC20 address:",
-            address(hypERC20Addr)
-        );
 
         vm.stopBroadcast();
     }

@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../contracts/Oracle.sol";
-import "../contracts/PreConfCommitmentStore.sol";
-import "../contracts/interfaces/IPreConfCommitmentStore.sol";
-import "../contracts/ProviderRegistry.sol";
-import "../contracts/BidderRegistry.sol";
-import "../contracts/BlockTracker.sol";
-
+import {Test} from "forge-std/Test.sol";
+import {Oracle} from "../../contracts/core/Oracle.sol";
+import {PreConfCommitmentStore} from "../../contracts/core/PreConfCommitmentStore.sol";
+import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
-import "forge-std/console.sol";
+import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
+import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 contract OracleTest is Test {
-    address public owner;
     using ECDSA for bytes32;
+    address public owner;
     Oracle public oracle;
     PreConfCommitmentStore public preConfCommitmentStore;
     uint16 public feePercent;

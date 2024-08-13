@@ -5,8 +5,8 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
-import {IProviderRegistry} from "./interfaces/IProviderRegistry.sol";
-import {FeePayout} from "./utils/FeePayout.sol";
+import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
+import {FeePayout} from "../utils/FeePayout.sol";
 
 /// @title Provider Registry
 /// @author Kartik Chopra

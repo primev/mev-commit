@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../contracts/Whitelist.sol";
-
+import {Test} from "forge-std/Test.sol";
+import {Whitelist} from "../../contracts/standard-bridge/Whitelist.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 // Tests the Whitelist contract.

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
-import {BidderRegistry} from "../contracts/BidderRegistry.sol";
-import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
-import {BlockTracker} from "../contracts/BlockTracker.sol";
-
+import {Test} from "forge-std/Test.sol";
+import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {PreConfCommitmentStore} from "../../contracts/core/PreConfCommitmentStore.sol";
+import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract ProviderRegistryTest is Test {

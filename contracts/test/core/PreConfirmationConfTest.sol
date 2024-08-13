@@ -2,15 +2,13 @@
 pragma solidity 0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-
-import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
-import {IPreConfCommitmentStore} from "../contracts/interfaces/IPreConfCommitmentStore.sol";
-import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
-import {BidderRegistry} from "../contracts/BidderRegistry.sol";
-import {BlockTracker} from "../contracts/BlockTracker.sol";
-
+import {PreConfCommitmentStore} from "../../contracts/core/PreConfCommitmentStore.sol";
+import {IPreConfCommitmentStore} from "../../contracts/interfaces/IPreConfCommitmentStore.sol";
+import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {WindowFromBlockNumber} from "../contracts/utils/WindowFromBlockNumber.sol";
+import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 
 contract TestPreConfCommitmentStore is Test {
     struct TestCommitment {

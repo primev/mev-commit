@@ -19,10 +19,10 @@ if [ "${DEPLOY_TYPE}" = "core" ]; then
         echo "ORACLE_KEYSTORE_ADDRESS not specified"
         exit 1
     fi
-    echo "Deploying core contracts"
+    echo "Deploying core contracts in testnet environment"
     ORACLE_KEYSTORE_ADDRESS="$ORACLE_KEYSTORE_ADDRESS" \
     "${FORGE_BIN_PATH}" script \
-        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployScript \
+        "${SCRIPT_PATH_PREFIX}"DeployCore.s.sol:DeployTestnet \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --priority-gas-price 2000000000 \
         --with-gas-price 5000000000 \
@@ -36,25 +36,6 @@ if [ "${DEPLOY_TYPE}" = "core" ]; then
         --broadcast \
         --force \
         --json \
-        --via-ir
-
-elif [ "${DEPLOY_TYPE}" = "whitelist" ]; then
-    if [ -z "$HYP_ERC20_ADDR" ]; then
-        echo "HYP_ERC20_ADDR not specified"
-        exit 1
-    fi
-    echo "Deploying whitelist contract"
-    HYP_ERC20_ADDR="$HYP_ERC20_ADDR" "${FORGE_BIN_PATH}" script \
-        "${SCRIPT_PATH_PREFIX}"DeployScripts.s.sol:DeployWhitelist \
-        --rpc-url "${RPC_URL}" \
-        --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
-        --password "${KEYSTORE_PASSWORD}" \
-        --sender "${SENDER}" \
-        --broadcast \
-        --chain-id "${CHAIN_ID}" \
-        -vvvv \
-        --use 0.8.20 \
-        --root "${CONTRACT_REPO_ROOT_PATH}" \
         --via-ir
 
 elif [ "${DEPLOY_TYPE}" = "settlement-gateway" ]; then

@@ -4,10 +4,10 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {IBidderRegistry} from "./interfaces/IBidderRegistry.sol";
-import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
-import {WindowFromBlockNumber} from "./utils/WindowFromBlockNumber.sol";
-import {FeePayout} from "./utils/FeePayout.sol";
+import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
+import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
+import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
+import {FeePayout} from "../utils/FeePayout.sol";
 
 /// @title Bidder Registry
 /// @author Kartik Chopra
