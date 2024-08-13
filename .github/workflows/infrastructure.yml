@@ -208,6 +208,24 @@ jobs:
           echo "DEPLOY_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
 
+      - name: Run Integration tests
+        if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && success() }}
+        working-directory: testing
+        run: |
+          CONTRACTS_JSON=$(curl -s http://127.0.0.1:1010/contracts.json)
+          export MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.ProviderRegistry')
+          export MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BidderRegistry')
+          export MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BlockTracker')
+          export MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.PreConfCommitmentStore')
+          export MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.Oracle')
+          export MEV_COMMIT_TEST_L1_RPC_ENDPOINT="${{ secrets.L1_RPC_URL }}"
+          go build -ldflags="-s -w" -o mev-commit-test ./cmd/main.go
+          ./mev-commit-test \
+          --settlement-rpc-endpoint ws://127.0.0.1:8546 \
+          --bootnode-rpc-urls 127.0.0.1:13524 \
+          --provider-rpc-urls 127.0.0.1:13624 \
+          --bidder-rpc-urls 127.0.0.1:13724
+
       - name: Notify - Deployment Successful
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
         run: |
