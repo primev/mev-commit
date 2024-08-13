@@ -222,9 +222,9 @@ jobs:
           go build -ldflags="-s -w" -o mev-commit-test ./cmd/main.go
           ./mev-commit-test \
           --settlement-rpc-endpoint ws://127.0.0.1:8546 \
-            --bootnode-rpc-addresses 127.0.0.1:13524 \
-            --provider-rpc-addresses 127.0.0.1:13624 \
-            --bidder-rpc-addresses 127.0.0.1:13724
+            --bootnode-rpc-urls 127.0.0.1:13524 \
+            --provider-rpc-urls 127.0.0.1:13624 \
+            --bidder-rpc-urls 127.0.0.1:13724
 
       - name: Notify - Deployment Successful
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
