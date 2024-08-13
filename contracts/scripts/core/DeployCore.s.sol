@@ -16,7 +16,7 @@ import {console} from "forge-std/console.sol";
 
 contract DeployTestnet is Script {
     function run() external {
-        require(block.chainid == 17864, "chain ID is not 17864 (testnet env)");
+        require(block.chainid == 17864, "chainID not 17864 (testnet env)");
         vm.startBroadcast();
 
         uint256 minStake = 1 ether;
