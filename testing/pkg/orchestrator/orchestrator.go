@@ -28,39 +28,45 @@ import (
 )
 
 type Orchestrator interface {
+	io.Closer
+
+	// Providers returns the list of providers
 	Providers() []Provider
+	// Bidders returns the list of bidders
 	Bidders() []Bidder
+	// Bootnodes returns the list of bootnodes
 	Bootnodes() []Bootnode
 
+	// Events returns the event manager used to listen to contract events
 	Events() events.EventManager
+	// Logger returns the logger used by the orchestrator
 	Logger() *slog.Logger
 
-	L1RPC() *ethclient.Client
-
-	io.Closer
+	// L1Client returns the L1 RPC client
+	L1Client() *ethclient.Client
 }
 
-type BaseNode interface {
+type Node interface {
+	io.Closer
+
 	EthAddress() string
 	DebugAPI() debugapiv1.DebugServiceClient
-
-	io.Closer
 }
 
 type Provider interface {
-	BaseNode
+	Node
 
 	ProviderAPI() providerapiv1.ProviderClient
 }
 
 type Bidder interface {
-	BaseNode
+	Node
 
 	BidderAPI() bidderapiv1.BidderClient
 }
 
 type Bootnode interface {
-	BaseNode
+	Node
 }
 
 type Options struct {
@@ -179,7 +185,7 @@ func (o *orchestrator) Bootnodes() []Bootnode {
 	return o.bootnodes
 }
 
-func (o *orchestrator) L1RPC() *ethclient.Client {
+func (o *orchestrator) L1Client() *ethclient.Client {
 	return o.l1RPC
 }
 
@@ -215,7 +221,7 @@ func (o *orchestrator) Close() error {
 	return errs
 }
 
-func createNodes[T any](rpcAddrs []string, logger *slog.Logger) ([]T, error) {
+func createNodes[T any](logger *slog.Logger, rpcAddrs []string) ([]T, error) {
 	nodes := make([]T, 0, len(rpcAddrs))
 	for _, rpcAddr := range rpcAddrs {
 		n, err := newNode(rpcAddr, logger)
@@ -232,17 +238,17 @@ func createNodes[T any](rpcAddrs []string, logger *slog.Logger) ([]T, error) {
 }
 
 func NewOrchestrator(opts Options) (Orchestrator, error) {
-	providers, err := createNodes[Provider](opts.ProviderRPCAddresses, opts.Logger)
+	providers, err := createNodes[Provider](opts.Logger, opts.ProviderRPCAddresses)
 	if err != nil {
 		return nil, err
 	}
 
-	bidders, err := createNodes[Bidder](opts.BidderRPCAddresses, opts.Logger)
+	bidders, err := createNodes[Bidder](opts.Logger, opts.BidderRPCAddresses)
 	if err != nil {
 		return nil, err
 	}
 
-	bootnodes, err := createNodes[Bootnode](opts.BootnodeRPCAddresses, opts.Logger)
+	bootnodes, err := createNodes[Bootnode](opts.Logger, opts.BootnodeRPCAddresses)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +277,7 @@ func NewOrchestrator(opts Options) (Orchestrator, error) {
 	)
 
 	evtPublisher := publisher.NewWSPublisher(
-		nilStore{},
+		dummyStore{},
 		opts.Logger.With("component", "ws_publisher"),
 		ethClient,
 		evtMgr,
@@ -333,12 +339,12 @@ func getContractABIs(opts Options) (map[common.Address]*abi.ABI, error) {
 	return abis, nil
 }
 
-type nilStore struct{}
+type dummyStore struct{}
 
-func (nilStore) SetLastBlock(block uint64) error {
+func (dummyStore) SetLastBlock(block uint64) error {
 	return nil
 }
 
-func (nilStore) LastBlock() (uint64, error) {
+func (dummyStore) LastBlock() (uint64, error) {
 	return 0, nil
 }

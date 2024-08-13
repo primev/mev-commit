@@ -1,9 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"net"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -21,6 +20,10 @@ var (
 		Usage:    "Settlement RPC endpoint",
 		Required: true,
 		EnvVars:  []string{"MEV_COMMIT_TEST_SETTLEMENT_RPC_ENDPOINT"},
+		Action: func(_ *cli.Context, s string) error {
+			_, err := url.Parse(s)
+			return fmt.Errorf("invalid settlement RPC endpoint: %w", err)
+		},
 	}
 
 	optionL1RPCEndpoint = &cli.StringFlag{
@@ -28,6 +31,10 @@ var (
 		Usage:    "L1 RPC endpoint",
 		Required: true,
 		EnvVars:  []string{"MEV_COMMIT_TEST_L1_RPC_ENDPOINT"},
+		Action: func(_ *cli.Context, s string) error {
+			_, err := url.Parse(s)
+			return fmt.Errorf("invalid L1 RPC endpoint: %w", err)
+		},
 	}
 
 	optionProviderRegistryAddress = &cli.StringFlag{
@@ -91,16 +98,16 @@ var (
 	}
 
 	optionBootnodeRPCAddresses = &cli.StringSliceFlag{
-		Name:    "bootnode-rpc-addresses",
-		Usage:   "Bootnode RPC addresses",
-		EnvVars: []string{"MEV_COMMIT_TEST_BOOTNODE_RPC_ADDRESSES"},
+		Name:    "bootnode-rpc-urls",
+		Usage:   "Bootnode RPC URLs",
+		EnvVars: []string{"MEV_COMMIT_TEST_BOOTNODE_RPC_URLS"},
 		Action: func(c *cli.Context, addresses []string) error {
 			if len(addresses) == 0 {
 				return fmt.Errorf("at least one bootnode RPC address is required")
 			}
 			for _, address := range addresses {
-				if _, _, err := net.SplitHostPort(address); err != nil {
-					return fmt.Errorf("invalid bootnode RPC address")
+				if _, err := url.Parse(address); err != nil {
+					return fmt.Errorf("invalid bootnode RPC address: %w", err)
 				}
 			}
 			return nil
@@ -108,16 +115,16 @@ var (
 	}
 
 	optionProviderRPCAddresses = &cli.StringSliceFlag{
-		Name:    "provider-rpc-addresses",
-		Usage:   "Provider RPC addresses",
-		EnvVars: []string{"MEV_COMMIT_TEST_PROVIDER_RPC_ADDRESSES"},
+		Name:    "provider-rpc-urls",
+		Usage:   "Provider RPC URLs",
+		EnvVars: []string{"MEV_COMMIT_TEST_PROVIDER_RPC_URLS"},
 		Action: func(c *cli.Context, addresses []string) error {
 			if len(addresses) == 0 {
 				return fmt.Errorf("at least one provider RPC address is required")
 			}
 			for _, address := range addresses {
-				if _, _, err := net.SplitHostPort(address); err != nil {
-					return fmt.Errorf("invalid provider RPC address")
+				if _, err := url.Parse(address); err != nil {
+					return fmt.Errorf("invalid provider RPC address: %w", err)
 				}
 			}
 			return nil
@@ -125,16 +132,16 @@ var (
 	}
 
 	optionBidderRPCAddresses = &cli.StringSliceFlag{
-		Name:    "bidder-rpc-addresses",
-		Usage:   "Bidder RPC addresses",
-		EnvVars: []string{"MEV_COMMIT_TEST_BIDDER_RPC_ADDRESSES"},
+		Name:    "bidder-rpc-urls",
+		Usage:   "Bidder RPC URLs",
+		EnvVars: []string{"MEV_COMMIT_TEST_BIDDER_RPC_URLS"},
 		Action: func(c *cli.Context, addresses []string) error {
 			if len(addresses) == 0 {
 				return fmt.Errorf("at least one bidder RPC address is required")
 			}
 			for _, address := range addresses {
-				if _, _, err := net.SplitHostPort(address); err != nil {
-					return fmt.Errorf("invalid bidder RPC address")
+				if _, err := url.Parse(address); err != nil {
+					return fmt.Errorf("invalid bidder RPC address: %w", err)
 				}
 			}
 			return nil
@@ -201,9 +208,7 @@ func main() {
 			optionLogLevel,
 			optionLogTags,
 		},
-		Action: func(c *cli.Context) error {
-			return run(c)
-		},
+		Action: run,
 	}
 
 	if err := app.Run(os.Args); err != nil {
@@ -242,7 +247,6 @@ func run(c *cli.Context) error {
 	logger.Info("running with options", "options", opts)
 
 	o, err := orchestrator.NewOrchestrator(opts)
-
 	if err != nil {
 		return err
 	}
@@ -252,14 +256,14 @@ func run(c *cli.Context) error {
 	// Run test cases
 	for _, tc := range tests.TestCases {
 		logger.Info("running test case", "name", tc.Name)
-		if err := tc.Run(context.Background(), o, nil); err != nil {
+		if err := tc.Run(c.Context, o, nil); err != nil {
 			logger.Error("test case failed", "name", tc.Name, "error", err)
 			return fmt.Errorf("test case %s failed: %w", tc.Name, err)
 		}
 		logger.Info("test case passed", "name", tc.Name)
 	}
 
-	logger.Info("all test cases passed")
+	logger.Info("all test cases passed successfully")
 
 	return nil
 }

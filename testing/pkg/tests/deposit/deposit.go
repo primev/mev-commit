@@ -181,7 +181,7 @@ func RunCancelAutoDeposit(ctx context.Context, cluster orchestrator.Orchestrator
 	depositsRcvd := make(map[common.Address][]*bidderregistry.BidderregistryBidderRegistered)
 	withdrawalsRcvd := make(map[common.Address][]*bidderregistry.BidderregistryBidderWithdrawal)
 
-	eg := errgroup.Group{}
+	eg, ctx := errgroup.WithContext(ctx)
 	egCtx, egCancel := context.WithCancel(ctx)
 	defer egCancel()
 

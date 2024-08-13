@@ -378,7 +378,7 @@ DONE:
 						// handle reverting transactions.
 						failedTxnPresent := false
 						for _, h := range entry.Bid.TxHashes {
-							receipt, err := cluster.L1RPC().TransactionReceipt(
+							receipt, err := cluster.L1Client().TransactionReceipt(
 								context.Background(),
 								common.HexToHash(h),
 							)
@@ -425,14 +425,14 @@ func getRandomBid(
 	o orchestrator.Orchestrator,
 	store *radix.Tree,
 ) (*BidEntry, error) {
-	blkNum, err := o.L1RPC().BlockNumber(context.Background())
+	blkNum, err := o.L1Client().BlockNumber(context.Background())
 	if err != nil {
 		return nil, err
 	}
 
 	blk, found := store.Get(blkKey(blkNum))
 	if !found {
-		blk, err = o.L1RPC().BlockByNumber(context.Background(), big.NewInt(int64(blkNum)))
+		blk, err = o.L1Client().BlockByNumber(context.Background(), big.NewInt(int64(blkNum)))
 		if err != nil {
 			return nil, err
 		}

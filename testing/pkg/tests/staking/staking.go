@@ -34,7 +34,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 		return fmt.Errorf("failed to subscribe to provider registered events: %w", err)
 	}
 
-	eg := errgroup.Group{}
+	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
 		defer sub.Unsubscribe()
 

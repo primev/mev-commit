@@ -208,7 +208,7 @@ jobs:
           echo "DEPLOY_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
 
-      - name: Run integration tests
+      - name: Run Integration tests
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'false' && success() }}
         working-directory: testing
         run: |
