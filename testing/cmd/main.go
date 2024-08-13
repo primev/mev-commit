@@ -21,8 +21,10 @@ var (
 		Required: true,
 		EnvVars:  []string{"MEV_COMMIT_TEST_SETTLEMENT_RPC_ENDPOINT"},
 		Action: func(_ *cli.Context, s string) error {
-			_, err := url.Parse(s)
-			return fmt.Errorf("invalid settlement RPC endpoint: %w", err)
+			if _, err := url.Parse(s); err != nil {
+				return fmt.Errorf("invalid settlement RPC endpoint: %w", err)
+			}
+			return nil
 		},
 	}
 
@@ -32,8 +34,10 @@ var (
 		Required: true,
 		EnvVars:  []string{"MEV_COMMIT_TEST_L1_RPC_ENDPOINT"},
 		Action: func(_ *cli.Context, s string) error {
-			_, err := url.Parse(s)
-			return fmt.Errorf("invalid L1 RPC endpoint: %w", err)
+			if _, err := url.Parse(s); err != nil {
+				return fmt.Errorf("invalid L1 RPC endpoint: %w", err)
+			}
+			return nil
 		},
 	}
 
