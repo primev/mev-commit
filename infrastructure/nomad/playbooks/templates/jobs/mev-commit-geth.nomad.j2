@@ -1,6 +1,7 @@
 #jinja2: trim_blocks:True, lstrip_blocks:True
 job "{{ job.name }}" {
   datacenters = ["{{ datacenter }}"]
+  type = "service"
 
   group "{{ job.name }}-group" {
     count = {{ job.count }}
@@ -14,6 +15,13 @@ job "{{ job.name }}" {
     reschedule {
       attempts = 0
       unlimited = false
+    }
+    {% else %}
+    restart {
+      attempts = 3
+      delay    = "30s"
+      interval = "5m"
+      mode     = "delay"
     }
     {% endif %}
 
@@ -41,13 +49,18 @@ job "{{ job.name }}" {
 
       {% if profile == 'testnet' %}
       resources {
-        cores = 6
+        cpu    = 6000 # 6 cores
         memory = 32768
       }
       {% elif profile == 'stressnet' %}
       resources {
-        cpu = 2000
+        cpu    = 2000
         memory = 16384
+      }
+      {% else %}
+      resources {
+        cpu    = 1000
+        memory = 4096
       }
       {% endif %}
 
@@ -55,33 +68,29 @@ job "{{ job.name }}" {
       service {
         name = "{{ job.name }}"
         port = "{{ port_name }}"
-        tags = ["{{ port_name }}"]
-        provider = "nomad"
+        tags = ["{{ port_name }}", "${NOMAD_ALLOC_INDEX}"]
+        check {
+          type     = "tcp"
+          interval = "10s"
+          timeout  = "2s"
+        }
       }
       {% endfor %}
 
-      {% if env != 'devenv' %}
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_{{ version }}.json"
+        source = "{% if env != 'devenv' %}https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com{% else %}http://{{ ansible_facts['default_ipv4']['address'] }}:1111{% endif %}/genesis_{{ version }}.json"
+        destination = "local/genesis.json"
       }
+
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "{% if env != 'devenv' %}https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com{% else %}http://{{ ansible_facts['default_ipv4']['address'] }}:1111{% endif %}/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        destination = "local/"
       }
-      {% else %}
-      artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/genesis_{{ version }}.json"
-      }
-      artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
-      }
-      {% endif %}
 
       template {
         data = <<-EOH
-          {%- raw %}
-          GETH_DATA_DIR="local/data-{{ env "NOMAD_ALLOC_INDEX" }}"
-          {% endraw %}
-          GENESIS_L1_PATH="local/genesis_{{ version }}.json"
+          GETH_DATA_DIR="local/data-{{ "{{" }} env "NOMAD_ALLOC_INDEX" {{ "}}" }}"
+          GENESIS_L1_PATH="local/genesis.json"
           GETH_BIN_PATH="local/mev-commit-geth"
           NODE_IP="{{ job.env['ip'] }}"
           {% if job.env['type'] != 'signer' %}
@@ -91,32 +100,22 @@ job "{{ job.name }}" {
           GETH_NODE_TYPE="{{ job.env['type'] }}"
           GETH_VERBOSITY={{ job.env.get('log-verbosity', '3') }}
           GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
-          GETH_LOG_TAGS="{{
-            job.env['log-tags'].items() | map('join', ':') | join('; ')
-            if job.env['log-tags'] is defined and job.env['log-tags']
-            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
-          }}"
+          GETH_LOG_TAGS="{{ job.env['log-tags'].items() | map('join', ':') | join('; ') if job.env['log-tags'] is defined and job.env['log-tags'] else 'service:' + job.name + '-{{ "{{" }} env "NOMAD_ALLOC_INDEX" {{ "}}" }}' }}"
           {% if job.env['type'] == 'bootnode' %}
-          {%- raw %}
-          BOOT_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key }}{{ end }}"
-          {% endraw %}
+          BOOT_KEY="{{ "{{" }} with secret "secret/data/mev-commit" }}{{ "{{" }} .Data.data.geth_bootnode1_boot_key {{ "}}" }}{{ "{{" }} end }}"
           {% elif job.env['type'] == 'signer' %}
-          {%- raw %}
-          GETH_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
-          GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
-          GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
-          {% endraw %}
+          GETH_KEYSTORE_DIR="/local/data-{{ "{{" }} env "NOMAD_ALLOC_INDEX" {{ "}}" }}/keystore"
+          GETH_KEYSTORE_FILENAME="{{ "{{" }} with secret "secret/data/mev-commit" }}{{ "{{" }} .Data.data.{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}_filename {{ "}}" }}{{ "{{" }} end }}"
+          GETH_KEYSTORE_PASSWORD="{{ "{{" }} with secret "secret/data/mev-commit" }}{{ "{{" }} .Data.data.{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}_password {{ "}}" }}{{ "{{" }} end }}"
           {% elif job.env['type'] == 'member' %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
           {% endif %}
-          {%- if job.env['type'] != 'bootnode' %}
-          {%- raw %}
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
-            {{- if contains "p2p" .Tags }}
-          BOOTNODE_ENDPOINT="enode://{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key_address }}{{ end }}@{{ .Address }}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
-          {% endraw %}
+          {% if job.env['type'] != 'bootnode' %}
+          {{ "{{" }}- range nomadService "mev-commit-geth-bootnode1" }}
+            {{ "{{" }}- if contains "p2p" .Tags }}
+          BOOTNODE_ENDPOINT="enode://{{ "{{" }} with secret "secret/data/mev-commit" }}{{ "{{" }} .Data.data.geth_bootnode1_boot_key_address {{ "}}" }}{{ "{{" }} end }}@{{ "{{" }} .Address }}:{{ "{{" }} .Port }}"
+            {{ "{{" }}- end }}
+          {{ "{{" }}- end }}
           {% endif %}
         EOH
         destination = "secrets/.env"
@@ -126,38 +125,35 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
+          set -euo pipefail
 
-          {%- raw %}
-          {{- range nomadService "datadog-agent-logs-collector" }}
-            {{ if contains "tcp" .Tags }}
-          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
-            {{ end }}
-          {{- end }}
-          {% endraw %}
+          {{ "{{" }}- range nomadService "datadog-agent-logs-collector" }}
+            {{ "{{" }} if contains "tcp" .Tags }}
+          exec > >(nc {{ "{{" }} .Address }} {{ "{{" }} .Port }}) 2>&1
+            {{ "{{" }} end }}
+          {{ "{{" }}- end }}
 
-          mkdir -p "${GETH_DATA_DIR}" > /dev/null 2>&1
+          mkdir -p "${GETH_DATA_DIR}"
 
           {% if job.artifacts | selectattr('keystore', 'defined') | list | length > 0 %}
-          mkdir -p "${GETH_KEYSTORE_DIR}" > /dev/null 2>&1
-          {%- raw %}
-            {{- with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME}"
-            {{ end }}
-          {% endraw %}
+          mkdir -p "${GETH_KEYSTORE_DIR}"
+          {{ "{{" }}- with secret "secret/data/mev-commit" }}
+          echo '{{ "{{" }} .Data.data.{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }} }}' > "${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME}"
+          {{ "{{" }} end }}
             {% if job.env['type'] == 'signer' %}
-          export BLOCK_SIGNER_ADDRESS="$(cat ${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME} | jq -r '.address')"
+          export BLOCK_SIGNER_ADDRESS="$(jq -r '.address' ${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME})"
             {% endif %}
           {% endif %}
 
           chmod +x local/mev-commit-geth local/entrypoint.sh
-          local/entrypoint.sh
+          exec local/entrypoint.sh
         EOH
         destination = "local/run.sh"
         perms = "0755"
       }
 
       config {
-        command = "bash"
+        command = "/bin/bash"
         args = ["-c", "local/run.sh"]
       }
     }
