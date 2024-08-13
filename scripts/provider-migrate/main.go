@@ -55,13 +55,12 @@ func DelegateRegisterAndStake(providers []Provider) error {
 	}
 	providerRegistryAddress := common.HexToAddress(providerRegistryAddr)
 
-	// Connect to Ethereum client
-	ethNodeURL := os.Getenv("ETH_NODE_URL")
-	if ethNodeURL == "" {
-		return fmt.Errorf("ETH_NODE_URL environment variable is not set")
+	settlementURL := os.Getenv("SETTLEMENT_URL")
+	if settlementURL == "" {
+		return fmt.Errorf("SETTLEMENT_URL environment variable is not set")
 	}
 
-	client, err := ethclient.Dial(ethNodeURL)
+	client, err := ethclient.Dial(settlementURL)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Ethereum client: %w", err)
 	}
