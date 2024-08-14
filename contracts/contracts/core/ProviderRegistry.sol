@@ -6,6 +6,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {PreconfManager} from "./PreconfManager.sol";
 import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
+import {ProviderRegistryStorage} from "./ProviderRegistryStorage.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
 
 /// @title Provider Registry
@@ -13,67 +14,11 @@ import {FeePayout} from "../utils/FeePayout.sol";
 /// @notice This contract is for provider registry and staking.
 contract ProviderRegistry is
     IProviderRegistry,
+    ProviderRegistryStorage,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
     ReentrancyGuardUpgradeable
 {
-    using FeePayout for FeePayout.Tracker;
-
-    /// @dev For improved precision
-    uint256 public constant PRECISION = 10 ** 25;
-    uint256 public constant PERCENT = 100 * PRECISION;
-
-    /// @dev Minimum stake required for registration
-    uint256 public minStake;
-
-    /// @dev Address of the pre-confirmations contract
-    address public preConfirmationsContract;
-
-    /// @dev Fee percent that would be taken by protocol when provider is slashed
-    uint16 public feePercent;
-
-    /// @dev Configurable withdrawal delay in milliseconds
-    uint256 public withdrawalDelay;
-
-    /// Struct enabling automatic penalty fee payouts
-    FeePayout.Tracker public penaltyFeeTracker;
-
-    /// @dev Mapping from provider address to whether they are registered or not
-    mapping(address => bool) public providerRegistered;
-
-    /// @dev Mapping from a provider's EOA address to their BLS public key
-    mapping(address => bytes) public eoaToBlsPubkey;
-
-    /// @dev Mapping from provider addresses to their staked amount
-    mapping(address => uint256) public providerStakes;
-
-    /// @dev Mapping of provider to withdrawal request timestamp
-    mapping(address => uint256) public withdrawalRequests;
-
-    /// @dev Event emitted when a provider is registered
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
-
-    /// @dev Event emitted when funds are deposited
-    event FundsDeposited(address indexed provider, uint256 amount);
-
-    /// @dev Event emitted when funds are slashed
-    event FundsSlashed(address indexed provider, uint256 amount);
-
-    /// @dev Event emitted when withdrawal is requested
-    event Unstake(address indexed provider, uint256 timestamp);
-
-    /// @dev Event emitted when withdrawal is completed
-    event Withdraw(address indexed provider, uint256 amount);
-
-    /// @dev Event emitted when the withdrawal delay is updated
-    event WithdrawalDelayUpdated(uint256 newWithdrawalDelay);
-
-    /// @dev Event emitted when the penalty fee recipient is updated
-    event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
-
-    /// @dev Event emitted when the fee payout period in blocks is updated
-    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
-
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */

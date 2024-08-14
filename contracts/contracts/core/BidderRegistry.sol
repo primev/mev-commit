@@ -5,6 +5,7 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
+import {BidderRegistryStorage} from "./BidderRegistryStorage.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
@@ -14,86 +15,11 @@ import {FeePayout} from "../utils/FeePayout.sol";
 /// @notice This contract is for bidder registry and staking.
 contract BidderRegistry is
     IBidderRegistry,
+    BidderRegistryStorage,
     Ownable2StepUpgradeable,
     ReentrancyGuardUpgradeable,
     UUPSUpgradeable
 {
-    using FeePayout for FeePayout.Tracker;
-
-    /// @dev For improved precision
-    uint256 constant public PRECISION = 10 ** 25;
-    uint256 constant public PERCENT = 100 * PRECISION;
-
-    /// @dev Address of the pre-confirmations contract
-    address public preConfirmationsContract;
-
-    /// @dev Fee percent that would be taken by protocol when provider is slashed
-    uint16 public feePercent;
-
-    /// @dev Block tracker contract
-    IBlockTracker public blockTrackerContract;
-
-    /// Struct enabling automatic protocol fee payouts
-    FeePayout.Tracker public protocolFeeTracker;
-
-    /// @dev Mapping for if bidder is registered
-    mapping(address => bool) public bidderRegistered;
-
-    // Mapping from bidder addresses and window numbers to their locked funds
-    mapping(address => mapping(uint256 => uint256)) public lockedFunds;
-
-    // Mapping from bidder addresses and blocks to their used funds
-    mapping(address => mapping(uint64 => uint256)) public usedFunds;
-
-    /// Mapping from bidder addresses and window numbers to their funds per window
-    mapping(address => mapping(uint256 => uint256)) public maxBidPerBlock;
-
-    /// @dev Mapping from bidder addresses to their locked amount based on bidID (commitmentDigest)
-    mapping(bytes32 => BidState) public bidPayment;
-
-    /// @dev Amount assigned to bidders
-    mapping(address => uint256) public providerAmount;
-
-    /// @dev Amount assigned to bidders
-    uint256 public blocksPerWindow;
-
-    /// @dev Event emitted when a bidder is registered with their deposited amount
-    event BidderRegistered(
-        address indexed bidder,
-        uint256 indexed depositedAmount,
-        uint256 indexed windowNumber
-    );
-
-    /// @dev Event emitted when funds are retrieved from a bidder's deposit
-    event FundsRetrieved(
-        bytes32 indexed commitmentDigest,
-        address indexed bidder,
-        uint256 indexed window,
-        uint256 amount
-    );
-
-    /// @dev Event emitted when funds are retrieved from a bidder's deposit
-    event FundsRewarded(
-        bytes32 indexed commitmentDigest,
-        address indexed bidder,
-        address indexed provider,
-        uint256 window,
-        uint256 amount
-    );
-
-    /// @dev Event emitted when a bidder withdraws their deposit
-    event BidderWithdrawal(
-        address indexed bidder,
-        uint256 indexed window,
-        uint256 indexed amount
-    );
-
-    /// @dev Event emitted when the protocol fee recipient is updated
-    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
-
-    /// @dev Event emitted when the fee payout period in blocks is updated
-    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
-
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
      */
