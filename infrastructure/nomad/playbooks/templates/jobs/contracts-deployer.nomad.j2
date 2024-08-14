@@ -168,6 +168,7 @@ job "{{ job.name }}" {
           echo "${LOGS}" \
           | sed -n '/{.*}/p' \
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
+          | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/www/contracts.json
 
           python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/www

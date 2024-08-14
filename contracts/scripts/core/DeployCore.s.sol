@@ -85,12 +85,12 @@ contract DeployTestnet is Script {
         providerRegistry.setPreconfirmationsContract(
             address(preconfManager)
         );
-        console.log("ProviderRegistryWithPreconfManager:", address(preconfManager));
+        console.log("_ProviderRegistryWithPreconfManager:", address(preconfManager));
 
         bidderRegistry.setPreconfirmationsContract(
             address(preconfManager)
         );
-        console.log("BidderRegistryWithPreconfManager:", address(preconfManager));
+        console.log("_BidderRegistryWithPreconfManager:", address(preconfManager));
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
@@ -104,7 +104,7 @@ contract DeployTestnet is Script {
         console.log("Oracle:", address(oracle));
 
         preconfManager.updateOracleContract(address(oracle));
-        console.log("PreconfManagerWithOracle:", address(oracle));
+        console.log("_PreconfManagerWithOracle:", address(oracle));
 
         vm.stopBroadcast();
     }
