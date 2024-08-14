@@ -170,14 +170,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install Hardhat
-        run: npm install -g hardhat
-
       - name: Install solhint
         run: npm install -g solhint
-
-      - name: Install Dependencies
-        run: npm install
 
       - name: Print Versions
         run: |
