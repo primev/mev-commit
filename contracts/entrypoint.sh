@@ -22,7 +22,7 @@ if [ "${DEPLOY_TYPE}" = "core" ]; then
     echo "Deploying core contracts in testnet environment"
     ORACLE_KEYSTORE_ADDRESS="$ORACLE_KEYSTORE_ADDRESS" \
     "${FORGE_BIN_PATH}" script \
-        "${SCRIPT_PATH_PREFIX}"DeployCore.s.sol:DeployTestnet \
+        "${SCRIPT_PATH_PREFIX}"core/DeployCore.s.sol:DeployTestnet \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --priority-gas-price 2000000000 \
         --with-gas-price 5000000000 \
