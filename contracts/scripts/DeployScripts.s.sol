@@ -86,12 +86,12 @@ contract DeployScript is Script {
         providerRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
-        console.log("ProviderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
+        console.log("_ProviderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
 
         bidderRegistry.setPreconfirmationsContract(
             address(preConfCommitmentStore)
         );
-        console.log("BidderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
+        console.log("_BidderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
@@ -105,7 +105,7 @@ contract DeployScript is Script {
         console.log("Oracle:", address(oracle));
 
         preConfCommitmentStore.updateOracleContract(address(oracle));
-        console.log("PreConfCommitmentStoreWithOracle:", address(oracle));
+        console.log("_PreConfCommitmentStoreWithOracle:", address(oracle));
 
         vm.stopBroadcast();
     }
