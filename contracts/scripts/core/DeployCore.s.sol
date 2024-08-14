@@ -8,7 +8,7 @@ pragma solidity 0.8.20;
 import {Script} from "forge-std/Script.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
-import {PreConfCommitmentStore} from "../../contracts/core/PreConfCommitmentStore.sol";
+import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
 import {Oracle} from "../../contracts/core/Oracle.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
@@ -69,8 +69,8 @@ contract DeployTestnet is Script {
         console.log("ProviderRegistry:", address(providerRegistry));
 
         address preconfCommitmentStoreProxy = Upgrades.deployUUPSProxy(
-            "PreConfCommitmentStore.sol",
-            abi.encodeCall(PreConfCommitmentStore.initialize,
+            "PreconfManager.sol",
+            abi.encodeCall(PreconfManager.initialize,
             (address(providerRegistry), // _providerRegistry param
             address(bidderRegistry), // _bidderRegistry param
             address(0x0), // _oracleContract param, updated later in script. 
@@ -79,23 +79,23 @@ contract DeployTestnet is Script {
             commitmentDispatchWindow, // _commitmentDispatchWindow param
             blocksPerWindow)) // _blocksPerWindow param
         );
-        PreConfCommitmentStore preConfCommitmentStore = PreConfCommitmentStore(payable(preconfCommitmentStoreProxy));
-        console.log("PreConfCommitmentStore:", address(preConfCommitmentStore));
+        PreconfManager preconfManager = PreconfManager(payable(preconfCommitmentStoreProxy));
+        console.log("PreconfManager:", address(preconfManager));
 
         providerRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
-        console.log("ProviderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
+        console.log("ProviderRegistryWithPreconfManager:", address(preconfManager));
 
         bidderRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
-        console.log("BidderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
+        console.log("BidderRegistryWithPreconfManager:", address(preconfManager));
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
             abi.encodeCall(Oracle.initialize,
-            (address(preConfCommitmentStore), // preConfContract_ param
+            (address(preconfManager), // preConfContract_ param
             address(blockTracker), // blockTrackerContract_ param
             oracleKeystoreAddress, // oracleAcount_ param
             msg.sender)) // owner_ param
@@ -103,8 +103,8 @@ contract DeployTestnet is Script {
         Oracle oracle = Oracle(payable(oracleProxy));
         console.log("Oracle:", address(oracle));
 
-        preConfCommitmentStore.updateOracleContract(address(oracle));
-        console.log("PreConfCommitmentStoreWithOracle:", address(oracle));
+        preconfManager.updateOracleContract(address(oracle));
+        console.log("PreconfManagerWithOracle:", address(oracle));
 
         vm.stopBroadcast();
     }

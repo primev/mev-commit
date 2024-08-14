@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {PreConfCommitmentStore} from "./PreConfCommitmentStore.sol";
+import {PreconfManager} from "./PreconfManager.sol";
 import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
 
@@ -240,7 +240,7 @@ contract ProviderRegistry is
         require(providerStake != 0, "Provider Staked Amount is zero");
         require(preConfirmationsContract != address(0), "preconf contract not set");
 
-        uint256 providerPendingCommitmentsCount = PreConfCommitmentStore(
+        uint256 providerPendingCommitmentsCount = PreconfManager(
             payable(preConfirmationsContract)
         ).commitmentsCount(msg.sender);
 

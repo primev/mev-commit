@@ -10,7 +10,7 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
-	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	"github.com/primev/mev-commit/x/contracts/events"
 )
@@ -70,7 +70,7 @@ func (s *Service) configureDashboard() error {
 		),
 		events.NewEventHandler(
 			"OpenedCommitmentStored",
-			func(upd *preconfcommitmentstore.PreconfcommitmentstoreOpenedCommitmentStored) {
+			func(upd *preconf.PreconfmanagerOpenedCommitmentStored) {
 				s.statMu.Lock()
 				defer s.statMu.Unlock()
 

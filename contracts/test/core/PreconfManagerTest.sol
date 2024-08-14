@@ -2,15 +2,15 @@
 pragma solidity 0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {PreConfCommitmentStore} from "../../contracts/core/PreConfCommitmentStore.sol";
-import {IPreConfCommitmentStore} from "../../contracts/interfaces/IPreConfCommitmentStore.sol";
+import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
+import {IPreconfManager} from "../../contracts/interfaces/IPreconfManager.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 
-contract TestPreConfCommitmentStore is Test {
+contract PreconfManagerTest is Test {
     struct TestCommitment {
         uint256 bid;
         uint64 blockNumber;
@@ -27,7 +27,7 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     TestCommitment internal _testCommitmentAliceBob;
-    PreConfCommitmentStore public preConfCommitmentStore;
+    PreconfManager public preconfManager;
     uint16 public feePercent;
     uint256 public minStake;
     address public provider;
@@ -106,9 +106,9 @@ contract TestPreConfCommitmentStore is Test {
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
         address preconfStoreProxy = Upgrades.deployUUPSProxy(
-            "PreConfCommitmentStore.sol",
+            "PreconfManager.sol",
             abi.encodeCall(
-                PreConfCommitmentStore.initialize,
+                PreconfManager.initialize,
                 (
                     address(providerRegistry), // Provider Registry
                     address(bidderRegistry), // User Registry
@@ -120,21 +120,19 @@ contract TestPreConfCommitmentStore is Test {
                 )
             ) // Commitment Dispatch Window
         );
-        preConfCommitmentStore = PreConfCommitmentStore(
-            payable(preconfStoreProxy)
-        );
+        preconfManager = PreconfManager(payable(preconfStoreProxy));
 
         // Sets fake block timestamp
         vm.warp(500);
         bidderRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
     }
 
     function test_GetBidHash1() public {
         // Step 1: Prepare the test commitment data
-        PreConfCommitmentStore.CommitmentParams
-            memory testCommitment = IPreConfCommitmentStore.CommitmentParams({
+        PreconfManager.CommitmentParams
+            memory testCommitment = IPreconfManager.CommitmentParams({
                 txnHash: "0xkartik",
                 revertingTxHashes: "0xkartik",
                 bid: 2,
@@ -147,7 +145,7 @@ contract TestPreConfCommitmentStore is Test {
                 commitmentSignature: hex"5b3000290d4f347b94146eb37f66d5368aed18fb8713bf78620abe40ae3de7f635f7ed161801c31ea10e736d88e6fd2a2286bbd59385161dd24c9fefd2568f341b"
             });
         // Step 2: Calculate the bid hash using the getBidHash function
-        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+        bytes32 bidHash = preconfManager.getBidHash(
             testCommitment.txnHash,
             testCommitment.revertingTxHashes,
             testCommitment.bid,
@@ -164,7 +162,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory bidSignature = abi.encodePacked(r, s, v);
 
         // Step 3: Calculate the commitment hash using the getPreConfHash function
-        bytes32 commitmentDigest = preConfCommitmentStore.getPreConfHash(
+        bytes32 commitmentDigest = preconfManager.getPreConfHash(
             testCommitment.txnHash,
             testCommitment.revertingTxHashes,
             testCommitment.bid,
@@ -184,13 +182,13 @@ contract TestPreConfCommitmentStore is Test {
     }
 
     function test_Initialize() public view {
-        assertEq(preConfCommitmentStore.oracleContract(), oracleContract);
+        assertEq(preconfManager.oracleContract(), oracleContract);
         assertEq(
-            address(preConfCommitmentStore.providerRegistry()),
+            address(preconfManager.providerRegistry()),
             address(providerRegistry)
         );
         assertEq(
-            address(preConfCommitmentStore.bidderRegistry()),
+            address(preconfManager.bidderRegistry()),
             address(bidderRegistry)
         );
     }
@@ -214,7 +212,7 @@ contract TestPreConfCommitmentStore is Test {
 
         // Step 2: Store the commitment
         vm.prank(committer);
-        bytes32 commitmentIndex = preConfCommitmentStore
+        bytes32 commitmentIndex = preconfManager
             .storeUnopenedCommitment(
                 commitmentDigest,
                 commitmentSignature,
@@ -226,8 +224,8 @@ contract TestPreConfCommitmentStore is Test {
         assert(commitmentIndex != bytes32(0));
 
         // b. Retrieve the commitment by index and verify its properties
-        PreConfCommitmentStore.UnopenedCommitment
-            memory commitment = preConfCommitmentStore.getUnopenedCommitment(
+        PreconfManager.UnopenedCommitment
+            memory commitment = preconfManager.getUnopenedCommitment(
                 commitmentIndex
             );
 
@@ -254,7 +252,7 @@ contract TestPreConfCommitmentStore is Test {
         vm.warp(1000);
         vm.expectRevert("Invalid dispatch timestamp");
 
-        preConfCommitmentStore.storeUnopenedCommitment(
+        preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp
@@ -275,11 +273,11 @@ contract TestPreConfCommitmentStore is Test {
         );
         bytes memory commitmentSignature = abi.encodePacked(r, s, v);
 
-        vm.prank(preConfCommitmentStore.owner());
-        preConfCommitmentStore.updateCommitmentDispatchWindow(200);
+        vm.prank(preconfManager.owner());
+        preconfManager.updateCommitmentDispatchWindow(200);
         vm.warp(201 + _testCommitmentAliceBob.dispatchTimestamp);
         vm.expectRevert("Invalid dispatch timestamp");
-        preConfCommitmentStore.storeUnopenedCommitment(
+        preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp
@@ -288,28 +286,28 @@ contract TestPreConfCommitmentStore is Test {
 
     function test_UpdateOracle() public {
         address newOracle = address(0x123);
-        preConfCommitmentStore.updateOracleContract(newOracle);
-        assertEq(preConfCommitmentStore.oracleContract(), newOracle);
+        preconfManager.updateOracleContract(newOracle);
+        assertEq(preconfManager.oracleContract(), newOracle);
     }
 
     function test_UpdateProviderRegistry() public {
-        preConfCommitmentStore.updateProviderRegistry(feeRecipient);
+        preconfManager.updateProviderRegistry(feeRecipient);
         assertEq(
-            address(preConfCommitmentStore.providerRegistry()),
+            address(preconfManager.providerRegistry()),
             feeRecipient
         );
     }
 
     function test_UpdateBidderRegistry() public {
-        preConfCommitmentStore.updateBidderRegistry(feeRecipient);
+        preconfManager.updateBidderRegistry(feeRecipient);
         assertEq(
-            address(preConfCommitmentStore.bidderRegistry()),
+            address(preconfManager.bidderRegistry()),
             feeRecipient
         );
     }
 
     function test_GetBidHash2() public view {
-        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+        bytes32 bidHash = preconfManager.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
             _testCommitmentAliceBob.bid,
@@ -323,7 +321,7 @@ contract TestPreConfCommitmentStore is Test {
     function test_GetCommitmentDigest() public {
         (, uint256 bidderPk) = makeAddrAndKey("alice");
 
-        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+        bytes32 bidHash = preconfManager.getBidHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
             _testCommitmentAliceBob.bid,
@@ -335,7 +333,7 @@ contract TestPreConfCommitmentStore is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bytes memory signature = abi.encodePacked(r, s, v);
         bytes memory sharedSecretKey = bytes("0xsecret");
-        bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
+        bytes32 preConfHash = preconfManager.getPreConfHash(
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
             _testCommitmentAliceBob.bid,
@@ -420,7 +418,7 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.sharedSecretKey
         );
 
-        string memory commitmentTxnHash = preConfCommitmentStore
+        string memory commitmentTxnHash = preconfManager
             .getTxnHashFromCommitment(index);
         assertEq(commitmentTxnHash, _testCommitmentAliceBob.txnHash);
     }
@@ -434,7 +432,7 @@ contract TestPreConfCommitmentStore is Test {
         uint64 decayEndTimestamp,
         bytes memory bidSignature
     ) public view returns (bytes32) {
-        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+        bytes32 bidHash = preconfManager.getBidHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -443,7 +441,7 @@ contract TestPreConfCommitmentStore is Test {
             decayEndTimestamp
         );
         bytes memory sharedSecretKey = abi.encodePacked(keccak256("0xsecret"));
-        bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
+        bytes32 preConfHash = preconfManager.getPreConfHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -455,7 +453,7 @@ contract TestPreConfCommitmentStore is Test {
             _bytesToHexString(sharedSecretKey)
         );
 
-        (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
+        (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
             .openedCommitments(preConfHash);
         assertEq(isSettled, false);
 
@@ -475,7 +473,7 @@ contract TestPreConfCommitmentStore is Test {
         uint64 dispatchTimestamp,
         bytes memory sharedSecretKey
     ) public returns (bytes32) {
-        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+        bytes32 bidHash = preconfManager.getBidHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -484,7 +482,7 @@ contract TestPreConfCommitmentStore is Test {
             decayEndTimestamp
         );
 
-        bytes32 commitmentDigest = preConfCommitmentStore.getPreConfHash(
+        bytes32 commitmentDigest = preconfManager.getPreConfHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -499,7 +497,7 @@ contract TestPreConfCommitmentStore is Test {
         vm.startPrank(committer);
         providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
 
-        bytes32 commitmentIndex = preConfCommitmentStore
+        bytes32 commitmentIndex = preconfManager
             .storeUnopenedCommitment(
                 commitmentDigest,
                 commitmentSignature,
@@ -523,7 +521,7 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory sharedSecretKey
     ) public returns (bytes32) {
         vm.prank(msgSender);
-        bytes32 commitmentIndex = preConfCommitmentStore.openCommitment(
+        bytes32 commitmentIndex = preconfManager.openCommitment(
             unopenedCommitmentIndex,
             bid,
             blockNumber,
@@ -551,11 +549,11 @@ contract TestPreConfCommitmentStore is Test {
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public view {
-        PreConfCommitmentStore.OpenedCommitment
-            memory commitment = preConfCommitmentStore.getCommitment(index);
+        PreconfManager.OpenedCommitment
+            memory commitment = preconfManager.getCommitment(index);
 
-        PreConfCommitmentStore.CommitmentParams
-            memory commitmentParams = IPreConfCommitmentStore.CommitmentParams({
+        PreconfManager.CommitmentParams
+            memory commitmentParams = IPreconfManager.CommitmentParams({
                 txnHash: txnHash,
                 revertingTxHashes: revertingTxHashes,
                 bid: bid,
@@ -568,7 +566,7 @@ contract TestPreConfCommitmentStore is Test {
                 sharedSecretKey: sharedSecretKey
             });
 
-        (, address committerAddress) = preConfCommitmentStore
+        (, address committerAddress) = preconfManager
             .verifyPreConfCommitment(commitmentParams);
 
         assertNotEq(committerAddress, address(0));
@@ -630,8 +628,8 @@ contract TestPreConfCommitmentStore is Test {
             _testCommitmentAliceBob.dispatchTimestamp,
             _testCommitmentAliceBob.sharedSecretKey
         );
-        PreConfCommitmentStore.UnopenedCommitment
-            memory storedCommitment = preConfCommitmentStore
+        PreconfManager.UnopenedCommitment
+            memory storedCommitment = preconfManager
                 .getUnopenedCommitment(commitmentIndex);
 
         assertEq(
@@ -668,7 +666,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.bidSignature
             );
 
-            bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
+            bytes32 preConfHash = preconfManager.getPreConfHash(
                 _testCommitmentAliceBob.txnHash,
                 _testCommitmentAliceBob.revertingTxHashes,
                 _testCommitmentAliceBob.bid,
@@ -681,7 +679,7 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been set before
-            (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
@@ -700,7 +698,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.sharedSecretKey
             );
             providerRegistry.setPreconfirmationsContract(
-                address(preConfCommitmentStore)
+                address(preconfManager)
             );
             uint256 blockNumber = 2;
             blockTracker.addBuilderAddress("test", committer);
@@ -719,9 +717,9 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.sharedSecretKey
             );
             vm.prank(oracleContract);
-            preConfCommitmentStore.initiateSlash(index, 100);
+            preconfManager.initiateSlash(index, 100);
 
-            (, isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been deleted
             assert(isSettled == true);
@@ -759,7 +757,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature
             );
-            bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
+            bytes32 preConfHash = preconfManager.getPreConfHash(
                 _testCommitmentAliceBob.txnHash,
                 _testCommitmentAliceBob.revertingTxHashes,
                 _testCommitmentAliceBob.bid,
@@ -772,7 +770,7 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
@@ -809,9 +807,9 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.sharedSecretKey
             );
             vm.prank(oracleContract);
-            preConfCommitmentStore.initiateReward(index, 100);
+            preconfManager.initiateReward(index, 100);
 
-            (, isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isSettled == true);
@@ -846,7 +844,7 @@ contract TestPreConfCommitmentStore is Test {
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature
             );
-            bytes32 preConfHash = preConfCommitmentStore.getPreConfHash(
+            bytes32 preConfHash = preconfManager.getPreConfHash(
                 _testCommitmentAliceBob.txnHash,
                 _testCommitmentAliceBob.revertingTxHashes,
                 _testCommitmentAliceBob.bid,
@@ -859,7 +857,7 @@ contract TestPreConfCommitmentStore is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
@@ -897,9 +895,9 @@ contract TestPreConfCommitmentStore is Test {
             );
             uint256 window = blockTracker.getCurrentWindow();
             vm.prank(oracleContract);
-            preConfCommitmentStore.initiateReward(index, 0);
+            preconfManager.initiateReward(index, 0);
 
-            (, isSettled, , , , , , , , , , , , , ) = preConfCommitmentStore
+            (, isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isSettled == true);
@@ -929,7 +927,7 @@ contract TestPreConfCommitmentStore is Test {
         // Step 2: Attempt to store the commitment and expect it to fail due to insufficient stake
         vm.prank(committer);
         vm.expectRevert("Insufficient stake");
-        preConfCommitmentStore.storeUnopenedCommitment(
+        preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             1000
@@ -960,7 +958,7 @@ contract TestPreConfCommitmentStore is Test {
         // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
         vm.prank(committer);
         vm.expectRevert("Pending withdrawal request");
-        preConfCommitmentStore.storeUnopenedCommitment(
+        preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
             1000

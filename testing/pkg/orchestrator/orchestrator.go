@@ -15,7 +15,7 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
-	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
@@ -312,7 +312,7 @@ func getContractABIs(opts Options) (map[common.Address]*abi.ABI, error) {
 	}
 	abis[opts.BlockTrackerContractAddress] = &btABI
 
-	pcABI, err := abi.JSON(strings.NewReader(preconfcommitmentstore.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		return nil, err
 	}

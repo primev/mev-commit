@@ -234,7 +234,7 @@ main() {
   export MEV_COMMIT_BLOCK_TRACKER_ADDR="$(echo ${contracts_json} | jq -r '.BlockTracker')"
   export MEV_COMMIT_BIDDER_REGISTRY_ADDR="$(echo ${contracts_json} | jq -r '.BidderRegistry')"
   export MEV_COMMIT_PROVIDER_REGISTRY_ADDR="$(echo ${contracts_json} | jq -r '.ProviderRegistry')"
-  export MEV_COMMIT_PRECONF_ADDR="$(echo ${contracts_json} | jq -r '.PreConfCommitmentStore')"
+  export MEV_COMMIT_PRECONF_ADDR="$(echo ${contracts_json} | jq -r '.PreconfManager')"
 
   chmod +x ${BINARY_PATH}
   log_info "Initializing mev-commit..."

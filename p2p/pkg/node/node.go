@@ -22,7 +22,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
-	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
@@ -361,7 +361,7 @@ func NewNode(opts *Options) (*Node, error) {
 			},
 		}
 
-		commitmentDA, err := preconf.NewPreconfcommitmentstore(
+		commitmentDA, err := preconf.NewPreconfmanager(
 			common.HexToAddress(opts.PreconfContract),
 			contractsBackend,
 		)
@@ -731,7 +731,7 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 	}
 	abis[common.HexToAddress(opts.BlockTrackerContract)] = &btABI
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		return nil, err
 	}

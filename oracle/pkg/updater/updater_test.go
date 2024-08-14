@@ -19,7 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
-	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
@@ -109,19 +109,19 @@ func TestUpdater(t *testing.T) {
 		}))
 	}
 
-	unopenedCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
-	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
+	unopenedCommitments := make([]preconf.PreconfmanagerUnopenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfmanagerOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		unopenedCommitment := preconf.PreconfmanagerUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
@@ -157,14 +157,14 @@ func TestUpdater(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		unopenedCommitment := preconf.PreconfmanagerUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
@@ -210,7 +210,7 @@ func TestUpdater(t *testing.T) {
 		l1Client.receipts[txn.Hash().Hex()] = receipt
 	}
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,19 +373,19 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		}))
 	}
 
-	unopenedCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
-	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
+	unopenedCommitments := make([]preconf.PreconfmanagerUnopenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfmanagerOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		unopenedCommitment := preconf.PreconfmanagerUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
@@ -421,14 +421,14 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		unopenedCommitment := preconf.PreconfmanagerUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
@@ -474,7 +474,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		l1Client.receipts[txn.Hash().Hex()] = receipt
 	}
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -644,19 +644,19 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		}))
 	}
 
-	unopenedCommitments := make([]preconf.PreconfcommitmentstoreUnopenedCommitmentStored, 0)
-	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
+	unopenedCommitments := make([]preconf.PreconfmanagerUnopenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfmanagerOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
 
-		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		unopenedCommitment := preconf.PreconfmanagerUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			Bid:                 big.NewInt(10),
@@ -692,14 +692,14 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			bundle += "," + strings.TrimPrefix(txns[j].Hash().Hex(), "0x")
 		}
 
-		unopenedCommitment := preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		unopenedCommitment := preconf.PreconfmanagerUnopenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 		}
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
@@ -745,7 +745,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		l1Client.receipts[txn.Hash().Hex()] = receipt
 	}
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -912,7 +912,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		}))
 	}
 
-	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfmanagerOpenedCommitmentStored, 0)
 
 	// constructing bundles
 	for i := 1; i < 10; i++ {
@@ -923,7 +923,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			bundle += "," + txns[j].Hash().Hex()
 		}
 
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
@@ -972,7 +972,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		commitments: make(chan processedCommitment, 1),
 	}
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1100,7 +1100,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		}))
 	}
 
-	commitments := make([]preconf.PreconfcommitmentstoreOpenedCommitmentStored, 0)
+	commitments := make([]preconf.PreconfmanagerOpenedCommitmentStored, 0)
 
 	for i, txn := range txns {
 		idxBytes := getIdxBytes(int64(i))
@@ -1115,7 +1115,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			blockNum = 10
 		}
 
-		commitment := preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			Bid:                 big.NewInt(10),
@@ -1174,7 +1174,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		l1Client.receipts[txn.Hash().Hex()] = receipt
 	}
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1439,7 +1439,7 @@ func (t *testOracle) ProcessBuilderCommitmentForBlockNumber(
 func publishUnopenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	ec preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
+	ec preconf.PreconfmanagerUnopenedCommitmentStored,
 ) error {
 	event := pcABI.Events["UnopenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
@@ -1471,7 +1471,7 @@ func publishUnopenedCommitment(
 func publishOpenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	c preconf.PreconfcommitmentstoreOpenedCommitmentStored,
+	c preconf.PreconfmanagerOpenedCommitmentStored,
 ) error {
 	event := pcABI.Events["OpenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(

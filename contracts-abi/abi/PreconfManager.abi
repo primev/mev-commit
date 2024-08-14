@@ -226,7 +226,7 @@
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.OpenedCommitment",
+        "internalType": "struct IPreconfManager.OpenedCommitment",
         "components": [
           {
             "name": "bidder",
@@ -315,7 +315,7 @@
       {
         "name": "commitment",
         "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.OpenedCommitment",
+        "internalType": "struct IPreconfManager.OpenedCommitment",
         "components": [
           {
             "name": "bidder",
@@ -496,7 +496,7 @@
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.UnopenedCommitment",
+        "internalType": "struct IPreconfManager.UnopenedCommitment",
         "components": [
           {
             "name": "isOpened",
@@ -535,7 +535,7 @@
       {
         "name": "commitment",
         "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.UnopenedCommitment",
+        "internalType": "struct IPreconfManager.UnopenedCommitment",
         "components": [
           {
             "name": "isOpened",
@@ -1090,7 +1090,7 @@
       {
         "name": "params",
         "type": "tuple",
-        "internalType": "struct IPreConfCommitmentStore.CommitmentParams",
+        "internalType": "struct IPreconfManager.CommitmentParams",
         "components": [
           {
             "name": "txnHash",

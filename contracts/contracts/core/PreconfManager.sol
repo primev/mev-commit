@@ -7,15 +7,15 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
-import {IPreConfCommitmentStore} from "../interfaces/IPreConfCommitmentStore.sol";
+import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 
 /**
- * @title PreConfCommitmentStore - A contract for managing preconfirmation commitments and bids.
+ * @title PreconfManager - A contract for managing preconfirmation commitments and bids.
  * @notice This contract allows bidders to make precommitments and bids and provides a mechanism for the oracle to verify and process them.
  */
-contract PreConfCommitmentStore is
-    IPreConfCommitmentStore,
+contract PreconfManager is
+    IPreconfManager,
     Ownable2StepUpgradeable,
     UUPSUpgradeable
 {

@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {Oracle} from "../../contracts/core/Oracle.sol";
-import {PreConfCommitmentStore} from "../../contracts/core/PreConfCommitmentStore.sol";
+import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
 import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
@@ -15,7 +15,7 @@ contract OracleTest is Test {
     using ECDSA for bytes32;
     address public owner;
     Oracle public oracle;
-    PreConfCommitmentStore public preConfCommitmentStore;
+    PreconfManager public preconfManager;
     uint16 public feePercent;
     uint256 public minStake;
     address public feeRecipient;
@@ -114,9 +114,9 @@ contract OracleTest is Test {
         bidderRegistry = BidderRegistry(payable(proxy3));
 
         address proxy4 = Upgrades.deployUUPSProxy(
-            "PreConfCommitmentStore.sol",
+            "PreconfManager.sol",
             abi.encodeCall(
-                PreConfCommitmentStore.initialize,
+                PreconfManager.initialize,
                 (
                     address(providerRegistry),
                     address(bidderRegistry),
@@ -128,7 +128,7 @@ contract OracleTest is Test {
                 )
             )
         );
-        preConfCommitmentStore = PreConfCommitmentStore(payable(proxy4));
+        preconfManager = PreconfManager(payable(proxy4));
 
         vm.deal(ownerInstance, 5 ether);
         vm.startPrank(ownerInstance);
@@ -140,7 +140,7 @@ contract OracleTest is Test {
             abi.encodeCall(
                 Oracle.initialize,
                 (
-                    address(preConfCommitmentStore),
+                    address(preconfManager),
                     address(blockTracker),
                     ownerInstance,
                     ownerInstance
@@ -151,12 +151,12 @@ contract OracleTest is Test {
 
         vm.stopPrank();
 
-        preConfCommitmentStore.updateOracleContract(address(oracle));
+        preconfManager.updateOracleContract(address(oracle));
         bidderRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
         providerRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
 
         // We set the system time to 1010 and dispatchTimestamps for testing to 1000
@@ -508,7 +508,7 @@ contract OracleTest is Test {
 
         for (uint256 i = 0; i < commitments.length; ++i) {
             vm.startPrank(provider);
-            preConfCommitmentStore.openCommitment(
+            preconfManager.openCommitment(
                 commitments[i],
                 bid,
                 blockNumber,
@@ -595,7 +595,7 @@ contract OracleTest is Test {
         uint64 blockNumber
     ) public view returns (bytes32) {
         return
-            preConfCommitmentStore.getBidHash(
+            preconfManager.getBidHash(
                 txnHash,
                 revertingTxHashes,
                 bid,
@@ -622,7 +622,7 @@ contract OracleTest is Test {
         bytes memory bidSignature
     ) public view returns (bytes32) {
         return
-            preConfCommitmentStore.getPreConfHash(
+            preconfManager.getPreConfHash(
                 txnHash,
                 revertingTxHashes,
                 bid,
@@ -650,7 +650,7 @@ contract OracleTest is Test {
         uint64 dispatchTimestamp
     ) public returns (bytes32) {
         vm.startPrank(provider);
-        bytes32 unopenedCommitmentIndex = preConfCommitmentStore
+        bytes32 unopenedCommitmentIndex = preconfManager
             .storeUnopenedCommitment(
                 commitmentDigest,
                 commitmentSignature,
@@ -678,7 +678,7 @@ contract OracleTest is Test {
         bytes memory commitmentSignature
     ) public returns (bytes32) {
         vm.startPrank(provider);
-        bytes32 commitmentIndex = preConfCommitmentStore.openCommitment(
+        bytes32 commitmentIndex = preconfManager.openCommitment(
             unopenedCommitmentIndex,
             bid,
             blockNumber,
@@ -713,7 +713,7 @@ contract OracleTest is Test {
             bytes memory commitmentSignature
         )
     {
-        bytes32 bidHash = preConfCommitmentStore.getBidHash(
+        bytes32 bidHash = preconfManager.getBidHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -725,7 +725,7 @@ contract OracleTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bidSignature = abi.encodePacked(r, s, v);
 
-        bytes32 commitmentDigest = preConfCommitmentStore.getPreConfHash(
+        bytes32 commitmentDigest = preconfManager.getPreConfHash(
             txnHash,
             revertingTxHashes,
             bid,
@@ -740,7 +740,7 @@ contract OracleTest is Test {
         (v, r, s) = vm.sign(signerPk, commitmentDigest);
         commitmentSignature = abi.encodePacked(r, s, v);
         vm.startPrank(committerAddress);
-        bytes32 unopenedCommitmentIndex = preConfCommitmentStore
+        bytes32 unopenedCommitmentIndex = preconfManager
             .storeUnopenedCommitment(
                 commitmentDigest,
                 commitmentSignature,
