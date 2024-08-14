@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
+import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
+import {BlockTrackerStorage} from "./BlockTrackerStorage.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
@@ -9,19 +11,7 @@ import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
  * @title BlockTracker
  * @dev A contract that tracks Ethereum blocks and their winners.
  */
-contract BlockTracker is IBlockTracker, Ownable2StepUpgradeable, UUPSUpgradeable {
-
-    /// @dev Permissioned address of the oracle account.
-    address public oracleAccount;
-    
-    uint256 public currentWindow;
-    uint256 public blocksPerWindow;
-
-    // Mapping from block number to the winner's address
-    mapping(uint256 => address) public blockWinners;
-
-     /// @dev Maps builder names to their respective Ethereum addresses.
-    mapping(string => address) public blockBuilderNameToAddress;
+contract BlockTracker is IBlockTracker, BlockTrackerStorage, Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {

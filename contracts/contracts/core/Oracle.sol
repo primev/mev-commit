@@ -5,36 +5,16 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
-
-/// @title Oracle Contract
-/// @author Kartik Chopra
-/// @notice This contract is for settling commitments made by providers.
+import {OracleStorage} from "./OracleStorage.sol";
+import {IOracle} from "../interfaces/IOracle.sol";
 
 /**
- * @title Oracle - A contract for Fetching L1 Block Builder Info and Block Data.
+ * @title Oracle
+ * @notice A contract for Fetching L1 Block Builder Info and Block Data.
+ * @author Kartik Chopra
  * @dev This contract serves as an oracle to fetch and process Ethereum Layer 1 block data.
  */
-contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
-    /// @dev Maps builder names to their respective Ethereum addresses.
-    mapping(string => address) public blockBuilderNameToAddress;
-
-    /// @dev Permissioned address of the oracle account.
-    address public oracleAccount;
-
-    /// @dev Reference to the PreconfManager contract interface.
-    IPreconfManager private _preConfContract;
-
-    /// @dev Reference to the BlockTracker contract interface.
-    IBlockTracker private _blockTrackerContract;
-
-    /// @dev Event emitted when the oracle account is set.
-    event OracleAccountSet(
-        address indexed oldOracleAccount,
-        address indexed newOracleAccount
-    );
-
-    /// @dev Event emitted when a commitment is processed.
-    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
+contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradeable {
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
