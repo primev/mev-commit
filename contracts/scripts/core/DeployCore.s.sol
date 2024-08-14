@@ -6,18 +6,17 @@
 pragma solidity 0.8.20;
 
 import {Script} from "forge-std/Script.sol";
-import {BidderRegistry} from "../contracts/BidderRegistry.sol";
-import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
-import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
-import {Oracle} from "../contracts/Oracle.sol";
-import {Whitelist} from "../contracts/Whitelist.sol";
+import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
+import {Oracle} from "../../contracts/core/Oracle.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {BlockTracker} from "../contracts/BlockTracker.sol";
+import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {console} from "forge-std/console.sol";
 
-// Deploys core contracts
-contract DeployScript is Script {
+contract DeployTestnet is Script {
     function run() external {
+        require(block.chainid == 17864, "chainID not 17864 (testnet env)");
         vm.startBroadcast();
 
         uint256 minStake = 1 ether;
@@ -70,8 +69,8 @@ contract DeployScript is Script {
         console.log("ProviderRegistry:", address(providerRegistry));
 
         address preconfCommitmentStoreProxy = Upgrades.deployUUPSProxy(
-            "PreConfCommitmentStore.sol",
-            abi.encodeCall(PreConfCommitmentStore.initialize,
+            "PreconfManager.sol",
+            abi.encodeCall(PreconfManager.initialize,
             (address(providerRegistry), // _providerRegistry param
             address(bidderRegistry), // _bidderRegistry param
             address(0x0), // _oracleContract param, updated later in script. 
@@ -80,23 +79,23 @@ contract DeployScript is Script {
             commitmentDispatchWindow, // _commitmentDispatchWindow param
             blocksPerWindow)) // _blocksPerWindow param
         );
-        PreConfCommitmentStore preConfCommitmentStore = PreConfCommitmentStore(payable(preconfCommitmentStoreProxy));
-        console.log("PreConfCommitmentStore:", address(preConfCommitmentStore));
+        PreconfManager preconfManager = PreconfManager(payable(preconfCommitmentStoreProxy));
+        console.log("PreconfManager:", address(preconfManager));
 
         providerRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
-        console.log("_ProviderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
+        console.log("_ProviderRegistryWithPreconfManager:", address(preconfManager));
 
         bidderRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
-        console.log("_BidderRegistryWithPreConfCommitmentStore:", address(preConfCommitmentStore));
+        console.log("_BidderRegistryWithPreconfManager:", address(preconfManager));
 
         address oracleProxy = Upgrades.deployUUPSProxy(
             "Oracle.sol",
             abi.encodeCall(Oracle.initialize,
-            (address(preConfCommitmentStore), // preConfContract_ param
+            (address(preconfManager), // preConfContract_ param
             address(blockTracker), // blockTrackerContract_ param
             oracleKeystoreAddress, // oracleAcount_ param
             msg.sender)) // owner_ param
@@ -104,40 +103,8 @@ contract DeployScript is Script {
         Oracle oracle = Oracle(payable(oracleProxy));
         console.log("Oracle:", address(oracle));
 
-        preConfCommitmentStore.updateOracleContract(address(oracle));
-        console.log("_PreConfCommitmentStoreWithOracle:", address(oracle));
-
-        vm.stopBroadcast();
-    }
-}
-
-// Deploys whitelist contract and adds HypERC20 to whitelist
-contract DeployWhitelist is Script {
-    function run() external {
-        console.log(
-            "Warning: DeployWhitelist is deprecated and only for backwards compatibility with hyperlane"
-        );
-
-        vm.startBroadcast();
-
-        address hypERC20Addr = vm.envAddress("HYP_ERC20_ADDR");
-        require(
-            hypERC20Addr != address(0),
-            "hypERC20 addr not provided"
-        );
-
-        address whitelistProxy = Upgrades.deployUUPSProxy(
-            "Whitelist.sol",
-            abi.encodeCall(Whitelist.initialize, (msg.sender))
-        );
-        Whitelist whitelist = Whitelist(payable(whitelistProxy));
-        console.log("Whitelist deployed to:", address(whitelist));
-
-        whitelist.addToWhitelist(address(hypERC20Addr));
-        console.log(
-            "Whitelist updated with hypERC20 address:",
-            address(hypERC20Addr)
-        );
+        preconfManager.updateOracleContract(address(oracle));
+        console.log("_PreconfManagerWithOracle:", address(oracle));
 
         vm.stopBroadcast();
     }

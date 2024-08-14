@@ -25,8 +25,8 @@ extract_and_save_abi "$BASE_DIR/out/ProviderRegistry.sol/ProviderRegistry.json" 
 # Extract ABI for Oracle.json
 extract_and_save_abi "$BASE_DIR/out/Oracle.sol/Oracle.json" "$ABI_DIR/Oracle.abi"
 
-# Extract ABI for PreConfCommitmentStore.json
-extract_and_save_abi "$BASE_DIR/out/PreConfCommitmentStore.sol/PreConfCommitmentStore.json" "$ABI_DIR/PreConfCommitmentStore.abi"
+# Extract ABI for PreconfManager.json
+extract_and_save_abi "$BASE_DIR/out/PreconfManager.sol/PreconfManager.json" "$ABI_DIR/PreconfManager.abi"
 
 # Extract ABI for SettlementGateway.json
 extract_and_save_abi "$BASE_DIR/out/SettlementGateway.sol/SettlementGateway.json" "$ABI_DIR/SettlementGateway.abi"
@@ -74,8 +74,8 @@ generate_go_code "$ABI_DIR/ProviderRegistry.abi" "ProviderRegistry" "providerreg
 # Generate Go code for Oracle.abi
 generate_go_code "$ABI_DIR/Oracle.abi" "Oracle" "oracle"
 
-# Generate Go code for PreConfCommitmentStore.abi
-generate_go_code "$ABI_DIR/PreConfCommitmentStore.abi" "PreConfCommitmentStore" "preconfcommitmentstore"
+# Generate Go code for PreconfManager.abi
+generate_go_code "$ABI_DIR/PreconfManager.abi" "PreconfManager" "preconfmanager"
 
 # Generate Go code for SettlementGateway.abi
 generate_go_code "$ABI_DIR/SettlementGateway.abi" "SettlementGateway" "settlementgateway"

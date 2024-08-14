@@ -305,7 +305,7 @@ job "{{ job.name }}" {
           export MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR="$(jq -r '.BidderRegistry' ${CONTRACTS_FILE})"
           export MEV_ORACLE_ORACLE_CONTRACT_ADDR="$(jq -r '.Oracle' ${CONTRACTS_FILE})"
           export MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR="$(jq -r '.BlockTracker' ${CONTRACTS_FILE})"
-          export MEV_ORACLE_PRECONF_CONTRACT_ADDR="$(jq -r '.PreConfCommitmentStore' ${CONTRACTS_FILE})"
+          export MEV_ORACLE_PRECONF_CONTRACT_ADDR="$(jq -r '.PreconfManager' ${CONTRACTS_FILE})"
             {{ end }}
           {{- end }}
 

@@ -216,7 +216,7 @@ var (
 		Name:    "preconf-contract",
 		Usage:   "address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
-		Value:   contracts.TestnetContracts.PreconfCommitmentStore,
+		Value:   contracts.TestnetContracts.PreconfManager,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid preconfirmation commitment store address: %s", s)

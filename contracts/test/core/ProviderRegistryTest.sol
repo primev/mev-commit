@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import {ProviderRegistry} from "../contracts/ProviderRegistry.sol";
-import {BidderRegistry} from "../contracts/BidderRegistry.sol";
-import {PreConfCommitmentStore} from "../contracts/PreConfCommitmentStore.sol";
-import {BlockTracker} from "../contracts/BlockTracker.sol";
-
+import {Test} from "forge-std/Test.sol";
+import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
+import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
+import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
+import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract ProviderRegistryTest is Test {
@@ -17,7 +16,7 @@ contract ProviderRegistryTest is Test {
     address public provider;
     address public feeRecipient;
     BidderRegistry public bidderRegistry;
-    PreConfCommitmentStore public preConfCommitmentStore;
+    PreconfManager public preconfManager;
     BlockTracker public blockTracker;
     uint256 public blocksPerWindow;
     uint256 public withdrawalDelay;
@@ -71,8 +70,8 @@ contract ProviderRegistryTest is Test {
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
         
         address preconfStoreProxy = Upgrades.deployUUPSProxy(
-            "PreConfCommitmentStore.sol",
-            abi.encodeCall(PreConfCommitmentStore.initialize, 
+            "PreconfManager.sol",
+            abi.encodeCall(PreconfManager.initialize, 
             (address(providerRegistry), // Provider Registry
             address(bidderRegistry), // User Registry
             address(blockTracker), // Block Tracker
@@ -81,7 +80,7 @@ contract ProviderRegistryTest is Test {
             500,
             blocksPerWindow))
         );
-        preConfCommitmentStore = PreConfCommitmentStore(payable(preconfStoreProxy));
+        preconfManager = PreconfManager(payable(preconfStoreProxy));
 
         provider = vm.addr(1);
         vm.deal(provider, 100 ether);
@@ -320,9 +319,9 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
         providerRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
-        vm.prank(address(preConfCommitmentStore));
+        vm.prank(address(preconfManager));
         providerRegistry.slash(1e18 wei, newProvider, payable(bidder),100);
         vm.prank(newProvider);
         providerRegistry.unstake();
@@ -421,9 +420,9 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
         providerRegistry.setPreconfirmationsContract(
-            address(preConfCommitmentStore)
+            address(preconfManager)
         );
-        vm.prank(address(preConfCommitmentStore));
+        vm.prank(address(preconfManager));
         providerRegistry.slash(1e18 wei, newProvider, payable(bidder),100);
         vm.prank(newProvider);
         providerRegistry.unstake();

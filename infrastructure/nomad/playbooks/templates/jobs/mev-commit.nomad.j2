@@ -168,7 +168,7 @@ job "{{ job.name }}" {
           export MEV_COMMIT_PROVIDER_REGISTRY_ADDR="$(jq -r '.ProviderRegistry' ${CONTRACTS_FILE})"
           export MEV_COMMIT_BIDDER_REGISTRY_ADDR="$(jq -r '.BidderRegistry' ${CONTRACTS_FILE})"
           export MEV_COMMIT_BLOCK_TRACKER_ADDR="$(jq -r '.BlockTracker' ${CONTRACTS_FILE})"
-          export MEV_COMMIT_PRECONF_ADDR="$(jq -r '.PreConfCommitmentStore' ${CONTRACTS_FILE})"
+          export MEV_COMMIT_PRECONF_ADDR="$(jq -r '.PreconfManager' ${CONTRACTS_FILE})"
             {{ end }}
           {{- end }}
           {% endraw %}

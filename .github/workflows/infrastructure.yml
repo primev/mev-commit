@@ -216,7 +216,7 @@ jobs:
           export MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.ProviderRegistry')
           export MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BidderRegistry')
           export MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BlockTracker')
-          export MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.PreConfCommitmentStore')
+          export MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.PreconfManager')
           export MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.Oracle')
           export MEV_COMMIT_TEST_L1_RPC_ENDPOINT="${{ secrets.L1_RPC_URL }}"
           go build -ldflags="-s -w" -o mev-commit-test ./cmd/main.go

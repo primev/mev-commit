@@ -19,7 +19,7 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lib/pq"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
-	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/prometheus/client_golang/prometheus"
@@ -102,8 +102,8 @@ type Updater struct {
 	oracle         Oracle
 	evtMgr         events.EventManager
 	l1BlockCache   *lru.Cache[uint64, map[string]TxMetadata]
-	unopenedCmts   chan *preconf.PreconfcommitmentstoreUnopenedCommitmentStored
-	openedCmts     chan *preconf.PreconfcommitmentstoreOpenedCommitmentStored
+	unopenedCmts   chan *preconf.PreconfmanagerUnopenedCommitmentStored
+	openedCmts     chan *preconf.PreconfmanagerOpenedCommitmentStored
 	currentWindow  atomic.Int64
 	metrics        *metrics
 	receiptBatcher txmonitor.BatchReceiptGetter
@@ -130,8 +130,8 @@ func NewUpdater(
 		oracle:         oracle,
 		receiptBatcher: receiptBatcher,
 		metrics:        newMetrics(),
-		openedCmts:     make(chan *preconf.PreconfcommitmentstoreOpenedCommitmentStored),
-		unopenedCmts:   make(chan *preconf.PreconfcommitmentstoreUnopenedCommitmentStored),
+		openedCmts:     make(chan *preconf.PreconfmanagerOpenedCommitmentStored),
+		unopenedCmts:   make(chan *preconf.PreconfmanagerUnopenedCommitmentStored),
 	}, nil
 }
 
@@ -146,7 +146,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 
 	ev1 := events.NewEventHandler(
 		"UnopenedCommitmentStored",
-		func(update *preconf.PreconfcommitmentstoreUnopenedCommitmentStored) {
+		func(update *preconf.PreconfmanagerUnopenedCommitmentStored) {
 			select {
 			case <-egCtx.Done():
 			case u.unopenedCmts <- update:
@@ -156,7 +156,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 
 	ev2 := events.NewEventHandler(
 		"OpenedCommitmentStored",
-		func(update *preconf.PreconfcommitmentstoreOpenedCommitmentStored) {
+		func(update *preconf.PreconfmanagerOpenedCommitmentStored) {
 			select {
 			case <-egCtx.Done():
 			case u.openedCmts <- update:
@@ -237,7 +237,7 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 
 func (u *Updater) handleEncryptedCommitment(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
+	update *preconf.PreconfmanagerUnopenedCommitmentStored,
 ) error {
 	err := u.winnerRegister.AddEncryptedCommitment(
 		ctx,
@@ -266,7 +266,7 @@ func (u *Updater) handleEncryptedCommitment(
 
 func (u *Updater) handleOpenedCommitment(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreOpenedCommitmentStored,
+	update *preconf.PreconfmanagerOpenedCommitmentStored,
 ) error {
 	u.metrics.CommitmentsReceivedCount.Inc()
 	alreadySettled, err := u.winnerRegister.IsSettled(ctx, update.CommitmentIndex[:])
@@ -394,7 +394,7 @@ func (u *Updater) handleOpenedCommitment(
 
 func (u *Updater) settle(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreOpenedCommitmentStored,
+	update *preconf.PreconfmanagerOpenedCommitmentStored,
 	settlementType SettlementType,
 	decayPercentage int64,
 	window int64,
@@ -437,7 +437,7 @@ func (u *Updater) settle(
 
 func (u *Updater) addSettlement(
 	ctx context.Context,
-	update *preconf.PreconfcommitmentstoreOpenedCommitmentStored,
+	update *preconf.PreconfmanagerOpenedCommitmentStored,
 	settlementType SettlementType,
 	decayPercentage int64,
 	window int64,

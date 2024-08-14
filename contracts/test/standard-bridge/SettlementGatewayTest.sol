@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../contracts/standard-bridge/SettlementGateway.sol";
-import "../../contracts/interfaces/IWhitelist.sol";
-import "../../contracts/Whitelist.sol";
-
+import {Test} from "forge-std/Test.sol";
+import {SettlementGateway} from "../../contracts/standard-bridge/SettlementGateway.sol";
+import {Whitelist} from "../../contracts/standard-bridge/Whitelist.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract SettlementGatewayTest is Test {
