@@ -150,34 +150,22 @@ jobs:
       run:
         working-directory: contracts
 
-    strategy:
-      matrix:
-        node-version: [ 18.x, 20.x ] # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache-dependency-path: ./contracts/package-lock.json
-          cache: npm
+          node-version: 20.x
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Install Hardhat
-        run: npm install -g hardhat
-
       - name: Install solhint
         run: npm install -g solhint
-
-      - name: Install Dependencies
-        run: npm install
 
       - name: Print Versions
         run: |
@@ -186,9 +174,6 @@ jobs:
           npm --version
           forge --version
           solhint --version
-
-      - name: Build
-        run: npm run build --if-present
 
       - name: Install abigen
         run: |

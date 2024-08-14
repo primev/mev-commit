@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
-	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
@@ -31,7 +31,7 @@ import (
 func TestTracker(t *testing.T) {
 	t.Parallel()
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestTracker(t *testing.T) {
 			continue
 		}
 
-		err = publishUnopenedCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreUnopenedCommitmentStored{
+		err = publishUnopenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerUnopenedCommitmentStored{
 			Committer:           common.BytesToAddress(c.PreConfirmation.ProviderAddress),
 			CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", i+1)),
 			CommitmentDigest:    common.BytesToHash(c.EncryptedPreConfirmation.Commitment),
@@ -149,7 +149,7 @@ func TestTracker(t *testing.T) {
 		t.Fatalf("failed to parse bid amount %s", commitments[4].PreConfirmation.Bid.BidAmount)
 	}
 	// this commitment should not be opened again
-	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfcommitmentstoreOpenedCommitmentStored{
+	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerOpenedCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
@@ -319,7 +319,7 @@ func TestTracker(t *testing.T) {
 func TestTrackerIgnoreOldBlocks(t *testing.T) {
 	t.Parallel()
 
-	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfcommitmentstoreABI))
+	pcABI, err := abi.JSON(strings.NewReader(preconf.PreconfmanagerABI))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,7 +461,7 @@ func (t *testReceiptGetter) BatchReceipts(_ context.Context, txns []common.Hash)
 func publishUnopenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	ec preconf.PreconfcommitmentstoreUnopenedCommitmentStored,
+	ec preconf.PreconfmanagerUnopenedCommitmentStored,
 ) error {
 	event := pcABI.Events["UnopenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(
@@ -493,7 +493,7 @@ func publishUnopenedCommitment(
 func publishOpenedCommitment(
 	evtMgr events.EventManager,
 	pcABI *abi.ABI,
-	c preconf.PreconfcommitmentstoreOpenedCommitmentStored,
+	c preconf.PreconfmanagerOpenedCommitmentStored,
 ) error {
 	event := pcABI.Events["OpenedCommitmentStored"]
 	buf, err := event.Inputs.NonIndexed().Pack(

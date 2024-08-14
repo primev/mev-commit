@@ -6,9 +6,9 @@
 pragma solidity 0.8.20;
 
 import {Script} from "forge-std/Script.sol";
-import {SettlementGateway} from "../contracts/standard-bridge/SettlementGateway.sol";
-import {L1Gateway} from "../contracts/standard-bridge/L1Gateway.sol";
-import {Whitelist} from "../contracts/Whitelist.sol";
+import {SettlementGateway} from "../../contracts/standard-bridge/SettlementGateway.sol";
+import {L1Gateway} from "../../contracts/standard-bridge/L1Gateway.sol";
+import {Whitelist} from "../../contracts/standard-bridge/Whitelist.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {console} from "forge-std/console.sol";

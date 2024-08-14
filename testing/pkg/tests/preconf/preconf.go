@@ -19,7 +19,7 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
-	preconfcommitmentstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
@@ -83,14 +83,14 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 	sub, err := cluster.Events().Subscribe(
 		events.NewEventHandler(
 			"UnopenedCommitmentStored",
-			func(c *preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored) {
+			func(c *preconf.PreconfmanagerUnopenedCommitmentStored) {
 				logger.Info("Received encrypted commitment", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
 				store.Insert(encryptCmtKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(
 			"OpenedCommitmentStored",
-			func(c *preconfcommitmentstore.PreconfcommitmentstoreOpenedCommitmentStored) {
+			func(c *preconf.PreconfmanagerOpenedCommitmentStored) {
 				logger.Info(
 					"Received opened commitment",
 					"digest", hex.EncodeToString(c.CommitmentDigest[:]),
@@ -342,7 +342,7 @@ DONE:
 			}
 			if common.BytesToAddress(providerAddr).Cmp(winner.(*blocktracker.BlocktrackerNewL1Block).Winner) == 0 {
 				foundCmt = true
-				ecmt := ec.(*preconfcommitmentstore.PreconfcommitmentstoreUnopenedCommitmentStored)
+				ecmt := ec.(*preconf.PreconfmanagerUnopenedCommitmentStored)
 				_, ok := store.Get(openCmtKey(ecmt.CommitmentIndex[:]))
 				if !ok {
 					logger.Error(

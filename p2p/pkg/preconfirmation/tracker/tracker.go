@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
-	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreConfCommitmentStore"
+	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -35,8 +35,8 @@ type Tracker struct {
 	receiptGetter   txmonitor.BatchReceiptGetter
 	optsGetter      OptsGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
-	unopenedCmts    chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored
-	commitments     chan *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored
+	unopenedCmts    chan *preconfcommstore.PreconfmanagerUnopenedCommitmentStored
+	commitments     chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored
 	triggerOpen     chan struct{}
 	metrics         *metrics
 	logger          *slog.Logger
@@ -96,8 +96,8 @@ func NewTracker(
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
-		unopenedCmts:    make(chan *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored),
-		commitments:     make(chan *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored),
+		unopenedCmts:    make(chan *preconfcommstore.PreconfmanagerUnopenedCommitmentStored),
+		commitments:     make(chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored),
 		triggerOpen:     make(chan struct{}),
 		metrics:         newMetrics(),
 		logger:          logger,
@@ -122,7 +122,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 		),
 		events.NewEventHandler(
 			"UnopenedCommitmentStored",
-			func(ec *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored) {
+			func(ec *preconfcommstore.PreconfmanagerUnopenedCommitmentStored) {
 				select {
 				case <-egCtx.Done():
 					t.logger.Info("UnopenedCommitmentStored context done")
@@ -151,7 +151,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			evts,
 			events.NewEventHandler(
 				"OpenedCommitmentStored",
-				func(cs *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored) {
+				func(cs *preconfcommstore.PreconfmanagerOpenedCommitmentStored) {
 					select {
 					case <-egCtx.Done():
 						t.logger.Info("OpenedCommitmentStored context done")
@@ -485,7 +485,7 @@ func (t *Tracker) clearCommitments(ctx context.Context) error {
 
 func (t *Tracker) handleUnopenedCommitmentStored(
 	ctx context.Context,
-	ec *preconfcommstore.PreconfcommitmentstoreUnopenedCommitmentStored,
+	ec *preconfcommstore.PreconfmanagerUnopenedCommitmentStored,
 ) error {
 	t.metrics.totalEncryptedCommitments.Inc()
 	return t.store.SetCommitmentIndexByDigest(ec.CommitmentDigest, ec.CommitmentIndex)
@@ -493,7 +493,7 @@ func (t *Tracker) handleUnopenedCommitmentStored(
 
 func (t *Tracker) handleOpenedCommitmentStored(
 	ctx context.Context,
-	cs *preconfcommstore.PreconfcommitmentstoreOpenedCommitmentStored,
+	cs *preconfcommstore.PreconfmanagerOpenedCommitmentStored,
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.

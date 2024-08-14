@@ -2,10 +2,10 @@
 pragma solidity 0.8.20;
 
 /**
- * @title IPreConfCommitmentStore
- * @dev Interface for PreConfCommitmentStore
+ * @title IPreconfManager
+ * @dev Interface for PreconfManager
  */
-interface IPreConfCommitmentStore {
+interface IPreconfManager {
     /// @dev Struct for all the information around preconfirmations commitment
     struct OpenedCommitment {
         address bidder;

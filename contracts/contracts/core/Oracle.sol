@@ -3,9 +3,8 @@ pragma solidity 0.8.20;
 
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
-import {IPreConfCommitmentStore} from "./interfaces/IPreConfCommitmentStore.sol";
-import {IBlockTracker} from "./interfaces/IBlockTracker.sol";
+import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
+import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 
 /// @title Oracle Contract
 /// @author Kartik Chopra
@@ -22,8 +21,8 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
 
-    /// @dev Reference to the PreConfCommitmentStore contract interface.
-    IPreConfCommitmentStore private _preConfContract;
+    /// @dev Reference to the PreconfManager contract interface.
+    IPreconfManager private _preConfContract;
 
     /// @dev Reference to the BlockTracker contract interface.
     IBlockTracker private _blockTrackerContract;
@@ -56,7 +55,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
         address oracleAccount_,
         address owner_
     ) external initializer {
-        _preConfContract = IPreConfCommitmentStore(preConfContract_);
+        _preConfContract = IPreconfManager(preConfContract_);
         _blockTrackerContract = IBlockTracker(blockTrackerContract_);
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
@@ -83,7 +82,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
     // Function to receive and process the block data (this would be automated in a real-world scenario)
     /**
      * @dev Processes a builder's commitment for a specific block number.
-     * @param commitmentIndex The id of the commitment in the PreConfCommitmentStore.
+     * @param commitmentIndex The id of the commitment in the PreconfManager.
      * @param blockNumber The block number to be processed.
      * @param builder The address of the builder.
      * @param isSlash Determines whether the commitment should be slashed or rewarded.
@@ -105,7 +104,7 @@ contract Oracle is Ownable2StepUpgradeable, UUPSUpgradeable {
             "residBidPercentAfterDecay > 100%"
         );
 
-        IPreConfCommitmentStore.OpenedCommitment
+        IPreconfManager.OpenedCommitment
             memory commitment = _preConfContract.getCommitment(commitmentIndex);
         if (
             commitment.committer == builder &&

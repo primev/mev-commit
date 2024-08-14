@@ -163,7 +163,7 @@ job "{{ job.name }}" {
           echo "${LOGS}"
 
           # TODO: this is a workaround to get the contract addresses, remove this once create3 is used.
-          TRANSACTIONS="${CONTRACT_REPO_ROOT_PATH}/broadcast/DeployScripts.s.sol/{{ job.env['chain-id'] }}/run-latest.json"
+          TRANSACTIONS="${CONTRACT_REPO_ROOT_PATH}/broadcast/DeployCore.s.sol/{{ job.env['chain-id'] }}/run-latest.json"
           mkdir -p /local/www > /dev/null 2>&1
           echo "${LOGS}" \
           | sed -n '/{.*}/p' \

@@ -130,7 +130,7 @@ var (
 		Name:    "preconf-contract-addr",
 		Usage:   "address of the preconf contract",
 		EnvVars: []string{"MEV_ORACLE_PRECONF_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.PreconfCommitmentStore,
+		Value:   contracts.TestnetContracts.PreconfManager,
 	})
 
 	optionBlockTrackerContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
