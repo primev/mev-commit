@@ -164,7 +164,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache-dependency-path: ./contracts/package-lock.json
           cache: npm
 
       - name: Install Foundry
