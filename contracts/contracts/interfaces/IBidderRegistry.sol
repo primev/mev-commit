@@ -24,6 +24,43 @@ interface IBidderRegistry {
         Withdrawn
     }
 
+    /// @dev Event emitted when a bidder is registered with their deposited amount
+    event BidderRegistered(
+        address indexed bidder,
+        uint256 indexed depositedAmount,
+        uint256 indexed windowNumber
+    );
+
+    /// @dev Event emitted when funds are retrieved from a bidder's deposit
+    event FundsRetrieved(
+        bytes32 indexed commitmentDigest,
+        address indexed bidder,
+        uint256 indexed window,
+        uint256 amount
+    );
+
+    /// @dev Event emitted when funds are retrieved from a bidder's deposit
+    event FundsRewarded(
+        bytes32 indexed commitmentDigest,
+        address indexed bidder,
+        address indexed provider,
+        uint256 window,
+        uint256 amount
+    );
+
+    /// @dev Event emitted when a bidder withdraws their deposit
+    event BidderWithdrawal(
+        address indexed bidder,
+        uint256 indexed window,
+        uint256 indexed amount
+    );
+
+    /// @dev Event emitted when the protocol fee recipient is updated
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+
+    /// @dev Event emitted when the fee payout period in blocks is updated
+    event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+
     function openBid(
         bytes32 commitmentDigest,
         uint256 bid,
