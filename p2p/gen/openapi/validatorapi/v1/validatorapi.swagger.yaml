@@ -26,6 +26,7 @@ paths:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
         - name: epoch
+          description: Epoch number for which to get the validators
           in: query
           required: false
           type: string
@@ -52,11 +53,19 @@ definitions:
     additionalProperties: {}
   v1GetValidatorsResponse:
     type: object
+    example:
+      items:
+        "1":
+          BLSKey: "0x1234567890abcdef"
+          isOptedIn: true
     properties:
       items:
         type: object
         additionalProperties:
           $ref: '#/definitions/v1SlotInfo'
+        description: Map of slots numbers to validator bls key and isOptedIn boolean value
+    description: Response for GetValidators
+    title: GetValidatorsResponse
   v1SlotInfo:
     type: object
     properties:
