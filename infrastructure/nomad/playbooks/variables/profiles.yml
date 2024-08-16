@@ -1,4 +1,5 @@
 datacenter: "dc1"
+otel_collector_endpoint_url: "grpc://{{ ansible_facts['default_ipv4']['address'] }}:4317"
 
 artifacts:
   bidder_emulator: &bidder_emulator_artifact
@@ -145,6 +146,7 @@ jobs:
       type: bootnode
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      otel-collector-endpoint-url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_provider_node1: &mev_commit_provider_node1_job
     name: mev-commit-provider-node1
@@ -171,6 +173,7 @@ jobs:
       nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      otel-collector-endpoint-url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_provider_node2: &mev_commit_provider_node2_job
     name: mev-commit-provider-node2
@@ -253,6 +256,8 @@ jobs:
     ports:
       - metrics:
           to: 8080
+    env:
+      otel-collector-endpoint-url: "{{ otel_collector_endpoint_url }}"
 
   mev-commit-provider-emulator-nodes: &mev_commit_provider_emulator_nodes_job
     name: mev-commit-provider-emulator-nodes
@@ -290,6 +295,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      otel-collector-endpoint-url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_node2: &mev_commit_bidder_node2_job
     name: mev-commit-bidder-node2
@@ -434,6 +440,7 @@ jobs:
           to: 8080
     env:
       l1_rpc_url: "{{ l1_rpc_url }}"
+      otel-collector-endpoint-url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_emulator_nodes: &mev_commit_bidder_emulator_nodes_job
     name: mev-commit-bidder-emulator-nodes

@@ -91,15 +91,26 @@ func SetupOTelSDK(ctx context.Context, epurl, tags string) (func(context.Context
 		return nil, fmt.Errorf("unsupported scheme %q in: %s", val.Scheme, val)
 	}
 
-	exporter, err := otlptrace.New(ctx, client)
+	exp, err := otlptrace.New(ctx, client)
 	if err != nil {
 		return nil, err
 	}
-	shutdownFuncs = append(shutdownFuncs, exporter.Shutdown)
+	shutdownFuncs = append(shutdownFuncs, exp.Shutdown)
+
+	res, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			args...,
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	tracerProvider := trace.NewTracerProvider(
-		trace.WithBatcher(exporter),
-		trace.WithResource(resource.NewWithAttributes(semconv.SchemaURL, args...)),
+		trace.WithBatcher(exp),
+		trace.WithResource(res),
 	)
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 
