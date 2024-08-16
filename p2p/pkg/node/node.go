@@ -61,6 +61,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -316,7 +317,10 @@ func NewNode(opts *Options) (*Node, error) {
 		}
 	}
 
-	grpcServer := grpc.NewServer(grpc.Creds(tlsCredentials))
+	grpcServer := grpc.NewServer(
+		grpc.Creds(tlsCredentials),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
 
 	debugService := debugapi.NewService(
 		txnStore,
@@ -627,6 +631,7 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.RPCAddr,
 			grpc.WithBlock(),
 			grpc.WithTransportCredentials(e.credential),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
 			opts.Logger.Error("failed to dial grpc server", "error", err)

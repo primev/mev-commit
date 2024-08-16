@@ -6,15 +6,19 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/x/util"
+	"github.com/primev/mev-commit/x/util/otelutil"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel"
 )
 
 // The following const block contains the name of the cli flags, especially
@@ -54,6 +58,11 @@ var (
 		8080,
 		"The port to serve the HTTP metrics endpoint on",
 	)
+	otelCollectorEndpointURL = flag.String(
+		"otel-collector-endpoint-url",
+		"",
+		"URL for OpenTelemetry collector endpoint",
+	)
 	errorProbability = flag.Int(
 		errorProbabilityFlagName,
 		20,
@@ -89,6 +98,31 @@ func main() {
 	if err != nil {
 		fmt.Printf("failed to create logger: %v", err)
 		return
+	}
+
+	if *otelCollectorEndpointURL != "" {
+		logger.Info("setting up OpenTelemetry SDK", "endpoint", *otelCollectorEndpointURL)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		shutdown, err := otelutil.SetupOTelSDK(
+			ctx,
+			*otelCollectorEndpointURL,
+			*logTags,
+		)
+		if err != nil {
+			logger.Warn("failed to setup OpenTelemetry SDK; continuing without telemetry", "error", err)
+		} else {
+			otel.SetLogger(logr.FromSlogHandler(
+				logger.Handler().WithAttrs([]slog.Attr{
+					{Key: "component", Value: slog.StringValue("otel")},
+				}),
+			))
+			defer func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				err = errors.Join(err, shutdown(ctx))
+				cancel()
+			}()
+		}
 	}
 
 	if *serverAddr == "" {
