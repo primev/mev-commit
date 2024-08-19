@@ -46,6 +46,16 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradea
         require(success, "Transfer to _mintTo failed");
     }
 
+    /// @dev Allows the owner to pause the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Allows the owner to unpause the contract.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     function isWhitelisted(address _address) public view returns (bool) {
         return whitelistedAddresses[_address];
     }
