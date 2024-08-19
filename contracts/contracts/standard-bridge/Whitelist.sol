@@ -12,6 +12,9 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     mapping(address => bool) public whitelistedAddresses;
 
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    uint256[48] private __gap;
+
     function initialize(address _owner) external initializer {
         __Ownable_init(_owner);
     }

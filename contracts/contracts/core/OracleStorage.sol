@@ -16,4 +16,7 @@ abstract contract OracleStorage {
 
     /// @dev Reference to the BlockTracker contract interface.
     IBlockTracker internal _blockTrackerContract;
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    uint256[48] private __gap;
 }

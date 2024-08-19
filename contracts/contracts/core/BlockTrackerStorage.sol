@@ -14,4 +14,7 @@ abstract contract BlockTrackerStorage {
 
      /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    uint256[48] private __gap;
 }

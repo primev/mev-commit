@@ -24,4 +24,7 @@ contract ValidatorRegistryV1Storage {
 
     /// @dev Mapping of BLS pubkeys to stored staked validator structs. 
     mapping(bytes => IValidatorRegistryV1.StakedValidator) public stakedValidators;
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    uint256[48] private __gap;
 }
