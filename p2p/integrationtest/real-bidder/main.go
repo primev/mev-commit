@@ -237,8 +237,8 @@ func main() {
 				bundleLen := rand.Intn(10) + 1
 				bundleStart := rand.Intn(len(currentBlock.txns))
 				bundleEnd := bundleStart + bundleLen
-				if bundleEnd > len(currentBlock.txns) {
-					bundleEnd = len(currentBlock.txns) - 1
+				if bundleEnd >= len(currentBlock.txns) {
+					bundleEnd = len(currentBlock.txns)
 				}
 
 				min := 5000
