@@ -36,4 +36,7 @@ abstract contract ProviderRegistryStorage {
 
     /// @dev Mapping of provider to withdrawal request timestamp
     mapping(address => uint256) public withdrawalRequests;
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    uint256[48] private __gap;
 }

@@ -57,4 +57,7 @@ abstract contract MevCommitAVSStorage {
 
     /// @notice Number of blocks a LST restaker must wait after requesting deregistration before it is finalized.
     uint256 public lstRestakerDeregPeriodBlocks;
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    uint256[48] private __gap;
 }

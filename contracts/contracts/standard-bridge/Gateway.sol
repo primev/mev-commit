@@ -27,6 +27,9 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
     // The counterparty's finalization fee (wei), included for UX purposes
     uint256 public counterpartyFee;
 
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
+    uint256[48] private __gap;
+
         /**
      * @dev Emitted when a cross chain transfer is initiated.
      * @param sender Address initiating the transfer. Indexed for efficient filtering.
