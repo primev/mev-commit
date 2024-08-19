@@ -93,6 +93,16 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         _setOracleAccount(newOracleAccount);
     }
 
+    /// @dev Allows the owner to pause the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Allows the owner to unpause the contract.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev Retrieves the current window number.
      * @return currentWindow The current window number.
