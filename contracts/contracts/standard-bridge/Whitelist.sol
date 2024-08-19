@@ -39,7 +39,7 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradea
     }
 
     // "Mints" native tokens (transfer ether from this contract) if the sender is whitelisted.
-    function mint(address _mintTo, uint256 _amount) external {
+    function mint(address _mintTo, uint256 _amount) external whenNotPaused {
         require(isWhitelisted(msg.sender), "Sender is not whitelisted");
         require(address(this).balance >= _amount, "Insufficient contract balance");
         (bool success, ) = _mintTo.call{value: _amount}("");
