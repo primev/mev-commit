@@ -72,7 +72,9 @@ job "{{ job.name }}" {
           {{- $idx := add (env "NOMAD_ALLOC_INDEX" | parseInt) 1 }}
           {{- range nomadService (printf "%s%d" "{% endraw %}{{ job.target_name }}{% raw %}" $idx) }}
             {{- if contains "rpc" .Tags }}
-          EMULATOR_IP_PORT="{{ .Address }}:{{ .Port }}"
+          EMULATOR_IP_RPC_PORT="{{ .Address }}:{{ .Port }}"
+            {{- else if contains "http" .Tags }}
+          EMULATOR_IP_HTTP_PORT="{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {% endraw %}
@@ -96,9 +98,21 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
+          {% if job.target_type == 'bidder' %}
+          URL="https://${EMULATOR_IP_HTTP_PORT}/v1/debug/topology"
+          if ! timeout 5m bash -c 'until httping -sql -c 1 -G "'${URL}'"; do sleep 1; done'; then
+            echo "Unreachable bidder endpoint: ${URL}."
+            exit 1
+          fi
+          if ! timeout 5m bash -c 'until [ "$(curl -s "'${URL}'" | jq ".topology.connected_providers | length")" -gt 0 ]; do sleep 5; done'; then
+            echo "No connected providers found."
+            exit 1
+          fi
+          {% endif %}
+
           chmod +x ${EMULATOR_BINARY}
           ${EMULATOR_BINARY} \
-            -server-addr "${EMULATOR_IP_PORT}" \
+            -server-addr "${EMULATOR_IP_RPC_PORT}" \
             {% if job.target_type == 'bidder' %}
             -rpc-addr "${EMULATOR_L1_RPC_URL}" \
             {% endif %}
