@@ -3,12 +3,13 @@ pragma solidity 0.8.20;
 
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 // Contract that allows an admin to add/remove addresses from the whitelist,
 // and allows whitelisted addresses to mint native tokens.
 //
 // The whitelist contract's create2 address must be funded on genesis.
-contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
+contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable {
 
     mapping(address => bool) public whitelistedAddresses;
 
@@ -17,6 +18,7 @@ contract Whitelist is Ownable2StepUpgradeable, UUPSUpgradeable {
 
     function initialize(address _owner) external initializer {
         __Ownable_init(_owner);
+        __Pausable_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract

@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
 import {BidderRegistryStorage} from "./BidderRegistryStorage.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
@@ -18,7 +19,8 @@ contract BidderRegistry is
     BidderRegistryStorage,
     Ownable2StepUpgradeable,
     ReentrancyGuardUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    PausableUpgradeable
 {
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
@@ -53,6 +55,7 @@ contract BidderRegistry is
         blockTrackerContract = IBlockTracker(_blockTracker);
         blocksPerWindow = _blocksPerWindow;
         __Ownable_init(_owner);
+        __Pausable_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -95,7 +98,7 @@ contract BidderRegistry is
      * @dev Deposit for a specific window.
      * @param window The window for which the deposit is being made.
      */
-    function depositForWindow(uint256 window) external payable {
+    function depositForWindow(uint256 window) external payable whenNotPaused {
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -113,7 +116,7 @@ contract BidderRegistry is
      * @dev Deposit for multiple windows.
      * @param windows The windows for which the deposits are being made.
      */
-    function depositForWindows(uint256[] calldata windows) external payable {
+    function depositForWindows(uint256[] calldata windows) external payable whenNotPaused {
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -147,7 +150,7 @@ contract BidderRegistry is
      */
     function withdrawFromWindows(
         uint256[] calldata windows
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
         uint256 totalAmount;
 
@@ -188,7 +191,7 @@ contract BidderRegistry is
         bytes32 commitmentDigest,
         address payable provider,
         uint256 residualBidPercentAfterDecay
-    ) external nonReentrant onlyPreConfirmationEngine {
+    ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
         BidState storage bidState = bidPayment[commitmentDigest];
         require(
             bidState.state == State.PreConfirmed,
@@ -237,7 +240,7 @@ contract BidderRegistry is
     function unlockFunds(
         uint256 window,
         bytes32 bidID
-    ) external nonReentrant onlyPreConfirmationEngine {
+    ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
         BidState storage bidState = bidPayment[bidID];
         require(
             bidState.state == State.PreConfirmed,
@@ -265,7 +268,7 @@ contract BidderRegistry is
         uint256 bid,
         address bidder,
         uint64 blockNumber
-    ) external onlyPreConfirmationEngine {
+    ) external onlyPreConfirmationEngine whenNotPaused {
         BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return;
@@ -337,7 +340,7 @@ contract BidderRegistry is
      */
     function withdrawProviderAmount(
         address payable provider
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         uint256 amount = providerAmount[provider];
         providerAmount[provider] = 0;
 
@@ -345,7 +348,6 @@ contract BidderRegistry is
 
         (bool success, ) = provider.call{value: amount}("");
         require(success, "couldn't transfer to provider");
-
     }
 
     /**
@@ -356,7 +358,7 @@ contract BidderRegistry is
     function withdrawBidderAmountFromWindow(
         address payable bidder,
         uint256 window
-    ) external nonReentrant {
+    ) external nonReentrant whenNotPaused {
         require(
             msg.sender == bidder,
             "only bidder can withdraw"
@@ -385,6 +387,16 @@ contract BidderRegistry is
      */
     function manuallyWithdrawProtocolFee() external onlyOwner {
         FeePayout.transferToRecipient(protocolFeeTracker);
+    }
+
+    /// @dev Allows owner to pause the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Allows owner to unpause the contract.
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     /**

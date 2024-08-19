@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {PreconfManager} from "./PreconfManager.sol";
 import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {ProviderRegistryStorage} from "./ProviderRegistryStorage.sol";
@@ -17,7 +18,8 @@ contract ProviderRegistry is
     ProviderRegistryStorage,
     Ownable2StepUpgradeable,
     UUPSUpgradeable,
-    ReentrancyGuardUpgradeable
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable
 {
     /**
      * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
@@ -52,6 +54,7 @@ contract ProviderRegistry is
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
         __Ownable_init(_owner);
+        __Pausable_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -92,12 +95,12 @@ contract ProviderRegistry is
     /**
      * @dev Stake more funds into the provider's stake.
      */
-    function stake() external payable {
+    function stake() external payable whenNotPaused {
         _stake(msg.sender);
     }
 
     /// @dev Delegate stake to a provider.
-    function delegateStake(address provider) external payable {
+    function delegateStake(address provider) external payable whenNotPaused {
         _stake(provider);
     }
 
@@ -115,7 +118,7 @@ contract ProviderRegistry is
         address provider,
         address payable bidder,
         uint256 residualBidPercentAfterDecay
-    ) external nonReentrant onlyPreConfirmationEngine {
+    ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
         uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
         require(providerStakes[provider] >= residualAmt + penaltyFee, "Insufficient funds to slash");
@@ -167,7 +170,7 @@ contract ProviderRegistry is
     }
 
     /// @dev Requests unstake of the staked amount.
-    function unstake() external {
+    function unstake() external whenNotPaused {
         require(providerStakes[msg.sender] != 0, "No stake to withdraw");
         require(withdrawalRequests[msg.sender] == 0, "Unstake request exists");
         withdrawalRequests[msg.sender] = block.timestamp;
@@ -175,7 +178,7 @@ contract ProviderRegistry is
     }
 
     /// @dev Completes the withdrawal of the staked amount.
-    function withdraw() external nonReentrant {
+    function withdraw() external nonReentrant whenNotPaused {
         require(withdrawalRequests[msg.sender] != 0, "No unstake request");
         require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalDelay, "Delay has not passed");
 
@@ -205,6 +208,16 @@ contract ProviderRegistry is
         FeePayout.transferToRecipient(penaltyFeeTracker);
     }
 
+    /// @dev Allows the owner to pause the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Allows the owner to unpause the contract.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev Get provider staked amount.
      * @param provider The address of the provider.
@@ -229,7 +242,7 @@ contract ProviderRegistry is
      * @param blsPublicKey The BLS public key of the provider.
      * The validity of this key must be verified manually off-chain.
      */
-    function registerAndStake(bytes calldata blsPublicKey) public payable {
+    function registerAndStake(bytes calldata blsPublicKey) public payable whenNotPaused {
         _registerAndStake(msg.sender, blsPublicKey);
     }
 
@@ -238,7 +251,7 @@ contract ProviderRegistry is
      * @param provider Address of the provider.
      * @param blsPublicKey BLS public key of the provider.
      */
-    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable {
+    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable whenNotPaused {
         _registerAndStake(provider, blsPublicKey);
     }
 

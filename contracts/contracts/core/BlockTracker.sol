@@ -5,13 +5,15 @@ import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {BlockTrackerStorage} from "./BlockTrackerStorage.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 
 /**
  * @title BlockTracker
  * @dev A contract that tracks Ethereum blocks and their winners.
  */
-contract BlockTracker is IBlockTracker, BlockTrackerStorage, Ownable2StepUpgradeable, UUPSUpgradeable {
+contract BlockTracker is IBlockTracker, BlockTrackerStorage,
+    Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable {
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
@@ -30,6 +32,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage, Ownable2StepUpgrade
         blocksPerWindow = blocksPerWindow_;
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
+        __Pausable_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -61,7 +64,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage, Ownable2StepUpgrade
     function addBuilderAddress(
         string calldata builderName,
         address builderAddress
-    ) external onlyOracle {
+    ) external onlyOracle whenNotPaused {
         blockBuilderNameToAddress[builderName] = builderAddress;
     }
 
@@ -73,7 +76,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage, Ownable2StepUpgrade
     function recordL1Block(
         uint256 _blockNumber,
         string calldata _winnerGraffiti
-    ) external onlyOracle {
+    ) external onlyOracle whenNotPaused {
         address _winner = blockBuilderNameToAddress[_winnerGraffiti];
         _recordBlockWinner(_blockNumber, _winner);
         uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
