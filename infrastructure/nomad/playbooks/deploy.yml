@@ -8,6 +8,7 @@
     release: false
     build_artifacts: false
     build_templates: false
+    otel_collector_endpoint_url: ""
     aws_s3_bucket: "primev-infrastructure-artifacts"
 
   pre_tasks:
@@ -122,16 +123,29 @@
         fail_msg: "The profile name is not set correctly."
         success_msg: "The profile name is set to: {{ profile }}."
 
-    - name: Determine Logs Collection
+    - name: Set Jobs Definition
+      set_fact:
+        jobs: "{{ profiles[profile].jobs }}"
+
+    - name: Disable Logs Collection
       set_fact:
         jobs: >-
           {{
-            profiles[profile].jobs
+            jobs
             | selectattr('name', 'ne', 'datadog-agent-logs-collector')
             | list
-            if no_logs_collection | default(false) | bool
-            else profiles[profile].jobs
            }}
+      when: no_logs_collection | default(false) | bool
+
+    - name: Disable OpenTelemetry Trace Collection
+      set_fact:
+        jobs: >-
+          {{
+          jobs
+          | selectattr('name', 'ne', 'otel-collector')
+          | list
+          }}
+      when: otel_collector_endpoint_url | trim | length == 0
 
     - name: Determine "{{ ansible_env.HOME }}/{{ env }}" Status
       ansible.builtin.stat:

@@ -61,7 +61,7 @@ job "{{ job.name }}" {
       {% endif %}
 
       artifact {
-        source = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.107.0/otelcol-contrib_0.107.0_linux_{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.gz"
+        source = "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.107.0/otelcol-contrib_0.107.0_linux_{{ 'amd64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.gz"
       }
 
       template {
