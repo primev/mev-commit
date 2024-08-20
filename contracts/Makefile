@@ -24,6 +24,14 @@ deploy-avs-with-mock-eigen:
 	forge clean
 	forge script scripts/validator-registry/avs/DeployAVSWithMockEigen.s.sol:DeployAVSWithMockEigen --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --via-ir --broadcast
 
+upgrade-avs-anvil:
+	forge clean
+	forge script scripts/validator-registry/avs/UpgradeAVS.s.sol:UpgradeAnvil \
+		--rpc-url http://localhost:8545 \
+		--private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+		--via-ir \
+		--broadcast
+
 run-stake-example:
 	forge script scripts/validator-registry/ValidatorExampleScript.s.sol:StakeExample --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --via-ir --broadcast
 
