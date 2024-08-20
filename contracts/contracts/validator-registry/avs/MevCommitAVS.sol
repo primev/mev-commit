@@ -615,19 +615,37 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
         IMevCommitAVS.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
         bool isValRegistered = valRegistration.exists;
+        if (!isValRegistered) {
+            return false;
+        }
         bool isFrozen = valRegistration.freezeHeight.exists;
+        if (isFrozen) {
+            return false;
+        }
         bool isValDeregRequested = valRegistration.deregRequestHeight.exists;
-
+        if (isValDeregRequested) {
+            return false;
+        }
+        bool hasPod = _eigenPodManager.hasPod(valRegistration.podOwner);
+        if (!hasPod) {
+            return false;
+        }
         IEigenPod pod = _eigenPodManager.getPod(valRegistration.podOwner);
         bool isValActive = pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE;
-
+        if (!isValActive) {
+            return false;
+        }
         address delegatedOperator = _delegationManager.delegatedTo(valRegistration.podOwner);
         IMevCommitAVS.OperatorRegistrationInfo memory operatorRegistration = operatorRegistrations[delegatedOperator];
         bool isOperatorRegistered = operatorRegistration.exists;
+        if (!isOperatorRegistered) {
+            return false;
+        }
         bool isOperatorDeregRequested = operatorRegistration.deregRequestHeight.exists;
-
-        return isValRegistered && !isFrozen && !isValDeregRequested && isValActive
-            && isOperatorRegistered && !isOperatorDeregRequested;
+        if (isOperatorDeregRequested) {
+            return false;
+        }
+        return true;
     }
 
     /// @dev Internal function to get the list of restakeable strategies.

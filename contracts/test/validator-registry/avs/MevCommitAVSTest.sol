@@ -1084,4 +1084,10 @@ contract MevCommitAVSTest is Test {
         vm.prank(operator);
         mevCommitAVS.deregisterValidators(valPubkeys);
     }
+
+    function testIsValidatorOptedInWithNoPod() public {
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1"); // Intentially no setup 
+        assertFalse(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
+    }
 }
