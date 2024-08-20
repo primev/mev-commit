@@ -11,6 +11,8 @@ RPC_URL="wss://chainrpc-wss.${DOMAIN}"
 FAUCET_URL="https://faucet.${DOMAIN}"
 BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
 CONTRACTS_URL="https://contracts.${DOMAIN}"
+OTEL_COLLECTOR_ENDPOINT_URL=""
+SERVICE_NAME=""
 
 # Default mev-commit binary download values.
 ARTIFACTS_URL="https://github.com/primev/mev-commit/releases/latest/download/"
@@ -43,7 +45,7 @@ fi
 
 # Prints usage information for the script.
 usage() {
-  echo "Usage: $0 --node-type [bidder|provider]"
+  echo "Usage: $0 --node-type [bidder|provider] --otel-collector-endpoint-url [url] --nickname [nickname]"
   exit 1
 }
 
@@ -167,6 +169,14 @@ parse_args() {
         esac
         shift
         ;;
+      --otel-collector-endpoint-url)
+        OTEL_COLLECTOR_ENDPOINT_URL="${2}"
+        shift
+        ;;
+      --nickname)
+        SERVICE_NAME="${2}"
+        shift
+        ;;
       *)
         log_error "Unknown parameter passed: ${1}"
         usage
@@ -238,10 +248,20 @@ main() {
 
   chmod +x ${BINARY_PATH}
   log_info "Initializing mev-commit..."
-  ${BINARY_PATH} \
-    --settlement-ws-rpc-endpoint "${RPC_URL}" \
-    --peer-type "${NODE_TYPE}" \
-    --bootnodes "${BOOTNODE}" &
+  local flags=(
+    --settlement-ws-rpc-endpoint "${RPC_URL}"
+    --peer-type "${NODE_TYPE}"
+    --bootnodes "${BOOTNODE}"
+  )
+  if [ -n "${OTEL_COLLECTOR_ENDPOINT_URL}" ]; then
+    flags+=(--otel-collector-endpoint-url "${OTEL_COLLECTOR_ENDPOINT_URL}")
+  fi
+  if [ -n "${SERVICE_NAME}" ]; then
+    flags+=(--log-tags "service:${SERVICE_NAME}")
+  else
+    flags+=(--log-tags "service:launchmevcommit-${NODE_TYPE}-${VERSION}-$(hostname)")
+  fi
+  ${BINARY_PATH} "${flags[@]}" &
   local pid=$!
 
   sleep 1
