@@ -332,13 +332,6 @@ message Bid {
       message: "raw_transactions must be an array of valid raw transactions.",
       expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]*$'))"
   }];
-  repeated string reverting_raw_transactions = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Optional array of RLP encoded raw transactions that are allowed to revert or be discarded."
-  }, (buf.validate.field).cel = {
-      id: "reverting_raw_transactions",
-      message: "reverting_raw_transactions must be an array of valid raw transactions.",
-      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]*$'))"
-  }];
 };
 
 message Commitment {

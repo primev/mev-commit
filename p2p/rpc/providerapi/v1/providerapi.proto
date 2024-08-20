@@ -181,13 +181,6 @@ message Bid {
       message: "raw_transactions must be an array of valid raw transactions.",
       expression: "this.all(r, r.matches('^[a-fA-F0-9]+$'))"
   }];
-  repeated string reverting_raw_transactions = 9 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Optional array of raw transactions that the bidder wants to include in the block."
-    }, (buf.validate.field).cel = {
-        id: "raw_reverting_transactions",
-        message: "raw_reverting_transactions must be an array of valid raw transactions.",
-        expression: "this.all(r, r.matches('^[a-fA-F0-9]+$'))"
-    }];
 };
 
 message BidResponse {

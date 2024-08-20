@@ -124,14 +124,14 @@ func (s *Service) SendBid(
 		return status.Errorf(codes.InvalidArgument, "validating bid: %v", err)
 	}
 
-	if len(bid.TxHashes) > 0 && len(bid.RawTransactions) > 0 {
+	switch {
+	case len(bid.TxHashes) == 0 && len(bid.RawTransactions) == 0:
+		s.logger.Error("empty bid", "bid", bid)
+		return status.Error(codes.InvalidArgument, "empty bid")
+	case len(bid.TxHashes) > 0 && len(bid.RawTransactions) > 0:
 		s.logger.Error("both txHashes and rawTransactions are provided", "bid", bid)
 		return status.Error(codes.InvalidArgument, "both txHashes and rawTransactions are provided")
-	}
-
-	if len(bid.RevertingTxHashes) > 0 && len(bid.RevertingRawTransactions) > 0 {
-		s.logger.Error("both revertingTxHashes and revertingRawTransactions are provided", "bid", bid)
-		return status.Error(codes.InvalidArgument, "both revertingTxHashes and revertingRawTransactions are provided")
+	default:
 	}
 
 	// Helper function to strip "0x" prefix
@@ -144,12 +144,12 @@ func (s *Service) SendBid(
 	}
 	var (
 		txnsStr          string
-		revertingTxnsStr string
+		revertingTxnsStr string = strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
 	)
-	if len(bid.TxHashes) > 0 {
+	switch {
+	case len(bid.TxHashes) > 0:
 		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
-	}
-	if len(bid.RawTransactions) > 0 {
+	case len(bid.RawTransactions) > 0:
 		for _, rawTx := range bid.RawTransactions {
 			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
 			if err != nil {
@@ -160,25 +160,6 @@ func (s *Service) SendBid(
 			txnsStr += strings.TrimPrefix(txnHash.String(), "0x") + ","
 		}
 		txnsStr = strings.TrimSuffix(txnsStr, ",")
-	}
-	if len(bid.RevertingTxHashes) > 0 {
-		revertingTxnsStr = strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
-	}
-	if len(bid.RevertingRawTransactions) > 0 {
-		for _, rawTx := range bid.RevertingRawTransactions {
-			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
-			if err != nil {
-				s.logger.Error("decoding reverting raw transaction", "error", err)
-				return status.Errorf(codes.InvalidArgument, "decoding reverting raw transaction: %v", err)
-			}
-			txnHash := crypto.Keccak256Hash(rawTxnBytes)
-			revertingTxnsStr += strings.TrimPrefix(txnHash.String(), "0x") + ","
-		}
-		revertingTxnsStr = strings.TrimSuffix(revertingTxnsStr, ",")
-	}
-	if len(txnsStr) == 0 && len(revertingTxnsStr) == 0 {
-		s.logger.Error("empty bid", "bid", bid)
-		return status.Error(codes.InvalidArgument, "empty bid")
 	}
 
 	respC, err := s.sender.SendBid(

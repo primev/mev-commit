@@ -455,23 +455,20 @@ func getRandomBid(
 		txHashes []string
 		rawTxns  []string
 	)
-	// send payload instead of hashes
-	sendPayload := rand.Intn(100) < 50
 	for i := idx; i < idx+bundleLen; i++ {
-		if !sendPayload {
-			txHashes = append(
-				txHashes,
-				strings.TrimPrefix(blk.(*types.Block).Transactions()[i].Hash().String(), "0x"),
-			)
-		} else {
-			var buf bytes.Buffer
-			if err := rlp.Encode(&buf, blk.(*types.Block).Transactions()[i]); err != nil {
-				return nil, err
-			}
-			rawTxns = append(rawTxns, hex.EncodeToString(buf.Bytes()))
+		txHashes = append(
+			txHashes,
+			strings.TrimPrefix(blk.(*types.Block).Transactions()[i].Hash().String(), "0x"),
+		)
+		var buf bytes.Buffer
+		if err := rlp.Encode(&buf, blk.(*types.Block).Transactions()[i]); err != nil {
+			return nil, err
 		}
+		rawTxns = append(rawTxns, hex.EncodeToString(buf.Bytes()))
 	}
 
+	// send payload instead of hashes
+	sendPayload := rand.Intn(100) < 50
 	// accept 90% of bids
 	accept := rand.Intn(100) < 90
 	// slash 10% of accepted bids
@@ -501,17 +498,21 @@ func getRandomBid(
 
 	bid := &BidEntry{
 		Bid: &bidderapiv1.Bid{
-			TxHashes:            txHashes,
 			Amount:              fmt.Sprintf("%d", amount),
 			BlockNumber:         int64(blkNum),
 			DecayStartTimestamp: time.Now().UnixMilli(),
 			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
-			RawTransactions:     rawTxns,
 		},
 		Accept:      accept,
 		ShouldSlash: shouldSlash,
 	}
 
-	store.Insert(bidKey(bid.Bid.TxHashes), bid)
+	if sendPayload {
+		bid.Bid.RawTransactions = rawTxns
+	} else {
+		bid.Bid.TxHashes = txHashes
+	}
+
+	store.Insert(bidKey(txHashes), bid)
 	return bid, nil
 }
