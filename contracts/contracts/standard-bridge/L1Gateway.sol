@@ -17,6 +17,7 @@ contract L1Gateway is Gateway {
         transferInitiatedIdx = 0;
         transferFinalizedIdx = 1; // First expected transfer index is 1
         __Ownable_init(_owner);
+        __Pausable_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract

@@ -3,34 +3,35 @@ pragma solidity 0.8.20;
 
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 /**
  * @dev Gateway contract for standard bridge. 
  */
-abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {   
+abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable {   
     
-    // @dev index for tracking transfer initiations.
-    // Also total number of transfers initiated from this gateway.
+    /// @dev index for tracking transfer initiations.
+    /// Also total number of transfers initiated from this gateway.
     uint256 public transferInitiatedIdx;
 
-    // @dev index for tracking transfer finalizations.
-    // Also total number of transfers finalized on this gateway.
+    /// @dev index for tracking transfer finalizations.
+    /// Also total number of transfers finalized on this gateway.
     uint256 public transferFinalizedIdx;
 
-    // @dev Address of relayer account. 
+    /// @dev Address of relayer account. 
     address public relayer;
 
-    // @dev Flat fee (wei) paid to relayer on destination chain upon transfer finalization.
-    // This must be greater than what relayer will pay per tx.
+    /// @dev Flat fee (wei) paid to relayer on destination chain upon transfer finalization.
+    /// This must be greater than what relayer will pay per tx.
     uint256 public finalizationFee;
 
-    // The counterparty's finalization fee (wei), included for UX purposes
+    /// @dev The counterparty's finalization fee (wei), included for UX purposes
     uint256 public counterpartyFee;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
 
-        /**
+    /**
      * @dev Emitted when a cross chain transfer is initiated.
      * @param sender Address initiating the transfer. Indexed for efficient filtering.
      * @param recipient Address receiving the tokens. Indexed for efficient filtering.
@@ -55,7 +56,7 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     function initiateTransfer(address _recipient, uint256 _amount
-    ) external payable returns (uint256 returnIdx) {
+    ) external payable whenNotPaused returns (uint256 returnIdx) {
         require(_amount >= counterpartyFee, "Amount too small");
         _decrementMsgSender(_amount);
         ++transferInitiatedIdx;
@@ -64,7 +65,7 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
     }
 
     function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx
-    ) external onlyRelayer {
+    ) external onlyRelayer whenNotPaused {
         require(_amount >= finalizationFee, "Amount too small");
         require(_counterpartyIdx == transferFinalizedIdx, "Invalid counterparty index");
         uint256 amountAfterFee = _amount - finalizationFee;
@@ -73,6 +74,12 @@ abstract contract Gateway is Ownable2StepUpgradeable, UUPSUpgradeable {
         ++transferFinalizedIdx;
         emit TransferFinalized(_recipient, _amount, _counterpartyIdx);
     }
+
+    /// @dev Allows owner to pause the contract.
+    function pause() external onlyOwner { _pause(); }
+
+    /// @dev Allows owner to unpause the contract.
+    function unpause() external onlyOwner { _unpause(); }
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}

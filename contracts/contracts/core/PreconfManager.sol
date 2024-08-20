@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
@@ -19,7 +20,8 @@ contract PreconfManager is
     IPreconfManager,
     PreconfManagerStorage,
     Ownable2StepUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    PausableUpgradeable
 {
     using ECDSA for bytes32;
 
@@ -92,6 +94,7 @@ contract PreconfManager is
         blockTracker = IBlockTracker(_blockTracker);
         commitmentDispatchWindow = _commitmentDispatchWindow;
         blocksPerWindow = _blocksPerWindow;
+        __Pausable_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -154,6 +157,16 @@ contract PreconfManager is
         providerRegistry = IProviderRegistry(newProviderRegistry);
     }
 
+    /// @dev Allows the owner to pause the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Allows the owner to unpause the contract.
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
     /**
      * @dev Open a commitment
      * @param unopenedCommitmentIndex The index of the unopened commitment
@@ -179,7 +192,7 @@ contract PreconfManager is
         bytes calldata bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
-    ) public returns (bytes32 commitmentIndex) {
+    ) public whenNotPaused returns (bytes32 commitmentIndex) {
         require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
@@ -290,7 +303,7 @@ contract PreconfManager is
         bytes32 commitmentDigest,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp
-    ) public returns (bytes32 commitmentIndex) {
+    ) public whenNotPaused returns (bytes32 commitmentIndex) {
         // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
         // Check if the dispatch timestamp is within the allowed dispatch window
@@ -336,7 +349,7 @@ contract PreconfManager is
     function initiateSlash(
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
-    ) public onlyOracleContract {
+    ) public onlyOracleContract whenNotPaused {
         OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
         require(!commitment.isSettled, "Commitment already settled");
 
@@ -365,7 +378,7 @@ contract PreconfManager is
     function initiateReward(
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
-    ) public onlyOracleContract {
+    ) public onlyOracleContract whenNotPaused {
         OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
         require(!commitment.isSettled, "Commitment already settled");
 

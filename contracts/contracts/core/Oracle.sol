@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {OracleStorage} from "./OracleStorage.sol";
@@ -14,7 +15,7 @@ import {IOracle} from "../interfaces/IOracle.sol";
  * @author Kartik Chopra
  * @dev This contract serves as an oracle to fetch and process Ethereum Layer 1 block data.
  */
-contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradeable {
+contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable {
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
@@ -39,6 +40,7 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         _blockTrackerContract = IBlockTracker(blockTrackerContract_);
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
+        __Pausable_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -74,7 +76,7 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         address builder,
         bool isSlash,
         uint256 residualBidPercentAfterDecay
-    ) external onlyOracle {
+    ) external onlyOracle whenNotPaused {
         require(
             _blockTrackerContract.getBlockWinner(blockNumber) == builder,
             "builder is not block winner"
@@ -101,6 +103,16 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
     /// @dev Allows the owner to set the oracle account.
     function setOracleAccount(address newOracleAccount) external onlyOwner {
         _setOracleAccount(newOracleAccount);
+    }
+
+    /// @dev Allows the owner to pause the contract.
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @dev Allows the owner to unpause the contract.
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     /**
