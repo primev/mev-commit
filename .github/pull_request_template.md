@@ -8,4 +8,3 @@ Fixes # (issue)
 
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] I have made corresponding changes to the documentation
-- [ ] I have tested this code by deploying the infrastructure and ensuring that commitments are being settled
