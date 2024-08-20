@@ -248,6 +248,7 @@ var (
 		Name:    "validator-router-contract",
 		Usage:   "address of the validator router contract",
 		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
+		Value:   contracts.HoleskyContracts.ValidatorOptInRouter,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid validator router address: %s", s)
@@ -345,12 +346,14 @@ var (
 	optionBeaconAPIURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "beacon-api-url",
 		Usage:   "URL of the beacon chain API",
+		Value:   "https://ethereum-holesky-beacon-api.publicnode.com",
 		EnvVars: []string{"MEV_COMMIT_BEACON_API_URL"},
 	})
 
 	optionL1RPCURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "l1-rpc-url",
 		Usage:   "URL for L1 RPC",
+		Value:   "https://ethereum-holesky-rpc.publicnode.com",
 		EnvVars: []string{"MEV_COMMIT_L1_RPC_URL"},
 	})
 

@@ -399,6 +399,35 @@ func NewNode(opts *Options) (*Node, error) {
 			return nil, err
 		}
 
+		l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
+		if err != nil {
+			opts.Logger.Error("failed to connect to rpc", "error", err)
+			return nil, err
+		}
+
+		validatorRouterCaller, err := validatorrouter.NewValidatoroptinrouterCaller(
+			common.HexToAddress(opts.ValidatorRouterContract),
+			l1ContractRPC,
+		)
+		if err != nil {
+			opts.Logger.Error("failed to instantiate validator router contract", "error", err)
+			return nil, err
+		}
+
+		validatorRouterSession := &validatorrouter.ValidatoroptinrouterCallerSession{
+			Contract: validatorRouterCaller,
+			CallOpts: bind.CallOpts{
+				From: opts.KeySigner.GetAddress(),
+			},
+		}
+
+		validatorAPI := validatorapi.NewService(
+			opts.BeaconAPIURL,
+			validatorRouterSession,
+			opts.Logger.With("component", "validatorapi"),
+		)
+		validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
+
 		blocksPerWindow := bpwBigInt.Uint64()
 
 		switch opts.PeerType {
@@ -529,36 +558,6 @@ func NewNode(opts *Options) (*Node, error) {
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)
 
-			if opts.ValidatorRouterContract != "" {
-				l1ContractRPC, err := ethclient.Dial(opts.L1RPCURL)
-				if err != nil {
-					opts.Logger.Error("failed to connect to rpc", "error", err)
-					return nil, err
-				}
-
-				validatorRouterCaller, err := validatorrouter.NewValidatoroptinrouterCaller(
-					common.HexToAddress(opts.ValidatorRouterContract),
-					l1ContractRPC,
-				)
-				if err != nil {
-					opts.Logger.Error("failed to instantiate validator router contract", "error", err)
-					return nil, err
-				}
-
-				validatorRouterSession := &validatorrouter.ValidatoroptinrouterCallerSession{
-					Contract: validatorRouterCaller,
-					CallOpts: bind.CallOpts{
-						From: opts.KeySigner.GetAddress(),
-					},
-				}
-
-				validatorAPI := validatorapi.NewService(
-					opts.BeaconAPIURL,
-					validatorRouterSession,
-					opts.Logger.With("component", "validatorapi"),
-				)
-				validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
-			}
 			keyexchange := keyexchange.New(
 				topo,
 				p2pSvc,
@@ -661,6 +660,12 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, errors.Join(err, nd.Close())
 	}
 
+	err = validatorapiv1.RegisterValidatorHandler(handlerCtx, gatewayMux, grpcConn)
+	if err != nil {
+		opts.Logger.Error("failed to register validator handler", "err", err)
+		return nil, errors.Join(err, nd.Close())
+	}
+
 	switch opts.PeerType {
 	case p2p.PeerTypeProvider.String():
 		err := providerapiv1.RegisterProviderHandler(handlerCtx, gatewayMux, grpcConn)
@@ -673,13 +678,6 @@ func NewNode(opts *Options) (*Node, error) {
 		if err != nil {
 			opts.Logger.Error("failed to register bidder handler", "err", err)
 			return nil, errors.Join(err, nd.Close())
-		}
-		if opts.ValidatorRouterContract != "" {
-			err = validatorapiv1.RegisterValidatorHandler(handlerCtx, gatewayMux, grpcConn)
-			if err != nil {
-				opts.Logger.Error("failed to register validator handler", "err", err)
-				return nil, errors.Join(err, nd.Close())
-			}
 		}
 	}
 
