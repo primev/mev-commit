@@ -165,14 +165,13 @@ func (s *Service) SendBid(
 	respC, err := s.sender.SendBid(
 		ctx,
 		&preconfirmationv1.Bid{
-			TxHash:                   txnsStr,
-			BidAmount:                bid.Amount,
-			BlockNumber:              bid.BlockNumber,
-			DecayStartTimestamp:      bid.DecayStartTimestamp,
-			DecayEndTimestamp:        bid.DecayEndTimestamp,
-			RevertingTxHashes:        revertingTxnsStr,
-			RawTransactions:          bid.RawTransactions,
-			RevertingRawTransactions: bid.RevertingRawTransactions,
+			TxHash:              txnsStr,
+			BidAmount:           bid.Amount,
+			BlockNumber:         bid.BlockNumber,
+			DecayStartTimestamp: bid.DecayStartTimestamp,
+			DecayEndTimestamp:   bid.DecayEndTimestamp,
+			RevertingTxHashes:   revertingTxnsStr,
+			RawTransactions:     bid.RawTransactions,
 		},
 	)
 	if err != nil {
