@@ -248,6 +248,7 @@ var (
 		Name:    "validator-router-contract",
 		Usage:   "address of the validator router contract",
 		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
+		Value:   contracts.HoleskyContracts.ValidatorOptInRouter,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid validator router address: %s", s)

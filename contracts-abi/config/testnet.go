@@ -8,6 +8,10 @@ type Contracts struct {
 	BlockTracker     string
 }
 
+type L1Contracts struct {
+	ValidatorOptInRouter string
+}
+
 var TestnetContracts = Contracts{
 	// If these addresses change for a testnet deployment,
 	// please also update snippets/testnet-addresses.mdx
@@ -17,4 +21,8 @@ var TestnetContracts = Contracts{
 	PreconfManager:   "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3",
 	Oracle:           "0x6856Eb630C79D491886E104D328834643B3F69E3",
 	BlockTracker:     "0x2eEbF31f5c932D51556E70235FB98bB2237d065c",
+}
+
+var HoleskyContracts = L1Contracts{
+	ValidatorOptInRouter: "0xF3e5E8eB71f821D299EFf0E826a50A95589eD043",
 }
