@@ -11,6 +11,7 @@ import (
 	"time"
 
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -55,6 +56,7 @@ func NewProviderClient(
 			serverAddr,
 			grpc.WithBlock(),
 			grpc.WithTransportCredentials(e.credential),
+			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
 			logger.Error("failed to dial grpc server", "error", err)

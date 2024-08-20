@@ -145,6 +145,7 @@ jobs:
       type: bootnode
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_provider_node1: &mev_commit_provider_node1_job
     name: mev-commit-provider-node1
@@ -171,6 +172,7 @@ jobs:
       nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_provider_node2: &mev_commit_provider_node2_job
     name: mev-commit-provider-node2
@@ -253,6 +255,8 @@ jobs:
     ports:
       - metrics:
           to: 8080
+    env:
+      otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev-commit-provider-emulator-nodes: &mev_commit_provider_emulator_nodes_job
     name: mev-commit-provider-emulator-nodes
@@ -290,6 +294,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_node2: &mev_commit_bidder_node2_job
     name: mev-commit-bidder-node2
@@ -434,6 +439,7 @@ jobs:
           to: 8080
     env:
       l1_rpc_url: "{{ l1_rpc_url }}"
+      otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_emulator_nodes: &mev_commit_bidder_emulator_nodes_job
     name: mev-commit-bidder-emulator-nodes
@@ -504,6 +510,22 @@ jobs:
     count: 1
     type: metrics
 
+  otel_collector: &otel_collector_job
+    name: otel-collector
+    template: otel-collector.nomad.j2
+    count: 1
+    ports:
+      - http:
+          static: 4318
+          to: 4318
+        grpc:
+          static: 4317
+          to: 4317
+        health:
+          to: 80
+        metrics:
+          to: 8888
+
 profiles:
   ci:
     jobs:
@@ -523,6 +545,7 @@ profiles:
     jobs:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
+      - *otel_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
@@ -542,6 +565,7 @@ profiles:
     jobs:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
+      - *otel_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
@@ -558,6 +582,7 @@ profiles:
     jobs:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
+      - *otel_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
@@ -589,6 +614,7 @@ profiles:
     jobs:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
+      - *otel_collector_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job

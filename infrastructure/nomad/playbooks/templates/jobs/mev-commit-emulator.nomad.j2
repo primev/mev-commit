@@ -67,7 +67,7 @@ job "{{ job.name }}" {
             if job.get('env') and job.env.get('log-tags')
             else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
           }}"
-
+          EMULATOR_OTEL_COLLECTOR_ENDPOINT_URL="{{ job.env.get('otel_collector_endpoint_url', '') }}"
           {%- raw %}
           {{- $idx := add (env "NOMAD_ALLOC_INDEX" | parseInt) 1 }}
           {{- range nomadService (printf "%s%d" "{% endraw %}{{ job.target_name }}{% raw %}" $idx) }}
@@ -117,7 +117,8 @@ job "{{ job.name }}" {
             -rpc-addr "${EMULATOR_L1_RPC_URL}" \
             {% endif %}
             -log-tags "${EMULATOR_LOG_TAGS}" \
-            -log-fmt "${EMULATOR_LOG_FMT}"
+            -log-fmt "${EMULATOR_LOG_FMT}" \
+            -otel-collector-endpoint-url "${EMULATOR_OTEL_COLLECTOR_ENDPOINT_URL}" \
         EOH
         destination = "local/run.sh"
         perms = "0755"
