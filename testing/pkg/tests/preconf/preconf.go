@@ -1,6 +1,7 @@
 package preconf
 
 import (
+	"bytes"
 	"context"
 	crand "crypto/rand"
 	"encoding/hex"
@@ -16,6 +17,7 @@ import (
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rlp"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
@@ -449,18 +451,31 @@ func getRandomBid(
 		bundleLen = len(blk.(*types.Block).Transactions()) - idx
 	}
 
-	txHashes := make([]string, 0, bundleLen)
+	var (
+		txHashes []string
+		rawTxns  []string
+	)
+	// send payload instead of hashes
+	sendPayload := rand.Intn(100) < 50
 	for i := idx; i < idx+bundleLen; i++ {
-		txHashes = append(
-			txHashes,
-			strings.TrimPrefix(blk.(*types.Block).Transactions()[i].Hash().String(), "0x"),
-		)
+		if !sendPayload {
+			txHashes = append(
+				txHashes,
+				strings.TrimPrefix(blk.(*types.Block).Transactions()[i].Hash().String(), "0x"),
+			)
+		} else {
+			var buf bytes.Buffer
+			if err := rlp.Encode(&buf, blk.(*types.Block).Transactions()[i]); err != nil {
+				return nil, err
+			}
+			rawTxns = append(rawTxns, hex.EncodeToString(buf.Bytes()))
+		}
 	}
 
 	// accept 90% of bids
 	accept := rand.Intn(100) < 90
 	// slash 10% of accepted bids
-	shouldSlash := rand.Intn(100) < 10
+	shouldSlash := rand.Intn(100) < 10 && !sendPayload
 	// amount between 5M and 6M
 	amount := 5_000_000 + rand.Intn(1_000_000)
 
@@ -491,6 +506,7 @@ func getRandomBid(
 			BlockNumber:         int64(blkNum),
 			DecayStartTimestamp: time.Now().UnixMilli(),
 			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
+			RawTransactions:     rawTxns,
 		},
 		Accept:      accept,
 		ShouldSlash: shouldSlash,
