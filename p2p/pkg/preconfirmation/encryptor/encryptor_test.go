@@ -13,7 +13,7 @@ import (
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/keysstore"
-	"github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
+	preconfencryptor "github.com/primev/mev-commit/p2p/pkg/preconfirmation/encryptor"
 	inmemstorage "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	mockkeysigner "github.com/primev/mev-commit/x/keysigner/mock"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +45,14 @@ func TestBids(t *testing.T) {
 		}
 		start := time.Now().UnixMilli()
 		end := start + 100000
-		_, encryptedBid, _, err := encryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end, "")
+		reqBid := &preconfpb.Bid{
+			TxHash:              "0xkartik",
+			BidAmount:           "10",
+			BlockNumber:         2,
+			DecayStartTimestamp: start,
+			DecayEndTimestamp:   end,
+		}
+		encryptedBid, _, err := encryptor.ConstructEncryptedBid(reqBid)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,7 +131,15 @@ func TestBids(t *testing.T) {
 		start := time.Now().UnixMilli()
 		end := start + 100000
 
-		bid, encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid("0xkartik", "10", 2, start, end, "")
+		bid := &preconfpb.Bid{
+			TxHash:              "0xkartik",
+			BidAmount:           "10",
+			BlockNumber:         2,
+			DecayStartTimestamp: start,
+			DecayEndTimestamp:   end,
+		}
+
+		encryptedBid, nikePrivateKey, err := bidderEncryptor.ConstructEncryptedBid(bid)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -138,7 +153,12 @@ func TestBids(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(providerNikePrivateKey.PublicKey(), nikePrivateKey, bid.Digest, encryptedPreConfirmation)
+		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(
+			bid,
+			providerNikePrivateKey.PublicKey(),
+			nikePrivateKey,
+			encryptedPreConfirmation,
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -345,7 +365,13 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 	b.ResetTimer()
 	// Benchmark loop
 	for i := 0; i < b.N; i++ {
-		_, _, _, err := encryptor.ConstructEncryptedBid(bids[i].hash, bids[i].amount, bids[i].blocknumber, bids[i].start, bids[i].end, "")
+		_, _, err := encryptor.ConstructEncryptedBid(&preconfpb.Bid{
+			TxHash:              bids[i].hash,
+			BidAmount:           bids[i].amount,
+			BlockNumber:         bids[i].blocknumber,
+			DecayStartTimestamp: bids[i].start,
+			DecayEndTimestamp:   bids[i].end,
+		})
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -404,7 +430,14 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		bids[i], _, _, err = bidderEncryptor.ConstructEncryptedBid(bid.hash, bid.amount, bid.blocknumber, bid.start, bid.end, "")
+		bids[i] = &preconfpb.Bid{
+			TxHash:              bid.hash,
+			BidAmount:           bid.amount,
+			BlockNumber:         bid.blocknumber,
+			DecayStartTimestamp: bid.start,
+			DecayEndTimestamp:   bid.end,
+		}
+		_, _, err = bidderEncryptor.ConstructEncryptedBid(bids[i])
 		if err != nil {
 			b.Fatal(err)
 		}

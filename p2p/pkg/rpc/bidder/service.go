@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
@@ -76,7 +77,7 @@ type AutoDepositTracker interface {
 }
 
 type PreconfSender interface {
-	SendBid(ctx context.Context, txnsStr string, amount string, blockNumber int64, decayStartTimestamp int64, decayEndTimestamp int64, revertingTxHashes string) (chan *preconfirmationv1.PreConfirmation, error)
+	SendBid(ctx context.Context, bid *preconfirmationv1.Bid) (chan *preconfirmationv1.PreConfirmation, error)
 }
 
 type BidderRegistryContract interface {
@@ -123,6 +124,16 @@ func (s *Service) SendBid(
 		return status.Errorf(codes.InvalidArgument, "validating bid: %v", err)
 	}
 
+	if len(bid.TxHashes) > 0 && len(bid.RawTransactions) > 0 {
+		s.logger.Error("both txHashes and rawTransactions are provided", "bid", bid)
+		return status.Error(codes.InvalidArgument, "both txHashes and rawTransactions are provided")
+	}
+
+	if len(bid.RevertingTxHashes) > 0 && len(bid.RevertingRawTransactions) > 0 {
+		s.logger.Error("both revertingTxHashes and revertingRawTransactions are provided", "bid", bid)
+		return status.Error(codes.InvalidArgument, "both revertingTxHashes and revertingRawTransactions are provided")
+	}
+
 	// Helper function to strip "0x" prefix
 	stripPrefix := func(hashes []string) []string {
 		stripped := make([]string, len(hashes))
@@ -131,17 +142,57 @@ func (s *Service) SendBid(
 		}
 		return stripped
 	}
-	txnsStr := strings.Join(stripPrefix(bid.TxHashes), ",")
-	revertingTxHashesStr := strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
+	var (
+		txnsStr          string
+		revertingTxnsStr string
+	)
+	if len(bid.TxHashes) > 0 {
+		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
+	}
+	if len(bid.RawTransactions) > 0 {
+		for _, rawTx := range bid.RawTransactions {
+			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
+			if err != nil {
+				s.logger.Error("decoding raw transaction", "error", err)
+				return status.Errorf(codes.InvalidArgument, "decoding raw transaction: %v", err)
+			}
+			txnHash := crypto.Keccak256Hash(rawTxnBytes)
+			txnsStr += strings.TrimPrefix(txnHash.String(), "0x") + ","
+		}
+		txnsStr = strings.TrimSuffix(txnsStr, ",")
+	}
+	if len(bid.RevertingTxHashes) > 0 {
+		revertingTxnsStr = strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
+	}
+	if len(bid.RevertingRawTransactions) > 0 {
+		for _, rawTx := range bid.RevertingRawTransactions {
+			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
+			if err != nil {
+				s.logger.Error("decoding reverting raw transaction", "error", err)
+				return status.Errorf(codes.InvalidArgument, "decoding reverting raw transaction: %v", err)
+			}
+			txnHash := crypto.Keccak256Hash(rawTxnBytes)
+			revertingTxnsStr += strings.TrimPrefix(txnHash.String(), "0x") + ","
+		}
+		revertingTxnsStr = strings.TrimSuffix(revertingTxnsStr, ",")
+	}
+	if len(txnsStr) == 0 && len(revertingTxnsStr) == 0 {
+		s.logger.Error("empty bid", "bid", bid)
+		return status.Error(codes.InvalidArgument, "empty bid")
+	}
 
 	respC, err := s.sender.SendBid(
 		ctx,
-		txnsStr,
-		bid.Amount,
-		bid.BlockNumber,
-		bid.DecayStartTimestamp,
-		bid.DecayEndTimestamp,
-		revertingTxHashesStr,
+		&preconfirmationv1.Bid{
+			TxHash:                   txnsStr,
+			BidAmount:                bid.Amount,
+			BlockNumber:              bid.BlockNumber,
+			DecayStartTimestamp:      bid.DecayStartTimestamp,
+			DecayEndTimestamp:        bid.DecayEndTimestamp,
+			RevertingTxHashes:        revertingTxnsStr,
+			RawTransactions:          bid.RawTransactions,
+			RevertingRawTransactions: bid.RevertingRawTransactions,
+		},
 	)
 	if err != nil {
 		s.logger.Error("sending bid", "error", err)

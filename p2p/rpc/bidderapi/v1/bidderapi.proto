@@ -287,7 +287,7 @@ message Bid {
   }, (buf.validate.field).cel = {
         id: "tx_hashes",
         message: "tx_hashes must be a valid array of transaction hashes.",
-        expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{64}$')) && size(this) > 0"
+        expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{64}$'))"
   }];
   string amount = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Amount of ETH that the bidder is willing to pay to the provider for including the transaction in the block."
@@ -324,6 +324,20 @@ message Bid {
       id: "reverting_tx_hashes",
       message: "reverting_tx_hashes must be an array of valid transaction hashes.",
       expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{64}$'))"
+  }];
+  repeated string raw_transactions = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional array of RLP encoded raw transaction payloads that the bidder wants to include in the block."
+  }, (buf.validate.field).cel = {
+      id: "raw_transactions",
+      message: "raw_transactions must be an array of valid raw transactions.",
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]*$'))"
+  }];
+  repeated string reverting_raw_transactions = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Optional array of RLP encoded raw transactions that are allowed to revert or be discarded."
+  }, (buf.validate.field).cel = {
+      id: "reverting_raw_transactions",
+      message: "reverting_raw_transactions must be an array of valid raw transactions.",
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]*$'))"
   }];
 };
 
