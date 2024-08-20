@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
@@ -139,9 +141,19 @@ func (s *Service) fetchProposerDuties(ctx context.Context, epoch uint64) (*Propo
 
 	if resp.StatusCode != http.StatusOK {
 		s.logger.Error("unexpected status code", "status", resp.StatusCode)
-		return nil, status.Errorf(codes.Internal, "unexpected status code: %v", resp.StatusCode)
-	}
 
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "reading response body: %v", err)
+		}
+
+		bodyString := string(bodyBytes)
+		if strings.Contains(bodyString, "Proposer duties were requested for a future epoch") {
+			return nil, status.Errorf(codes.InvalidArgument, "Proposer duties were requested for a future epoch")
+		}
+
+		return nil, status.Errorf(codes.Internal, "unexpected status code: %v, response: %s", resp.StatusCode, bodyString)
+	}
 	var dutiesResp ProposerDutiesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&dutiesResp); err != nil {
 		s.logger.Error("decoding response", "error", err)
