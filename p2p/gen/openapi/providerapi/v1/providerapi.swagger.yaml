@@ -203,11 +203,6 @@ definitions:
         items:
           type: string
         description: Optional array of raw transactions that the bidder wants to include in the block.
-      revertingRawTransactions:
-        type: array
-        items:
-          type: string
-        description: Optional array of raw transactions that the bidder wants to include in the block.
     description: Signed bid message from bidders to the provider.
     title: Bid message
     required:

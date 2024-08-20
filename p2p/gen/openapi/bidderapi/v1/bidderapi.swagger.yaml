@@ -255,11 +255,6 @@ definitions:
         items:
           type: string
         description: Optional array of RLP encoded raw transaction payloads that the bidder wants to include in the block.
-      revertingRawTransactions:
-        type: array
-        items:
-          type: string
-        description: Optional array of RLP encoded raw transactions that are allowed to revert or be discarded.
     description: Unsigned bid message from bidders to the bidder mev-commit node.
     title: Bid message
     required:
