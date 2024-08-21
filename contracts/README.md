@@ -73,3 +73,5 @@ The aforementioned process can be followed exactly for contracts that are owned 
 For contracts that are owned by a multisig, simply deploy the new implementation contract from any account using a forge script etc., then call `upgradeToAndCall()` using the multisig UI (e.g Safe wallet).
 
 Ownership of the implementation contract itself would be irrelevant in this scenario, as the implementation is deployed without calling its initializer, or setting any state. Ie. the implementation contract serves only as a blueprint for state transition functionality.
+
+The multisig option bypasses safety checks that would otherwise happen by using a forge script in tandem with [OpenZeppelin Foundry Upgrades](https://github.com/OpenZeppelin/openzeppelin-foundry-upgrades). Therefore it's very important to use the validate command from above to ensure the upgrade is safe to proceed with.
