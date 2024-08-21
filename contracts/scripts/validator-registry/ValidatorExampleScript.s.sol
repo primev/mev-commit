@@ -7,13 +7,13 @@ pragma solidity 0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {ValidatorRegistryV1} from "../../contracts/validator-registry/ValidatorRegistryV1.sol";
-import {IValidatorRegistryV1} from "../../contracts/interfaces/IValidatorRegistryV1.sol";
+import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
+import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
 
-// Script to e2e test the ValidatorRegistryV1 contract with anvil, also see makefile.
+// Script to e2e test the VanillaRegistry contract with anvil, also see makefile.
 abstract contract ExampleScript is Script {
 
-    ValidatorRegistryV1 internal _validatorRegistry = ValidatorRegistryV1(payable(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512));
+    VanillaRegistry internal _validatorRegistry = VanillaRegistry(payable(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512));
 
     // When starting anvil: 
     // 
@@ -49,7 +49,7 @@ abstract contract ExampleScript is Script {
             console.log("Staked Amount:", stakedAmount);
             bool isUnstaking = _validatorRegistry.isUnstaking(blsKeys[i]);
             console.log("is Unstaking: %s", isUnstaking);
-            IValidatorRegistryV1.StakedValidator memory stakedValidator = _validatorRegistry.getStakedValidator(blsKeys[i]);
+            IVanillaRegistry.StakedValidator memory stakedValidator = _validatorRegistry.getStakedValidator(blsKeys[i]);
             console.log("Staked Validator balance: %s", stakedValidator.balance);
             console.log("Staked Validator withdrawalAddress: %s", stakedValidator.withdrawalAddress);
             console.log("Staked Validator unstakeBlockNum: %s", stakedValidator.unstakeHeight.blockHeight);

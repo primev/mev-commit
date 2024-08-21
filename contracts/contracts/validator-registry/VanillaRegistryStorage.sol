@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
+import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
 
-/// @title ValidatorRegistryV1Storage
-/// @notice Storage components of the ValidatorRegistryV1 contract.
-contract ValidatorRegistryV1Storage { 
+/// @title VanillaRegistryStorage
+/// @notice Storage components of the VanillaRegistry contract.
+contract VanillaRegistryStorage { 
 
     /// @dev Minimum stake required for validators. 
     uint256 public minStake;
@@ -23,7 +23,7 @@ contract ValidatorRegistryV1Storage {
     uint256 public unstakePeriodBlocks;
 
     /// @dev Mapping of BLS pubkeys to stored staked validator structs. 
-    mapping(bytes => IValidatorRegistryV1.StakedValidator) public stakedValidators;
+    mapping(bytes => IVanillaRegistry.StakedValidator) public stakedValidators;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;

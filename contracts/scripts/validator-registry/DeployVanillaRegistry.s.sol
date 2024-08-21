@@ -7,11 +7,11 @@ pragma solidity 0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import {ValidatorRegistryV1} from "../../contracts/validator-registry/ValidatorRegistryV1.sol";
+import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
 import {console} from "forge-std/console.sol";
 
 contract BaseDeploy is Script {
-    function deployValidatorRegistry(
+    function deployVanillaRegistry(
         uint256 minStake,
         uint256 slashAmount,
         address slashOracle,
@@ -19,17 +19,17 @@ contract BaseDeploy is Script {
         uint256 unstakePeriodBlocks,
         address owner
     ) public returns (address) {
-        console.log("Deploying ValidatorRegistryV1 on chain:", block.chainid);
+        console.log("Deploying VanillaRegistry on chain:", block.chainid);
         address proxy = Upgrades.deployUUPSProxy(
-            "ValidatorRegistryV1.sol",
+            "VanillaRegistry.sol",
             abi.encodeCall(
-                ValidatorRegistryV1.initialize,
+                VanillaRegistry.initialize,
                 (minStake, slashAmount, slashOracle, slashReceiver, unstakePeriodBlocks, owner)
             )
         );
-        console.log("ValidatorRegistryV1 UUPS proxy deployed to:", address(proxy));
-        ValidatorRegistryV1 validatorRegistry = ValidatorRegistryV1(payable(proxy));
-        console.log("ValidatorRegistryV1 owner:", validatorRegistry.owner());
+        console.log("VanillaRegistry UUPS proxy deployed to:", address(proxy));
+        VanillaRegistry vanillaRegistry = VanillaRegistry(payable(proxy));
+        console.log("VanillaRegistry owner:", vanillaRegistry.owner());
         return proxy;
     }
 }
@@ -47,7 +47,7 @@ contract DeployHolesky is BaseDeploy {
     function run() external {
         require(block.chainid == 17000, "must deploy on Holesky");
         vm.startBroadcast();
-        deployValidatorRegistry(MIN_STAKE, SLASH_AMOUNT,
+        deployVanillaRegistry(MIN_STAKE, SLASH_AMOUNT,
            SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, OWNER);
         vm.stopBroadcast();
     }
@@ -63,7 +63,7 @@ contract DeployAnvil is BaseDeploy {
     function run() external {
         require(block.chainid == 31337, "must deploy on anvil");
         vm.startBroadcast();
-        deployValidatorRegistry(MIN_STAKE, SLASH_AMOUNT,
+        deployVanillaRegistry(MIN_STAKE, SLASH_AMOUNT,
             SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, msg.sender);
         vm.stopBroadcast();
     }

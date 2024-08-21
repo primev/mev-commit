@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import {ValidatorOptInRouterStorage} from "./ValidatorOptInRouterStorage.sol";
 import {IValidatorOptInRouter} from "../interfaces/IValidatorOptInRouter.sol";
-import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
+import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
 import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -23,11 +23,11 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
 
     /// @notice Initializes the contract with the validator registry and mev-commit AVS contracts.
     function initialize(
-        address _validatorRegistry,
+        address _vanillaRegistry,
         address _mevCommitAVS,
         address _owner
     ) external initializer {
-        validatorRegistryV1 = IValidatorRegistryV1(_validatorRegistry);
+        vanillaRegistry = IVanillaRegistry(_vanillaRegistry);
         mevCommitAVS = IMevCommitAVS(_mevCommitAVS);
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
@@ -43,11 +43,11 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
         revert Errors.InvalidFallback();
     }
 
-    /// @notice Allows the owner to set the validator registry V1 contract.
-    function setValidatorRegistryV1(IValidatorRegistryV1 _validatorRegistry) external onlyOwner {
-        address oldContract = address(validatorRegistryV1);
-        validatorRegistryV1 = _validatorRegistry;
-        emit ValidatorRegistryV1Set(oldContract, address(validatorRegistryV1));
+    /// @notice Allows the owner to set the vanilla registry contract.
+    function setVanillaRegistry(IVanillaRegistry _vanillaRegistry) external onlyOwner {
+        address oldContract = address(vanillaRegistry);
+        vanillaRegistry = _vanillaRegistry;
+        emit VanillaRegistrySet(oldContract, address(vanillaRegistry));
     }
 
     /// @notice Allows the owner to set the mev-commit AVS contract.
@@ -76,7 +76,7 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
 
     /// @notice Internal function to check if a validator is opted in to mev-commit with either simple staking or restaking.
     function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
-        if (validatorRegistryV1.isValidatorOptedIn(valBLSPubKey)) {
+        if (vanillaRegistry.isValidatorOptedIn(valBLSPubKey)) {
             return true;
         }
         return mevCommitAVS.isValidatorOptedIn(valBLSPubKey);

@@ -3,9 +3,9 @@ pragma solidity 0.8.20;
 
 import { EventHeightLib } from "../utils/EventHeight.sol";
 
-/// @title IValidatorRegistryV1
-/// @notice Interface for the ValidatorRegistryV1 contract.
-interface IValidatorRegistryV1 {
+/// @title IVanillaRegistry
+/// @notice Interface for the VanillaRegistry contract for validators.
+interface IVanillaRegistry {
 
     /// @dev Struct representing a validator staked with the registry.
     struct StakedValidator {

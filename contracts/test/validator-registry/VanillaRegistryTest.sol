@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../contracts/validator-registry/ValidatorRegistryV1.sol";
-
+import {Test} from"forge-std/Test.sol";
+import {VanillaRegistry} from"../../contracts/validator-registry/VanillaRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
-contract ValidatorRegistryV1Test is Test {
-    ValidatorRegistryV1 public validatorRegistry;
+contract VanillaRegistryTest is Test {
+    VanillaRegistry public validatorRegistry;
     address public owner;
     address public user1;
     address public user2;
@@ -18,8 +17,8 @@ contract ValidatorRegistryV1Test is Test {
     address public constant SLASH_ORACLE = address(0x78888);
     address public constant SLASH_RECEIVER = address(0x78886);
 
-    bytes public constant user1BLSKey = hex"96db1884af7bf7a1b57c77222723286a8ce3ef9a16ab6c5542ec5160662d450a1b396b22fc519679adae6ad741547268";
-    bytes public constant user2BLSKey = hex"a5c99dfdfc69791937ac5efc5d33316cd4e0698be24ef149bbc18f0f25ad92e5e11aafd39701dcdab6d3205ad38c307b";
+    bytes public user1BLSKey = hex"96db1884af7bf7a1b57c77222723286a8ce3ef9a16ab6c5542ec5160662d450a1b396b22fc519679adae6ad741547268";
+    bytes public user2BLSKey = hex"a5c99dfdfc69791937ac5efc5d33316cd4e0698be24ef149bbc18f0f25ad92e5e11aafd39701dcdab6d3205ad38c307b";
 
     event Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event StakeAdded(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount, uint256 newBalance);
@@ -42,10 +41,10 @@ contract ValidatorRegistryV1Test is Test {
         assertEq(user2BLSKey.length, 48);
         
         address proxy = Upgrades.deployUUPSProxy(
-            "ValidatorRegistryV1.sol",
-            abi.encodeCall(ValidatorRegistryV1.initialize, (MIN_STAKE, SLASH_AMOUNT, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner))
+            "VanillaRegistry.sol",
+            abi.encodeCall(VanillaRegistry.initialize, (MIN_STAKE, SLASH_AMOUNT, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner))
         );
-        validatorRegistry = ValidatorRegistryV1(payable(proxy));
+        validatorRegistry = VanillaRegistry(payable(proxy));
     }
 
     function testSecondInitialize() public {

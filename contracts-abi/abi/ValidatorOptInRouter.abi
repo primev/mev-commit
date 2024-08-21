@@ -56,7 +56,7 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "_validatorRegistry",
+        "name": "_vanillaRegistry",
         "type": "address",
         "internalType": "address"
       },
@@ -148,12 +148,12 @@
   },
   {
     "type": "function",
-    "name": "setValidatorRegistryV1",
+    "name": "setVanillaRegistry",
     "inputs": [
       {
-        "name": "_validatorRegistry",
+        "name": "_vanillaRegistry",
         "type": "address",
-        "internalType": "contract IValidatorRegistryV1"
+        "internalType": "contract IVanillaRegistry"
       }
     ],
     "outputs": [],
@@ -192,13 +192,13 @@
   },
   {
     "type": "function",
-    "name": "validatorRegistryV1",
+    "name": "vanillaRegistry",
     "inputs": [],
     "outputs": [
       {
         "name": "",
         "type": "address",
-        "internalType": "contract IValidatorRegistryV1"
+        "internalType": "contract IVanillaRegistry"
       }
     ],
     "stateMutability": "view"
@@ -288,7 +288,7 @@
   },
   {
     "type": "event",
-    "name": "ValidatorRegistryV1Set",
+    "name": "VanillaRegistrySet",
     "inputs": [
       {
         "name": "oldContract",

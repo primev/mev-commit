@@ -12,7 +12,7 @@ import {ValidatorOptInRouter} from "../../contracts/validator-registry/Validator
 
 contract BaseDeploy is Script {
     function deployValidatorOptInRouter(
-        address registryV1,
+        address vanillaRegistry,
         address mevCommitAVS,
         address owner
     ) public returns (address) {
@@ -21,7 +21,7 @@ contract BaseDeploy is Script {
             "ValidatorOptInRouter.sol",
             abi.encodeCall(
                 ValidatorOptInRouter.initialize,
-                (registryV1, mevCommitAVS, owner)
+                (vanillaRegistry, mevCommitAVS, owner)
             )
         );
         console.log("ValidatorOptInRouter UUPS proxy deployed to:", address(proxy));
@@ -32,7 +32,7 @@ contract BaseDeploy is Script {
 }
 
 contract DeployHolesky is BaseDeploy {
-    address constant public VAL_REGISTRY_V1 = 0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf;
+    address constant public VANILLA_REGISTRY = 0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf;
     address constant public MEV_COMMIT_AVS = 0xEDEDB8ed37A43Fd399108A44646B85b780D85DD4;
 
     // This is the most important field. On mainnet it'll be the primev multisig.
@@ -43,7 +43,7 @@ contract DeployHolesky is BaseDeploy {
 
         vm.startBroadcast();
         deployValidatorOptInRouter(
-            VAL_REGISTRY_V1,
+            VANILLA_REGISTRY,
             MEV_COMMIT_AVS,
             OWNER
         );
