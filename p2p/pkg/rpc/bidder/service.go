@@ -130,7 +130,6 @@ func (s *Service) SendBid(
 	case len(bid.TxHashes) > 0 && len(bid.RawTransactions) > 0:
 		s.logger.Error("both txHashes and rawTransactions are provided", "bid", bid)
 		return status.Error(codes.InvalidArgument, "both txHashes and rawTransactions are provided")
-	default:
 	}
 
 	// Helper function to strip "0x" prefix
