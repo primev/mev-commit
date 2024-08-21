@@ -9,6 +9,7 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {MevCommitAVS} from "../../../contracts/validator-registry/avs/MevCommitAVS.sol";
 import {MevCommitAVSV2} from "../../../contracts/validator-registry/avs/MevCommitAVSV2.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract UpgradeAVS is Script {
     function _runTests(MevCommitAVS avs) internal {
@@ -38,8 +39,11 @@ contract UpgradeHolesky is UpgradeAVS {
         _runTests(existingMevCommitAVSProxy);
 
         vm.startBroadcast();
-        MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
-        existingMevCommitAVSProxy.upgradeToAndCall(address(newImplementation), "");
+        Upgrades.upgradeProxy(
+            address(existingMevCommitAVSProxy), 
+            "MevCommitAVSV2.sol", 
+            ""
+        );
         console.log("Upgraded to MevCommitAVSV2");
         vm.stopBroadcast();
 
@@ -57,8 +61,11 @@ contract UpgradeAnvil is UpgradeAVS {
         _runTests(existingMevCommitAVSProxy);
 
         vm.startBroadcast();
-        MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
-        existingMevCommitAVSProxy.upgradeToAndCall(address(newImplementation), "");
+        Upgrades.upgradeProxy(
+            address(existingMevCommitAVSProxy), 
+            "MevCommitAVSV2.sol", 
+            "" 
+        );
         console.log("Upgraded to MevCommitAVSV2");
         vm.stopBroadcast();
 
