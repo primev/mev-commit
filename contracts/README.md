@@ -44,7 +44,7 @@ pragma solidity 0.8.20;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {MevCommitAVS} from "../../../contracts/validator-registry/avs/MevCommitAVS.sol";
-import {MevCommitAVSV2} from "../../../contracts/validator-registry/avs/MevCommitAVSV2.sol";
+import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 
 contract UpgradeAVS is Script {
     function _runTests(MevCommitAVS avs) internal {
@@ -61,8 +61,11 @@ contract UpgradeAnvil is UpgradeAVS {
         _runTests(existingMevCommitAVSProxy);
 
         vm.startBroadcast();
-        MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
-        existingMevCommitAVSProxy.upgradeToAndCall(address(newImplementation), "");
+        Upgrades.upgradeProxy(
+            address(existingMevCommitAVSProxy), 
+            "MevCommitAVSV2.sol", 
+            "" 
+        );
         console.log("Upgraded to MevCommitAVSV2");
         vm.stopBroadcast();
 
@@ -80,7 +83,24 @@ It's encouraged to test your upgrade process using anvil, then use identical cod
 
 The aforementioned process can be followed exactly for contracts that are owned by a single EOA, where the forge script can be run directly using a keystore.
 
-For contracts that are owned by a multisig, simply deploy the new implementation contract from any account using a forge script etc., then call `upgradeToAndCall()` on the proxy using the multisig UI (e.g Safe wallet).
+For contracts that are owned by a multisig, simply deploy an uninitialized new implementation contract from any account using a forge script etc.,
+
+```solidity
+import {MevCommitAVSV2} from "../../../contracts/validator-registry/avs/MevCommitAVSV2.sol";
+import {Script} from "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
+
+contract DeployNewImpl is Script {
+    function run() external {
+        vm.startBroadcast();
+        MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
+        console.log("Deployed new implementation contract at address: ", address(newImplementation));
+        vm.stopBroadcast();
+    }
+}
+```
+
+Then call the `upgradeToAndCall(newImplAddr, callData)` function directly on the proxy contract using your multisig UI (e.g Safe wallet).
 
 Ownership of the implementation contract itself would be irrelevant in this scenario, as the implementation is deployed without calling its initializer, or setting any state. Ie. the implementation contract serves only as a blueprint for state transition functionality.
 
