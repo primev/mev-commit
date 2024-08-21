@@ -12,6 +12,7 @@ import {EigenPodManagerMock} from "./EigenPodManagerMock.sol";
 import {EigenPodMock} from "./EigenPodMock.sol";
 import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod.sol";
 import {AVSDirectoryMock} from "./AVSDirectoryMock.sol";
+import {MevCommitAVSV2} from "../../../contracts/validator-registry/avs/MevCommitAVSV2.sol";
 
 contract MevCommitAVSTest is Test {
     MevCommitAVS public mevCommitAVS;
@@ -94,6 +95,9 @@ contract MevCommitAVSTest is Test {
             ))
         );
         mevCommitAVS = MevCommitAVS(payable(proxy));
+
+        MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
+        mevCommitAVS.upgradeToAndCall(address(newImplementation), "");
     }
 
     function testRegisterOperator() public {
