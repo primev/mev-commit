@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	preconfirmationv1 "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
@@ -156,8 +155,13 @@ func (s *Service) SendBid(
 				s.logger.Error("decoding raw transaction", "error", err)
 				return status.Errorf(codes.InvalidArgument, "decoding raw transaction: %v", err)
 			}
-			txnHash := crypto.Keccak256Hash(rawTxnBytes)
-			txnsStr += strings.TrimPrefix(txnHash.String(), "0x") + ","
+			txnObj := new(types.Transaction)
+			err = txnObj.UnmarshalBinary(rawTxnBytes)
+			if err != nil {
+				s.logger.Error("unmarshaling raw transaction", "error", err)
+				return status.Errorf(codes.InvalidArgument, "unmarshaling raw transaction: %v", err)
+			}
+			txnsStr += strings.TrimPrefix(txnObj.Hash().Hex(), "0x") + ","
 		}
 		txnsStr = strings.TrimSuffix(txnsStr, ",")
 	}

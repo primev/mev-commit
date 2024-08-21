@@ -16,8 +16,6 @@ import (
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
@@ -461,23 +459,11 @@ func getRandomBid(
 			txHashes,
 			strings.TrimPrefix(txn.Hash().String(), "0x"),
 		)
-		// var buf bytes.Buffer
-		buf, err := rlp.EncodeToBytes(txn)
+		buf, err := txn.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
-		// if err := txn.EncodeRLP(&buf); err != nil {
-		// 	return nil, err
-		// }
 		rawTxns = append(rawTxns, hex.EncodeToString(buf))
-		buf2, err := hex.DecodeString(rawTxns[len(rawTxns)-1])
-		if err != nil {
-			return nil, err
-		}
-		tHash := crypto.Keccak256Hash(buf2)
-		if tHash != txn.Hash() {
-			return nil, fmt.Errorf("hash mismatch: %s != %s", tHash, txn.Hash())
-		}
 	}
 
 	// send payload instead of hashes
