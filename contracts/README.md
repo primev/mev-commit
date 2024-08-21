@@ -12,6 +12,10 @@ First, implement and merge an appropriate feat/fix to the implementation contrac
 
 Next, create a branch off the appropriate release branch (e.g. `release/v0.5.x`) that the currently deployed contract was initially built/deployed from, we'll refer to this as the "upgrade branch". Copy/paste the updated implementation contract from `main` into your upgrade branch, by creating a new file with an incremented version number as a postfix of the original contract's filename. E.g. if the original contract's filename is `MevCommitAVS.sol`, then the new contract's filename should be `MevCommitAVSV2.sol`.
 
+If the feat/fix required changes to the storage contract (see limitations above), you **must** also create a new storage contract with an incremented version number as a postfix of the original storage contract's filename. E.g. if the original storage contract's filename is `MevCommitAVSStorage.sol`, then the new storage contract's filename should be `MevCommitAVSStorageV2.sol`.
+
+**If applicable, make sure the incremented implementation contract inherits from the incremented storage contract. This is necessary to ensure accurate upgrade safety validation.**
+
 Now [define the reference contract](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-core#define-reference-contracts) for the upgrade right above the new contract implementation. E.g `/// @custom:oz-upgrades-from MevCommitAVS`.
 
 Finally, build the contracts and use [openzeppelin's cli](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-core#usage) to validate the upgrade. Similar to `npx @openzeppelin/upgrades-core validate --contract MevCommitAVSV2`. If this command fails, you'll need to address whether a contract upgrade is still possible/appropriate.
