@@ -225,13 +225,7 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 						}
 						preconfs = append(preconfs, resp)
 					}
-					val, ok := store.Get(bidKey(entry.Bid.TxHashes))
-					if !ok {
-						logger.Error("Bid not found in store", "key", bidKey(entry.Bid.TxHashes))
-						return fmt.Errorf("bid not found in store")
-					}
-					val.(*BidEntry).Preconfs = preconfs
-					store.Insert(bidKey(entry.Bid.TxHashes), val)
+					entry.Preconfs = preconfs
 					logger.Info("Received preconfs", "count", len(preconfs))
 				}
 			}
