@@ -47,31 +47,26 @@ type testSender struct {
 
 func (s *testSender) SendBid(
 	ctx context.Context,
-	txHex string,
-	amount string,
-	blockNum int64,
-	decayStartTimestamp int64,
-	decayEndTimestamp int64,
-	revertedTxns string,
+	b *preconfpb.Bid,
 ) (chan *preconfpb.PreConfirmation, error) {
 	s.bids = append(s.bids, bid{
-		txHex:    txHex,
-		amount:   amount,
-		blockNum: blockNum,
+		txHex:    b.TxHash,
+		amount:   b.BidAmount,
+		blockNum: b.BlockNumber,
 	})
 
 	preconfs := make(chan *preconfpb.PreConfirmation, s.noOfPreconfs)
 	for i := 0; i < s.noOfPreconfs; i++ {
 		preconfs <- &preconfpb.PreConfirmation{
 			Bid: &preconfpb.Bid{
-				TxHash:              txHex,
-				BidAmount:           amount,
-				BlockNumber:         blockNum,
-				DecayStartTimestamp: decayStartTimestamp,
-				DecayEndTimestamp:   decayEndTimestamp,
+				TxHash:              b.TxHash,
+				BidAmount:           b.BidAmount,
+				BlockNumber:         b.BlockNumber,
+				DecayStartTimestamp: b.DecayStartTimestamp,
+				DecayEndTimestamp:   b.DecayEndTimestamp,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
-				RevertingTxHashes:   revertedTxns,
+				RevertingTxHashes:   b.RevertingTxHashes,
 			},
 			Digest:          []byte("digest"),
 			Signature:       []byte("signature"),
@@ -470,7 +465,7 @@ func TestSendBid(t *testing.T) {
 			blockNum:            1,
 			decayStartTimestamp: 10,
 			decayEndTimestamp:   20,
-			err:                 "tx_hashes must be a valid array of transaction hashes",
+			err:                 "empty bid",
 		},
 		{
 			name:                "invalid amount",

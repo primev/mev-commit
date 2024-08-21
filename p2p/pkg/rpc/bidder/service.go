@@ -76,7 +76,7 @@ type AutoDepositTracker interface {
 }
 
 type PreconfSender interface {
-	SendBid(ctx context.Context, txnsStr string, amount string, blockNumber int64, decayStartTimestamp int64, decayEndTimestamp int64, revertingTxHashes string) (chan *preconfirmationv1.PreConfirmation, error)
+	SendBid(ctx context.Context, bid *preconfirmationv1.Bid) (chan *preconfirmationv1.PreConfirmation, error)
 }
 
 type BidderRegistryContract interface {
@@ -123,6 +123,15 @@ func (s *Service) SendBid(
 		return status.Errorf(codes.InvalidArgument, "validating bid: %v", err)
 	}
 
+	switch {
+	case len(bid.TxHashes) == 0 && len(bid.RawTransactions) == 0:
+		s.logger.Error("empty bid", "bid", bid)
+		return status.Error(codes.InvalidArgument, "empty bid")
+	case len(bid.TxHashes) > 0 && len(bid.RawTransactions) > 0:
+		s.logger.Error("both txHashes and rawTransactions are provided", "bid", bid)
+		return status.Error(codes.InvalidArgument, "both txHashes and rawTransactions are provided")
+	}
+
 	// Helper function to strip "0x" prefix
 	stripPrefix := func(hashes []string) []string {
 		stripped := make([]string, len(hashes))
@@ -131,17 +140,45 @@ func (s *Service) SendBid(
 		}
 		return stripped
 	}
-	txnsStr := strings.Join(stripPrefix(bid.TxHashes), ",")
-	revertingTxHashesStr := strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
+	var (
+		txnsStr string
+	)
+	switch {
+	case len(bid.TxHashes) > 0:
+		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
+	case len(bid.RawTransactions) > 0:
+		strBuilder := new(strings.Builder)
+		for i, rawTx := range bid.RawTransactions {
+			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
+			if err != nil {
+				s.logger.Error("decoding raw transaction", "error", err)
+				return status.Errorf(codes.InvalidArgument, "decoding raw transaction: %v", err)
+			}
+			txnObj := new(types.Transaction)
+			err = txnObj.UnmarshalBinary(rawTxnBytes)
+			if err != nil {
+				s.logger.Error("unmarshaling raw transaction", "error", err)
+				return status.Errorf(codes.InvalidArgument, "unmarshaling raw transaction: %v", err)
+			}
+			strBuilder.WriteString(strings.TrimPrefix(txnObj.Hash().Hex(), "0x"))
+			if i != len(bid.RawTransactions)-1 {
+				strBuilder.WriteString(",")
+			}
+		}
+		txnsStr = strBuilder.String()
+	}
 
 	respC, err := s.sender.SendBid(
 		ctx,
-		txnsStr,
-		bid.Amount,
-		bid.BlockNumber,
-		bid.DecayStartTimestamp,
-		bid.DecayEndTimestamp,
-		revertingTxHashesStr,
+		&preconfirmationv1.Bid{
+			TxHash:              txnsStr,
+			BidAmount:           bid.Amount,
+			BlockNumber:         bid.BlockNumber,
+			DecayStartTimestamp: bid.DecayStartTimestamp,
+			DecayEndTimestamp:   bid.DecayEndTimestamp,
+			RevertingTxHashes:   strings.Join(stripPrefix(bid.RevertingTxHashes), ","),
+			RawTransactions:     bid.RawTransactions,
+		},
 	)
 	if err != nil {
 		s.logger.Error("sending bid", "error", err)
