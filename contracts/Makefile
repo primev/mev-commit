@@ -16,6 +16,18 @@ deploy-val-reg:
 		--use 0.8.20 \
 		--via-ir \
 
+deploy-opt-in-router-holesky:
+	forge clean
+	forge script scripts/validator-registry/DeployValidatorOptInRouter.s.sol:DeployHolesky \
+		--rpc-url https://ethereum-holesky-rpc.publicnode.com \
+		--keystores "${KEYSTORES}" \
+        --password "${KEYSTORE_PASSWORD}" \
+        --sender "${SENDER}" \
+		--via-ir \
+		--chain-id 17000 \
+		--use 0.8.20 \
+		--broadcast
+
 deploy-core:
 	forge clean
 	DEPLOY_TYPE="core" RPC_URL="http://localhost:8545" PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" CHAIN_ID="17864" ./entrypoint.sh
