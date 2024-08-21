@@ -1,0 +1,73 @@
+# Contracts
+
+## Contract Upgrades
+
+### Implementing the feat/fix
+
+Contract upgrades are not always possible, as there are [strict limitations as enforced by Solidity](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#modifying-your-contracts). When a contract feat/fix cannot be implemented as a contract upgrade, simply PR the changes into main, and release/deploy a new contract instance as needed.
+
+The following instructions assist in upgrading an existing deployment of any of the contracts within this directory. Most contracts committed to this repo should utilize [UUPS proxies](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable). See [#360](https://github.com/primev/mev-commit/pull/360) for a simple reference example.
+
+First, implement and merge an appropriate feat/fix to the implementation contract using the main branch. This ensures any future (new) deployments of the contract will include the feat/fix along with changes to the contract's ABI.
+
+Next, create a branch off the appropriate release branch (e.g. `release/v0.5.x`) that the currently deployed contract was initially built/deployed from, we'll refer to this as the "upgrade branch". Copy/paste the updated implementation contract from `main` into your upgrade branch, by creating a new file with an incremented version number as a postfix of the original contract's filename. E.g. if the original contract's filename is `MevCommitAVS.sol`, then the new contract's filename should be `MevCommitAVSV2.sol`.
+
+Now [define the reference contract](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-core#define-reference-contracts) for the upgrade right above the new contract implementation. E.g `/// @custom:oz-upgrades-from MevCommitAVS`.
+
+Finally, build the contracts and use [openzeppelin's cli](https://docs.openzeppelin.com/upgrades-plugins/1.x/api-core#usage) to validate the upgrade. Similar to `npx @openzeppelin/upgrades-core validate --contract MevCommitAVSV2`. If this command fails, you'll need to address whether a contract upgrade is still possible/appropriate.
+
+### Note on ABI changes
+
+If the feat/fix to the implementation contract results in a change to the contract's ABI, you'll need to generate new ABI file and go binding within the upgrade branch. This can be handled on a case-by-case basis, as generating (for example) a `MevCommitAVSV2.abi` in the upgrade branch, that's equivalent to the `MevCommitAVS.abi` in the main branch, could be difficult to maintain.
+
+If possible it's recommended to avoid changing a contract's ABI for an upgrade.
+
+### Deployment
+
+Invoking the upgrade involves creating a script in which a new implementation contract is deployed, then calling `upgradeToAndCall` on the proxy contract, passing in the address of the new implementation contract.
+
+See example below
+
+```solidity
+pragma solidity 0.8.20;
+
+import {Script} from "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
+import {MevCommitAVS} from "../../../contracts/validator-registry/avs/MevCommitAVS.sol";
+import {MevCommitAVSV2} from "../../../contracts/validator-registry/avs/MevCommitAVSV2.sol";
+
+contract UpgradeAVS is Script {
+    function _runTests(MevCommitAVS avs) internal {
+        // Define expected state and/or function behavior to execute before and after upgrade
+    }
+}
+
+contract UpgradeAnvil is UpgradeAVS {
+    function run() external {
+        require(block.chainid == 31337, "must deploy on anvil");
+        MevCommitAVS existingMevCommitAVSProxy = MevCommitAVS(payable(0x5FC8d32690cc91D4c39d9d3abcBD16989F875707));
+
+        console.log("Pre-upgrade tests:");
+        _runTests(existingMevCommitAVSProxy);
+
+        vm.startBroadcast();
+        MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
+        existingMevCommitAVSProxy.upgradeTo(address(newImplementation));
+        console.log("Upgraded to MevCommitAVSV2");
+        vm.stopBroadcast();
+
+        console.log("Post-upgrade tests:");
+        _runTests(existingMevCommitAVSProxy);
+    }
+}
+```
+
+In this example, no function call is made during the upgrade. However function calls can be made similar to [these examples](https://docs.openzeppelin.com/upgrades-plugins/1.x/foundry-upgrades#examples).
+
+It's encouraged to test this upgrade process using anvil, then use identical code to invoke the upgrade on Holesky/mainnet.
+
+### Note on multisig vs EOA
+
+The aforementioned process can be followed exactly for contracts that are owned by a single EOA.
+
+For contracts that are owned by a multisig, simply deploy the new implementation contract from any account using a forge script etc., then call `upgradeToAndCall()` or `upgradeTo()` using the multisig UI (e.g Safe wallet).
