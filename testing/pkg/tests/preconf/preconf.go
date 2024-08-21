@@ -279,13 +279,7 @@ DONE:
 
 	bids := make([]*BidEntry, 0, noOfBids)
 	store.WalkPrefix("bid/", func(k string, v interface{}) bool {
-		txHashes := strings.Split(strings.TrimPrefix(k, "bid/"), ",")
-		bidEntry := v.(*BidEntry)
-		// if tx hashes are not set, set them for checking failed transactions
-		if len(bidEntry.Bid.TxHashes) == 0 && len(bidEntry.Bid.RawTransactions) > 0 {
-			bidEntry.Bid.TxHashes = txHashes
-		}
-		bids = append(bids, bidEntry)
+		bids = append(bids, v.(*BidEntry))
 		return false
 	})
 

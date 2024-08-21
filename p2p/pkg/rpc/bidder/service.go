@@ -141,14 +141,14 @@ func (s *Service) SendBid(
 		return stripped
 	}
 	var (
-		txnsStr          string
-		revertingTxnsStr string = strings.Join(stripPrefix(bid.RevertingTxHashes), ",")
+		txnsStr string
 	)
 	switch {
 	case len(bid.TxHashes) > 0:
 		txnsStr = strings.Join(stripPrefix(bid.TxHashes), ",")
 	case len(bid.RawTransactions) > 0:
-		for _, rawTx := range bid.RawTransactions {
+		strBuilder := new(strings.Builder)
+		for i, rawTx := range bid.RawTransactions {
 			rawTxnBytes, err := hex.DecodeString(strings.TrimPrefix(rawTx, "0x"))
 			if err != nil {
 				s.logger.Error("decoding raw transaction", "error", err)
@@ -160,9 +160,12 @@ func (s *Service) SendBid(
 				s.logger.Error("unmarshaling raw transaction", "error", err)
 				return status.Errorf(codes.InvalidArgument, "unmarshaling raw transaction: %v", err)
 			}
-			txnsStr += strings.TrimPrefix(txnObj.Hash().Hex(), "0x") + ","
+			strBuilder.WriteString(strings.TrimPrefix(txnObj.Hash().Hex(), "0x"))
+			if i != len(bid.RawTransactions)-1 {
+				strBuilder.WriteString(",")
+			}
 		}
-		txnsStr = strings.TrimSuffix(txnsStr, ",")
+		txnsStr = strBuilder.String()
 	}
 
 	respC, err := s.sender.SendBid(
@@ -173,7 +176,7 @@ func (s *Service) SendBid(
 			BlockNumber:         bid.BlockNumber,
 			DecayStartTimestamp: bid.DecayStartTimestamp,
 			DecayEndTimestamp:   bid.DecayEndTimestamp,
-			RevertingTxHashes:   revertingTxnsStr,
+			RevertingTxHashes:   strings.Join(stripPrefix(bid.RevertingTxHashes), ","),
 			RawTransactions:     bid.RawTransactions,
 		},
 	)
