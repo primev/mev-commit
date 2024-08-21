@@ -17,7 +17,6 @@ import (
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
@@ -456,12 +455,13 @@ func getRandomBid(
 		rawTxns  []string
 	)
 	for i := idx; i < idx+bundleLen; i++ {
+		txn := blk.(*types.Block).Transactions()[i]
 		txHashes = append(
 			txHashes,
-			strings.TrimPrefix(blk.(*types.Block).Transactions()[i].Hash().String(), "0x"),
+			strings.TrimPrefix(txn.Hash().String(), "0x"),
 		)
 		var buf bytes.Buffer
-		if err := rlp.Encode(&buf, blk.(*types.Block).Transactions()[i]); err != nil {
+		if err := txn.EncodeRLP(&buf); err != nil {
 			return nil, err
 		}
 		rawTxns = append(rawTxns, hex.EncodeToString(buf.Bytes()))
