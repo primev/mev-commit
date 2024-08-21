@@ -52,7 +52,7 @@ contract UpgradeAnvil is UpgradeAVS {
 
         vm.startBroadcast();
         MevCommitAVSV2 newImplementation = new MevCommitAVSV2();
-        existingMevCommitAVSProxy.upgradeTo(address(newImplementation));
+        existingMevCommitAVSProxy.upgradeToAndCall(address(newImplementation), "");
         console.log("Upgraded to MevCommitAVSV2");
         vm.stopBroadcast();
 
@@ -68,6 +68,8 @@ It's encouraged to test this upgrade process using anvil, then use identical cod
 
 ### Note on multisig vs EOA
 
-The aforementioned process can be followed exactly for contracts that are owned by a single EOA.
+The aforementioned process can be followed exactly for contracts that are owned by a single EOA. The forge script can be run directly using a keystore.
 
-For contracts that are owned by a multisig, simply deploy the new implementation contract from any account using a forge script etc., then call `upgradeToAndCall()` or `upgradeTo()` using the multisig UI (e.g Safe wallet).
+For contracts that are owned by a multisig, simply deploy the new implementation contract from any account using a forge script etc., then call `upgradeToAndCall()` using the multisig UI (e.g Safe wallet).
+
+Ownership of the implementation contract itself would be irrelevant in this scenario, as the implementation is deployed without calling its initializer, or setting any state. Ie. the implementation contract serves only as a blueprint for state transition functionality.
