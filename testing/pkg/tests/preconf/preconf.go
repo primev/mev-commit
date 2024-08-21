@@ -16,6 +16,8 @@ import (
 	"github.com/armon/go-radix"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
@@ -225,13 +227,7 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 						}
 						preconfs = append(preconfs, resp)
 					}
-					val, ok := store.Get(bidKey(entry.Bid.TxHashes))
-					if !ok {
-						logger.Error("Bid not found in store", "key", bidKey(entry.Bid.TxHashes))
-						return fmt.Errorf("bid not found in store")
-					}
-					val.(*BidEntry).Preconfs = preconfs
-					store.Insert(bidKey(entry.Bid.TxHashes), val)
+					entry.Preconfs = preconfs
 					logger.Info("Received preconfs", "count", len(preconfs))
 				}
 			}
@@ -259,7 +255,7 @@ DONE:
 				}
 			} else {
 				for _, b := range bidders {
-					entry, err := getRandomBid(cluster, store)
+					entry, err := getRandomBid(ctx, cluster, store)
 					if err != nil {
 						if errors.Is(err, errNoTxnsInBlock) {
 							logger.Info("No transactions in block")
@@ -373,32 +369,8 @@ DONE:
 					}
 				} else {
 					if pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
-						// check if any of the transactions were not successful,
-						// if so, the provider should not be slashed. Test doesnt
-						// handle reverting transactions.
-						failedTxnPresent := false
-						for _, h := range entry.Bid.TxHashes {
-							receipt, err := cluster.L1Client().TransactionReceipt(
-								context.Background(),
-								common.HexToHash(h),
-							)
-							if err != nil {
-								logger.Error(
-									"failed getting transaction receipt",
-									"error", err,
-									"entry", entry,
-									"hash", h,
-								)
-							}
-							if receipt.Status != types.ReceiptStatusSuccessful {
-								failedTxnPresent = true
-							}
-						}
-						if !failedTxnPresent {
-							logger.Error("Provider should not be slashed", "entry", entry)
-							return fmt.Errorf("provider should not be slashed")
-						}
-						continue
+						logger.Error("Provider should not be slashed", "entry", entry)
+						return fmt.Errorf("provider should not be slashed")
 					}
 					_, ok := store.Get(fundsRewardedKey(cmtDigest))
 					if !ok {
@@ -422,17 +394,18 @@ DONE:
 }
 
 func getRandomBid(
+	ctx context.Context,
 	o orchestrator.Orchestrator,
 	store *radix.Tree,
 ) (*BidEntry, error) {
-	blkNum, err := o.L1Client().BlockNumber(context.Background())
+	blkNum, err := o.L1Client().BlockNumber(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	blk, found := store.Get(blkKey(blkNum))
 	if !found {
-		blk, err = o.L1Client().BlockByNumber(context.Background(), big.NewInt(int64(blkNum)))
+		blk, err = o.L1Client().BlockByNumber(ctx, big.NewInt(int64(blkNum)))
 		if err != nil {
 			return nil, err
 		}
@@ -449,18 +422,38 @@ func getRandomBid(
 		bundleLen = len(blk.(*types.Block).Transactions()) - idx
 	}
 
-	txHashes := make([]string, 0, bundleLen)
+	var (
+		txHashes []string
+		rawTxns  []string
+	)
 	for i := idx; i < idx+bundleLen; i++ {
+		txn := blk.(*types.Block).Transactions()[i]
 		txHashes = append(
 			txHashes,
-			strings.TrimPrefix(blk.(*types.Block).Transactions()[i].Hash().String(), "0x"),
+			strings.TrimPrefix(txn.Hash().String(), "0x"),
 		)
+		buf, err := txn.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		rawTxns = append(rawTxns, hex.EncodeToString(buf))
 	}
 
+	revertingTxnHashes, err := getRevertingTxns(
+		ctx,
+		o.L1Client(),
+		blk.(*types.Block).Transactions()[idx:idx+bundleLen],
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// send payload instead of hashes
+	sendPayload := rand.Intn(100) < 50
 	// accept 90% of bids
 	accept := rand.Intn(100) < 90
 	// slash 10% of accepted bids
-	shouldSlash := rand.Intn(100) < 10
+	shouldSlash := rand.Intn(100) < 10 && !sendPayload
 	// amount between 5M and 6M
 	amount := 5_000_000 + rand.Intn(1_000_000)
 
@@ -486,16 +479,56 @@ func getRandomBid(
 
 	bid := &BidEntry{
 		Bid: &bidderapiv1.Bid{
-			TxHashes:            txHashes,
 			Amount:              fmt.Sprintf("%d", amount),
 			BlockNumber:         int64(blkNum),
 			DecayStartTimestamp: time.Now().UnixMilli(),
 			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
+			RevertingTxHashes:   revertingTxnHashes,
 		},
 		Accept:      accept,
 		ShouldSlash: shouldSlash,
 	}
 
-	store.Insert(bidKey(bid.Bid.TxHashes), bid)
+	if sendPayload {
+		bid.Bid.RawTransactions = rawTxns
+	} else {
+		bid.Bid.TxHashes = txHashes
+	}
+
+	store.Insert(bidKey(txHashes), bid)
 	return bid, nil
+}
+
+func getRevertingTxns(
+	ctx context.Context,
+	client *ethclient.Client,
+	txns []*types.Transaction,
+) ([]string, error) {
+	var revertingTxns []string
+	// do batch call
+	batch := make([]rpc.BatchElem, 0, len(txns))
+	for _, h := range txns {
+		batch = append(batch, rpc.BatchElem{
+			Method: "eth_getTransactionReceipt",
+			Args:   []interface{}{h.Hash()},
+			Result: new(types.Receipt),
+		})
+	}
+
+	err := client.Client().BatchCallContext(ctx, batch)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, b := range batch {
+		if b.Error != nil {
+			return nil, b.Error
+		}
+		receipt := b.Result.(*types.Receipt)
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			revertingTxns = append(revertingTxns, txns[i].Hash().String())
+		}
+	}
+
+	return revertingTxns, nil
 }

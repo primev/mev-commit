@@ -45,8 +45,8 @@ type testEncryptor struct {
 	preConfirmationSigner    common.Address
 }
 
-func (t *testEncryptor) ConstructEncryptedBid(_ string, _ string, _ int64, _ int64, _ int64, _ string) (*preconfpb.Bid, *preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
-	return t.bid, t.encryptedBid, t.nikePrivateKey, nil
+func (t *testEncryptor) ConstructEncryptedBid(_ *preconfpb.Bid) (*preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
+	return t.encryptedBid, t.nikePrivateKey, nil
 }
 
 func (t *testEncryptor) ConstructEncryptedPreConfirmation(_ *preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
@@ -65,7 +65,12 @@ func (t *testEncryptor) DecryptBidData(_ common.Address, _ *preconfpb.EncryptedB
 	return t.bid, nil
 }
 
-func (t *testEncryptor) VerifyEncryptedPreConfirmation(*ecdh.PublicKey, *ecdh.PrivateKey, []byte, *preconfpb.EncryptedPreConfirmation) ([]byte, *common.Address, error) {
+func (t *testEncryptor) VerifyEncryptedPreConfirmation(
+	_ *preconfpb.Bid,
+	_ *ecdh.PublicKey,
+	_ *ecdh.PrivateKey,
+	_ *preconfpb.EncryptedPreConfirmation,
+) ([]byte, *common.Address, error) {
 	return t.sharedSecretKey, &t.preConfirmationSigner, nil
 }
 
@@ -211,7 +216,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 
 		svc.SetPeerHandler(server, p.Streams()[0])
 
-		respC, err := p.SendBid(context.Background(), bid.TxHash, bid.BidAmount, bid.BlockNumber, bid.DecayStartTimestamp, bid.DecayEndTimestamp, "")
+		respC, err := p.SendBid(context.Background(), bid)
 		if err != nil {
 			t.Fatal(err)
 		}

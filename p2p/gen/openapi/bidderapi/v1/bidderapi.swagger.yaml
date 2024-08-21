@@ -250,6 +250,11 @@ definitions:
         items:
           type: string
         description: Optional array of tx hashes that are allowed to revert or be discarded.
+      rawTransactions:
+        type: array
+        items:
+          type: string
+        description: Optional array of RLP encoded raw transaction payloads that the bidder wants to include in the block.
     description: Unsigned bid message from bidders to the bidder mev-commit node.
     title: Bid message
     required:

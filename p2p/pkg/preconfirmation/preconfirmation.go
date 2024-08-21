@@ -2,6 +2,7 @@ package preconfirmation
 
 import (
 	"context"
+	"crypto/ecdh"
 	"errors"
 	"log/slog"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
-	encryptor "github.com/primev/mev-commit/p2p/pkg/signer/preconfencryptor"
 	"github.com/primev/mev-commit/p2p/pkg/topology"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -27,7 +27,7 @@ const (
 )
 
 type Preconfirmation struct {
-	encryptor    encryptor.Encryptor
+	encryptor    Encryptor
 	topo         Topology
 	streamer     p2p.Streamer
 	depositMgr   DepositManager
@@ -71,10 +71,23 @@ type PreconfContract interface {
 	) (*types.Transaction, error)
 }
 
+type Encryptor interface {
+	ConstructEncryptedBid(bid *preconfpb.Bid) (*preconfpb.EncryptedBid, *ecdh.PrivateKey, error)
+	ConstructEncryptedPreConfirmation(*preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error)
+	VerifyBid(*preconfpb.Bid) (*common.Address, error)
+	VerifyEncryptedPreConfirmation(
+		bid *preconfpb.Bid,
+		providerNikePK *ecdh.PublicKey,
+		bidderNikeSC *ecdh.PrivateKey,
+		c *preconfpb.EncryptedPreConfirmation,
+	) ([]byte, *common.Address, error)
+	DecryptBidData(common.Address, *preconfpb.EncryptedBid) (*preconfpb.Bid, error)
+}
+
 func New(
 	topo Topology,
 	streamer p2p.Streamer,
-	encryptor encryptor.Encryptor,
+	encryptor Encryptor,
 	depositMgr DepositManager,
 	processor BidProcessor,
 	commitmentDA PreconfContract,
@@ -114,32 +127,19 @@ func (p *Preconfirmation) Streams() []p2p.StreamDesc {
 // It returns an error if the bid is not valid.
 func (p *Preconfirmation) SendBid(
 	ctx context.Context,
-	txHash string,
-	bidAmt string,
-	blockNumber int64,
-	decayStartTimestamp int64,
-	decayEndTimestamp int64,
-	revertingTxHashes string,
+	bid *preconfpb.Bid,
 ) (chan *preconfpb.PreConfirmation, error) {
 	startTime := time.Now()
-	bid, encryptedBid, nikePrivateKey, err := p.encryptor.ConstructEncryptedBid(
-		txHash,
-		bidAmt,
-		blockNumber,
-		decayStartTimestamp,
-		decayEndTimestamp,
-		revertingTxHashes,
-	)
+	encryptedBid, nikePrivateKey, err := p.encryptor.ConstructEncryptedBid(bid)
 	if err != nil {
-		p.logger.Error("constructing encrypted bid", "error", err, "txHash", txHash)
+		p.logger.Error("constructing encrypted bid", "error", err, "bid", bid)
 		return nil, err
 	}
-	duration := time.Since(startTime).Seconds()
-	p.metrics.BidConstructDurationSummary.Observe(duration)
+	p.metrics.BidConstructDurationSummary.Observe(time.Since(startTime).Seconds())
 
 	providers := p.topo.GetPeers(topology.Query{Type: p2p.PeerTypeProvider})
 	if len(providers) == 0 {
-		p.logger.Error("no providers available", "txHash", txHash)
+		p.logger.Error("no providers available", "bid", bid)
 		return nil, errors.New("no providers available")
 	}
 
@@ -151,7 +151,7 @@ func (p *Preconfirmation) SendBid(
 		wg.Add(1)
 		go func(provider p2p.Peer) {
 			defer wg.Done()
-			logger := p.logger.With("provider", provider, "bid", txHash)
+			logger := p.logger.With("provider", provider, "bid", bid.TxHash)
 
 			providerStream, err := p.streamer.NewStream(
 				ctx,
@@ -187,9 +187,9 @@ func (p *Preconfirmation) SendBid(
 			// Process preConfirmation as a bidder
 			verifyStartTime := time.Now()
 			sharedSecretKey, providerAddress, err := p.encryptor.VerifyEncryptedPreConfirmation(
+				bid,
 				provider.Keys.NIKEPublicKey,
 				nikePrivateKey,
-				bid.Digest,
 				encryptedPreConfirmation,
 			)
 			if err != nil {
@@ -200,7 +200,11 @@ func (p *Preconfirmation) SendBid(
 			p.metrics.VerifyPreconfDurationSummary.Observe(verifyDuration)
 
 			wireLatency := time.Since(time.Unix(0, encryptedPreConfirmation.DispatchTimestamp)).Seconds()
-			logger.Info("successfully received preconf", "provider", providerAddress, "bid", txHash, "totalDuration", writeToReadDuration, "wireLatency", wireLatency)
+			logger.Info(
+				"successfully received preconf",
+				"totalDuration", writeToReadDuration,
+				"wireLatency", wireLatency,
+			)
 
 			preConfirmation := &preconfpb.PreConfirmation{
 				Bid:               bid,
