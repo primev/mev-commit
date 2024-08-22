@@ -32,8 +32,8 @@ contract BaseDeploy is Script {
 }
 
 contract DeployHolesky is BaseDeploy {
-    address constant public VAL_REGISTRY_V1 = 0x5d4fC7B5Aeea4CF4F0Ca6Be09A2F5AaDAd2F2803;
-    address constant public MEV_COMMIT_AVS = 0xcAe2d8C15C603683C862F57850ef8Ae550280432;
+    address constant public VAL_REGISTRY_V1 = 0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf;
+    address constant public MEV_COMMIT_AVS = 0xEDEDB8ed37A43Fd399108A44646B85b780D85DD4;
 
     // This is the most important field. On mainnet it'll be the primev multisig.
     address constant public OWNER = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
