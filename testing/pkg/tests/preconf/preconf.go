@@ -526,7 +526,7 @@ func getRevertingTxns(
 		}
 		receipt := b.Result.(*types.Receipt)
 		if receipt.Status != types.ReceiptStatusSuccessful {
-			revertingTxns = append(revertingTxns, txns[i].Hash().String())
+			revertingTxns = append(revertingTxns, strings.TrimPrefix(txns[i].Hash().String(), "0x"))
 		}
 	}
 
