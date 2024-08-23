@@ -10,6 +10,7 @@ no_logs_collection_flag=false
 force_build_templates_flag=false
 skip_certificates_setup_flag=false
 release_flag=false
+backup_flag=false
 deploy_version="HEAD"
 environment_name="devenv"
 profile_name="devnet"
@@ -21,7 +22,7 @@ help() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
     echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--release] [--debug]]"
-    echo "$0 [destroy [--debug]] [--help]"
+    echo "$0 [destroy [--backup] [--debug]]"
     echo "$0 --help"
     echo
     echo "Parameters:"
@@ -42,7 +43,8 @@ help() {
     echo "    --debug                              Enable debug mode for detailed output."
     echo
     echo "  destroy    Destroy the whole cluster."
-    echo "    --debug  Enable debug mode for detailed output."
+    echo "    --backup  Create a backup before destroying the environment."
+    echo "    --debug   Enable debug mode for detailed output."
     echo
     echo "  --help  Display this help message."
     echo
@@ -71,8 +73,8 @@ help() {
     echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection, Datadog API key, L1 RPC URL, and OpenTememetry Collector Endpoint URL:"
     echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --l1-rpc-url your_rpc_url --otel-collector-endpoint-url your_otel_url --debug"
     echo
-    echo "  Destroy with specific environment and debug mode:"
-    echo "    $0 destroy --environment devenv --debug"
+    echo "  Destroy all jobs but backup before do so:"
+    echo "    $0 destroy --backup --debug"
     exit 1
 }
 
@@ -80,7 +82,7 @@ usage() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
     echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--release] [--debug]]"
-    echo "$0 [destroy [--debug]] [--help]"
+    echo "$0 [destroy [--backup] [--debug]]"
     echo "$0 --help"
     exit 1
 }
@@ -243,6 +245,10 @@ parse_args() {
             destroy)
                 destroy_flag=true
                 shift
+                if [[ $# -gt 0 && $1 == "--backup" ]]; then
+                    backup_flag=true
+                    shift
+                fi
                 if [[ $# -gt 0 && $1 == "--debug" ]]; then
                     debug_flag=true
                     shift
@@ -288,6 +294,7 @@ main() {
             ;;
         "${destroy_flag}")
             playbook+="destroy.yml"
+            [[ "${backup_flag}" == true ]] && flags+=("--extra-vars" "backup=true")
             ;;
         *)
             usage

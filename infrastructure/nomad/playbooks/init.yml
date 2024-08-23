@@ -115,6 +115,15 @@
       become: true
       become_user: "{{ ansible_user }}"
 
+    - name: Ensure "/tmp/{{ env }}" Directory Exists
+      ansible.builtin.file:
+        path: "/tmp/{{ env }}"
+        state: directory
+        mode: "0744"
+        recurse: yes
+      become: true
+      become_user: "{{ ansible_user }}"
+
   tasks:
     - name: Add DataDog Repository Key
       ansible.builtin.apt_key:
