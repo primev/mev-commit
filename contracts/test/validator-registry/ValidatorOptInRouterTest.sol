@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../contracts/validator-registry/ValidatorRegistryV1.sol";
-import "../../contracts/validator-registry/ValidatorOptInRouter.sol";
-import "../../contracts/validator-registry/avs/MevCommitAVS.sol";
+import {Test} from "forge-std/Test.sol";
+import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
+import {ValidatorOptInRouter} from "../../contracts/validator-registry/ValidatorOptInRouter.sol";
+import {MevCommitAVS} from "../../contracts/validator-registry/avs/MevCommitAVS.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
-import "./ValidatorRegistryV1Test.sol";
-import "./avs/MevCommitAVSTest.sol";
+import {VanillaRegistryTest} from "./VanillaRegistryTest.sol";
+import {MevCommitAVSTest} from "./avs/MevCommitAVSTest.sol";
+import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
+import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
 
 contract ValidatorOptInRouterTest is Test {
     ValidatorOptInRouter public validatorOptInRouter;
 
-    ValidatorRegistryV1 public validatorRegistry;
-    ValidatorRegistryV1Test public validatorRegistryTest;
+    VanillaRegistry public vanillaRegistry;
+    VanillaRegistryTest public vanillaRegistryTest;
     MevCommitAVS public mevCommitAVS;
     MevCommitAVSTest public mevCommitAVSTest;
 
@@ -21,7 +23,7 @@ contract ValidatorOptInRouterTest is Test {
     address public user1;
     address public user2;
 
-    event ValidatorRegistryV1Set(address oldContract, address newContract);
+    event VanillaRegistrySet(address oldContract, address newContract);
     event MevCommitAVSSet(address oldContract, address newContract);
 
     function setUp() public {
@@ -29,9 +31,9 @@ contract ValidatorOptInRouterTest is Test {
         user1 = address(0x123);
         user2 = address(0x456);
 
-        validatorRegistryTest = new ValidatorRegistryV1Test();
-        validatorRegistryTest.setUp();
-        validatorRegistry = validatorRegistryTest.validatorRegistry();
+        vanillaRegistryTest = new VanillaRegistryTest();
+        vanillaRegistryTest.setUp();
+        vanillaRegistry = vanillaRegistryTest.validatorRegistry();
 
         mevCommitAVSTest = new MevCommitAVSTest();
         mevCommitAVSTest.setUp();
@@ -39,19 +41,19 @@ contract ValidatorOptInRouterTest is Test {
 
         address routerProxy = Upgrades.deployUUPSProxy(
             "ValidatorOptInRouter.sol",
-            abi.encodeCall(ValidatorOptInRouter.initialize, (address(validatorRegistry), address(mevCommitAVS), owner))
+            abi.encodeCall(ValidatorOptInRouter.initialize, (address(vanillaRegistry), address(mevCommitAVS), owner))
         );
         validatorOptInRouter = ValidatorOptInRouter(payable(routerProxy));
     }
 
     function testSetters() public {
-        IValidatorRegistryV1 newValRegV1 = new ValidatorRegistryV1();
-        IValidatorRegistryV1 oldValRegV1 = validatorRegistry;
+        IVanillaRegistry newValReg = new VanillaRegistry();
+        IVanillaRegistry oldValReg = vanillaRegistry;
         vm.prank(owner);
         vm.expectEmit();
-        emit ValidatorRegistryV1Set(address(oldValRegV1), address(newValRegV1));
-        validatorOptInRouter.setValidatorRegistryV1(newValRegV1);
-        assertEq(address(validatorOptInRouter.validatorRegistryV1()), address(newValRegV1));
+        emit VanillaRegistrySet(address(oldValReg), address(newValReg));
+        validatorOptInRouter.setVanillaRegistry(newValReg);
+        assertEq(address(validatorOptInRouter.vanillaRegistry()), address(newValReg));
 
         IMevCommitAVS newMevCommitAVS = new MevCommitAVS();
         IMevCommitAVS oldMevCommitAVS = mevCommitAVS;
@@ -79,15 +81,15 @@ contract ValidatorOptInRouterTest is Test {
         }
     }
 
-    function testAreValidatorsOptedInViaSimpleStaking() public {
-        validatorRegistryTest.testMultiStake();
+    function testAreValidatorsOptedInViaVanillaStaking() public {
+        vanillaRegistryTest.testMultiStake();
 
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = validatorRegistryTest.user1BLSKey();
-        valPubkeys[1] = validatorRegistryTest.user2BLSKey();
+        valPubkeys[0] = vanillaRegistryTest.user1BLSKey();
+        valPubkeys[1] = vanillaRegistryTest.user2BLSKey();
 
-        assertTrue(validatorRegistry.isValidatorOptedIn(valPubkeys[0]));
-        assertTrue(validatorRegistry.isValidatorOptedIn(valPubkeys[1]));
+        assertTrue(vanillaRegistry.isValidatorOptedIn(valPubkeys[0]));
+        assertTrue(vanillaRegistry.isValidatorOptedIn(valPubkeys[1]));
 
         bool[] memory areOptedIn = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
         assertEq(areOptedIn.length, 2);

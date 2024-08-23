@@ -76,10 +76,10 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --via-ir
 
-elif [ "${DEPLOY_TYPE}" = "validator-registry" ]; then
-    echo "Deploying validator registry contract"
+elif [ "${DEPLOY_TYPE}" = "vanilla-registry" ]; then
+    echo "Deploying vanilla registry contract"
     "${FORGE_BIN_PATH}" script \
-        "${SCRIPT_PATH_PREFIX}"validator-registry/DeployValidatorRegistryV1.s.sol:DeployHolesky \
+        "${SCRIPT_PATH_PREFIX}"validator-registry/DeployVanillaRegistry.s.sol:DeployHolesky \
         --rpc-url "${RPC_URL}" \
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \

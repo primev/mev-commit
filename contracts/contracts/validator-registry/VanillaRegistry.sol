@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import {IValidatorRegistryV1} from "../interfaces/IValidatorRegistryV1.sol";
-import {ValidatorRegistryV1Storage} from "./ValidatorRegistryV1Storage.sol";
+import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
+import {VanillaRegistryStorage} from "./VanillaRegistryStorage.sol";
 import {EventHeightLib} from "../utils/EventHeight.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Errors} from "../utils/Errors.sol";
 
-/// @title Validator Registry v1
+/// @title Vanilla Registry
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
 /// via simply staking ETH outside what's staked with the beacon chain.
-contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage,
+contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     /// @dev Modifier to confirm a validator record exists for all provided BLS pubkeys.
@@ -274,7 +274,7 @@ contract ValidatorRegistryV1 is IValidatorRegistryV1, ValidatorRegistryV1Storage
 
     /// @dev Internal function that adds stake to an already existing validator record, emitting a StakeAdded event.
     function _addStakeAction(bytes calldata pubKey, uint256 stakeAmount, address) internal {
-        IValidatorRegistryV1.StakedValidator storage validator = stakedValidators[pubKey];
+        IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
         validator.balance += stakeAmount;
         emit StakeAdded(msg.sender, validator.withdrawalAddress, pubKey, stakeAmount, validator.balance);
     }

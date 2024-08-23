@@ -3,7 +3,7 @@
 Validators are able to _opt-in to mev-commit_ in one of two ways:
 
 1. Restaking with the `MevCommitAVS` contract.
-2. Simple staking with the `V1ValidatorRegistry` contract.
+2. Simple staking with the `VanillaRegistry` contract.
 
 The `ValidatorOptInRouter` contract acts as a query router between both solutions, allowing any actor to query whether a group of validator pubkeys is opted-in to mev-commit.
 
@@ -11,9 +11,9 @@ The `ValidatorOptInRouter` contract acts as a query router between both solution
 
 For more details on the Mev-commit AVS, please refer to the [Mev-commit AVS README](avs/README.md).
 
-## V1 Validator Registry - Simple Staking Solution
+## Vanilla Registry - Simple Staking Solution
 
-The v1 validator registry allows validators to _opt-in to mev-commit_ by staking native ETH directly with the contract. This stake is separate from a validator's 32 ETH already staked with the beacon chain. 
+The vanilla registry allows validators to _opt-in to mev-commit_ by staking native ETH directly with the contract. This stake is separate from a validator's 32 ETH already staked with the beacon chain. 
 
 ### Staking
 

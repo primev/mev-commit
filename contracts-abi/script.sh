@@ -34,7 +34,7 @@ extract_and_save_abi "$BASE_DIR/out/SettlementGateway.sol/SettlementGateway.json
 # Extract ABI for L1Gateway.json
 extract_and_save_abi "$BASE_DIR/out/L1Gateway.sol/L1Gateway.json" "$ABI_DIR/L1Gateway.abi"
 
-extract_and_save_abi "$BASE_DIR/out/ValidatorRegistryV1.sol/ValidatorRegistryV1.json" "$ABI_DIR/ValidatorRegistryV1.abi"
+extract_and_save_abi "$BASE_DIR/out/VanillaRegistry.sol/VanillaRegistry.json" "$ABI_DIR/VanillaRegistry.abi"
 
 extract_and_save_abi "$BASE_DIR/out/BlockTracker.sol/BlockTracker.json" "$ABI_DIR/BlockTracker.abi"
 
@@ -83,7 +83,7 @@ generate_go_code "$ABI_DIR/SettlementGateway.abi" "SettlementGateway" "settlemen
 # Generate Go code for L1Gateway.abi
 generate_go_code "$ABI_DIR/L1Gateway.abi" "L1Gateway" "l1gateway"
 
-generate_go_code "$ABI_DIR/ValidatorRegistryV1.abi" "ValidatorRegistryV1" "validatorregistryv1"
+generate_go_code "$ABI_DIR/VanillaRegistry.abi" "VanillaRegistry" "validatorregistryv1"
 
 generate_go_code "$ABI_DIR/BlockTracker.abi" "BlockTracker" "blocktracker"
 
