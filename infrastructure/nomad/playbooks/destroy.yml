@@ -20,7 +20,7 @@
           if [ "${job}" != "null" ]; then
             nomad stop "${job}"
 
-            TIMEOUT=60
+            TIMEOUT=600
             while true; do
             STATUS=$(nomad job status -json "${job}" | jq -r '.[0].Allocations[0].ClientStatus')
               case "${STATUS}" in
