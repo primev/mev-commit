@@ -17,6 +17,7 @@ interface IMevCommitMiddleware {
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
         uint256 priorityIndexCounter;
+        bool isBlacklisted;
     }
 
     /// @notice Emmitted when an operator is registered
@@ -28,8 +29,15 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when an operator is deregistered
     event OperatorDeregistered(address indexed operator);
 
+    /// @notice Emmitted when an operator is blacklisted
+    event OperatorBlacklisted(address indexed operator);
+
     /// @notice Emmitted when a validator record is added to state
     event ValRecordAdded(bytes indexed blsPubkey, address indexed operator,
+        uint256 indexed priorityIndex);
+
+    /// @notice Emmitted when validator deregistration is requested
+    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed operator,
         uint256 indexed priorityIndex);
 
     /// @notice Emmitted when a validator record is replaced for a certain priority index
@@ -40,10 +48,9 @@ interface IMevCommitMiddleware {
     event ValRecordsSwapped(bytes indexed blsPubkey1, bytes indexed blsPubkey2, address indexed operator,
         uint256 newPriorityIndex1, uint256 newPriorityIndex2);
     
-    /// @notice Emmitted when validator deregistration is requested
-    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed operator,
-        uint256 indexed priorityIndex);
-
+    /// @notice Emmitted when a validator record is deleted by the contract owner
+    event ValRecordDeleted(bytes indexed blsPubkey, address indexed operator, uint256 indexed priorityIndex);
+    
     /// @notice Emmitted when a validator is slashed
     event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed priorityIndex);
 

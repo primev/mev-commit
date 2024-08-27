@@ -8,9 +8,9 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 
-// TODO: See if reputational val reg PR: https://github.com/primev/mev-commit/pull/131/files serves any inspiration in operator whitelisting. 
 // TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
 // TODO: determine if you need timestamping similar to cosmos sdk example. Edit yes you will for slashing. See "captureTimestamp". 
+// TODO: Parse through MevCommitAVS and make sure translatable reg/dreg functions have the same operators / check the same things. 
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     
@@ -25,7 +25,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     // for each denom. Price oracle or hardcoded minStake? 
 
     // TODO: invariant here is that no two validator records have the same priority for the same operator, 
-    // and that operatorToPriorityIndexCounter[operator] number of records exist at any given time for an operator.
+    // and that operatorRecords[operator].priorityIndexCounter number of records exist at any given time for an operator,
+    // IFF the operator is not blacklisted.
 
     // TODO: Add things like network epoch duration, ref to core contracts, etc. 
     function initialize(
@@ -46,24 +47,27 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _disableInitializers();
     }
 
-    // TODO: Make this whitelist instead and operators register themselves
-    function registerOperators(address[] calldata operators) external whenNotPaused onlyOwner {
+    function registerOperators(address[] calldata operators) external onlyOwner {
         for (uint256 i = 0; i < operators.length; i++) {
             _registerOperator(operators[i]);
         }
     }
 
-    // TODO: Make this whitelist instead and operators register themselves
-    function requestOperatorDeregistrations(address[] calldata operators) external whenNotPaused onlyOwner {
+    function requestOperatorDeregistrations(address[] calldata operators) external onlyOwner {
         for (uint256 i = 0; i < operators.length; i++) {
             _requestOperatorDeregistration(operators[i]);
         }
     }
 
-    // TODO: Make this whitelist instead and operators register themselves
-    function deregisterOperators(address[] calldata operators) external whenNotPaused onlyOwner {
+    function deregisterOperators(address[] calldata operators) external onlyOwner {
         for (uint256 i = 0; i < operators.length; i++) {
             _deregisterOperator(operators[i]);
+        }
+    }
+
+    function blacklistOperators(address[] calldata operators) external onlyOwner {
+        for (uint256 i = 0; i < operators.length; i++) {
+            _blacklistOperator(operators[i]);
         }
     }
 
@@ -93,6 +97,19 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(blsPubkeys1.length == blsPubkeys2.length, "invalid length");
         for (uint256 i = 0; i < blsPubkeys1.length; i++) {
             _swapValRecords(blsPubkeys1[i], blsPubkeys2[i]);
+        }
+    }
+
+    /// @dev Deletes validator records, only if the associated operator is blacklisted.
+    /// Restricted to contract owner.
+    /// @notice This function allows the contract owner to combat a greifing scenario where an operator
+    /// registers a validator pubkey that it does not control, own, or otherwise manage.
+    ///
+    /// TODO: Write test for scenario where operator greifs another, and contract owner
+    /// has to blacklist that operator, then delete the greifed validator records.
+    function deleteValRecords(bytes[] calldata blsPubkeys) external onlyOwner {
+        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+            _deleteValRecord(blsPubkeys[i]);
         }
     }
 
@@ -127,22 +144,28 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _isValidatorOptedIn(blsPubkey);
     }
 
-    // TODO: hook these into symbiotic core
-    function _registerOperator(address operator) internal {
-        require(!operatorRecords[operator].exists, "operator already registered");
+    function _setOperatorRecord(address operator) internal {
         operatorRecords[operator] = OperatorRecord({
             exists: true,
             deregRequestHeight: EventHeightLib.EventHeight({
                 exists: false,
                 blockHeight: 0
             }),
-            priorityIndexCounter: 0
+            priorityIndexCounter: 0,
+            isBlacklisted: false
         });
+    }
+
+    // TODO: hook these into symbiotic core
+    function _registerOperator(address operator) internal {
+        require(!operatorRecords[operator].exists, "operator already registered");
+        _setOperatorRecord(operator);
         emit OperatorRegistered(operator);
     }
 
     function _requestOperatorDeregistration(address operator) internal {
         require(operatorRecords[operator].exists, "operator not registered");
+        require(!operatorRecords[operator].isBlacklisted, "operator is blacklisted");
         EventHeightLib.set(operatorRecords[operator].deregRequestHeight, block.number);
         emit OperatorDeregistrationRequested(operator);
     }
@@ -150,8 +173,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _deregisterOperator(address operator) internal {
         require(operatorRecords[operator].exists, "operator dereg not requested");
         require(_isOperatorDeregistered(operator), "dereg too soon");
+        require(!operatorRecords[operator].isBlacklisted, "operator is blacklisted");
         delete operatorRecords[operator];
         emit OperatorDeregistered(operator);
+    }
+
+    // TODO: confirm validator can ALWAYS be blacklisted from any previous state,
+    // and that no other operations can be performed on the operator record after being blacklisted.
+    function _blacklistOperator(address operator) internal {
+        if (!operatorRecords[operator].exists) {
+            _setOperatorRecord(operator);
+        }
+        require(!operatorRecords[operator].isBlacklisted, "operator already blacklisted");
+        operatorRecords[operator].isBlacklisted = true;
+        emit OperatorBlacklisted(operator);
     }
 
     function _setValRecord(bytes calldata blsPubkey, uint256 priorityIndex) internal {
@@ -171,6 +206,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setValRecord(blsPubkey, operatorRecords[msg.sender].priorityIndexCounter);
         emit ValRecordAdded(blsPubkey, msg.sender, operatorRecords[msg.sender].priorityIndexCounter);
         ++operatorRecords[msg.sender].priorityIndexCounter;
+    }
+
+    function _requestValDeregistration(bytes calldata blsPubkey) internal {
+        require(validatorRecords[blsPubkey].exists, "missing validator record");
+        require(validatorRecords[blsPubkey].operator == msg.sender, "sender is not operator");
+        EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
+        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, validatorRecords[blsPubkey].priorityIndex);
     }
 
     function _replaceValRecord(bytes calldata newBlsPubkey, bytes calldata oldBlsPubkey) internal {
@@ -205,11 +247,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             validatorRecords[blsPubkey1].priorityIndex, validatorRecords[blsPubkey2].priorityIndex);
     }
 
-    function _requestValDeregistration(bytes calldata blsPubkey) internal {
-        require(validatorRecords[blsPubkey].exists, "missing validator record");
-        require(validatorRecords[blsPubkey].operator == msg.sender, "sender is not operator");
-        EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
-        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, validatorRecords[blsPubkey].priorityIndex);
+    function _deleteValRecord(bytes calldata blsPubkey) internal {
+        require(validatorRecords[blsPubkey].exists, "missing val record");
+        address operator = validatorRecords[blsPubkey].operator;
+        require(operatorRecords[operator].exists, "operator not registered");
+        require(operatorRecords[operator].isBlacklisted, "operator not blacklisted");
+        uint256 priorityIndex = validatorRecords[blsPubkey].priorityIndex;
+        delete validatorRecords[blsPubkey];
+        emit ValRecordDeleted(blsPubkey, operator, priorityIndex);
     }
 
     function _slashValidator(bytes calldata blsPubkey) internal {
@@ -263,6 +308,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             return false;
         }
         if (operatorRecords[validatorRecords[blsPubkey].operator].deregRequestHeight.exists) {
+            return false;
+        }
+        if (operatorRecords[validatorRecords[blsPubkey].operator].isBlacklisted) {
             return false;
         }
         // TODO: check liquidity exists to slash if needed
