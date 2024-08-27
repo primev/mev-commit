@@ -80,5 +80,6 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
             return true;
         }
         return mevCommitAVS.isValidatorOptedIn(valBLSPubKey);
+        // TODO: add middleware check here
     }
 }
