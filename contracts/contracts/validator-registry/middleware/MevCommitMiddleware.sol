@@ -24,6 +24,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     // TODO: Define integration with individual vaults, and how you decide on "min stake" per validator
     // for each denom. Price oracle or hardcoded minStake? 
 
+    // TODO: make some sort of integration or fuzz test for two main invariants defined in notion. 
+
     // TODO: invariant here is that no two validator records have the same priority for the same operator, 
     // and that operatorRecords[operator].priorityIndexCounter number of records exist at any given time for an operator,
     // IFF the operator is not blacklisted.
