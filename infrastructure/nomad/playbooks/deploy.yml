@@ -84,7 +84,7 @@
       when: version is not defined or version == '' or release
 
     - name: Set Artifacts Build Version
-      set_fact:
+      ansible.builtin.set_fact:
         build_artifacts: true
         version: "{{ artifacts_build_version.stdout }}"
       when: version is not defined or version == '' or release
@@ -124,11 +124,11 @@
         success_msg: "The profile name is set to: {{ profile }}."
 
     - name: Set Jobs Definition
-      set_fact:
+      ansible.builtin.set_fact:
         jobs: "{{ profiles[profile].jobs }}"
 
     - name: Disable Logs Collection
-      set_fact:
+      ansible.builtin.set_fact:
         jobs: >-
           {{
             jobs
@@ -138,7 +138,7 @@
       when: no_logs_collection | default(false) | bool
 
     - name: Disable OpenTelemetry Trace Collection
-      set_fact:
+      ansible.builtin.set_fact:
         jobs: >-
           {{
           jobs
@@ -166,7 +166,7 @@
       register: existing_environment
 
     - name: Set Existing Scripts Artifact Version as Stale
-      set_fact:
+      ansible.builtin.set_fact:
         build_templates: >-
           {{
             (existing_environment.stdout | from_json) != environments[env]
@@ -187,6 +187,16 @@
           Build Templates: {{ 'yes' if build_templates | default(false) else 'no' }}
 
   tasks:
+    - name: Determine Cluster Status
+      ansible.builtin.shell: |
+        STATUS=$(nomad job status -json)
+        if [ "${STATUS}" != "No running jobs" ]; then
+          echo "Cluster has running jobs."
+          exit 1
+        fi
+      args:
+        executable: bash
+
     - name: Build keystore-generator
       ansible.builtin.shell: |
         BINARY_PATH="{{ dist_dir }}/keystore-generator-{{ environments[env].version }}"
@@ -654,6 +664,7 @@
       ansible.builtin.shell: |
         nomad var purge "nomad/jobs"
         nomad system gc
+        nomad var put -namespace=default "nomad/jobs" MEV_COMMIT_GETH_CHAIN_BACKUP="false"
       args:
         executable: bash
 

@@ -2,20 +2,67 @@
   hosts: nomad_clients
   gather_facts: no
 
+  vars:
+    nomad_vars_path: "nomad/jobs"
+
   tasks:
-    - name: Stop and Purge Jobs
+    - name: Set Backup Var
       ansible.builtin.shell: |
-        for job in $(nomad job status -json | jq -r '.[].Summary.JobID'); do
+        nomad var put -force -namespace=default {{ nomad_vars_path }} MEV_COMMIT_GETH_CHAIN_BACKUP="true"
+      args:
+        executable: bash
+      when: backup is defined and backup
+
+    - name: Stop Jobs
+      ansible.builtin.shell: |
+        NOMAD_JOBS=$(nomad job status -json | jq -r '.[].Summary.JobID')
+        for job in $(echo "${NOMAD_JOBS}" | grep -v artifacts); do
           if [ "${job}" != "null" ]; then
-            nomad stop -purge "${job}"
+            nomad stop "${job}"
+
+            TIMEOUT=600
+            while true; do
+            STATUS=$(nomad job status -json "${job}" | jq -r '.[0].Allocations[0].ClientStatus')
+              case "${STATUS}" in
+                "failed" | "complete")
+                  break
+                  ;;
+                *)
+                  sleep 1
+                  TIMEOUT=$((TIMEOUT - 1))
+                  if [ "${TIMEOUT}" -eq 0 ]; then
+                    echo "Timeout waiting for ${job} to stop has been exceeded."
+                    return 1
+                  fi
+                  ;;
+              esac
+            done
           fi
         done
+        
+        if echo "${NOMAD_JOBS}" | grep -q artifacts; then
+          nomad stop -yes "artifacts"
+        fi
       args:
         executable: bash
 
-    - name: Purge Cluster
+    - name: Purge Stopped Jobs
       ansible.builtin.shell: |
-        nomad var purge "nomad/jobs"
+        TIMEOUT=30
+        while [ "$(nomad job status)" != "No running jobs" ]; do
+          RUNNING_JOBS=$(nomad job status -json | jq '[.[] | select(.Summary.Summary | to_entries[] | select(.value.Running > 0 or .value.Starting > 0)) | .Summary.JobID]')
+          if [ "${RUNNING_JOBS}" = "[]" ]; then
+            break
+          fi
+          sleep 1
+          TIMEOUT=$((TIMEOUT - 1))
+          if [ "${TIMEOUT}" -eq 0 ]; then
+            echo "Timeout waiting for jobs to stop has been exceeded."
+            return 1
+          fi
+        done
+
+        nomad var purge {{ nomad_vars_path }}
         nomad system gc
       args:
         executable: bash

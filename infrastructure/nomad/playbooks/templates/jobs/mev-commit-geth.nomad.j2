@@ -36,8 +36,137 @@ job "{{ job.name }}" {
       {% endfor %}
     }
 
+    volume "tmp-volume" {
+      type = "host"
+      source = "tmp-volume"
+      read_only = false
+    }
+
+    task "restore" {
+      driver = "exec"
+
+      lifecycle {
+        hook = "prestart"
+      }
+
+      {% if env == 'testenv' %}
+      resources {
+        cores = 6
+        memory = 32768
+      }
+      {% endif %}
+
+      volume_mount {
+        volume = "tmp-volume"
+        destination = "/local/backups"
+        read_only = false
+      }
+
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_{{ version }}.json"
+      }
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/genesis_{{ version }}.json"
+      }
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          {%- raw %}
+          GETH_DATA_DIR="/alloc/data/node-{{ env "NOMAD_ALLOC_INDEX" }}"
+          {% endraw %}
+          GENESIS_L1_PATH="local/genesis_{{ version }}.json"
+          GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
+          GETH_LOG_TAGS="{{
+            job.env['log-tags'].items() | map('join', ':') | join('; ')
+            if job.env['log-tags'] is defined and job.env['log-tags']
+            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
+          }}"
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+        #!/usr/bin/env bash
+
+        {%- raw %}
+        {{- range nomadService "datadog-agent-logs-collector" }}
+          {{ if contains "tcp" .Tags }}
+        exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+          {{ end }}
+        {{- end }}
+        {% endraw %}
+
+        BACKUP_FILE="local/backups/$(
+          ls -1 local/backups/ |
+          sed -r 's/(.*)_dirty/\1/' |
+          awk -v jobname="{{ job.name }}-{% raw %}{{ env "NOMAD_ALLOC_INDEX" }}{% endraw %}" -F'_' '$2 == jobname {print $3, $0}' |
+          sort -k1,1r |
+          head -n 1 |
+          cut -d' ' -f2
+        )"
+        if [[ ! -f "${BACKUP_FILE}" ]]; then
+          echo "No backup found, skipping restore"
+          exit 0
+        fi
+
+        chmod +x local/mev-commit-geth
+        CHAIN_ID=$(cat "${GENESIS_L1_PATH}" | jq -r .config.chainId)
+
+        if [[ ! -d "${GETH_DATA_DIR}/geth/chaindata" ]]; then
+          echo "Initializing chain data directory"
+          local/mev-commit-geth \
+            --db.engine=pebble \
+            --state.scheme=path \
+            --log.format="${GETH_LOG_FORMAT}" \
+            --log.tags="${GETH_LOG_TAGS}" \
+            --datadir="${GETH_DATA_DIR}" \
+            init "${GENESIS_L1_PATH}"
+        else
+          echo "Chain data directory already exists, skipping restore"
+          exit 0
+        fi
+
+        echo "Restoring from backup file ${BACKUP_FILE} to ${GETH_DATA_DIR}"
+        echo "Backup file size: $(du -h ${BACKUP_FILE} | cut -f1)"
+        local/mev-commit-geth \
+          --cache=4096 \
+          --verbosity=5 \
+          --log.format="${GETH_LOG_FORMAT}" \
+          --log.tags="${GETH_LOG_TAGS}" \
+          --datadir="${GETH_DATA_DIR}" \
+          import ${BACKUP_FILE}
+
+        if [[ $? -eq 0 ]]; then
+          echo "Restore successful"
+        else
+          echo "Restore failed"
+          exit 1
+        fi
+        EOH
+        destination = "local/run.sh"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "local/run.sh"]
+      }
+    }
+
     task "node" {
       driver = "exec"
+      kill_timeout = "25s"
 
       {% if profile == 'testnet' %}
       resources {
@@ -79,7 +208,7 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           {%- raw %}
-          GETH_DATA_DIR="local/data-{{ env "NOMAD_ALLOC_INDEX" }}"
+          GETH_DATA_DIR="/alloc/data/node-{{ env "NOMAD_ALLOC_INDEX" }}"
           {% endraw %}
           GENESIS_L1_PATH="local/genesis_{{ version }}.json"
           GETH_BIN_PATH="local/mev-commit-geth"
@@ -102,7 +231,7 @@ job "{{ job.name }}" {
           {% endraw %}
           {% elif job.env['type'] == 'signer' %}
           {%- raw %}
-          GETH_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          GETH_KEYSTORE_DIR="/alloc/data/node-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
           {% endraw %}
@@ -150,7 +279,113 @@ job "{{ job.name }}" {
           {% endif %}
 
           chmod +x local/mev-commit-geth local/entrypoint.sh
-          local/entrypoint.sh
+          exec local/entrypoint.sh
+        EOH
+        destination = "local/run.sh"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
+      }
+    }
+
+    task "backup" {
+      driver = "exec"
+
+      lifecycle {
+        hook = "poststop"
+      }
+
+      {% if env == 'testenv' %}
+      resources {
+        cores = 6
+        memory = 32768
+      }
+      {% endif %}
+
+      volume_mount {
+        volume = "tmp-volume"
+        destination = "/local/backups"
+        read_only = false
+      }
+
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          {%- raw %}
+          GETH_DATA_DIR="/alloc/data/node-{{ env "NOMAD_ALLOC_INDEX" }}"
+          {% endraw %}
+          GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
+          GETH_LOG_TAGS="{{
+            job.env['log-tags'].items() | map('join', ':') | join('; ')
+            if job.env['log-tags'] is defined and job.env['log-tags']
+            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
+          }}"
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+        #!/usr/bin/env bash
+
+        {%- raw %}
+        {{- range nomadService "datadog-agent-logs-collector" }}
+          {{ if contains "tcp" .Tags }}
+        exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+          {{ end }}
+        {{- end }}
+        {% endraw %}
+
+        {% raw %}
+        {{ with nomadVar "nomad/jobs" }}
+        BACKUP="{{ .MEV_COMMIT_GETH_CHAIN_BACKUP }}"
+        {{ end }}
+        {% endraw %}
+
+        if [[ "${BACKUP}" != "true" ]]; then
+          echo "Backup not requested, skipping..."
+          exit 0
+        fi
+
+        BACKUP_FILE="local/backups/{{ version }}_{{ job.name }}-{% raw %}{{ env "NOMAD_ALLOC_INDEX" }}{% endraw %}_$(date +%Y%m%d%H%M%S)"
+        STATUS=$(nomad alloc status -address="http://{{ ansible_facts['default_ipv4']['address'] }}:4646" -json "${NOMAD_ALLOC_ID}")
+        NON_ZERO_EXIT_EVENTS=$(echo "$STATUS" | jq -r '.TaskStates.node.Events[] | select(.ExitCode != 0)')
+        if [[ -n "${NON_ZERO_EXIT_EVENTS}" ]]; then
+          echo "The main task did not start or finish gracefully"
+          BACKUP_FILE+="-dirty"
+        fi
+        BACKUP_FILE+=".rlp"
+
+        echo "Exporting chain data from ${GETH_DATA_DIR} to backup file: ${BACKUP_FILE}"
+        chmod +x local/mev-commit-geth
+        local/mev-commit-geth \
+          --cache 4096 \
+          --verbosity=5 \
+          --log.format="$GETH_LOG_FORMAT" \
+          --log.tags="$GETH_LOG_TAGS" \
+          --datadir="${GETH_DATA_DIR}" \
+          export ${BACKUP_FILE}
+
+        if [[ "$?" -eq 0 ]] && [[ -f "${BACKUP_FILE}" ]]; then
+          echo "Backup successful"
+          echo "Backup file size: $(du -h ${BACKUP_FILE} | cut -f1)"
+        else
+          echo "Backup failed"
+          exit 1
+        fi
         EOH
         destination = "local/run.sh"
         perms = "0755"

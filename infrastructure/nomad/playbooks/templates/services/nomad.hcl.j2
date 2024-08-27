@@ -28,6 +28,9 @@ client {
   artifact {
     decompression_file_count_limit = 8192
   }
+  host_volume "tmp-volume" {
+    path = "/tmp/{{ env }}"
+  }
   {% if env == "devenv" %}
   host_volume "artifacts-volume" {
     path = "{{ ansible_user_home }}/{{ env }}/artifacts"
