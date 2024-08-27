@@ -12,6 +12,7 @@ interface IMevCommitMiddleware {
         uint256 priorityIndex;
     }
 
+    // TODO: Confirm we don't need to store/track slashing of operators. This must be handled somewhere tho.
     struct OperatorRecord {
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
