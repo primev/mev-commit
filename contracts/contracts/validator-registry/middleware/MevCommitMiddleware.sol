@@ -39,8 +39,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setSlashOracle(_slashOracle);
         __Pausable_init();
         __UUPSUpgradeable_init();
-        __Ownable2Step_init();
-        transferOwnership(_owner);
+        __Ownable_init(_owner);
     }
 
     constructor() {
