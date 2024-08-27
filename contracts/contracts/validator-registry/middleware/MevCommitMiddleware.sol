@@ -215,6 +215,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, validatorRecords[blsPubkey].priorityIndex);
     }
 
+    // TODO: Confirm an operator could mutate their operator list as much as they want while maintaining
+    // the invariants.
     function _replaceValRecord(bytes calldata newBlsPubkey, bytes calldata oldBlsPubkey) internal {
         require(validatorRecords[oldBlsPubkey].exists, "missing val record");
         require(validatorRecords[oldBlsPubkey].operator == msg.sender, "sender is not operator");
