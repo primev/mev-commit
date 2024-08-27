@@ -232,10 +232,10 @@ contract PreconfManager is
         );
 
         address winner = blockTracker.getBlockWinner(blockNumber);
+        require(winner == committerAddress, "Winner is not committer");
         require(
-            winner == committerAddress &&
-                (msg.sender == winner || msg.sender == bidderAddress),
-            "invalid sender"
+            committerAddress == msg.sender || bidderAddress == msg.sender,
+            "Invalid sender"
         );
 
         OpenedCommitment memory newCommitment = OpenedCommitment(
