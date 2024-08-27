@@ -21,6 +21,7 @@ contract MevCommitMiddleware is Ownable2StepUpgradeable, PausableUpgradeable, UU
     struct OperatorRecord {
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
+        uint256 priorityIndexCounter;
     }
 
     mapping(bytes blsPubkey => ValidatorRecord) public validatorRecords;
@@ -29,8 +30,6 @@ contract MevCommitMiddleware is Ownable2StepUpgradeable, PausableUpgradeable, UU
 
     // TODO: invariant here is that no two validator records have the same priority for the same operator, 
     // and that operatorToPriorityIndexCounter[operator] number of records exist at any given time for an operator.
-
-    mapping(address => uint256) public operatorToPriorityIndexCounter;
 
     uint256 public validatorDeregPeriodBlocks;
     uint256 public operatorDeregPeriodBlocks;
@@ -121,7 +120,8 @@ contract MevCommitMiddleware is Ownable2StepUpgradeable, PausableUpgradeable, UU
             deregRequestHeight: EventHeightLib.EventHeight({
                 exists: false,
                 blockHeight: 0
-            })
+            }),
+            priorityIndexCounter: 0
         });
     }
 
@@ -160,8 +160,8 @@ contract MevCommitMiddleware is Ownable2StepUpgradeable, PausableUpgradeable, UU
 
     function _addValRecord(bytes calldata blsPubkey) internal {
         require(!validatorRecords[blsPubkey].exists, "val record already exists");
-        _setValRecord(blsPubkey, operatorToPriorityIndexCounter[msg.sender]);
-        ++operatorToPriorityIndexCounter[msg.sender];
+        _setValRecord(blsPubkey, operatorRecords[msg.sender].priorityIndexCounter);
+        ++operatorRecords[msg.sender].priorityIndexCounter;
     }
 
     function _replaceValRecord(bytes calldata newBlsPubkey, bytes calldata oldBlsPubkey) internal {
