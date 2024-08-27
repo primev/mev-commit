@@ -379,6 +379,7 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 						"error", err,
 						"txHash", txHashes[start+i],
 					)
+					reason = "unknown"
 				}
 				m.logger.Error(
 					"failed transaction",
