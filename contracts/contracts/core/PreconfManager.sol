@@ -234,7 +234,7 @@ contract PreconfManager is
         address winner = blockTracker.getBlockWinner(blockNumber);
         require(winner == committerAddress, "Winner is not the committer");
         require(msg.sender == winner || msg.sender == bidderAddress,
-            "Sender is not the winner or the bidder"
+            "Sender is not authorized"
         );
 
         OpenedCommitment memory newCommitment = OpenedCommitment(
