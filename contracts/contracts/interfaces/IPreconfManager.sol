@@ -85,6 +85,27 @@ interface IPreconfManager {
         uint64 blockNumber
     );
 
+    /// @dev Error if dispatch timestamp is invalid
+    error InvalidDispatchTimestamp(uint256 minTime, uint64 dispatchTimestamp);
+
+    /// @dev Error if decay parameters are invalid
+    error InvalidDecayTime(uint64 startTime, uint64 endTime);
+
+    /// @dev Error if commitment is already opened
+    error CommitmentAlreadyOpened(bytes32 commitmentIndex);
+
+    /// @dev Error if commitment index is invalid
+    error InvalidCommitmentDigest(bytes32 commitmentDigest, bytes32 computedDigest);
+
+    /// @dev Error if commitment is not by the winner
+    error WinnerIsNotCommitter(address committer, address winner);
+
+    /// @dev Error if commitment is not opened by the committer or the bidder
+    error UnauthorizedOpenCommitment(address committer, address bidder, address sender);
+
+    /// @dev Error if encrypted commitment is sent by the committer
+    error SenderIsNotCommitter(address expected, address actual);
+
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
      * @param _providerRegistry The address of the provider registry.

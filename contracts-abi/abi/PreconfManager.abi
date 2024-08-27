@@ -1460,6 +1460,17 @@
   },
   {
     "type": "error",
+    "name": "CommitmentAlreadyOpened",
+    "inputs": [
+      {
+        "name": "commitmentIndex",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1488,6 +1499,54 @@
     "type": "error",
     "name": "FailedInnerCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCommitmentDigest",
+    "inputs": [
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "computedDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDecayTime",
+    "inputs": [
+      {
+        "name": "startTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "endTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDispatchTimestamp",
+    "inputs": [
+      {
+        "name": "minTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "dispatchTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1523,6 +1582,22 @@
   },
   {
     "type": "error",
+    "name": "SenderIsNotCommitter",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actual",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "UUPSUnauthorizedCallContext",
     "inputs": []
   },
@@ -1534,6 +1609,43 @@
         "name": "slot",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedOpenCommitment",
+    "inputs": [
+      {
+        "name": "committer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WinnerIsNotCommitter",
+    "inputs": [
+      {
+        "name": "committer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "winner",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   }

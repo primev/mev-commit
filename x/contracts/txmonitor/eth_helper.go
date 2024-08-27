@@ -2,10 +2,12 @@ package txmonitor
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -15,7 +17,7 @@ import (
 // Debugger defines an interface for EVM debugging tools.
 type Debugger interface {
 	// RevertReason retrieves the revert reason for a transaction.
-	RevertReason(ctx context.Context, receipt *types.Receipt) (string, error)
+	RevertReason(ctx context.Context, receipt *types.Receipt, from common.Address) (string, error)
 }
 
 // Result represents the result of a transaction receipt retrieval operation.
@@ -33,12 +35,13 @@ type BatchReceiptGetter interface {
 }
 
 type evmHelper struct {
-	client *ethclient.Client
-	logger *slog.Logger
+	client       *ethclient.Client
+	logger       *slog.Logger
+	contractABIs map[common.Address]*abi.ABI
 }
 
-func NewEVMHelperWithLogger(client *ethclient.Client, logger *slog.Logger) *evmHelper {
-	return &evmHelper{client, logger}
+func NewEVMHelperWithLogger(client *ethclient.Client, logger *slog.Logger, contracts map[common.Address]*abi.ABI) *evmHelper {
+	return &evmHelper{client, logger, contracts}
 }
 
 // BatchReceipts retrieves multiple receipts for a list of transaction hashes.
@@ -106,13 +109,18 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 	return receipts, nil
 }
 
-func (e *evmHelper) RevertReason(ctx context.Context, receipt *types.Receipt) (string, error) {
+func (e *evmHelper) RevertReason(
+	ctx context.Context,
+	receipt *types.Receipt,
+	from common.Address,
+) (string, error) {
 	tx, _, err := e.client.TransactionByHash(ctx, receipt.TxHash)
 	if err != nil {
 		return "", err
 	}
 
 	msg := ethereum.CallMsg{
+		From: from,
 		To:   tx.To(),
 		Data: tx.Data(),
 	}
@@ -120,6 +128,21 @@ func (e *evmHelper) RevertReason(ctx context.Context, receipt *types.Receipt) (s
 	reason, err := e.client.CallContract(ctx, msg, receipt.BlockNumber)
 	if err != nil {
 		return "", err
+	}
+
+	contractABI, ok := e.contractABIs[*tx.To()]
+	if !ok {
+		return "", fmt.Errorf("ABI not found for contract %v", tx.To().Hex())
+	}
+
+	// Decode the revert reason
+	if len(reason) > 0 {
+		revertData := reason[4:] // Skip the function selector
+		decoded, err := contractABI.Unpack("Error", revertData)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%v", decoded), nil
 	}
 
 	return string(reason), nil
