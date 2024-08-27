@@ -372,7 +372,7 @@ func (m *Monitor) check(ctx context.Context, newBlock uint64, lastNonce uint64) 
 				continue
 			}
 			if r.Receipt.Status != types.ReceiptStatusSuccessful {
-				reason, err := m.helper.RevertReason(ctx, r.Receipt)
+				reason, err := m.helper.RevertReason(ctx, r.Receipt, m.owner)
 				if err != nil {
 					m.logger.Error(
 						"retrieving transaction revert reason failed",

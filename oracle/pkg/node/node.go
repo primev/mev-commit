@@ -121,10 +121,16 @@ func NewNode(opts *Options) (*Node, error) {
 		maxRetries: 30,
 	}
 
+	contracts, err := getContractABIs(opts)
+	if err != nil {
+		nd.logger.Error("failed to get contract ABIs", "error", err)
+		return nil, err
+	}
+
 	monitor := txmonitor.New(
 		owner,
 		settlementClient,
-		txmonitor.NewEVMHelperWithLogger(settlementClient, nd.logger),
+		txmonitor.NewEVMHelperWithLogger(settlementClient, nd.logger, contracts),
 		st,
 		nd.logger.With("component", "tx_monitor"),
 		1024,
@@ -139,13 +145,6 @@ func NewNode(opts *Options) (*Node, error) {
 		monitor,
 	)
 	settlementRPC := transactor.NewMetricsWrapper(txnMgr)
-
-	contracts, err := getContractABIs(opts)
-	if err != nil {
-		nd.logger.Error("failed to get contract ABIs", "error", err)
-		cancel()
-		return nil, err
-	}
 
 	abis := make([]*abi.ABI, 0, len(contracts))
 	contractAddrs := make([]common.Address, 0, len(contracts))
@@ -255,7 +254,7 @@ func NewNode(opts *Options) (*Node, error) {
 		st,
 		evtMgr,
 		oracleTransactorSession,
-		txmonitor.NewEVMHelperWithLogger(l1Client, nd.logger),
+		txmonitor.NewEVMHelperWithLogger(l1Client, nd.logger, contracts),
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate updater", "error", err)

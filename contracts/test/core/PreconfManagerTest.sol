@@ -250,7 +250,16 @@ contract PreconfManagerTest is Test {
         vm.prank(committer);
 
         vm.warp(1000);
-        vm.expectRevert("Invalid dispatch timestamp");
+        // Calculate the minimum valid timestamp for dispatching the commitment
+        uint256 minTime = block.timestamp - preconfManager.commitmentDispatchWindow();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPreconfManager.InvalidDispatchTimestamp.selector,
+                minTime,
+                _testCommitmentAliceBob.dispatchTimestamp
+            )
+        );
 
         preconfManager.storeUnopenedCommitment(
             commitmentDigest,
@@ -259,9 +268,7 @@ contract PreconfManagerTest is Test {
         );
     }
 
-    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow()
-        public
-    {
+    function test_StoreCommitmentFailureDueToTimestampValidationWithNewWindow() public {
         bytes32 commitmentDigest = keccak256(
             abi.encodePacked("commitment data")
         );
@@ -275,8 +282,19 @@ contract PreconfManagerTest is Test {
 
         vm.prank(preconfManager.owner());
         preconfManager.updateCommitmentDispatchWindow(200);
+
         vm.warp(201 + _testCommitmentAliceBob.dispatchTimestamp);
-        vm.expectRevert("Invalid dispatch timestamp");
+
+        // Calculate the minimum valid timestamp for dispatching the commitment
+        uint256 minTime = block.timestamp - preconfManager.commitmentDispatchWindow();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPreconfManager.InvalidDispatchTimestamp.selector,
+                minTime,
+                _testCommitmentAliceBob.dispatchTimestamp
+            )
+        );
         preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
