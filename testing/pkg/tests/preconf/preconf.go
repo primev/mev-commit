@@ -100,6 +100,7 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 					"decay_start", c.DecayStartTimeStamp,
 					"decay_end", c.DecayEndTimeStamp,
 					"dispatch_timestamp", c.DispatchTimestamp,
+					"block_number", c.BlockNumber,
 				)
 				store.Insert(openCmtKey(c.CommitmentIndex[:]), c)
 			},
@@ -132,7 +133,7 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 		events.NewEventHandler(
 			"NewL1Block",
 			func(c *blocktracker.BlocktrackerNewL1Block) {
-				logger.Info("Received new L1 block")
+				logger.Info("Received new L1 block", "block", c.BlockNumber)
 				store.Insert(blkWinnerKey(c.BlockNumber.Uint64()), c)
 			},
 		),

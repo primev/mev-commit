@@ -210,7 +210,7 @@ func NewNode(opts *Options) (*Node, error) {
 	monitor := txmonitor.New(
 		opts.KeySigner.GetAddress(),
 		contractRPC,
-		txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "txmonitor")),
+		txmonitor.NewEVMHelperWithLogger(contractRPC, opts.Logger.With("component", "txmonitor")),
 		txnStore,
 		opts.Logger.With("component", "txmonitor"),
 		1024,
@@ -380,7 +380,7 @@ func NewNode(opts *Options) (*Node, error) {
 			evtMgr,
 			preconfstore.New(store),
 			commitmentDA,
-			txmonitor.NewEVMHelperWithLogger(contractRPC.Client(), opts.Logger.With("component", "evm_helper")),
+			txmonitor.NewEVMHelperWithLogger(contractRPC, opts.Logger.With("component", "evm_helper")),
 			optsGetter,
 			opts.Logger.With("component", "tracker"),
 		)
