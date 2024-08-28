@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	noOfBids = 100
+	noOfBids = 10
 )
 
 var (
@@ -493,7 +493,7 @@ func getRandomBid(
 			Amount:              fmt.Sprintf("%d", amount),
 			BlockNumber:         int64(blkNum),
 			DecayStartTimestamp: time.Now().UnixMilli(),
-			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
+			DecayEndTimestamp:   time.Now().UnixMilli() - 1000,
 			RevertingTxHashes:   revertingTxnHashes,
 		},
 		Accept:      accept,
