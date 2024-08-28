@@ -45,6 +45,7 @@
         fi
       args:
         executable: bash
+      when: backup is defined and backup
 
     - name: Purge Stopped Jobs
       ansible.builtin.shell: |
@@ -66,3 +67,17 @@
         nomad system gc
       args:
         executable: bash
+      when: backup is defined and backup
+
+    - name: Force Stop and Purge Jobs
+      ansible.builtin.shell: |
+        for job in $(nomad job status -json | jq -r '.[].Summary.JobID'); do
+          if [ "${job}" != "null" ]; then
+            nomad stop -purge "${job}"
+          fi
+        done
+        nomad var purge "nomad/jobs"
+        nomad system gc
+      args:
+        executable: bash
+      when: backup is not defined or not backup
