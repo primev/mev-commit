@@ -59,7 +59,6 @@ jobs:
     env:
       ip: 0.0.0.0
       public_ip: 0.0.0.0
-      net_restrict: 0.0.0.0/0
       type: bootnode
   mev_commit_geth_signer_node1: &mev_commit_geth_signer_node1_job
     name: mev-commit-geth-signer-node1
@@ -76,8 +75,6 @@ jobs:
         p2p:
           to: 30311
     env:
-      ip: 0.0.0.0
-      net_restrict: 0.0.0.0/0
       type: signer
 
   mev_commit_geth_signer_node2: &mev_commit_geth_signer_node2_job
@@ -95,8 +92,6 @@ jobs:
         p2p:
           to: 30312
     env:
-      ip: 0.0.0.0
-      net_restrict: 0.0.0.0/0
       type: signer
 
   mev_commit_geth_signer_node3: &mev_commit_geth_signer_node3_job
@@ -114,12 +109,6 @@ jobs:
         p2p:
           to: 30313
     env:
-      ip: 0.0.0.0
-      net_restrict: 0.0.0.0/0
-      type: signer
-    env:
-      ip: 0.0.0.0
-      net_restrict: 0.0.0.0/0
       type: signer
 
   mev_commit_geth_member_node: &mev_commit_geth_member_node_job
@@ -142,7 +131,6 @@ jobs:
     env:
       ip: 0.0.0.0
       public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
-      net_restrict: 0.0.0.0/0
       type: member
       sync_mode: snap
 
