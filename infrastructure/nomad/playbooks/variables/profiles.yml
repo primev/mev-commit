@@ -61,6 +61,7 @@ jobs:
       public_ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
       type: bootnode
+  
   mev_commit_geth_signer_node1: &mev_commit_geth_signer_node1_job
     name: mev-commit-geth-signer-node1
     template: mev-commit-geth.nomad.j2
@@ -76,7 +77,7 @@ jobs:
         p2p:
           to: 30311
     env:
-      ip: 0.0.0.0
+      ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
       type: signer
 
@@ -95,7 +96,7 @@ jobs:
         p2p:
           to: 30312
     env:
-      ip: 0.0.0.0
+      ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
       type: signer
 
@@ -114,11 +115,7 @@ jobs:
         p2p:
           to: 30313
     env:
-      ip: 0.0.0.0
-      net_restrict: 0.0.0.0/0
-      type: signer
-    env:
-      ip: 0.0.0.0
+      ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
       type: signer
 
