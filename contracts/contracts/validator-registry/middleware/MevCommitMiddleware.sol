@@ -26,10 +26,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     // TODO: make some sort of integration or fuzz test for two main invariants defined in notion. 
 
-    // TODO: invariant here is that no two validator records have the same priority for the same operator, 
-    // and that operatorRecords[operator].priorityIndexCounter number of records exist at any given time for an operator,
-    // IFF the operator is not blacklisted.
-
     // TODO: Add things like network epoch duration, ref to core contracts, etc. 
     function initialize(
         uint256 _operatorDeregPeriodBlocks,
