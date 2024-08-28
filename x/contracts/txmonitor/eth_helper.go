@@ -139,11 +139,13 @@ func (e *evmHelper) RevertReason(
 	if len(reason) > 0 {
 		revertData := reason[4:] // Skip the function selector
 		decoded, err := contractABI.Unpack("Error", revertData)
-		if err != nil {
-			return string(reason), nil
+		if err == nil {
+			return fmt.Sprintf("%v", decoded), nil
 		}
-		return fmt.Sprintf("%v", decoded), nil
+		if len(reason) >= 68 {
+			return string(reason[68:]), nil
+		}
 	}
 
-	return string(reason), nil
+	return "Unknown error", nil
 }
