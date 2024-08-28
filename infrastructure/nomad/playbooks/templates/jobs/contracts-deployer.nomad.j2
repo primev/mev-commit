@@ -171,7 +171,7 @@ job "{{ job.name }}" {
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/www/contracts.json
 
-          python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/www
+          exec python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/www
           # endtodo
         EOH
         destination = "local/run.sh"
@@ -180,7 +180,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }

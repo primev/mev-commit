@@ -96,7 +96,7 @@ job "{{ job.name }}" {
             {{ end }}
 
           chmod +x local/eth-faucet
-          ./local/eth-faucet \
+          exec ./local/eth-faucet \
             --httpport "${HTTP_PORT}" \
             --faucet.amount 10 \
             --faucet.minutes 1 \
@@ -112,7 +112,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }

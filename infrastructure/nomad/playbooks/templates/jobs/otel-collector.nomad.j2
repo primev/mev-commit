@@ -128,7 +128,7 @@ job "{{ job.name }}" {
 
           mv local/otelcol-contrib local/otel-collector
           chmod +x local/otel-collector
-          local/otel-collector --config local/collector.yaml
+          exec local/otel-collector --config local/collector.yaml
         EOH
         destination = "local/run.sh"
         perms = "0755"
@@ -136,7 +136,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }

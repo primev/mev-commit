@@ -111,7 +111,7 @@ job "{{ job.name }}" {
           {% endif %}
 
           chmod +x ${EMULATOR_BINARY}
-          ${EMULATOR_BINARY} \
+          exec ${EMULATOR_BINARY} \
             -server-addr "${EMULATOR_IP_RPC_PORT}" \
             {% if job.target_type == 'bidder' %}
             -rpc-addr "${EMULATOR_L1_RPC_URL}" \
@@ -126,7 +126,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }

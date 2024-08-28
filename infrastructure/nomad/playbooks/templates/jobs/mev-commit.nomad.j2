@@ -175,7 +175,7 @@ job "{{ job.name }}" {
           {% endraw %}
 
           chmod +x local/mev-commit
-          local/mev-commit
+          exec local/mev-commit
         EOH
         destination = "local/run.sh"
         perms = "0755"
@@ -183,7 +183,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }
