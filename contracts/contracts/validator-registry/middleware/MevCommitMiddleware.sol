@@ -199,6 +199,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         });
     }
 
+    // TODO: Need to add more requires here and below s.t. we don't allow operators who
+    // are deregistered or req deregistered, from adding val records.
+    // DO a full sweep comparison of MevCommitAVS to see which checks exist for each function.
     function _addValRecord(bytes calldata blsPubkey) internal {
         require(!validatorRecords[blsPubkey].exists, "val record already exists");
         _setValRecord(blsPubkey, operatorRecords[msg.sender].priorityIndexCounter);
