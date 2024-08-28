@@ -140,7 +140,7 @@ func (e *evmHelper) RevertReason(
 		revertData := reason[4:] // Skip the function selector
 		decoded, err := contractABI.Unpack("Error", revertData)
 		if err != nil {
-			return "", err
+			return string(reason), nil
 		}
 		return fmt.Sprintf("%v", decoded), nil
 	}
