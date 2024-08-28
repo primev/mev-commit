@@ -235,10 +235,9 @@ job "{{ job.name }}" {
           GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
           {% endraw %}
-          {% elif job.env['type'] == 'member' %}
-          GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
           {% endif %}
-          {%- if job.env['type'] != 'bootnode' %}
+          GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
+          {% if job.env['type'] != 'bootnode' %}
           {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "p2p" .Tags }}

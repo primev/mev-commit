@@ -61,6 +61,7 @@ jobs:
       public_ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
       type: bootnode
+      sync_mode: snap
 
   mev_commit_geth_signer_node1: &mev_commit_geth_signer_node1_job
     name: mev-commit-geth-signer-node1
@@ -80,6 +81,7 @@ jobs:
       ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
       type: signer
+      sync_mode: snap
 
   mev_commit_geth_member_node: &mev_commit_geth_member_node_job
     name: mev-commit-geth-member-node
