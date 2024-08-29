@@ -11,6 +11,7 @@ import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 // TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
 // TODO: determine if you need timestamping similar to cosmos sdk example. Edit yes you will for slashing. See "captureTimestamp". 
 // TODO: Parse through MevCommitAVS and make sure translatable reg/dreg functions have the same operators / check the same things. 
+// TODO: for example you need to add requires s.t. a validator MUST be opted-in right after registering. 
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     
