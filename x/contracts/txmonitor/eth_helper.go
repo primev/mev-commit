@@ -151,13 +151,37 @@ func (e *evmHelper) RevertReason(
 	}
 
 	if contractABI, ok := e.contractABIs[*tx.To()]; ok {
+		reason := unwrapABIError(err, contractABI)
+		return reason, nil
+	}
+
+	return err.Error(), nil
+}
+
+func unwrapABIError(err error, contractABI *abi.ABI) string {
+	var dErr rpc.DataError
+	if !errors.As(err, &dErr) {
+		return err.Error()
+	}
+
+	errStr, ok := dErr.ErrorData().(string)
+	if !ok {
+		return err.Error()
+	}
+
+	buf := common.FromHex(errStr)
+	if reason, rErr := abi.UnpackRevert(buf); rErr == nil {
+		return reason
+	}
+
+	if contractABI != nil {
 		for _, cErr := range contractABI.Errors {
 			if !bytes.Equal(cErr.ID[:4], buf[:4]) {
 				continue
 			}
 			errData, uErr := cErr.Unpack(buf)
 			if uErr != nil {
-				return err.Error(), nil
+				return err.Error()
 			}
 
 			values, ok := errData.([]interface{})
@@ -175,9 +199,9 @@ func (e *evmHelper) RevertReason(
 				}
 				params[i] = fmt.Sprintf("%s=%v", input.Name, values[i])
 			}
-			return fmt.Sprintf("%s(%s)", cErr.Name, strings.Join(params, ", ")), nil
+			return fmt.Sprintf("%s(%s)", cErr.Name, strings.Join(params, ", "))
 		}
 	}
 
-	return err.Error(), nil
+	return err.Error()
 }
