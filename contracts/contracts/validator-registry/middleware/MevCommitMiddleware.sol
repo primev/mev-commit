@@ -74,6 +74,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     // TODO: confirm this and other external functions can handle empty arrays
     // TODO: confirm only operator can edit their own records. Does contract owner need access as well?
     // Be consistent with MevCommitAVS.
+    // TODO: enforce that validator would be slashable (enough funds + high enough prio) to allow the registration.
+    // Idea here is we need to enforce a newly registered validator is immediately opted-in.
     function registerValidators(bytes[] calldata blsPubkeys) external whenNotPaused {
         for (uint256 i = 0; i < blsPubkeys.length; i++) {
             _addValRecord(blsPubkeys[i]);
