@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	noOfBids = 10
+	noOfBids = 100
 )
 
 var (
@@ -101,7 +101,6 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 					"decay_start", c.DecayStartTimeStamp,
 					"decay_end", c.DecayEndTimeStamp,
 					"dispatch_timestamp", c.DispatchTimestamp,
-					"block_number", c.BlockNumber,
 				)
 				store.Insert(openCmtKey(c.CommitmentIndex[:]), c)
 			},
@@ -134,7 +133,7 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 		events.NewEventHandler(
 			"NewL1Block",
 			func(c *blocktracker.BlocktrackerNewL1Block) {
-				logger.Info("Received new L1 block", "block", c.BlockNumber)
+				logger.Info("Received new L1 block")
 				store.Insert(blkWinnerKey(c.BlockNumber.Uint64()), c)
 			},
 		),
@@ -493,7 +492,7 @@ func getRandomBid(
 			Amount:              fmt.Sprintf("%d", amount),
 			BlockNumber:         int64(blkNum),
 			DecayStartTimestamp: time.Now().UnixMilli(),
-			DecayEndTimestamp:   time.Now().UnixMilli() - 1000,
+			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
 			RevertingTxHashes:   revertingTxnHashes,
 		},
 		Accept:      accept,
