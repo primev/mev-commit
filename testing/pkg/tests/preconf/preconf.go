@@ -425,6 +425,10 @@ func getRandomBid(
 	if startIdx < txCount-1 {
 		endIdx = startIdx + 1 + rand.Intn(txCount-startIdx-1)
 	}
+	// limit to 4 transactions
+	if endIdx-startIdx > 4 {
+		endIdx = startIdx + 4
+	}
 
 	var (
 		txHashes []string
