@@ -159,6 +159,9 @@ job "{{ job.name }}" {
       config {
         command = "bash"
         args = ["-c", "local/run.sh"]
+        env {
+          GETH_PORT = "{{ job.env['port'] }}"
+        }
       }
     }
   }
