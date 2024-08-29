@@ -107,6 +107,17 @@ job "{{ job.name }}" {
         {{- end }}
         {% endraw %}
 
+        {% raw %}
+        {{ with nomadVar "nomad/jobs" }}
+        BACKUP="{{ .MEV_COMMIT_GETH_CHAIN_BACKUP }}"
+        {{ end }}
+        {% endraw %}
+
+        if [[ "${BACKUP}" == "true" ]]; then
+          echo "Detected ongoing data backup, terminating..."
+          exit 1
+        fi
+
         BACKUP_FILE="local/backups/$(
           ls -1 local/backups/ |
           sed -r 's/(.*)_dirty/\1/' |
@@ -266,6 +277,17 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
           {% endraw %}
+
+          {% raw %}
+          {{ with nomadVar "nomad/jobs" }}
+          BACKUP="{{ .MEV_COMMIT_GETH_CHAIN_BACKUP }}"
+          {{ end }}
+          {% endraw %}
+
+          if [[ "${BACKUP}" == "true" ]]; then
+            echo "Detected ongoing data backup, terminating..."
+            exit 1
+          fi
 
           mkdir -p "${GETH_DATA_DIR}" > /dev/null 2>&1
 
