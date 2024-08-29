@@ -91,7 +91,6 @@ job "{{ job.name }}" {
           GETH_NODE_TYPE="{{ job.env['type'] }}"
           GETH_VERBOSITY={{ job.env.get('log-verbosity', '3') }}
           GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
-          GETH_PORT="{{ job.env['port'] }}"
           GETH_LOG_TAGS="{{
             job.env['log-tags'].items() | map('join', ':') | join('; ')
             if job.env['log-tags'] is defined and job.env['log-tags']
