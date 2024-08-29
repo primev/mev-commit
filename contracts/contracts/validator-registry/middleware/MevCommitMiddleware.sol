@@ -250,7 +250,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(validatorRecords[blsPubkey].exists, "missing validator record");
         require(_getOperatorFromValRecord(blsPubkey) == msg.sender, "sender is not operator");
         EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
-        address vault = validatorRecords[blsPubkey].vault;
         emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
     }
 
@@ -297,6 +296,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultDeregistered(vault);
     }
 
+    // TODO: will need some more thought around gaurunteeing vault has enough funds to slash.
+    // (see positioning in valset)
     function _slashValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing validator record");
         // TODO: slash operator with core
