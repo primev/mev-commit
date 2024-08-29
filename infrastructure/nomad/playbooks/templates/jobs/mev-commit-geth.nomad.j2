@@ -105,7 +105,7 @@ job "{{ job.name }}" {
           GETH_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
-          GETH_PORT = "{{ job.env['port'] }}"
+          GETH_PORT="{{ job.env['port'] }}"
           {% endraw %}
           {% elif job.env['type'] == 'member' %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
