@@ -9,9 +9,13 @@ abstract contract MevCommitMiddlewareStorage {
 
     uint256 public operatorDeregPeriodBlocks;
 
+    uint256 public vaultDeregPeriodBlocks;
+
     address public slashOracle;
 
     mapping(bytes blsPubkey => IMevCommitMiddleware.ValidatorRecord) public validatorRecords;
 
     mapping(address operatorAddress => IMevCommitMiddleware.OperatorRecord) public operatorRecords;
+
+    mapping(address vaultAddress => IMevCommitMiddleware.VaultRecord) public vaultRecords;
 }
