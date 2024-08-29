@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"math/rand"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -412,22 +413,32 @@ func getRandomBid(
 		store.Insert(blkKey(blkNum), blk)
 	}
 
-	if len(blk.(*types.Block).Transactions()) == 0 {
-		return nil, errNoTxnsInBlock
-	}
+	transactions := blk.(*types.Block).Transactions()
+	txCount := len(transactions)
 
-	idx := rand.Intn(len(blk.(*types.Block).Transactions()))
-	bundleLen := rand.Intn(5) + 1
-	if idx+bundleLen > len(blk.(*types.Block).Transactions()) {
-		bundleLen = len(blk.(*types.Block).Transactions()) - idx
+	switch txCount {
+	case 0:
+		return nil, errNoTxnsInBlock
+	case 1:
+		// skip
+	default:
+		start := rand.Intn(txCount)
+		// we select a random number of transactions to bundle starting from the start index
+		// in that order
+		maxBundleLen := min(4, txCount-start)
+		if maxBundleLen == 1 {
+			transactions = transactions[start : start+1]
+		} else {
+			end := start + rand.Intn(maxBundleLen) + 1
+			transactions = transactions[start:end]
+		}
 	}
 
 	var (
 		txHashes []string
 		rawTxns  []string
 	)
-	for i := idx; i < idx+bundleLen; i++ {
-		txn := blk.(*types.Block).Transactions()[i]
+	for _, txn := range transactions {
 		txHashes = append(
 			txHashes,
 			strings.TrimPrefix(txn.Hash().String(), "0x"),
@@ -442,14 +453,14 @@ func getRandomBid(
 	revertingTxnHashes, err := getRevertingTxns(
 		ctx,
 		o.L1Client(),
-		blk.(*types.Block).Transactions()[idx:idx+bundleLen],
+		transactions,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	// send payload instead of hashes
-	sendPayload := rand.Intn(100) < 50
+	sendPayload := rand.Intn(100) < 30
 	// accept 90% of bids
 	accept := rand.Intn(100) < 90
 	// slash 10% of accepted bids
@@ -459,8 +470,7 @@ func getRandomBid(
 
 	if shouldSlash {
 		if len(txHashes) > 1 {
-			original := make([]string, len(txHashes))
-			copy(original, txHashes)
+			original := slices.Clone(txHashes)
 			for {
 				rand.Shuffle(len(txHashes), func(i, j int) {
 					txHashes[i], txHashes[j] = txHashes[j], txHashes[i]
