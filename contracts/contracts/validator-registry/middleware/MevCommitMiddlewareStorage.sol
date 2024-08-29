@@ -2,6 +2,7 @@
 pragma solidity 0.8.20;
 
 import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
+import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 
 abstract contract MevCommitMiddlewareStorage {
 
@@ -18,4 +19,6 @@ abstract contract MevCommitMiddlewareStorage {
     mapping(address operatorAddress => IMevCommitMiddleware.OperatorRecord) public operatorRecords;
 
     mapping(address vaultAddress => IMevCommitMiddleware.VaultRecord) public vaultRecords;
+
+    mapping(address vault => EnumerableSet.BytesSet) internal _vaultToValidatorSet;
 }

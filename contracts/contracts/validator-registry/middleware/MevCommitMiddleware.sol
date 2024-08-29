@@ -7,6 +7,7 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/Pau
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
+import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 
 // TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
 // TODO: determine if you need timestamping similar to cosmos sdk example. Edit yes you will for slashing. See "captureTimestamp". 
@@ -16,7 +17,9 @@ import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 // TODO: add function for a validator to "chage vault used for collateral", which involves a delete + new reg. 
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
-    
+
+    using EnumerableSet for EnumerableSet.BytesSet;
+
     // TODO: more modifiers similar to MevCommitAVS
 
     modifier onlySlashOracle() {
@@ -97,15 +100,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
-    /// @notice This function allows a validator to swap its registration with another validator's registration.
-    /// This is only possible if both validators are registered to the same operator and vault.
-    function swapValRegistrations(bytes[] calldata blsPubkeys1, bytes[] calldata blsPubkeys2) external whenNotPaused {
-        require(blsPubkeys1.length == blsPubkeys2.length, "invalid length");
-        for (uint256 i = 0; i < blsPubkeys1.length; i++) {
-            _swapValRecords(blsPubkeys1[i], blsPubkeys2[i]);
-        }
-    }
-
     /// @dev Deletes validator records, only if the associated operator is blacklisted.
     /// Restricted to contract owner.
     /// @notice This function allows the contract owner to combat a greifing scenario where an operator
@@ -113,17 +107,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     ///
     /// TODO: Write test for scenario where operator greifs another, and contract owner
     /// has to blacklist that operator, then delete the greifed validator records.
-    function deleteValRecords(bytes[] calldata blsPubkeys) external onlyOwner {
+    // TODO: IMPORTANT, this FUNCTION SHOULD NOT BE ONLY OWNER, BUT ALSO OPERATOR.
+    function deregisterValidators(bytes[] calldata blsPubkeys) external onlyOwner {
         for (uint256 i = 0; i < blsPubkeys.length; i++) {
-            _deleteValRecord(blsPubkeys[i]);
+            _deregisterValidator(blsPubkeys[i]);
         }
     }
-
-    // TODO: IMPORTANT, ABOVE FUNCTION SHOULD NOT BE ONLY OWNER, BUT ALSO OPERATOR.
-    // WITH AN ENUMERABLE SET, WE CAN ALLOW ARBITRARY DELETION WHILE MAINTAINING INVARIANTS.
-    // TODO: WILL NEED TO DECREMENT COUNTER WHEN REMOVING A RECORD.
-    // TODO: ALSO NEED TO SWAP LAST VALIDATOR IN THE VAULT WITH THE DELETED VALIDATOR, PRIOR TO DELETION.
-    // TODO: Also remove this section from the notion doc.
 
     function registerVaults(address[] calldata vaults, address[] calldata operators) external onlyOwner {
         require(vaults.length == operators.length, "invalid length");
@@ -224,16 +213,16 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit OperatorBlacklisted(operator);
     }
 
-    function _setValRecord(bytes calldata blsPubkey, address vault, uint256 priorityIndex) internal {
+    function _setValRecord(bytes calldata blsPubkey, address vault) internal {
         validatorRecords[blsPubkey] = ValidatorRecord({
             exists: true,
             deregRequestHeight: EventHeightLib.EventHeight({
                 exists: false,
                 blockHeight: 0
             }),
-            vault: vault,
-            priorityIndex: priorityIndex
+            vault: vault
         });
+        _vaultToValidatorSet[vault].add(blsPubkey);
     }
 
     // TODO: Need to add more requires here and below s.t. we don't allow operators who
@@ -253,59 +242,30 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         require(vaultRecords[vault].operator == msg.sender, "vault operator mismatch");
 
-        _setValRecord(blsPubkey, vault, vaultRecords[vault].priorityIndexCounter);
-        emit ValRecordAdded(blsPubkey, msg.sender, vaultRecords[vault].priorityIndexCounter);
-        ++vaultRecords[vault].priorityIndexCounter;
+        _setValRecord(blsPubkey, vault);
+        uint256 position = _vaultToValidatorSet[vault].position(blsPubkey);
+        emit ValRecordAdded(blsPubkey, msg.sender, position);
     }
 
     function _requestValDeregistration(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing validator record");
         require(_getOperatorFromValRecord(blsPubkey) == msg.sender, "sender is not operator");
         EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
-        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, validatorRecords[blsPubkey].priorityIndex);
+        address vault = validatorRecords[blsPubkey].vault;
+        uint256 position = _vaultToValidatorSet[vault].position(blsPubkey);
+        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, position);
     }
 
-    // TODO: test newBlsPubkey could be the same as oldBlsPubkey
-    function _swapValRecords(bytes calldata blsPubkey1, bytes calldata blsPubkey2) internal {
-        require(validatorRecords[blsPubkey1].exists, "missing val record 1");
-        require(validatorRecords[blsPubkey2].exists, "missing val record 2");
-
-        require(validatorRecords[blsPubkey1].vault == validatorRecords[blsPubkey2].vault,
-            "vaults do not match");
-        
-        address vault = validatorRecords[blsPubkey1].vault;
-        require(vaultRecords[vault].exists, "vault not registered");
-        require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg request exists");
-
-        require(_getOperatorFromValRecord(blsPubkey1) == msg.sender &&
-            _getOperatorFromValRecord(blsPubkey2) == msg.sender, "sender is not operator");
-        
-        require(operatorRecords[msg.sender].exists, "operator not registered");
-        require(!operatorRecords[msg.sender].deregRequestHeight.exists, "operator dereg request exists");
-        require(!operatorRecords[msg.sender].isBlacklisted, "operator is blacklisted");
-
-        require(_isValidatorReadyToDeregister(blsPubkey1), "not ready to dereg");
-        require(_isValidatorReadyToDeregister(blsPubkey2), "not ready to dereg");
-            
-        // swap priorities, reset dereg request heights
-        uint256 priorityIndex1 = validatorRecords[blsPubkey1].priorityIndex;
-        _setValRecord(blsPubkey1, vault, validatorRecords[blsPubkey2].priorityIndex);
-        _setValRecord(blsPubkey2, vault, priorityIndex1);
-        emit ValRecordsSwapped(blsPubkey1, blsPubkey2, msg.sender,
-            // Log new stored priority indexes
-            validatorRecords[blsPubkey1].priorityIndex, validatorRecords[blsPubkey2].priorityIndex);
-    }
-
-    function _deleteValRecord(bytes calldata blsPubkey) internal {
+    function _deregisterValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing val record");
         address operator = _getOperatorFromValRecord(blsPubkey);
         require(operatorRecords[operator].exists, "operator not registered");
         require(!operatorRecords[operator].deregRequestHeight.exists, "operator dereg request exists");
         require(operatorRecords[operator].isBlacklisted, "operator is blacklisted");
-        uint256 priorityIndex = validatorRecords[blsPubkey].priorityIndex;
         delete validatorRecords[blsPubkey];
-        // TODO: subtract from vault priority index counter
-        emit ValRecordDeleted(blsPubkey, operator, priorityIndex);
+        address vault = validatorRecords[blsPubkey].vault;
+        _vaultToValidatorSet[vault].remove(blsPubkey);
+        emit ValRecordDeleted(blsPubkey, operator);
     }
 
     function _setVaultRecord(address vault, address operator) internal {
@@ -315,7 +275,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
                 exists: false,
                 blockHeight: 0
             }),
-            priorityIndexCounter: 0,
             operator: operator
         });
     }
@@ -345,7 +304,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         // TODO: slash operator with core
         address operator = _getOperatorFromValRecord(blsPubkey);
         _requestValDeregistration(blsPubkey); // TODO: determine if validator should be deregistered
-        emit ValidatorSlashed(blsPubkey, operator, validatorRecords[blsPubkey].priorityIndex);
+        uint256 position = _vaultToValidatorSet[validatorRecords[blsPubkey].vault].position(blsPubkey);
+        emit ValidatorSlashed(blsPubkey, operator, position);
     }
 
     /// @dev Internal function to set the operator deregistration period in blocks.
@@ -420,7 +380,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             return false;
         }
         // TODO: check liquidity exists to slash if needed
-        if (validatorRecords[blsPubkey].priorityIndex > 71) { // where 71 is some threshold defined by amount of liquidity
+        uint256 position = _vaultToValidatorSet[validatorRecords[blsPubkey].vault].position(blsPubkey);
+        if (position > 71) { // where 71 is some threshold defined by amount of liquidity
             return false;
         }
         return true;

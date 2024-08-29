@@ -10,7 +10,6 @@ interface IMevCommitMiddleware {
         EventHeightLib.EventHeight deregRequestHeight;
         /// @notice The vault holding slashable stake which represents the validator.
         address vault;
-        uint256 priorityIndex;
     }
 
     // TODO: Confirm we don't need to store/track slashing of operators. This must be handled somewhere tho.
@@ -23,9 +22,9 @@ interface IMevCommitMiddleware {
     struct VaultRecord {
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
-        uint256 priorityIndexCounter;
         // TODO: For now, a single operator can register multiple vaults,
-        // but a single vault can collateralize only one operator.
+        // a single vault can collateralize only one operator.
+        // A single vault can collateralize multiple validators.
         // Evaluate how this compares to intended usage of Symbiotic.
         address operator;
     }
@@ -44,22 +43,14 @@ interface IMevCommitMiddleware {
 
     /// @notice Emmitted when a validator record is added to state
     event ValRecordAdded(bytes indexed blsPubkey, address indexed operator,
-        uint256 indexed priorityIndex);
+        uint256 indexed position);
 
     /// @notice Emmitted when validator deregistration is requested
     event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed operator,
-        uint256 indexed priorityIndex);
+        uint256 indexed position);
 
-    /// @notice Emmitted when a validator record is replaced for a certain priority index
-    event ValRecordReplaced(bytes indexed oldBlsPubkey, bytes indexed newBlsPubkey,
-        address indexed operator, uint256 priorityIndex);
-
-    /// @notice Emmitted when two validator records swap priority indexes
-    event ValRecordsSwapped(bytes indexed blsPubkey1, bytes indexed blsPubkey2, address indexed operator,
-        uint256 newPriorityIndex1, uint256 newPriorityIndex2);
-    
     /// @notice Emmitted when a validator record is deleted by the contract owner
-    event ValRecordDeleted(bytes indexed blsPubkey, address indexed operator, uint256 indexed priorityIndex);
+    event ValRecordDeleted(bytes indexed blsPubkey, address indexed operator);
 
     /// @notice Emmitted when a vault record is added
     event VaultRegistered(address indexed vault, address indexed operator);
@@ -71,7 +62,7 @@ interface IMevCommitMiddleware {
     event VaultDeregistered(address indexed vault);
     
     /// @notice Emmitted when a validator is slashed
-    event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed priorityIndex);
+    event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position);
 
     /// @notice Emmitted when the operator deregistration period in blocks is set
     event OperatorDeregPeriodBlocksSet(uint256 operatorDeregPeriodBlocks);
