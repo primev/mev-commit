@@ -1,9 +1,12 @@
 package txmonitor
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -120,32 +123,61 @@ func (e *evmHelper) RevertReason(
 	}
 
 	msg := ethereum.CallMsg{
-		From: from,
-		To:   tx.To(),
-		Data: tx.Data(),
+		From:     from,
+		To:       tx.To(),
+		Gas:      tx.Gas(),
+		GasPrice: tx.GasPrice(),
+		Value:    tx.Value(),
+		Data:     tx.Data(),
 	}
 
-	reason, err := e.client.CallContract(ctx, msg, receipt.BlockNumber)
-	if err != nil {
-		return "", err
+	_, err = e.client.CallContract(ctx, msg, receipt.BlockNumber)
+	if err == nil {
+		return "no revert reason", nil
+	}
+	var dErr rpc.DataError
+	if !errors.As(err, &dErr) {
+		return err.Error(), nil
 	}
 
-	contractABI, ok := e.contractABIs[*tx.To()]
+	errStr, ok := dErr.ErrorData().(string)
 	if !ok {
-		return "", fmt.Errorf("ABI not found for contract %v", tx.To().Hex())
+		return err.Error(), nil
 	}
 
-	// Decode the revert reason
-	if len(reason) > 0 {
-		revertData := reason[4:] // Skip the function selector
-		decoded, err := contractABI.Unpack("Error", revertData)
-		if err == nil {
-			return fmt.Sprintf("%v", decoded), nil
-		}
-		if len(reason) >= 68 {
-			return string(reason[68:]), nil
+	buf := common.FromHex(errStr)
+	if reason, rErr := abi.UnpackRevert(buf); rErr == nil {
+		return reason, nil
+	}
+
+	if contractABI, ok := e.contractABIs[*tx.To()]; ok {
+		for _, cErr := range contractABI.Errors {
+			if !bytes.Equal(cErr.ID[:4], buf[:4]) {
+				continue
+			}
+			errData, uErr := cErr.Unpack(buf)
+			if uErr != nil {
+				return err.Error(), nil
+			}
+
+			values, ok := errData.([]interface{})
+			if !ok {
+				values := make([]string, len(cErr.Inputs))
+				for i := range values {
+					values[i] = "?" // unknown value
+				}
+			}
+
+			params := make([]string, len(cErr.Inputs))
+			for i, input := range cErr.Inputs {
+				if input.Name == "" {
+					input.Name = fmt.Sprintf("arg%d", i)
+				}
+				params[i] = fmt.Sprintf("%s=%v", input.Name, values[i])
+			}
+			return fmt.Sprintf("%s(%s)", cErr.Name, strings.Join(params, ", ")), nil
 		}
 	}
 
-	return "Unknown error", nil
+	return err.Error(), nil
 }
