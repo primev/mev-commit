@@ -558,8 +558,8 @@ profiles:
       - *mev_commit_oracle_job
       - *mev_commit_bidder_node1_job
       - *mev_commit_bidder_node1_funder_job
-      # - *mev_commit_provider_emulator_node1_job
-      # - *mev_commit_bidder_emulator_node1_job
+      - *mev_commit_provider_emulator_node1_job
+      - *mev_commit_bidder_emulator_node1_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
 
