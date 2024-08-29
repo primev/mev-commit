@@ -134,7 +134,7 @@ job "{{ job.name }}" {
             exit 1
           fi
 
-          postgres -D "${POSTGRES_DATA}"
+          exec postgres -D "${POSTGRES_DATA}"
           {% endraw %}
         EOH
         destination = "local/run.sh"
@@ -143,7 +143,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
 
@@ -320,7 +320,7 @@ job "{{ job.name }}" {
           fi
 
           chmod +x local/mev-commit-oracle
-          local/mev-commit-oracle start
+          exec local/mev-commit-oracle start
           {% endraw %}
         EOH
         destination = "local/run.sh"
@@ -329,7 +329,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }

@@ -149,7 +149,7 @@ job "{{ job.name }}" {
           echo "Settlement Contract Address: $STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR"
 
           chmod +x local/relayer-linux-amd64
-          ./local/relayer-linux-amd64 start
+          exec ./local/relayer-linux-amd64 start
         EOH
         destination = "local/run.sh"
         perms = "0755"
@@ -157,7 +157,7 @@ job "{{ job.name }}" {
 
       config {
         command = "bash"
-        args = ["-c", "local/run.sh"]
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }
