@@ -243,8 +243,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(vaultRecords[vault].operator == msg.sender, "vault operator mismatch");
 
         _setValRecord(blsPubkey, vault);
-        uint256 position = _vaultToValidatorSet[vault].position(blsPubkey);
-        emit ValRecordAdded(blsPubkey, msg.sender, position);
+        emit ValRecordAdded(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
     }
 
     function _requestValDeregistration(bytes calldata blsPubkey) internal {
@@ -252,8 +251,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(_getOperatorFromValRecord(blsPubkey) == msg.sender, "sender is not operator");
         EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
         address vault = validatorRecords[blsPubkey].vault;
-        uint256 position = _vaultToValidatorSet[vault].position(blsPubkey);
-        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, position);
+        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
     }
 
     function _deregisterValidator(bytes calldata blsPubkey) internal {
@@ -304,8 +302,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         // TODO: slash operator with core
         address operator = _getOperatorFromValRecord(blsPubkey);
         _requestValDeregistration(blsPubkey); // TODO: determine if validator should be deregistered
-        uint256 position = _vaultToValidatorSet[validatorRecords[blsPubkey].vault].position(blsPubkey);
-        emit ValidatorSlashed(blsPubkey, operator, position);
+        emit ValidatorSlashed(blsPubkey, operator, _getPositionInValset(blsPubkey));
     }
 
     /// @dev Internal function to set the operator deregistration period in blocks.
@@ -339,6 +336,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     // TODO: confirm you can call this with zero valued stuff
     function _getOperatorFromValRecord(bytes calldata blsPubkey) internal view returns (address) {
         return vaultRecords[validatorRecords[blsPubkey].vault].operator;
+    }
+
+    // TODO: This and above function are optimistic on existence of records.
+    // TODO: Either a. confirm the calling functions have neccessary requires, or add them here.
+    function _getPositionInValset(bytes calldata blsPubkey) internal view returns (uint256) {
+        return _vaultToValidatorSet[validatorRecords[blsPubkey].vault].position(blsPubkey);
     }
 
     function _isValidatorReadyToDeregister(bytes calldata blsPubkey) internal view returns (bool) {
