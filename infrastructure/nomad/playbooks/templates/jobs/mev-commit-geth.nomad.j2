@@ -51,8 +51,8 @@ job "{{ job.name }}" {
 
       {% if env == 'testenv' %}
       resources {
-        cores = 6
-        memory = 32768
+        cores = 2
+        memory = 16384
       }
       {% endif %}
 
@@ -299,8 +299,8 @@ job "{{ job.name }}" {
 
       {% if env == 'testenv' %}
       resources {
-        cores = 6
-        memory = 32768
+        cores = 2
+        memory = 16384
       }
       {% endif %}
 
