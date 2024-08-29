@@ -416,26 +416,22 @@ func getRandomBid(
 	transactions := blk.(*types.Block).Transactions()
 	txCount := len(transactions)
 
-	if txCount == 0 {
+	switch txCount {
+	case 0:
 		return nil, errNoTxnsInBlock
-	}
-
-	startIdx := rand.Intn(txCount)
-	endIdx := startIdx + 1
-	if startIdx < txCount-1 {
-		endIdx = startIdx + 1 + rand.Intn(txCount-startIdx-1)
-	}
-	// limit to 4 transactions
-	if endIdx-startIdx > 4 {
-		endIdx = startIdx + 4
+	case 1:
+		// skip
+	default:
+		start := rand.Intn(txCount)
+		end := rand.Intn(min(start+5, txCount-1)-start) + start + 1 // Limit to max of 4 transactions.
+		transactions = transactions[start:end]
 	}
 
 	var (
 		txHashes []string
 		rawTxns  []string
 	)
-	for i := startIdx; i < endIdx; i++ {
-		txn := transactions[i]
+	for _, txn := range transactions {
 		txHashes = append(
 			txHashes,
 			strings.TrimPrefix(txn.Hash().String(), "0x"),
@@ -450,7 +446,7 @@ func getRandomBid(
 	revertingTxnHashes, err := getRevertingTxns(
 		ctx,
 		o.L1Client(),
-		transactions[startIdx:endIdx],
+		transactions,
 	)
 	if err != nil {
 		return nil, err
