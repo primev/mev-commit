@@ -423,8 +423,15 @@ func getRandomBid(
 		// skip
 	default:
 		start := rand.Intn(txCount)
-		end := rand.Intn(min(start+5, txCount-1)-start) + start + 1 // Limit to max of 4 transactions.
-		transactions = transactions[start:end]
+		// we select a random number of transactions to bundle starting from the start index
+		// in that order
+		maxBundleLen := min(4, txCount-start)
+		if maxBundleLen == 1 {
+			transactions = transactions[start : start+1]
+		} else {
+			end := start + rand.Intn(maxBundleLen) + 1
+			transactions = transactions[start:end]
+		}
 	}
 
 	var (
