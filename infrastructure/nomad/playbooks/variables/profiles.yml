@@ -80,6 +80,7 @@ jobs:
       ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
       type: signer
+      port: 30311
 
   mev_commit_geth_signer_node2: &mev_commit_geth_signer_node2_job
     name: mev-commit-geth-signer-node2
@@ -99,6 +100,7 @@ jobs:
       ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
       type: signer
+      port: 30312
 
   mev_commit_geth_signer_node3: &mev_commit_geth_signer_node3_job
     name: mev-commit-geth-signer-node3
@@ -118,6 +120,7 @@ jobs:
       ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
       type: signer
+      port: 30313
 
   mev_commit_geth_member_node: &mev_commit_geth_member_node_job
     name: mev-commit-geth-member-node
