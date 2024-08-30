@@ -18,6 +18,8 @@ import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 // TODO: Enforce in contract that we only accept NetworkRestakeDelegator for vaults,
 // allowing a vault to collateralize multiple operators wouldn't make sense here.
 // TODO: attempt to make storage more fsm like with enum. See if this can lessen the amount of requires needed
+// TODO: minStake is now slashAmount
+// TODO: Get through full Handbook for Networks page and confirm you follow all rules for slashing logic, network epoch, slashing epochs etc. 
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
@@ -111,6 +113,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// TODO: Write test for scenario where operator greifs another, and contract owner
     /// has to blacklist that operator, then delete the greifed validator records.
     // TODO: IMPORTANT, this FUNCTION SHOULD NOT BE ONLY OWNER, BUT ALSO OPERATOR.
+    // TODO: OWNER can only delete if operator is blacklisted, prob make this separate function.
     function deregisterValidators(bytes[] calldata blsPubkeys) external onlyOwner {
         for (uint256 i = 0; i < blsPubkeys.length; i++) {
             _deregisterValidator(blsPubkeys[i]);
@@ -303,8 +306,17 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     // (see positioning in valset)
     function _slashValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing validator record");
-        // TODO: slash operator with core
         address operator = _getOperatorFromValRecord(blsPubkey);
+        // address vault = validatorRecords[blsPubkey].vault;
+        // address slasher = IVault(vault).slasher();
+        // uint256 slasherType = IEntity(slasher).TYPE();
+        // if (slasherType == INSTANT_SLASHER_TYPE) {
+        //     ISlasher(slasher).slash(subnetwork, operator, amount, timestamp, new bytes(0));
+        // } else if (slasherType == VETO_SLASHER_TYPE) {
+        //     IVetoSlasher(slasher).requestSlash(subnetwork, operator, amount, timestamp, new bytes(0));
+        // } else {
+        //     revert UnknownSlasherType();
+        // }
         _requestValDeregistration(blsPubkey); // TODO: determine if validator should be deregistered
         emit ValidatorSlashed(blsPubkey, operator, _getPositionInValset(blsPubkey));
     }
