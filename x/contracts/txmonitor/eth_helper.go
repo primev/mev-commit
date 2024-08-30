@@ -37,18 +37,18 @@ type BatchReceiptGetter interface {
 	BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]Result, error)
 }
 
-type evmHelper struct {
+type EVMHelperImpl struct {
 	client       *ethclient.Client
 	logger       *slog.Logger
 	contractABIs map[common.Address]*abi.ABI
 }
 
-func NewEVMHelperWithLogger(client *ethclient.Client, logger *slog.Logger, contracts map[common.Address]*abi.ABI) *evmHelper {
-	return &evmHelper{client, logger, contracts}
+func NewEVMHelperWithLogger(client *ethclient.Client, logger *slog.Logger, contracts map[common.Address]*abi.ABI) *EVMHelperImpl {
+	return &EVMHelperImpl{client, logger, contracts}
 }
 
 // BatchReceipts retrieves multiple receipts for a list of transaction hashes.
-func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]Result, error) {
+func (e *EVMHelperImpl) BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]Result, error) {
 	e.logger.Debug("Starting BatchReceipts", "txHashes", txHashes)
 	batch := make([]rpc.BatchElem, len(txHashes))
 
@@ -112,7 +112,7 @@ func (e *evmHelper) BatchReceipts(ctx context.Context, txHashes []common.Hash) (
 	return receipts, nil
 }
 
-func (e *evmHelper) RevertReason(
+func (e *EVMHelperImpl) RevertReason(
 	ctx context.Context,
 	receipt *types.Receipt,
 	from common.Address,
@@ -174,34 +174,36 @@ func unwrapABIError(err error, contractABI *abi.ABI) string {
 		return reason
 	}
 
-	if contractABI != nil {
-		for _, cErr := range contractABI.Errors {
-			if !bytes.Equal(cErr.ID[:4], buf[:4]) {
-				continue
-			}
-			errData, uErr := cErr.Unpack(buf)
-			if uErr != nil {
-				return err.Error()
-			}
-
-			values, ok := errData.([]interface{})
-			if !ok {
-				values := make([]string, len(cErr.Inputs))
-				for i := range values {
-					values[i] = "?" // unknown value
-				}
-			}
-
-			params := make([]string, len(cErr.Inputs))
-			for i, input := range cErr.Inputs {
-				if input.Name == "" {
-					input.Name = fmt.Sprintf("arg%d", i)
-				}
-				params[i] = fmt.Sprintf("%s=%v", input.Name, values[i])
-			}
-			return fmt.Sprintf("%s(%s)", cErr.Name, strings.Join(params, ", "))
-		}
+	if contractABI == nil {
+		return err.Error()
 	}
 
-	return err.Error()
+	for _, cErr := range contractABI.Errors {
+		if !bytes.Equal(cErr.ID[:4], buf[:4]) {
+			continue
+		}
+		errData, uErr := cErr.Unpack(buf)
+		if uErr != nil {
+			return err.Error()
+		}
+
+		values, ok := errData.([]interface{})
+		if !ok {
+			values := make([]string, len(cErr.Inputs))
+			for i := range values {
+				values[i] = "?" // unknown value
+			}
+		}
+
+		params := make([]string, len(cErr.Inputs))
+		for i, input := range cErr.Inputs {
+			if input.Name == "" {
+				input.Name = fmt.Sprintf("arg%d", i)
+			}
+			params[i] = fmt.Sprintf("%s=%v", input.Name, values[i])
+		}
+		return fmt.Sprintf("%s(%s)", cErr.Name, strings.Join(params, ", "))
+	}
+
+	return fmt.Sprintf("unknown ABI error: %s", errStr)
 }
