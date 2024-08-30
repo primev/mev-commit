@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSL 1.1
 
-// TODO: re-eval solidity version, for now use 25 to make symbiotic build.
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {EventHeightLib} from "../../utils/EventHeight.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
