@@ -3,7 +3,7 @@
 // solhint-disable no-console
 // solhint-disable one-contract-per-file
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.26;
 
 /// @notice Constants from https://github.com/Layr-Labs/eigenlayer-contracts?tab=readme-ov-file#deployments,
 /// @notice Last updated 07-26-2024

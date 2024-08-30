@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.20;
+pragma solidity 0.8.26;
 
 import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {IBidderRegistry} from "../interfaces/IBidderRegistry.sol";

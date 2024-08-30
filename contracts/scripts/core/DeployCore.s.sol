@@ -3,7 +3,7 @@
 // solhint-disable no-console
 // solhint-disable one-contract-per-file
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.26;
 
 import {Script} from "forge-std/Script.sol";
 import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
