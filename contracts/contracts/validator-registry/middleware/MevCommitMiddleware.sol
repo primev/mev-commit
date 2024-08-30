@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.20;
+
+// TODO: re-eval solidity version, for now use 25 to make symbiotic build.
+pragma solidity 0.8.25;
 
 import {EventHeightLib} from "../../utils/EventHeight.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -8,6 +10,8 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 import {EnumerableSet} from "../../utils/EnumerableSet.sol";
+import {IVault} from "symbiotic-core/interfaces/Vault/IVault.sol";
+import {IBaseDelegator} from "symbiotic-core/interfaces/Delegator/IBaseDelegator.sol";
 
 // TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
 // TODO: determine if you need timestamping similar to cosmos sdk example. Edit yes you will for slashing. See "captureTimestamp". 
@@ -20,6 +24,9 @@ import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 // TODO: attempt to make storage more fsm like with enum. See if this can lessen the amount of requires needed
 // TODO: minStake is now slashAmount
 // TODO: Get through full Handbook for Networks page and confirm you follow all rules for slashing logic, network epoch, slashing epochs etc. 
+// TODO: Use custom errors since our clients are compatible with this now.
+// TODO: Update to newer version of solidity to match symbiotic core?
+// TODO: Determine if you can accept both types of delegators or just network.
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
@@ -120,10 +127,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
-    function registerVaults(address[] calldata vaults, address[] calldata operators) external onlyOwner {
-        require(vaults.length == operators.length, "invalid length");
-        for (uint256 i = 0; i < vaults.length; i++) {
-            _registerVault(vaults[i], operators[i]);
+    function registerVaults(address[] calldata vaults, address[] calldata operators, uint256[] calldata slashAmounts) external onlyOwner {
+        uint256 vLen = vaults.length;
+        require(vLen == operators.length && vLen == slashAmounts.length, "invalid length");
+        for (uint256 i = 0; i < vLen; i++) {
+            _registerVault(vaults[i], operators[i], slashAmounts[i]);
         }
     }
 
@@ -271,21 +279,26 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit ValRecordDeleted(blsPubkey, operator);
     }
 
-    function _setVaultRecord(address vault, address operator) internal {
+    function _setVaultRecord(address vault, address operator, uint256 slashAmount) internal {
         vaultRecords[vault] = VaultRecord({
             exists: true,
             deregRequestHeight: EventHeightLib.EventHeight({
                 exists: false,
                 blockHeight: 0
             }),
-            operator: operator
+            operator: operator,
+            slashAmount: slashAmount
         });
     }
 
-    function _registerVault(address vault, address operator) internal {
+    function _registerVault(address vault, address operator, uint256 slashAmount) internal {
         require(!vaultRecords[vault].exists, "vault already registered");
-        _setVaultRecord(vault, operator);
-        emit VaultRegistered(vault, operator);
+        require(slashAmount != 0, "slash amount must be non-zero");
+        // TODO: Confirm vault is registered with symbiotic vault registry 
+        IVault vaultContract = IVault(vault);
+        vaultContract.totalStake();
+        _setVaultRecord(vault, operator, slashAmount);
+        emit VaultRegistered(vault, operator, slashAmount);
     }
 
     function _requestVaultDeregistration(address vault) internal {
@@ -375,6 +388,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             block.number > vaultDeregPeriodBlocks + vaultRecords[vault].deregRequestHeight.blockHeight;
     }
 
+    function _isValidatorSlashable(bytes calldata blsPubkey) internal view returns (bool) {
+        address vault = validatorRecords[blsPubkey].vault;
+        uint256 slashAmount = vaultRecords[vault].slashAmount;
+        address operator = vaultRecords[vault].operator;
+        // TODO: Address if we use balanceOf or activeBalanceOf here, depending on if we should include withdrawals.
+        // TODO: also could compare against totalStake()? Since all collateral should be allocated to single operator.
+        IBaseDelegator delegatorContract = IBaseDelegator(IVault(vault).delegator());
+        bytes32 subnetwork = 0x0; // TODO: Need to define subnet
+        uint256 balance = delegatorContract.stake(subnetwork, operator);
+        return balance >= slashAmount;
+    }
+
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {
         if (!validatorRecords[blsPubkey].exists) {
             return false;
@@ -404,9 +429,5 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             return false;
         }
         return true;
-    }
-
-    function _isValidatorSlashable(bytes calldata blsPubkey) internal view returns (bool) {
-        // USE stakeAt or stake from IBaseDelegator
     }
 }

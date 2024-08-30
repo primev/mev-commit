@@ -22,12 +22,8 @@ interface IMevCommitMiddleware {
     struct VaultRecord {
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
-        // TODO: For now, a single operator can register multiple vaults,
-        // a single vault can collateralize only one operator.
-        // A single vault can collateralize multiple validators.
-        // Evaluate how this compares to intended usage of Symbiotic.
-        // I believe this corresponds to only allowing NetworkRestakeDelegator??
         address operator;
+        uint256 slashAmount;
     }
 
     /// @notice Emmitted when an operator is registered
@@ -54,7 +50,7 @@ interface IMevCommitMiddleware {
     event ValRecordDeleted(bytes indexed blsPubkey, address indexed operator);
 
     /// @notice Emmitted when a vault record is added
-    event VaultRegistered(address indexed vault, address indexed operator);
+    event VaultRegistered(address indexed vault, address indexed operator, uint256 slashAmount);
 
     /// @notice Emmitted when a vault deregistration is requested
     event VaultDeregistrationRequested(address indexed vault);
