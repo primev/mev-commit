@@ -193,7 +193,9 @@ contract PreconfManager is
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public whenNotPaused returns (bytes32 commitmentIndex) {
-        require(decayStartTimeStamp < decayEndTimeStamp, "Invalid decay time");
+        if (decayStartTimeStamp >= decayEndTimeStamp) {
+            revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
+        }
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bid,
@@ -221,22 +223,30 @@ contract PreconfManager is
             unopenedCommitmentIndex
         ];
 
-        require(!unopenedCommitment.isOpened, "Commitment already opened");
-        require(
-            unopenedCommitment.commitmentDigest == commitmentDigest,
-            "Invalid commitment digest"
-        );
+        if (unopenedCommitment.isOpened) {
+            revert CommitmentAlreadyOpened(unopenedCommitmentIndex);
+        }
+
+        if (unopenedCommitment.commitmentDigest != commitmentDigest) {
+            revert InvalidCommitmentDigest(
+                unopenedCommitment.commitmentDigest,
+                commitmentDigest
+            );
+        }
 
         address committerAddress = commitmentDigest.recover(
             commitmentSignature
         );
 
         address winner = blockTracker.getBlockWinner(blockNumber);
-        require(
-            winner == committerAddress &&
-                (msg.sender == winner || msg.sender == bidderAddress),
-            "invalid sender"
-        );
+
+        if (winner != committerAddress) {
+            revert WinnerIsNotCommitter(committerAddress, winner);
+        }
+
+        if (msg.sender != winner && msg.sender != bidderAddress) {
+            revert UnauthorizedOpenCommitment(committerAddress, bidderAddress, msg.sender);
+        }
 
         OpenedCommitment memory newCommitment = OpenedCommitment(
             bidderAddress,
@@ -307,13 +317,17 @@ contract PreconfManager is
         // Calculate the minimum valid timestamp for dispatching the commitment
         uint256 minTime = block.timestamp - commitmentDispatchWindow;
         // Check if the dispatch timestamp is within the allowed dispatch window
-        require(dispatchTimestamp > minTime, "Invalid dispatch timestamp");
+        if (dispatchTimestamp <= minTime) {
+            revert InvalidDispatchTimestamp(minTime, dispatchTimestamp);
+        }
 
         address committerAddress = commitmentDigest.recover(
             commitmentSignature
         );
 
-        require(committerAddress == msg.sender, "sender is not committer");
+        if (committerAddress != msg.sender) {
+            revert SenderIsNotCommitter(committerAddress, msg.sender);
+        }
 
         // Ensure the provider's balance is greater than minStake and no pending withdrawal
         providerRegistry.isProviderValid(committerAddress);

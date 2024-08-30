@@ -391,7 +391,7 @@ func (t *Tracker) openCommitments(
 			continue
 		}
 
-		txHash, err := t.preconfContract.OpenCommitment(
+		txn, err := t.preconfContract.OpenCommitment(
 			opts,
 			commitmentIdx,
 			bidAmt,
@@ -410,7 +410,7 @@ func (t *Tracker) openCommitments(
 		}
 		duration := time.Since(startTime)
 		t.logger.Info("opened commitment",
-			"txHash", txHash, "duration", duration,
+			"txHash", txn.Hash(), "duration", duration,
 			"blockNumber", newL1Block.BlockNumber,
 			"committer", common.Bytes2Hex(commitment.ProviderAddress),
 		)

@@ -159,8 +159,8 @@ func (t *testEVMHelper) BatchReceipts(ctx context.Context, txns []common.Hash) (
 	return results, nil
 }
 
-func (t *testEVMHelper) TraceTransaction(ctx context.Context, tx common.Hash) (*txmonitor.TransactionTrace, error) {
-	return nil, nil
+func (t *testEVMHelper) RevertReason(ctx context.Context, r *types.Receipt, from common.Address) (string, error) {
+	return "dummy error", nil
 }
 
 type testSaver struct {
