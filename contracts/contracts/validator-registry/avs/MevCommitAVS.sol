@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.25;
+pragma solidity 0.8.26;
 
 import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {MevCommitAVSStorage} from "./MevCommitAVSStorage.sol";

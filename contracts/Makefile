@@ -13,7 +13,7 @@ deploy-val-reg:
 		--broadcast \
 		--chain-id 31337 \
 		-vvvv \
-		--use 0.8.25 \
+		--use 0.8.26 \
 		--via-ir \
 
 deploy-opt-in-router-holesky:
@@ -25,7 +25,7 @@ deploy-opt-in-router-holesky:
         --sender "${SENDER}" \
 		--via-ir \
 		--chain-id 17000 \
-		--use 0.8.25 \
+		--use 0.8.26 \
 		--broadcast
 
 deploy-core:

@@ -119,7 +119,7 @@ RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script \
     --broadcast \
     --chain-id "$SETTLEMENT_CHAIN_ID" \
     -vvvv \
-    --use 0.8.25 | tee deploy_sg_output.txt
+    --use 0.8.26 | tee deploy_sg_output.txt
 
 awk -F"JSON_DEPLOY_ARTIFACT: " '/JSON_DEPLOY_ARTIFACT:/ {print $2}' deploy_sg_output.txt | sed '/^$/d' > SettlementGatewayArtifact.json
 mv SettlementGatewayArtifact.json "$ARTIFACT_OUT_PATH"
@@ -131,7 +131,7 @@ RELAYER_ADDR="$RELAYER_ADDR" $FORGE_BIN_PATH script \
     --broadcast \
     --chain-id "$L1_CHAIN_ID" \
     -vvvv \
-    --use 0.8.25 | tee deploy_l1g_output.txt
+    --use 0.8.26 | tee deploy_l1g_output.txt
 
 awk -F"JSON_DEPLOY_ARTIFACT: " '/JSON_DEPLOY_ARTIFACT:/ {print $2}' deploy_l1g_output.txt | sed '/^$/d' > L1GatewayArtifact.json
 mv L1GatewayArtifact.json "$ARTIFACT_OUT_PATH"
