@@ -32,7 +32,7 @@ if [ "${DEPLOY_TYPE}" = "core" ]; then
         --password "${KEYSTORE_PASSWORD}" \
         --sender "${SENDER}" \
         --skip-simulation \
-        --use 0.8.20 \
+        --use 0.8.25 \
         --broadcast \
         --force \
         --json \
@@ -53,7 +53,7 @@ elif [ "${DEPLOY_TYPE}" = "settlement-gateway" ]; then
         --broadcast \
         --chain-id "${CHAIN_ID}" \
         -vvvv \
-        --use 0.8.20 \
+        --use 0.8.25 \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --via-ir
 
@@ -72,7 +72,7 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
         --broadcast \
         --chain-id "${CHAIN_ID}" \
         -vvvv \
-        --use 0.8.20 \
+        --use 0.8.25 \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --via-ir
 
@@ -87,7 +87,7 @@ elif [ "${DEPLOY_TYPE}" = "vanilla-registry" ]; then
         --broadcast \
         --chain-id "${CHAIN_ID}" \
         -vvvv \
-        --use 0.8.20 \
+        --use 0.8.25 \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --via-ir \
         --skip-simulation \
