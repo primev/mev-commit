@@ -15,6 +15,9 @@ import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 // TODO: for example you need to add requires s.t. a validator MUST be opted-in right after registering. 
 // TODO: Implement contract owner setting minStake when a vault is registered. Also impl vault registration itself.
 // TODO: add function for a validator to "chage vault used for collateral", which involves a delete + new reg. 
+// TODO: Enforce in contract that we only accept NetworkRestakeDelegator for vaults,
+// allowing a vault to collateralize multiple operators wouldn't make sense here.
+// TODO: attempt to make storage more fsm like with enum. See if this can lessen the amount of requires needed
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 

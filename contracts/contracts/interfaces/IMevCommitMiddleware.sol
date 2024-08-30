@@ -26,6 +26,7 @@ interface IMevCommitMiddleware {
         // a single vault can collateralize only one operator.
         // A single vault can collateralize multiple validators.
         // Evaluate how this compares to intended usage of Symbiotic.
+        // I believe this corresponds to only allowing NetworkRestakeDelegator??
         address operator;
     }
 
