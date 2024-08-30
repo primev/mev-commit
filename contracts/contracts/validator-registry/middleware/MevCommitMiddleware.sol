@@ -11,6 +11,9 @@ import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 import {IVault} from "symbiotic-core/interfaces/Vault/IVault.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/Delegator/IBaseDelegator.sol";
+import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
+import {IOperatorRegistry} from "symbiotic-core/interfaces/IOperatorRegistry.sol";
+import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 
 // TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
 // TODO: determine if you need timestamping similar to cosmos sdk example. Edit yes you will for slashing. See "captureTimestamp". 
@@ -31,6 +34,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     using EnumerableSet for EnumerableSet.BytesSet;
 
+    uint96 public constant SUBNETWORK_ID = 1;
+
     // TODO: more modifiers similar to MevCommitAVS
 
     modifier onlySlashOracle() {
@@ -38,19 +43,21 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _;
     }
 
-    // TODO: Define integration with individual vaults, and how you decide on "min stake" per validator
-    // for each denom. Price oracle or hardcoded minStake? 
-
-    // TODO: make some sort of integration or fuzz test for two main invariants defined in notion. 
-
-    // TODO: Add things like network epoch duration, ref to core contracts, etc. 
+    // TODO: Add things like network epoch duration
     function initialize(
+        INetworkRegistry _networkRegistry,
+        IOperatorRegistry _operatorRegistry,
+        // TODO: Does vault registry exist? If so we need to check for it during registration.
+        address _network,
         uint256 _operatorDeregPeriodBlocks,
         uint256 _validatorDeregPeriodBlocks,
         uint256 _vaultDeregPeriodBlocks,
         address _slashOracle,
         address _owner
     ) public initializer {
+        _setNetworkRegistry(_networkRegistry);
+        _setOperatorRegistry(_operatorRegistry);
+        _setNetwork(_network);
         _setOperatorDeregPeriodBlocks(_operatorDeregPeriodBlocks);
         _setValidatorDeregPeriodBlocks(_validatorDeregPeriodBlocks);
         _setVaultDeregPeriodBlocks(_vaultDeregPeriodBlocks);
@@ -158,6 +165,21 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Unpauses the contract, restricted to contract owner.
     function unpause() external onlyOwner { _unpause(); }
 
+    /// @dev Sets the network registry, restricted to contract owner.
+    function setNetworkRegistry(INetworkRegistry _networkRegistry) external onlyOwner {
+        _setNetworkRegistry(_networkRegistry);
+    }
+
+    /// @dev Sets the operator registry, restricted to contract owner.
+    function setOperatorRegistry(IOperatorRegistry _operatorRegistry) external onlyOwner {
+        _setOperatorRegistry(_operatorRegistry);
+    }
+
+    /// @dev Sets the network address, restricted to contract owner.
+    function setNetwork(address _network) external onlyOwner {
+        _setNetwork(_network);
+    }
+
     /// @dev Sets the operator deregistration period in blocks, restricted to contract owner.
     function setOperatorDeregPeriodBlocks(uint256 operatorDeregPeriodBlocks_) external onlyOwner {
         _setOperatorDeregPeriodBlocks(operatorDeregPeriodBlocks_);
@@ -182,6 +204,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _isValidatorOptedIn(blsPubkey);
     }
 
+    function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool) {
+        return _isValidatorSlashable(blsPubkey);
+    }
+
+    function vaultCollateralizesAllValidators(address vault) external view returns (bool) {
+        return _vaultCollteralizesAllValidators(vault);
+    }
+
     function _setOperatorRecord(address operator) internal {
         operatorRecords[operator] = OperatorRecord({
             exists: true,
@@ -193,9 +223,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         });
     }
 
-    // TODO: hook these into symbiotic core
     function _registerOperator(address operator) internal {
         require(!operatorRecords[operator].exists, "operator already registered");
+        require(operatorRegistry.isEntity(operator), "operator not reg with core");
         _setOperatorRecord(operator);
         emit OperatorRegistered(operator);
     }
@@ -314,8 +344,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultDeregistered(vault);
     }
 
-    // TODO: will need some more thought around gaurunteeing vault has enough funds to slash.
-    // (see positioning in valset)
     function _slashValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing validator record");
         address operator = _getOperatorFromValRecord(blsPubkey);
@@ -331,6 +359,27 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         // }
         _requestValDeregistration(blsPubkey); // TODO: determine if validator should be deregistered
         emit ValidatorSlashed(blsPubkey, operator, _getPositionInValset(blsPubkey));
+    }
+
+    /// @dev Internal function to set the network registry.
+    function _setNetworkRegistry(INetworkRegistry _networkRegistry) internal {
+        require(_networkRegistry != INetworkRegistry(address(0)), "zero address not allowed");
+        networkRegistry = _networkRegistry;
+        emit NetworkRegistrySet(address(_networkRegistry));
+    }
+
+    /// @dev Internal function to set the operator registry.
+    function _setOperatorRegistry(IOperatorRegistry _operatorRegistry) internal {
+        require(_operatorRegistry != IOperatorRegistry(address(0)), "zero address not allowed");
+        operatorRegistry = _operatorRegistry;
+        emit OperatorRegistrySet(address(_operatorRegistry));
+    }
+
+    /// @dev Internal function to set the network address, which must have registered with the NETWORK_REGISTRY.
+    function _setNetwork(address _network) internal {
+        require(networkRegistry.isEntity(_network), "network not registered");
+        network = _network;
+        emit NetworkSet(_network);
     }
 
     /// @dev Internal function to set the operator deregistration period in blocks.
@@ -387,16 +436,31 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             block.number > vaultDeregPeriodBlocks + vaultRecords[vault].deregRequestHeight.blockHeight;
     }
 
+    function _getSubnetwork() internal view returns (bytes32) {
+        return Subnetwork.subnetwork(network, SUBNETWORK_ID);
+    }
+
+    function _getAllocatedStake(address vault) internal view returns (uint256) {
+        IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
+        bytes32 subnetwork = _getSubnetwork();
+        address operator = vaultRecords[vault].operator;
+        return delegator.stake(subnetwork, operator);
+    }
+
+    function _vaultCollteralizesAllValidators(address vault) internal view returns (bool) {
+        uint256 slashAmount = vaultRecords[vault].slashAmount;
+        uint256 numVals = _vaultToValidatorSet[vault].length();
+        uint256 allocatedStake = _getAllocatedStake(vault);
+        return allocatedStake > slashAmount * numVals;
+    }
+
     function _isValidatorSlashable(bytes calldata blsPubkey) internal view returns (bool) {
         address vault = validatorRecords[blsPubkey].vault;
+        uint256 allocatedStake = _getAllocatedStake(vault);
         uint256 slashAmount = vaultRecords[vault].slashAmount;
-        address operator = vaultRecords[vault].operator;
-        // TODO: Address if we use balanceOf or activeBalanceOf here, depending on if we should include withdrawals.
-        // TODO: also could compare against totalStake()? Since all collateral should be allocated to single operator.
-        IBaseDelegator delegatorContract = IBaseDelegator(IVault(vault).delegator());
-        bytes32 subnetwork = 0x0; // TODO: Need to define subnet
-        uint256 balance = delegatorContract.stake(subnetwork, operator);
-        return balance >= slashAmount;
+        uint256 position = _getPositionInValset(blsPubkey);
+        uint256 slashableVals = allocatedStake / slashAmount;
+        return position < slashableVals;
     }
 
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {
@@ -412,6 +476,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (vaultRecords[validatorRecords[blsPubkey].vault].deregRequestHeight.exists) {
             return false;
         }
+        // TODO: Check symbiotic core vault registry?
         address operator = _getOperatorFromValRecord(blsPubkey);
         if (!operatorRecords[operator].exists) {
             return false;
@@ -422,9 +487,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (operatorRecords[operator].isBlacklisted) {
             return false;
         }
-        // TODO: check liquidity exists to slash if needed
-        uint256 position = _vaultToValidatorSet[validatorRecords[blsPubkey].vault].position(blsPubkey);
-        if (position > 71) { // where 71 is some threshold defined by amount of liquidity
+        if (!_isValidatorSlashable(blsPubkey)) {
             return false;
         }
         return true;

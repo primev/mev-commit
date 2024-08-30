@@ -61,6 +61,15 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when a validator is slashed
     event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position);
 
+    /// @notice Emmitted when the network registry is set
+    event NetworkRegistrySet(address networkRegistry);
+
+    /// @notice Emmitted when the operator registry is set
+    event OperatorRegistrySet(address operatorRegistry);
+
+    /// @notice Emmitted when the network is set
+    event NetworkSet(address network);
+
     /// @notice Emmitted when the operator deregistration period in blocks is set
     event OperatorDeregPeriodBlocksSet(uint256 operatorDeregPeriodBlocks);
 
