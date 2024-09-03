@@ -94,9 +94,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     // TODO: confirm this and other external functions can handle empty arrays
     // TODO: confirm only operator can edit their own records. Does contract owner need access as well?
     // Be consistent with MevCommitAVS.
-    // TODO: enforce that validator would be slashable (enough funds + high enough prio) to allow the registration.
-    // Idea here is we need to enforce a newly registered validator is immediately opted-in.
-    // TODO: require that provided vault is registered and has enough funds.
     function registerValidators(bytes[][] calldata blsPubkeys, address[] calldata vaults) external whenNotPaused {
         uint256 vaultLen = vaults.length;
         require(vaultLen == blsPubkeys.length, "invalid array lengths");
@@ -289,10 +286,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         require(vaultRecords[vault].exists, "vault not registered");
         require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg req exists");
-
-        // TODO: check vault has enough funds
-
         require(vaultRecords[vault].operator == msg.sender, "vault operator mismatch");
+
+        require(_isValidatorSlashable(blsPubkey), "validator not slashable");
 
         _setValRecord(blsPubkey, vault);
         emit ValRecordAdded(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
@@ -354,6 +350,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function _updateSlashAmount(address vault, uint256 slashAmount) internal {
         require(vaultRecords[vault].exists, "vault not registered");
+        require(slashAmount != 0, "slash amount must be non-zero");
         vaultRecords[vault].slashAmount = slashAmount;
         emit VaultSlashAmountUpdated(vault, slashAmount);
     }
@@ -498,6 +495,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return position < slashableVals;
     }
 
+    // TODO: Unit tests around confirming a validator who's newly registered MUST be opted in.
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {
         if (!validatorRecords[blsPubkey].exists) {
             return false;
@@ -511,7 +509,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (vaultRecords[validatorRecords[blsPubkey].vault].deregRequestHeight.exists) {
             return false;
         }
-        // TODO: Check symbiotic core vault registry?
+        if (!vaultFactory.isEntity(validatorRecords[blsPubkey].vault)) {
+            return false;
+        }
         address operator = _getOperatorFromValRecord(blsPubkey);
         if (!operatorRecords[operator].exists) {
             return false;
@@ -520,6 +520,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             return false;
         }
         if (operatorRecords[operator].isBlacklisted) {
+            return false;
+        }
+        if (!operatorRegistry.isEntity(operator)) {
             return false;
         }
         if (!_isValidatorSlashable(blsPubkey)) {
