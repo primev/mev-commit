@@ -23,7 +23,6 @@ import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 // TODO: attempt to make storage more fsm like with enum. See if this can lessen the amount of requires needed
 // TODO: Get through full Handbook for Networks page and confirm you follow all rules for slashing logic, network epoch, slashing epochs etc. 
 // TODO: Use custom errors since our clients are compatible with this now.
-// TODO: Update to newer version of solidity to match symbiotic core?
 // TODO: You're prob able to remove some of the dereg logic for vaults etc. and piggyback off symbiotic core "vault epochs" etc. 
 // TODO: Accept BOTH vaults that have slashing via resolver or not. Oracle account can be resolver.
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
