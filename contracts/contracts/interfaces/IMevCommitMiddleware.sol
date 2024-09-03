@@ -67,6 +67,9 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the operator registry is set
     event OperatorRegistrySet(address operatorRegistry);
 
+    /// @notice Emmitted when the vault factory is set
+    event VaultFactorySet(address vaultFactory);
+
     /// @notice Emmitted when the network is set
     event NetworkSet(address network);
 

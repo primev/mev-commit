@@ -12,8 +12,7 @@ import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 import {IVault} from "symbiotic-core/interfaces/Vault/IVault.sol";
 import {IVaultStorage} from "symbiotic-core/interfaces/Vault/IVaultStorage.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/Delegator/IBaseDelegator.sol";
-import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
-import {IOperatorRegistry} from "symbiotic-core/interfaces/IOperatorRegistry.sol";
+import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 
 // TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
@@ -41,11 +40,10 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _;
     }
 
-    // TODO: Add things like network epoch duration
     function initialize(
-        INetworkRegistry _networkRegistry,
-        IOperatorRegistry _operatorRegistry,
-        // TODO: Does vault registry exist? If so we need to check for it during registration.
+        IRegistry _networkRegistry,
+        IRegistry _operatorRegistry,
+        IRegistry _vaultFactory,
         address _network,
         uint256 _operatorDeregPeriodBlocks,
         uint256 _validatorDeregPeriodBlocks,
@@ -55,6 +53,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     ) public initializer {
         _setNetworkRegistry(_networkRegistry);
         _setOperatorRegistry(_operatorRegistry);
+        _setVaultFactory(_vaultFactory);
         _setNetwork(_network);
         _setOperatorDeregPeriodBlocks(_operatorDeregPeriodBlocks);
         _setValidatorDeregPeriodBlocks(_validatorDeregPeriodBlocks);
@@ -164,13 +163,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function unpause() external onlyOwner { _unpause(); }
 
     /// @dev Sets the network registry, restricted to contract owner.
-    function setNetworkRegistry(INetworkRegistry _networkRegistry) external onlyOwner {
+    function setNetworkRegistry(IRegistry _networkRegistry) external onlyOwner {
         _setNetworkRegistry(_networkRegistry);
     }
 
     /// @dev Sets the operator registry, restricted to contract owner.
-    function setOperatorRegistry(IOperatorRegistry _operatorRegistry) external onlyOwner {
+    function setOperatorRegistry(IRegistry _operatorRegistry) external onlyOwner {
         _setOperatorRegistry(_operatorRegistry);
+    }
+
+    /// @dev Sets the vault factory, restricted to contract owner.
+    function setVaultFactory(IRegistry _vaultFactory) external onlyOwner {
+        _setVaultFactory(_vaultFactory);
     }
 
     /// @dev Sets the network address, restricted to contract owner.
@@ -318,9 +322,10 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         });
     }
 
-    // TODO: If vault registry exists, check that vault is registered with it.
     function _registerVault(address vault, address operator, uint256 slashAmount) internal {
         require(!vaultRecords[vault].exists, "vault already registered");
+        require(vaultFactory.isEntity(vault), "vault not registered");
+        require(operatorRegistry.isEntity(operator), "operator not registered");
         require(slashAmount != 0, "slash amount must be non-zero");
 
         // Check all slashable stake is allocated to single operator
@@ -373,17 +378,23 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     /// @dev Internal function to set the network registry.
-    function _setNetworkRegistry(INetworkRegistry _networkRegistry) internal {
-        require(_networkRegistry != INetworkRegistry(address(0)), "zero address not allowed");
+    function _setNetworkRegistry(IRegistry _networkRegistry) internal {
+        require(_networkRegistry != IRegistry(address(0)), "zero address not allowed");
         networkRegistry = _networkRegistry;
         emit NetworkRegistrySet(address(_networkRegistry));
     }
 
     /// @dev Internal function to set the operator registry.
-    function _setOperatorRegistry(IOperatorRegistry _operatorRegistry) internal {
-        require(_operatorRegistry != IOperatorRegistry(address(0)), "zero address not allowed");
+    function _setOperatorRegistry(IRegistry _operatorRegistry) internal {
+        require(_operatorRegistry != IRegistry(address(0)), "zero address not allowed");
         operatorRegistry = _operatorRegistry;
         emit OperatorRegistrySet(address(_operatorRegistry));
+    }
+
+    function _setVaultFactory(IRegistry _vaultFactory) internal {
+        require(_vaultFactory != IRegistry(address(0)), "zero address not allowed");
+        vaultFactory = _vaultFactory;
+        emit VaultFactorySet(address(_vaultFactory));
     }
 
     /// @dev Internal function to set the network address, which must have registered with the NETWORK_REGISTRY.

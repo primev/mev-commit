@@ -3,14 +3,15 @@ pragma solidity 0.8.26;
 
 import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
 import {EnumerableSet} from "../../utils/EnumerableSet.sol";
-import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
-import {IOperatorRegistry} from "symbiotic-core/interfaces/IOperatorRegistry.sol";
+import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 
 abstract contract MevCommitMiddlewareStorage {
 
-    INetworkRegistry public networkRegistry;
+    IRegistry public networkRegistry;
 
-    IOperatorRegistry public operatorRegistry;
+    IRegistry public operatorRegistry;
+
+    IRegistry public vaultFactory;
 
     /// @notice The network address, which must have registered with the NETWORK_REGISTRY.
     address public network;
