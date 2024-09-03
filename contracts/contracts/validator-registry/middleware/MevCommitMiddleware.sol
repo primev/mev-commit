@@ -19,16 +19,11 @@ import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 // TODO: determine if you need timestamping similar to cosmos sdk example. Edit yes you will for slashing. See "captureTimestamp". 
 // TODO: Parse through MevCommitAVS and make sure translatable reg/dreg functions have the same operators / check the same things. 
 // TODO: for example you need to add requires s.t. a validator MUST be opted-in right after registering. 
-// TODO: Implement contract owner setting minStake when a vault is registered. Also impl vault registration itself.
 // TODO: add function for a validator to "chage vault used for collateral", which involves a delete + new reg. 
-// TODO: Enforce in contract that we only accept NetworkRestakeDelegator for vaults,
-// allowing a vault to collateralize multiple operators wouldn't make sense here.
 // TODO: attempt to make storage more fsm like with enum. See if this can lessen the amount of requires needed
-// TODO: minStake is now slashAmount
 // TODO: Get through full Handbook for Networks page and confirm you follow all rules for slashing logic, network epoch, slashing epochs etc. 
 // TODO: Use custom errors since our clients are compatible with this now.
 // TODO: Update to newer version of solidity to match symbiotic core?
-// TODO: Determine if you can accept both types of delegators or just network.
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
@@ -320,12 +315,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         });
     }
 
+    // TODO: If vault registry exists, check that vault is registered with it.
     function _registerVault(address vault, address operator, uint256 slashAmount) internal {
         require(!vaultRecords[vault].exists, "vault already registered");
         require(slashAmount != 0, "slash amount must be non-zero");
-        // TODO: Confirm vault is registered with symbiotic vault registry 
-        IVault vaultContract = IVault(vault);
-        vaultContract.totalStake();
+
+        // Check all slashable stake is allocated to single operator
+        IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
+        uint256 stake = delegator.stake(_getSubnetwork(), operator);
+        require(stake != 0, "operator must have vault stake");
+        uint256 maxNetworkLimit = delegator.maxNetworkLimit(_getSubnetwork());
+        require(stake == maxNetworkLimit, "oper stake != network limit");
+
         _setVaultRecord(vault, operator, slashAmount);
         emit VaultRegistered(vault, operator, slashAmount);
     }
