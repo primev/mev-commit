@@ -76,6 +76,7 @@ jobs:
           to: 6060
         p2p:
           to: 30311
+          static: 30311
     env:
       ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
@@ -96,6 +97,7 @@ jobs:
           to: 6060
         p2p:
           to: 30312
+          static: 30312
     env:
       ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
@@ -116,6 +118,7 @@ jobs:
           to: 6060
         p2p:
           to: 30313
+          static: 30313
     env:
       ip: 127.0.0.1
       net_restrict: 0.0.0.0/0
