@@ -354,6 +354,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultDeregistered(vault);
     }
 
+    // TODO: Feedback from meeting: Look into using historical state for slashing. 
     function _slashValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing validator record");
         address operator = _getOperatorFromValRecord(blsPubkey);
