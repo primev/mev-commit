@@ -21,7 +21,9 @@ service Provider {
   // ReceiveBids
   //
   // ReceiveBids is called by the provider to receive bids from the mev-commit node.
-  // The mev-commit node will stream bids to the provider as the response.
+  // The mev-commit node will stream bids to the provider as the response. The bid can optionally
+  // have the raw transaction payload in it. The order of the transaction hashes will be the same
+  // as the raw transaction payloads if included.
   rpc ReceiveBids(EmptyMessage) returns (stream Bid) {
     option (google.api.http) = {get: "/v1/provider/receive_bids"};
   }
@@ -126,7 +128,7 @@ message Bid {
       description: "Signed bid message from bidders to the provider."
       required: ["txHashes", "bidAmount", "blockNumber", "bidDigest"]
     }
-    example: "{\"txHashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"blockNumber\": 123456, \"bidDigest\": \"9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==\"}"
+    example: "{\"txHashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"blockNumber\": 123456, \"bidDigest\": \"9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==\", \"decayStartTimestamp\":1725365301000, \"decayEndTimestamp\":1725365302000, \"revertingTxHashes\":[\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\"]}"
   };
   repeated string tx_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Hex string encoding of the hashes of the transactions that the bidder wants to include in the block."
@@ -175,7 +177,7 @@ message Bid {
       expression: "this.all(r, r.matches('^[a-fA-F0-9]{64}$'))"
   }];
   repeated string raw_transactions = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Optional array of raw transactions that the bidder wants to include in the block."
+    description: "Optional array of RLP encoded raw signed transaction payloads that the bidder wants to include in the block."
   }, (buf.validate.field).cel = {
       id: "raw_transactions",
       message: "raw_transactions must be an array of valid raw transactions.",
