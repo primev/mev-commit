@@ -118,9 +118,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     ///
     /// TODO: Write test for scenario where operator greifs another, and contract owner
     /// has to blacklist that operator, then delete the greifed validator records.
-    // TODO: IMPORTANT, this FUNCTION SHOULD NOT BE ONLY OWNER, BUT ALSO OPERATOR.
-    // TODO: OWNER can only delete if operator is blacklisted, prob make this separate function.
-    function deregisterValidators(bytes[] calldata blsPubkeys) external onlyOwner {
+    function deregisterValidators(bytes[] calldata blsPubkeys) external {
         for (uint256 i = 0; i < blsPubkeys.length; i++) {
             _deregisterValidator(blsPubkeys[i]);
         }
@@ -274,43 +272,33 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _vaultToValidatorSet[vault].add(blsPubkey);
     }
 
-    // TODO: Need to add more requires here and below s.t. we don't allow operators who
-    // are deregistered or req deregistered, from adding val records.
-    // DO a full sweep comparison of MevCommitAVS to see which checks exist for each function.
+    // TODO: DO a full sweep comparison of MevCommitAVS to see which checks exist for each function.
     function _addValRecord(bytes calldata blsPubkey, address vault) internal {
         require(!validatorRecords[blsPubkey].exists, "val record already exists");
-
-        require(operatorRecords[msg.sender].exists, "operator not registered");
-        require(!operatorRecords[msg.sender].deregRequestHeight.exists, "operator dereg req exists");
-        require(!operatorRecords[msg.sender].isBlacklisted, "operator is blacklisted");
-
-        require(vaultRecords[vault].exists, "vault not registered");
-        require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg req exists");
-        require(vaultRecords[vault].operator == msg.sender, "vault operator mismatch");
-
+        _checkCallingOperatorAndVault(vault);
         require(_isValidatorSlashable(blsPubkey), "validator not slashable");
-
         _setValRecord(blsPubkey, vault);
         emit ValRecordAdded(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
     }
 
     function _requestValDeregistration(bytes calldata blsPubkey) internal {
-        require(validatorRecords[blsPubkey].exists, "missing validator record");
-        require(_getOperatorFromValRecord(blsPubkey) == msg.sender, "sender is not operator");
+        require(validatorRecords[blsPubkey].exists, "missing val record");
+        if (msg.sender != owner()) {
+            _checkCallingOperator(_getOperatorFromValRecord(blsPubkey));
+        }
         EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
         emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
     }
 
     function _deregisterValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing val record");
-        address operator = _getOperatorFromValRecord(blsPubkey);
-        require(operatorRecords[operator].exists, "operator not registered");
-        require(!operatorRecords[operator].deregRequestHeight.exists, "operator dereg request exists");
-        require(operatorRecords[operator].isBlacklisted, "operator is blacklisted");
+        if (msg.sender != owner()) {
+            _checkCallingOperator(_getOperatorFromValRecord(blsPubkey));
+        }
         delete validatorRecords[blsPubkey];
         address vault = validatorRecords[blsPubkey].vault;
         _vaultToValidatorSet[vault].remove(blsPubkey);
-        emit ValRecordDeleted(blsPubkey, operator);
+        emit ValRecordDeleted(blsPubkey, msg.sender);
     }
 
     function _setVaultRecord(address vault, address operator, uint256 slashAmount) internal {
@@ -326,10 +314,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _registerVault(address vault, address operator, uint256 slashAmount) internal {
+        require(vaultFactory.isEntity(vault), "vault not entity");
         require(!vaultRecords[vault].exists, "vault already registered");
-        require(vaultFactory.isEntity(vault), "vault not registered");
-        require(operatorRegistry.isEntity(operator), "operator not registered");
         require(slashAmount != 0, "slash amount must be non-zero");
+
+        _checkOperator(operator);
 
         // Check all slashable stake is allocated to single operator
         IVaultStorage vaultContract = IVaultStorage(vault);
@@ -441,6 +430,25 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Authorizes contract upgrades, restricted to contract owner.
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function _checkOperator(address operator) internal view {
+        require(operatorRegistry.isEntity(operator), "operator not registered");
+        require(operatorRecords[operator].exists, "operator not registered");
+        require(!operatorRecords[operator].deregRequestHeight.exists, "operator dereg request exists");
+        require(!operatorRecords[operator].isBlacklisted, "operator is blacklisted");
+    }
+
+    function _checkCallingOperator(address operator) internal view {
+        require(msg.sender == operator, "only operator");
+        _checkOperator(operator);
+    }
+
+    function _checkCallingOperatorAndVault(address vault) internal view {
+        require(vaultFactory.isEntity(vault), "vault not registered");
+        require(vaultRecords[vault].exists, "vault not registered");
+        require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg request exists");
+        _checkCallingOperator(vaultRecords[vault].operator);
+    }
 
     // TODO: confirm you can call this with zero valued stuff
     function _getOperatorFromValRecord(bytes calldata blsPubkey) internal view returns (address) {

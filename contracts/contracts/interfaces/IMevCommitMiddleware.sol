@@ -43,11 +43,11 @@ interface IMevCommitMiddleware {
         uint256 indexed position);
 
     /// @notice Emmitted when validator deregistration is requested
-    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed operator,
+    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender,
         uint256 indexed position);
 
     /// @notice Emmitted when a validator record is deleted by the contract owner
-    event ValRecordDeleted(bytes indexed blsPubkey, address indexed operator);
+    event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender);
 
     /// @notice Emmitted when a vault record is added
     event VaultRegistered(address indexed vault, address indexed operator, uint256 slashAmount);
