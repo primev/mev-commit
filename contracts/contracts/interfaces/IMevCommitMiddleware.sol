@@ -52,6 +52,9 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when a vault record is added
     event VaultRegistered(address indexed vault, address indexed operator, uint256 slashAmount);
 
+    /// @notice Emmitted when a vault slash amount is updated
+    event VaultSlashAmountUpdated(address indexed vault, uint256 slashAmount);
+
     /// @notice Emmitted when a vault deregistration is requested
     event VaultDeregistrationRequested(address indexed vault);
 

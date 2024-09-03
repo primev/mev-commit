@@ -137,6 +137,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
+        uint256 vLen = vaults.length;
+        require(vLen == slashAmounts.length, "invalid length");
+        for (uint256 i = 0; i < vLen; i++) {
+            _updateSlashAmount(vaults[i], slashAmounts[i]);
+        }
+    }
+
     function requestVaultDeregistrations(address[] calldata vaults) external onlyOwner {
         for (uint256 i = 0; i < vaults.length; i++) {
             _requestVaultDeregistration(vaults[i]);
@@ -342,6 +350,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         _setVaultRecord(vault, operator, slashAmount);
         emit VaultRegistered(vault, operator, slashAmount);
+    }
+
+    function _updateSlashAmount(address vault, uint256 slashAmount) internal {
+        require(vaultRecords[vault].exists, "vault not registered");
+        vaultRecords[vault].slashAmount = slashAmount;
+        emit VaultSlashAmountUpdated(vault, slashAmount);
     }
 
     function _requestVaultDeregistration(address vault) internal {
