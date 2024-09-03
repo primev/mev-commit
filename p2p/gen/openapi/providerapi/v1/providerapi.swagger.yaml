@@ -43,7 +43,9 @@ paths:
       summary: ReceiveBids
       description: |-
         ReceiveBids is called by the provider to receive bids from the mev-commit node.
-        The mev-commit node will stream bids to the provider as the response.
+        The mev-commit node will stream bids to the provider as the response. The bid can optionally
+        have the raw transaction payload in it. The order of the transaction hashes will be the same
+        as the raw transaction payloads if included.
       operationId: Provider_ReceiveBids
       responses:
         "200":
@@ -163,6 +165,10 @@ definitions:
       amount: "1000000000000000000"
       bidDigest: 9dJinwL+FZ6B1xsIQQo8t8B0ZXJubJwY86l/Yu7yAH159QrPHU0qj2P+YFj+llbuI1ZygdxGsX8+P3byMEA5ig==
       blockNumber: 123456
+      decayEndTimestamp: 1.725365302e+12
+      decayStartTimestamp: 1.725365301e+12
+      revertingTxHashes:
+        - fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7
       txHashes:
         - fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7
         - 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
@@ -202,7 +208,7 @@ definitions:
         type: array
         items:
           type: string
-        description: Optional array of raw transactions that the bidder wants to include in the block.
+        description: Optional array of RLP encoded raw signed transaction payloads that the bidder wants to include in the block.
     description: Signed bid message from bidders to the provider.
     title: Bid message
     required:
