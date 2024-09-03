@@ -10,6 +10,7 @@ import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 import {IVault} from "symbiotic-core/interfaces/Vault/IVault.sol";
+import {IVaultStorage} from "symbiotic-core/interfaces/Vault/IVaultStorage.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/Delegator/IBaseDelegator.sol";
 import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
 import {IOperatorRegistry} from "symbiotic-core/interfaces/IOperatorRegistry.sol";
@@ -25,6 +26,7 @@ import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 // TODO: Use custom errors since our clients are compatible with this now.
 // TODO: Update to newer version of solidity to match symbiotic core?
 // TODO: You're prob able to remove some of the dereg logic for vaults etc. and piggyback off symbiotic core "vault epochs" etc. 
+// TODO: Accept BOTH vaults that have slashing via resolver or not. Oracle account can be resolver.
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
@@ -322,11 +324,17 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(slashAmount != 0, "slash amount must be non-zero");
 
         // Check all slashable stake is allocated to single operator
-        IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
+        IVaultStorage vaultContract = IVaultStorage(vault);
+        IBaseDelegator delegator = IBaseDelegator(vaultContract.delegator());
         uint256 stake = delegator.stake(_getSubnetwork(), operator);
         require(stake != 0, "operator must have vault stake");
         uint256 maxNetworkLimit = delegator.maxNetworkLimit(_getSubnetwork());
         require(stake == maxNetworkLimit, "oper stake != network limit");
+
+        // TODO: Ensure vault epoch duration is long enough that oracle can submit slash tx in time. 
+        // Maybe equiv to L1 epoch? 
+        uint256 vaultEpochDuration = vaultContract.epochDuration();
+        require(vaultEpochDuration > 33, "invalid vault epoch");
 
         _setVaultRecord(vault, operator, slashAmount);
         emit VaultRegistered(vault, operator, slashAmount);
