@@ -10,6 +10,8 @@ interface IMevCommitMiddleware {
         EventHeightLib.EventHeight deregRequestHeight;
         /// @notice The vault holding slashable stake which represents the validator.
         address vault;
+        /// @notice The operator which registered this validator pubkey with a vault.
+        address operator;
     }
 
     struct OperatorRecord {
@@ -21,7 +23,6 @@ interface IMevCommitMiddleware {
     struct VaultRecord {
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
-        address operator;
         uint256 slashAmount;
     }
 
@@ -38,7 +39,7 @@ interface IMevCommitMiddleware {
     event OperatorBlacklisted(address indexed operator);
 
     /// @notice Emmitted when a validator record is added to state
-    event ValRecordAdded(bytes indexed blsPubkey, address indexed operator,
+    event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender,
         uint256 indexed position);
 
     /// @notice Emmitted when validator deregistration is requested
@@ -49,7 +50,7 @@ interface IMevCommitMiddleware {
     event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender);
 
     /// @notice Emmitted when a vault record is added
-    event VaultRegistered(address indexed vault, address indexed operator, uint256 slashAmount);
+    event VaultRegistered(address indexed vault, uint256 slashAmount);
 
     /// @notice Emmitted when a vault slash amount is updated
     event VaultSlashAmountUpdated(address indexed vault, uint256 slashAmount);

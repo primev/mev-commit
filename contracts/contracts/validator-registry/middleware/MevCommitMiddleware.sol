@@ -92,10 +92,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function registerValidators(bytes[][] calldata blsPubkeys, address[] calldata vaults) external whenNotPaused {
         uint256 vaultLen = vaults.length;
         require(vaultLen == blsPubkeys.length, "invalid array lengths");
+        address operator = msg.sender;
+        _checkOperator(operator);
         for (uint256 i = 0; i < vaultLen; ++i) {
             uint256 keyLen = blsPubkeys[i].length;
+            _checkVault(vaults[i]);
+            require(keyLen < _potentialSlashableVals(vaults[i], operator) + 1, "validators not slashable");
             for (uint256 j = 0; j < keyLen; ++j) {
-                _addValRecord(blsPubkeys[i][j], vaults[i]);
+                _addValRecord(blsPubkeys[i][j], vaults[i], operator);
             }
         }
     }
@@ -119,11 +123,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
-    function registerVaults(address[] calldata vaults, address[] calldata operators, uint256[] calldata slashAmounts) external onlyOwner {
+    function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
-        require(vLen == operators.length && vLen == slashAmounts.length, "invalid length");
+        require(vLen == slashAmounts.length, "invalid length");
         for (uint256 i = 0; i < vLen; i++) {
-            _registerVault(vaults[i], operators[i], slashAmounts[i]);
+            _registerVault(vaults[i], slashAmounts[i]);
         }
     }
 
@@ -194,11 +198,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool) {
-        return _isValidatorSlashable(blsPubkey);
+        require(validatorRecords[blsPubkey].exists, "missing val record");
+        _checkVault(validatorRecords[blsPubkey].vault);
+        _checkOperator(validatorRecords[blsPubkey].operator);
+        return _isValidatorSlashable(blsPubkey,
+            validatorRecords[blsPubkey].vault, validatorRecords[blsPubkey].operator);
     }
 
-    function vaultCollateralizesAllValidators(address vault) external view returns (bool) {
-        return _vaultCollteralizesAllValidators(vault);
+    function potentialSlashableValidators(address vault, address operator) external view returns (uint256) {
+        return _potentialSlashableVals(vault, operator);
+    }
+
+    // TODO: Use this for unit tests
+    function allValidatorsAreSlashable(address vault, address operator) external view returns (bool) {
+        return _allValidatorsAreSlashable(vault, operator);
     }
 
     function _setOperatorRecord(address operator) internal {
@@ -227,7 +240,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _deregisterOperator(address operator) internal {
-        require(operatorRecords[operator].exists, "operator dereg not requested");
+        require(operatorRecords[operator].exists, "operator not registered");
         require(_isOperatorReadyToDeregister(operator), "not ready to dereg");
         require(!operatorRecords[operator].isBlacklisted, "operator is blacklisted");
         delete operatorRecords[operator];
@@ -245,24 +258,23 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit OperatorBlacklisted(operator);
     }
 
-    function _setValRecord(bytes calldata blsPubkey, address vault) internal {
+    function _setValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
         validatorRecords[blsPubkey] = ValidatorRecord({
             exists: true,
             deregRequestHeight: EventHeightLib.EventHeight({
                 exists: false,
                 blockHeight: 0
             }),
-            vault: vault
+            vault: vault,
+            operator: operator
         });
-        _vaultToValidatorSet[vault].add(blsPubkey);
+        _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
     }
 
     // TODO: DO a full sweep comparison of MevCommitAVS to see which checks exist for each function.
-    function _addValRecord(bytes calldata blsPubkey, address vault) internal {
+    function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
         require(!validatorRecords[blsPubkey].exists, "val record already exists");
-        _checkCallingOperatorAndVault(vault);
-        require(_isValidatorSlashable(blsPubkey), "validator not slashable");
-        _setValRecord(blsPubkey, vault);
+        _setValRecord(blsPubkey, vault, operator);
         emit ValRecordAdded(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
     }
 
@@ -277,47 +289,39 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function _deregisterValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing val record");
+        require(_isValidatorReadyToDeregister(blsPubkey), "not ready to dereg");
         if (msg.sender != owner()) {
             _checkCallingOperator(_getOperatorFromValRecord(blsPubkey));
         }
-        delete validatorRecords[blsPubkey];
         address vault = validatorRecords[blsPubkey].vault;
-        _vaultToValidatorSet[vault].remove(blsPubkey);
+        address operator = validatorRecords[blsPubkey].operator;
+        _vaultAndOperatorToValset[vault][operator].remove(blsPubkey);
+        delete validatorRecords[blsPubkey];
         emit ValRecordDeleted(blsPubkey, msg.sender);
     }
 
-    function _setVaultRecord(address vault, address operator, uint256 slashAmount) internal {
+    function _setVaultRecord(address vault, uint256 slashAmount) internal {
         vaultRecords[vault] = VaultRecord({
             exists: true,
             deregRequestHeight: EventHeightLib.EventHeight({
                 exists: false,
                 blockHeight: 0
             }),
-            operator: operator,
             slashAmount: slashAmount
         });
     }
 
-    function _registerVault(address vault, address operator, uint256 slashAmount) internal {
-        require(vaultFactory.isEntity(vault), "vault not entity");
+    function _registerVault(address vault,uint256 slashAmount) internal {
         require(!vaultRecords[vault].exists, "vault already registered");
+        require(vaultFactory.isEntity(vault), "vault not entity");
         require(slashAmount != 0, "slash amount must be non-zero");
-
-        _checkOperator(operator);
 
         IVaultStorage vaultContract = IVaultStorage(vault);
         uint256 vaultEpochDuration = vaultContract.epochDuration();
         require(vaultEpochDuration > slashPeriodBlocks, "invalid vault epoch duration");
 
-        // Check all slashable stake is allocated to single operator
-        IBaseDelegator delegator = IBaseDelegator(vaultContract.delegator());
-        uint256 stake = delegator.stake(_getSubnetwork(), operator);
-        require(stake != 0, "operator must have vault stake");
-        uint256 maxNetworkLimit = delegator.maxNetworkLimit(_getSubnetwork());
-        require(stake == maxNetworkLimit, "oper stake != network limit");
-
-        _setVaultRecord(vault, operator, slashAmount);
-        emit VaultRegistered(vault, operator, slashAmount);
+        _setVaultRecord(vault, slashAmount);
+        emit VaultRegistered(vault, slashAmount);
     }
 
     function _updateSlashAmount(address vault, uint256 slashAmount) internal {
@@ -414,22 +418,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _checkOperator(operator);
     }
 
-    function _checkCallingOperatorAndVault(address vault) internal view {
+    function _checkVault(address vault) internal view {
         require(vaultFactory.isEntity(vault), "vault not registered");
         require(vaultRecords[vault].exists, "vault not registered");
         require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg request exists");
-        _checkCallingOperator(vaultRecords[vault].operator);
     }
 
-    // TODO: confirm you can call this with zero valued stuff
     function _getOperatorFromValRecord(bytes calldata blsPubkey) internal view returns (address) {
-        return vaultRecords[validatorRecords[blsPubkey].vault].operator;
+        return validatorRecords[blsPubkey].operator;
     }
 
-    // TODO: This and above function are optimistic on existence of records.
-    // TODO: Either a. confirm the calling functions have neccessary requires, or add them here.
     function _getPositionInValset(bytes calldata blsPubkey) internal view returns (uint256) {
-        return _vaultToValidatorSet[validatorRecords[blsPubkey].vault].position(blsPubkey);
+        return _vaultAndOperatorToValset[
+            validatorRecords[blsPubkey].vault][
+                validatorRecords[blsPubkey].operator].position(blsPubkey);
     }
 
     function _isValidatorReadyToDeregister(bytes calldata blsPubkey) internal view returns (bool) {
@@ -451,29 +453,38 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return Subnetwork.subnetwork(network, SUBNETWORK_ID);
     }
 
-    function _getAllocatedStake(address vault) internal view returns (uint256) {
+    function _getAllocatedStake(address vault, address operator) internal view returns (uint256) {
         IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
         bytes32 subnetwork = _getSubnetwork();
-        address operator = vaultRecords[vault].operator;
         return delegator.stake(subnetwork, operator);
     }
 
-    function _vaultCollteralizesAllValidators(address vault) internal view returns (bool) {
+    function _allValidatorsAreSlashable(address vault, address operator) internal view returns (bool) {
         uint256 slashAmount = vaultRecords[vault].slashAmount;
-        uint256 numVals = _vaultToValidatorSet[vault].length();
-        uint256 allocatedStake = _getAllocatedStake(vault);
+        uint256 numVals = _vaultAndOperatorToValset[vault][operator].length();
+        uint256 allocatedStake = _getAllocatedStake(vault, operator);
         return allocatedStake > slashAmount * numVals;
     }
 
-    function _isValidatorSlashable(bytes calldata blsPubkey) internal view returns (bool) {
+    function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {
         address vault = validatorRecords[blsPubkey].vault;
-        uint256 allocatedStake = _getAllocatedStake(vault);
+        address operator = validatorRecords[blsPubkey].operator;
+        uint256 allocatedStake = _getAllocatedStake(vault, operator);
         uint256 slashAmount = vaultRecords[vault].slashAmount;
         uint256 position = _getPositionInValset(blsPubkey);
         uint256 slashableVals = allocatedStake / slashAmount;
         return position < slashableVals;
     }
 
+    // TODO: def need unit tests, in conjuction with related functions
+    function _potentialSlashableVals(address vault, address operator) internal view returns (uint256) {
+        uint256 allocatedStake = _getAllocatedStake(vault, operator);
+        uint256 slashAmount = vaultRecords[vault].slashAmount;
+        uint256 alreadyCollateralized = _vaultAndOperatorToValset[vault][operator].length();
+        uint256 slashableVals = allocatedStake / slashAmount;
+        return slashableVals - alreadyCollateralized;
+    }
+    
     // TODO: Unit tests around confirming a validator who's newly registered MUST be opted in.
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {
         if (!validatorRecords[blsPubkey].exists) {
@@ -504,7 +515,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (!operatorRegistry.isEntity(operator)) {
             return false;
         }
-        if (!_isValidatorSlashable(blsPubkey)) {
+        if (!_isValidatorSlashable(blsPubkey, validatorRecords[blsPubkey].vault,
+            validatorRecords[blsPubkey].operator)) {
             return false;
         }
         return true;

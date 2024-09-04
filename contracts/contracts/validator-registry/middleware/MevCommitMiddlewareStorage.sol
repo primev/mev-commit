@@ -29,5 +29,6 @@ abstract contract MevCommitMiddlewareStorage {
 
     mapping(address vaultAddress => IMevCommitMiddleware.VaultRecord) public vaultRecords;
 
-    mapping(address vault => EnumerableSet.BytesSet) internal _vaultToValidatorSet;
+    mapping(address vault =>
+        mapping(address operator => EnumerableSet.BytesSet)) internal _vaultAndOperatorToValset;
 }
