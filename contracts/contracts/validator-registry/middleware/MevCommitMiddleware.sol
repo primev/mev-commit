@@ -12,6 +12,7 @@ import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 import {IVault} from "symbiotic-core/interfaces/Vault/IVault.sol";
 import {IVaultStorage} from "symbiotic-core/interfaces/Vault/IVaultStorage.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/Delegator/IBaseDelegator.sol";
+import {IEntity} from "symbiotic-core/interfaces/common/IEntity.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 
@@ -319,6 +320,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         IVaultStorage vaultContract = IVaultStorage(vault);
         uint256 vaultEpochDuration = vaultContract.epochDuration();
         require(vaultEpochDuration > slashPeriodBlocks, "invalid vault epoch duration");
+        
+        IEntity delegator = IEntity(IVault(vault).delegator());
+        require(delegator.TYPE() == 0, "delegator must be NetworkRestake");
 
         _setVaultRecord(vault, slashAmount);
         emit VaultRegistered(vault, slashAmount);
