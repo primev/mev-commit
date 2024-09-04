@@ -57,7 +57,7 @@ jobs:
         p2p:
           to: 30301
     env:
-      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      ip: 0.0.0.0
       public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: bootnode
