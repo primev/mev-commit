@@ -16,11 +16,7 @@ abstract contract MevCommitMiddlewareStorage {
     /// @notice The network address, which must have registered with the NETWORK_REGISTRY.
     address public network;
 
-    uint256 public validatorDeregPeriodBlocks;
-
-    uint256 public operatorDeregPeriodBlocks;
-
-    uint256 public vaultDeregPeriodBlocks;
+    uint256 public slashPeriodBlocks;
 
     address public slashOracle;
 

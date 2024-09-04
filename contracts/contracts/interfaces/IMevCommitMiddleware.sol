@@ -12,7 +12,6 @@ interface IMevCommitMiddleware {
         address vault;
     }
 
-    // TODO: Confirm we don't need to store/track slashing of operators. This must be handled somewhere tho.
     struct OperatorRecord {
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
@@ -76,14 +75,8 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the network is set
     event NetworkSet(address network);
 
-    /// @notice Emmitted when the operator deregistration period in blocks is set
-    event OperatorDeregPeriodBlocksSet(uint256 operatorDeregPeriodBlocks);
-
-    /// @notice Emmitted when the validator deregistration period in blocks is set
-    event ValidatorDeregPeriodBlocksSet(uint256 validatorDeregPeriodBlocks);
-
-    /// @notice Emmitted when the vault deregistration period in blocks is set
-    event VaultDeregPeriodBlocksSet(uint256 vaultDeregPeriodBlocks);
+    /// @notice Emmitted when the slash period in blocks is set
+    event SlashPeriodBlocksSet(uint256 slashPeriodBlocks);
 
     /// @notice Emmitted when the slash oracle is set
     event SlashOracleSet(address slashOracle);

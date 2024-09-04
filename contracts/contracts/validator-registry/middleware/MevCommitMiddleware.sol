@@ -23,7 +23,6 @@ import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 // TODO: attempt to make storage more fsm like with enum. See if this can lessen the amount of requires needed
 // TODO: Get through full Handbook for Networks page and confirm you follow all rules for slashing logic, network epoch, slashing epochs etc. 
 // TODO: Use custom errors since our clients are compatible with this now.
-// TODO: You're prob able to remove some of the dereg logic for vaults etc. and piggyback off symbiotic core "vault epochs" etc. 
 // TODO: Accept BOTH vaults that have slashing via resolver or not. Oracle account can be resolver.
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
@@ -44,9 +43,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         IRegistry _operatorRegistry,
         IRegistry _vaultFactory,
         address _network,
-        uint256 _operatorDeregPeriodBlocks,
-        uint256 _validatorDeregPeriodBlocks,
-        uint256 _vaultDeregPeriodBlocks,
+        uint256 _slashPeriodBlocks,
         address _slashOracle,
         address _owner
     ) public initializer {
@@ -54,9 +51,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setOperatorRegistry(_operatorRegistry);
         _setVaultFactory(_vaultFactory);
         _setNetwork(_network);
-        _setOperatorDeregPeriodBlocks(_operatorDeregPeriodBlocks);
-        _setValidatorDeregPeriodBlocks(_validatorDeregPeriodBlocks);
-        _setVaultDeregPeriodBlocks(_vaultDeregPeriodBlocks);
+        _setSlashPeriodBlocks(_slashPeriodBlocks);
         _setSlashOracle(_slashOracle);
         __Pausable_init();
         __UUPSUpgradeable_init();
@@ -184,19 +179,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setNetwork(_network);
     }
 
-    /// @dev Sets the operator deregistration period in blocks, restricted to contract owner.
-    function setOperatorDeregPeriodBlocks(uint256 operatorDeregPeriodBlocks_) external onlyOwner {
-        _setOperatorDeregPeriodBlocks(operatorDeregPeriodBlocks_);
-    }
-
-    /// @dev Sets the validator deregistration period in blocks, restricted to contract owner.
-    function setValidatorDeregPeriodBlocks(uint256 validatorDeregPeriodBlocks_) external onlyOwner {
-        _setValidatorDeregPeriodBlocks(validatorDeregPeriodBlocks_);
-    }
-
-    /// @dev Sets the vault deregistration period in blocks, restricted to contract owner.
-    function setVaultDeregPeriodBlocks(uint256 vaultDeregPeriodBlocks_) external onlyOwner {
-        _setVaultDeregPeriodBlocks(vaultDeregPeriodBlocks_);
+    /// @dev Sets the slash period in blocks, restricted to contract owner.
+    function setSlashPeriodBlocks(uint256 slashPeriodBlocks_) external onlyOwner {
+        _setSlashPeriodBlocks(slashPeriodBlocks_);
     }
 
     /// @dev Sets the slash oracle, restricted to contract owner.
@@ -320,18 +305,16 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         _checkOperator(operator);
 
-        // Check all slashable stake is allocated to single operator
         IVaultStorage vaultContract = IVaultStorage(vault);
+        uint256 vaultEpochDuration = vaultContract.epochDuration();
+        require(vaultEpochDuration > slashPeriodBlocks, "invalid vault epoch duration");
+
+        // Check all slashable stake is allocated to single operator
         IBaseDelegator delegator = IBaseDelegator(vaultContract.delegator());
         uint256 stake = delegator.stake(_getSubnetwork(), operator);
         require(stake != 0, "operator must have vault stake");
         uint256 maxNetworkLimit = delegator.maxNetworkLimit(_getSubnetwork());
         require(stake == maxNetworkLimit, "oper stake != network limit");
-
-        // TODO: Ensure vault epoch duration is long enough that oracle can submit slash tx in time. 
-        // Maybe equiv to L1 epoch? 
-        uint256 vaultEpochDuration = vaultContract.epochDuration();
-        require(vaultEpochDuration > 33, "invalid vault epoch");
 
         _setVaultRecord(vault, operator, slashAmount);
         emit VaultRegistered(vault, operator, slashAmount);
@@ -403,22 +386,10 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit NetworkSet(_network);
     }
 
-    /// @dev Internal function to set the operator deregistration period in blocks.
-    function _setOperatorDeregPeriodBlocks(uint256 operatorDeregPeriodBlocks_) internal {
-        operatorDeregPeriodBlocks = operatorDeregPeriodBlocks_;
-        emit OperatorDeregPeriodBlocksSet(operatorDeregPeriodBlocks_);
-    }
-
-    /// @dev Internal function to set the validator deregistration period in blocks.
-    function _setValidatorDeregPeriodBlocks(uint256 validatorDeregPeriodBlocks_) internal {
-        validatorDeregPeriodBlocks = validatorDeregPeriodBlocks_;
-        emit ValidatorDeregPeriodBlocksSet(validatorDeregPeriodBlocks_);
-    }
-
-    /// @dev Internal function to set the vault deregistration period in blocks.
-    function _setVaultDeregPeriodBlocks(uint256 vaultDeregPeriodBlocks_) internal {
-        vaultDeregPeriodBlocks = vaultDeregPeriodBlocks_;
-        emit VaultDeregPeriodBlocksSet(vaultDeregPeriodBlocks_);
+    /// @dev Internal function to set the slash period in blocks.
+    function _setSlashPeriodBlocks(uint256 slashPeriodBlocks_) internal {
+        slashPeriodBlocks = slashPeriodBlocks_;
+        emit SlashPeriodBlocksSet(slashPeriodBlocks_);
     }
 
     /// @dev Internal function to set the slash oracle.
@@ -463,17 +434,17 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function _isValidatorReadyToDeregister(bytes calldata blsPubkey) internal view returns (bool) {
         return validatorRecords[blsPubkey].deregRequestHeight.exists && 
-            block.number > validatorDeregPeriodBlocks + validatorRecords[blsPubkey].deregRequestHeight.blockHeight;
+            block.number > slashPeriodBlocks + validatorRecords[blsPubkey].deregRequestHeight.blockHeight;
     }
 
     function _isOperatorReadyToDeregister(address operator) internal view returns (bool) {
         return operatorRecords[operator].deregRequestHeight.exists && 
-            block.number > operatorDeregPeriodBlocks + operatorRecords[operator].deregRequestHeight.blockHeight;
+            block.number > slashPeriodBlocks + operatorRecords[operator].deregRequestHeight.blockHeight;
     }
 
     function _isVaultReadyToDeregister(address vault) internal view returns (bool) {
         return vaultRecords[vault].deregRequestHeight.exists && 
-            block.number > vaultDeregPeriodBlocks + vaultRecords[vault].deregRequestHeight.blockHeight;
+            block.number > slashPeriodBlocks + vaultRecords[vault].deregRequestHeight.blockHeight;
     }
 
     function _getSubnetwork() internal view returns (bytes32) {
