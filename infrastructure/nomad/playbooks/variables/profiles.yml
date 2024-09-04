@@ -78,7 +78,7 @@ jobs:
           to: 30311
           static: 30311
     env:
-      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      ip: 0.0.0.0
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: signer
       port: 30311
@@ -100,7 +100,7 @@ jobs:
           to: 30312
           static: 30312
     env:
-      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      ip: 0.0.0.0
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: signer
       port: 30312
@@ -122,7 +122,7 @@ jobs:
           to: 30313
           static: 30313
     env:
-      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      ip: 0.0.0.0
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: signer
       port: 30313
@@ -146,7 +146,7 @@ jobs:
         p2p:
           to: 30311
     env:
-      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      ip: 0.0.0.0
       public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       net_restrict: 0.0.0.0/0
       type: member
