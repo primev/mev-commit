@@ -59,7 +59,7 @@ jobs:
     env:
       ip: 0.0.0.0
       public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
-      net_restrict: 127.0.0.1/32
+      net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: bootnode
   mev_commit_geth_signer_node1: &mev_commit_geth_signer_node1_job
     name: mev-commit-geth-signer-node1
