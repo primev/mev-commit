@@ -51,8 +51,7 @@ job "{{ job.name }}" {
 
       {% if env == 'testenv' %}
       resources {
-        cores = 2
-        memory = 16384
+        memory = 2048
       }
       {% endif %}
 
@@ -150,8 +149,8 @@ job "{{ job.name }}" {
 
         echo "Restoring from backup file ${BACKUP_FILE} to ${GETH_DATA_DIR}"
         echo "Backup file size: $(du -h ${BACKUP_FILE} | cut -f1)"
+        START_TIME=$(date +%s)
         local/mev-commit-geth \
-          --cache=4096 \
           --verbosity=5 \
           --log.format="${GETH_LOG_FORMAT}" \
           --log.tags="${GETH_LOG_TAGS}" \
@@ -159,7 +158,8 @@ job "{{ job.name }}" {
           import ${BACKUP_FILE}
 
         if [[ $? -eq 0 ]]; then
-          echo "Restore successful"
+          ELAPSED_TIME=$(($(date +%s) - START_TIME))
+          echo "Restore finished in: $(date -u -d@${ELAPSED_TIME} +%H:%M:%S)"
         else
           echo "Restore failed"
           exit 1
@@ -325,8 +325,7 @@ job "{{ job.name }}" {
 
       {% if env == 'testenv' %}
       resources {
-        cores = 2
-        memory = 16384
+        memory = 2048
       }
       {% endif %}
 
@@ -386,7 +385,7 @@ job "{{ job.name }}" {
         fi
 
         BACKUP_FILE="local/backups/{{ version }}_{{ job.name }}-{% raw %}{{ env "NOMAD_ALLOC_INDEX" }}{% endraw %}_$(date +%Y%m%d%H%M%S)"
-        STATUS=$(nomad alloc status -address="http://{{ ansible_facts['default_ipv4']['address'] }}:4646" -json "${NOMAD_ALLOC_ID}")
+        STATUS=$(nomad alloc status -address="http://127.0.0.1:4646" -json "${NOMAD_ALLOC_ID}")
         NON_ZERO_EXIT_EVENTS=$(echo "$STATUS" | jq -r '.TaskStates.node.Events[] | select(.ExitCode != 0)')
         if [[ -n "${NON_ZERO_EXIT_EVENTS}" ]]; then
           echo "The main task did not start or finish gracefully"
@@ -395,9 +394,9 @@ job "{{ job.name }}" {
         BACKUP_FILE+=".rlp"
 
         echo "Exporting chain data from ${GETH_DATA_DIR} to backup file: ${BACKUP_FILE}"
+        START_TIME=$(date +%s)
         chmod +x local/mev-commit-geth
         local/mev-commit-geth \
-          --cache 4096 \
           --verbosity=5 \
           --log.format="$GETH_LOG_FORMAT" \
           --log.tags="$GETH_LOG_TAGS" \
@@ -405,7 +404,8 @@ job "{{ job.name }}" {
           export ${BACKUP_FILE}
 
         if [[ "$?" -eq 0 ]] && [[ -f "${BACKUP_FILE}" ]]; then
-          echo "Backup successful"
+          ELAPSED_TIME=$(($(date +%s) - START_TIME))
+          echo "Backup finished in: $(date -u -d@${ELAPSED_TIME} +%H:%M:%S)"
           echo "Backup file size: $(du -h ${BACKUP_FILE} | cut -f1)"
         else
           echo "Backup failed"
