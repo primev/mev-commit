@@ -57,10 +57,11 @@ jobs:
         p2p:
           to: 30301
     env:
-      ip: 0.0.0.0
+      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: bootnode
+  
   mev_commit_geth_signer_node1: &mev_commit_geth_signer_node1_job
     name: mev-commit-geth-signer-node1
     template: mev-commit-geth.nomad.j2
@@ -77,7 +78,7 @@ jobs:
           to: 30311
           static: 30311
     env:
-      ip: 127.0.0.1
+      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: signer
       port: 30311
@@ -99,7 +100,7 @@ jobs:
           to: 30312
           static: 30312
     env:
-      ip: 127.0.0.1
+      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: signer
       port: 30312
@@ -121,7 +122,7 @@ jobs:
           to: 30313
           static: 30313
     env:
-      ip: 127.0.0.1
+      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       net_restrict: "{{ ansible_facts['default_ipv4']['address'] }}/32"
       type: signer
       port: 30313
@@ -145,7 +146,7 @@ jobs:
         p2p:
           to: 30311
     env:
-      ip: 0.0.0.0
+      ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
       net_restrict: 0.0.0.0/0
       type: member
