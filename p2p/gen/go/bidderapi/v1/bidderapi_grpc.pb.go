@@ -55,7 +55,7 @@ type BidderClient interface {
 	// can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
 	// number for the deposit. If the start window number is not specified, the current block number is used to
 	// calculate the window number. If the block number is specified, the window number is calculated based on
-	// the block number. One it is enabled, the node will automatically deposit the specified amount in each window
+	// the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
 	// as well as withdraw the deposit from the previous window.
 	AutoDeposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*AutoDepositResponse, error)
 	// CancelAutoDeposit
@@ -205,7 +205,7 @@ type BidderServer interface {
 	// can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
 	// number for the deposit. If the start window number is not specified, the current block number is used to
 	// calculate the window number. If the block number is specified, the window number is calculated based on
-	// the block number. One it is enabled, the node will automatically deposit the specified amount in each window
+	// the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
 	// as well as withdraw the deposit from the previous window.
 	AutoDeposit(context.Context, *DepositRequest) (*AutoDepositResponse, error)
 	// CancelAutoDeposit
