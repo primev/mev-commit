@@ -87,7 +87,7 @@ job "{{ job.name }}" {
           {% if job.env['type'] != 'signer' %}
           PUBLIC_NODE_IP="{{ job.env['public_ip'] }}"
           {% endif %}
-          NET_RESTRICT="0.0.0.0/0"
+          NET_RESTRICT="{{ job.env['net_restrict'] }}"
           GETH_PORT="{{ job.ports[0]['p2p']['to'] }}"
           GETH_NODE_TYPE="{{ job.env['type'] }}"
           GETH_VERBOSITY={{ job.env.get('log-verbosity', '3') }}
