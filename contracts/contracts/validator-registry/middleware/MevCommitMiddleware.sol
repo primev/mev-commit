@@ -18,17 +18,10 @@ import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 import {ISlasher} from "symbiotic-core/interfaces/Slasher/ISlasher.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-// TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
-// TODO: Parse through MevCommitAVS and make sure translatable reg/dreg functions have the same operators / check the same things. 
-// TODO: for example you need to add requires s.t. a validator MUST be opted-in right after registering. 
-// TODO: Get through full Handbook for Networks page and confirm you follow all rules for slashing logic, network epoch, slashing epochs etc. 
-// TODO: Use custom errors since our clients are compatible with this now.
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     using EnumerableSet for EnumerableSet.BytesSet;
-
-    // TODO: more modifiers similar to MevCommitAVS
 
     modifier onlySlashOracle() {
         require(msg.sender == slashOracle, "only slash oracle");
@@ -83,9 +76,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
-    // TODO: confirm this and other external functions can handle empty arrays
-    // TODO: confirm only operator can edit their own records. Does contract owner need access as well?
-    // Be consistent with MevCommitAVS.
     function registerValidators(bytes[][] calldata blsPubkeys, address[] calldata vaults) external whenNotPaused {
         uint256 vaultLen = vaults.length;
         require(vaultLen == blsPubkeys.length, "invalid array lengths");
@@ -111,9 +101,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// Restricted to contract owner.
     /// @notice This function allows the contract owner to combat a greifing scenario where an operator
     /// registers a validator pubkey that it does not control, own, or otherwise manage.
-    ///
-    /// TODO: Write test for scenario where operator greifs another, and contract owner
-    /// has to blacklist that operator, then delete the greifed validator records.
     function deregisterValidators(bytes[] calldata blsPubkeys) external {
         for (uint256 i = 0; i < blsPubkeys.length; i++) {
             _deregisterValidator(blsPubkeys[i]);
@@ -209,7 +196,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _potentialSlashableVals(vault, operator);
     }
 
-    // TODO: Use this for unit tests
     function allValidatorsAreSlashable(address vault, address operator) external view returns (bool) {
         return _allValidatorsAreSlashable(vault, operator);
     }
@@ -247,8 +233,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit OperatorDeregistered(operator);
     }
 
-    // TODO: confirm validator can ALWAYS be blacklisted from any previous state,
-    // and that no other operations can be performed on the operator record after being blacklisted.
     function _blacklistOperator(address operator) internal {
         if (!operatorRecords[operator].exists) {
             _setOperatorRecord(operator);
@@ -271,7 +255,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
     }
 
-    // TODO: DO a full sweep comparison of MevCommitAVS to see which checks exist for each function.
     function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
         require(!validatorRecords[blsPubkey].exists, "val record already exists");
         _setValRecord(blsPubkey, vault, operator);
