@@ -35,33 +35,33 @@ job "{{ job.name }}" {
       {% endfor %}
     }
 
-config {
-  cni_config = jsonencode({
-    "cniVersion": "0.4.0",  // Updated CNI version
-    "name": "{{ job.name }}-network",
-    "plugins": [
-      {
-        "type": "bridge",  // CNI plugin type
-        "bridge": "br0",
-        "isGateway": true,
-        "ipMasq": true,
-        "ipam": {
-          "type": "host-local",
-          "subnet": "172.16.30.0/24",
-          "routes": [
-            {
-              "dst": "0.0.0.0/0"
+    config {
+      cni_config = jsonencode({
+        "cniVersion": "0.4.0",
+        "name": "geth-network",
+        "plugins": [
+          {
+            "type": "bridge",
+            "bridge": "br0",
+            "isGateway": true,
+            "ipMasq": true,
+            "ipam": {
+              "type": "host-local",
+              "subnet": "172.16.30.0/24",
+              "routes": [
+                {
+                  "dst": "0.0.0.0/0"
+                }
+              ]
             }
-          ]
-        }
-      },
-      {
-        "type": "portmap",
-        "capabilities": { "portMappings": true }
-      }
-    ]
-  })
-}
+          },
+          {
+            "type": "portmap",
+            "capabilities": { "portMappings": true }
+          }
+        ]
+      })
+    }
 
     task "node" {
       driver = "exec"
