@@ -326,18 +326,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         
         IEntity delegator = IEntity(IVault(vault).delegator());
         if (delegator.TYPE() == FULL_RESTAKE_DELEGATOR_TYPE) {
-            revert("full restake not supported"); // TODO: change to custom error
+            revert FullRestakeDelegatorNotSupported();
         } else if (delegator.TYPE() != NETWORK_RESTAKE_DELEGATOR_TYPE) {
-            revert("unknown delegator type");
+            revert UnknownDelegatorType(vault, delegator.TYPE());
         }
 
         address slasher = IVault(vault).slasher();
         require(slasher != address(0), SlasherNotSetForVault(vault));
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == VETO_SLASHER_TYPE) {
-            revert("veto slasher not supported");
+            revert VetoSlasherNotSupported(vault);
         } else if (slasherType != INSTANT_SLASHER_TYPE) {
-            revert("unknown slasher type");
+            revert UnknownSlasherType(vault, slasherType);
         }
 
         _setVaultRecord(vault, slashAmount);
