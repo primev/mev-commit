@@ -473,7 +473,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return position < slashableVals;
     }
 
-    // TODO: def need unit tests, in conjuction with related functions
     function _potentialSlashableVals(address vault, address operator) internal view returns (uint256) {
         uint256 allocatedStake = _getAllocatedStake(vault, operator);
         uint256 slashAmount = vaultRecords[vault].slashAmount;
@@ -482,7 +481,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return slashableVals - alreadyCollateralized;
     }
     
-    // TODO: Unit tests around confirming a validator who's newly registered MUST be opted in.
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {
         if (!validatorRecords[blsPubkey].exists) {
             return false;
