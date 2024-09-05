@@ -2,6 +2,7 @@ package publisher_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 	"time"
@@ -34,10 +35,13 @@ func TestWSPublisher(t *testing.T) {
 		},
 	}
 
+	errC := make(chan error, 1)
+	errC <- errors.New("test error")
 	evmClient := &testWSEVMClient{
 		subscribed: make(chan struct{}),
 		sub: &testSubscription{
 			done: make(chan struct{}),
+			errC: errC,
 		},
 	}
 	progressStore := &testStore{}
@@ -57,6 +61,9 @@ func TestWSPublisher(t *testing.T) {
 
 	doneChan := publisher.Start(ctx, common.Address{})
 
+	// first one will return error and restart
+	<-evmClient.subscribed
+	// second one will return logs
 	<-evmClient.subscribed
 
 	evmClient.logs <- logs[0]
@@ -117,7 +124,7 @@ type testWSEVMClient struct {
 }
 
 func (c *testWSEVMClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, logs chan<- types.Log) (ethereum.Subscription, error) {
-	defer close(c.subscribed)
+	defer func() { c.subscribed <- struct{}{} }()
 	c.logs = logs
 	return c.sub, nil
 }
