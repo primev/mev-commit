@@ -8,6 +8,7 @@
     release: false
     build_artifacts: false
     build_templates: false
+    genesis_file_url: ""
     otel_collector_endpoint_url: ""
     aws_s3_bucket: "primev-infrastructure-artifacts"
 
@@ -523,10 +524,18 @@
         ) | jq -c '.' > "{{ dist_dir }}/genesis_{{ environments[env].version }}.json"
       args:
         executable: bash
-      register: genesis_facts
       delegate_to: localhost
       run_once: true
-      when: build_artifacts
+      when: build_artifacts and genesis_file_url | trim | length == 0
+
+    - name: Fetch Genesis File
+      ansible.builtin.uri:
+        url: "{{ genesis_file_url }}"
+        dest: "{{ dist_dir }}/genesis_{{ environments[env].version }}.json"
+        return_content: no
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and genesis_file_url | trim | length > 0
 
     - name: Prepare launchmevcommit Script
       ansible.builtin.shell: |
@@ -548,7 +557,7 @@
         executable: bash
       delegate_to: localhost
       run_once: true
-      when: build_artifacts and env == 'devenv'
+      when: build_artifacts and env == 'devenv' and profile != 'archive'
 
     - name: Filter Artifacts for Upload
       ansible.builtin.find:

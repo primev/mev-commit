@@ -17,11 +17,13 @@ profile_name="devnet"
 datadog_key=""
 l1_rpc_url=""
 otel_collector_endpoint_url=""
+genesis_file_url=""
+geth_bootnode_url=""
 
 help() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--backup] [--debug]]"
     echo "$0 --help"
     echo
@@ -32,13 +34,15 @@ help() {
     echo "    --debug                      Enable debug mode for detailed output."
     echo
     echo "  deploy [version=HEAD]                  Deploy the specified artifact version (a git commit hash or an existing AWS S3 tag). If not specified or set to HEAD, a local build is triggered."
-    echo "    --environment <name=devenv>          Specify the environment to use (default is devenv)."
-    echo "    --profile <name=devnet>              Specify the profile to use (default is devnet)."
+    echo "    --environment <name=devenv>]         Specify the environment to use (default is devenv)."
+    echo "    --profile <name=devnet>]             Specify the profile to use (default is devnet)."
     echo "    --force-build-templates              Force the build of all job templates before deployment."
     echo "    --no-logs-collection                 Disable the collection of logs from deployed jobs."
-    echo "    --datadog-key <key>                  Datadog API key, cannot be empty."
-    echo "    --l1-rpc-url <url>                   L1 RPC URL, cannot be empty."
-    echo "    --otel-collector-endpoint-url <url>  OpenTelemetry Collector Endpoint URL, cannot be empty."
+    echo "    --datadog-key <key>]                 Datadog API key, cannot be empty."
+    echo "    --l1-rpc-url <url>]                  L1 RPC URL, cannot be empty."
+    echo "    --otel-collector-endpoint-url <url>] OpenTelemetry Collector Endpoint URL, cannot be empty."
+    echo "    --genesis-file-url <url>]            URL to the genesis file, cannot be empty."
+    echo "    --geth-bootnode-url <url>]           URL to the Geth bootnode, cannot be empty."
     echo "    --release                            It will ignore the specified deployment version and use the current HEAD tag as the build version."
     echo "    --debug                              Enable debug mode for detailed output."
     echo
@@ -70,8 +74,8 @@ help() {
     echo "  Deploy with a specific version, environment, profile and force to build all job templates:"
     echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --force-build-templates"
     echo
-    echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection, Datadog API key, L1 RPC URL, and OpenTememetry Collector Endpoint URL:"
-    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --l1-rpc-url your_rpc_url --otel-collector-endpoint-url your_otel_url --debug"
+    echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection, Datadog API key, L1 RPC URL, OpenTelemetry Collector Endpoint URL, genesis file URL, and Geth bootnode URL:"
+    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --l1-rpc-url your_rpc_url --otel-collector-endpoint-url your_otel_url --genesis-file-url your_genesis_file_url --geth-bootnode-url your_geth_bootnode_url --debug"
     echo
     echo "  Destroy all jobs but backup before do so:"
     echo "    $0 destroy --backup --debug"
@@ -81,7 +85,7 @@ help() {
 usage() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--backup] [--debug]]"
     echo "$0 --help"
     exit 1
@@ -229,6 +233,24 @@ parse_args() {
                         usage
                     fi
                 fi
+                if [[ $# -gt 0 && $1 == "--genesis-file-url" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        genesis_file_url="$2"
+                        shift 2
+                    else
+                        echo "Error: --genesis-file-url requires a value."
+                        usage
+                    fi
+                fi
+                if [[ $# -gt 0 && $1 == "--geth-bootnode-url" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        geth_bootnode_url="$2"
+                        shift 2
+                    else
+                        echo "Error: --geth-bootnode-url requires a value."
+                        usage
+                    fi
+                fi
                 if [[ $# -gt 0 && $1 == "--release" ]]; then
                     release_flag=true
                     shift
@@ -290,6 +312,8 @@ main() {
             [[ -n "${datadog_key}" ]] && flags+=("--extra-vars" "datadog_key=${datadog_key}")
             [[ -n "${l1_rpc_url}" ]] && flags+=("--extra-vars" "l1_rpc_url=${l1_rpc_url}")
             [[ -n "${otel_collector_endpoint_url}" ]] && flags+=("--extra-vars" "otel_collector_endpoint_url=${otel_collector_endpoint_url}")
+            [[ -n "${genesis_file_url}" ]] && flags+=("--extra-vars" "genesis_file_url=${genesis_file_url}")
+            [[ -n "${geth_bootnode_url}" ]] && flags+=("--extra-vars" "geth_bootnode_url=${geth_bootnode_url}")
             [[ "${release_flag}" == true ]] && flags+=("--extra-vars" "release=true")
             ;;
         "${destroy_flag}")

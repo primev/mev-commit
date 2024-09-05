@@ -238,6 +238,9 @@ job "{{ job.name }}" {
           {% endif %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
           {% if job.env['type'] != 'bootnode' %}
+            {% if geth_bootnode_url is defined %}
+          BOOTNODE_ENDPOINT="{{ geth_bootnode_url }}"
+            {% else %}
           {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "p2p" .Tags }}
@@ -245,6 +248,7 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
+            {% endif %}
           {% endif %}
         EOH
         destination = "secrets/.env"
