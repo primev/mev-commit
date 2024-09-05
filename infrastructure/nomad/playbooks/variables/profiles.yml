@@ -59,7 +59,7 @@ jobs:
     env:
       ip: 0.0.0.0
       public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
-      net_restrict: 172.16.30.0/8
+      net_restrict: 172.26.64.0/20
       type: bootnode
   
   mev_commit_geth_signer_node1: &mev_commit_geth_signer_node1_job
@@ -79,7 +79,7 @@ jobs:
           static: 30311
     env:
       ip: 127.0.0.1
-      net_restrict: 172.16.30.0/8
+      net_restrict: 172.26.64.0/20
       type: signer
       port: 30311
 
@@ -100,7 +100,7 @@ jobs:
           static: 30312
     env:
       ip: 127.0.0.1
-      net_restrict: 172.16.30.0/8
+      net_restrict: 172.26.64.0/20
       type: signer
       port: 30312
 
@@ -121,7 +121,7 @@ jobs:
           static: 30313
     env:
       ip: 127.0.0.1
-      net_restrict: 172.16.30.0/24
+      net_restrict: 172.26.64.0/20
       type: signer
       port: 30313
 
