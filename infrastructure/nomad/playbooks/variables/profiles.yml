@@ -58,7 +58,7 @@ jobs:
           to: 30301
     env:
       ip: 0.0.0.0
-      public_ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+      public_ip: 0.0.0.0
       net_restrict: 172.26.64.0/20
       type: bootnode
   
