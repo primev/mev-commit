@@ -4,10 +4,15 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+)
+
+const (
+	inactivityTimeout = 30 * time.Minute
 )
 
 type WSEVMClient interface {
@@ -48,41 +53,58 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 			return
 		}
 
-		q := ethereum.FilterQuery{
-			FromBlock: big.NewInt(int64(lastBlock + 1)),
-			ToBlock:   nil,
-			Addresses: contracts,
-		}
-
-		logChan := make(chan types.Log)
-
-		sub, err := w.evmClient.SubscribeFilterLogs(ctx, q, logChan)
-		if err != nil {
-			w.logger.Error("failed to subscribe to logs", "error", err)
-			return
-		}
-
-		defer sub.Unsubscribe()
-
+		inactivityStart := time.Now()
 		for {
-			select {
-			case <-ctx.Done():
+			if time.Since(inactivityStart) > inactivityTimeout {
+				w.logger.Error("no activity for 30 minutes, exiting")
 				return
-			case err := <-sub.Err():
-				w.logger.Error("subscription error", "error", err)
-				return
-			case logMsg := <-logChan:
-				// process log
-				w.subscriber.PublishLogEvent(ctx, logMsg)
+			}
 
-				if logMsg.BlockNumber > lastBlock {
-					if err := w.progressStore.SetLastBlock(logMsg.BlockNumber); err != nil {
-						w.logger.Error("failed to set last block", "error", err)
-						return
+			q := ethereum.FilterQuery{
+				FromBlock: big.NewInt(int64(lastBlock + 1)),
+				ToBlock:   nil,
+				Addresses: contracts,
+			}
+
+			logChan := make(chan types.Log)
+
+			sub, err := w.evmClient.SubscribeFilterLogs(ctx, q, logChan)
+			if err != nil {
+				// retry after 5 seconds
+				w.logger.Warn("failed to subscribe to logs", "error", err)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			defer sub.Unsubscribe()
+
+		PROCESSING:
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case err := <-sub.Err():
+					// retry after 5 seconds
+					w.logger.Warn("subscription error", "error", err)
+					inactivityStart = time.Now()
+					time.Sleep(5 * time.Second)
+					break PROCESSING
+				case logMsg := <-logChan:
+					// process log
+					w.subscriber.PublishLogEvent(ctx, logMsg)
+
+					if logMsg.BlockNumber > lastBlock {
+						if err := w.progressStore.SetLastBlock(logMsg.BlockNumber); err != nil {
+							w.logger.Error("failed to set last block", "error", err)
+							return
+						}
+						lastBlock = logMsg.BlockNumber
 					}
 				}
 			}
+
 		}
+
 	}()
 
 	return doneChan
