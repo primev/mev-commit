@@ -17,6 +17,7 @@ import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 import {ISlasher} from "symbiotic-core/interfaces/Slasher/ISlasher.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import {Errors} from "../../utils/Errors.sol";
 
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
@@ -24,8 +25,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     using EnumerableSet for EnumerableSet.BytesSet;
 
     modifier onlySlashOracle() {
-        require(msg.sender == slashOracle, "only slash oracle");
+        require(msg.sender == slashOracle, OnlySlashOracle(slashOracle));
         _;
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     function initialize(
@@ -48,8 +55,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         __Ownable_init(_owner);
     }
 
-    constructor() {
-        _disableInitializers();
+    /// @dev Receive function to prevent unintended contract interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to prevent unintended contract interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
     }
 
     function registerOperators(address[] calldata operators) external onlyOwner {
@@ -78,13 +91,15 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function registerValidators(bytes[][] calldata blsPubkeys, address[] calldata vaults) external whenNotPaused {
         uint256 vaultLen = vaults.length;
-        require(vaultLen == blsPubkeys.length, "invalid array lengths");
+        require(vaultLen == blsPubkeys.length, InvalidArrayLengths(vaultLen, blsPubkeys.length));
         address operator = msg.sender;
         _checkOperator(operator);
         for (uint256 i = 0; i < vaultLen; ++i) {
             uint256 keyLen = blsPubkeys[i].length;
             _checkVault(vaults[i]);
-            require(keyLen < _potentialSlashableVals(vaults[i], operator) + 1, "validators not slashable");
+            uint256 potentialSlashableVals = _potentialSlashableVals(vaults[i], operator);
+            require(keyLen < potentialSlashableVals + 1,
+                ValidatorsNotSlashable(vaults[i], operator, keyLen, potentialSlashableVals));
             for (uint256 j = 0; j < keyLen; ++j) {
                 _addValRecord(blsPubkeys[i][j], vaults[i], operator);
             }
@@ -109,7 +124,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
-        require(vLen == slashAmounts.length, "invalid length");
+        require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
         for (uint256 i = 0; i < vLen; i++) {
             _registerVault(vaults[i], slashAmounts[i]);
         }
@@ -117,7 +132,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
-        require(vLen == slashAmounts.length, "invalid length");
+        require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
         for (uint256 i = 0; i < vLen; i++) {
             _updateSlashAmount(vaults[i], slashAmounts[i]);
         }
@@ -185,7 +200,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool) {
-        require(validatorRecords[blsPubkey].exists, "missing val record");
+        require(validatorRecords[blsPubkey].exists, MissingValRecord(blsPubkey));
         _checkVault(validatorRecords[blsPubkey].vault);
         _checkOperator(validatorRecords[blsPubkey].operator);
         return _isValidatorSlashable(blsPubkey,
@@ -212,23 +227,24 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _registerOperator(address operator) internal {
-        require(!operatorRecords[operator].exists, "operator already registered");
-        require(operatorRegistry.isEntity(operator), "operator not reg with core");
+        require(!operatorRecords[operator].exists, OperatorAlreadyRegistered(operator));
+        require(operatorRegistry.isEntity(operator), OperatorNotEntity(operator));
         _setOperatorRecord(operator);
         emit OperatorRegistered(operator);
     }
 
     function _requestOperatorDeregistration(address operator) internal {
-        require(operatorRecords[operator].exists, "operator not registered");
-        require(!operatorRecords[operator].isBlacklisted, "operator is blacklisted");
+        require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
+        require(!operatorRecords[operator].isBlacklisted, OperatorIsBlacklisted(operator));
         EventHeightLib.set(operatorRecords[operator].deregRequestHeight, block.number);
         emit OperatorDeregistrationRequested(operator);
     }
 
     function _deregisterOperator(address operator) internal {
-        require(operatorRecords[operator].exists, "operator not registered");
-        require(_isOperatorReadyToDeregister(operator), "not ready to dereg");
-        require(!operatorRecords[operator].isBlacklisted, "operator is blacklisted");
+        require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
+        require(_isOperatorReadyToDeregister(operator), OperatorNotReadyToDeregister(
+            operator, block.number, operatorRecords[operator].deregRequestHeight.blockHeight));
+        require(!operatorRecords[operator].isBlacklisted, OperatorIsBlacklisted(operator));
         delete operatorRecords[operator];
         emit OperatorDeregistered(operator);
     }
@@ -237,7 +253,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (!operatorRecords[operator].exists) {
             _setOperatorRecord(operator);
         }
-        require(!operatorRecords[operator].isBlacklisted, "operator already blacklisted");
+        require(!operatorRecords[operator].isBlacklisted, OperatorAlreadyBlacklisted(operator));
         operatorRecords[operator].isBlacklisted = true;
         emit OperatorBlacklisted(operator);
     }
@@ -256,14 +272,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
-        require(!validatorRecords[blsPubkey].exists, "val record already exists");
+        require(!validatorRecords[blsPubkey].exists, ValidatorRecordAlreadyExists(blsPubkey));
         _setValRecord(blsPubkey, vault, operator);
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         emit ValRecordAdded(blsPubkey, msg.sender, position);
     }
 
     function _requestValDeregistration(bytes calldata blsPubkey) internal {
-        require(validatorRecords[blsPubkey].exists, "missing val record");
+        require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
         if (msg.sender != owner()) {
             _checkCallingOperator(validatorRecords[blsPubkey].operator);
         }
@@ -274,8 +290,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _deregisterValidator(bytes calldata blsPubkey) internal {
-        require(validatorRecords[blsPubkey].exists, "missing val record");
-        require(_isValidatorReadyToDeregister(blsPubkey), "not ready to dereg");
+        require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
+        require(_isValidatorReadyToDeregister(blsPubkey), ValidatorNotReadyToDeregister(
+            blsPubkey, block.number, validatorRecords[blsPubkey].deregRequestHeight.blockHeight));
         if (msg.sender != owner()) {
             _checkCallingOperator(validatorRecords[blsPubkey].operator);
         }
@@ -298,13 +315,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _registerVault(address vault,uint256 slashAmount) internal {
-        require(!vaultRecords[vault].exists, "vault already registered");
-        require(vaultFactory.isEntity(vault), "vault not entity");
-        require(slashAmount != 0, "slash amount must be non-zero");
+        require(!vaultRecords[vault].exists, VaultAlreadyRegistered(vault));
+        require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
+        require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
 
         IVaultStorage vaultContract = IVaultStorage(vault);
         uint256 vaultEpochDuration = vaultContract.epochDuration();
-        require(vaultEpochDuration > slashPeriodBlocks, "invalid vault epoch duration");
+        require(vaultEpochDuration > slashPeriodBlocks,
+            InvalidVaultEpochDuration(vault, vaultEpochDuration, slashPeriodBlocks));
         
         IEntity delegator = IEntity(IVault(vault).delegator());
         if (delegator.TYPE() == FULL_RESTAKE_DELEGATOR_TYPE) {
@@ -314,7 +332,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
 
         address slasher = IVault(vault).slasher();
-        require(slasher != address(0), "slasher not set for vault");
+        require(slasher != address(0), SlasherNotSetForVault(vault));
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == VETO_SLASHER_TYPE) {
             revert("veto slasher not supported");
@@ -327,22 +345,23 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _updateSlashAmount(address vault, uint256 slashAmount) internal {
-        require(vaultRecords[vault].exists, "vault not registered");
-        require(slashAmount != 0, "slash amount must be non-zero");
+        require(vaultRecords[vault].exists, VaultNotRegistered(vault));
+        require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
         vaultRecords[vault].slashAmount = slashAmount;
         emit VaultSlashAmountUpdated(vault, slashAmount);
     }
 
     function _requestVaultDeregistration(address vault) internal {
-        require(vaultRecords[vault].exists, "vault not registered");
-        require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg request already made");
+        require(vaultRecords[vault].exists, VaultNotRegistered(vault));
+        require(!vaultRecords[vault].deregRequestHeight.exists, VaultDeregRequestExists(vault));
         EventHeightLib.set(vaultRecords[vault].deregRequestHeight, block.number);
         emit VaultDeregistrationRequested(vault);
     }
 
     function _deregisterVault(address vault) internal {
-        require(vaultRecords[vault].exists, "vault dereg not requested");
-        require(_isVaultReadyToDeregister(vault), "dereg too soon");
+        require(vaultRecords[vault].exists, VaultNotRegistered(vault));
+        require(_isVaultReadyToDeregister(vault), VaultNotReadyToDeregister(vault, block.number,
+            vaultRecords[vault].deregRequestHeight.blockHeight));
         delete vaultRecords[vault];
         emit VaultDeregistered(vault);
     }
@@ -351,9 +370,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @param blsPubkey The L1 validator BLS public key to slash.
     /// @param infractionTimestamp The block.timestamp for the block during which the infraction occurred.
     function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp) internal {
-        require(validatorRecords[blsPubkey].exists, "missing validator record");
+        require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
         address vault = validatorRecords[blsPubkey].vault;
-        require(vaultRecords[vault].exists, "missing vault record");
+        require(vaultRecords[vault].exists, MissingVaultRecord(vault));
         address operator = validatorRecords[blsPubkey].operator;
         uint256 amount = vaultRecords[vault].slashAmount;
 
@@ -369,27 +388,27 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     /// @dev Internal function to set the network registry.
     function _setNetworkRegistry(IRegistry _networkRegistry) internal {
-        require(_networkRegistry != IRegistry(address(0)), "zero address not allowed");
+        require(_networkRegistry != IRegistry(address(0)), ZeroAddressNotAllowed());
         networkRegistry = _networkRegistry;
         emit NetworkRegistrySet(address(_networkRegistry));
     }
 
     /// @dev Internal function to set the operator registry.
     function _setOperatorRegistry(IRegistry _operatorRegistry) internal {
-        require(_operatorRegistry != IRegistry(address(0)), "zero address not allowed");
+        require(_operatorRegistry != IRegistry(address(0)), ZeroAddressNotAllowed());
         operatorRegistry = _operatorRegistry;
         emit OperatorRegistrySet(address(_operatorRegistry));
     }
 
     function _setVaultFactory(IRegistry _vaultFactory) internal {
-        require(_vaultFactory != IRegistry(address(0)), "zero address not allowed");
+        require(_vaultFactory != IRegistry(address(0)), ZeroAddressNotAllowed());
         vaultFactory = _vaultFactory;
         emit VaultFactorySet(address(_vaultFactory));
     }
 
     /// @dev Internal function to set the network address, which must have registered with the NETWORK_REGISTRY.
     function _setNetwork(address _network) internal {
-        require(networkRegistry.isEntity(_network), "network not registered");
+        require(networkRegistry.isEntity(_network), NetworkNotEntity(_network));
         network = _network;
         emit NetworkSet(_network);
     }
@@ -411,21 +430,21 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function _checkOperator(address operator) internal view {
-        require(operatorRegistry.isEntity(operator), "operator not registered");
-        require(operatorRecords[operator].exists, "operator not registered");
-        require(!operatorRecords[operator].deregRequestHeight.exists, "operator dereg request exists");
-        require(!operatorRecords[operator].isBlacklisted, "operator is blacklisted");
+        require(operatorRegistry.isEntity(operator), OperatorNotEntity(operator));
+        require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
+        require(!operatorRecords[operator].deregRequestHeight.exists, OperatorDeregRequestExists(operator));
+        require(!operatorRecords[operator].isBlacklisted, OperatorIsBlacklisted(operator));
     }
 
     function _checkCallingOperator(address operator) internal view {
-        require(msg.sender == operator, "only operator");
+        require(msg.sender == operator, OnlyOperator(operator));
         _checkOperator(operator);
     }
 
     function _checkVault(address vault) internal view {
-        require(vaultFactory.isEntity(vault), "vault not registered");
-        require(vaultRecords[vault].exists, "vault not registered");
-        require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg request exists");
+        require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
+        require(vaultRecords[vault].exists, VaultNotRegistered(vault));
+        require(!vaultRecords[vault].deregRequestHeight.exists, VaultDeregRequestExists(vault));
     }
 
     function _getPositionInValset(bytes calldata blsPubkey,
