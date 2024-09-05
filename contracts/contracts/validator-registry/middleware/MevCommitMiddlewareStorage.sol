@@ -7,6 +7,8 @@ import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 
 abstract contract MevCommitMiddlewareStorage {
 
+    uint96 public constant SUBNETWORK_ID = 1;
+
     uint64 public constant NETWORK_RESTAKE_DELEGATOR_TYPE = 0;
     uint64 public constant FULL_RESTAKE_DELEGATOR_TYPE = 1;
 

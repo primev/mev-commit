@@ -28,8 +28,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     using EnumerableSet for EnumerableSet.BytesSet;
 
-    uint96 public constant SUBNETWORK_ID = 1;
-
     // TODO: more modifiers similar to MevCommitAVS
 
     modifier onlySlashOracle() {
