@@ -15,16 +15,14 @@ import {IBaseDelegator} from "symbiotic-core/interfaces/Delegator/IBaseDelegator
 import {IEntity} from "symbiotic-core/interfaces/common/IEntity.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
+import {ISlasher} from "symbiotic-core/interfaces/Slasher/ISlasher.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 // TODO: add symbiotic core integration via lifecycle: https://docs.symbiotic.fi/core-modules/networks#staking-lifecycle
-// TODO: determine if you need timestamping similar to cosmos sdk example. Edit yes you will for slashing. See "captureTimestamp". 
 // TODO: Parse through MevCommitAVS and make sure translatable reg/dreg functions have the same operators / check the same things. 
 // TODO: for example you need to add requires s.t. a validator MUST be opted-in right after registering. 
-// TODO: add function for a validator to "chage vault used for collateral", which involves a delete + new reg. 
-// TODO: attempt to make storage more fsm like with enum. See if this can lessen the amount of requires needed
 // TODO: Get through full Handbook for Networks page and confirm you follow all rules for slashing logic, network epoch, slashing epochs etc. 
 // TODO: Use custom errors since our clients are compatible with this now.
-// TODO: Accept BOTH vaults that have slashing via resolver or not. Oracle account can be resolver.
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
@@ -152,9 +150,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
-    function slashValidators(bytes[] calldata blsPubkeys) external onlySlashOracle {
+    /// @dev Slashes validators and marks them for deregistration.
+    /// @param blsPubkeys The L1 validator BLS public keys to slash.
+    /// @param infractionTimestamps The block.timestamps for blocks during which each infraction occurred.
+    function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata infractionTimestamps) external onlySlashOracle {
         for (uint256 i = 0; i < blsPubkeys.length; i++) {
-            _slashValidator(blsPubkeys[i]);
+            _slashValidator(blsPubkeys[i], infractionTimestamps[i]);
         }
     }
 
@@ -276,23 +277,26 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
         require(!validatorRecords[blsPubkey].exists, "val record already exists");
         _setValRecord(blsPubkey, vault, operator);
-        emit ValRecordAdded(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
+        uint256 position = _getPositionInValset(blsPubkey, vault, operator);
+        emit ValRecordAdded(blsPubkey, msg.sender, position);
     }
 
     function _requestValDeregistration(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing val record");
         if (msg.sender != owner()) {
-            _checkCallingOperator(_getOperatorFromValRecord(blsPubkey));
+            _checkCallingOperator(validatorRecords[blsPubkey].operator);
         }
         EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
-        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, _getPositionInValset(blsPubkey));
+        uint256 position = _getPositionInValset(blsPubkey, validatorRecords[blsPubkey].vault,
+            validatorRecords[blsPubkey].operator);
+        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, position);
     }
 
     function _deregisterValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, "missing val record");
         require(_isValidatorReadyToDeregister(blsPubkey), "not ready to dereg");
         if (msg.sender != owner()) {
-            _checkCallingOperator(_getOperatorFromValRecord(blsPubkey));
+            _checkCallingOperator(validatorRecords[blsPubkey].operator);
         }
         address vault = validatorRecords[blsPubkey].vault;
         address operator = validatorRecords[blsPubkey].operator;
@@ -322,7 +326,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(vaultEpochDuration > slashPeriodBlocks, "invalid vault epoch duration");
         
         IEntity delegator = IEntity(IVault(vault).delegator());
-        require(delegator.TYPE() == 0, "delegator must be NetworkRestake");
+        if (delegator.TYPE() == FULL_RESTAKE_DELEGATOR_TYPE) {
+            revert("full restake not supported"); // TODO: change to custom error
+        } else if (delegator.TYPE() != NETWORK_RESTAKE_DELEGATOR_TYPE) {
+            revert("unknown delegator type");
+        }
+
+        address slasher = IVault(vault).slasher();
+        require(slasher != address(0), "slasher not set for vault");
+        uint256 slasherType = IEntity(slasher).TYPE();
+        if (slasherType == VETO_SLASHER_TYPE) {
+            revert("veto slasher not supported");
+        } else if (slasherType != INSTANT_SLASHER_TYPE) {
+            revert("unknown slasher type");
+        }
 
         _setVaultRecord(vault, slashAmount);
         emit VaultRegistered(vault, slashAmount);
@@ -349,22 +366,24 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultDeregistered(vault);
     }
 
-    // TODO: Feedback from meeting: Look into using historical state for slashing. 
-    function _slashValidator(bytes calldata blsPubkey) internal {
+    /// @dev Slashes a validator and marks it for deregistration.
+    /// @param blsPubkey The L1 validator BLS public key to slash.
+    /// @param infractionTimestamp The block.timestamp for the block during which the infraction occurred.
+    function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp) internal {
         require(validatorRecords[blsPubkey].exists, "missing validator record");
-        address operator = _getOperatorFromValRecord(blsPubkey);
-        // address vault = validatorRecords[blsPubkey].vault;
-        // address slasher = IVault(vault).slasher();
-        // uint256 slasherType = IEntity(slasher).TYPE();
-        // if (slasherType == INSTANT_SLASHER_TYPE) {
-        //     ISlasher(slasher).slash(subnetwork, operator, amount, timestamp, new bytes(0));
-        // } else if (slasherType == VETO_SLASHER_TYPE) {
-        //     IVetoSlasher(slasher).requestSlash(subnetwork, operator, amount, timestamp, new bytes(0));
-        // } else {
-        //     revert UnknownSlasherType();
-        // }
-        _requestValDeregistration(blsPubkey); // TODO: determine if validator should be deregistered
-        emit ValidatorSlashed(blsPubkey, operator, _getPositionInValset(blsPubkey));
+        address vault = validatorRecords[blsPubkey].vault;
+        require(vaultRecords[vault].exists, "missing vault record");
+        address operator = validatorRecords[blsPubkey].operator;
+        uint256 amount = vaultRecords[vault].slashAmount;
+
+        ISlasher(IVault(vault).slasher()).slash(
+            _getSubnetwork(), operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
+
+        // Set dereg request height so validator is no longer opted-in.
+        EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
+
+        uint256 position = _getPositionInValset(blsPubkey, vault, operator);
+        emit ValidatorSlashed(blsPubkey, operator, position);
     }
 
     /// @dev Internal function to set the network registry.
@@ -428,14 +447,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(!vaultRecords[vault].deregRequestHeight.exists, "vault dereg request exists");
     }
 
-    function _getOperatorFromValRecord(bytes calldata blsPubkey) internal view returns (address) {
-        return validatorRecords[blsPubkey].operator;
-    }
-
-    function _getPositionInValset(bytes calldata blsPubkey) internal view returns (uint256) {
-        return _vaultAndOperatorToValset[
-            validatorRecords[blsPubkey].vault][
-                validatorRecords[blsPubkey].operator].position(blsPubkey);
+    function _getPositionInValset(bytes calldata blsPubkey,
+        address vault, address operator) internal view returns (uint256) {
+        return _vaultAndOperatorToValset[vault][operator].position(blsPubkey);
     }
 
     function _isValidatorReadyToDeregister(bytes calldata blsPubkey) internal view returns (bool) {
@@ -471,11 +485,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {
-        address vault = validatorRecords[blsPubkey].vault;
-        address operator = validatorRecords[blsPubkey].operator;
         uint256 allocatedStake = _getAllocatedStake(vault, operator);
         uint256 slashAmount = vaultRecords[vault].slashAmount;
-        uint256 position = _getPositionInValset(blsPubkey);
+        uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         uint256 slashableVals = allocatedStake / slashAmount;
         return position < slashableVals;
     }
@@ -506,7 +518,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (!vaultFactory.isEntity(validatorRecords[blsPubkey].vault)) {
             return false;
         }
-        address operator = _getOperatorFromValRecord(blsPubkey);
+        address operator = validatorRecords[blsPubkey].operator;
         if (!operatorRecords[operator].exists) {
             return false;
         }
