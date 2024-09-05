@@ -76,12 +76,11 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 				continue
 			}
 
-			defer sub.Unsubscribe()
-
 		PROCESSING:
 			for {
 				select {
 				case <-ctx.Done():
+					sub.Unsubscribe()
 					return
 				case err := <-sub.Err():
 					// retry after 5 seconds
@@ -102,9 +101,7 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 					}
 				}
 			}
-
 		}
-
 	}()
 
 	return doneChan
