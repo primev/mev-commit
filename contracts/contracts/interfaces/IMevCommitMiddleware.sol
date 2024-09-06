@@ -6,17 +6,17 @@ import {EventHeightLib} from "../utils/EventHeight.sol";
 interface IMevCommitMiddleware {
 
     struct ValidatorRecord {
-        bool exists;
-        EventHeightLib.EventHeight deregRequestHeight;
         /// @notice The vault holding slashable stake which represents the validator.
         address vault;
         /// @notice The operator which registered this validator pubkey with a vault.
         address operator;
+        bool exists;
+        EventHeightLib.EventHeight deregRequestHeight;
     }
 
     struct OperatorRecord {
-        bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
+        bool exists;
         bool isBlacklisted;
     }
 

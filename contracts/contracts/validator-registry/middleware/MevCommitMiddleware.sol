@@ -66,25 +66,29 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function registerOperators(address[] calldata operators) external onlyOwner {
-        for (uint256 i = 0; i < operators.length; i++) {
+        uint256 len = operators.length;
+        for (uint256 i = 0; i < len; ++i) {
             _registerOperator(operators[i]);
         }
     }
 
     function requestOperatorDeregistrations(address[] calldata operators) external onlyOwner {
-        for (uint256 i = 0; i < operators.length; i++) {
+        uint256 len = operators.length;
+        for (uint256 i = 0; i < len; ++i) {
             _requestOperatorDeregistration(operators[i]);
         }
     }
 
     function deregisterOperators(address[] calldata operators) external onlyOwner {
-        for (uint256 i = 0; i < operators.length; i++) {
+        uint256 len = operators.length;
+        for (uint256 i = 0; i < len; ++i) {
             _deregisterOperator(operators[i]);
         }
     }
 
     function blacklistOperators(address[] calldata operators) external onlyOwner {
-        for (uint256 i = 0; i < operators.length; i++) {
+        uint256 len = operators.length;
+        for (uint256 i = 0; i < len; ++i) {
             _blacklistOperator(operators[i]);
         }
     }
@@ -107,7 +111,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function requestValDeregistrations(bytes[] calldata blsPubkeys) external whenNotPaused {
-        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+        uint256 len = blsPubkeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _requestValDeregistration(blsPubkeys[i]);
         }
     }
@@ -117,7 +122,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @notice This function allows the contract owner to combat a greifing scenario where an operator
     /// registers a validator pubkey that it does not control, own, or otherwise manage.
     function deregisterValidators(bytes[] calldata blsPubkeys) external {
-        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+        uint256 len = blsPubkeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _deregisterValidator(blsPubkeys[i]);
         }
     }
@@ -125,7 +131,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
         require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
-        for (uint256 i = 0; i < vLen; i++) {
+        for (uint256 i = 0; i < vLen; ++i) {
             _registerVault(vaults[i], slashAmounts[i]);
         }
     }
@@ -133,19 +139,21 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
         require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
-        for (uint256 i = 0; i < vLen; i++) {
+        for (uint256 i = 0; i < vLen; ++i) {
             _updateSlashAmount(vaults[i], slashAmounts[i]);
         }
     }
 
     function requestVaultDeregistrations(address[] calldata vaults) external onlyOwner {
-        for (uint256 i = 0; i < vaults.length; i++) {
+        uint256 len = vaults.length;
+        for (uint256 i = 0; i < len; ++i) {
             _requestVaultDeregistration(vaults[i]);
         }
     }
 
     function deregisterVaults(address[] calldata vaults) external onlyOwner {
-        for (uint256 i = 0; i < vaults.length; i++) {
+        uint256 len = vaults.length;
+        for (uint256 i = 0; i < len; ++i) {
             _deregisterVault(vaults[i]);
         }
     }
@@ -154,7 +162,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @param blsPubkeys The L1 validator BLS public keys to slash.
     /// @param infractionTimestamps The block.timestamps for blocks during which each infraction occurred.
     function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata infractionTimestamps) external onlySlashOracle {
-        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+        uint256 len = blsPubkeys.length;
+        for (uint256 i = 0; i < len; ++i) {
             _slashValidator(blsPubkeys[i], infractionTimestamps[i]);
         }
     }
