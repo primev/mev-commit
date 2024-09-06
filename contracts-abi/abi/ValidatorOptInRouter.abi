@@ -66,6 +66,11 @@
         "internalType": "address"
       },
       {
+        "name": "_mevCommitMiddleware",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "_owner",
         "type": "address",
         "internalType": "address"
@@ -83,6 +88,19 @@
         "name": "",
         "type": "address",
         "internalType": "contract IMevCommitAVS"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "mevCommitMiddleware",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IMevCommitMiddleware"
       }
     ],
     "stateMutability": "view"
@@ -141,6 +159,19 @@
         "name": "_mevCommitAVS",
         "type": "address",
         "internalType": "contract IMevCommitAVS"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMevCommitMiddleware",
+    "inputs": [
+      {
+        "name": "_mevCommitMiddleware",
+        "type": "address",
+        "internalType": "contract IMevCommitMiddleware"
       }
     ],
     "outputs": [],
@@ -219,6 +250,25 @@
   {
     "type": "event",
     "name": "MevCommitAVSSet",
+    "inputs": [
+      {
+        "name": "oldContract",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newContract",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MevCommitMiddlewareSet",
     "inputs": [
       {
         "name": "oldContract",

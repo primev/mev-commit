@@ -42,6 +42,8 @@ extract_and_save_abi "$BASE_DIR/out/MevCommitAVS.sol/MevCommitAVS.json" "$ABI_DI
 
 extract_and_save_abi "$BASE_DIR/out/ValidatorOptInRouter.sol/ValidatorOptInRouter.json" "$ABI_DIR/ValidatorOptInRouter.abi"
 
+extract_and_save_abi "$BASE_DIR/out/MevCommitMiddleware.sol/MevCommitMiddleware.json" "$ABI_DIR/MevCommitMiddleware.abi"
+
 echo "ABI files extracted successfully."
 
 
@@ -91,5 +93,6 @@ generate_go_code "$ABI_DIR/MevCommitAVS.abi" "MevCommitAVS" "mevcommitavs"
 
 generate_go_code "$ABI_DIR/ValidatorOptInRouter.abi" "ValidatorOptInRouter" "validatoroptinrouter"
 
-echo "Go code generated successfully in separate folders."
+generate_go_code "$ABI_DIR/MevCommitMiddleware.abi" "MevCommitMiddleware" "mevcommitmiddleware"
 
+echo "Go code generated successfully in separate folders."
