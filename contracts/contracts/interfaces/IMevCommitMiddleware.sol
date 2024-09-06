@@ -146,4 +146,8 @@ interface IMevCommitMiddleware {
     error ZeroAddressNotAllowed();
 
     error NetworkNotEntity(address network);
+
+    function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool);
+
+    // TODO: remaining functions
 }

@@ -10,6 +10,9 @@ import {VanillaRegistryTest} from "./VanillaRegistryTest.sol";
 import {MevCommitAVSTest} from "./avs/MevCommitAVSTest.sol";
 import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
 import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
+import {IMevCommitMiddleware} from "../../contracts/interfaces/IMevCommitMiddleware.sol";
+import {MevCommitMiddleware} from "../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
+import {MevCommitMiddlewareTest} from "./middleware/MevCommitMiddlewareTest.sol";
 
 contract ValidatorOptInRouterTest is Test {
     ValidatorOptInRouter public validatorOptInRouter;
@@ -18,6 +21,8 @@ contract ValidatorOptInRouterTest is Test {
     VanillaRegistryTest public vanillaRegistryTest;
     MevCommitAVS public mevCommitAVS;
     MevCommitAVSTest public mevCommitAVSTest;
+    MevCommitMiddleware public mevCommitMiddleware;
+    MevCommitMiddlewareTest public mevCommitMiddlewareTest;
 
     address public owner;
     address public user1;
@@ -25,6 +30,7 @@ contract ValidatorOptInRouterTest is Test {
 
     event VanillaRegistrySet(address oldContract, address newContract);
     event MevCommitAVSSet(address oldContract, address newContract);
+    event MevCommitMiddlewareSet(address oldContract, address newContract);
 
     function setUp() public {
         owner = address(0x123456);
@@ -39,9 +45,19 @@ contract ValidatorOptInRouterTest is Test {
         mevCommitAVSTest.setUp();
         mevCommitAVS = mevCommitAVSTest.mevCommitAVS();
 
+        mevCommitMiddlewareTest = new MevCommitMiddlewareTest();
+        mevCommitMiddlewareTest.setUp();
+        mevCommitMiddleware = mevCommitMiddlewareTest.mevCommitMiddleware();
+
         address routerProxy = Upgrades.deployUUPSProxy(
             "ValidatorOptInRouter.sol",
-            abi.encodeCall(ValidatorOptInRouter.initialize, (address(vanillaRegistry), address(mevCommitAVS), owner))
+            abi.encodeCall(ValidatorOptInRouter.initialize,
+            (
+                address(vanillaRegistry),
+                address(mevCommitAVS),
+                address(mevCommitMiddleware),
+                owner
+            ))
         );
         validatorOptInRouter = ValidatorOptInRouter(payable(routerProxy));
     }
@@ -62,6 +78,14 @@ contract ValidatorOptInRouterTest is Test {
         emit MevCommitAVSSet(address(oldMevCommitAVS), address(newMevCommitAVS));
         validatorOptInRouter.setMevCommitAVS(newMevCommitAVS);
         assertEq(address(validatorOptInRouter.mevCommitAVS()), address(newMevCommitAVS));
+
+        IMevCommitMiddleware newMevCommitMiddleware = new MevCommitMiddleware();
+        IMevCommitMiddleware oldMevCommitMiddleware = mevCommitMiddleware;
+        vm.prank(owner);
+        vm.expectEmit();
+        emit MevCommitMiddlewareSet(address(oldMevCommitMiddleware), address(newMevCommitMiddleware));
+        validatorOptInRouter.setMevCommitMiddleware(newMevCommitMiddleware);
+        assertEq(address(validatorOptInRouter.mevCommitMiddleware()), address(newMevCommitMiddleware));
     }
 
     function testAreValidatorsOptedInViaRestaking() public {
@@ -97,4 +121,6 @@ contract ValidatorOptInRouterTest is Test {
             assertTrue(areOptedIn[i]);
         }
     }
+
+    // TODO: test areValidatorsOptedIn for mevCommitMiddleware
 }

@@ -8,6 +8,7 @@ import {IMevCommitAVS} from "../interfaces/IMevCommitAVS.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Errors} from "../utils/Errors.sol";
+import {IMevCommitMiddleware} from "../interfaces/IMevCommitMiddleware.sol";
 
 /// @title ValidatorOptInRouter
 /// @notice This contract acts as the top level source of truth for whether a validator 
@@ -25,10 +26,12 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
     function initialize(
         address _vanillaRegistry,
         address _mevCommitAVS,
+        address _mevCommitMiddleware,
         address _owner
     ) external initializer {
         vanillaRegistry = IVanillaRegistry(_vanillaRegistry);
         mevCommitAVS = IMevCommitAVS(_mevCommitAVS);
+        mevCommitMiddleware = IMevCommitMiddleware(_mevCommitMiddleware);
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
     }
@@ -57,6 +60,13 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
         emit MevCommitAVSSet(oldContract, address(mevCommitAVS));
     }
 
+    /// @notice Allows the owner to set the mev-commit middleware contract.
+    function setMevCommitMiddleware(IMevCommitMiddleware _mevCommitMiddleware) external onlyOwner {
+        address oldContract = address(mevCommitMiddleware);
+        mevCommitMiddleware = _mevCommitMiddleware;
+        emit MevCommitMiddlewareSet(oldContract, address(mevCommitMiddleware));
+    }
+
     /// @notice Returns an array of bools indicating whether each validator pubkey is opted in to mev-commit.
     function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory) {
         uint256 len = valBLSPubKeys.length;
@@ -79,7 +89,9 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
         if (vanillaRegistry.isValidatorOptedIn(valBLSPubKey)) {
             return true;
         }
-        return mevCommitAVS.isValidatorOptedIn(valBLSPubKey);
-        // TODO: add middleware check here
+        if (mevCommitAVS.isValidatorOptedIn(valBLSPubKey)) {
+            return true;
+        }
+        return mevCommitMiddleware.isValidatorOptedIn(valBLSPubKey);
     }
 }
