@@ -125,7 +125,7 @@ interface IMevCommitMiddleware {
 
     error InvalidVaultEpochDuration(address vault, uint256 vaultEpochDuration, uint256 slashPeriodBlocks);
 
-    error FullRestakeNotSupported(address vault);
+    error FullRestakeDelegatorNotSupported(address vault);
 
     error UnknownDelegatorType(address vault, uint256 delegatorType);
 
