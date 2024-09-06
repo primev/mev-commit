@@ -15,12 +15,11 @@
 
     - name: Stop Jobs
       ansible.builtin.shell: |
-        NOMAD_JOBS=$(nomad job status -json | jq -r '.[].Summary.JobID')
+        NOMAD_JOBS=$(nomad job status -json | jq -r 'sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID')
         for job in $(echo "${NOMAD_JOBS}" | grep -v artifacts); do
           if [ "${job}" != "null" ]; then
             nomad stop "${job}"
 
-            TIMEOUT=600
             while true; do
             STATUS=$(nomad job status -json "${job}" | jq -r '.[0].Allocations[0].ClientStatus')
               case "${STATUS}" in
@@ -29,11 +28,6 @@
                   ;;
                 *)
                   sleep 1
-                  TIMEOUT=$((TIMEOUT - 1))
-                  if [ "${TIMEOUT}" -eq 0 ]; then
-                    echo "Timeout waiting for ${job} to stop has been exceeded."
-                    return 1
-                  fi
                   ;;
               esac
             done
@@ -51,7 +45,7 @@
       ansible.builtin.shell: |
         TIMEOUT=30
         while [ "$(nomad job status)" != "No running jobs" ]; do
-          RUNNING_JOBS=$(nomad job status -json | jq '[.[] | select(.Summary.Summary | to_entries[] | select(.value.Running > 0 or .value.Starting > 0)) | .Summary.JobID]')
+          RUNNING_JOBS=$(nomad job status -json | jq '[.[] | select(.Summary.Summary | to_entries[] | select(.value.Running > 0 or .value.Starting > 0))] | sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID')
           if [ "${RUNNING_JOBS}" = "[]" ]; then
             break
           fi
@@ -71,7 +65,7 @@
 
     - name: Force Stop and Purge Jobs
       ansible.builtin.shell: |
-        for job in $(nomad job status -json | jq -r '.[].Summary.JobID'); do
+        for job in $(nomad job status -json | jq -r 'sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID'); do
           if [ "${job}" != "null" ]; then
             nomad stop -purge "${job}"
           fi
