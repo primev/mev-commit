@@ -9,13 +9,13 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 import {EnumerableSet} from "../../utils/EnumerableSet.sol";
-import {IVault} from "symbiotic-core/interfaces/Vault/IVault.sol";
-import {IVaultStorage} from "symbiotic-core/interfaces/Vault/IVaultStorage.sol";
-import {IBaseDelegator} from "symbiotic-core/interfaces/Delegator/IBaseDelegator.sol";
+import {IVault} from "symbiotic-core/interfaces/vault/IVault.sol";
+import {IVaultStorage} from "symbiotic-core/interfaces/vault/IVaultStorage.sol";
+import {IBaseDelegator} from "symbiotic-core/interfaces/delegator/IBaseDelegator.sol";
 import {IEntity} from "symbiotic-core/interfaces/common/IEntity.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
-import {ISlasher} from "symbiotic-core/interfaces/Slasher/ISlasher.sol";
+import {ISlasher} from "symbiotic-core/interfaces/slasher/ISlasher.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Errors} from "../../utils/Errors.sol";
 
