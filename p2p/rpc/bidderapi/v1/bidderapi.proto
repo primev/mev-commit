@@ -21,7 +21,11 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
 service Bidder {
   // SendBid
   //
-  // Send a bid to the bidder mev-commit node.
+  // Send a bid to the bidder mev-commit node. The bid is a message from the bidder to the provider 
+  // with the transaction hashes and the amount of ETH that the bidder is willing to pay to the provider
+  // for including the transaction in the block. The bid also includes the block number that the bidder
+  // wants to include the transaction in, the start and end timestamps for the bid decay. The bidder can
+  // optionally include the raw transaction payloads (hex encoded RLP) instead of transaction hashes.
   rpc SendBid(Bid) returns (stream Commitment) {
     option (google.api.http) = {
       post: "/v1/bidder/bid"
@@ -31,29 +35,34 @@ service Bidder {
 
   // Deposit
   //
-  // Deposit is called by the bidder node to add deposit in the bidder registry.
+  // Deposit is called by the bidder node to add deposit in the bidder registry. The bidder can deposit
+  // funds in a particular window by specifying the window number. If the window number is not specified,
+  // the current block number is used to calculate the window number. If the block number is specified,
+  // the window number is calculated based on the block number. If AutoDeposit is enabled, the deposit
+  // API returns error.
   rpc Deposit(DepositRequest) returns (DepositResponse) {
     option (google.api.http) = {post: "/v1/bidder/deposit/{amount}"};
   }
 
   // AutoDeposit
   //
-  // AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+  // AutoDeposit is called by the bidder node to add a recurring deposit in the bidder registry. The bidder
+  // can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
+  // number for the deposit. If the start window number is not specified, the current block number is used to
+  // calculate the window number. If the block number is specified, the window number is calculated based on
+  // the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
+  // as well as withdraw the deposit from the previous window.
   rpc AutoDeposit(DepositRequest) returns (AutoDepositResponse) {
-    option (google.api.http) = {
-      post: "/v1/bidder/auto_deposit/{amount}",
-      body: "*"
-    };
+    option (google.api.http) = {post: "/v1/bidder/auto_deposit/{amount}"};
   }
 
   // CancelAutoDeposit
   //
-  // CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+  // CancelAutoDeposit is called by the bidder node to cancel the auto deposit. The bidder can specify if it
+  // wants to withdraw the deposit from the current deposited windows. If the withdraw flag is set to true, the API will
+  // wait till we can withdraw the deposit from the latest deposited window.
   rpc CancelAutoDeposit(CancelAutoDepositRequest) returns (CancelAutoDepositResponse) {
-    option (google.api.http) = {
-      post: "/v1/bidder/cancel_auto_deposit",
-      body: "*"
-    };
+    option (google.api.http) = {post: "/v1/bidder/cancel_auto_deposit"};
   }
 
   // AutoDepositStatus
@@ -96,11 +105,11 @@ message DepositRequest {
       description: "Deposit for bids to be issued by the bidder in wei."
       required: ["amount"]
     }
-    example: "{\"amount\": \"1000000000000000000\", \"window_number\": 1 }"
   };
   string amount = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Amount of ETH to be deposited in wei."
-    pattern: "[0-9]+"
+    description: "Amount of ETH to be deposited in wei.",
+    pattern: "[0-9]+",
+    example: "1000000000000000000"
   }, (buf.validate.field).cel = {
       id: "amount",
       message: "amount must be a valid integer.",
@@ -108,7 +117,8 @@ message DepositRequest {
   }];
   google.protobuf.UInt64Value window_number = 2 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-      description: "Optional window number for querying deposit. If not specified, the current block number is used."
+      description: "Optional window number for querying deposit. If not specified, the current block number is used.",
+      example: "1"
     }, (buf.validate.field).cel = {
       id: "window_number",
       message: "window_number must be a positive integer if specified.",
@@ -116,7 +126,8 @@ message DepositRequest {
     }];
   google.protobuf.UInt64Value block_number = 3 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-      description: "Optional block number for querying deposit. If specified, calculate window based on this block number."
+      description: "Optional block number for querying deposit. If specified, calculate window based on this block number.",
+      example: "123456"
     }, (buf.validate.field).cel = {
       id: "block_number",
       message: "block_number must be a positive integer if specified.",
@@ -218,7 +229,6 @@ message WithdrawRequest {
       title: "Withdraw request"
       description: "Withdraw deposit from the bidder registry."
     }
-    example: "{\"window_number\": 1 }"
   };
   google.protobuf.UInt64Value window_number = 1 [
     (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
@@ -277,9 +287,9 @@ message Bid {
     json_schema: {
       title: "Bid message"
       description: "Unsigned bid message from bidders to the bidder mev-commit node."
-      required: ["tx_hashes", "amount", "block_number"]
+      required: ["amount", "block_number", "decay_start_timestamp", "decay_end_timestamp"]
     }
-    example: "{\"tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"block_number\": 123456}"
+    example: "{\"tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"block_number\": 123456, \"decay_start_timestamp\": 1630000000, \"decay_end_timestamp\": 1630000000, \"reverting_tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\"]}"
   };
   repeated string tx_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Hex string encoding of the hashes of the transactions that the bidder wants to include in the block."
@@ -326,7 +336,7 @@ message Bid {
       expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{64}$'))"
   }];
   repeated string raw_transactions = 7 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "Optional array of RLP encoded raw transaction payloads that the bidder wants to include in the block."
+    description: "Optional array of RLP encoded raw signed transaction payloads that the bidder wants to include in the block."
   }, (buf.validate.field).cel = {
       id: "raw_transactions",
       message: "raw_transactions must be an array of valid raw transactions.",

@@ -35,19 +35,34 @@ const (
 type BidderClient interface {
 	// SendBid
 	//
-	// Send a bid to the bidder mev-commit node.
+	// Send a bid to the bidder mev-commit node. The bid is a message from the bidder to the provider
+	// with the transaction hashes and the amount of ETH that the bidder is willing to pay to the provider
+	// for including the transaction in the block. The bid also includes the block number that the bidder
+	// wants to include the transaction in, the start and end timestamps for the bid decay. The bidder can
+	// optionally include the raw transaction payloads (hex encoded RLP) instead of transaction hashes.
 	SendBid(ctx context.Context, in *Bid, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Commitment], error)
 	// Deposit
 	//
-	// Deposit is called by the bidder node to add deposit in the bidder registry.
+	// Deposit is called by the bidder node to add deposit in the bidder registry. The bidder can deposit
+	// funds in a particular window by specifying the window number. If the window number is not specified,
+	// the current block number is used to calculate the window number. If the block number is specified,
+	// the window number is calculated based on the block number. If AutoDeposit is enabled, the deposit
+	// API returns error.
 	Deposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*DepositResponse, error)
 	// AutoDeposit
 	//
-	// AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+	// AutoDeposit is called by the bidder node to add a recurring deposit in the bidder registry. The bidder
+	// can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
+	// number for the deposit. If the start window number is not specified, the current block number is used to
+	// calculate the window number. If the block number is specified, the window number is calculated based on
+	// the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
+	// as well as withdraw the deposit from the previous window.
 	AutoDeposit(ctx context.Context, in *DepositRequest, opts ...grpc.CallOption) (*AutoDepositResponse, error)
 	// CancelAutoDeposit
 	//
-	// CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+	// CancelAutoDeposit is called by the bidder node to cancel the auto deposit. The bidder can specify if it
+	// wants to withdraw the deposit from the current deposited windows. If the withdraw flag is set to true, the API will
+	// wait till we can withdraw the deposit from the latest deposited window.
 	CancelAutoDeposit(ctx context.Context, in *CancelAutoDepositRequest, opts ...grpc.CallOption) (*CancelAutoDepositResponse, error)
 	// AutoDepositStatus
 	//
@@ -170,19 +185,34 @@ func (c *bidderClient) Withdraw(ctx context.Context, in *WithdrawRequest, opts .
 type BidderServer interface {
 	// SendBid
 	//
-	// Send a bid to the bidder mev-commit node.
+	// Send a bid to the bidder mev-commit node. The bid is a message from the bidder to the provider
+	// with the transaction hashes and the amount of ETH that the bidder is willing to pay to the provider
+	// for including the transaction in the block. The bid also includes the block number that the bidder
+	// wants to include the transaction in, the start and end timestamps for the bid decay. The bidder can
+	// optionally include the raw transaction payloads (hex encoded RLP) instead of transaction hashes.
 	SendBid(*Bid, grpc.ServerStreamingServer[Commitment]) error
 	// Deposit
 	//
-	// Deposit is called by the bidder node to add deposit in the bidder registry.
+	// Deposit is called by the bidder node to add deposit in the bidder registry. The bidder can deposit
+	// funds in a particular window by specifying the window number. If the window number is not specified,
+	// the current block number is used to calculate the window number. If the block number is specified,
+	// the window number is calculated based on the block number. If AutoDeposit is enabled, the deposit
+	// API returns error.
 	Deposit(context.Context, *DepositRequest) (*DepositResponse, error)
 	// AutoDeposit
 	//
-	// AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+	// AutoDeposit is called by the bidder node to add a recurring deposit in the bidder registry. The bidder
+	// can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
+	// number for the deposit. If the start window number is not specified, the current block number is used to
+	// calculate the window number. If the block number is specified, the window number is calculated based on
+	// the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
+	// as well as withdraw the deposit from the previous window.
 	AutoDeposit(context.Context, *DepositRequest) (*AutoDepositResponse, error)
 	// CancelAutoDeposit
 	//
-	// CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+	// CancelAutoDeposit is called by the bidder node to cancel the auto deposit. The bidder can specify if it
+	// wants to withdraw the deposit from the current deposited windows. If the withdraw flag is set to true, the API will
+	// wait till we can withdraw the deposit from the latest deposited window.
 	CancelAutoDeposit(context.Context, *CancelAutoDepositRequest) (*CancelAutoDepositResponse, error)
 	// AutoDepositStatus
 	//

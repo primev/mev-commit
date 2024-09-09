@@ -13,7 +13,13 @@ paths:
   /v1/bidder/auto_deposit/{amount}:
     post:
       summary: AutoDeposit
-      description: AutoDeposit is called by the bidder node to add deposit in the bidder registry and move funds automatily from one window to another.
+      description: |-
+        AutoDeposit is called by the bidder node to add a recurring deposit in the bidder registry. The bidder
+        can specify the amount of ETH to be deposited in each window. The bidder can also specify the start window
+        number for the deposit. If the start window number is not specified, the current block number is used to
+        calculate the window number. If the block number is specified, the window number is calculated based on
+        the block number. Once it is enabled, the node will automatically deposit the specified amount in each window
+        as well as withdraw the deposit from the previous window.
       operationId: Bidder_AutoDeposit
       responses:
         "200":
@@ -30,11 +36,18 @@ paths:
           in: path
           required: true
           type: string
-        - name: body
-          in: body
-          required: true
-          schema:
-            $ref: '#/definitions/v1BidderAutoDepositBody'
+        - name: windowNumber
+          description: Optional window number for querying deposit. If not specified, the current block number is used.
+          in: query
+          required: false
+          type: string
+          format: uint64
+        - name: blockNumber
+          description: Optional block number for querying deposit. If specified, calculate window based on this block number.
+          in: query
+          required: false
+          type: string
+          format: uint64
   /v1/bidder/auto_deposit_status:
     get:
       summary: AutoDepositStatus
@@ -52,7 +65,7 @@ paths:
   /v1/bidder/bid:
     post:
       summary: SendBid
-      description: Send a bid to the bidder mev-commit node.
+      description: "Send a bid to the bidder mev-commit node. The bid is a message from the bidder to the provider \nwith the transaction hashes and the amount of ETH that the bidder is willing to pay to the provider\nfor including the transaction in the block. The bid also includes the block number that the bidder\nwants to include the transaction in, the start and end timestamps for the bid decay. The bidder can\noptionally include the raw transaction payloads (hex encoded RLP) instead of transaction hashes."
       operationId: Bidder_SendBid
       responses:
         "200":
@@ -79,7 +92,10 @@ paths:
   /v1/bidder/cancel_auto_deposit:
     post:
       summary: CancelAutoDeposit
-      description: CancelAutoDeposit is called by the bidder node to cancel the auto deposit.
+      description: |-
+        CancelAutoDeposit is called by the bidder node to cancel the auto deposit. The bidder can specify if it
+        wants to withdraw the deposit from the current deposited windows. If the withdraw flag is set to true, the API will
+        wait till we can withdraw the deposit from the latest deposited window.
       operationId: Bidder_CancelAutoDeposit
       responses:
         "200":
@@ -91,16 +107,19 @@ paths:
           schema:
             $ref: '#/definitions/googlerpcStatus'
       parameters:
-        - name: body
-          description: Request to cancel AutoDeposit.
-          in: body
-          required: true
-          schema:
-            $ref: '#/definitions/v1CancelAutoDepositRequest'
+        - name: withdraw
+          in: query
+          required: false
+          type: boolean
   /v1/bidder/deposit/{amount}:
     post:
       summary: Deposit
-      description: Deposit is called by the bidder node to add deposit in the bidder registry.
+      description: |-
+        Deposit is called by the bidder node to add deposit in the bidder registry. The bidder can deposit
+        funds in a particular window by specifying the window number. If the window number is not specified,
+        the current block number is used to calculate the window number. If the block number is specified,
+        the window number is calculated based on the block number. If AutoDeposit is enabled, the deposit
+        API returns error.
       operationId: Bidder_Deposit
       responses:
         "200":
@@ -219,6 +238,10 @@ definitions:
     example:
       amount: "1000000000000000000"
       block_number: 123456
+      decay_end_timestamp: 1.63e+09
+      decay_start_timestamp: 1.63e+09
+      reverting_tx_hashes:
+        - fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7
       tx_hashes:
         - fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7
         - 71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8
@@ -254,13 +277,14 @@ definitions:
         type: array
         items:
           type: string
-        description: Optional array of RLP encoded raw transaction payloads that the bidder wants to include in the block.
+        description: Optional array of RLP encoded raw signed transaction payloads that the bidder wants to include in the block.
     description: Unsigned bid message from bidders to the bidder mev-commit node.
     title: Bid message
     required:
-      - txHashes
       - amount
       - blockNumber
+      - decayStartTimestamp
+      - decayEndTimestamp
   googlerpcStatus:
     type: object
     properties:
@@ -314,29 +338,6 @@ definitions:
         type: boolean
     description: AutoDeposit status from the bidder registry.
     title: AutoDeposit status response
-  v1BidderAutoDepositBody:
-    type: object
-    example:
-      amount: "1000000000000000000"
-      window_number: 1
-    properties:
-      windowNumber:
-        type: string
-        format: uint64
-        description: Optional window number for querying deposit. If not specified, the current block number is used.
-      blockNumber:
-        type: string
-        format: uint64
-        description: Optional block number for querying deposit. If specified, calculate window based on this block number.
-    description: Deposit for bids to be issued by the bidder in wei.
-    title: Deposit request
-  v1CancelAutoDepositRequest:
-    type: object
-    properties:
-      withdraw:
-        type: boolean
-    description: Request to cancel AutoDeposit.
-    title: CancelAutoDeposit request
   v1CancelAutoDepositResponse:
     type: object
     example:
