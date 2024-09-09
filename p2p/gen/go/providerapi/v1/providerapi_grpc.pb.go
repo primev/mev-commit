@@ -35,7 +35,9 @@ type ProviderClient interface {
 	// ReceiveBids
 	//
 	// ReceiveBids is called by the provider to receive bids from the mev-commit node.
-	// The mev-commit node will stream bids to the provider as the response.
+	// The mev-commit node will stream bids to the provider as the response. The bid can optionally
+	// have the raw transaction payload in it. The order of the transaction hashes will be the same
+	// as the raw transaction payloads if included.
 	ReceiveBids(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Bid], error)
 	// SendProcessedBids
 	//
@@ -161,7 +163,9 @@ type ProviderServer interface {
 	// ReceiveBids
 	//
 	// ReceiveBids is called by the provider to receive bids from the mev-commit node.
-	// The mev-commit node will stream bids to the provider as the response.
+	// The mev-commit node will stream bids to the provider as the response. The bid can optionally
+	// have the raw transaction payload in it. The order of the transaction hashes will be the same
+	// as the raw transaction payloads if included.
 	ReceiveBids(*EmptyMessage, grpc.ServerStreamingServer[Bid]) error
 	// SendProcessedBids
 	//
