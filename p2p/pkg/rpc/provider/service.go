@@ -89,6 +89,10 @@ func (s *Service) ProcessBid(
 	ctx context.Context,
 	bid *preconfpb.Bid,
 ) (chan ProcessedBidResponse, error) {
+	var revertingTxHashes []string
+	if bid.RevertingTxHashes != "" {
+		revertingTxHashes = strings.Split(bid.RevertingTxHashes, ",")
+	}
 	bidMsg := &providerapiv1.Bid{
 		TxHashes:            strings.Split(bid.TxHash, ","),
 		BidAmount:           bid.BidAmount,
@@ -96,6 +100,8 @@ func (s *Service) ProcessBid(
 		BidDigest:           bid.Digest,
 		DecayStartTimestamp: bid.DecayStartTimestamp,
 		DecayEndTimestamp:   bid.DecayEndTimestamp,
+		RevertingTxHashes:   revertingTxHashes,
+		RawTransactions:     bid.RawTransactions,
 	}
 
 	err := s.validator.Validate(bidMsg)
