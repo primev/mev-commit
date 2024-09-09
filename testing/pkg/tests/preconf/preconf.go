@@ -178,6 +178,22 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 						return fmt.Errorf("bid not found in store")
 					}
 					entry := val.(*BidEntry)
+					if len(entry.Bid.RawTransactions) != len(bid.RawTransactions) {
+						logger.Error(
+							"Raw transactions length mismatch",
+							"entry", entry,
+							"bid", bid,
+						)
+						return fmt.Errorf("raw transactions length mismatch")
+					}
+					if len(entry.Bid.RevertingTxHashes) != len(bid.RevertingTxHashes) {
+						logger.Error(
+							"Reverting transactions length mismatch",
+							"entry", entry,
+							"bid", bid,
+						)
+						return fmt.Errorf("reverting transactions length mismatch")
+					}
 					if entry.Accept {
 						logger.Info("Bid accepted", "entry", entry)
 						err := out.Send(&providerapiv1.BidResponse{
