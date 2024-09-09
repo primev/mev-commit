@@ -96,6 +96,8 @@ func (s *Service) ProcessBid(
 		BidDigest:           bid.Digest,
 		DecayStartTimestamp: bid.DecayStartTimestamp,
 		DecayEndTimestamp:   bid.DecayEndTimestamp,
+		RevertingTxHashes:   strings.Split(bid.RevertingTxHashes, ","),
+		RawTransactions:     bid.RawTransactions,
 	}
 
 	err := s.validator.Validate(bidMsg)
