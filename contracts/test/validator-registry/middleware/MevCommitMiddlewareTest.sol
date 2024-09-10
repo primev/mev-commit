@@ -77,18 +77,18 @@ contract MevCommitMiddlewareTest is Test {
         return IMevCommitMiddleware.OperatorRecord(eventHeight, exists, isBlacklisted);
     }
 
-    function getValidatorRecord(bytes memory blsPubkey) internal view
-        returns (IMevCommitMiddleware.ValidatorRecord memory) {
-        (address vault, address operator, bool exists, EventHeightLib.EventHeight memory deregRequestHeight) =
-            mevCommitMiddleware.validatorRecords(blsPubkey);
-        return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, deregRequestHeight);
-    }
-
     function getVaultRecord(address vault) internal view
         returns (IMevCommitMiddleware.VaultRecord memory) {
         (bool exists, EventHeightLib.EventHeight memory deregRequestHeight, uint256 slashAmount) =
             mevCommitMiddleware.vaultRecords(vault);
         return IMevCommitMiddleware.VaultRecord(exists, deregRequestHeight, slashAmount);
+    }
+
+    function getValidatorRecord(bytes memory blsPubkey) internal view
+        returns (IMevCommitMiddleware.ValidatorRecord memory) {
+        (address vault, address operator, bool exists, EventHeightLib.EventHeight memory deregRequestHeight) =
+            mevCommitMiddleware.validatorRecords(blsPubkey);
+        return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, deregRequestHeight);
     }
 
     function test_setters() public {

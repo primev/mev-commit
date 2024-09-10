@@ -268,51 +268,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit OperatorBlacklisted(operator);
     }
 
-    function _setValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
-        validatorRecords[blsPubkey] = ValidatorRecord({
-            exists: true,
-            deregRequestHeight: EventHeightLib.EventHeight({
-                exists: false,
-                blockHeight: 0
-            }),
-            vault: vault,
-            operator: operator
-        });
-        _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
-    }
-
-    function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
-        require(!validatorRecords[blsPubkey].exists, ValidatorRecordAlreadyExists(blsPubkey));
-        _setValRecord(blsPubkey, vault, operator);
-        uint256 position = _getPositionInValset(blsPubkey, vault, operator);
-        emit ValRecordAdded(blsPubkey, msg.sender, position);
-    }
-
-    function _requestValDeregistration(bytes calldata blsPubkey) internal {
-        require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
-        if (msg.sender != owner()) {
-            _checkCallingOperator(validatorRecords[blsPubkey].operator);
-        }
-        EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
-        uint256 position = _getPositionInValset(blsPubkey, validatorRecords[blsPubkey].vault,
-            validatorRecords[blsPubkey].operator);
-        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, position);
-    }
-
-    function _deregisterValidator(bytes calldata blsPubkey) internal {
-        require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
-        require(_isValidatorReadyToDeregister(blsPubkey), ValidatorNotReadyToDeregister(
-            blsPubkey, block.number, validatorRecords[blsPubkey].deregRequestHeight.blockHeight));
-        if (msg.sender != owner()) {
-            _checkCallingOperator(validatorRecords[blsPubkey].operator);
-        }
-        address vault = validatorRecords[blsPubkey].vault;
-        address operator = validatorRecords[blsPubkey].operator;
-        _vaultAndOperatorToValset[vault][operator].remove(blsPubkey);
-        delete validatorRecords[blsPubkey];
-        emit ValRecordDeleted(blsPubkey, msg.sender);
-    }
-
     function _setVaultRecord(address vault, uint256 slashAmount) internal {
         vaultRecords[vault] = VaultRecord({
             exists: true,
@@ -374,6 +329,51 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             vaultRecords[vault].deregRequestHeight.blockHeight));
         delete vaultRecords[vault];
         emit VaultDeregistered(vault);
+    }
+
+    function _setValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
+        validatorRecords[blsPubkey] = ValidatorRecord({
+            exists: true,
+            deregRequestHeight: EventHeightLib.EventHeight({
+                exists: false,
+                blockHeight: 0
+            }),
+            vault: vault,
+            operator: operator
+        });
+        _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
+    }
+
+    function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
+        require(!validatorRecords[blsPubkey].exists, ValidatorRecordAlreadyExists(blsPubkey));
+        _setValRecord(blsPubkey, vault, operator);
+        uint256 position = _getPositionInValset(blsPubkey, vault, operator);
+        emit ValRecordAdded(blsPubkey, msg.sender, position);
+    }
+
+    function _requestValDeregistration(bytes calldata blsPubkey) internal {
+        require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
+        if (msg.sender != owner()) {
+            _checkCallingOperator(validatorRecords[blsPubkey].operator);
+        }
+        EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
+        uint256 position = _getPositionInValset(blsPubkey, validatorRecords[blsPubkey].vault,
+            validatorRecords[blsPubkey].operator);
+        emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, position);
+    }
+
+    function _deregisterValidator(bytes calldata blsPubkey) internal {
+        require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
+        require(_isValidatorReadyToDeregister(blsPubkey), ValidatorNotReadyToDeregister(
+            blsPubkey, block.number, validatorRecords[blsPubkey].deregRequestHeight.blockHeight));
+        if (msg.sender != owner()) {
+            _checkCallingOperator(validatorRecords[blsPubkey].operator);
+        }
+        address vault = validatorRecords[blsPubkey].vault;
+        address operator = validatorRecords[blsPubkey].operator;
+        _vaultAndOperatorToValset[vault][operator].remove(blsPubkey);
+        delete validatorRecords[blsPubkey];
+        emit ValRecordDeleted(blsPubkey, msg.sender);
     }
 
     /// @dev Slashes a validator and marks it for deregistration.

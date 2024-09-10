@@ -11,6 +11,12 @@ interface IMevCommitMiddleware {
         bool isBlacklisted;
     }
 
+    struct VaultRecord {
+        bool exists;
+        EventHeightLib.EventHeight deregRequestHeight;
+        uint256 slashAmount;
+    }
+
     struct ValidatorRecord {
         /// @notice The vault holding slashable stake which represents the validator.
         address vault;
@@ -18,12 +24,6 @@ interface IMevCommitMiddleware {
         address operator;
         bool exists;
         EventHeightLib.EventHeight deregRequestHeight;
-    }
-
-    struct VaultRecord {
-        bool exists;
-        EventHeightLib.EventHeight deregRequestHeight;
-        uint256 slashAmount;
     }
 
     /// @notice Emmitted when an operator is registered
@@ -38,17 +38,6 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when an operator is blacklisted
     event OperatorBlacklisted(address indexed operator);
 
-    /// @notice Emmitted when a validator record is added to state
-    event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender,
-        uint256 indexed position);
-
-    /// @notice Emmitted when validator deregistration is requested
-    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender,
-        uint256 indexed position);
-
-    /// @notice Emmitted when a validator record is deleted by the contract owner
-    event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender);
-
     /// @notice Emmitted when a vault record is added
     event VaultRegistered(address indexed vault, uint256 slashAmount);
 
@@ -60,6 +49,17 @@ interface IMevCommitMiddleware {
 
     /// @notice Emmitted when a vault is deregistered
     event VaultDeregistered(address indexed vault);
+
+    /// @notice Emmitted when a validator record is added to state
+    event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender,
+        uint256 indexed position);
+
+    /// @notice Emmitted when validator deregistration is requested
+    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender,
+        uint256 indexed position);
+
+    /// @notice Emmitted when a validator record is deleted by the contract owner
+    event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender);
     
     /// @notice Emmitted when a validator is slashed
     event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position);
