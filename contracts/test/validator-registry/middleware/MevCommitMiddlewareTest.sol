@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Test} from "forge-std/Test.sol";
+import {IMevCommitMiddleware} from "../../../contracts/interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
 import {RegistryMock} from "./RegistryMock.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
@@ -18,6 +19,8 @@ contract MevCommitMiddlewareTest is Test {
     address public owner;
 
     MevCommitMiddleware public mevCommitMiddleware;
+
+    event OperatorRegistered(address indexed operator);
 
     function setUp() public {
         networkRegistryMock = new RegistryMock();
@@ -99,5 +102,51 @@ contract MevCommitMiddlewareTest is Test {
         vm.prank(newOwner);
         mevCommitMiddleware.acceptOwnership();
         assertEq(mevCommitMiddleware.owner(), newOwner);
+    }
+
+    function test_registerOperators() public {
+        address operator1 = vm.addr(0x1117);
+        address operator2 = vm.addr(0x1118);
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotEntity.selector, operator1)
+        );
+        mevCommitMiddleware.registerOperators(operators);
+
+        vm.prank(operator1);
+        operatorRegistryMock.register();
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotEntity.selector, operator2)
+        );
+        mevCommitMiddleware.registerOperators(operators);
+
+        vm.prank(operator2);
+        operatorRegistryMock.register();
+
+        vm.expectEmit(true, true, true, true);
+        emit OperatorRegistered(operator1);
+        emit OperatorRegistered(operator2);
+        vm.prank(owner);
+        mevCommitMiddleware.registerOperators(operators);
+
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        assertEq(operatorRecord1.exists, true);
+        assertEq(operatorRecord2.exists, true);
+        assertEq(operatorRecord1.deregRequestHeight.exists, false);
+        assertEq(operatorRecord2.deregRequestHeight.exists, false);
+        assertEq(operatorRecord1.isBlacklisted, false);
+        assertEq(operatorRecord2.isBlacklisted, false);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorAlreadyRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.registerOperators(operators);
     }
 }

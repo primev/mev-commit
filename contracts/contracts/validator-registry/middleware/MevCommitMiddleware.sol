@@ -438,6 +438,21 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    function getOperatorRecord(address operator) external view
+        returns (IMevCommitMiddleware.OperatorRecord memory) {
+        return operatorRecords[operator];
+    }
+
+    function getVaultRecord(address vault) external view
+        returns (IMevCommitMiddleware.VaultRecord memory) {
+        return vaultRecords[vault];
+    }
+
+    function getValidatorRecord(bytes calldata blsPubkey) external view
+        returns (IMevCommitMiddleware.ValidatorRecord memory) {
+        return validatorRecords[blsPubkey];
+    }
+
     function _checkOperator(address operator) internal view {
         require(operatorRegistry.isEntity(operator), OperatorNotEntity(operator));
         require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
