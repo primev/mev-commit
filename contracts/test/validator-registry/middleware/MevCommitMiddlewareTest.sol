@@ -8,6 +8,7 @@ import {RegistryMock} from "./RegistryMock.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {EventHeightLib} from "../../../contracts/utils/EventHeight.sol";
 
 contract MevCommitMiddlewareTest is Test {
 
@@ -67,6 +68,27 @@ contract MevCommitMiddlewareTest is Test {
             ))
         );
         mevCommitMiddleware = MevCommitMiddleware(payable(proxy));
+    }
+
+    function getOperatorRecord(address operator) internal view
+        returns (IMevCommitMiddleware.OperatorRecord memory) {
+        (EventHeightLib.EventHeight memory eventHeight, bool exists, bool isBlacklisted) =
+            mevCommitMiddleware.operatorRecords(operator);
+        return IMevCommitMiddleware.OperatorRecord(eventHeight, exists, isBlacklisted);
+    }
+
+    function getValidatorRecord(bytes memory blsPubkey) internal view
+        returns (IMevCommitMiddleware.ValidatorRecord memory) {
+        (address vault, address operator, bool exists, EventHeightLib.EventHeight memory deregRequestHeight) =
+            mevCommitMiddleware.validatorRecords(blsPubkey);
+        return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, deregRequestHeight);
+    }
+
+    function getVaultRecord(address vault) internal view
+        returns (IMevCommitMiddleware.VaultRecord memory) {
+        (bool exists, EventHeightLib.EventHeight memory deregRequestHeight, uint256 slashAmount) =
+            mevCommitMiddleware.vaultRecords(vault);
+        return IMevCommitMiddleware.VaultRecord(exists, deregRequestHeight, slashAmount);
     }
 
     function test_setters() public {
@@ -160,8 +182,8 @@ contract MevCommitMiddlewareTest is Test {
         vm.prank(owner);
         mevCommitMiddleware.registerOperators(operators);
 
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
         assertEq(operatorRecord1.deregRequestHeight.exists, false);
@@ -204,8 +226,8 @@ contract MevCommitMiddlewareTest is Test {
         vm.prank(owner);
         mevCommitMiddleware.requestOperatorDeregistrations(operators);
 
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
         assertEq(operatorRecord1.deregRequestHeight.exists, true);
@@ -261,8 +283,8 @@ contract MevCommitMiddlewareTest is Test {
         vm.prank(owner);
         mevCommitMiddleware.deregisterOperators(operators);
 
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, false);
         assertEq(operatorRecord2.exists, false);
         assertEq(operatorRecord1.deregRequestHeight.exists, false);
@@ -296,8 +318,8 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.blacklistOperators(operators);
 
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, false);
         assertEq(operatorRecord2.exists, false);
 
@@ -308,8 +330,8 @@ contract MevCommitMiddlewareTest is Test {
         emit OperatorBlacklisted(operator2);
         mevCommitMiddleware.blacklistOperators(operators);
 
-        operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
-        operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        operatorRecord1 = getOperatorRecord(operator1);
+        operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
         assertEq(operatorRecord1.isBlacklisted, true);
@@ -331,8 +353,8 @@ contract MevCommitMiddlewareTest is Test {
         operators[0] = operator1;
         operators[1] = operator2;
 
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
-        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
         assertEq(operatorRecord1.isBlacklisted, false);
@@ -345,8 +367,8 @@ contract MevCommitMiddlewareTest is Test {
         emit OperatorBlacklisted(operator2);
         mevCommitMiddleware.blacklistOperators(operators);
 
-        operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
-        operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        operatorRecord1 = getOperatorRecord(operator1);
+        operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
         assertEq(operatorRecord1.isBlacklisted, true);

@@ -204,21 +204,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setSlashOracle(slashOracle_);
     }
 
-    function getOperatorRecord(address operator) external view
-        returns (IMevCommitMiddleware.OperatorRecord memory) {
-        return operatorRecords[operator];
-    }
-
-    function getVaultRecord(address vault) external view
-        returns (IMevCommitMiddleware.VaultRecord memory) {
-        return vaultRecords[vault];
-    }
-
-    function getValidatorRecord(bytes calldata blsPubkey) external view
-        returns (IMevCommitMiddleware.ValidatorRecord memory) {
-        return validatorRecords[blsPubkey];
-    }
-
     function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool) {
         return _isValidatorOptedIn(blsPubkey);
     }
