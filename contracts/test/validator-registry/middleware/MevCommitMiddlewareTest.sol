@@ -7,6 +7,7 @@ import {MevCommitMiddleware} from "../../../contracts/validator-registry/middlew
 import {RegistryMock} from "./RegistryMock.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MevCommitMiddlewareTest is Test {
 
@@ -127,6 +128,13 @@ contract MevCommitMiddlewareTest is Test {
         address[] memory operators = new address[](2);
         operators[0] = operator1;
         operators[1] = operator2;
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, operator1)
+        );
+        mevCommitMiddleware.registerOperators(operators);
+
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotEntity.selector, operator1)
@@ -168,12 +176,19 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerOperators(operators);
     }
 
-    function test_requestOperatorDeregistration() public {
+    function test_requestOperatorDeregistrations() public {
         address operator1 = vm.addr(0x1117);
         address operator2 = vm.addr(0x1118);
         address[] memory operators = new address[](2);
         operators[0] = operator1;
         operators[1] = operator2;
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, operator1)
+        );
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
@@ -201,6 +216,71 @@ contract MevCommitMiddlewareTest is Test {
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorDeregRequestExists.selector, operator1)
         );
         mevCommitMiddleware.requestOperatorDeregistrations(operators);
+    }
+
+    function test_deregisterOperators() public {
+
+        vm.roll(10);
+
+        address operator1 = vm.addr(0x1117);
+        address operator2 = vm.addr(0x1118);
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, operator1)
+        );
+        mevCommitMiddleware.deregisterOperators(operators);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.deregisterOperators(operators);
+
+        test_registerOperators();
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotReadyToDeregister.selector,
+            operator1, block.number, 0)
+        );
+        mevCommitMiddleware.deregisterOperators(operators);
+
+        vm.prank(owner);
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+
+        vm.roll(10 + mevCommitMiddleware.slashPeriodBlocks() + 1);
+
+        vm.expectEmit(true, true, true, true);
+        emit OperatorDeregistered(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorDeregistered(operator2);
+        vm.prank(owner);
+        mevCommitMiddleware.deregisterOperators(operators);
+
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        assertEq(operatorRecord1.exists, false);
+        assertEq(operatorRecord2.exists, false);
+        assertEq(operatorRecord1.deregRequestHeight.exists, false);
+        assertEq(operatorRecord2.deregRequestHeight.exists, false);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.deregisterOperators(operators);
+    }
+
+    function test_operatorRegistrationCycle() public {
+        test_deregisterOperators();
+        operatorRegistryMock = new RegistryMock();
+        vm.prank(owner);
+        mevCommitMiddleware.setOperatorRegistry(IRegistry(address(operatorRegistryMock)));
+        test_registerOperators();
     }
 
     // TODO: test blacklisted operator cant reg cause it's already reg'ed from being blacklisted
