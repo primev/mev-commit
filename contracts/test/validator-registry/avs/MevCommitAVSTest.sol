@@ -133,7 +133,7 @@ contract MevCommitAVSTest is Test {
 
         IMevCommitAVS.OperatorRegistrationInfo memory reg = mevCommitAVS.getOperatorRegInfo(operator);
         assertTrue(reg.exists);
-        assertFalse(reg.deregRequestHeight.exists);
+        assertFalse(reg.deregRequestOccurrence.exists);
 
         vm.expectRevert("sender is registered operator");
         vm.prank(operator);
@@ -164,7 +164,7 @@ contract MevCommitAVSTest is Test {
 
         IMevCommitAVS.OperatorRegistrationInfo memory reg = mevCommitAVS.getOperatorRegInfo(operator);
         assertTrue(reg.exists);
-        assertFalse(reg.deregRequestHeight.exists);
+        assertFalse(reg.deregRequestOccurrence.exists);
 
         vm.expectEmit(true, true, true, true);
         emit OperatorDeregistrationRequested(operator);
@@ -173,8 +173,8 @@ contract MevCommitAVSTest is Test {
 
         reg = mevCommitAVS.getOperatorRegInfo(operator);
         assertTrue(reg.exists);
-        assertTrue(reg.deregRequestHeight.exists);
-        assertEq(reg.deregRequestHeight.blockHeight, 108);
+        assertTrue(reg.deregRequestOccurrence.exists);
+        assertEq(reg.deregRequestOccurrence.blockHeight, 108);
 
         vm.expectRevert("operator dereg already req");
         vm.prank(operator);
@@ -216,8 +216,8 @@ contract MevCommitAVSTest is Test {
 
         IMevCommitAVS.OperatorRegistrationInfo memory operatorRegInfo = mevCommitAVS.getOperatorRegInfo(operator);
         assertTrue(operatorRegInfo.exists);
-        assertTrue(operatorRegInfo.deregRequestHeight.exists);
-        assertEq(operatorRegInfo.deregRequestHeight.blockHeight, 11);
+        assertTrue(operatorRegInfo.deregRequestOccurrence.exists);
+        assertEq(operatorRegInfo.deregRequestOccurrence.blockHeight, 11);
 
         avsDirectoryMock.registerOperator(operator);
 
@@ -231,8 +231,8 @@ contract MevCommitAVSTest is Test {
 
         operatorRegInfo = mevCommitAVS.getOperatorRegInfo(operator);
         assertFalse(operatorRegInfo.exists);
-        assertFalse(operatorRegInfo.deregRequestHeight.exists);
-        assertEq(operatorRegInfo.deregRequestHeight.blockHeight, 0);
+        assertFalse(operatorRegInfo.deregRequestOccurrence.exists);
+        assertEq(operatorRegInfo.deregRequestOccurrence.blockHeight, 0);
     }
 
     function testRegisterValidatorsByPodOwners() public {
@@ -307,10 +307,10 @@ contract MevCommitAVSTest is Test {
         assertFalse(regInfo1.exists);
         assertEq(regInfo0.podOwner, address(0));
         assertEq(regInfo1.podOwner, address(0));
-        assertFalse(regInfo0.freezeHeight.exists);
-        assertFalse(regInfo1.freezeHeight.exists);
-        assertFalse(regInfo0.deregRequestHeight.exists);
-        assertFalse(regInfo1.deregRequestHeight.exists);
+        assertFalse(regInfo0.freezeOccurrence.exists);
+        assertFalse(regInfo1.freezeOccurrence.exists);
+        assertFalse(regInfo0.deregRequestOccurrence.exists);
+        assertFalse(regInfo1.deregRequestOccurrence.exists);
 
         vm.expectEmit(true, true, true, true);
         emit ValidatorRegistered(valPubkeys[0], podOwner);
@@ -325,10 +325,10 @@ contract MevCommitAVSTest is Test {
         assertTrue(regInfo1.exists);
         assertEq(regInfo0.podOwner, podOwner);
         assertEq(regInfo1.podOwner, podOwner);
-        assertFalse(regInfo0.freezeHeight.exists);
-        assertFalse(regInfo1.freezeHeight.exists);
-        assertFalse(regInfo0.deregRequestHeight.exists);
-        assertFalse(regInfo1.deregRequestHeight.exists);
+        assertFalse(regInfo0.freezeOccurrence.exists);
+        assertFalse(regInfo1.freezeOccurrence.exists);
+        assertFalse(regInfo0.deregRequestOccurrence.exists);
+        assertFalse(regInfo1.deregRequestOccurrence.exists);
 
         vm.expectRevert("validator is registered");
         vm.prank(podOwner);
@@ -378,12 +378,12 @@ contract MevCommitAVSTest is Test {
         assertTrue(regInfo1.exists);
         assertEq(regInfo0.podOwner, podOwner);
         assertEq(regInfo1.podOwner, podOwner);
-        assertTrue(regInfo0.deregRequestHeight.exists);
-        assertTrue(regInfo1.deregRequestHeight.exists);
-        assertEq(regInfo0.deregRequestHeight.blockHeight, 103);
-        assertEq(regInfo1.deregRequestHeight.blockHeight, 103);
-        assertFalse(regInfo0.freezeHeight.exists);
-        assertFalse(regInfo1.freezeHeight.exists);
+        assertTrue(regInfo0.deregRequestOccurrence.exists);
+        assertTrue(regInfo1.deregRequestOccurrence.exists);
+        assertEq(regInfo0.deregRequestOccurrence.blockHeight, 103);
+        assertEq(regInfo1.deregRequestOccurrence.blockHeight, 103);
+        assertFalse(regInfo0.freezeOccurrence.exists);
+        assertFalse(regInfo1.freezeOccurrence.exists);
 
         vm.expectRevert("dereg already requested");
         vm.prank(podOwner);
@@ -427,8 +427,8 @@ contract MevCommitAVSTest is Test {
 
         IMevCommitAVS.ValidatorRegistrationInfo memory regInfo0 = mevCommitAVS.getValidatorRegInfo(valPubkeys2[0]);
         IMevCommitAVS.ValidatorRegistrationInfo memory regInfo1 = mevCommitAVS.getValidatorRegInfo(valPubkeys2[1]);
-        assertTrue(regInfo0.deregRequestHeight.exists);
-        assertTrue(regInfo1.deregRequestHeight.exists);
+        assertTrue(regInfo0.deregRequestOccurrence.exists);
+        assertTrue(regInfo1.deregRequestOccurrence.exists);
 
         vm.expectRevert("dereg too soon");
         vm.prank(operator);
@@ -489,7 +489,7 @@ contract MevCommitAVSTest is Test {
         assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 0);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 0);
-        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.exists);
 
         strategyManagerMock.setStakerStrategyListLengthReturnValue(3);
         vm.expectEmit(true, true, true, true);
@@ -504,7 +504,7 @@ contract MevCommitAVSTest is Test {
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 2);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[0], chosenVals2[0]);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], chosenVals2[1]);
-        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.exists);
     
         vm.expectRevert("LST restaker is registered");
         vm.prank(lstRestaker);
@@ -545,8 +545,8 @@ contract MevCommitAVSTest is Test {
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 2);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[0], chosenVals[0]);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], chosenVals[1]);
-        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
-        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.blockHeight, 177);
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.blockHeight, 177);
 
         vm.expectRevert("dereg already requested");
         vm.prank(lstRestaker);
@@ -596,8 +596,8 @@ contract MevCommitAVSTest is Test {
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 2);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[0], chosenVals[0]);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators[1], chosenVals[1]);
-        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
-        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.blockHeight, 302);
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.exists);
+        assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.blockHeight, 302);
 
         vm.expectEmit(true, true, true, true);
         emit LSTRestakerDeregistered(chosenVals[0], 2, lstRestaker);
@@ -609,7 +609,7 @@ contract MevCommitAVSTest is Test {
         assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 0);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).numChosen, 0);
-        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+        assertFalse(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.exists);
     }
 
     function testFreeze() public {
@@ -643,11 +643,11 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).podOwner, podOwner);
         assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).podOwner, podOwner);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
-        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.blockHeight, 403);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestOccurrence.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestOccurrence.blockHeight, 403);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestOccurrence.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
 
         vm.roll(461);
 
@@ -662,13 +662,13 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
         assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).podOwner, podOwner);
         assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).podOwner, podOwner); 
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
-        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.blockHeight, 461);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
-        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.blockHeight, 461);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.exists);
-        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestHeight.blockHeight, 403);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestHeight.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.blockHeight, 461);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.blockHeight, 461);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestOccurrence.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestOccurrence.blockHeight, 403);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestOccurrence.exists);
 
         vm.expectRevert("val already frozen");
         vm.prank(freezeOracle);
@@ -681,7 +681,7 @@ contract MevCommitAVSTest is Test {
         bytes[] memory valPubkeys = new bytes[](1);
         valPubkeys[0] = bytes("valPubkey1");
         IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = mevCommitAVS.getValidatorRegInfo(valPubkeys[0]);
-        assertTrue(regInfo.deregRequestHeight.exists);
+        assertTrue(regInfo.deregRequestOccurrence.exists);
 
         vm.roll(block.number + validatorDeregPeriodBlocks);
 
@@ -696,8 +696,8 @@ contract MevCommitAVSTest is Test {
         bytes[] memory valPubkeys = new bytes[](2);
         valPubkeys[0] = bytes("valPubkey1");
         valPubkeys[1] = bytes("valPubkey2");
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
 
         address lstRestaker = address(0x34443);
         ISignatureUtils.SignatureWithExpiry memory sig = ISignatureUtils.SignatureWithExpiry({
@@ -718,7 +718,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(lstRestaker);
         mevCommitAVS.requestLSTRestakerDeregistration();
 
-        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestHeight.exists);
+        assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).deregRequestOccurrence.exists);
 
         vm.roll(block.number + lstRestakerDeregPeriodBlocks + 1);
 
@@ -758,10 +758,10 @@ contract MevCommitAVSTest is Test {
         mevCommitAVS.freeze(valPubkeys);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
 
         vm.expectRevert("unfreeze fee required per val");
         vm.prank(newAccount);
@@ -798,10 +798,10 @@ contract MevCommitAVSTest is Test {
         assertEq(address(unfreezeReceiver).balance, unfreezeFee * 2);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
     }
 
     function testSetters() public {
@@ -995,10 +995,10 @@ contract MevCommitAVSTest is Test {
         assertEq(address(unfreezeReceiver).balance, 2 * unfreezeFee);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
 
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeHeight.exists);
+        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
     }
 
     function testValidatorIsOptedIn() public {
@@ -1057,7 +1057,7 @@ contract MevCommitAVSTest is Test {
         vm.prank(operator);
         mevCommitAVS.requestOperatorDeregistration(operator);
         assertTrue(mevCommitAVS.getOperatorRegInfo(operator).exists);
-        assertTrue(mevCommitAVS.getOperatorRegInfo(operator).deregRequestHeight.exists);
+        assertTrue(mevCommitAVS.getOperatorRegInfo(operator).deregRequestOccurrence.exists);
 
         bytes[] memory valPubkeys = new bytes[](2);
         valPubkeys[0] = bytes("valPubkey1");
