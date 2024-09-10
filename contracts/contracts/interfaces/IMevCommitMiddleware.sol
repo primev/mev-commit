@@ -51,18 +51,18 @@ interface IMevCommitMiddleware {
     event VaultDeregistered(address indexed vault);
 
     /// @notice Emmitted when a validator record is added to state
-    event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender,
+    event ValRecordAdded(bytes blsPubkey, address indexed msgSender,
         uint256 indexed position);
 
     /// @notice Emmitted when validator deregistration is requested
-    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender,
+    event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender,
         uint256 indexed position);
 
     /// @notice Emmitted when a validator record is deleted by the contract owner
-    event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender);
+    event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
     
     /// @notice Emmitted when a validator is slashed
-    event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position);
+    event ValidatorSlashed(bytes blsPubkey, address indexed operator, uint256 indexed position);
 
     /// @notice Emmitted when the network registry is set
     event NetworkRegistrySet(address networkRegistry);
