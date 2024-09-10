@@ -204,6 +204,21 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setSlashOracle(slashOracle_);
     }
 
+    function getOperatorRecord(address operator) external view
+        returns (IMevCommitMiddleware.OperatorRecord memory) {
+        return operatorRecords[operator];
+    }
+
+    function getVaultRecord(address vault) external view
+        returns (IMevCommitMiddleware.VaultRecord memory) {
+        return vaultRecords[vault];
+    }
+
+    function getValidatorRecord(bytes calldata blsPubkey) external view
+        returns (IMevCommitMiddleware.ValidatorRecord memory) {
+        return validatorRecords[blsPubkey];
+    }
+
     function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool) {
         return _isValidatorOptedIn(blsPubkey);
     }
@@ -438,21 +453,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Authorizes contract upgrades, restricted to contract owner.
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
-
-    function getOperatorRecord(address operator) external view
-        returns (IMevCommitMiddleware.OperatorRecord memory) {
-        return operatorRecords[operator];
-    }
-
-    function getVaultRecord(address vault) external view
-        returns (IMevCommitMiddleware.VaultRecord memory) {
-        return vaultRecords[vault];
-    }
-
-    function getValidatorRecord(bytes calldata blsPubkey) external view
-        returns (IMevCommitMiddleware.ValidatorRecord memory) {
-        return validatorRecords[blsPubkey];
-    }
 
     function _checkOperator(address operator) internal view {
         require(operatorRegistry.isEntity(operator), OperatorNotEntity(operator));

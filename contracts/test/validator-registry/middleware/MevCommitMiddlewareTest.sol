@@ -283,6 +283,39 @@ contract MevCommitMiddlewareTest is Test {
         test_registerOperators();
     }
 
+    function test_blacklistNonRegisteredOperators() public {
+        address operator1 = vm.addr(0x133333);
+        address operator2 = vm.addr(0x133334);
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+
+        vm.prank(vm.addr(0x11888));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(0x11888))
+        );
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        assertEq(operatorRecord1.exists, false);
+        assertEq(operatorRecord2.exists, false);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorBlacklisted(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorBlacklisted(operator2);
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
+        operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        assertEq(operatorRecord1.exists, true);
+        assertEq(operatorRecord2.exists, true);
+        assertEq(operatorRecord1.isBlacklisted, true);
+        assertEq(operatorRecord2.isBlacklisted, true);
+    }
+
     // TODO: test blacklisted operator cant reg cause it's already reg'ed from being blacklisted
     // TODO: test operator dereg REQ not working since operator is blacklisted
     // TODO: Test operator dereg not working since operator is blacklisted
