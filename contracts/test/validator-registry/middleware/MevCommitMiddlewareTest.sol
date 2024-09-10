@@ -21,6 +21,23 @@ contract MevCommitMiddlewareTest is Test {
     MevCommitMiddleware public mevCommitMiddleware;
 
     event OperatorRegistered(address indexed operator);
+    event OperatorDeregistrationRequested(address indexed operator);
+    event OperatorDeregistered(address indexed operator);
+    event OperatorBlacklisted(address indexed operator);
+    event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position);
+    event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position);
+    event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender);
+    event VaultRegistered(address indexed vault, uint256 slashAmount);
+    event VaultSlashAmountUpdated(address indexed vault, uint256 slashAmount);
+    event VaultDeregistrationRequested(address indexed vault);
+    event VaultDeregistered(address indexed vault);
+    event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position);
+    event NetworkRegistrySet(address networkRegistry);
+    event OperatorRegistrySet(address operatorRegistry);
+    event VaultFactorySet(address vaultFactory);
+    event NetworkSet(address network);
+    event SlashPeriodBlocksSet(uint256 slashPeriodBlocks);
+    event SlashOracleSet(address slashOracle);
 
     function setUp() public {
         networkRegistryMock = new RegistryMock();
@@ -130,6 +147,7 @@ contract MevCommitMiddlewareTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit OperatorRegistered(operator1);
+        vm.expectEmit(true, true, true, true);
         emit OperatorRegistered(operator2);
         vm.prank(owner);
         mevCommitMiddleware.registerOperators(operators);
@@ -149,4 +167,43 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerOperators(operators);
     }
+
+    function test_requestOperatorDeregistration() public {
+        address operator1 = vm.addr(0x1117);
+        address operator2 = vm.addr(0x1118);
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+
+        test_registerOperators();
+
+        vm.expectEmit(true, true, true, true);
+        emit OperatorDeregistrationRequested(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorDeregistrationRequested(operator2);
+        vm.prank(owner);
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        assertEq(operatorRecord1.exists, true);
+        assertEq(operatorRecord2.exists, true);
+        assertEq(operatorRecord1.deregRequestHeight.exists, true);
+        assertEq(operatorRecord2.deregRequestHeight.exists, true);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorDeregRequestExists.selector, operator1)
+        );
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+    }
+
+    // TODO: test blacklisted operator cant reg cause it's already reg'ed from being blacklisted
+    // TODO: test operator dereg REQ not working since operator is blacklisted
+    // TODO: Test operator dereg not working since operator is blacklisted
 }

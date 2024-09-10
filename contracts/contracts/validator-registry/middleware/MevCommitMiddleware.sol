@@ -245,6 +245,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _requestOperatorDeregistration(address operator) internal {
         require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
         require(!operatorRecords[operator].isBlacklisted, OperatorIsBlacklisted(operator));
+        require(!operatorRecords[operator].deregRequestHeight.exists, OperatorDeregRequestExists(operator));
         EventHeightLib.set(operatorRecords[operator].deregRequestHeight, block.number);
         emit OperatorDeregistrationRequested(operator);
     }
