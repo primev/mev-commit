@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {MevCommitAVSStorage} from "./MevCommitAVSStorage.sol";
-import {OccurrenceLib} from "../../utils/Occurrence.sol";
+import {BlockHeightOccurrence} from "../../utils/Occurrence.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -391,7 +391,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _eigenAVSDirectory.registerOperatorToAVS(msg.sender, operatorSignature);
         operatorRegistrations[msg.sender] = OperatorRegistrationInfo({
             exists: true,
-            deregRequestOccurrence: OccurrenceLib.BlockHeightOccurrence({
+            deregRequestOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             })
@@ -403,7 +403,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _requestOperatorDeregistration(address operator) internal {
         require(!operatorRegistrations[operator].deregRequestOccurrence.exists,
             "operator dereg already req");
-        OccurrenceLib.captureOccurrence(operatorRegistrations[operator].deregRequestOccurrence);
+        BlockHeightOccurrence.captureOccurrence(operatorRegistrations[operator].deregRequestOccurrence);
         emit OperatorDeregistrationRequested(operator);
     }
 
@@ -445,11 +445,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         validatorRegistrations[valPubKey] = ValidatorRegistrationInfo({
             exists: true,
             podOwner: podOwner,
-            freezeOccurrence: OccurrenceLib.BlockHeightOccurrence({
+            freezeOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             }),
-            deregRequestOccurrence: OccurrenceLib.BlockHeightOccurrence({
+            deregRequestOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             })
@@ -461,7 +461,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _requestValidatorDeregistration(bytes calldata valPubKey) internal {
         require(!validatorRegistrations[valPubKey].deregRequestOccurrence.exists,
             "dereg already requested");
-        OccurrenceLib.captureOccurrence(validatorRegistrations[valPubKey].deregRequestOccurrence);
+        BlockHeightOccurrence.captureOccurrence(validatorRegistrations[valPubKey].deregRequestOccurrence);
         emit ValidatorDeregistrationRequested(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 
@@ -486,7 +486,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             exists: true,
             chosenValidators: chosenValidators,
             numChosen: chosenValidators.length,
-            deregRequestOccurrence: OccurrenceLib.BlockHeightOccurrence({
+            deregRequestOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             })
@@ -501,7 +501,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _requestLSTRestakerDeregistration() internal {
         LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
         require(!reg.deregRequestOccurrence.exists, "dereg already requested");
-        OccurrenceLib.captureOccurrence(reg.deregRequestOccurrence);
+        BlockHeightOccurrence.captureOccurrence(reg.deregRequestOccurrence);
         for (uint256 i = 0; i < reg.numChosen; ++i) {
             emit LSTRestakerDeregistrationRequested(reg.chosenValidators[i], reg.numChosen, msg.sender);
         }
@@ -522,7 +522,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Internal function to freeze a validator.
     function _freeze(bytes calldata valPubKey) internal {
         require(!validatorRegistrations[valPubKey].freezeOccurrence.exists, "val already frozen");
-        OccurrenceLib.captureOccurrence(validatorRegistrations[valPubKey].freezeOccurrence);
+        BlockHeightOccurrence.captureOccurrence(validatorRegistrations[valPubKey].freezeOccurrence);
         emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 
@@ -530,7 +530,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function _unfreeze(bytes calldata valPubKey) internal {
         require(block.number > validatorRegistrations[valPubKey].freezeOccurrence.blockHeight + unfreezePeriodBlocks,
             "unfreeze too soon");
-        OccurrenceLib.del(validatorRegistrations[valPubKey].freezeOccurrence);
+        BlockHeightOccurrence.del(validatorRegistrations[valPubKey].freezeOccurrence);
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 

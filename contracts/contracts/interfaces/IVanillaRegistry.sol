@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import { OccurrenceLib } from "../utils/Occurrence.sol";
+import { BlockHeightOccurrence } from "../utils/Occurrence.sol";
 
 /// @title IVanillaRegistry
 /// @notice Interface for the VanillaRegistry contract for validators.
@@ -12,7 +12,7 @@ interface IVanillaRegistry {
         bool exists;
         address withdrawalAddress;
         uint256 balance;
-        OccurrenceLib.BlockHeightOccurrence unstakeOccurrence;
+        BlockHeightOccurrence.Occurrence unstakeOccurrence;
     }
 
     /// @dev Event emitted when a validator is staked.

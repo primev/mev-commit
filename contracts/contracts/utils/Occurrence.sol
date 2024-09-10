@@ -1,33 +1,35 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-library OccurrenceLib {
-    struct BlockHeightOccurrence {
+library BlockHeightOccurrence {
+    struct Occurrence {
         bool exists;
         uint256 blockHeight;
     }
 
-    struct TimestampOccurrence {
-        bool exists;
-        uint256 timestamp;
-    }
-
-    function captureOccurrence(BlockHeightOccurrence storage self) internal {
+    function captureOccurrence(Occurrence storage self) internal {
         self.exists = true;
         self.blockHeight = block.number;
     }
 
-    function del(BlockHeightOccurrence storage self) internal {
+    function del(Occurrence storage self) internal {
         self.exists = false;
         self.blockHeight = 0;
     }
+}
 
-    function captureOccurrence(TimestampOccurrence storage self) internal {
+library TimestampOccurrence {
+    struct Occurrence {
+        bool exists;
+        uint256 timestamp;
+    }
+
+    function captureOccurrence(Occurrence storage self) internal {
         self.exists = true;
         self.timestamp = block.timestamp;
     }
 
-    function del(TimestampOccurrence storage self) internal {
+    function del(Occurrence storage self) internal {
         self.exists = false;
         self.timestamp = 0;
     }

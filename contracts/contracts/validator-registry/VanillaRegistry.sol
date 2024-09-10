@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
 import {VanillaRegistryStorage} from "./VanillaRegistryStorage.sol";
-import {OccurrenceLib} from "../utils/Occurrence.sol";
+import {BlockHeightOccurrence} from "../utils/Occurrence.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -259,7 +259,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             exists: true,
             balance: stakeAmount,
             withdrawalAddress: withdrawalAddress,
-            unstakeOccurrence: OccurrenceLib.BlockHeightOccurrence({ exists: false, blockHeight: 0 })
+            unstakeOccurrence: BlockHeightOccurrence.Occurrence({ exists: false, blockHeight: 0 })
         });
         emit Staked(msg.sender, withdrawalAddress, pubKey, stakeAmount);
     }
@@ -296,7 +296,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @param pubKey The single BLS public key to unstake.
      */
     function _unstakeSingle(bytes calldata pubKey) internal {
-        OccurrenceLib.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
+        BlockHeightOccurrence.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
         emit Unstaked(msg.sender, stakedValidators[pubKey].withdrawalAddress,
             pubKey, stakedValidators[pubKey].balance);
     }
@@ -333,7 +333,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             stakedValidators[pubKey].balance -= slashAmount;
             if (_isUnstaking(pubKey)) {
                 // If validator is already unstaking, reset their unstake block number
-                OccurrenceLib.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
+                BlockHeightOccurrence.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
             } else {
                 _unstakeSingle(pubKey);
             }
