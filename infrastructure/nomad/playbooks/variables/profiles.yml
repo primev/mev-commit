@@ -295,6 +295,8 @@ jobs:
     ports:
       - metrics:
           to: 8080
+    env:
+      otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_node1: &mev_commit_bidder_node1_job
     name: mev-commit-bidder-node1
