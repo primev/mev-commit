@@ -199,6 +199,9 @@ contract MevCommitMiddlewareTest is Test {
     }
 
     function test_requestOperatorDeregistrations() public {
+
+        vm.roll(44);
+
         address operator1 = vm.addr(0x1117);
         address operator2 = vm.addr(0x1118);
         address[] memory operators = new address[](2);
@@ -432,7 +435,21 @@ contract MevCommitMiddlewareTest is Test {
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorIsBlacklisted.selector, operator1)
         );
         mevCommitMiddleware.requestOperatorDeregistrations(operators);
-    }
 
-    // TODO: Test operator dereg not working since operator is blacklisted
+        vm.roll(66);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotReadyToDeregister.selector, operator1, block.number, 44)
+        );
+        mevCommitMiddleware.deregisterOperators(operators);
+
+        vm.roll(block.number + mevCommitMiddleware.slashPeriodBlocks() + 1);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorIsBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.deregisterOperators(operators);
+    }
 }
