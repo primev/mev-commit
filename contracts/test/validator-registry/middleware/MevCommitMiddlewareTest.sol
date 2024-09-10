@@ -314,9 +314,57 @@ contract MevCommitMiddlewareTest is Test {
         assertEq(operatorRecord2.exists, true);
         assertEq(operatorRecord1.isBlacklisted, true);
         assertEq(operatorRecord2.isBlacklisted, true);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorAlreadyBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.blacklistOperators(operators);
     }
 
-    // TODO: test blacklisted operator cant reg cause it's already reg'ed from being blacklisted
+    function test_blacklistRegisteredOperators() public {
+        test_registerOperators();
+
+        address operator1 = vm.addr(0x1117);
+        address operator2 = vm.addr(0x1118);
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        assertEq(operatorRecord1.exists, true);
+        assertEq(operatorRecord2.exists, true);
+        assertEq(operatorRecord1.isBlacklisted, false);
+        assertEq(operatorRecord2.isBlacklisted, false);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorBlacklisted(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorBlacklisted(operator2);
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        operatorRecord1 = mevCommitMiddleware.getOperatorRecord(operator1);
+        operatorRecord2 = mevCommitMiddleware.getOperatorRecord(operator2);
+        assertEq(operatorRecord1.exists, true);
+        assertEq(operatorRecord2.exists, true);
+        assertEq(operatorRecord1.isBlacklisted, true);
+        assertEq(operatorRecord2.isBlacklisted, true);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorAlreadyBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorAlreadyRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.registerOperators(operators);
+    }
+
     // TODO: test operator dereg REQ not working since operator is blacklisted
     // TODO: Test operator dereg not working since operator is blacklisted
 }
