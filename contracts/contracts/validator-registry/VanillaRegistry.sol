@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
 import {VanillaRegistryStorage} from "./VanillaRegistryStorage.sol";
-import {EventHeightLib} from "../utils/EventHeight.sol";
+import {BlockHeightOccurrence} from "../utils/Occurrence.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -216,7 +216,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev Returns the number of blocks remaining until an unstaking validator can withdraw their staked ETH.
     function getBlocksTillWithdrawAllowed(bytes calldata valBLSPubKey) external view returns (uint256) {
         require(_isUnstaking(valBLSPubKey), "Unstake first");
-        uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeHeight.blockHeight;
+        uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeOccurrence.blockHeight;
         return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
     }
 
@@ -259,7 +259,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             exists: true,
             balance: stakeAmount,
             withdrawalAddress: withdrawalAddress,
-            unstakeHeight: EventHeightLib.EventHeight({ exists: false, blockHeight: 0 })
+            unstakeOccurrence: BlockHeightOccurrence.Occurrence({ exists: false, blockHeight: 0 })
         });
         emit Staked(msg.sender, withdrawalAddress, pubKey, stakeAmount);
     }
@@ -296,7 +296,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @param pubKey The single BLS public key to unstake.
      */
     function _unstakeSingle(bytes calldata pubKey) internal {
-        EventHeightLib.set(stakedValidators[pubKey].unstakeHeight, block.number);
+        BlockHeightOccurrence.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
         emit Unstaked(msg.sender, stakedValidators[pubKey].withdrawalAddress,
             pubKey, stakedValidators[pubKey].balance);
     }
@@ -310,7 +310,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             require(_isUnstaking(pubKey), "Must unstake to withdraw");
-            require(block.number > stakedValidators[pubKey].unstakeHeight.blockHeight + unstakePeriodBlocks,
+            require(block.number > stakedValidators[pubKey].unstakeOccurrence.blockHeight + unstakePeriodBlocks,
                 "Withdrawing too soon");
             uint256 balance = stakedValidators[pubKey].balance;
             address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
@@ -333,7 +333,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             stakedValidators[pubKey].balance -= slashAmount;
             if (_isUnstaking(pubKey)) {
                 // If validator is already unstaking, reset their unstake block number
-                EventHeightLib.set(stakedValidators[pubKey].unstakeHeight, block.number);
+                BlockHeightOccurrence.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
             } else {
                 _unstakeSingle(pubKey);
             }
@@ -387,6 +387,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
 
     /// @dev Internal function to check if a validator is currently unstaking.
     function _isUnstaking(bytes calldata valBLSPubKey) internal view returns (bool) {
-        return stakedValidators[valBLSPubKey].unstakeHeight.exists;
+        return stakedValidators[valBLSPubKey].unstakeOccurrence.exists;
     }
 }

@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
 import {MevCommitAVSStorage} from "./MevCommitAVSStorage.sol";
-import {EventHeightLib} from "../../utils/EventHeight.sol";
+import {BlockHeightOccurrence} from "../../utils/Occurrence.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -112,7 +112,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     modifier onlyFrozenValidators(bytes[] calldata valPubKeys) {
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(validatorRegistrations[valPubKeys[i]].freezeHeight.exists, "validator not frozen");
+            require(validatorRegistrations[valPubKeys[i]].freezeOccurrence.exists, "validator not frozen");
         }
         _;
     }
@@ -391,7 +391,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _eigenAVSDirectory.registerOperatorToAVS(msg.sender, operatorSignature);
         operatorRegistrations[msg.sender] = OperatorRegistrationInfo({
             exists: true,
-            deregRequestHeight: EventHeightLib.EventHeight({
+            deregRequestOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             })
@@ -401,16 +401,16 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to request deregistration of an operator.
     function _requestOperatorDeregistration(address operator) internal {
-        require(!operatorRegistrations[operator].deregRequestHeight.exists,
+        require(!operatorRegistrations[operator].deregRequestOccurrence.exists,
             "operator dereg already req");
-        EventHeightLib.set(operatorRegistrations[operator].deregRequestHeight, block.number);
+        BlockHeightOccurrence.captureOccurrence(operatorRegistrations[operator].deregRequestOccurrence);
         emit OperatorDeregistrationRequested(operator);
     }
 
     /// @dev Internal function to deregister an operator.
     function _deregisterOperator(address operator) internal {
-        require(operatorRegistrations[operator].deregRequestHeight.exists, "dereg not requested");
-        require(block.number > operatorRegistrations[operator].deregRequestHeight.blockHeight + operatorDeregPeriodBlocks,
+        require(operatorRegistrations[operator].deregRequestOccurrence.exists, "dereg not requested");
+        require(block.number > operatorRegistrations[operator].deregRequestOccurrence.blockHeight + operatorDeregPeriodBlocks,
             "dereg too soon");
         _eigenAVSDirectory.deregisterOperatorFromAVS(operator);
         delete operatorRegistrations[operator];
@@ -429,7 +429,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         address operator = _delegationManager.delegatedTo(podOwner);
         require(operatorRegistrations[operator].exists,
             "operator not registered");
-        require(!operatorRegistrations[operator].deregRequestHeight.exists,
+        require(!operatorRegistrations[operator].deregRequestOccurrence.exists,
             "operator dereg already req");
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         uint256 len = valPubKeys.length;
@@ -445,11 +445,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         validatorRegistrations[valPubKey] = ValidatorRegistrationInfo({
             exists: true,
             podOwner: podOwner,
-            freezeHeight: EventHeightLib.EventHeight({
+            freezeOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             }),
-            deregRequestHeight: EventHeightLib.EventHeight({
+            deregRequestOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             })
@@ -459,18 +459,18 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to request deregistration of a validator.
     function _requestValidatorDeregistration(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].deregRequestHeight.exists,
+        require(!validatorRegistrations[valPubKey].deregRequestOccurrence.exists,
             "dereg already requested");
-        EventHeightLib.set(validatorRegistrations[valPubKey].deregRequestHeight, block.number);
+        BlockHeightOccurrence.captureOccurrence(validatorRegistrations[valPubKey].deregRequestOccurrence);
         emit ValidatorDeregistrationRequested(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 
     /// @dev Internal function to deregister a validator.
     function _deregisterValidator(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].freezeHeight.exists, "frozen val cant deregister");
-        require(validatorRegistrations[valPubKey].deregRequestHeight.exists,
+        require(!validatorRegistrations[valPubKey].freezeOccurrence.exists, "frozen val cant deregister");
+        require(validatorRegistrations[valPubKey].deregRequestOccurrence.exists,
             "dereg not requested");
-        require(block.number > validatorRegistrations[valPubKey].deregRequestHeight.blockHeight + validatorDeregPeriodBlocks,
+        require(block.number > validatorRegistrations[valPubKey].deregRequestOccurrence.blockHeight + validatorDeregPeriodBlocks,
             "dereg too soon");
         address podOwner = validatorRegistrations[valPubKey].podOwner;
         delete validatorRegistrations[valPubKey];
@@ -486,7 +486,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             exists: true,
             chosenValidators: chosenValidators,
             numChosen: chosenValidators.length,
-            deregRequestHeight: EventHeightLib.EventHeight({
+            deregRequestOccurrence: BlockHeightOccurrence.Occurrence({
                 exists: false,
                 blockHeight: 0
             })
@@ -500,8 +500,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Internal function to request deregistration of an LST restaker.
     function _requestLSTRestakerDeregistration() internal {
         LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
-        require(!reg.deregRequestHeight.exists, "dereg already requested");
-        EventHeightLib.set(reg.deregRequestHeight, block.number);
+        require(!reg.deregRequestOccurrence.exists, "dereg already requested");
+        BlockHeightOccurrence.captureOccurrence(reg.deregRequestOccurrence);
         for (uint256 i = 0; i < reg.numChosen; ++i) {
             emit LSTRestakerDeregistrationRequested(reg.chosenValidators[i], reg.numChosen, msg.sender);
         }
@@ -510,8 +510,8 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     /// @dev Internal function to deregister an LST restaker.
     function _deregisterLSTRestaker() internal {
         LSTRestakerRegistrationInfo storage reg = lstRestakerRegistrations[msg.sender];
-        require(reg.deregRequestHeight.exists, "dereg not requested");
-        require(block.number > reg.deregRequestHeight.blockHeight + lstRestakerDeregPeriodBlocks,
+        require(reg.deregRequestOccurrence.exists, "dereg not requested");
+        require(block.number > reg.deregRequestOccurrence.blockHeight + lstRestakerDeregPeriodBlocks,
             "dereg too soon");
         for (uint256 i = 0; i < reg.numChosen; ++i) {
             emit LSTRestakerDeregistered(reg.chosenValidators[i], reg.numChosen, msg.sender);
@@ -521,16 +521,16 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to freeze a validator.
     function _freeze(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].freezeHeight.exists, "val already frozen");
-        EventHeightLib.set(validatorRegistrations[valPubKey].freezeHeight, block.number);
+        require(!validatorRegistrations[valPubKey].freezeOccurrence.exists, "val already frozen");
+        BlockHeightOccurrence.captureOccurrence(validatorRegistrations[valPubKey].freezeOccurrence);
         emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 
     /// @dev Internal function to unfreeze a validator.
     function _unfreeze(bytes calldata valPubKey) internal {
-        require(block.number > validatorRegistrations[valPubKey].freezeHeight.blockHeight + unfreezePeriodBlocks,
+        require(block.number > validatorRegistrations[valPubKey].freezeOccurrence.blockHeight + unfreezePeriodBlocks,
             "unfreeze too soon");
-        EventHeightLib.del(validatorRegistrations[valPubKey].freezeHeight);
+        BlockHeightOccurrence.del(validatorRegistrations[valPubKey].freezeOccurrence);
         emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
     }
 
@@ -618,11 +618,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         if (!isValRegistered) {
             return false;
         }
-        bool isFrozen = valRegistration.freezeHeight.exists;
+        bool isFrozen = valRegistration.freezeOccurrence.exists;
         if (isFrozen) {
             return false;
         }
-        bool isValDeregRequested = valRegistration.deregRequestHeight.exists;
+        bool isValDeregRequested = valRegistration.deregRequestOccurrence.exists;
         if (isValDeregRequested) {
             return false;
         }
@@ -641,7 +641,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         if (!isOperatorRegistered) {
             return false;
         }
-        bool isOperatorDeregRequested = operatorRegistration.deregRequestHeight.exists;
+        bool isOperatorDeregRequested = operatorRegistration.deregRequestOccurrence.exists;
         if (isOperatorDeregRequested) {
             return false;
         }

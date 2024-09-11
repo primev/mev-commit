@@ -136,9 +136,9 @@
             "internalType": "uint256"
           },
           {
-            "name": "deregRequestHeight",
+            "name": "deregRequestOccurrence",
             "type": "tuple",
-            "internalType": "struct EventHeightLib.EventHeight",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -179,9 +179,9 @@
             "internalType": "bool"
           },
           {
-            "name": "deregRequestHeight",
+            "name": "deregRequestOccurrence",
             "type": "tuple",
-            "internalType": "struct EventHeightLib.EventHeight",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -259,9 +259,9 @@
             "internalType": "address"
           },
           {
-            "name": "freezeHeight",
+            "name": "freezeOccurrence",
             "type": "tuple",
-            "internalType": "struct EventHeightLib.EventHeight",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -276,9 +276,9 @@
             ]
           },
           {
-            "name": "deregRequestHeight",
+            "name": "deregRequestOccurrence",
             "type": "tuple",
-            "internalType": "struct EventHeightLib.EventHeight",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -429,9 +429,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -478,9 +478,9 @@
         "internalType": "bool"
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -970,9 +970,9 @@
         "internalType": "address"
       },
       {
-        "name": "freezeHeight",
+        "name": "freezeOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -987,9 +987,9 @@
         ]
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
