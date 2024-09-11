@@ -60,8 +60,8 @@ contract EigenPodManagerMock is IEigenPodManager, Test {
         return IStrategyManager(address(0));
     }
     
-    function hasPod(address /*podOwner*/) external pure returns (bool) {
-        return false;
+    function hasPod(address podOwner) external view returns (bool) {
+        return pods[podOwner] != EigenPodMock(address(0));
     }
 
     function pause(uint256 /*newPausedStatus*/) external{}

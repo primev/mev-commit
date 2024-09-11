@@ -94,6 +94,10 @@ contract MevCommitAVSTest is Test {
             ))
         );
         mevCommitAVS = MevCommitAVS(payable(proxy));
+
+        vm.startPrank(owner);
+        Upgrades.upgradeProxy(address(mevCommitAVS), "MevCommitAVSV2.sol", "");
+        vm.stopPrank();
     }
 
     function testRegisterOperator() public {
@@ -1083,5 +1087,11 @@ contract MevCommitAVSTest is Test {
         emit ValidatorDeregistered(valPubkeys[1], podOwner);
         vm.prank(operator);
         mevCommitAVS.deregisterValidators(valPubkeys);
+    }
+
+    function testIsValidatorOptedInWithNoPod() public view {
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = bytes("valPubkey1"); // Intentially no setup 
+        assertFalse(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
     }
 }
