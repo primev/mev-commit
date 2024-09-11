@@ -55,6 +55,27 @@ interface IVanillaRegistry {
         address _owner
     ) external;
 
+    error ValidatorRecordMustExist(bytes valBLSPubKey);
+    error ValidatorRecordMustNotExist(bytes valBLSPubKey);
+    error ValidatorCannotBeUnstaking(bytes valBLSPubKey);
+    error SenderIsNotWithdrawalAddress(address sender, address withdrawalAddress);
+    error InvalidBLSPubKeyLength(uint256 expected, uint256 actual);
+    error SenderIsNotSlashOracle(address sender, address slashOracle);
+    error WithdrawalAddressMustBeSet();
+    error MustUnstakeToWithdraw();
+    error AtLeastOneRecipientRequired();
+    error StakeTooLowForNumberOfKeys(uint256 msgValue, uint256 numberOfKeys);
+    error WithdrawingTooSoon();
+    error WithdrawalFailed();
+    error NotEnoughBalanceToSlash();
+    error SlashingTransferFailed();
+    error MinStakeMustBePositive();
+    error SlashAmountMustBePositive();
+    error SlashAmountMustBeLessThanMinStake();
+    error SlashOracleMustBeSet();
+    error SlashReceiverMustBeSet();
+    error UnstakePeriodMustBePositive();
+
     /* 
      * @dev Stakes ETH on behalf of one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The validator BLS public keys to stake.
