@@ -37,14 +37,14 @@ contract MevCommitAVSTest is Test {
     event OperatorRegistered(address indexed operator);
     event OperatorDeregistrationRequested(address indexed operator);
     event OperatorDeregistered(address indexed operator);
-    event ValidatorRegistered(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed podOwner);
-    event LSTRestakerRegistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
-    event LSTRestakerDeregistrationRequested(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
-    event LSTRestakerDeregistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
-    event ValidatorFrozen(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorUnfrozen(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorRegistered(bytes validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistrationRequested(bytes validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistered(bytes validatorPubKey, address indexed podOwner);
+    event LSTRestakerRegistered(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event LSTRestakerDeregistrationRequested(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event LSTRestakerDeregistered(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event ValidatorFrozen(bytes validatorPubKey, address indexed podOwner);
+    event ValidatorUnfrozen(bytes validatorPubKey, address indexed podOwner);
     event AVSDirectorySet(address indexed avsDirectory);
     event StrategyManagerSet(address indexed strategyManager);
     event DelegationManagerSet(address indexed delegationManager);
@@ -97,6 +97,10 @@ contract MevCommitAVSTest is Test {
 
         vm.startPrank(owner);
         Upgrades.upgradeProxy(address(mevCommitAVS), "MevCommitAVSV2.sol", "");
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        Upgrades.upgradeProxy(address(mevCommitAVS), "MevCommitAVSV3.sol", "");
         vm.stopPrank();
     }
 
