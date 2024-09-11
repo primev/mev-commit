@@ -198,7 +198,7 @@
         "internalType": "address"
       },
       {
-        "name": "_slashPeriodBlocks",
+        "name": "_slashPeriodSeconds",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -292,9 +292,9 @@
     ],
     "outputs": [
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct TimestampOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -302,7 +302,7 @@
             "internalType": "bool"
           },
           {
-            "name": "blockHeight",
+            "name": "timestamp",
             "type": "uint256",
             "internalType": "uint256"
           }
@@ -566,10 +566,10 @@
   },
   {
     "type": "function",
-    "name": "setSlashPeriodBlocks",
+    "name": "setSlashPeriodSeconds",
     "inputs": [
       {
-        "name": "slashPeriodBlocks_",
+        "name": "slashPeriodSeconds_",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -605,7 +605,7 @@
   },
   {
     "type": "function",
-    "name": "slashPeriodBlocks",
+    "name": "slashPeriodSeconds",
     "inputs": [],
     "outputs": [
       {
@@ -717,9 +717,9 @@
         "internalType": "bool"
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct TimestampOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -727,7 +727,7 @@
             "internalType": "bool"
           },
           {
-            "name": "blockHeight",
+            "name": "timestamp",
             "type": "uint256",
             "internalType": "uint256"
           }
@@ -766,9 +766,9 @@
         "internalType": "bool"
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct TimestampOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -776,7 +776,7 @@
             "internalType": "bool"
           },
           {
-            "name": "blockHeight",
+            "name": "timestamp",
             "type": "uint256",
             "internalType": "uint256"
           }
@@ -973,6 +973,19 @@
   },
   {
     "type": "event",
+    "name": "SlashPeriodSecondsSet",
+    "inputs": [
+      {
+        "name": "slashPeriodSeconds",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -1004,7 +1017,7 @@
       {
         "name": "blsPubkey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1029,7 +1042,7 @@
       {
         "name": "blsPubkey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1048,7 +1061,7 @@
       {
         "name": "blsPubkey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1073,7 +1086,7 @@
       {
         "name": "blsPubkey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1181,27 +1194,6 @@
   },
   {
     "type": "error",
-    "name": "DeregTooSoon",
-    "inputs": [
-      {
-        "name": "subject",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "currentBlock",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "earliestDeregBlock",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1283,12 +1275,12 @@
         "internalType": "address"
       },
       {
-        "name": "vaultEpochDuration",
+        "name": "vaultEpochDurationSec",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "slashPeriodBlocks",
+        "name": "slashPeriodSec",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1430,12 +1422,12 @@
         "internalType": "address"
       },
       {
-        "name": "currentBlock",
+        "name": "currentTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1570,12 +1562,12 @@
         "internalType": "bytes"
       },
       {
-        "name": "currentBlock",
+        "name": "currentTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1672,12 +1664,12 @@
         "internalType": "address"
       },
       {
-        "name": "currentBlock",
+        "name": "currentTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "deregRequestHeight",
+        "name": "deregRequestTimestamp",
         "type": "uint256",
         "internalType": "uint256"
       }

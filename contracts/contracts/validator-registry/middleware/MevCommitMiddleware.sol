@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.26;
 
-import {EventHeightLib} from "../../utils/EventHeight.sol";
+import {TimestampOccurrence} from "../../utils/Occurrence.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -40,7 +40,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         IRegistry _operatorRegistry,
         IRegistry _vaultFactory,
         address _network,
-        uint256 _slashPeriodBlocks,
+        uint256 _slashPeriodSeconds,
         address _slashOracle,
         address _owner
     ) public initializer {
@@ -48,7 +48,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setOperatorRegistry(_operatorRegistry);
         _setVaultFactory(_vaultFactory);
         _setNetwork(_network);
-        _setSlashPeriodBlocks(_slashPeriodBlocks);
+        _setSlashPeriodSeconds(_slashPeriodSeconds);
         _setSlashOracle(_slashOracle);
         __Pausable_init();
         __UUPSUpgradeable_init();
@@ -194,9 +194,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setNetwork(_network);
     }
 
-    /// @dev Sets the slash period in blocks, restricted to contract owner.
-    function setSlashPeriodBlocks(uint256 slashPeriodBlocks_) external onlyOwner {
-        _setSlashPeriodBlocks(slashPeriodBlocks_);
+    /// @dev Sets the slash period in seconds, restricted to contract owner.
+    function setSlashPeriodSeconds(uint256 slashPeriodSeconds_) external onlyOwner {
+        _setSlashPeriodSeconds(slashPeriodSeconds_);
     }
 
     /// @dev Sets the slash oracle, restricted to contract owner.
@@ -227,9 +227,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _setOperatorRecord(address operator) internal {
         operatorRecords[operator] = OperatorRecord({
             exists: true,
-            deregRequestHeight: EventHeightLib.EventHeight({
+            deregRequestOccurrence: TimestampOccurrence.Occurrence({
                 exists: false,
-                blockHeight: 0
+                timestamp: 0
             }),
             isBlacklisted: false
         });
@@ -245,15 +245,15 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _requestOperatorDeregistration(address operator) internal {
         require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
         require(!operatorRecords[operator].isBlacklisted, OperatorIsBlacklisted(operator));
-        require(!operatorRecords[operator].deregRequestHeight.exists, OperatorDeregRequestExists(operator));
-        EventHeightLib.set(operatorRecords[operator].deregRequestHeight, block.number);
+        require(!operatorRecords[operator].deregRequestOccurrence.exists, OperatorDeregRequestExists(operator));
+        TimestampOccurrence.captureOccurrence(operatorRecords[operator].deregRequestOccurrence);
         emit OperatorDeregistrationRequested(operator);
     }
 
     function _deregisterOperator(address operator) internal {
         require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
         require(_isOperatorReadyToDeregister(operator), OperatorNotReadyToDeregister(
-            operator, block.number, operatorRecords[operator].deregRequestHeight.blockHeight));
+            operator, block.timestamp, operatorRecords[operator].deregRequestOccurrence.timestamp));
         require(!operatorRecords[operator].isBlacklisted, OperatorIsBlacklisted(operator));
         delete operatorRecords[operator];
         emit OperatorDeregistered(operator);
@@ -271,9 +271,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _setVaultRecord(address vault, uint256 slashAmount) internal {
         vaultRecords[vault] = VaultRecord({
             exists: true,
-            deregRequestHeight: EventHeightLib.EventHeight({
+            deregRequestOccurrence: TimestampOccurrence.Occurrence({
                 exists: false,
-                blockHeight: 0
+                timestamp: 0
             }),
             slashAmount: slashAmount
         });
@@ -285,9 +285,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
 
         IVaultStorage vaultContract = IVaultStorage(vault);
-        uint256 vaultEpochDuration = vaultContract.epochDuration();
-        require(vaultEpochDuration > slashPeriodBlocks,
-            InvalidVaultEpochDuration(vault, vaultEpochDuration, slashPeriodBlocks));
+        uint256 vaultEpochDurationSeconds = vaultContract.epochDuration();
+        require(vaultEpochDurationSeconds > slashPeriodSeconds,
+            InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
         
         IEntity delegator = IEntity(IVault(vault).delegator());
         if (delegator.TYPE() == FULL_RESTAKE_DELEGATOR_TYPE) {
@@ -318,15 +318,15 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function _requestVaultDeregistration(address vault) internal {
         require(vaultRecords[vault].exists, VaultNotRegistered(vault));
-        require(!vaultRecords[vault].deregRequestHeight.exists, VaultDeregRequestExists(vault));
-        EventHeightLib.set(vaultRecords[vault].deregRequestHeight, block.number);
+        require(!vaultRecords[vault].deregRequestOccurrence.exists, VaultDeregRequestExists(vault));
+        TimestampOccurrence.captureOccurrence(vaultRecords[vault].deregRequestOccurrence);
         emit VaultDeregistrationRequested(vault);
     }
 
     function _deregisterVault(address vault) internal {
         require(vaultRecords[vault].exists, VaultNotRegistered(vault));
-        require(_isVaultReadyToDeregister(vault), VaultNotReadyToDeregister(vault, block.number,
-            vaultRecords[vault].deregRequestHeight.blockHeight));
+        require(_isVaultReadyToDeregister(vault), VaultNotReadyToDeregister(vault, block.timestamp,
+            vaultRecords[vault].deregRequestOccurrence.timestamp));
         delete vaultRecords[vault];
         emit VaultDeregistered(vault);
     }
@@ -334,9 +334,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _setValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
         validatorRecords[blsPubkey] = ValidatorRecord({
             exists: true,
-            deregRequestHeight: EventHeightLib.EventHeight({
+            deregRequestOccurrence: TimestampOccurrence.Occurrence({
                 exists: false,
-                blockHeight: 0
+                timestamp: 0
             }),
             vault: vault,
             operator: operator
@@ -356,7 +356,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (msg.sender != owner()) {
             _checkCallingOperator(validatorRecords[blsPubkey].operator);
         }
-        EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
+        TimestampOccurrence.captureOccurrence(validatorRecords[blsPubkey].deregRequestOccurrence);
         uint256 position = _getPositionInValset(blsPubkey, validatorRecords[blsPubkey].vault,
             validatorRecords[blsPubkey].operator);
         emit ValidatorDeregistrationRequested(blsPubkey, msg.sender, position);
@@ -365,7 +365,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _deregisterValidator(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
         require(_isValidatorReadyToDeregister(blsPubkey), ValidatorNotReadyToDeregister(
-            blsPubkey, block.number, validatorRecords[blsPubkey].deregRequestHeight.blockHeight));
+            blsPubkey, block.timestamp, validatorRecords[blsPubkey].deregRequestOccurrence.timestamp));
         if (msg.sender != owner()) {
             _checkCallingOperator(validatorRecords[blsPubkey].operator);
         }
@@ -389,8 +389,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         ISlasher(IVault(vault).slasher()).slash(
             _getSubnetwork(), operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
 
-        // Set dereg request height so validator is no longer opted-in.
-        EventHeightLib.set(validatorRecords[blsPubkey].deregRequestHeight, block.number);
+        // Capture dereg request occurence to mark validator as no longer opted-in.
+        TimestampOccurrence.captureOccurrence(validatorRecords[blsPubkey].deregRequestOccurrence);
 
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         emit ValidatorSlashed(blsPubkey, operator, position);
@@ -423,10 +423,10 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit NetworkSet(_network);
     }
 
-    /// @dev Internal function to set the slash period in blocks.
-    function _setSlashPeriodBlocks(uint256 slashPeriodBlocks_) internal {
-        slashPeriodBlocks = slashPeriodBlocks_;
-        emit SlashPeriodBlocksSet(slashPeriodBlocks_);
+    /// @dev Internal function to set the slash period in seconds.
+    function _setSlashPeriodSeconds(uint256 slashPeriodSeconds_) internal {
+        slashPeriodSeconds = slashPeriodSeconds_;
+        emit SlashPeriodSecondsSet(slashPeriodSeconds_);
     }
 
     /// @dev Internal function to set the slash oracle.
@@ -442,7 +442,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _checkOperator(address operator) internal view {
         require(operatorRegistry.isEntity(operator), OperatorNotEntity(operator));
         require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
-        require(!operatorRecords[operator].deregRequestHeight.exists, OperatorDeregRequestExists(operator));
+        require(!operatorRecords[operator].deregRequestOccurrence.exists, OperatorDeregRequestExists(operator));
         require(!operatorRecords[operator].isBlacklisted, OperatorIsBlacklisted(operator));
     }
 
@@ -454,7 +454,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _checkVault(address vault) internal view {
         require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
         require(vaultRecords[vault].exists, VaultNotRegistered(vault));
-        require(!vaultRecords[vault].deregRequestHeight.exists, VaultDeregRequestExists(vault));
+        require(!vaultRecords[vault].deregRequestOccurrence.exists, VaultDeregRequestExists(vault));
     }
 
     function _getPositionInValset(bytes calldata blsPubkey,
@@ -463,18 +463,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _isValidatorReadyToDeregister(bytes calldata blsPubkey) internal view returns (bool) {
-        return validatorRecords[blsPubkey].deregRequestHeight.exists && 
-            block.number > slashPeriodBlocks + validatorRecords[blsPubkey].deregRequestHeight.blockHeight;
+        return validatorRecords[blsPubkey].deregRequestOccurrence.exists && 
+            block.timestamp > slashPeriodSeconds + validatorRecords[blsPubkey].deregRequestOccurrence.timestamp;
     }
 
     function _isOperatorReadyToDeregister(address operator) internal view returns (bool) {
-        return operatorRecords[operator].deregRequestHeight.exists && 
-            block.number > slashPeriodBlocks + operatorRecords[operator].deregRequestHeight.blockHeight;
+        return operatorRecords[operator].deregRequestOccurrence.exists && 
+            block.timestamp > slashPeriodSeconds + operatorRecords[operator].deregRequestOccurrence.timestamp;
     }
 
     function _isVaultReadyToDeregister(address vault) internal view returns (bool) {
-        return vaultRecords[vault].deregRequestHeight.exists && 
-            block.number > slashPeriodBlocks + vaultRecords[vault].deregRequestHeight.blockHeight;
+        return vaultRecords[vault].deregRequestOccurrence.exists && 
+            block.timestamp > slashPeriodSeconds + vaultRecords[vault].deregRequestOccurrence.timestamp;
     }
 
     function _getSubnetwork() internal view returns (bytes32) {
@@ -514,13 +514,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (!validatorRecords[blsPubkey].exists) {
             return false;
         }
-        if (validatorRecords[blsPubkey].deregRequestHeight.exists) {
+        if (validatorRecords[blsPubkey].deregRequestOccurrence.exists) {
             return false;
         }
         if (!vaultRecords[validatorRecords[blsPubkey].vault].exists) {
             return false;
         }
-        if (vaultRecords[validatorRecords[blsPubkey].vault].deregRequestHeight.exists) {
+        if (vaultRecords[validatorRecords[blsPubkey].vault].deregRequestOccurrence.exists) {
             return false;
         }
         if (!vaultFactory.isEntity(validatorRecords[blsPubkey].vault)) {
@@ -530,7 +530,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (!operatorRecords[operator].exists) {
             return false;
         }
-        if (operatorRecords[operator].deregRequestHeight.exists) {
+        if (operatorRecords[operator].deregRequestOccurrence.exists) {
             return false;
         }
         if (operatorRecords[operator].isBlacklisted) {

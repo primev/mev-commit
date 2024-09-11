@@ -29,15 +29,15 @@ var (
 	_ = abi.ConvertType
 )
 
-// EventHeightLibEventHeight is an auto generated low-level Go binding around an user-defined struct.
-type EventHeightLibEventHeight struct {
-	Exists      bool
-	BlockHeight *big.Int
+// TimestampOccurrenceOccurrence is an auto generated low-level Go binding around an user-defined struct.
+type TimestampOccurrenceOccurrence struct {
+	Exists    bool
+	Timestamp *big.Int
 }
 
 // MevcommitmiddlewareMetaData contains all meta data concerning the Mevcommitmiddleware contract.
 var MevcommitmiddlewareMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"FULL_RESTAKE_DELEGATOR_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"INSTANT_SLASHER_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"NETWORK_RESTAKE_DELEGATOR_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUBNETWORK_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint96\",\"internalType\":\"uint96\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VETO_SLASHER_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"allValidatorsAreSlashable\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blacklistOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_slashPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorSlashable\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"network\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"networkRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRecords\",\"inputs\":[{\"name\":\"operatorAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"deregRequestHeight\",\"type\":\"tuple\",\"internalType\":\"structEventHeightLib.EventHeight\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"isBlacklisted\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"potentialSlashableValidators\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[][]\",\"internalType\":\"bytes[][]\"},{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestOperatorDeregistrations\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestValDeregistrations\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestVaultDeregistrations\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetwork\",\"inputs\":[{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetworkRegistry\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOperatorRegistry\",\"inputs\":[{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashOracle\",\"inputs\":[{\"name\":\"slashOracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashPeriodBlocks\",\"inputs\":[{\"name\":\"slashPeriodBlocks_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setVaultFactory\",\"inputs\":[{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashPeriodBlocks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"infractionTimestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateSlashAmounts\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"validatorRecords\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestHeight\",\"type\":\"tuple\",\"internalType\":\"structEventHeightLib.EventHeight\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultFactory\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultRecords\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestHeight\",\"type\":\"tuple\",\"internalType\":\"structEventHeightLib.EventHeight\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkRegistrySet\",\"inputs\":[{\"name\":\"networkRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkSet\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistrationRequested\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistrySet\",\"inputs\":[{\"name\":\"operatorRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashOracleSet\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashPeriodBlocksSet\",\"inputs\":[{\"name\":\"slashPeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordAdded\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordDeleted\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistrationRequested\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorSlashed\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":true,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistrationRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultFactorySet\",\"inputs\":[{\"name\":\"vaultFactory\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultSlashAmountUpdated\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"DeregTooSoon\",\"inputs\":[{\"name\":\"subject\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"earliestDeregBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FullRestakeDelegatorNotSupported\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InvalidArrayLengths\",\"inputs\":[{\"name\":\"expectedLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actualLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidVaultEpochDuration\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultEpochDuration\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"slashPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"MissingValRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingValidatorRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingVaultRecord\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NetworkNotEntity\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OnlyOperator\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OnlySlashOracle\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorDeregRequestExists\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorIsBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotEntity\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"OperatorNotRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SafeCastOverflowedUintDowncast\",\"inputs\":[{\"name\":\"bits\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"SlashAmountMustBeNonZero\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SlasherNotSetForVault\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnknownDelegatorType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"delegatorType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UnknownSlasherType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"slasherType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"currentBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordAlreadyExists\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorsNotSlashable\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"numRequested\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"potentialSlashableVals\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultAlreadyRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregNotRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregRequestExists\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotEntity\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotReadyToDeregister\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultNotRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VetoSlasherNotSupported\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ZeroAddressNotAllowed\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"FULL_RESTAKE_DELEGATOR_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"INSTANT_SLASHER_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"NETWORK_RESTAKE_DELEGATOR_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUBNETWORK_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint96\",\"internalType\":\"uint96\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VETO_SLASHER_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"allValidatorsAreSlashable\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blacklistOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_slashPeriodSeconds\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorSlashable\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"network\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"networkRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRecords\",\"inputs\":[{\"name\":\"operatorAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"isBlacklisted\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"potentialSlashableValidators\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[][]\",\"internalType\":\"bytes[][]\"},{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestOperatorDeregistrations\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestValDeregistrations\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestVaultDeregistrations\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetwork\",\"inputs\":[{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetworkRegistry\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOperatorRegistry\",\"inputs\":[{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashOracle\",\"inputs\":[{\"name\":\"slashOracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashPeriodSeconds\",\"inputs\":[{\"name\":\"slashPeriodSeconds_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setVaultFactory\",\"inputs\":[{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashPeriodSeconds\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"infractionTimestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateSlashAmounts\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"validatorRecords\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultFactory\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultRecords\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkRegistrySet\",\"inputs\":[{\"name\":\"networkRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkSet\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistrationRequested\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistrySet\",\"inputs\":[{\"name\":\"operatorRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashOracleSet\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashPeriodBlocksSet\",\"inputs\":[{\"name\":\"slashPeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashPeriodSecondsSet\",\"inputs\":[{\"name\":\"slashPeriodSeconds\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordAdded\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordDeleted\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistrationRequested\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorSlashed\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistrationRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultFactorySet\",\"inputs\":[{\"name\":\"vaultFactory\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultSlashAmountUpdated\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FullRestakeDelegatorNotSupported\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InvalidArrayLengths\",\"inputs\":[{\"name\":\"expectedLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actualLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidVaultEpochDuration\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultEpochDurationSec\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"slashPeriodSec\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"MissingValRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingValidatorRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingVaultRecord\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NetworkNotEntity\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OnlyOperator\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OnlySlashOracle\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorDeregRequestExists\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorIsBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotEntity\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"OperatorNotRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SafeCastOverflowedUintDowncast\",\"inputs\":[{\"name\":\"bits\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"SlashAmountMustBeNonZero\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SlasherNotSetForVault\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnknownDelegatorType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"delegatorType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UnknownSlasherType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"slasherType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordAlreadyExists\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorsNotSlashable\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"numRequested\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"potentialSlashableVals\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultAlreadyRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregNotRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregRequestExists\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotEntity\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotReadyToDeregister\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultNotRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VetoSlasherNotSupported\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ZeroAddressNotAllowed\",\"inputs\":[]}]",
 }
 
 // MevcommitmiddlewareABI is the input ABI used to generate the binding from.
@@ -529,25 +529,25 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) NetworkRegistry() 
 
 // OperatorRecords is a free data retrieval call binding the contract method 0xd0b8643f.
 //
-// Solidity: function operatorRecords(address operatorAddress) view returns((bool,uint256) deregRequestHeight, bool exists, bool isBlacklisted)
+// Solidity: function operatorRecords(address operatorAddress) view returns((bool,uint256) deregRequestOccurrence, bool exists, bool isBlacklisted)
 func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) OperatorRecords(opts *bind.CallOpts, operatorAddress common.Address) (struct {
-	DeregRequestHeight EventHeightLibEventHeight
-	Exists             bool
-	IsBlacklisted      bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
+	Exists                 bool
+	IsBlacklisted          bool
 }, error) {
 	var out []interface{}
 	err := _Mevcommitmiddleware.contract.Call(opts, &out, "operatorRecords", operatorAddress)
 
 	outstruct := new(struct {
-		DeregRequestHeight EventHeightLibEventHeight
-		Exists             bool
-		IsBlacklisted      bool
+		DeregRequestOccurrence TimestampOccurrenceOccurrence
+		Exists                 bool
+		IsBlacklisted          bool
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
-	outstruct.DeregRequestHeight = *abi.ConvertType(out[0], new(EventHeightLibEventHeight)).(*EventHeightLibEventHeight)
+	outstruct.DeregRequestOccurrence = *abi.ConvertType(out[0], new(TimestampOccurrenceOccurrence)).(*TimestampOccurrenceOccurrence)
 	outstruct.Exists = *abi.ConvertType(out[1], new(bool)).(*bool)
 	outstruct.IsBlacklisted = *abi.ConvertType(out[2], new(bool)).(*bool)
 
@@ -557,22 +557,22 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) OperatorRecords(opts *bin
 
 // OperatorRecords is a free data retrieval call binding the contract method 0xd0b8643f.
 //
-// Solidity: function operatorRecords(address operatorAddress) view returns((bool,uint256) deregRequestHeight, bool exists, bool isBlacklisted)
+// Solidity: function operatorRecords(address operatorAddress) view returns((bool,uint256) deregRequestOccurrence, bool exists, bool isBlacklisted)
 func (_Mevcommitmiddleware *MevcommitmiddlewareSession) OperatorRecords(operatorAddress common.Address) (struct {
-	DeregRequestHeight EventHeightLibEventHeight
-	Exists             bool
-	IsBlacklisted      bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
+	Exists                 bool
+	IsBlacklisted          bool
 }, error) {
 	return _Mevcommitmiddleware.Contract.OperatorRecords(&_Mevcommitmiddleware.CallOpts, operatorAddress)
 }
 
 // OperatorRecords is a free data retrieval call binding the contract method 0xd0b8643f.
 //
-// Solidity: function operatorRecords(address operatorAddress) view returns((bool,uint256) deregRequestHeight, bool exists, bool isBlacklisted)
+// Solidity: function operatorRecords(address operatorAddress) view returns((bool,uint256) deregRequestOccurrence, bool exists, bool isBlacklisted)
 func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) OperatorRecords(operatorAddress common.Address) (struct {
-	DeregRequestHeight EventHeightLibEventHeight
-	Exists             bool
-	IsBlacklisted      bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
+	Exists                 bool
+	IsBlacklisted          bool
 }, error) {
 	return _Mevcommitmiddleware.Contract.OperatorRecords(&_Mevcommitmiddleware.CallOpts, operatorAddress)
 }
@@ -794,12 +794,12 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) SlashOracle() (com
 	return _Mevcommitmiddleware.Contract.SlashOracle(&_Mevcommitmiddleware.CallOpts)
 }
 
-// SlashPeriodBlocks is a free data retrieval call binding the contract method 0x8253747c.
+// SlashPeriodSeconds is a free data retrieval call binding the contract method 0x61793ef9.
 //
-// Solidity: function slashPeriodBlocks() view returns(uint256)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) SlashPeriodBlocks(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function slashPeriodSeconds() view returns(uint256)
+func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) SlashPeriodSeconds(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _Mevcommitmiddleware.contract.Call(opts, &out, "slashPeriodBlocks")
+	err := _Mevcommitmiddleware.contract.Call(opts, &out, "slashPeriodSeconds")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -811,37 +811,37 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) SlashPeriodBlocks(opts *b
 
 }
 
-// SlashPeriodBlocks is a free data retrieval call binding the contract method 0x8253747c.
+// SlashPeriodSeconds is a free data retrieval call binding the contract method 0x61793ef9.
 //
-// Solidity: function slashPeriodBlocks() view returns(uint256)
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) SlashPeriodBlocks() (*big.Int, error) {
-	return _Mevcommitmiddleware.Contract.SlashPeriodBlocks(&_Mevcommitmiddleware.CallOpts)
+// Solidity: function slashPeriodSeconds() view returns(uint256)
+func (_Mevcommitmiddleware *MevcommitmiddlewareSession) SlashPeriodSeconds() (*big.Int, error) {
+	return _Mevcommitmiddleware.Contract.SlashPeriodSeconds(&_Mevcommitmiddleware.CallOpts)
 }
 
-// SlashPeriodBlocks is a free data retrieval call binding the contract method 0x8253747c.
+// SlashPeriodSeconds is a free data retrieval call binding the contract method 0x61793ef9.
 //
-// Solidity: function slashPeriodBlocks() view returns(uint256)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) SlashPeriodBlocks() (*big.Int, error) {
-	return _Mevcommitmiddleware.Contract.SlashPeriodBlocks(&_Mevcommitmiddleware.CallOpts)
+// Solidity: function slashPeriodSeconds() view returns(uint256)
+func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) SlashPeriodSeconds() (*big.Int, error) {
+	return _Mevcommitmiddleware.Contract.SlashPeriodSeconds(&_Mevcommitmiddleware.CallOpts)
 }
 
 // ValidatorRecords is a free data retrieval call binding the contract method 0x052bbca0.
 //
-// Solidity: function validatorRecords(bytes blsPubkey) view returns(address vault, address operator, bool exists, (bool,uint256) deregRequestHeight)
+// Solidity: function validatorRecords(bytes blsPubkey) view returns(address vault, address operator, bool exists, (bool,uint256) deregRequestOccurrence)
 func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) ValidatorRecords(opts *bind.CallOpts, blsPubkey []byte) (struct {
-	Vault              common.Address
-	Operator           common.Address
-	Exists             bool
-	DeregRequestHeight EventHeightLibEventHeight
+	Vault                  common.Address
+	Operator               common.Address
+	Exists                 bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
 }, error) {
 	var out []interface{}
 	err := _Mevcommitmiddleware.contract.Call(opts, &out, "validatorRecords", blsPubkey)
 
 	outstruct := new(struct {
-		Vault              common.Address
-		Operator           common.Address
-		Exists             bool
-		DeregRequestHeight EventHeightLibEventHeight
+		Vault                  common.Address
+		Operator               common.Address
+		Exists                 bool
+		DeregRequestOccurrence TimestampOccurrenceOccurrence
 	})
 	if err != nil {
 		return *outstruct, err
@@ -850,7 +850,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) ValidatorRecords(opts *bi
 	outstruct.Vault = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 	outstruct.Operator = *abi.ConvertType(out[1], new(common.Address)).(*common.Address)
 	outstruct.Exists = *abi.ConvertType(out[2], new(bool)).(*bool)
-	outstruct.DeregRequestHeight = *abi.ConvertType(out[3], new(EventHeightLibEventHeight)).(*EventHeightLibEventHeight)
+	outstruct.DeregRequestOccurrence = *abi.ConvertType(out[3], new(TimestampOccurrenceOccurrence)).(*TimestampOccurrenceOccurrence)
 
 	return *outstruct, err
 
@@ -858,24 +858,24 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) ValidatorRecords(opts *bi
 
 // ValidatorRecords is a free data retrieval call binding the contract method 0x052bbca0.
 //
-// Solidity: function validatorRecords(bytes blsPubkey) view returns(address vault, address operator, bool exists, (bool,uint256) deregRequestHeight)
+// Solidity: function validatorRecords(bytes blsPubkey) view returns(address vault, address operator, bool exists, (bool,uint256) deregRequestOccurrence)
 func (_Mevcommitmiddleware *MevcommitmiddlewareSession) ValidatorRecords(blsPubkey []byte) (struct {
-	Vault              common.Address
-	Operator           common.Address
-	Exists             bool
-	DeregRequestHeight EventHeightLibEventHeight
+	Vault                  common.Address
+	Operator               common.Address
+	Exists                 bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
 }, error) {
 	return _Mevcommitmiddleware.Contract.ValidatorRecords(&_Mevcommitmiddleware.CallOpts, blsPubkey)
 }
 
 // ValidatorRecords is a free data retrieval call binding the contract method 0x052bbca0.
 //
-// Solidity: function validatorRecords(bytes blsPubkey) view returns(address vault, address operator, bool exists, (bool,uint256) deregRequestHeight)
+// Solidity: function validatorRecords(bytes blsPubkey) view returns(address vault, address operator, bool exists, (bool,uint256) deregRequestOccurrence)
 func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) ValidatorRecords(blsPubkey []byte) (struct {
-	Vault              common.Address
-	Operator           common.Address
-	Exists             bool
-	DeregRequestHeight EventHeightLibEventHeight
+	Vault                  common.Address
+	Operator               common.Address
+	Exists                 bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
 }, error) {
 	return _Mevcommitmiddleware.Contract.ValidatorRecords(&_Mevcommitmiddleware.CallOpts, blsPubkey)
 }
@@ -913,26 +913,26 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) VaultFactory() (co
 
 // VaultRecords is a free data retrieval call binding the contract method 0xdef52ca5.
 //
-// Solidity: function vaultRecords(address vaultAddress) view returns(bool exists, (bool,uint256) deregRequestHeight, uint256 slashAmount)
+// Solidity: function vaultRecords(address vaultAddress) view returns(bool exists, (bool,uint256) deregRequestOccurrence, uint256 slashAmount)
 func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) VaultRecords(opts *bind.CallOpts, vaultAddress common.Address) (struct {
-	Exists             bool
-	DeregRequestHeight EventHeightLibEventHeight
-	SlashAmount        *big.Int
+	Exists                 bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
+	SlashAmount            *big.Int
 }, error) {
 	var out []interface{}
 	err := _Mevcommitmiddleware.contract.Call(opts, &out, "vaultRecords", vaultAddress)
 
 	outstruct := new(struct {
-		Exists             bool
-		DeregRequestHeight EventHeightLibEventHeight
-		SlashAmount        *big.Int
+		Exists                 bool
+		DeregRequestOccurrence TimestampOccurrenceOccurrence
+		SlashAmount            *big.Int
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
 	outstruct.Exists = *abi.ConvertType(out[0], new(bool)).(*bool)
-	outstruct.DeregRequestHeight = *abi.ConvertType(out[1], new(EventHeightLibEventHeight)).(*EventHeightLibEventHeight)
+	outstruct.DeregRequestOccurrence = *abi.ConvertType(out[1], new(TimestampOccurrenceOccurrence)).(*TimestampOccurrenceOccurrence)
 	outstruct.SlashAmount = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
@@ -941,22 +941,22 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) VaultRecords(opts *bind.C
 
 // VaultRecords is a free data retrieval call binding the contract method 0xdef52ca5.
 //
-// Solidity: function vaultRecords(address vaultAddress) view returns(bool exists, (bool,uint256) deregRequestHeight, uint256 slashAmount)
+// Solidity: function vaultRecords(address vaultAddress) view returns(bool exists, (bool,uint256) deregRequestOccurrence, uint256 slashAmount)
 func (_Mevcommitmiddleware *MevcommitmiddlewareSession) VaultRecords(vaultAddress common.Address) (struct {
-	Exists             bool
-	DeregRequestHeight EventHeightLibEventHeight
-	SlashAmount        *big.Int
+	Exists                 bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
+	SlashAmount            *big.Int
 }, error) {
 	return _Mevcommitmiddleware.Contract.VaultRecords(&_Mevcommitmiddleware.CallOpts, vaultAddress)
 }
 
 // VaultRecords is a free data retrieval call binding the contract method 0xdef52ca5.
 //
-// Solidity: function vaultRecords(address vaultAddress) view returns(bool exists, (bool,uint256) deregRequestHeight, uint256 slashAmount)
+// Solidity: function vaultRecords(address vaultAddress) view returns(bool exists, (bool,uint256) deregRequestOccurrence, uint256 slashAmount)
 func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) VaultRecords(vaultAddress common.Address) (struct {
-	Exists             bool
-	DeregRequestHeight EventHeightLibEventHeight
-	SlashAmount        *big.Int
+	Exists                 bool
+	DeregRequestOccurrence TimestampOccurrenceOccurrence
+	SlashAmount            *big.Int
 }, error) {
 	return _Mevcommitmiddleware.Contract.VaultRecords(&_Mevcommitmiddleware.CallOpts, vaultAddress)
 }
@@ -1068,23 +1068,23 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareTransactorSession) DeregisterVaul
 
 // Initialize is a paid mutator transaction binding the contract method 0x0eaf43f2.
 //
-// Solidity: function initialize(address _networkRegistry, address _operatorRegistry, address _vaultFactory, address _network, uint256 _slashPeriodBlocks, address _slashOracle, address _owner) returns()
-func (_Mevcommitmiddleware *MevcommitmiddlewareTransactor) Initialize(opts *bind.TransactOpts, _networkRegistry common.Address, _operatorRegistry common.Address, _vaultFactory common.Address, _network common.Address, _slashPeriodBlocks *big.Int, _slashOracle common.Address, _owner common.Address) (*types.Transaction, error) {
-	return _Mevcommitmiddleware.contract.Transact(opts, "initialize", _networkRegistry, _operatorRegistry, _vaultFactory, _network, _slashPeriodBlocks, _slashOracle, _owner)
+// Solidity: function initialize(address _networkRegistry, address _operatorRegistry, address _vaultFactory, address _network, uint256 _slashPeriodSeconds, address _slashOracle, address _owner) returns()
+func (_Mevcommitmiddleware *MevcommitmiddlewareTransactor) Initialize(opts *bind.TransactOpts, _networkRegistry common.Address, _operatorRegistry common.Address, _vaultFactory common.Address, _network common.Address, _slashPeriodSeconds *big.Int, _slashOracle common.Address, _owner common.Address) (*types.Transaction, error) {
+	return _Mevcommitmiddleware.contract.Transact(opts, "initialize", _networkRegistry, _operatorRegistry, _vaultFactory, _network, _slashPeriodSeconds, _slashOracle, _owner)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0x0eaf43f2.
 //
-// Solidity: function initialize(address _networkRegistry, address _operatorRegistry, address _vaultFactory, address _network, uint256 _slashPeriodBlocks, address _slashOracle, address _owner) returns()
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) Initialize(_networkRegistry common.Address, _operatorRegistry common.Address, _vaultFactory common.Address, _network common.Address, _slashPeriodBlocks *big.Int, _slashOracle common.Address, _owner common.Address) (*types.Transaction, error) {
-	return _Mevcommitmiddleware.Contract.Initialize(&_Mevcommitmiddleware.TransactOpts, _networkRegistry, _operatorRegistry, _vaultFactory, _network, _slashPeriodBlocks, _slashOracle, _owner)
+// Solidity: function initialize(address _networkRegistry, address _operatorRegistry, address _vaultFactory, address _network, uint256 _slashPeriodSeconds, address _slashOracle, address _owner) returns()
+func (_Mevcommitmiddleware *MevcommitmiddlewareSession) Initialize(_networkRegistry common.Address, _operatorRegistry common.Address, _vaultFactory common.Address, _network common.Address, _slashPeriodSeconds *big.Int, _slashOracle common.Address, _owner common.Address) (*types.Transaction, error) {
+	return _Mevcommitmiddleware.Contract.Initialize(&_Mevcommitmiddleware.TransactOpts, _networkRegistry, _operatorRegistry, _vaultFactory, _network, _slashPeriodSeconds, _slashOracle, _owner)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0x0eaf43f2.
 //
-// Solidity: function initialize(address _networkRegistry, address _operatorRegistry, address _vaultFactory, address _network, uint256 _slashPeriodBlocks, address _slashOracle, address _owner) returns()
-func (_Mevcommitmiddleware *MevcommitmiddlewareTransactorSession) Initialize(_networkRegistry common.Address, _operatorRegistry common.Address, _vaultFactory common.Address, _network common.Address, _slashPeriodBlocks *big.Int, _slashOracle common.Address, _owner common.Address) (*types.Transaction, error) {
-	return _Mevcommitmiddleware.Contract.Initialize(&_Mevcommitmiddleware.TransactOpts, _networkRegistry, _operatorRegistry, _vaultFactory, _network, _slashPeriodBlocks, _slashOracle, _owner)
+// Solidity: function initialize(address _networkRegistry, address _operatorRegistry, address _vaultFactory, address _network, uint256 _slashPeriodSeconds, address _slashOracle, address _owner) returns()
+func (_Mevcommitmiddleware *MevcommitmiddlewareTransactorSession) Initialize(_networkRegistry common.Address, _operatorRegistry common.Address, _vaultFactory common.Address, _network common.Address, _slashPeriodSeconds *big.Int, _slashOracle common.Address, _owner common.Address) (*types.Transaction, error) {
+	return _Mevcommitmiddleware.Contract.Initialize(&_Mevcommitmiddleware.TransactOpts, _networkRegistry, _operatorRegistry, _vaultFactory, _network, _slashPeriodSeconds, _slashOracle, _owner)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -1339,25 +1339,25 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareTransactorSession) SetSlashOracle
 	return _Mevcommitmiddleware.Contract.SetSlashOracle(&_Mevcommitmiddleware.TransactOpts, slashOracle_)
 }
 
-// SetSlashPeriodBlocks is a paid mutator transaction binding the contract method 0x9a948635.
+// SetSlashPeriodSeconds is a paid mutator transaction binding the contract method 0x0dd92a24.
 //
-// Solidity: function setSlashPeriodBlocks(uint256 slashPeriodBlocks_) returns()
-func (_Mevcommitmiddleware *MevcommitmiddlewareTransactor) SetSlashPeriodBlocks(opts *bind.TransactOpts, slashPeriodBlocks_ *big.Int) (*types.Transaction, error) {
-	return _Mevcommitmiddleware.contract.Transact(opts, "setSlashPeriodBlocks", slashPeriodBlocks_)
+// Solidity: function setSlashPeriodSeconds(uint256 slashPeriodSeconds_) returns()
+func (_Mevcommitmiddleware *MevcommitmiddlewareTransactor) SetSlashPeriodSeconds(opts *bind.TransactOpts, slashPeriodSeconds_ *big.Int) (*types.Transaction, error) {
+	return _Mevcommitmiddleware.contract.Transact(opts, "setSlashPeriodSeconds", slashPeriodSeconds_)
 }
 
-// SetSlashPeriodBlocks is a paid mutator transaction binding the contract method 0x9a948635.
+// SetSlashPeriodSeconds is a paid mutator transaction binding the contract method 0x0dd92a24.
 //
-// Solidity: function setSlashPeriodBlocks(uint256 slashPeriodBlocks_) returns()
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) SetSlashPeriodBlocks(slashPeriodBlocks_ *big.Int) (*types.Transaction, error) {
-	return _Mevcommitmiddleware.Contract.SetSlashPeriodBlocks(&_Mevcommitmiddleware.TransactOpts, slashPeriodBlocks_)
+// Solidity: function setSlashPeriodSeconds(uint256 slashPeriodSeconds_) returns()
+func (_Mevcommitmiddleware *MevcommitmiddlewareSession) SetSlashPeriodSeconds(slashPeriodSeconds_ *big.Int) (*types.Transaction, error) {
+	return _Mevcommitmiddleware.Contract.SetSlashPeriodSeconds(&_Mevcommitmiddleware.TransactOpts, slashPeriodSeconds_)
 }
 
-// SetSlashPeriodBlocks is a paid mutator transaction binding the contract method 0x9a948635.
+// SetSlashPeriodSeconds is a paid mutator transaction binding the contract method 0x0dd92a24.
 //
-// Solidity: function setSlashPeriodBlocks(uint256 slashPeriodBlocks_) returns()
-func (_Mevcommitmiddleware *MevcommitmiddlewareTransactorSession) SetSlashPeriodBlocks(slashPeriodBlocks_ *big.Int) (*types.Transaction, error) {
-	return _Mevcommitmiddleware.Contract.SetSlashPeriodBlocks(&_Mevcommitmiddleware.TransactOpts, slashPeriodBlocks_)
+// Solidity: function setSlashPeriodSeconds(uint256 slashPeriodSeconds_) returns()
+func (_Mevcommitmiddleware *MevcommitmiddlewareTransactorSession) SetSlashPeriodSeconds(slashPeriodSeconds_ *big.Int) (*types.Transaction, error) {
+	return _Mevcommitmiddleware.Contract.SetSlashPeriodSeconds(&_Mevcommitmiddleware.TransactOpts, slashPeriodSeconds_)
 }
 
 // SetVaultFactory is a paid mutator transaction binding the contract method 0x3ea7fbdb.
@@ -3348,6 +3348,140 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseSlashPeriodBlocksS
 	return event, nil
 }
 
+// MevcommitmiddlewareSlashPeriodSecondsSetIterator is returned from FilterSlashPeriodSecondsSet and is used to iterate over the raw logs and unpacked data for SlashPeriodSecondsSet events raised by the Mevcommitmiddleware contract.
+type MevcommitmiddlewareSlashPeriodSecondsSetIterator struct {
+	Event *MevcommitmiddlewareSlashPeriodSecondsSet // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *MevcommitmiddlewareSlashPeriodSecondsSetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(MevcommitmiddlewareSlashPeriodSecondsSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(MevcommitmiddlewareSlashPeriodSecondsSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *MevcommitmiddlewareSlashPeriodSecondsSetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *MevcommitmiddlewareSlashPeriodSecondsSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// MevcommitmiddlewareSlashPeriodSecondsSet represents a SlashPeriodSecondsSet event raised by the Mevcommitmiddleware contract.
+type MevcommitmiddlewareSlashPeriodSecondsSet struct {
+	SlashPeriodSeconds *big.Int
+	Raw                types.Log // Blockchain specific contextual infos
+}
+
+// FilterSlashPeriodSecondsSet is a free log retrieval operation binding the contract event 0xac5cea39ce565630c66a23d9bc870dea5693cdf6971096bf680ebaa05a4fbbc2.
+//
+// Solidity: event SlashPeriodSecondsSet(uint256 slashPeriodSeconds)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterSlashPeriodSecondsSet(opts *bind.FilterOpts) (*MevcommitmiddlewareSlashPeriodSecondsSetIterator, error) {
+
+	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "SlashPeriodSecondsSet")
+	if err != nil {
+		return nil, err
+	}
+	return &MevcommitmiddlewareSlashPeriodSecondsSetIterator{contract: _Mevcommitmiddleware.contract, event: "SlashPeriodSecondsSet", logs: logs, sub: sub}, nil
+}
+
+// WatchSlashPeriodSecondsSet is a free log subscription operation binding the contract event 0xac5cea39ce565630c66a23d9bc870dea5693cdf6971096bf680ebaa05a4fbbc2.
+//
+// Solidity: event SlashPeriodSecondsSet(uint256 slashPeriodSeconds)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchSlashPeriodSecondsSet(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareSlashPeriodSecondsSet) (event.Subscription, error) {
+
+	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "SlashPeriodSecondsSet")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(MevcommitmiddlewareSlashPeriodSecondsSet)
+				if err := _Mevcommitmiddleware.contract.UnpackLog(event, "SlashPeriodSecondsSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseSlashPeriodSecondsSet is a log parse operation binding the contract event 0xac5cea39ce565630c66a23d9bc870dea5693cdf6971096bf680ebaa05a4fbbc2.
+//
+// Solidity: event SlashPeriodSecondsSet(uint256 slashPeriodSeconds)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseSlashPeriodSecondsSet(log types.Log) (*MevcommitmiddlewareSlashPeriodSecondsSet, error) {
+	event := new(MevcommitmiddlewareSlashPeriodSecondsSet)
+	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "SlashPeriodSecondsSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // MevcommitmiddlewareUnpausedIterator is returned from FilterUnpaused and is used to iterate over the raw logs and unpacked data for Unpaused events raised by the Mevcommitmiddleware contract.
 type MevcommitmiddlewareUnpausedIterator struct {
 	Event *MevcommitmiddlewareUnpaused // Event containing the contract specifics and raw log
@@ -3695,7 +3829,7 @@ func (it *MevcommitmiddlewareValRecordAddedIterator) Close() error {
 
 // MevcommitmiddlewareValRecordAdded represents a ValRecordAdded event raised by the Mevcommitmiddleware contract.
 type MevcommitmiddlewareValRecordAdded struct {
-	BlsPubkey common.Hash
+	BlsPubkey []byte
 	MsgSender common.Address
 	Position  *big.Int
 	Raw       types.Log // Blockchain specific contextual infos
@@ -3703,13 +3837,9 @@ type MevcommitmiddlewareValRecordAdded struct {
 
 // FilterValRecordAdded is a free log retrieval operation binding the contract event 0x7b2d0511c06f296628e94d13d25f5237722811b5c029bde749d5dcd4d7333a4f.
 //
-// Solidity: event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValRecordAdded(opts *bind.FilterOpts, blsPubkey [][]byte, msgSender []common.Address, position []*big.Int) (*MevcommitmiddlewareValRecordAddedIterator, error) {
+// Solidity: event ValRecordAdded(bytes blsPubkey, address indexed msgSender, uint256 indexed position)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValRecordAdded(opts *bind.FilterOpts, msgSender []common.Address, position []*big.Int) (*MevcommitmiddlewareValRecordAddedIterator, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var msgSenderRule []interface{}
 	for _, msgSenderItem := range msgSender {
 		msgSenderRule = append(msgSenderRule, msgSenderItem)
@@ -3719,7 +3849,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValRecordAdded(op
 		positionRule = append(positionRule, positionItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValRecordAdded", blsPubkeyRule, msgSenderRule, positionRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValRecordAdded", msgSenderRule, positionRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3728,13 +3858,9 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValRecordAdded(op
 
 // WatchValRecordAdded is a free log subscription operation binding the contract event 0x7b2d0511c06f296628e94d13d25f5237722811b5c029bde749d5dcd4d7333a4f.
 //
-// Solidity: event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValRecordAdded(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValRecordAdded, blsPubkey [][]byte, msgSender []common.Address, position []*big.Int) (event.Subscription, error) {
+// Solidity: event ValRecordAdded(bytes blsPubkey, address indexed msgSender, uint256 indexed position)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValRecordAdded(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValRecordAdded, msgSender []common.Address, position []*big.Int) (event.Subscription, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var msgSenderRule []interface{}
 	for _, msgSenderItem := range msgSender {
 		msgSenderRule = append(msgSenderRule, msgSenderItem)
@@ -3744,7 +3870,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValRecordAdded(opt
 		positionRule = append(positionRule, positionItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValRecordAdded", blsPubkeyRule, msgSenderRule, positionRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValRecordAdded", msgSenderRule, positionRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3778,7 +3904,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValRecordAdded(opt
 
 // ParseValRecordAdded is a log parse operation binding the contract event 0x7b2d0511c06f296628e94d13d25f5237722811b5c029bde749d5dcd4d7333a4f.
 //
-// Solidity: event ValRecordAdded(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position)
+// Solidity: event ValRecordAdded(bytes blsPubkey, address indexed msgSender, uint256 indexed position)
 func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseValRecordAdded(log types.Log) (*MevcommitmiddlewareValRecordAdded, error) {
 	event := new(MevcommitmiddlewareValRecordAdded)
 	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValRecordAdded", log); err != nil {
@@ -3857,26 +3983,22 @@ func (it *MevcommitmiddlewareValRecordDeletedIterator) Close() error {
 
 // MevcommitmiddlewareValRecordDeleted represents a ValRecordDeleted event raised by the Mevcommitmiddleware contract.
 type MevcommitmiddlewareValRecordDeleted struct {
-	BlsPubkey common.Hash
+	BlsPubkey []byte
 	MsgSender common.Address
 	Raw       types.Log // Blockchain specific contextual infos
 }
 
 // FilterValRecordDeleted is a free log retrieval operation binding the contract event 0xf6c1aacd8c44b2fd50a983cd37e4c74ffd298976b52e9ac8fff914c9abb96127.
 //
-// Solidity: event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValRecordDeleted(opts *bind.FilterOpts, blsPubkey [][]byte, msgSender []common.Address) (*MevcommitmiddlewareValRecordDeletedIterator, error) {
+// Solidity: event ValRecordDeleted(bytes blsPubkey, address indexed msgSender)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValRecordDeleted(opts *bind.FilterOpts, msgSender []common.Address) (*MevcommitmiddlewareValRecordDeletedIterator, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var msgSenderRule []interface{}
 	for _, msgSenderItem := range msgSender {
 		msgSenderRule = append(msgSenderRule, msgSenderItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValRecordDeleted", blsPubkeyRule, msgSenderRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValRecordDeleted", msgSenderRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3885,19 +4007,15 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValRecordDeleted(
 
 // WatchValRecordDeleted is a free log subscription operation binding the contract event 0xf6c1aacd8c44b2fd50a983cd37e4c74ffd298976b52e9ac8fff914c9abb96127.
 //
-// Solidity: event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValRecordDeleted(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValRecordDeleted, blsPubkey [][]byte, msgSender []common.Address) (event.Subscription, error) {
+// Solidity: event ValRecordDeleted(bytes blsPubkey, address indexed msgSender)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValRecordDeleted(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValRecordDeleted, msgSender []common.Address) (event.Subscription, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var msgSenderRule []interface{}
 	for _, msgSenderItem := range msgSender {
 		msgSenderRule = append(msgSenderRule, msgSenderItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValRecordDeleted", blsPubkeyRule, msgSenderRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValRecordDeleted", msgSenderRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3931,7 +4049,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValRecordDeleted(o
 
 // ParseValRecordDeleted is a log parse operation binding the contract event 0xf6c1aacd8c44b2fd50a983cd37e4c74ffd298976b52e9ac8fff914c9abb96127.
 //
-// Solidity: event ValRecordDeleted(bytes indexed blsPubkey, address indexed msgSender)
+// Solidity: event ValRecordDeleted(bytes blsPubkey, address indexed msgSender)
 func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseValRecordDeleted(log types.Log) (*MevcommitmiddlewareValRecordDeleted, error) {
 	event := new(MevcommitmiddlewareValRecordDeleted)
 	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValRecordDeleted", log); err != nil {
@@ -4010,7 +4128,7 @@ func (it *MevcommitmiddlewareValidatorDeregistrationRequestedIterator) Close() e
 
 // MevcommitmiddlewareValidatorDeregistrationRequested represents a ValidatorDeregistrationRequested event raised by the Mevcommitmiddleware contract.
 type MevcommitmiddlewareValidatorDeregistrationRequested struct {
-	BlsPubkey common.Hash
+	BlsPubkey []byte
 	MsgSender common.Address
 	Position  *big.Int
 	Raw       types.Log // Blockchain specific contextual infos
@@ -4018,13 +4136,9 @@ type MevcommitmiddlewareValidatorDeregistrationRequested struct {
 
 // FilterValidatorDeregistrationRequested is a free log retrieval operation binding the contract event 0xe07b973733e5b57105d104ee2b05426819359b0c2f731930917b1ac3d763aad0.
 //
-// Solidity: event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorDeregistrationRequested(opts *bind.FilterOpts, blsPubkey [][]byte, msgSender []common.Address, position []*big.Int) (*MevcommitmiddlewareValidatorDeregistrationRequestedIterator, error) {
+// Solidity: event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender, uint256 indexed position)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorDeregistrationRequested(opts *bind.FilterOpts, msgSender []common.Address, position []*big.Int) (*MevcommitmiddlewareValidatorDeregistrationRequestedIterator, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var msgSenderRule []interface{}
 	for _, msgSenderItem := range msgSender {
 		msgSenderRule = append(msgSenderRule, msgSenderItem)
@@ -4034,7 +4148,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorDeregist
 		positionRule = append(positionRule, positionItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValidatorDeregistrationRequested", blsPubkeyRule, msgSenderRule, positionRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValidatorDeregistrationRequested", msgSenderRule, positionRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4043,13 +4157,9 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorDeregist
 
 // WatchValidatorDeregistrationRequested is a free log subscription operation binding the contract event 0xe07b973733e5b57105d104ee2b05426819359b0c2f731930917b1ac3d763aad0.
 //
-// Solidity: event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorDeregistrationRequested(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValidatorDeregistrationRequested, blsPubkey [][]byte, msgSender []common.Address, position []*big.Int) (event.Subscription, error) {
+// Solidity: event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender, uint256 indexed position)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorDeregistrationRequested(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValidatorDeregistrationRequested, msgSender []common.Address, position []*big.Int) (event.Subscription, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var msgSenderRule []interface{}
 	for _, msgSenderItem := range msgSender {
 		msgSenderRule = append(msgSenderRule, msgSenderItem)
@@ -4059,7 +4169,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorDeregistr
 		positionRule = append(positionRule, positionItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValidatorDeregistrationRequested", blsPubkeyRule, msgSenderRule, positionRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValidatorDeregistrationRequested", msgSenderRule, positionRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4093,7 +4203,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorDeregistr
 
 // ParseValidatorDeregistrationRequested is a log parse operation binding the contract event 0xe07b973733e5b57105d104ee2b05426819359b0c2f731930917b1ac3d763aad0.
 //
-// Solidity: event ValidatorDeregistrationRequested(bytes indexed blsPubkey, address indexed msgSender, uint256 indexed position)
+// Solidity: event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender, uint256 indexed position)
 func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseValidatorDeregistrationRequested(log types.Log) (*MevcommitmiddlewareValidatorDeregistrationRequested, error) {
 	event := new(MevcommitmiddlewareValidatorDeregistrationRequested)
 	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValidatorDeregistrationRequested", log); err != nil {
@@ -4172,7 +4282,7 @@ func (it *MevcommitmiddlewareValidatorSlashedIterator) Close() error {
 
 // MevcommitmiddlewareValidatorSlashed represents a ValidatorSlashed event raised by the Mevcommitmiddleware contract.
 type MevcommitmiddlewareValidatorSlashed struct {
-	BlsPubkey common.Hash
+	BlsPubkey []byte
 	Operator  common.Address
 	Position  *big.Int
 	Raw       types.Log // Blockchain specific contextual infos
@@ -4180,13 +4290,9 @@ type MevcommitmiddlewareValidatorSlashed struct {
 
 // FilterValidatorSlashed is a free log retrieval operation binding the contract event 0xd06b46e0df02776cdf751145a48713c6d08cdc287a7726e45abfcf48927b23e9.
 //
-// Solidity: event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorSlashed(opts *bind.FilterOpts, blsPubkey [][]byte, operator []common.Address, position []*big.Int) (*MevcommitmiddlewareValidatorSlashedIterator, error) {
+// Solidity: event ValidatorSlashed(bytes blsPubkey, address indexed operator, uint256 indexed position)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorSlashed(opts *bind.FilterOpts, operator []common.Address, position []*big.Int) (*MevcommitmiddlewareValidatorSlashedIterator, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -4196,7 +4302,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorSlashed(
 		positionRule = append(positionRule, positionItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValidatorSlashed", blsPubkeyRule, operatorRule, positionRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValidatorSlashed", operatorRule, positionRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4205,13 +4311,9 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorSlashed(
 
 // WatchValidatorSlashed is a free log subscription operation binding the contract event 0xd06b46e0df02776cdf751145a48713c6d08cdc287a7726e45abfcf48927b23e9.
 //
-// Solidity: event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorSlashed(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValidatorSlashed, blsPubkey [][]byte, operator []common.Address, position []*big.Int) (event.Subscription, error) {
+// Solidity: event ValidatorSlashed(bytes blsPubkey, address indexed operator, uint256 indexed position)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorSlashed(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValidatorSlashed, operator []common.Address, position []*big.Int) (event.Subscription, error) {
 
-	var blsPubkeyRule []interface{}
-	for _, blsPubkeyItem := range blsPubkey {
-		blsPubkeyRule = append(blsPubkeyRule, blsPubkeyItem)
-	}
 	var operatorRule []interface{}
 	for _, operatorItem := range operator {
 		operatorRule = append(operatorRule, operatorItem)
@@ -4221,7 +4323,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorSlashed(o
 		positionRule = append(positionRule, positionItem)
 	}
 
-	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValidatorSlashed", blsPubkeyRule, operatorRule, positionRule)
+	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValidatorSlashed", operatorRule, positionRule)
 	if err != nil {
 		return nil, err
 	}
@@ -4255,7 +4357,7 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorSlashed(o
 
 // ParseValidatorSlashed is a log parse operation binding the contract event 0xd06b46e0df02776cdf751145a48713c6d08cdc287a7726e45abfcf48927b23e9.
 //
-// Solidity: event ValidatorSlashed(bytes indexed blsPubkey, address indexed operator, uint256 indexed position)
+// Solidity: event ValidatorSlashed(bytes blsPubkey, address indexed operator, uint256 indexed position)
 func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseValidatorSlashed(log types.Log) (*MevcommitmiddlewareValidatorSlashed, error) {
 	event := new(MevcommitmiddlewareValidatorSlashed)
 	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValidatorSlashed", log); err != nil {

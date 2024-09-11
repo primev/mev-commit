@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {EventHeightLib} from "../utils/EventHeight.sol";
+import {TimestampOccurrence} from "../utils/Occurrence.sol";
 
 interface IMevCommitMiddleware {
 
     struct OperatorRecord {
-        EventHeightLib.EventHeight deregRequestHeight;
+        TimestampOccurrence.Occurrence deregRequestOccurrence;
         bool exists;
         bool isBlacklisted;
     }
 
     struct VaultRecord {
         bool exists;
-        EventHeightLib.EventHeight deregRequestHeight;
+        TimestampOccurrence.Occurrence deregRequestOccurrence;
         uint256 slashAmount;
     }
 
@@ -23,7 +23,7 @@ interface IMevCommitMiddleware {
         /// @notice The operator which registered this validator pubkey with a vault.
         address operator;
         bool exists;
-        EventHeightLib.EventHeight deregRequestHeight;
+        TimestampOccurrence.Occurrence deregRequestOccurrence;
     }
 
     /// @notice Emmitted when an operator is registered
@@ -76,7 +76,10 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the network is set
     event NetworkSet(address network);
 
-    /// @notice Emmitted when the slash period in blocks is set
+    /// @notice Emmitted when the slash period in seconds is set
+    event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
+
+    /// @notice Emmitted when the slash oracle is set
     event SlashPeriodBlocksSet(uint256 slashPeriodBlocks);
 
     /// @notice Emmitted when the slash oracle is set
@@ -103,7 +106,7 @@ interface IMevCommitMiddleware {
 
     error OperatorIsBlacklisted(address operator);
 
-    error OperatorNotReadyToDeregister(address operator, uint256 currentBlock, uint256 deregRequestHeight);
+    error OperatorNotReadyToDeregister(address operator, uint256 currentTimestamp, uint256 deregRequestTimestamp);
 
     error OperatorAlreadyBlacklisted(address operator);
 
@@ -111,7 +114,7 @@ interface IMevCommitMiddleware {
 
     error MissingValidatorRecord(bytes blsPubkey);
 
-    error ValidatorNotReadyToDeregister(bytes blsPubkey, uint256 currentBlock, uint256 deregRequestHeight);
+    error ValidatorNotReadyToDeregister(bytes blsPubkey, uint256 currentTimestamp, uint256 deregRequestTimestamp);
 
     error VaultAlreadyRegistered(address vault);
 
@@ -119,11 +122,11 @@ interface IMevCommitMiddleware {
 
     error VaultNotEntity(address vault);
 
-    error VaultNotReadyToDeregister(address vault, uint256 currentBlock, uint256 deregRequestHeight);
+    error VaultNotReadyToDeregister(address vault, uint256 currentTimestamp, uint256 deregRequestTimestamp);
 
     error SlashAmountMustBeNonZero(address vault);
 
-    error InvalidVaultEpochDuration(address vault, uint256 vaultEpochDuration, uint256 slashPeriodBlocks);
+    error InvalidVaultEpochDuration(address vault, uint256 vaultEpochDurationSec, uint256 slashPeriodSec);
 
     error FullRestakeDelegatorNotSupported(address vault);
 
@@ -140,8 +143,6 @@ interface IMevCommitMiddleware {
     error VaultDeregRequestExists(address vault);
 
     error VaultDeregNotRequested(address vault);
-
-    error DeregTooSoon(address subject, uint256 currentBlock, uint256 earliestDeregBlock);
 
     error ZeroAddressNotAllowed();
 

@@ -8,7 +8,7 @@ import {RegistryMock} from "./RegistryMock.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {EventHeightLib} from "../../../contracts/utils/EventHeight.sol";
+import {TimestampOccurrence} from "../../../contracts/utils/Occurrence.sol";
 
 contract MevCommitMiddlewareTest is Test {
 
@@ -16,7 +16,7 @@ contract MevCommitMiddlewareTest is Test {
     RegistryMock public operatorRegistryMock;
     RegistryMock public vaultFactoryMock;
     address public network;
-    uint256 public slashPeriodBlocks;
+    uint256 public slashPeriodSeconds;
     address public slashOracle;
     address public owner;
 
@@ -38,7 +38,7 @@ contract MevCommitMiddlewareTest is Test {
     event OperatorRegistrySet(address operatorRegistry);
     event VaultFactorySet(address vaultFactory);
     event NetworkSet(address network);
-    event SlashPeriodBlocksSet(uint256 slashPeriodBlocks);
+    event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
     event SlashOracleSet(address slashOracle);
 
     function setUp() public {
@@ -47,7 +47,7 @@ contract MevCommitMiddlewareTest is Test {
         vaultFactoryMock = new RegistryMock();
 
         network = vm.addr(0x1);
-        slashPeriodBlocks = 150;
+        slashPeriodSeconds = 150;
         slashOracle = vm.addr(0x2);
         owner = vm.addr(0x3);
 
@@ -62,7 +62,7 @@ contract MevCommitMiddlewareTest is Test {
                 IRegistry(operatorRegistryMock), 
                 IRegistry(vaultFactoryMock), 
                 network, 
-                slashPeriodBlocks,
+                slashPeriodSeconds,
                 slashOracle,
                 owner
             ))
@@ -72,23 +72,23 @@ contract MevCommitMiddlewareTest is Test {
 
     function getOperatorRecord(address operator) internal view
         returns (IMevCommitMiddleware.OperatorRecord memory) {
-        (EventHeightLib.EventHeight memory eventHeight, bool exists, bool isBlacklisted) =
+        (TimestampOccurrence.Occurrence memory occurrence, bool exists, bool isBlacklisted) =
             mevCommitMiddleware.operatorRecords(operator);
-        return IMevCommitMiddleware.OperatorRecord(eventHeight, exists, isBlacklisted);
+        return IMevCommitMiddleware.OperatorRecord(occurrence, exists, isBlacklisted);
     }
 
     function getVaultRecord(address vault) internal view
         returns (IMevCommitMiddleware.VaultRecord memory) {
-        (bool exists, EventHeightLib.EventHeight memory deregRequestHeight, uint256 slashAmount) =
+        (bool exists, TimestampOccurrence.Occurrence memory occurrence, uint256 slashAmount) =
             mevCommitMiddleware.vaultRecords(vault);
-        return IMevCommitMiddleware.VaultRecord(exists, deregRequestHeight, slashAmount);
+        return IMevCommitMiddleware.VaultRecord(exists, occurrence, slashAmount);
     }
 
     function getValidatorRecord(bytes memory blsPubkey) internal view
         returns (IMevCommitMiddleware.ValidatorRecord memory) {
-        (address vault, address operator, bool exists, EventHeightLib.EventHeight memory deregRequestHeight) =
+        (address vault, address operator, bool exists, TimestampOccurrence.Occurrence memory occurrence) =
             mevCommitMiddleware.validatorRecords(blsPubkey);
-        return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, deregRequestHeight);
+        return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, occurrence);
     }
 
     function test_setters() public {
@@ -96,7 +96,7 @@ contract MevCommitMiddlewareTest is Test {
         assertEq(address(mevCommitMiddleware.operatorRegistry()), address(operatorRegistryMock));
         assertEq(address(mevCommitMiddleware.vaultFactory()), address(vaultFactoryMock));
         assertEq(mevCommitMiddleware.network(), network);
-        assertEq(mevCommitMiddleware.slashPeriodBlocks(), slashPeriodBlocks);
+        assertEq(mevCommitMiddleware.slashPeriodSeconds(), slashPeriodSeconds);
         assertEq(mevCommitMiddleware.slashOracle(), slashOracle);
         assertEq(mevCommitMiddleware.owner(), owner);
 
@@ -124,10 +124,10 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.setNetwork(newNetwork);
         assertEq(mevCommitMiddleware.network(), newNetwork);
 
-        uint256 newSlashPeriodBlocks = 204;
+        uint256 newSlashPeriodSeconds = 204;
         vm.prank(owner);
-        mevCommitMiddleware.setSlashPeriodBlocks(newSlashPeriodBlocks);
-        assertEq(mevCommitMiddleware.slashPeriodBlocks(), newSlashPeriodBlocks);
+        mevCommitMiddleware.setSlashPeriodSeconds(newSlashPeriodSeconds);
+        assertEq(mevCommitMiddleware.slashPeriodSeconds(), newSlashPeriodSeconds);
 
         address newSlashOracle = vm.addr(0x1115);
         vm.prank(owner);
@@ -186,8 +186,8 @@ contract MevCommitMiddlewareTest is Test {
         IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
-        assertEq(operatorRecord1.deregRequestHeight.exists, false);
-        assertEq(operatorRecord2.deregRequestHeight.exists, false);
+        assertEq(operatorRecord1.deregRequestOccurrence.exists, false);
+        assertEq(operatorRecord2.deregRequestOccurrence.exists, false);
         assertEq(operatorRecord1.isBlacklisted, false);
         assertEq(operatorRecord2.isBlacklisted, false);
 
@@ -200,7 +200,7 @@ contract MevCommitMiddlewareTest is Test {
 
     function test_requestOperatorDeregistrations() public {
 
-        vm.roll(44);
+        vm.warp(44);
 
         address operator1 = vm.addr(0x1117);
         address operator2 = vm.addr(0x1118);
@@ -233,8 +233,8 @@ contract MevCommitMiddlewareTest is Test {
         IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
-        assertEq(operatorRecord1.deregRequestHeight.exists, true);
-        assertEq(operatorRecord2.deregRequestHeight.exists, true);
+        assertEq(operatorRecord1.deregRequestOccurrence.exists, true);
+        assertEq(operatorRecord2.deregRequestOccurrence.exists, true);
 
         vm.prank(owner);
         vm.expectRevert(
@@ -245,7 +245,7 @@ contract MevCommitMiddlewareTest is Test {
 
     function test_deregisterOperators() public {
 
-        vm.roll(10);
+        vm.warp(10);
 
         address operator1 = vm.addr(0x1117);
         address operator2 = vm.addr(0x1118);
@@ -270,14 +270,14 @@ contract MevCommitMiddlewareTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotReadyToDeregister.selector,
-            operator1, block.number, 0)
+            operator1, block.timestamp, 0)
         );
         mevCommitMiddleware.deregisterOperators(operators);
 
         vm.prank(owner);
         mevCommitMiddleware.requestOperatorDeregistrations(operators);
 
-        vm.roll(10 + mevCommitMiddleware.slashPeriodBlocks() + 1);
+        vm.warp(10 + mevCommitMiddleware.slashPeriodSeconds() + 1);
 
         vm.expectEmit(true, true, true, true);
         emit OperatorDeregistered(operator1);
@@ -290,8 +290,8 @@ contract MevCommitMiddlewareTest is Test {
         IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, false);
         assertEq(operatorRecord2.exists, false);
-        assertEq(operatorRecord1.deregRequestHeight.exists, false);
-        assertEq(operatorRecord2.deregRequestHeight.exists, false);
+        assertEq(operatorRecord1.deregRequestOccurrence.exists, false);
+        assertEq(operatorRecord2.deregRequestOccurrence.exists, false);
 
         vm.prank(owner);
         vm.expectRevert(
@@ -403,8 +403,8 @@ contract MevCommitMiddlewareTest is Test {
         IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
-        assertEq(operatorRecord1.deregRequestHeight.exists, true);
-        assertEq(operatorRecord2.deregRequestHeight.exists, true);
+        assertEq(operatorRecord1.deregRequestOccurrence.exists, true);
+        assertEq(operatorRecord2.deregRequestOccurrence.exists, true);
         assertEq(operatorRecord1.isBlacklisted, false);
         assertEq(operatorRecord2.isBlacklisted, false);
 
@@ -419,8 +419,8 @@ contract MevCommitMiddlewareTest is Test {
         operatorRecord2 = getOperatorRecord(operator2);
         assertEq(operatorRecord1.exists, true);
         assertEq(operatorRecord2.exists, true);
-        assertEq(operatorRecord1.deregRequestHeight.exists, true);
-        assertEq(operatorRecord2.deregRequestHeight.exists, true);
+        assertEq(operatorRecord1.deregRequestOccurrence.exists, true);
+        assertEq(operatorRecord2.deregRequestOccurrence.exists, true);
         assertEq(operatorRecord1.isBlacklisted, true);
         assertEq(operatorRecord2.isBlacklisted, true);
 
@@ -436,15 +436,15 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.requestOperatorDeregistrations(operators);
 
-        vm.roll(66);
+        vm.warp(66);
 
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotReadyToDeregister.selector, operator1, block.number, 44)
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotReadyToDeregister.selector, operator1, block.timestamp, 44)
         );
         mevCommitMiddleware.deregisterOperators(operators);
 
-        vm.roll(block.number + mevCommitMiddleware.slashPeriodBlocks() + 1);
+        vm.warp(block.timestamp + mevCommitMiddleware.slashPeriodSeconds() + 1);
 
         vm.prank(owner);
         vm.expectRevert(

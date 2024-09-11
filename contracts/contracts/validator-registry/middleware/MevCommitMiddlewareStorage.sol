@@ -24,10 +24,10 @@ abstract contract MevCommitMiddlewareStorage {
     /// @notice The network address, which must have registered with the NETWORK_REGISTRY.
     address public network;
 
-    /// @dev A period in blocks during which the mev-commit oracle can invoke slashing.
+    /// @dev A period in seconds during which the mev-commit oracle can invoke slashing.
     /// @notice This serves as the deregistration period for all of validator, operator, and vault records.
-    /// @notice This also serves as the number of blocks that a registered Vault's epochDuration must be greater than.
-    uint256 public slashPeriodBlocks;
+    /// @notice This also serves as the number of seconds that a registered Vault's epochDuration must be greater than.
+    uint256 public slashPeriodSeconds;
 
     address public slashOracle;
 
