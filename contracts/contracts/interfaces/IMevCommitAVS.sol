@@ -114,6 +114,34 @@ interface IMevCommitAVS {
     /// @notice Emitted when the LST restaker deregistration period is set
     event LSTRestakerDeregPeriodBlocksSet(uint256 lstRestakerDeregPeriodBlocks);
 
+    error OperatorNotRegistered(address operator);
+    error SenderIsRegisteredOperator();
+    error ValidatorNotRegistered(bytes valPubKey);
+    error ValidatorIsRegistered(bytes valPubKey);
+    error LstRestakerNotRegistered();
+    error LstRestakerIsRegistered();
+    error SenderIsNotFreezeOracle();
+    error SenderIsNotEigenCoreOperator();
+    error SenderIsNotSpecifiedOperator(address operator);
+    error SenderNotPodOwnerOrOperator(address podOwner);
+    error SenderNotPodOwnerOrOperatorOfValidator(bytes valPubKey);
+    error NoDelegationToRegisteredOperator();
+    error ValidatorNotFrozen(bytes valPubKey);
+    error UnfreezeFeeRequired(uint256 requiredFee);
+    error UnfreezeTransferFailed();
+    error RefundFailed();
+    error OperatorDeregAlreadyRequested();
+    error ValidatorNotActiveWithEigenCore(bytes valPubKey);
+    error ValidatorDeregAlreadyRequested();
+    error FrozenValidatorCannotDeregister();
+    error DeregistrationNotRequested();
+    error DeregistrationTooSoon();
+    error NeedChosenValidators();
+    error NoEigenStrategyDeposits();
+    error DeregistrationAlreadyRequested();
+    error ValidatorAlreadyFrozen();
+    error UnfreezeTooSoon();
+
     /// @dev Registers an operator with the MevCommitAVS.
     function registerOperator(ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature) external;
 
