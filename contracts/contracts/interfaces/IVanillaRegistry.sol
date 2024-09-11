@@ -45,6 +45,27 @@ interface IVanillaRegistry {
     /// @dev Event emitted when the unstake period blocks parameter is set.
     event UnstakePeriodBlocksSet(address indexed msgSender, uint256 newUnstakePeriodBlocks);
 
+    error ValidatorRecordMustExist(bytes valBLSPubKey);
+    error ValidatorRecordMustNotExist(bytes valBLSPubKey);
+    error ValidatorCannotBeUnstaking(bytes valBLSPubKey);
+    error SenderIsNotWithdrawalAddress(address sender, address withdrawalAddress);
+    error InvalidBLSPubKeyLength(uint256 expected, uint256 actual);
+    error SenderIsNotSlashOracle(address sender, address slashOracle);
+    error WithdrawalAddressMustBeSet();
+    error MustUnstakeToWithdraw();
+    error AtLeastOneRecipientRequired();
+    error StakeTooLowForNumberOfKeys(uint256 msgValue, uint256 numberOfKeys);
+    error WithdrawingTooSoon();
+    error WithdrawalFailed();
+    error NotEnoughBalanceToSlash();
+    error SlashingTransferFailed();
+    error MinStakeMustBePositive();
+    error SlashAmountMustBePositive();
+    error SlashAmountMustBeLessThanMinStake();
+    error SlashOracleMustBeSet();
+    error SlashReceiverMustBeSet();
+    error UnstakePeriodMustBePositive();
+
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
         uint256 _minStake, 
