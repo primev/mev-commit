@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {ISignatureUtils} from "eigenlayer-contracts/src/contracts/interfaces/ISignatureUtils.sol";
-import {EventHeightLib} from "../utils/EventHeight.sol";
+import {BlockHeightOccurrence} from "../utils/Occurrence.sol";
 import {IDelegationManager} from "eigenlayer-contracts/src/contracts/interfaces/IDelegationManager.sol";
 import {IEigenPodManager} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPodManager.sol";
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
@@ -14,8 +14,8 @@ interface IMevCommitAVS {
     struct OperatorRegistrationInfo {
         /// @notice Whether the operator is registered with MevCommitAVS
         bool exists;
-        /// @notice Height at which the operator possibly requested deregistration
-        EventHeightLib.EventHeight deregRequestHeight;
+        /// @notice Block height at which the operator possibly requested deregistration
+        BlockHeightOccurrence.Occurrence deregRequestOccurrence;
     }
 
     /// @notice Struct representing MevCommitAVS registration info for a validator
@@ -24,10 +24,10 @@ interface IMevCommitAVS {
         bool exists;
         /// @notice Address of the pod owner for the validator
         address podOwner;
-        /// @notice Height at which the validator was possibly frozen
-        EventHeightLib.EventHeight freezeHeight;
-        /// @notice Height at which the validator possibly requested deregistration
-        EventHeightLib.EventHeight deregRequestHeight;
+        /// @notice Block height at which the validator was possibly frozen
+        BlockHeightOccurrence.Occurrence freezeOccurrence;
+        /// @notice Block height at which the validator possibly requested deregistration
+        BlockHeightOccurrence.Occurrence deregRequestOccurrence;
     }
 
     /// @notice Struct representing MevCommitAVS registration info for a LST restaker
@@ -38,8 +38,8 @@ interface IMevCommitAVS {
         bytes[] chosenValidators;
         /// @notice Total number of validators chosen by the LST restaker, where attribution is split evenly
         uint256 numChosen;
-        /// @notice Height at which the LST restaker possibly requested deregistration
-        EventHeightLib.EventHeight deregRequestHeight;
+        /// @notice Block height at which the LST restaker possibly requested deregistration
+        BlockHeightOccurrence.Occurrence deregRequestOccurrence;
     }
 
     /// @notice Emmitted when an operator is registered with MevCommitAVS

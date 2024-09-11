@@ -225,7 +225,7 @@ contract VanillaRegistryTest is Test {
         vm.stopPrank();
 
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, block.number);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, block.number);
         assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
 
         vm.startPrank(user1);
@@ -279,7 +279,7 @@ contract VanillaRegistryTest is Test {
 
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, MIN_STAKE);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, block.number);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, block.number);
         assertEq(address(user1).balance, 8 ether);
 
         uint256 blockWaitPeriod = 11;
@@ -296,7 +296,7 @@ contract VanillaRegistryTest is Test {
 
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0, "User1s staked balance should be 0 after withdrawal");
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, address(0), "User1s withdrawal address should be reset after withdrawal");
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, 0, "User1s unstake block number should be reset after withdrawal");
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 0, "User1s unstake block number should be reset after withdrawal");
     }
 
     function testSlashWithoutEnoughStake() public {
@@ -342,7 +342,7 @@ contract VanillaRegistryTest is Test {
         assertEq(address(SLASH_RECEIVER).balance, 0);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, 0);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 0);
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
         vm.roll(11);
@@ -361,7 +361,7 @@ contract VanillaRegistryTest is Test {
         assertEq(address(SLASH_RECEIVER).balance, 0.1 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, 11);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 11);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
@@ -381,7 +381,7 @@ contract VanillaRegistryTest is Test {
         assertEq(address(SLASH_RECEIVER).balance, 0);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, 11);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 11);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
         vm.roll(22);
@@ -400,7 +400,7 @@ contract VanillaRegistryTest is Test {
         assertEq(address(SLASH_RECEIVER).balance, 0.1 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, 22);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 22);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
@@ -421,12 +421,12 @@ contract VanillaRegistryTest is Test {
 
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, 14);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 14);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 1 ether);
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeHeight.blockHeight, 0);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeOccurrence.blockHeight, 0);
         assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
 
         vm.roll(78);
@@ -445,12 +445,12 @@ contract VanillaRegistryTest is Test {
 
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeHeight.blockHeight, 78);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 78);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 0.9 ether);
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeHeight.blockHeight, 78);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeOccurrence.blockHeight, 78);
         assertFalse(validatorRegistry.isValidatorOptedIn(user2BLSKey));
     }
    

@@ -133,9 +133,9 @@
             "internalType": "uint256"
           },
           {
-            "name": "unstakeHeight",
+            "name": "unstakeOccurrence",
             "type": "tuple",
-            "internalType": "struct EventHeightLib.EventHeight",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -466,9 +466,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "unstakeHeight",
+        "name": "unstakeOccurrence",
         "type": "tuple",
-        "internalType": "struct EventHeightLib.EventHeight",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
