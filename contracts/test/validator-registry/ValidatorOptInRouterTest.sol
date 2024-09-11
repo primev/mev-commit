@@ -68,8 +68,8 @@ contract ValidatorOptInRouterTest is Test {
         mevCommitAVSTest.testRegisterValidatorsByPodOwners();
 
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = mevCommitAVSTest.sampleValPubkey1();
+        valPubkeys[1] = mevCommitAVSTest.sampleValPubkey2();
 
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
