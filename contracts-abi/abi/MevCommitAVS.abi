@@ -138,7 +138,7 @@
           {
             "name": "deregRequestOccurrence",
             "type": "tuple",
-            "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -181,7 +181,7 @@
           {
             "name": "deregRequestOccurrence",
             "type": "tuple",
-            "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -261,7 +261,7 @@
           {
             "name": "freezeOccurrence",
             "type": "tuple",
-            "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -278,7 +278,7 @@
           {
             "name": "deregRequestOccurrence",
             "type": "tuple",
-            "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+            "internalType": "struct BlockHeightOccurrence.Occurrence",
             "components": [
               {
                 "name": "exists",
@@ -431,7 +431,7 @@
       {
         "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -480,7 +480,7 @@
       {
         "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -972,7 +972,7 @@
       {
         "name": "freezeOccurrence",
         "type": "tuple",
-        "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
@@ -989,7 +989,7 @@
       {
         "name": "deregRequestOccurrence",
         "type": "tuple",
-        "internalType": "struct OccurrenceLib.BlockHeightOccurrence",
+        "internalType": "struct BlockHeightOccurrence.Occurrence",
         "components": [
           {
             "name": "exists",
