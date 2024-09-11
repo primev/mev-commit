@@ -139,9 +139,6 @@ jobs:
       - name: Run Snapshot
         run: forge clean && forge snapshot --via-ir
 
-      - name: Run Coverage
-        run: forge clean && forge coverage --ir-minimum
-
   contracts:
     name: Test and Build Contracts Scripts
     runs-on: ubuntu-24.04
