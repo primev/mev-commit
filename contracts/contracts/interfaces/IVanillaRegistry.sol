@@ -45,16 +45,6 @@ interface IVanillaRegistry {
     /// @dev Event emitted when the unstake period blocks parameter is set.
     event UnstakePeriodBlocksSet(address indexed msgSender, uint256 newUnstakePeriodBlocks);
 
-    /// @dev Initializes the contract with the provided parameters.
-    function initialize(
-        uint256 _minStake, 
-        uint256 _slashAmount,
-        address _slashOracle,
-        address _slashReceiver,
-        uint256 _unstakePeriodBlocks, 
-        address _owner
-    ) external;
-
     error ValidatorRecordMustExist(bytes valBLSPubKey);
     error ValidatorRecordMustNotExist(bytes valBLSPubKey);
     error ValidatorCannotBeUnstaking(bytes valBLSPubKey);
@@ -75,6 +65,16 @@ interface IVanillaRegistry {
     error SlashOracleMustBeSet();
     error SlashReceiverMustBeSet();
     error UnstakePeriodMustBePositive();
+
+    /// @dev Initializes the contract with the provided parameters.
+    function initialize(
+        uint256 _minStake, 
+        uint256 _slashAmount,
+        address _slashOracle,
+        address _slashReceiver,
+        uint256 _unstakePeriodBlocks, 
+        address _owner
+    ) external;
 
     /* 
      * @dev Stakes ETH on behalf of one or multiple validators via their BLS pubkey.

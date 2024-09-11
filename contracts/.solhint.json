@@ -24,6 +24,7 @@
     "imports-on-top": "error",
     "visibility-modifier-order": "error",
     "reason-string": "error",
-    "gas-custom-errors": "off"
+    "gas-custom-errors": "off",
+    "max-states-count": ["error", 20]
   }
 }
