@@ -52,31 +52,31 @@ interface IMevCommitAVS {
     event OperatorDeregistered(address indexed operator);
 
     /// @notice Emmitted when a validator is registered with MevCommitAVS
-    event ValidatorRegistered(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorRegistered(bytes validatorPubKey, address indexed podOwner);
 
     /// @notice Emmitted when a deregistration request is made for a validator
-    event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistrationRequested(bytes validatorPubKey, address indexed podOwner);
 
     /// @notice Emmitted when a validator is deregistered from MevCommitAVS
-    event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistered(bytes validatorPubKey, address indexed podOwner);
 
     /// @notice Emmitted when a LST restaker registers (chooses a validator) with MevCommitAVS
     /// @dev numChosen is the total number of validators chosen by the LST restaker, where attribution is split evenly.
-    event LSTRestakerRegistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event LSTRestakerRegistered(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
 
     /// @notice Emmitted when a deregistration request is made by an LST restaker
     /// @dev numChosen is the total number of validators chosen by the LST restaker, where attribution is split evenly.
-    event LSTRestakerDeregistrationRequested(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event LSTRestakerDeregistrationRequested(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
 
     /// @notice Emmitted when a LST restaker is deregistered from MevCommitAVS
     /// @dev numChosen is the total number of validators chosen by the LST restaker, where attribution is split evenly.
-    event LSTRestakerDeregistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event LSTRestakerDeregistered(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
 
     /// @notice Emmitted when a validator is frozen by the oracle
-    event ValidatorFrozen(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorFrozen(bytes validatorPubKey, address indexed podOwner);
 
     /// @notice Emmitted when a validator is unfrozen
-    event ValidatorUnfrozen(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorUnfrozen(bytes validatorPubKey, address indexed podOwner);
 
     /// @notice Emitted when the AVS directory is set
     event AVSDirectorySet(address indexed avsDirectory);

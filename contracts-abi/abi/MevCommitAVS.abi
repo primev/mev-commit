@@ -1091,7 +1091,7 @@
       {
         "name": "chosenValidator",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1116,7 +1116,7 @@
       {
         "name": "chosenValidator",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1141,7 +1141,7 @@
       {
         "name": "chosenValidator",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1373,7 +1373,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1392,7 +1392,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1411,7 +1411,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1430,7 +1430,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1449,7 +1449,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {

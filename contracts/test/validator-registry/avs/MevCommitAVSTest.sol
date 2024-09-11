@@ -35,17 +35,20 @@ contract MevCommitAVSTest is Test {
     address public operator = address(0x18A8E44e0E225B10a4Af86CEC6e4c514BB95B342);
     uint256 public operatorPrivateKey = uint256(0xe0ea92e36ee0c574bc092425926b3bfe817ec9471afbe90b577757ee16f60fd8);
 
+    bytes public sampleValPubkey1 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
+    bytes public sampleValPubkey2 = hex"aca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
+
     event OperatorRegistered(address indexed operator);
     event OperatorDeregistrationRequested(address indexed operator);
     event OperatorDeregistered(address indexed operator);
-    event ValidatorRegistered(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorDeregistrationRequested(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorDeregistered(bytes indexed validatorPubKey, address indexed podOwner);
-    event LSTRestakerRegistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
-    event LSTRestakerDeregistrationRequested(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
-    event LSTRestakerDeregistered(bytes indexed chosenValidator, uint256 numChosen, address indexed lstRestaker);
-    event ValidatorFrozen(bytes indexed validatorPubKey, address indexed podOwner);
-    event ValidatorUnfrozen(bytes indexed validatorPubKey, address indexed podOwner);
+    event ValidatorRegistered(bytes validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistrationRequested(bytes validatorPubKey, address indexed podOwner);
+    event ValidatorDeregistered(bytes validatorPubKey, address indexed podOwner);
+    event LSTRestakerRegistered(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event LSTRestakerDeregistrationRequested(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event LSTRestakerDeregistered(bytes chosenValidator, uint256 numChosen, address indexed lstRestaker);
+    event ValidatorFrozen(bytes validatorPubKey, address indexed podOwner);
+    event ValidatorUnfrozen(bytes validatorPubKey, address indexed podOwner);
     event AVSDirectorySet(address indexed avsDirectory);
     event StrategyManagerSet(address indexed strategyManager);
     event DelegationManagerSet(address indexed delegationManager);
@@ -248,8 +251,8 @@ contract MevCommitAVSTest is Test {
         delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
 
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
         bytes[][] memory arrayValPubkeys = new bytes[][](1);
         arrayValPubkeys[0] = valPubkeys;
         address[] memory podOwners = new address[](1);
@@ -314,9 +317,9 @@ contract MevCommitAVSTest is Test {
         assertFalse(regInfo1.deregRequestOccurrence.exists);
 
         vm.expectEmit(true, true, true, true);
-        emit ValidatorRegistered(valPubkeys[0], podOwner);
+        emit ValidatorRegistered(sampleValPubkey1, podOwner);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorRegistered(valPubkeys[1], podOwner);
+        emit ValidatorRegistered(sampleValPubkey2, podOwner);
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 
@@ -341,8 +344,8 @@ contract MevCommitAVSTest is Test {
         address podOwner = address(0x420);
 
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
 
         vm.prank(owner);
         mevCommitAVS.pause();
@@ -362,14 +365,14 @@ contract MevCommitAVSTest is Test {
         vm.expectEmit(true, true, true, true);
         emit ValidatorDeregistrationRequested(valPubkeys[0], podOwner);
         bytes[] memory valPubkeys2 = new bytes[](1);
-        valPubkeys2[0] = bytes("valPubkey1");
+        valPubkeys2[0] = sampleValPubkey1;
         vm.prank(podOwner);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys2);
 
         vm.expectEmit(true, true, true, true);
         emit ValidatorDeregistrationRequested(valPubkeys[1], podOwner);
         bytes[] memory valPubkeys3 = new bytes[](1);
-        valPubkeys3[0] = bytes("valPubkey2");
+        valPubkeys3[0] = sampleValPubkey2;
         vm.prank(operator);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys3);
 
@@ -395,7 +398,7 @@ contract MevCommitAVSTest is Test {
 
         address podOwner = address(0x420);
         bytes[] memory valPubkeys = new bytes[](1);
-        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[0] = sampleValPubkey1;
 
         vm.prank(owner);
         mevCommitAVS.pause();
@@ -421,8 +424,8 @@ contract MevCommitAVSTest is Test {
         mevCommitAVS.deregisterValidators(valPubkeys);
 
         bytes[] memory valPubkeys2 = new bytes[](2);
-        valPubkeys2[0] = bytes("valPubkey1");
-        valPubkeys2[1] = bytes("valPubkey2");
+        valPubkeys2[0] = sampleValPubkey1;
+        valPubkeys2[1] = sampleValPubkey2;
         vm.prank(podOwner);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys2);
 
@@ -481,8 +484,8 @@ contract MevCommitAVSTest is Test {
         mevCommitAVS.registerLSTRestaker(chosenVals);
 
         bytes[] memory chosenVals2 = new bytes[](2);
-        chosenVals2[0] = bytes("valPubkey1");
-        chosenVals2[1] = bytes("valPubkey2");
+        chosenVals2[0] = sampleValPubkey1;
+        chosenVals2[1] = sampleValPubkey2;
         vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.NoEigenStrategyDeposits.selector));
         vm.prank(lstRestaker);
         mevCommitAVS.registerLSTRestaker(chosenVals2);
@@ -531,8 +534,8 @@ contract MevCommitAVSTest is Test {
 
         address lstRestaker = address(0x34443);
         bytes[] memory chosenVals = new bytes[](2);
-        chosenVals[0] = bytes("valPubkey1");
-        chosenVals[1] = bytes("valPubkey2");
+        chosenVals[0] = sampleValPubkey1;
+        chosenVals[1] = sampleValPubkey2;
         vm.expectEmit(true, true, true, true);
         emit LSTRestakerDeregistrationRequested(chosenVals[0], 2, lstRestaker);
         vm.expectEmit(true, true, true, true);
@@ -588,8 +591,8 @@ contract MevCommitAVSTest is Test {
         vm.roll(302 + lstRestakerDeregPeriodBlocks + 1);
 
         bytes[] memory chosenVals = new bytes[](2);
-        chosenVals[0] = bytes("valPubkey1");
-        chosenVals[1] = bytes("valPubkey2");
+        chosenVals[0] = sampleValPubkey1;
+        chosenVals[1] = sampleValPubkey2;
 
         assertTrue(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).exists);
         assertEq(mevCommitAVS.getLSTRestakerRegInfo(lstRestaker).chosenValidators.length, 2);
@@ -614,8 +617,8 @@ contract MevCommitAVSTest is Test {
 
     function testFreeze() public {
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
 
         vm.prank(owner);
         mevCommitAVS.pause();
@@ -634,7 +637,7 @@ contract MevCommitAVSTest is Test {
         vm.roll(403);
 
         bytes[] memory valPubkeys2 = new bytes[](1);
-        valPubkeys2[0] = bytes("valPubkey1");
+        valPubkeys2[0] = sampleValPubkey1;
         vm.prank(operator);
         mevCommitAVS.requestValidatorsDeregistration(valPubkeys2);
 
@@ -679,7 +682,7 @@ contract MevCommitAVSTest is Test {
         testFreeze();
 
         bytes[] memory valPubkeys = new bytes[](1);
-        valPubkeys[0] = bytes("valPubkey1");
+        valPubkeys[0] = sampleValPubkey1;
         IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = mevCommitAVS.getValidatorRegInfo(valPubkeys[0]);
         assertTrue(regInfo.deregRequestOccurrence.exists);
 
@@ -694,8 +697,8 @@ contract MevCommitAVSTest is Test {
     function testFrozenValidatorDoesntAffectLSTRestaker() public {
         testFreeze();
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
 
@@ -731,8 +734,8 @@ contract MevCommitAVSTest is Test {
     function testUnfreeze() public {
 
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
 
         address newAccount = address(0x333333333);
 
@@ -946,8 +949,8 @@ contract MevCommitAVSTest is Test {
 
         bytes[][] memory valPubkeys = new bytes[][](1);
         bytes[] memory inner = new bytes[](2);
-        inner[0] = bytes("valPubkey1");
-        inner[1] = bytes("valPubkey2");
+        inner[0] = sampleValPubkey1;
+        inner[1] = sampleValPubkey2;
         valPubkeys[0] = inner;
 
         address[] memory podOwners = new address[](1);
@@ -963,8 +966,8 @@ contract MevCommitAVSTest is Test {
 
     function testUnfreezeExcessFeeReturned() public {
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
 
         address newAccount = address(0x333333333);
 
@@ -1005,8 +1008,8 @@ contract MevCommitAVSTest is Test {
         testRegisterValidatorsByPodOwners();
 
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
 
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
@@ -1060,8 +1063,8 @@ contract MevCommitAVSTest is Test {
         assertTrue(mevCommitAVS.getOperatorRegInfo(operator).deregRequestOccurrence.exists);
 
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1");
-        valPubkeys[1] = bytes("valPubkey2");
+        valPubkeys[0] = sampleValPubkey1;
+        valPubkeys[1] = sampleValPubkey2;
         
         address podOwner = address(0x420);
         vm.expectEmit(true, true, true, true);
@@ -1087,7 +1090,7 @@ contract MevCommitAVSTest is Test {
 
     function testIsValidatorOptedInWithNoPod() public view {
         bytes[] memory valPubkeys = new bytes[](2);
-        valPubkeys[0] = bytes("valPubkey1"); // Intentially no setup 
+        valPubkeys[0] = sampleValPubkey1; // Intentionally no setup
         assertFalse(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
     }
 }
