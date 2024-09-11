@@ -284,7 +284,7 @@ contract MevCommitAVSTest is Test {
         }));
         eigenPodManagerMock.setMockPod(podOwner, mockPod);
 
-        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorNotRegistered.selector, valPubkeys[0]));
+        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorNotActiveWithEigenCore.selector, valPubkeys[0]));
         vm.prank(podOwner);
         mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, podOwners);
 

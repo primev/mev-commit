@@ -131,6 +131,7 @@ interface IMevCommitAVS {
     error UnfreezeTransferFailed();
     error RefundFailed();
     error OperatorDeregAlreadyRequested();
+    error ValidatorNotActiveWithEigenCore(bytes valPubKey);
     error ValidatorDeregAlreadyRequested();
     error FrozenValidatorCannotDeregister();
     error DeregistrationNotRequested();

@@ -428,7 +428,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE, IMevCommitAVS.ValidatorNotRegistered(valPubKeys[i]));
+            require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE, IMevCommitAVS.ValidatorNotActiveWithEigenCore(valPubKeys[i]));
             _registerValidator(valPubKeys[i], podOwner);
         }
     }
