@@ -127,8 +127,6 @@ interface IMevCommitAVS {
     error SenderNotPodOwnerOrOperatorOfValidator(bytes valPubKey);
     error NoDelegationToRegisteredOperator();
     error ValidatorNotFrozen(bytes valPubKey);
-    error InvalidReceive();
-    error InvalidFallback();
     error UnfreezeFeeRequired(uint256 requiredFee);
     error UnfreezeTransferFailed();
     error RefundFailed();

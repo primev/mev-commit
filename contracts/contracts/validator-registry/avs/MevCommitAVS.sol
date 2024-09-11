@@ -93,7 +93,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
             IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
-            require(msg.sender == regInfo.podOwner || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner), IMevCommitAVS.SenderNotPodOwnerOrOperatorOfValidator(valPubKeys[i]));
+            require(msg.sender == regInfo.podOwner
+                || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
+                IMevCommitAVS.SenderNotPodOwnerOrOperatorOfValidator(valPubKeys[i]));
         }
         _;
     }
@@ -159,12 +161,12 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Receive function to prevent unintended contract interactions.
     receive() external payable {
-        revert InvalidReceive();
+        revert Errors.InvalidReceive();
     }
 
     /// @dev Fallback function to prevent unintended contract interactions.
     fallback() external payable {
-        revert InvalidFallback();
+        revert Errors.InvalidFallback();
     }
 
     /// @dev Registers an operator with the MevCommitAVS.
