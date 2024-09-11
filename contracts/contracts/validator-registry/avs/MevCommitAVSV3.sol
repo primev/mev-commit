@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.20;
 
-import {IMevCommitAVS} from "../../interfaces/IMevCommitAVS.sol";
-import {MevCommitAVSStorage} from "./MevCommitAVSStorage.sol";
+import {IMevCommitAVSV3} from "../../interfaces/IMevCommitAVSV3.sol";
+import {MevCommitAVSStorageV3} from "./MevCommitAVSStorageV3.sol";
 import {EventHeightLib} from "../../utils/EventHeight.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -16,10 +16,9 @@ import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IS
 import {Errors} from "../../utils/Errors.sol";
 
 /// @title MevCommitAVSV3
-/// @notice This contract serves as the entrypoint for operators, validators and LST restakers to register with
-/// the mev-commit protocol via an eigenlayer AVS.
+/// @notice Third upgrade version of MevCommitAVS, incorporating changes from https://github.com/primev/mev-commit/pull/393.
 /// @custom:oz-upgrades-from MevCommitAVSV2
-contract MevCommitAVSV3 is IMevCommitAVS, MevCommitAVSStorage,
+contract MevCommitAVSV3 is IMevCommitAVSV3, MevCommitAVSStorageV3,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     
     /// @dev Modifier to ensure the provided operator is registered with MevCommitAVSV3.
@@ -94,7 +93,7 @@ contract MevCommitAVSV3 is IMevCommitAVS, MevCommitAVSStorage,
     modifier onlyPodOwnerOrOperatorOfValidators(bytes[] calldata valPubKeys) {
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
+            IMevCommitAVSV3.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
             require(msg.sender == regInfo.podOwner || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
                 "sender not podOwner or operator");
         }
@@ -614,7 +613,7 @@ contract MevCommitAVSV3 is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to check if a validator is opted-in.
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
-        IMevCommitAVS.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
+        IMevCommitAVSV3.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
         bool isValRegistered = valRegistration.exists;
         if (!isValRegistered) {
             return false;
@@ -637,7 +636,7 @@ contract MevCommitAVSV3 is IMevCommitAVS, MevCommitAVSStorage,
             return false;
         }
         address delegatedOperator = _delegationManager.delegatedTo(valRegistration.podOwner);
-        IMevCommitAVS.OperatorRegistrationInfo memory operatorRegistration = operatorRegistrations[delegatedOperator];
+        IMevCommitAVSV3.OperatorRegistrationInfo memory operatorRegistration = operatorRegistrations[delegatedOperator];
         bool isOperatorRegistered = operatorRegistration.exists;
         if (!isOperatorRegistered) {
             return false;
