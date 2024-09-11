@@ -927,6 +927,11 @@
   },
   {
     "type": "error",
+    "name": "AtLeastOneRecipientRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -958,6 +963,22 @@
   },
   {
     "type": "error",
+    "name": "InvalidBLSPubKeyLength",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "actual",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidFallback",
     "inputs": []
   },
@@ -969,6 +990,21 @@
   {
     "type": "error",
     "name": "InvalidReceive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MinStakeMustBePositive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "MustUnstakeToWithdraw",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotEnoughBalanceToSlash",
     "inputs": []
   },
   {
@@ -1000,6 +1036,79 @@
   },
   {
     "type": "error",
+    "name": "SenderIsNotSlashOracle",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "slashOracle",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenderIsNotWithdrawalAddress",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SlashAmountMustBeLessThanMinStake",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SlashAmountMustBePositive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SlashOracleMustBeSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SlashReceiverMustBeSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SlashingTransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "StakeTooLowForNumberOfKeys",
+    "inputs": [
+      {
+        "name": "msgValue",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "numberOfKeys",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "UUPSUnauthorizedCallContext",
     "inputs": []
   },
@@ -1013,5 +1122,58 @@
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "UnstakePeriodMustBePositive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ValidatorCannotBeUnstaking",
+    "inputs": [
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorRecordMustExist",
+    "inputs": [
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorRecordMustNotExist",
+    "inputs": [
+      {
+        "name": "valBLSPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalAddressMustBeSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawingTooSoon",
+    "inputs": []
   }
 ]
