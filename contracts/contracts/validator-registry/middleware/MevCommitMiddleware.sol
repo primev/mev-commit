@@ -388,6 +388,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         address operator = validatorRecords[blsPubkey].operator;
         require(operatorRecords[operator].exists, MissingOperatorRecord(operator));
 
+        // Slash amount is enforced as non-zero in _registerVault.
         uint256 amount = vaultRecords[vault].slashAmount;
 
         ISlasher(IVault(vault).slasher()).slash(

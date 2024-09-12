@@ -148,6 +148,8 @@ interface IMevCommitMiddleware {
 
     error NetworkNotEntity(address network);
 
+    error MissingOperatorRecord(address operator);
+
     function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool);
 
     // TODO: remaining functions
