@@ -25,6 +25,6 @@
     "visibility-modifier-order": "error",
     "reason-string": "error",
     "gas-custom-errors": "off",
-    "max-states-count": "off"
+    "max-states-count": ["error", 20]
   }
 }

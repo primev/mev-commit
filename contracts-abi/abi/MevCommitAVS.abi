@@ -1091,7 +1091,7 @@
       {
         "name": "chosenValidator",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1116,7 +1116,7 @@
       {
         "name": "chosenValidator",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1141,7 +1141,7 @@
       {
         "name": "chosenValidator",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1373,7 +1373,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1392,7 +1392,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1411,7 +1411,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1430,7 +1430,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1449,7 +1449,7 @@
       {
         "name": "validatorPubKey",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -1471,6 +1471,21 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "DeregistrationAlreadyRequested",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DeregistrationNotRequested",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DeregistrationTooSoon",
+    "inputs": []
   },
   {
     "type": "error",
@@ -1505,6 +1520,11 @@
   },
   {
     "type": "error",
+    "name": "FrozenValidatorCannotDeregister",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidFallback",
     "inputs": []
   },
@@ -1520,8 +1540,49 @@
   },
   {
     "type": "error",
+    "name": "LstRestakerIsRegistered",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "LstRestakerNotRegistered",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NeedChosenValidators",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoDelegationToRegisteredOperator",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoEigenStrategyDeposits",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OperatorDeregAlreadyRequested",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OperatorNotRegistered",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1547,6 +1608,59 @@
   },
   {
     "type": "error",
+    "name": "RefundFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderIsNotEigenCoreOperator",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderIsNotFreezeOracle",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderIsNotSpecifiedOperator",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenderIsRegisteredOperator",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderNotPodOwnerOrOperator",
+    "inputs": [
+      {
+        "name": "podOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenderNotPodOwnerOrOperatorOfValidator",
+    "inputs": [
+      {
+        "name": "valPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "UUPSUnauthorizedCallContext",
     "inputs": []
   },
@@ -1558,6 +1672,81 @@
         "name": "slot",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnfreezeFeeRequired",
+    "inputs": [
+      {
+        "name": "requiredFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnfreezeTooSoon",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UnfreezeTransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ValidatorAlreadyFrozen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ValidatorDeregAlreadyRequested",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ValidatorIsRegistered",
+    "inputs": [
+      {
+        "name": "valPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorNotActiveWithEigenCore",
+    "inputs": [
+      {
+        "name": "valPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorNotFrozen",
+    "inputs": [
+      {
+        "name": "valPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorNotRegistered",
+    "inputs": [
+      {
+        "name": "valPubKey",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ]
   }
