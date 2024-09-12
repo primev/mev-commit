@@ -381,7 +381,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @param infractionTimestamp The block.timestamp for the block during which the infraction occurred.
     function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp) internal {
         // These will succeed if current tx executes within
-        // slashPeriodSeconds of validator being marked as "not opted-in".
+        // slashPeriodSeconds of validator being marked as "not opted-in",
+        // OR relevant validator/vault/operator has not fully deregistered yet.
         require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
         address vault = validatorRecords[blsPubkey].vault;
         require(vaultRecords[vault].exists, MissingVaultRecord(vault));
@@ -393,9 +394,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         ISlasher(IVault(vault).slasher()).slash(
             _getSubnetwork(), operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
-
-        // Capture dereg request occurence to mark validator as no longer opted-in.
-        TimestampOccurrence.captureOccurrence(validatorRecords[blsPubkey].deregRequestOccurrence);
+        
+        // If validator has not already requested deregistration,
+        // do so to mark them as no longer opted-in.
+        if (!validatorRecords[blsPubkey].deregRequestOccurrence.exists) {
+            TimestampOccurrence.captureOccurrence(validatorRecords[blsPubkey].deregRequestOccurrence);
+        }
 
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         emit ValidatorSlashed(blsPubkey, operator, position);
