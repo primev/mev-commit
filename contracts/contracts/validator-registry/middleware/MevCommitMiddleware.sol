@@ -18,6 +18,7 @@ import {Subnetwork} from "symbiotic-core/contracts/libraries/Subnetwork.sol";
 import {ISlasher} from "symbiotic-core/interfaces/slasher/ISlasher.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Errors} from "../../utils/Errors.sol";
+import {IVetoSlasher} from "symbiotic-core/interfaces/slasher/IVetoSlasher.sol";
 
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
@@ -300,7 +301,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(slasher != address(0), SlasherNotSetForVault(vault));
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == VETO_SLASHER_TYPE) {
-            revert VetoSlasherNotSupported(vault);
+            IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
+            require(vetoSlasher.resolver(_getSubnetwork(), new bytes(0)) == address(0),
+                VetoSlasherMustHaveZeroResolver(vault));
         } else if (slasherType != INSTANT_SLASHER_TYPE) {
             revert UnknownSlasherType(vault, slasherType);
         }
@@ -392,17 +395,23 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         // Slash amount is enforced as non-zero in _registerVault.
         uint256 amount = vaultRecords[vault].slashAmount;
 
-        ISlasher(IVault(vault).slasher()).slash(
-            _getSubnetwork(), operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
-        
+        address slasher = IVault(vault).slasher();
+        uint256 slasherType = IEntity(slasher).TYPE();
+        if (slasherType == VETO_SLASHER_TYPE) {
+            IVetoSlasher(slasher).requestSlash(
+                _getSubnetwork(), operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
+        } else if (slasherType == INSTANT_SLASHER_TYPE) {
+            ISlasher(slasher).slash(
+                _getSubnetwork(), operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
+        }
+
         // If validator has not already requested deregistration,
         // do so to mark them as no longer opted-in.
         if (!validatorRecords[blsPubkey].deregRequestOccurrence.exists) {
             TimestampOccurrence.captureOccurrence(validatorRecords[blsPubkey].deregRequestOccurrence);
         }
 
-        uint256 position = _getPositionInValset(blsPubkey, vault, operator);
-        emit ValidatorSlashed(blsPubkey, operator, position);
+        emit ValidatorSlashed(blsPubkey, operator, vault, slasherType);
 
         // Operator and vault are not deregistered for the validator's infraction,
         // so as to avoid opting-out large groups of validators at once.

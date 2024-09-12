@@ -90,7 +90,9 @@ Oracle slashing must be invoked within `slashPeriodSeconds` of any event causing
 
 `slashPeriodSeconds` is configured by the middleware contract and used as the minimum amount of seconds that must elapse before validator records, operator records, or vault records can be deleted from the middleware contract’s state. Further, Vault’s registered with our middleware contract must have a `epochDuration` greater than than `slashPeriodSeconds` to ensure collateral is slashable during the full slashing period. Read more about Symbiotic slashing guarantees [here](https://docs.symbiotic.fi/core-modules/vaults#slashing). 
 
-Since a permissioned oracle account invokes slashing, the mev-commit middleware contract only requires the most basic slashing interface. Hence the middleware contract requires Vaults to have a slasher of type `InstantSlasher`. The contract will not allow Vaults to be registered that use a `VetoSlasher`. These constraints may change depending on feedback from Vault managers and operators. 
+Since a permissioned oracle account invokes slashing, the mev-commit middleware contract only requires the most basic slashing interface. Hence for Vaults that use a `VetoSlasher`, the resolver is required to be disabled via `address(0)`.
+
+Upon the oracle submitting a slash transaction, the middleware contract emits a `ValidatorSlashed` event. This event contains an enum for slasher type that was used. If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `IVetoSlasher.executeSlash` during the execute phase. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
 
 ### Configuration of slashPeriodSeconds
 

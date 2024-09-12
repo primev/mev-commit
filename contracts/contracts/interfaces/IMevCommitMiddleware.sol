@@ -62,7 +62,7 @@ interface IMevCommitMiddleware {
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
     
     /// @notice Emmitted when a validator is slashed
-    event ValidatorSlashed(bytes blsPubkey, address indexed operator, uint256 indexed position);
+    event ValidatorSlashed(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slasherType);
 
     /// @notice Emmitted when the network registry is set
     event NetworkRegistrySet(address networkRegistry);
@@ -134,7 +134,7 @@ interface IMevCommitMiddleware {
 
     error SlasherNotSetForVault(address vault);
 
-    error VetoSlasherNotSupported(address vault);
+    error VetoSlasherMustHaveZeroResolver(address vault);
 
     error UnknownSlasherType(address vault, uint256 slasherType);
 
