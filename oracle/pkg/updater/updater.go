@@ -195,14 +195,6 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 				return nil
 			case ec := <-u.unopenedCmts:
 				if err := u.handleEncryptedCommitment(egCtx, ec); err != nil {
-					// ignore duplicate private key constraint
-					if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-						u.logger.Warn(
-							"encrypted commitment already exists",
-							"commitmentIdx", common.Bytes2Hex(ec.CommitmentIndex[:]),
-						)
-						return nil
-					}
 					return err
 				}
 			}
@@ -226,7 +218,6 @@ func (u *Updater) Start(ctx context.Context) <-chan struct{} {
 		defer close(doneChan)
 		if err := eg.Wait(); err != nil {
 			u.logger.Error("updater failed, exiting", "error", err)
-			panic(err)
 		}
 	}()
 
@@ -248,6 +239,15 @@ func (u *Updater) handleEncryptedCommitment(
 		update.DispatchTimestamp,
 	)
 	if err != nil {
+		// ignore duplicate private key constraint
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			u.logger.Warn(
+				"encrypted commitment already exists",
+				"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
+			)
+			return nil
+		}
 		u.logger.Error(
 			"failed to add encrypted commitment",
 			"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
