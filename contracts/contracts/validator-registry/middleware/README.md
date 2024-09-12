@@ -92,6 +92,18 @@ Oracle slashing must be invoked within `slashPeriodSeconds` of any event causing
 
 Since a permissioned oracle account invokes slashing, the mev-commit middleware contract only requires the most basic slashing interface. Hence the middleware contract requires Vaults to have a slasher of type `InstantSlasher`. The contract will not allow Vaults to be registered that use a `VetoSlasher`. These constraints may change depending on feedback from Vault managers and operators. 
 
+### Configuration of slashPeriodSeconds
+
+`slashPeriodSeconds` must be configured such that mev-commit actors can query the proposer set for the current L1 epoch, query each proposer's opt-in status from the latest finalized L1 block (two L1 epochs ago), act upon said opt-in status during the current epoch, and allow a buffer for the oracle to possibly slash opted-in validators who act incorrectly.
+
+Concretely, for validators to be slashable by the oracle, `slashPeriodSeconds` must be greater than:
+
+`l1FinalizationPeriod` + `l1EpochPeriod` + `oracleProcessingPeriod`
+
+or 
+
+`3 * l1EpochPeriod` + `oracleProcessingPeriod`.
+
 ### Rewards
 
 Operators and vault depositors will receive points commensurate with associated validator pubkey(s) being *opted-in* over time. When a Vault is represented by multiple validators, attribution is split evenly between the validators.
