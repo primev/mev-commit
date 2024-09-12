@@ -62,11 +62,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           EMULATOR_BINARY="local/{{ job.target_type }}-emulator"
           EMULATOR_LOG_FMT="{{ job.env.get('log-format', 'json') if job.get('env') else 'json' }}"
-          EMULATOR_LOG_TAGS="{{
-            job.env['log-tags'].items() | map('join', ':') | join('; ')
-            if job.get('env') and job.env.get('log-tags')
-            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
-          }}"
+          EMULATOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           EMULATOR_OTEL_COLLECTOR_ENDPOINT_URL="{{ job.env.get('otel_collector_endpoint_url', '') }}"
           {%- raw %}
           {{- $idx := add (env "NOMAD_ALLOC_INDEX" | parseInt) 1 }}

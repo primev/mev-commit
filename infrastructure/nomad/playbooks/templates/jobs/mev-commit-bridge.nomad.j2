@@ -86,11 +86,7 @@ job "{{ job.name }}" {
           XDG_CONFIG_HOME="local/.config"
           STANDARD_BRIDGE_RELAYER_LOG_LEVEL="{{ job.env.get('log-level', 'debug') }}"
           STANDARD_BRIDGE_RELAYER_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
-          STANDARD_BRIDGE_RELAYER_LOG_TAGS="{{
-            job.env['log-tags'].items() | map('join', ':') | join('; ')
-            if job.env['log-tags'] is defined and job.env['log-tags']
-            else 'service:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}'
-          }}"
+          STANDARD_BRIDGE_RELAYER_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           {%- raw %}
           RELAYER_PRIVKEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.bridge_relayer_private_key }}{{ end }}"
           {{- range nomadService "mev-commit-geth-bootnode1" }}
