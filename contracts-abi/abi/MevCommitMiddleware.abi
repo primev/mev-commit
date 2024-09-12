@@ -1288,6 +1288,17 @@
   },
   {
     "type": "error",
+    "name": "MissingOperatorRecord",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "MissingValRecord",
     "inputs": [
       {
