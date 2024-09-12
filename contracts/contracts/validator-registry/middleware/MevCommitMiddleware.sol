@@ -380,10 +380,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @param blsPubkey The L1 validator BLS public key to slash.
     /// @param infractionTimestamp The block.timestamp for the block during which the infraction occurred.
     function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp) internal {
+        // These will succeed if current tx executes within
+        // slashPeriodSeconds of validator being marked as "not opted-in".
         require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
         address vault = validatorRecords[blsPubkey].vault;
         require(vaultRecords[vault].exists, MissingVaultRecord(vault));
         address operator = validatorRecords[blsPubkey].operator;
+        require(operatorRecords[operator].exists, MissingOperatorRecord(operator));
+
         uint256 amount = vaultRecords[vault].slashAmount;
 
         ISlasher(IVault(vault).slasher()).slash(
@@ -394,6 +398,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         emit ValidatorSlashed(blsPubkey, operator, position);
+
+        // Operator and vault are not deregistered for the validator's infraction,
+        // so as to avoid opting-out large groups of validators at once.
     }
 
     /// @dev Internal function to set the network registry.
