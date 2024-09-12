@@ -94,6 +94,36 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
+        uint256 vLen = vaults.length;
+        require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
+        for (uint256 i = 0; i < vLen; ++i) {
+            _registerVault(vaults[i], slashAmounts[i]);
+        }
+    }
+
+    function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
+        uint256 vLen = vaults.length;
+        require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
+        for (uint256 i = 0; i < vLen; ++i) {
+            _updateSlashAmount(vaults[i], slashAmounts[i]);
+        }
+    }
+
+    function requestVaultDeregistrations(address[] calldata vaults) external onlyOwner {
+        uint256 len = vaults.length;
+        for (uint256 i = 0; i < len; ++i) {
+            _requestVaultDeregistration(vaults[i]);
+        }
+    }
+
+    function deregisterVaults(address[] calldata vaults) external onlyOwner {
+        uint256 len = vaults.length;
+        for (uint256 i = 0; i < len; ++i) {
+            _deregisterVault(vaults[i]);
+        }
+    }
+
     function registerValidators(bytes[][] calldata blsPubkeys, address[] calldata vaults) external whenNotPaused {
         uint256 vaultLen = vaults.length;
         require(vaultLen == blsPubkeys.length, InvalidArrayLengths(vaultLen, blsPubkeys.length));
@@ -126,36 +156,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         uint256 len = blsPubkeys.length;
         for (uint256 i = 0; i < len; ++i) {
             _deregisterValidator(blsPubkeys[i]);
-        }
-    }
-
-    function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
-        uint256 vLen = vaults.length;
-        require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
-        for (uint256 i = 0; i < vLen; ++i) {
-            _registerVault(vaults[i], slashAmounts[i]);
-        }
-    }
-
-    function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
-        uint256 vLen = vaults.length;
-        require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
-        for (uint256 i = 0; i < vLen; ++i) {
-            _updateSlashAmount(vaults[i], slashAmounts[i]);
-        }
-    }
-
-    function requestVaultDeregistrations(address[] calldata vaults) external onlyOwner {
-        uint256 len = vaults.length;
-        for (uint256 i = 0; i < len; ++i) {
-            _requestVaultDeregistration(vaults[i]);
-        }
-    }
-
-    function deregisterVaults(address[] calldata vaults) external onlyOwner {
-        uint256 len = vaults.length;
-        for (uint256 i = 0; i < len; ++i) {
-            _deregisterVault(vaults[i]);
         }
     }
 
