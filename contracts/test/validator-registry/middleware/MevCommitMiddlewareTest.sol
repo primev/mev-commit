@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
+// solhint-disable func-name-mixedcase
+
 import {Test} from "forge-std/Test.sol";
 import {IMevCommitMiddleware} from "../../../contracts/interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
@@ -68,27 +70,6 @@ contract MevCommitMiddlewareTest is Test {
             ))
         );
         mevCommitMiddleware = MevCommitMiddleware(payable(proxy));
-    }
-
-    function getOperatorRecord(address operator) internal view
-        returns (IMevCommitMiddleware.OperatorRecord memory) {
-        (TimestampOccurrence.Occurrence memory occurrence, bool exists, bool isBlacklisted) =
-            mevCommitMiddleware.operatorRecords(operator);
-        return IMevCommitMiddleware.OperatorRecord(occurrence, exists, isBlacklisted);
-    }
-
-    function getVaultRecord(address vault) internal view
-        returns (IMevCommitMiddleware.VaultRecord memory) {
-        (bool exists, TimestampOccurrence.Occurrence memory occurrence, uint256 slashAmount) =
-            mevCommitMiddleware.vaultRecords(vault);
-        return IMevCommitMiddleware.VaultRecord(exists, occurrence, slashAmount);
-    }
-
-    function getValidatorRecord(bytes memory blsPubkey) internal view
-        returns (IMevCommitMiddleware.ValidatorRecord memory) {
-        (address vault, address operator, bool exists, TimestampOccurrence.Occurrence memory occurrence) =
-            mevCommitMiddleware.validatorRecords(blsPubkey);
-        return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, occurrence);
     }
 
     function test_setters() public {
@@ -451,5 +432,26 @@ contract MevCommitMiddlewareTest is Test {
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorIsBlacklisted.selector, operator1)
         );
         mevCommitMiddleware.deregisterOperators(operators);
+    }
+
+    function getOperatorRecord(address operator) public view
+        returns (IMevCommitMiddleware.OperatorRecord memory) {
+        (TimestampOccurrence.Occurrence memory occurrence, bool exists, bool isBlacklisted) =
+            mevCommitMiddleware.operatorRecords(operator);
+        return IMevCommitMiddleware.OperatorRecord(occurrence, exists, isBlacklisted);
+    }
+
+    function getVaultRecord(address vault) public view
+        returns (IMevCommitMiddleware.VaultRecord memory) {
+        (bool exists, TimestampOccurrence.Occurrence memory occurrence, uint256 slashAmount) =
+            mevCommitMiddleware.vaultRecords(vault);
+        return IMevCommitMiddleware.VaultRecord(exists, occurrence, slashAmount);
+    }
+
+    function getValidatorRecord(bytes memory blsPubkey) public view
+        returns (IMevCommitMiddleware.ValidatorRecord memory) {
+        (address vault, address operator, bool exists, TimestampOccurrence.Occurrence memory occurrence) =
+            mevCommitMiddleware.validatorRecords(blsPubkey);
+        return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, occurrence);
     }
 }
