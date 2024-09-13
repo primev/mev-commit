@@ -38,6 +38,9 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when an operator is blacklisted
     event OperatorBlacklisted(address indexed operator);
 
+    /// @notice Emmitted when an operator is unblacklisted
+    event OperatorUnblacklisted(address indexed operator);
+
     /// @notice Emmitted when a vault record is added
     event VaultRegistered(address indexed vault, uint256 slashAmount);
 
@@ -89,7 +92,7 @@ interface IMevCommitMiddleware {
 
     error OnlyOperator(address operator);
 
-    error InvalidArrayLengths(uint256 expectedLength, uint256 actualLength);
+    error InvalidArrayLengths(uint256 vaultLen, uint256 pubkeyLen);
 
     error ValidatorsNotSlashable(address vault, address operator,
         uint256 numRequested, uint256 potentialSlashableVals);
@@ -109,6 +112,8 @@ interface IMevCommitMiddleware {
     error OperatorNotReadyToDeregister(address operator, uint256 currentTimestamp, uint256 deregRequestTimestamp);
 
     error OperatorAlreadyBlacklisted(address operator);
+
+    error OperatorNotBlacklisted(address operator);
 
     error ValidatorRecordAlreadyExists(bytes blsPubkey);
 
@@ -149,6 +154,8 @@ interface IMevCommitMiddleware {
     error NetworkNotEntity(address network);
 
     error MissingOperatorRecord(address operator);
+
+    error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);
 
     function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool);
 

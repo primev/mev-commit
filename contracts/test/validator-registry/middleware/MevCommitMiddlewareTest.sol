@@ -33,10 +33,15 @@ contract MevCommitMiddlewareTest is Test {
     MockVault public vault1;
     MockVault public vault2;
 
+    bytes public sampleValPubkey1 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
+    bytes public sampleValPubkey2 = hex"aca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
+    bytes public sampleValPubkey3 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
+
     event OperatorRegistered(address indexed operator);
     event OperatorDeregistrationRequested(address indexed operator);
     event OperatorDeregistered(address indexed operator);
     event OperatorBlacklisted(address indexed operator);
+    event OperatorUnblacklisted(address indexed operator);
     event ValRecordAdded(bytes blsPubkey, address indexed msgSender, uint256 indexed position);
     event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender, uint256 indexed position);
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
@@ -448,6 +453,65 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.deregisterOperators(operators);
     }
 
+    function test_unblacklistOperators() public {
+
+        vm.prank(vm.addr(0x1121));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(0x1121))
+        );
+        mevCommitMiddleware.unblacklistOperators(new address[](0));
+
+        address operator1 = vm.addr(0x1117);
+        address operator2 = vm.addr(0x1118);
+        address[] memory operators = new address[](2);
+        operators[0] = operator1;
+        operators[1] = operator2;
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.unblacklistOperators(operators);
+
+        test_registerOperators();
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.unblacklistOperators(operators);
+
+        vm.prank(owner);
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord1 = getOperatorRecord(operator1);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord2 = getOperatorRecord(operator2);
+        assertTrue(operatorRecord1.exists);
+        assertTrue(operatorRecord2.exists);
+        assertTrue(operatorRecord1.isBlacklisted);
+        assertTrue(operatorRecord2.isBlacklisted);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorUnblacklisted(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit OperatorUnblacklisted(operator2);
+        mevCommitMiddleware.unblacklistOperators(operators);
+
+        operatorRecord1 = getOperatorRecord(operator1);
+        operatorRecord2 = getOperatorRecord(operator2);
+        assertTrue(operatorRecord1.exists);
+        assertTrue(operatorRecord2.exists);
+        assertFalse(operatorRecord1.isBlacklisted);
+        assertFalse(operatorRecord2.isBlacklisted);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.unblacklistOperators(operators);
+    }
+
     function test_registerVaults() public {
         vm.prank(vm.addr(0x1121));
         vm.expectRevert(
@@ -845,6 +909,85 @@ contract MevCommitMiddlewareTest is Test {
         emit VaultRegistered(address(vault2), 99999);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
     }
+
+    function test_registerValidatorsOperatorReverts() public {
+
+        address operator1 = vm.addr(0x1117);
+
+        bytes[][] memory blsPubkeys = new bytes[][](1);
+        blsPubkeys[0] = new bytes[](1);
+        blsPubkeys[0][0] = hex"000004444444";
+
+        address[] memory vaults = new address[](2);
+        vaults[0] = address(vault1);
+        vaults[1] = address(vault2);
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidBLSPubKeyLength.selector, 48, 6)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        blsPubkeys[0][0] = sampleValPubkey1;
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidArrayLengths.selector, 2, 1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        blsPubkeys = new bytes[][](2);
+        blsPubkeys[0] = new bytes[](2);
+        blsPubkeys[0][0] = sampleValPubkey1;
+        blsPubkeys[0][1] = sampleValPubkey2;
+        blsPubkeys[1] = new bytes[](1);
+        blsPubkeys[1][0] = sampleValPubkey3;
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotEntity.selector, operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        vm.prank(operator1);
+        operatorRegistryMock.register();
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        // deregister operator
+
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+
+        vm.prank(owner);
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorIsBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        vm.prank(owner);
+        mevCommitMiddleware.unblacklistOperators(operators);
+
+        vm.prank(owner);
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorDeregRequestExists.selector, operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+    }
+
+    function test_registerValidatorsVaultReverts() public {
+    }
+
 
     // TODO: val reg cycle
 

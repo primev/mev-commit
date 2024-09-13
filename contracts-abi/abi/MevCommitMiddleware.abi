@@ -649,6 +649,19 @@
   },
   {
     "type": "function",
+    "name": "unblacklistOperators",
+    "inputs": [
+      {
+        "name": "operators",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "unpause",
     "inputs": [],
     "outputs": [],
@@ -889,6 +902,19 @@
         "name": "operatorRegistry",
         "type": "address",
         "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OperatorUnblacklisted",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1245,6 +1271,22 @@
     "name": "InvalidArrayLengths",
     "inputs": [
       {
+        "name": "vaultLen",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "pubkeyLen",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidBLSPubKeyLength",
+    "inputs": [
+      {
         "name": "expectedLength",
         "type": "uint256",
         "internalType": "uint256"
@@ -1410,6 +1452,17 @@
   {
     "type": "error",
     "name": "OperatorIsBlacklisted",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OperatorNotBlacklisted",
     "inputs": [
       {
         "name": "operator",

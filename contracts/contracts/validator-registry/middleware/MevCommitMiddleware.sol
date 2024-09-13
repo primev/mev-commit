@@ -30,6 +30,19 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _;
     }
 
+    /// @dev Modifier to confirm all provided BLS pubkeys are valid length.
+    modifier onlyValidBLSPubKeys(bytes[][] calldata blsPubKeys) {
+        uint256 len = blsPubKeys.length;
+        for (uint256 i = 0; i < len; ++i) {
+            uint256 len2 = blsPubKeys[i].length;
+            for (uint256 j = 0; j < len2; ++j) {
+                require(blsPubKeys[i][j].length == 48, IMevCommitMiddleware.InvalidBLSPubKeyLength(
+                    48, blsPubKeys[i][j].length));
+            }
+        }
+        _;
+    }
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -94,6 +107,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    function unblacklistOperators(address[] calldata operators) external onlyOwner {
+        uint256 len = operators.length;
+        for (uint256 i = 0; i < len; ++i) {
+            _unblacklistOperator(operators[i]);
+        }
+    }
+
     function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
         require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
@@ -124,7 +144,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
-    function registerValidators(bytes[][] calldata blsPubkeys, address[] calldata vaults) external whenNotPaused {
+    function registerValidators(bytes[][] calldata blsPubkeys,
+        address[] calldata vaults) external whenNotPaused onlyValidBLSPubKeys(blsPubkeys) {
         uint256 vaultLen = vaults.length;
         require(vaultLen == blsPubkeys.length, InvalidArrayLengths(vaultLen, blsPubkeys.length));
         address operator = msg.sender;
@@ -148,8 +169,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
-    /// @dev Deletes validator records, only if the associated operator is blacklisted.
-    /// Restricted to contract owner.
+    /// @dev Deletes validator records, callable by contract owner,
+    /// or the (still registered and non-blacklisted) operator of the validator pubkey.
     /// @notice This function allows the contract owner to combat a greifing scenario where an operator
     /// registers a validator pubkey that it does not control, own, or otherwise manage.
     function deregisterValidators(bytes[] calldata blsPubkeys) external {
@@ -269,6 +290,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit OperatorBlacklisted(operator);
     }
 
+    function _unblacklistOperator(address operator) internal {
+        require(operatorRecords[operator].exists, OperatorNotRegistered(operator));
+        require(operatorRecords[operator].isBlacklisted, OperatorNotBlacklisted(operator));
+        operatorRecords[operator].isBlacklisted = false;
+        emit OperatorUnblacklisted(operator);
+    }
+
     function _setVaultRecord(address vault, uint256 slashAmount) internal {
         vaultRecords[vault] = VaultRecord({
             exists: true,
@@ -334,7 +362,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultDeregistered(vault);
     }
 
-    function _setValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
+    function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
+        require(!validatorRecords[blsPubkey].exists, ValidatorRecordAlreadyExists(blsPubkey));
         validatorRecords[blsPubkey] = ValidatorRecord({
             exists: true,
             deregRequestOccurrence: TimestampOccurrence.Occurrence({
@@ -345,11 +374,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             operator: operator
         });
         _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
-    }
-
-    function _addValRecord(bytes calldata blsPubkey, address vault, address operator) internal {
-        require(!validatorRecords[blsPubkey].exists, ValidatorRecordAlreadyExists(blsPubkey));
-        _setValRecord(blsPubkey, vault, operator);
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         emit ValRecordAdded(blsPubkey, msg.sender, position);
     }
