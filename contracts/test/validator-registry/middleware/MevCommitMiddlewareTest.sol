@@ -828,8 +828,22 @@ contract MevCommitMiddlewareTest is Test {
     }
 
     function test_vaultRegCycle() public {
-
         test_deregisterVaults();
+
+        address[] memory vaults = new address[](2);
+        vaults[0] = address(vault1);
+        vaults[1] = address(vault2);
+
+        uint256[] memory slashAmounts = new uint256[](2);
+        slashAmounts[0] = 88888;
+        slashAmounts[1] = 99999;
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit VaultRegistered(address(vault1), 88888);
+        vm.expectEmit(true, true, true, true);
+        emit VaultRegistered(address(vault2), 99999);
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
     }
 
     // TODO: val reg cycle
