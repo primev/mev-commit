@@ -11,6 +11,10 @@ import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {TimestampOccurrence} from "../../../contracts/utils/Occurrence.sol";
+import {MockVault} from "./MockVault.sol";
+import {MockEntity} from "./MockEntity.sol";
+import {MockVetoSlasher} from "./MockVetoSlasher.sol";
+import {MockInstantSlasher} from "./MockInstantSlasher.sol";
 
 contract MevCommitMiddlewareTest is Test {
 
@@ -432,6 +436,150 @@ contract MevCommitMiddlewareTest is Test {
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorIsBlacklisted.selector, operator1)
         );
         mevCommitMiddleware.deregisterOperators(operators);
+    }
+
+    function test_registerVaults() public {
+        vm.prank(vm.addr(0x1121));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(0x1121))
+        );
+        mevCommitMiddleware.registerVaults(new address[](0), new uint256[](0));
+
+        MockEntity mockDelegator1 = new MockEntity(15);
+        MockEntity mockDelegator2 = new MockEntity(16);
+        address vault1 = address(new MockVault(address(mockDelegator1), address(0), 10));
+        address vault2 = address(new MockVault(address(mockDelegator2), address(0), 10));
+        address[] memory vaults = new address[](2);
+        vaults[0] = vault1;
+        vaults[1] = vault2;
+
+        uint256[] memory slashAmounts = new uint256[](1);
+        slashAmounts[0] = 20;
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidArrayLengths.selector, 2, 1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        slashAmounts = new uint256[](2);
+        slashAmounts[0] = 0;
+        slashAmounts[1] = 20;
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotEntity.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        vm.prank(vault1);
+        vaultFactoryMock.register();
+        vm.prank(vault2);
+        vaultFactoryMock.register();
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.SlashAmountMustBeNonZero.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        slashAmounts[0] = 15;
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1, 10, 150)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        MockVault(vault1).setEpochDuration(151);
+        MockVault(vault2).setEpochDuration(151);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.UnknownDelegatorType.selector, vault1, 15)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockDelegator1.setType(mevCommitMiddleware.FULL_RESTAKE_DELEGATOR_TYPE());
+        mockDelegator2.setType(mevCommitMiddleware.FULL_RESTAKE_DELEGATOR_TYPE());
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.FullRestakeDelegatorNotSupported.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockDelegator1.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
+        mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.SlasherNotSetForVault.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77));
+        MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88);
+
+        MockVault(vault1).setSlasher(address(mockSlasher1));
+        MockVault(vault2).setSlasher(address(mockSlasher2));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.UnknownSlasherType.selector, vault1, 77)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockSlasher1.setType(mevCommitMiddleware.VETO_SLASHER_TYPE());
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VetoSlasherMustHaveZeroResolver.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockSlasher1.setResolver(address(0));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.UnknownSlasherType.selector, vault2, 88)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockSlasher2.setType(mevCommitMiddleware.INSTANT_SLASHER_TYPE());
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit VaultRegistered(vault1, 15);
+        vm.expectEmit(true, true, true, true);
+        emit VaultRegistered(vault2, 20);
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        IMevCommitMiddleware.VaultRecord memory vaultRecord1 = getVaultRecord(vault1);
+        IMevCommitMiddleware.VaultRecord memory vaultRecord2 = getVaultRecord(vault2);
+        assertTrue(vaultRecord1.exists);
+        assertTrue(vaultRecord2.exists);
+        assertFalse(vaultRecord1.deregRequestOccurrence.exists);
+        assertFalse(vaultRecord2.deregRequestOccurrence.exists);
+        assertEq(vaultRecord1.slashAmount, 15);
+        assertEq(vaultRecord2.slashAmount, 20);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultAlreadyRegistered.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        vaults = new address[](1);
+        vaults[0] = vault2;
+        slashAmounts = new uint256[](1);
+        slashAmounts[0] = 88;
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultAlreadyRegistered.selector, vault2)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
     }
 
     function getOperatorRecord(address operator) public view
