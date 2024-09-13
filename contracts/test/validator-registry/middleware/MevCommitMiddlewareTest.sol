@@ -669,6 +669,78 @@ contract MevCommitMiddlewareTest is Test {
         assertEq(vaultRecord2.slashAmount, 3333);
     }
 
+    function test_requestVaultDeregistrations() public {
+
+        vm.prank(vm.addr(0x1121));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(0x1121))
+        );
+        mevCommitMiddleware.requestVaultDeregistrations(new address[](0));
+
+        address[] memory vaults = new address[](1);
+        vaults[0] = address(vault1);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotRegistered.selector, vault1)
+        );
+        mevCommitMiddleware.requestVaultDeregistrations(vaults);
+
+        vaults[0] = address(vault2);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotRegistered.selector, vault2)
+        );
+        mevCommitMiddleware.requestVaultDeregistrations(vaults);
+
+        vm.warp(888);
+
+        test_registerVaults();
+        
+        IMevCommitMiddleware.VaultRecord memory vaultRecord1 = getVaultRecord(address(vault1));
+        IMevCommitMiddleware.VaultRecord memory vaultRecord2 = getVaultRecord(address(vault2));
+        assertTrue(vaultRecord1.exists);
+        assertTrue(vaultRecord2.exists);
+        assertFalse(vaultRecord1.deregRequestOccurrence.exists);
+        assertFalse(vaultRecord2.deregRequestOccurrence.exists);
+        assertEq(vaultRecord1.slashAmount, 15);
+        assertEq(vaultRecord2.slashAmount, 20);
+
+        vaults = new address[](2);
+        vaults[0] = address(vault1);
+        vaults[1] = address(vault2);
+
+        vm.warp(999);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit VaultDeregistrationRequested(address(vault1));
+        vm.expectEmit(true, true, true, true);
+        emit VaultDeregistrationRequested(address(vault2));
+        mevCommitMiddleware.requestVaultDeregistrations(vaults);
+
+        vaultRecord1 = getVaultRecord(address(vault1));
+        vaultRecord2 = getVaultRecord(address(vault2));
+        assertTrue(vaultRecord1.exists);
+        assertTrue(vaultRecord2.exists);
+        assertTrue(vaultRecord1.deregRequestOccurrence.exists);
+        assertTrue(vaultRecord2.deregRequestOccurrence.exists);
+        assertEq(vaultRecord1.deregRequestOccurrence.timestamp, 999);
+        assertEq(vaultRecord2.deregRequestOccurrence.timestamp, 999);
+        assertEq(vaultRecord1.slashAmount, 15);
+        assertEq(vaultRecord2.slashAmount, 20);
+
+        vaults = new address[](1);
+        vaults[0] = address(vault2);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultDeregRequestExists.selector, vault2)
+        );
+        mevCommitMiddleware.requestVaultDeregistrations(vaults);
+    }
+
     function getOperatorRecord(address operator) public view
         returns (IMevCommitMiddleware.OperatorRecord memory) {
         (TimestampOccurrence.Occurrence memory occurrence, bool exists, bool isBlacklisted) =
