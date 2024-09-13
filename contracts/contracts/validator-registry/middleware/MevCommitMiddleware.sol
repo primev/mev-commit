@@ -531,38 +531,33 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return Subnetwork.subnetwork(network, SUBNETWORK_ID);
     }
 
-    function _getAllocatedStake(address vault, address operator) internal view returns (uint256) {
+    function _getSlashableVals(address vault, address operator) internal view returns (uint256) {
         IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
-        bytes32 subnetwork = _getSubnetwork();
-        return delegator.stake(subnetwork, operator);
+        uint256 allocatedStake = delegator.stake(_getSubnetwork(), operator);
+        uint256 slashAmount = vaultRecords[vault].slashAmount;
+        return allocatedStake / slashAmount;
     }
-
 
     // TODO: need to unit test
     function _allValidatorsAreSlashable(address vault, address operator) internal view returns (bool) {
-        uint256 slashAmount = vaultRecords[vault].slashAmount;
+        uint256 slashableVals = _getSlashableVals(vault, operator);
         uint256 numVals = _vaultAndOperatorToValset[vault][operator].length();
-        uint256 allocatedStake = _getAllocatedStake(vault, operator);
-        return allocatedStake >= slashAmount * numVals;
+        return slashableVals >= numVals;
     }
 
     function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {
-        uint256 allocatedStake = _getAllocatedStake(vault, operator);
-        uint256 slashAmount = vaultRecords[vault].slashAmount;
+        uint256 slashableVals = _getSlashableVals(vault, operator);
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
-        uint256 slashableVals = allocatedStake / slashAmount;
-        return position < slashableVals;
+        return position <= slashableVals; // position is 1-indexed
     }
 
     function _potentialSlashableVals(address vault, address operator) internal view returns (uint256) {
-        uint256 allocatedStake = _getAllocatedStake(vault, operator);
-        uint256 slashAmount = vaultRecords[vault].slashAmount;
-        uint256 alreadyCollateralized = _vaultAndOperatorToValset[vault][operator].length();
-        uint256 slashableVals = allocatedStake / slashAmount;
-        if (slashableVals < alreadyCollateralized) {
+        uint256 slashableVals = _getSlashableVals(vault, operator);
+        uint256 alreadyRegistered = _vaultAndOperatorToValset[vault][operator].length();
+        if (slashableVals < alreadyRegistered) {
             return 0;
         }
-        return slashableVals - alreadyCollateralized;
+        return slashableVals - alreadyRegistered;
     }
     
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {

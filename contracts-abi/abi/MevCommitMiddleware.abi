@@ -1047,7 +1047,13 @@
         "internalType": "bytes"
       },
       {
-        "name": "msgSender",
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vault",
         "type": "address",
         "indexed": true,
         "internalType": "address"
