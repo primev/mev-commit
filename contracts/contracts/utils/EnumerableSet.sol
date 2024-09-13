@@ -179,7 +179,7 @@ library EnumerableSet {
     }
 
     /**
-     * @dev Returns the position of the value in the set. O(1).
+     * @dev Returns the one-indexed position of the value in the set. O(1).
      */
     function _position(BytesSet storage set, bytes memory value) private view returns (uint256) {
         return set._positions[value];

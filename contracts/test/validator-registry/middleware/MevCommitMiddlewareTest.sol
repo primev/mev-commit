@@ -12,9 +12,9 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {TimestampOccurrence} from "../../../contracts/utils/Occurrence.sol";
 import {MockVault} from "./MockVault.sol";
-import {MockEntity} from "./MockEntity.sol";
 import {MockVetoSlasher} from "./MockVetoSlasher.sol";
 import {MockInstantSlasher} from "./MockInstantSlasher.sol";
+import {MockDelegator} from "./MockDelegator.sol";
 
 contract MevCommitMiddlewareTest is Test {
 
@@ -28,21 +28,26 @@ contract MevCommitMiddlewareTest is Test {
 
     MevCommitMiddleware public mevCommitMiddleware;
 
-    MockEntity public mockDelegator1;
-    MockEntity public mockDelegator2;
+    MockDelegator public mockDelegator1;
+    MockDelegator public mockDelegator2;
     MockVault public vault1;
     MockVault public vault2;
 
     bytes public sampleValPubkey1 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
     bytes public sampleValPubkey2 = hex"aca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
-    bytes public sampleValPubkey3 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
+    bytes public sampleValPubkey3 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254777";
+
+    bytes public sampleValPubkey4 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254888";
+    bytes public sampleValPubkey5 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254999";
+    bytes public sampleValPubkey6 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254aaa";
+    bytes public sampleValPubkey7 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254bbb";
 
     event OperatorRegistered(address indexed operator);
     event OperatorDeregistrationRequested(address indexed operator);
     event OperatorDeregistered(address indexed operator);
     event OperatorBlacklisted(address indexed operator);
     event OperatorUnblacklisted(address indexed operator);
-    event ValRecordAdded(bytes blsPubkey, address indexed msgSender, uint256 indexed position);
+    event ValRecordAdded(bytes blsPubkey, address indexed operator, address indexed vault, uint256 indexed position);
     event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender, uint256 indexed position);
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
     event VaultRegistered(address indexed vault, uint256 slashAmount);
@@ -85,8 +90,8 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware = MevCommitMiddleware(payable(proxy));
 
-        mockDelegator1 = new MockEntity(15);
-        mockDelegator2 = new MockEntity(16);
+        mockDelegator1 = new MockDelegator(15);
+        mockDelegator2 = new MockDelegator(16);
         vault1 = new MockVault(address(mockDelegator1), address(0), 10);
         vault2 = new MockVault(address(mockDelegator2), address(0), 10);
     }
@@ -971,8 +976,6 @@ contract MevCommitMiddlewareTest is Test {
             abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
         );
         mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
-
-        // deregister operator
 
         address[] memory operators = new address[](1);
         operators[0] = operator1;

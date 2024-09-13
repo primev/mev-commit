@@ -154,7 +154,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             uint256 keyLen = blsPubkeys[i].length;
             _checkVault(vaults[i]);
             uint256 potentialSlashableVals = _potentialSlashableVals(vaults[i], operator);
-            require(keyLen < potentialSlashableVals + 1,
+            require(keyLen <= potentialSlashableVals,
                 ValidatorsNotSlashable(vaults[i], operator, keyLen, potentialSlashableVals));
             for (uint256 j = 0; j < keyLen; ++j) {
                 _addValRecord(blsPubkeys[i][j], vaults[i], operator);
@@ -379,7 +379,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         });
         _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
-        emit ValRecordAdded(blsPubkey, msg.sender, position);
+        emit ValRecordAdded(blsPubkey, operator, vault, position);
     }
 
     function _requestValDeregistration(bytes calldata blsPubkey) internal {
@@ -506,6 +506,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(!vaultRecords[vault].deregRequestOccurrence.exists, VaultDeregRequestExists(vault));
     }
 
+    /// @dev Returns the one-indexed position of the blsPubkey in the set.
     function _getPositionInValset(bytes calldata blsPubkey,
         address vault, address operator) internal view returns (uint256) {
         return _vaultAndOperatorToValset[vault][operator].position(blsPubkey);
@@ -536,11 +537,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return delegator.stake(subnetwork, operator);
     }
 
+
+    // TODO: need to unit test
     function _allValidatorsAreSlashable(address vault, address operator) internal view returns (bool) {
         uint256 slashAmount = vaultRecords[vault].slashAmount;
         uint256 numVals = _vaultAndOperatorToValset[vault][operator].length();
         uint256 allocatedStake = _getAllocatedStake(vault, operator);
-        return allocatedStake > slashAmount * numVals;
+        return allocatedStake >= slashAmount * numVals;
     }
 
     function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {
@@ -556,6 +559,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         uint256 slashAmount = vaultRecords[vault].slashAmount;
         uint256 alreadyCollateralized = _vaultAndOperatorToValset[vault][operator].length();
         uint256 slashableVals = allocatedStake / slashAmount;
+        if (slashableVals < alreadyCollateralized) {
+            return 0;
+        }
         return slashableVals - alreadyCollateralized;
     }
     

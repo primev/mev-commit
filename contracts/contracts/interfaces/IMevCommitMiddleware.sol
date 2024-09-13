@@ -54,8 +54,9 @@ interface IMevCommitMiddleware {
     event VaultDeregistered(address indexed vault);
 
     /// @notice Emmitted when a validator record is added to state
-    event ValRecordAdded(bytes blsPubkey, address indexed msgSender,
-        uint256 indexed position);
+    /// @dev The position is one-indexed.
+    event ValRecordAdded(bytes blsPubkey, address indexed operator,
+        address indexed vault, uint256 indexed position);
 
     /// @notice Emmitted when validator deregistration is requested
     event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender,
