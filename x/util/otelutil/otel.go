@@ -47,21 +47,13 @@ func SetupOTelSDK(ctx context.Context, epurl, tags string) (func(context.Context
 			return nil, fmt.Errorf("invalid tag %q at index %d", kv, i)
 		}
 
-		switch kv[0] {
-		case "service", string(semconv.ServiceNameKey):
-			args = append(
-				args,
-				semconv.ServiceNameKey.String(strings.ToValidUTF8(kv[1], "�")),
-			)
-		default:
-			args = append(
-				args,
-				attribute.String(
-					strings.ToValidUTF8(kv[0], "�"),
-					strings.ToValidUTF8(kv[1], "�"),
-				),
-			)
-		}
+		args = append(
+			args,
+			attribute.String(
+				strings.ToValidUTF8(kv[0], "�"),
+				strings.ToValidUTF8(kv[1], "�"),
+			),
+		)
 	}
 
 	val, err := url.Parse(epurl)
