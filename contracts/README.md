@@ -12,7 +12,9 @@ The following instructions assist in upgrading an existing deployment of any of 
 
 First, implement and merge an appropriate feat/fix to the implementation contract using the main branch. This ensures any future (new) deployments of the contract will include the feat/fix along with changes to the contract's ABI.
 
-Next, create a branch off the appropriate release branch (e.g. `release/v0.5.x`) that the currently deployed contract was initially built/deployed from, we'll refer to this as the "upgrade branch". Copy/paste the updated implementation contract from `main` into your upgrade branch, by creating a new file with an incremented version number as a postfix of the original contract's filename. E.g. if the original contract's filename is `MevCommitAVS.sol`, then the new contract's filename should be `MevCommitAVSV2.sol`.
+Next, create a branch off the appropriate release branch (e.g. `release/v0.5.x`) that the currently deployed contract was initially built/deployed from, we'll refer to this as the "upgrade branch". Copy/paste the currently deployed contract implementation to a new file (currently deployed implementation and new file should both reside within the upgrade branch). Name the new file with an incremented version number as a postfix of the original contract's filename. E.g. if the original contract's filename is `MevCommitAVS.sol`, then the new contract's filename should be `MevCommitAVSV2.sol`. 
+
+Now update the new implementation contract with the feat/fix that was merged to main. You can try to utilize cherry-picking here, but may have to re-implement the feat/fix manually.
 
 Make sure to update and run tests on the upgrade branch. The `setUp()` function for relevant test contract(s) should include an upgrade from the previous to the new implementation contract. Also any regression tests merged to main should be ported to the upgrade branch.
 
