@@ -400,7 +400,8 @@ contract VanillaRegistryTest is Test {
         assertEq(address(SLASH_RECEIVER).balance, 0.1 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 22);
+        // Unstake occurrence should not be updated for already unstaked validators
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 11);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
@@ -445,7 +446,8 @@ contract VanillaRegistryTest is Test {
 
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 78);
+        // Unstake occurrence should not be updated for already unstaked validators
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 14);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 0.9 ether);

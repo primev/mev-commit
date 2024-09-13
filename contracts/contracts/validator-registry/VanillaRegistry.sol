@@ -340,10 +340,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             require(stakedValidators[pubKey].balance > slashAmount,
                 IVanillaRegistry.NotEnoughBalanceToSlash());
             stakedValidators[pubKey].balance -= slashAmount;
-            if (_isUnstaking(pubKey)) {
-                // If validator is already unstaking, reset their unstake block number
-                BlockHeightOccurrence.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
-            } else {
+            if (!_isUnstaking(pubKey)) {
                 _unstakeSingle(pubKey);
             }
             (bool success, ) = slashReceiver.call{value: slashAmount}("");
