@@ -704,6 +704,8 @@ contract MevCommitMiddlewareTest is Test {
         assertTrue(vaultRecord2.exists);
         assertFalse(vaultRecord1.deregRequestOccurrence.exists);
         assertFalse(vaultRecord2.deregRequestOccurrence.exists);
+        assertEq(vaultRecord1.deregRequestOccurrence.timestamp, 0);
+        assertEq(vaultRecord2.deregRequestOccurrence.timestamp, 0);
         assertEq(vaultRecord1.slashAmount, 15);
         assertEq(vaultRecord2.slashAmount, 20);
 
@@ -740,6 +742,97 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.requestVaultDeregistrations(vaults);
     }
+
+    function test_deregisterVaults() public {
+        vm.prank(vm.addr(0x1121));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(0x1121))
+        );
+        mevCommitMiddleware.deregisterVaults(new address[](0));
+
+        address[] memory vaults = new address[](1);
+        vaults[0] = address(vault2);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotRegistered.selector, vault2)
+        );
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        test_requestVaultDeregistrations();
+
+        assertEq(block.timestamp, 999);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotReadyToDeregister.selector, vault2, 999, 999)
+        );
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        vm.warp(1001);
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotReadyToDeregister.selector, vault2, 1001, 999)
+        );
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        vm.warp(1001 + mevCommitMiddleware.slashPeriodSeconds() + 1);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit VaultDeregistered(address(vault2));
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        IMevCommitMiddleware.VaultRecord memory vaultRecord1 = getVaultRecord(address(vault1));
+        IMevCommitMiddleware.VaultRecord memory vaultRecord2 = getVaultRecord(address(vault2));
+        assertTrue(vaultRecord1.exists);
+        assertFalse(vaultRecord2.exists);
+        
+        vaults = new address[](2);
+        vaults[1] = address(vault2);
+        vaults[0] = address(vault1);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotRegistered.selector, vault2)
+        );
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        vaults[0] = address(vault1);
+        vaults[1] = address(vault2);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotRegistered.selector, vault2)
+        );
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        vaults = new address[](1);
+        vaults[0] = address(vault1);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit VaultDeregistered(address(vault1));
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        vaultRecord1 = getVaultRecord(address(vault1));
+        vaultRecord2 = getVaultRecord(address(vault2));
+        assertFalse(vaultRecord1.exists);
+        assertFalse(vaultRecord2.exists);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.VaultNotRegistered.selector, vault1)
+        );
+        mevCommitMiddleware.deregisterVaults(vaults);
+    }
+
+    function test_vaultRegCycle() public {
+
+        test_deregisterVaults();
+    }
+
+    // TODO: val reg cycle
 
     function getOperatorRecord(address operator) public view
         returns (IMevCommitMiddleware.OperatorRecord memory) {
