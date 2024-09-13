@@ -308,16 +308,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         });
     }
 
-    function _registerVault(address vault,uint256 slashAmount) internal {
+    function _registerVault(address vault, uint256 slashAmount) internal {
         require(!vaultRecords[vault].exists, VaultAlreadyRegistered(vault));
         require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
 
-        IVaultStorage vaultContract = IVaultStorage(vault);
-        uint256 vaultEpochDurationSeconds = vaultContract.epochDuration();
-        require(vaultEpochDurationSeconds > slashPeriodSeconds,
-            InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
-        
         IEntity delegator = IEntity(IVault(vault).delegator());
         if (delegator.TYPE() == FULL_RESTAKE_DELEGATOR_TYPE) {
             revert FullRestakeDelegatorNotSupported(vault);
@@ -325,16 +320,25 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             revert UnknownDelegatorType(vault, delegator.TYPE());
         }
 
+        IVaultStorage vaultContract = IVaultStorage(vault);
+        uint256 vaultEpochDurationSeconds = vaultContract.epochDuration();
+
         address slasher = IVault(vault).slasher();
         require(slasher != address(0), SlasherNotSetForVault(vault));
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == VETO_SLASHER_TYPE) {
             IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
+            // For veto slashers, incorporate that veto duration will eat into vault's epoch duration.
+            /// @dev vetoDuration must be less than epochDuration as enforced by VetoSlasher.sol.
+            vaultEpochDurationSeconds -= vetoSlasher.vetoDuration();
             require(vetoSlasher.resolver(_getSubnetwork(), new bytes(0)) == address(0),
                 VetoSlasherMustHaveZeroResolver(vault));
         } else if (slasherType != INSTANT_SLASHER_TYPE) {
             revert UnknownSlasherType(vault, slasherType);
         }
+
+        require(vaultEpochDurationSeconds > slashPeriodSeconds,
+            InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
 
         _setVaultRecord(vault, slashAmount);
         emit VaultRegistered(vault, slashAmount);

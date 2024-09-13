@@ -52,13 +52,13 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE());
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0));
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5);
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
 
         vault1.setEpochDuration(151);
-        vault2.setEpochDuration(152);
+        vault2.setEpochDuration(151 + 5);
 
         vm.prank(address(vault1));
         vaultFactoryMock.register();
