@@ -57,7 +57,7 @@ contract MevCommitMiddlewareTest is Test {
     event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
     event SlashOracleSet(address slashOracle);
 
-    function setUp() public {
+    function setUp() public virtual {
         networkRegistryMock = new RegistryMock();
         operatorRegistryMock = new RegistryMock();
         vaultFactoryMock = new RegistryMock();
@@ -984,12 +984,6 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
     }
-
-    function test_registerValidatorsVaultReverts() public {
-    }
-
-
-    // TODO: val reg cycle
 
     function getOperatorRecord(address operator) public view
         returns (IMevCommitMiddleware.OperatorRecord memory) {
