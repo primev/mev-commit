@@ -246,6 +246,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _allValidatorsAreSlashable(vault, operator);
     }
 
+    /// @dev Returns the one-indexed position of the blsPubkey in the valset.
+    /// @return 0 if the blsPubkey is not in the valset.
+    function getPositionInValset(bytes calldata blsPubkey, address vault, address operator) external view returns (uint256) {
+        return _getPositionInValset(blsPubkey, vault, operator);
+    }
+
     function _setOperatorRecord(address operator) internal {
         operatorRecords[operator] = OperatorRecord({
             exists: true,
@@ -508,6 +514,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     /// @dev Returns the one-indexed position of the blsPubkey in the set.
+    /// @return 0 if the blsPubkey is not in the set.
     function _getPositionInValset(bytes calldata blsPubkey,
         address vault, address operator) internal view returns (uint256) {
         return _vaultAndOperatorToValset[vault][operator].position(blsPubkey);
@@ -549,6 +556,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {
         uint256 slashableVals = _getSlashableVals(vault, operator);
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
+        require(position != 0, ValidatorNotInValset(blsPubkey, vault, operator));
         return position <= slashableVals; // position is 1-indexed
     }
 

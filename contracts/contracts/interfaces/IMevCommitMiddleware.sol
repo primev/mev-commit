@@ -150,6 +150,8 @@ interface IMevCommitMiddleware {
 
     error VaultDeregRequestExists(address vault);
 
+    error ValidatorNotInValset(bytes blsPubkey, address vault, address operator);
+
     error VaultDeregNotRequested(address vault);
 
     error ZeroAddressNotAllowed();
