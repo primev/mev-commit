@@ -175,6 +175,35 @@
   },
   {
     "type": "function",
+    "name": "getPositionInValset",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "initialize",
     "inputs": [
       {
@@ -1625,6 +1654,38 @@
         "name": "slasherType",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorDeregRequestExists",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorNotInValset",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
