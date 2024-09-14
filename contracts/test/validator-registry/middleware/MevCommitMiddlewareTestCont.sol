@@ -475,7 +475,77 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(position, 0);
     }
 
-    // For repeated use in requestValidatorDeregistrations tests
+    function test_deregisterValidatorsMissingValidatorRecord() public {
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.MissingValidatorRecord.selector, sampleValPubkey1)
+        );
+        mevCommitMiddleware.deregisterValidators(blsPubkeys);
+    }
+
+    function test_deregisterValidatorsFromContractOwner() public {
+        test_requestValidatorDeregistrationsFromValidOperator();
+        assertEq(getValidatorRecord(sampleValPubkey1).deregRequestOccurrence.timestamp, 91);
+
+        address operator1 = vm.addr(0x1117);
+        bytes[] memory blsPubkeys = getSixPubkeys();
+
+        vm.warp(91 + 1);
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.ValidatorNotReadyToDeregister.selector, sampleValPubkey1, 92, 91)
+        );
+        mevCommitMiddleware.deregisterValidators(blsPubkeys);
+
+        vm.warp(91 + 20);
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.ValidatorNotReadyToDeregister.selector, sampleValPubkey1, 111, 91)
+        );
+        mevCommitMiddleware.deregisterValidators(blsPubkeys);
+
+        uint256 pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
+        assertEq(pos1, 1);  
+        uint256 pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
+        assertEq(pos2, 2);
+        uint256 pos3 = mevCommitMiddleware.getPositionInValset(sampleValPubkey3, address(vault1), operator1);
+        assertEq(pos3, 3);
+        uint256 pos4 = mevCommitMiddleware.getPositionInValset(sampleValPubkey4, address(vault2), operator1);
+        assertEq(pos4, 1);
+        uint256 pos5 = mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1);
+        assertEq(pos5, 2);
+        uint256 pos6 = mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1);
+        assertEq(pos6, 3);
+
+        vm.warp(91+mevCommitMiddleware.slashPeriodSeconds()+1);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey1, owner);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey2, owner);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey3, owner);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey4, owner);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey5, owner);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey6, owner);
+        mevCommitMiddleware.deregisterValidators(blsPubkeys);
+
+        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+            IMevCommitMiddleware.ValidatorRecord memory valRecord = getValidatorRecord(blsPubkeys[i]);
+            assertFalse(valRecord.exists);
+            uint256 pos = mevCommitMiddleware.getPositionInValset(blsPubkeys[i], address(vault1), operator1);
+            assertEq(pos, 0);
+        }
+    }
+
+    // TODO: test for deregistering validators from valid operator
+    // TODO: tests for attempting to deregistering validators from operator that's invalid in every way
+
+    // For repeated use in requestValidatorDeregistrations and deregisterValidators tests
     function getSixPubkeys() internal view returns (bytes[] memory) {
         bytes[] memory blsPubkeys = new bytes[](6);
         blsPubkeys[0] = sampleValPubkey1;
