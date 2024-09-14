@@ -280,10 +280,173 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
     }
 
-
-    function test_requestValidatorDeregistrations() public { 
-        // Test function is valid from contract owner or fully valid operator
+    function test_requestValidatorDeregistrationsMissingValidatorRecord() public { 
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.MissingValidatorRecord.selector,
+                sampleValPubkey1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
     }
+
+    function test_requestValidatorDeregistrationsOnlyOperator() public {
+        test_registerValidators();
+        address operator1 = vm.addr(0x1117);
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        vm.prank(vm.addr(0x9999999));
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OnlyOperator.selector, operator1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+    }
+
+    function test_requestValidatorDeregistrationsOperatorNotEntity() public {
+        test_registerValidators();
+        address operator1 = vm.addr(0x1117);
+
+        vm.prank(operator1);
+        operatorRegistryMock.deregister();
+
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotEntity.selector, operator1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+    }
+
+    function test_requestValidatorDeregistrationsOperatorNotRegistered() public {
+        test_registerValidators();
+
+        address operator1 = vm.addr(0x1117);
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        vm.prank(owner);
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+        IMevCommitMiddleware.OperatorRecord memory operatorRecord = getOperatorRecord(operator1);
+        assertTrue(operatorRecord.deregRequestOccurrence.exists);
+
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorDeregRequestExists.selector, operator1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+
+        vm.warp(block.timestamp + mevCommitMiddleware.slashPeriodSeconds() + 1);
+
+        vm.prank(owner);
+        mevCommitMiddleware.deregisterOperators(operators);
+        operatorRecord = getOperatorRecord(operator1);
+        assertFalse(operatorRecord.exists);
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorNotRegistered.selector, operator1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+    }
+
+    function test_requestValidatorDeregistrationsOperatorIsBlacklisted() public {
+        test_registerValidators();
+
+        address operator1 = vm.addr(0x1117);
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+
+        vm.prank(owner);
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorIsBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+    }
+
+    function test_requestValidatorDeregistrationsFromValidOperator() public {
+        test_registerValidators();
+        bytes[] memory blsPubkeys = getSixPubkeys();
+
+        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+            IMevCommitMiddleware.ValidatorRecord memory valRecord = getValidatorRecord(blsPubkeys[i]);
+            assertTrue(valRecord.exists);
+            assertFalse(valRecord.deregRequestOccurrence.exists);
+            assertEq(valRecord.deregRequestOccurrence.timestamp, 0);
+        }
+
+        vm.warp(91);
+
+        address operator1 = vm.addr(0x1117);
+        vm.prank(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey1, operator1, 1);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey2, operator1, 2);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey3, operator1, 3);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey4, operator1, 1);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey5, operator1, 2);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey6, operator1, 3);
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+
+        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+            IMevCommitMiddleware.ValidatorRecord memory valRecord = getValidatorRecord(blsPubkeys[i]);
+            assertTrue(valRecord.exists);
+            assertTrue(valRecord.deregRequestOccurrence.exists);
+            assertEq(valRecord.deregRequestOccurrence.timestamp, 91);
+        }
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.ValidatorDeregRequestExists.selector, sampleValPubkey1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+    }
+
+    function test_requestValidatorDeregistrationsFromContractOwner() public {
+        test_registerValidators();
+        bytes[] memory blsPubkeys = getSixPubkeys();
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey1, owner, 1);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey2, owner, 2);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey3, owner, 3);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey4, owner, 1);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey5, owner, 2);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorDeregistrationRequested(sampleValPubkey6, owner, 3);
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.ValidatorDeregRequestExists.selector, sampleValPubkey1)
+        );
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+    }
+
+    // For repeated use in requestValidatorDeregistrations tests
+    function getSixPubkeys() internal view returns (bytes[] memory) {
+        bytes[] memory blsPubkeys = new bytes[](6);
+        blsPubkeys[0] = sampleValPubkey1;
+        blsPubkeys[1] = sampleValPubkey2;
+        blsPubkeys[2] = sampleValPubkey3;
+        blsPubkeys[3] = sampleValPubkey4;
+        blsPubkeys[4] = sampleValPubkey5;
+        blsPubkeys[5] = sampleValPubkey6;
+        return blsPubkeys;
+    }
+
+    // Test dereg functions are valid from contract owner or fully valid operator
 
     // TODO: val reg cycle
 }

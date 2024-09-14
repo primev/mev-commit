@@ -384,6 +384,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function _requestValDeregistration(bytes calldata blsPubkey) internal {
         require(validatorRecords[blsPubkey].exists, MissingValidatorRecord(blsPubkey));
+        require(!validatorRecords[blsPubkey].deregRequestOccurrence.exists, ValidatorDeregRequestExists(blsPubkey));
         if (msg.sender != owner()) {
             _checkCallingOperator(validatorRecords[blsPubkey].operator);
         }

@@ -21,6 +21,10 @@ contract RegistryMock is IRegistry {
         return msg.sender;
     }
 
+    function deregister() external {
+        _removeEntity(msg.sender);
+    }
+
     function isEntity(
         address entity_
     ) public view returns (bool) {
@@ -41,8 +45,12 @@ contract RegistryMock is IRegistry {
         address entity_
     ) internal {
         _entities.add(entity_);
+    }
 
-        emit AddEntity(entity_);
+    function _removeEntity(
+        address entity_
+    ) internal {
+        _entities.remove(entity_);
     }
 
     function _checkEntity(

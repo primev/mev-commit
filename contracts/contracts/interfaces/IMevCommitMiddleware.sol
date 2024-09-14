@@ -120,6 +120,8 @@ interface IMevCommitMiddleware {
 
     error MissingValidatorRecord(bytes blsPubkey);
 
+    error ValidatorDeregRequestExists(bytes blsPubkey);
+
     error ValidatorNotReadyToDeregister(bytes blsPubkey, uint256 currentTimestamp, uint256 deregRequestTimestamp);
 
     error VaultAlreadyRegistered(address vault);
