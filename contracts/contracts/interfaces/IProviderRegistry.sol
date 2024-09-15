@@ -27,6 +27,14 @@ interface IProviderRegistry {
     /// @dev Event emitted when the fee payout period in blocks is updated
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
+    /// @dev Event emitted when there are insufficient funds to slash
+    event InsufficientFundsToSlash(
+        address indexed provider,
+        uint256 providerStake,
+        uint256 residualAmount,
+        uint256 penaltyFee
+    );
+
     function registerAndStake(bytes calldata blsPublicKey) external payable;
 
     function stake() external payable;
