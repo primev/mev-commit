@@ -103,7 +103,6 @@ contract ProviderRegistry is
     function delegateStake(address provider) external payable whenNotPaused {
         _stake(provider);
     }
-
     /**
      * @dev Slash funds from the provider and send the slashed amount to the bidder.
      * @dev reenterancy not necessary but still putting here for precaution.
@@ -121,7 +120,18 @@ contract ProviderRegistry is
     ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
         uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
-        require(providerStakes[provider] >= residualAmt + penaltyFee, "Insufficient funds to slash");
+        // if the provider's stake is less than the residual amount + penalty fee, we need to adjust the residual amount and penalty fee
+        // this is to prevent underflow and ensure the contract doesn't revert
+        // We also emit
+        if (providerStakes[provider] < residualAmt + penaltyFee) {
+            emit InsufficientFundsToSlash(provider, providerStakes[provider], residualAmt, penaltyFee);
+            if (providerStakes[provider] < residualAmt) {
+                penaltyFee = 0;
+                residualAmt = providerStakes[provider];
+            } else {
+                penaltyFee = providerStakes[provider] - residualAmt;
+            }
+        }
         providerStakes[provider] -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
