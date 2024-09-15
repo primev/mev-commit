@@ -103,7 +103,7 @@ contract ProviderRegistry is
     function delegateStake(address provider) external payable whenNotPaused {
         _stake(provider);
     }
-    
+
     /**
      * @dev Slash funds from the provider and send the slashed amount to the bidder.
      * @dev reenterancy not necessary but still putting here for precaution.
