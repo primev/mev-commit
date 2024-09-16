@@ -125,16 +125,16 @@ contract ProviderRegistry is
         // this is to prevent underflow and ensure the contract doesn't revert
         // We also emit
         uint256 providerStake = providerStakes[provider];
-        if (providerStakes[provider] < residualAmt + penaltyFee) {
-            emit InsufficientFundsToSlash(provider, providerStakes[provider], residualAmt, penaltyFee);
-            if (providerStakes[provider] < residualAmt) {
+        if (providerStake < residualAmt + penaltyFee) {
+            emit InsufficientFundsToSlash(provider, providerStake, residualAmt, penaltyFee);
+            if (providerStake < residualAmt) {
                 penaltyFee = 0;
-                residualAmt = providerStakes[provider];
+                residualAmt = providerStake;
             } else {
-                penaltyFee = providerStakes[provider] - residualAmt;
+                penaltyFee = providerStake - residualAmt;
             }
         }
-        providerStakes[provider] -= residualAmt + penaltyFee;
+        providerStake -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
