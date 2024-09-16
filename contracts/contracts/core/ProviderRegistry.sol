@@ -124,6 +124,7 @@ contract ProviderRegistry is
         // if the provider's stake is less than the residual amount + penalty fee, we need to adjust the residual amount and penalty fee
         // this is to prevent underflow and ensure the contract doesn't revert
         // We also emit
+        uint256 providerStake = providerStakes[provider];
         if (providerStakes[provider] < residualAmt + penaltyFee) {
             emit InsufficientFundsToSlash(provider, providerStakes[provider], residualAmt, penaltyFee);
             if (providerStakes[provider] < residualAmt) {
