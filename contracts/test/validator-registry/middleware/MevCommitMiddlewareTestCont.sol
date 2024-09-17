@@ -587,7 +587,30 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         }
     }
 
-    // TODO: tests for attempting to deregistering validators from operator that's invalid in every way
+    function test_deregisterValidatorsInvalidOperator() public {
+        test_requestValidatorDeregistrationsFromContractOwner();
+
+        address operator1 = vm.addr(0x1117);
+
+        bytes memory badKey = bytes("0x1234");
+        bytes[] memory badKeys = new bytes[](1);
+        badKeys[0] = badKey;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.MissingValidatorRecord.selector, badKey)
+        );
+        mevCommitMiddleware.deregisterValidators(badKeys);
+
+        bytes[] memory blsPubkeys = getSixPubkeys();
+
+        vm.warp(91+mevCommitMiddleware.slashPeriodSeconds()+1);
+
+        vm.prank(vm.addr(0x99999998888));
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OnlyOperator.selector, operator1)
+        );
+        mevCommitMiddleware.deregisterValidators(blsPubkeys);
+    }
 
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests
     function getSixPubkeys() internal view returns (bytes[] memory) {
@@ -600,8 +623,6 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         blsPubkeys[5] = sampleValPubkey6;
         return blsPubkeys;
     }
-
-    // Test dereg functions are valid from contract owner or fully valid operator
 
     // TODO: test for areValidatorsOptedIn not causing a revert (or at least an explicit one) for invalid bls key.
 
