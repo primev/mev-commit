@@ -28,6 +28,12 @@ contract ProviderRegistryTest is Test {
     event FeeTransfer(uint256 amount, address indexed recipient);
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+    event InsufficientFundsToSlash(
+        address indexed provider,
+        uint256 providerStake,
+        uint256 residualAmt,
+        uint256 penaltyFee
+    );
 
     function setUp() public {
         testNumber = 42;
@@ -257,8 +263,7 @@ contract ProviderRegistryTest is Test {
         vm.expectRevert(bytes(""));
         providerRegistry.slash(1 ether, provider, payable(bidder),100);
     }
-
-    function testFail_ShouldRetrieveFundsGreaterThanStake() public {
+    function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStake() public {
         vm.prank(address(this));
         providerRegistry.setPreconfirmationsContract(address(this));
 
@@ -266,12 +271,51 @@ contract ProviderRegistryTest is Test {
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
         address bidder = vm.addr(4);
-        vm.expectRevert(bytes(""));
         vm.prank(address(this));
 
+        vm.expectEmit(true, true, true, true);
+        emit InsufficientFundsToSlash(provider, 2 ether, 3 ether, 0.3 ether);
         providerRegistry.slash(3 ether, provider, payable(bidder), 100);
+
+        assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
+        assertEq(providerRegistry.providerStakes(provider), 0 ether);
     }
 
+    function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStakePenaltyNotCovered() public {
+        vm.prank(address(this));
+        providerRegistry.setPreconfirmationsContract(address(this));
+
+        vm.deal(provider, 3 ether);
+        vm.prank(provider);
+        providerRegistry.registerAndStake{value: 3 ether}(validBLSPubkey);
+        address bidder = vm.addr(4);
+        vm.prank(address(this));
+
+        vm.expectEmit(true, true, true, true);
+        emit InsufficientFundsToSlash(provider, 3 ether, 3 ether, 0.3 ether);
+        providerRegistry.slash(3 ether, provider, payable(bidder), 100);
+
+        assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
+        assertEq(providerRegistry.providerStakes(provider), 0 ether);
+    }
+
+    function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStakePenaltyNotFullyCovered() public {
+        vm.prank(address(this));
+        providerRegistry.setPreconfirmationsContract(address(this));
+
+        vm.deal(provider, 3.1 ether);
+        vm.prank(provider);
+        providerRegistry.registerAndStake{value: 3.1 ether}(validBLSPubkey);
+        address bidder = vm.addr(4);
+        vm.prank(address(this));
+
+        vm.expectEmit(true, true, true, true);
+        emit InsufficientFundsToSlash(provider, 3.1 ether, 3 ether, 0.3 ether);
+        providerRegistry.slash(3 ether, provider, payable(bidder), 100);
+
+        assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0.1 ether);
+        assertEq(providerRegistry.providerStakes(provider), 0 ether);
+    }
     function test_PenaltyFeeBehavior() public {
         providerRegistry.setNewPenaltyFeeRecipient(vm.addr(6));
         vm.deal(provider, 3 ether);
