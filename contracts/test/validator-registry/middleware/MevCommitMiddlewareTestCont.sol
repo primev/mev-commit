@@ -542,7 +542,51 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         }
     }
 
-    // TODO: test for deregistering validators from valid operator
+    function test_deregisterValidatorsFromValidOperator() public {
+        test_requestValidatorDeregistrationsFromValidOperator();
+        assertEq(getValidatorRecord(sampleValPubkey1).deregRequestOccurrence.timestamp, 91);
+
+        address operator1 = vm.addr(0x1117);
+        bytes[] memory blsPubkeys = getSixPubkeys();
+
+        vm.warp(91+mevCommitMiddleware.slashPeriodSeconds()+1);
+
+        uint256 pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
+        assertEq(pos1, 1);  
+        uint256 pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
+        assertEq(pos2, 2);
+        uint256 pos3 = mevCommitMiddleware.getPositionInValset(sampleValPubkey3, address(vault1), operator1);
+        assertEq(pos3, 3);
+        uint256 pos4 = mevCommitMiddleware.getPositionInValset(sampleValPubkey4, address(vault2), operator1);
+        assertEq(pos4, 1);
+        uint256 pos5 = mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1);
+        assertEq(pos5, 2);
+        uint256 pos6 = mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1);
+        assertEq(pos6, 3);
+
+        vm.prank(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey1, operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey2, operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey3, operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey4, operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey5, operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordDeleted(sampleValPubkey6, operator1);
+        mevCommitMiddleware.deregisterValidators(blsPubkeys);
+
+        for (uint256 i = 0; i < blsPubkeys.length; i++) {
+            IMevCommitMiddleware.ValidatorRecord memory valRecord = getValidatorRecord(blsPubkeys[i]);
+            assertFalse(valRecord.exists);
+            uint256 pos = mevCommitMiddleware.getPositionInValset(blsPubkeys[i], address(vault1), operator1);
+            assertEq(pos, 0);
+        }
+    }
+
     // TODO: tests for attempting to deregistering validators from operator that's invalid in every way
 
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests
@@ -556,8 +600,6 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         blsPubkeys[5] = sampleValPubkey6;
         return blsPubkeys;
     }
-
-    // TODO: In tests that fully deregister validators, check _vaultAndOperatorToValset mapping is deleted
 
     // Test dereg functions are valid from contract owner or fully valid operator
 
