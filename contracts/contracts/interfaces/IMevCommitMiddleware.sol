@@ -6,24 +6,35 @@ import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 
 interface IMevCommitMiddleware {
 
+    /// @notice Struct representing a registered operator.
     struct OperatorRecord {
+        /// @notice A possible occurrence of a deregistration request.
         TimestampOccurrence.Occurrence deregRequestOccurrence;
+        /// @notice Whether this operator record exists.
         bool exists;
+        /// @notice Whether this operator is blacklisted.
         bool isBlacklisted;
     }
 
+    /// @notice Struct representing a registered vault.
     struct VaultRecord {
+        /// @notice Whether this vault record exists.
         bool exists;
+        /// @notice A possible occurrence of a deregistration request.
         TimestampOccurrence.Occurrence deregRequestOccurrence;
+        /// @notice The slash amount per validator, relevant to this vault.
         uint256 slashAmount;
     }
 
+    /// @notice Struct representing a registered validator.
     struct ValidatorRecord {
         /// @notice The vault holding slashable stake which represents the validator.
         address vault;
         /// @notice The operator which registered this validator pubkey with a vault.
         address operator;
+        /// @notice Whether this validator record exists.
         bool exists;
+        /// @notice A possible occurrence of a deregistration request.
         TimestampOccurrence.Occurrence deregRequestOccurrence;
     }
 
