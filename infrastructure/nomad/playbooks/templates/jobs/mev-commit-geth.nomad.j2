@@ -162,6 +162,7 @@ job "{{ job.name }}" {
         fi
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 
@@ -225,7 +226,7 @@ job "{{ job.name }}" {
           {% endif %}
           NET_RESTRICT="{{ job.env['net_restrict'] }}"
           GETH_NODE_TYPE="{{ job.env['type'] }}"
-          GETH_VERBOSITY={{ job.env.get('log-verbosity', '3') }}
+          GETH_VERBOSITY={{ job.env.get('log-verbosity', '5') }}
           GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
           GETH_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           {% if job.env['type'] == 'bootnode' %}
@@ -299,6 +300,7 @@ job "{{ job.name }}" {
           exec local/entrypoint.sh
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 
@@ -401,6 +403,7 @@ job "{{ job.name }}" {
         fi
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 

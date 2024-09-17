@@ -117,6 +117,7 @@ job "{{ job.name }}" {
             -otel-collector-endpoint-url "${EMULATOR_OTEL_COLLECTOR_ENDPOINT_URL}" \
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 

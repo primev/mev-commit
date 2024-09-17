@@ -138,6 +138,7 @@ job "{{ job.name }}" {
           {% endraw %}
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 
@@ -314,6 +315,7 @@ job "{{ job.name }}" {
           {% endraw %}
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 

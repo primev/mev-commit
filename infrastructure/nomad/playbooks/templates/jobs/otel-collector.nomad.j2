@@ -131,6 +131,7 @@ job "{{ job.name }}" {
           exec local/otel-collector --config local/collector.yaml
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 
