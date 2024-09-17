@@ -121,20 +121,18 @@ contract ProviderRegistry is
     ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
         uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
-        // if the provider's stake is less than the residual amount + penalty fee, we need to adjust the residual amount and penalty fee
-        // this is to prevent underflow and ensure the contract doesn't revert
-        // We also emit
+        
         uint256 providerStake = providerStakes[provider];
+
+
         if (providerStake < residualAmt + penaltyFee) {
             emit InsufficientFundsToSlash(provider, providerStake, residualAmt, penaltyFee);
             if (providerStake < residualAmt) {
-                penaltyFee = 0;
                 residualAmt = providerStake;
-            } else {
-                penaltyFee = providerStake - residualAmt;
             }
+            penaltyFee = providerStake - residualAmt;
         }
-        providerStake -= residualAmt + penaltyFee;
+        providerStakes[provider] -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
