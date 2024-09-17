@@ -20,11 +20,15 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Errors} from "../../utils/Errors.sol";
 import {IVetoSlasher} from "symbiotic-core/interfaces/slasher/IVetoSlasher.sol";
 
+/// @notice This contracts serve as an entrypoint for L1 validators
+/// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
+/// at the risk of funds being slashed. 
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     using EnumerableSet for EnumerableSet.BytesSet;
 
+    /// @notice Only the slash oracle account can call functions marked with this modifier.
     modifier onlySlashOracle() {
         require(msg.sender == slashOracle, OnlySlashOracle(slashOracle));
         _;
@@ -50,6 +54,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _disableInitializers();
     }
 
+    /// @notice Initializes the middleware contract.
+    /// @param _networkRegistry Symbiotic core network registry contract.
+    /// @param _operatorRegistry Symbiotic core operator registry contract.
+    /// @param _vaultFactory Symbiotic core vault factory contract.
+    /// @param _network Address of the mev-commit network EOA.
+    /// @param _slashPeriodSeconds Oracle slashing must be invoked within `slashPeriodSeconds` of any event causing a validator to transition from *opted-in* to **not** *opted-in*.
+    /// @param _slashOracle Address of the mev-commit oracle.
+    /// @param _owner Contract owner address.
     function initialize(
         IRegistry _networkRegistry,
         IRegistry _operatorRegistry,
@@ -80,6 +92,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         revert Errors.InvalidFallback();
     }
 
+    /// @notice Register operators, restricted to contract owner.
+    /// @param operators Addresses of the operators to register.
     function registerOperators(address[] calldata operators) external onlyOwner {
         uint256 len = operators.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -87,6 +101,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Request operator deregistrations, restricted to contract owner.
+    /// @param operators Addresses of the operators to request deregistrations for.
     function requestOperatorDeregistrations(address[] calldata operators) external onlyOwner {
         uint256 len = operators.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -94,6 +110,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Deregisters operators, restricted to contract owner.
+    /// @param operators Addresses of the operators to deregister.
     function deregisterOperators(address[] calldata operators) external onlyOwner {
         uint256 len = operators.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -101,6 +119,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Blacklists operators, restricted to contract owner.
+    /// @param operators Addresses of the operators to blacklist.
     function blacklistOperators(address[] calldata operators) external onlyOwner {
         uint256 len = operators.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -108,6 +128,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Unblacklists operators, restricted to contract owner.
+    /// @param operators Addresses of the operators to unblacklist.
     function unblacklistOperators(address[] calldata operators) external onlyOwner {
         uint256 len = operators.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -115,6 +137,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Registers vaults, restricted to contract owner.
+    /// @param vaults Addresses of the vaults to register.
+    /// @param slashAmounts Corresponding slash amounts for each vault.
     function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
         require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
@@ -123,6 +148,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Updates the slash amounts for vaults, restricted to contract owner.
+    /// @param vaults Addresses of the vaults to update.
+    /// @param slashAmounts Corresponding slash amounts for each vault.
     function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
         require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
@@ -131,6 +159,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Requests vault deregistrations, restricted to contract owner.
+    /// @param vaults Addresses of the vaults to request deregistrations for.
     function requestVaultDeregistrations(address[] calldata vaults) external onlyOwner {
         uint256 len = vaults.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -138,6 +168,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Deregisters vaults, restricted to contract owner.
+    /// @param vaults Addresses of the vaults to deregister.
     function deregisterVaults(address[] calldata vaults) external onlyOwner {
         uint256 len = vaults.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -145,6 +177,10 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Registers validators via their BLS public key and vault which will secure them.
+    /// @dev This function is callable by any delegated operator on behalf of a vault.
+    /// @param blsPubkeys BLS public keys of the validators to register.
+    /// @param vaults Addresses of vaults which will secure groups of validators.
     function registerValidators(bytes[][] calldata blsPubkeys,
         address[] calldata vaults) external whenNotPaused onlyValidBLSPubKeys(blsPubkeys) {
         uint256 vaultLen = vaults.length;
@@ -164,6 +200,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
     }
 
+    /// @notice Requests deregistrations for validators, restricted to contract owner,
+    /// or the (still registered and non-blacklisted) operator of the validator pubkey.
+    /// @param blsPubkeys BLS public keys of the validators to request deregistrations for.
     function requestValDeregistrations(bytes[] calldata blsPubkeys) external whenNotPaused {
         uint256 len = blsPubkeys.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -228,10 +267,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setSlashOracle(slashOracle_);
     }
 
+    /// @notice Queries if a validator is opted-in to mev-commit through a vault.
     function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool) {
         return _isValidatorOptedIn(blsPubkey);
     }
 
+    /// @notice Queries if a validator is slashable.
     function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool) {
         ValidatorRecord storage record = validatorRecords[blsPubkey];
         require(record.exists, MissingValRecord(blsPubkey));
@@ -240,15 +281,17 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _isValidatorSlashable(blsPubkey, record.vault, record.operator);
     }
 
+    /// @notice Queries the number of potential slashable validators for a vault and operator.
     function potentialSlashableValidators(address vault, address operator) external view returns (uint256) {
         return _potentialSlashableVals(vault, operator);
     }
 
+    /// @notice Queries if all validators for a vault and operator are slashable.
     function allValidatorsAreSlashable(address vault, address operator) external view returns (bool) {
         return _allValidatorsAreSlashable(vault, operator);
     }
 
-    /// @dev Returns the one-indexed position of the blsPubkey in the valset.
+    /// @notice Queries the one-indexed position of a validator's BLS pubkey in its valset.
     /// @return 0 if the blsPubkey is not in the valset.
     function getPositionInValset(bytes calldata blsPubkey, address vault, address operator) external view returns (uint256) {
         return _getPositionInValset(blsPubkey, vault, operator);
@@ -475,6 +518,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit OperatorRegistrySet(address(_operatorRegistry));
     }
 
+    /// @dev Internal function to set the vault factory.
     function _setVaultFactory(IRegistry _vaultFactory) internal {
         require(_vaultFactory != IRegistry(address(0)), ZeroAddressNotAllowed());
         vaultFactory = _vaultFactory;
@@ -553,29 +597,28 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return Subnetwork.subnetwork(network, SUBNETWORK_ID);
     }
 
-    function _getSlashableVals(address vault, address operator) internal view returns (uint256) {
+    function _getNumSlashableVals(address vault, address operator) internal view returns (uint256) {
         IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
         uint256 allocatedStake = delegator.stake(_getSubnetwork(), operator);
         uint256 slashAmount = vaultRecords[vault].slashAmount;
         return allocatedStake / slashAmount;
     }
 
-    // TODO: need to unit test
     function _allValidatorsAreSlashable(address vault, address operator) internal view returns (bool) {
-        uint256 slashableVals = _getSlashableVals(vault, operator);
+        uint256 slashableVals = _getNumSlashableVals(vault, operator);
         uint256 numVals = _vaultAndOperatorToValset[vault][operator].length();
         return slashableVals >= numVals;
     }
 
     function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {
-        uint256 slashableVals = _getSlashableVals(vault, operator);
+        uint256 slashableVals = _getNumSlashableVals(vault, operator);
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         require(position != 0, ValidatorNotInValset(blsPubkey, vault, operator));
         return position <= slashableVals; // position is 1-indexed
     }
 
     function _potentialSlashableVals(address vault, address operator) internal view returns (uint256) {
-        uint256 slashableVals = _getSlashableVals(vault, operator);
+        uint256 slashableVals = _getNumSlashableVals(vault, operator);
         uint256 alreadyRegistered = _vaultAndOperatorToValset[vault][operator].length();
         if (slashableVals < alreadyRegistered) {
             return 0;

@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {TimestampOccurrence} from "../utils/Occurrence.sol";
+import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 
 interface IMevCommitMiddleware {
 
@@ -55,12 +56,10 @@ interface IMevCommitMiddleware {
 
     /// @notice Emmitted when a validator record is added to state
     /// @dev The position is one-indexed.
-    event ValRecordAdded(bytes blsPubkey, address indexed operator,
-        address indexed vault, uint256 indexed position);
+    event ValRecordAdded(bytes blsPubkey, address indexed operator, address indexed vault, uint256 indexed position);
 
     /// @notice Emmitted when validator deregistration is requested
-    event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender,
-        uint256 indexed position);
+    event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender, uint256 indexed position);
 
     /// @notice Emmitted when a validator record is deleted by the contract owner
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
@@ -83,7 +82,7 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the slash period in seconds is set
     event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
 
-    /// @notice Emmitted when the slash oracle is set
+    /// @notice Emmitted when the slash period in blocks is set
     event SlashPeriodBlocksSet(uint256 slashPeriodBlocks);
 
     /// @notice Emmitted when the slash oracle is set
@@ -95,8 +94,7 @@ interface IMevCommitMiddleware {
 
     error InvalidArrayLengths(uint256 vaultLen, uint256 pubkeyLen);
 
-    error ValidatorsNotSlashable(address vault, address operator,
-        uint256 numRequested, uint256 potentialSlashableVals);
+    error ValidatorsNotSlashable(address vault, address operator, uint256 numRequested, uint256 potentialSlashableVals);
 
     error MissingValRecord(bytes blsPubkey);
 
@@ -162,7 +160,85 @@ interface IMevCommitMiddleware {
 
     error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);
 
+    /// @notice Checks if a validator is opted in.
     function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool);
 
-    // TODO: remaining functions
+    /// @notice Checks if a validator is slashable.
+    function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool);
+
+    /// @notice Returns the potential number of slashable validators for a given vault and operator.
+    function potentialSlashableValidators(address vault, address operator) external view returns (uint256);
+
+    /// @notice Checks if all validators for a given vault and operator are slashable.
+    function allValidatorsAreSlashable(address vault, address operator) external view returns (bool);
+
+    /// @notice Returns the one-indexed position of a blsPubkey in its valset.
+    /// @param blsPubkey The BLS public key of the validator.
+    /// @param vault The address of the vault.
+    /// @param operator The address of the operator.
+    /// @return The position in the valset or 0 if not present.
+    function getPositionInValset(bytes calldata blsPubkey, address vault, address operator) external view returns (uint256);
+
+    /// @notice Registers multiple operators.
+    function registerOperators(address[] calldata operators) external;
+
+    /// @notice Requests deregistration for multiple operators.
+    function requestOperatorDeregistrations(address[] calldata operators) external;
+
+    /// @notice Deregisters multiple operators.
+    function deregisterOperators(address[] calldata operators) external;
+
+    /// @notice Blacklists multiple operators.
+    function blacklistOperators(address[] calldata operators) external;
+
+    /// @notice Unblacklists multiple operators.
+    function unblacklistOperators(address[] calldata operators) external;
+
+    /// @notice Registers multiple vaults with corresponding slash amounts.
+    function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external;
+
+    /// @notice Updates slash amounts for multiple vaults.
+    function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external;
+
+    /// @notice Requests deregistration for multiple vaults.
+    function requestVaultDeregistrations(address[] calldata vaults) external;
+
+    /// @notice Deregisters multiple vaults.
+    function deregisterVaults(address[] calldata vaults) external;
+
+    /// @notice Registers validators via their BLS public key and vault which will secure them.
+    function registerValidators(bytes[][] calldata blsPubkeys, address[] calldata vaults) external;
+
+    /// @notice Requests deregistration for multiple validators.
+    function requestValDeregistrations(bytes[] calldata blsPubkeys) external;
+
+    /// @notice Deregisters multiple validators.
+    function deregisterValidators(bytes[] calldata blsPubkeys) external;
+
+    /// @notice Slashes multiple validators with their respective infraction timestamps.
+    function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata infractionTimestamps) external;
+
+    /// @notice Pauses the contract.
+    function pause() external;
+
+    /// @notice Unpauses the contract.
+    function unpause() external;
+
+    /// @notice Sets the network registry.
+    function setNetworkRegistry(IRegistry _networkRegistry) external;
+
+    /// @notice Sets the operator registry.
+    function setOperatorRegistry(IRegistry _operatorRegistry) external;
+
+    /// @notice Sets the vault factory.
+    function setVaultFactory(IRegistry _vaultFactory) external;
+
+    /// @notice Sets the network address.
+    function setNetwork(address _network) external;
+
+    /// @notice Sets the slash period in seconds.
+    function setSlashPeriodSeconds(uint256 slashPeriodSeconds_) external;
+
+    /// @notice Sets the slash oracle address.
+    function setSlashOracle(address slashOracle_) external;
 }
