@@ -78,6 +78,23 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
     }
 
+    function test_registerValidatorsInvalidArrayLengths() public {
+        test_registerOperators();
+
+        bytes[][] memory blsPubkeys = new bytes[][](1);
+        blsPubkeys[0] = new bytes[](1);
+        blsPubkeys[0][0] = sampleValPubkey1;
+
+        address[] memory vaults = new address[](2);
+        vaults[0] = address(vault1);
+        vaults[1] = address(vault2);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidArrayLengths.selector, 2, 1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+    }
+
     function test_registerValidators() public {
         test_registerOperators();
         address operator1 = vm.addr(0x1117);
@@ -564,6 +581,11 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint256 pos6 = mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1);
         assertEq(pos6, 3);
 
+        uint256 length = mevCommitMiddleware.valsetLength(address(vault1), operator1);
+        assertEq(length, 4); // Recall sampleValPubkey7 was added to vault1 and never deregistered.
+        length = mevCommitMiddleware.valsetLength(address(vault2), operator1);
+        assertEq(length, 3);
+
         vm.prank(operator1);
         vm.expectEmit(true, true, true, true);
         emit ValRecordDeleted(sampleValPubkey1, operator1);
@@ -585,6 +607,11 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
             uint256 pos = mevCommitMiddleware.getPositionInValset(blsPubkeys[i], address(vault1), operator1);
             assertEq(pos, 0);
         }
+
+        length = mevCommitMiddleware.valsetLength(address(vault1), operator1);
+        assertEq(length, 1); // Recall sampleValPubkey7 was added to vault1 and never deregistered.
+        length = mevCommitMiddleware.valsetLength(address(vault2), operator1);
+        assertEq(length, 0); 
     }
 
     function test_deregisterValidatorsInvalidOperator() public {
@@ -612,6 +639,57 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.deregisterValidators(blsPubkeys);
     }
 
+    function test_valRegCycle() public {
+        test_deregisterValidatorsFromValidOperator();
+
+        address operator1 = vm.addr(0x1117);
+
+        address[] memory vaults = new address[](1);
+        vaults[0] = address(vault1);
+
+        bytes[][] memory blsPubkeys = new bytes[][](1);
+        blsPubkeys[0] = new bytes[](1);
+        blsPubkeys[0][0] = sampleValPubkey3;
+
+        uint256 length = mevCommitMiddleware.valsetLength(address(vault1), operator1);
+        assertEq(length, 1);
+
+        vm.prank(operator1);
+        vm.expectEmit(true, true, true, true);
+        emit ValRecordAdded(sampleValPubkey3, operator1, address(vault1), 2);
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        uint256 pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
+        assertEq(pos1, 0);
+        uint256 pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
+        assertEq(pos2, 0);
+        uint256 pos3 = mevCommitMiddleware.getPositionInValset(sampleValPubkey3, address(vault1), operator1);
+        assertEq(pos3, 2); // Recall sampleValPubkey7 still exists in the vault1 valset.
+        uint256 pos4 = mevCommitMiddleware.getPositionInValset(sampleValPubkey4, address(vault2), operator1);
+        assertEq(pos4, 0);
+        uint256 pos5 = mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1);
+        assertEq(pos5, 0);
+        uint256 pos6 = mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1);
+        assertEq(pos6, 0);
+
+        length = mevCommitMiddleware.valsetLength(address(vault1), operator1);
+        assertEq(length, 2);
+
+        bytes memory pubkey = mevCommitMiddleware.pubkeyAtPositionInValset(0, address(vault1), operator1);
+        assertEq(pubkey, bytes(""));
+
+        pubkey = mevCommitMiddleware.pubkeyAtPositionInValset(1, address(vault1), operator1);
+        assertEq(pubkey, sampleValPubkey7);
+
+        pubkey = mevCommitMiddleware.pubkeyAtPositionInValset(2, address(vault1), operator1);
+        assertEq(pubkey, sampleValPubkey3);
+
+        pubkey = mevCommitMiddleware.pubkeyAtPositionInValset(3, address(vault1), operator1);
+        assertEq(pubkey, bytes(""));
+    }
+
+    // TODO: test for areValidatorsOptedIn not causing a revert (or at least an explicit one) for invalid bls key.
+
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests
     function getSixPubkeys() internal view returns (bytes[] memory) {
         bytes[] memory blsPubkeys = new bytes[](6);
@@ -623,8 +701,4 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         blsPubkeys[5] = sampleValPubkey6;
         return blsPubkeys;
     }
-
-    // TODO: test for areValidatorsOptedIn not causing a revert (or at least an explicit one) for invalid bls key.
-
-    // TODO: val reg cycle
 }

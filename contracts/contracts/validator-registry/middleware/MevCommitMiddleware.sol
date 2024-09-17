@@ -297,6 +297,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _getPositionInValset(blsPubkey, vault, operator);
     }
 
+    /// @notice Queries the BLS pubkey at a given one-indexed position in the valset for a vault and operator.
+    /// @return An empty bytes array if the index is out of bounds or the valset is empty.
+    function pubkeyAtPositionInValset(uint256 index, address vault, address operator) external view returns (bytes memory) {
+        if (index == 0 || _vaultAndOperatorToValset[vault][operator].length() < index) {
+            return new bytes(0);
+        }
+        return _vaultAndOperatorToValset[vault][operator].at(index - 1);
+    }
+
+    /// @return The length of the valset for a given vault and operator.
+    function valsetLength(address vault, address operator) external view returns (uint256) {
+        return _vaultAndOperatorToValset[vault][operator].length();
+    }
+
     function _setOperatorRecord(address operator) internal {
         operatorRecords[operator] = OperatorRecord({
             exists: true,
