@@ -160,25 +160,6 @@ interface IMevCommitMiddleware {
 
     error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);
 
-    /// @notice Checks if a validator is opted in.
-    function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool);
-
-    /// @notice Checks if a validator is slashable.
-    function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool);
-
-    /// @notice Returns the potential number of slashable validators for a given vault and operator.
-    function potentialSlashableValidators(address vault, address operator) external view returns (uint256);
-
-    /// @notice Checks if all validators for a given vault and operator are slashable.
-    function allValidatorsAreSlashable(address vault, address operator) external view returns (bool);
-
-    /// @notice Returns the one-indexed position of a blsPubkey in its valset.
-    /// @param blsPubkey The BLS public key of the validator.
-    /// @param vault The address of the vault.
-    /// @param operator The address of the operator.
-    /// @return The position in the valset or 0 if not present.
-    function getPositionInValset(bytes calldata blsPubkey, address vault, address operator) external view returns (uint256);
-
     /// @notice Registers multiple operators.
     function registerOperators(address[] calldata operators) external;
 
@@ -241,4 +222,23 @@ interface IMevCommitMiddleware {
 
     /// @notice Sets the slash oracle address.
     function setSlashOracle(address slashOracle_) external;
+
+    /// @notice Checks if a validator is opted in.
+    function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool);
+
+    /// @notice Checks if a validator is slashable.
+    function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool);
+
+    /// @notice Returns the potential number of slashable validators for a given vault and operator.
+    function potentialSlashableValidators(address vault, address operator) external view returns (uint256);
+
+    /// @notice Checks if all validators for a given vault and operator are slashable.
+    function allValidatorsAreSlashable(address vault, address operator) external view returns (bool);
+
+    /// @notice Returns the one-indexed position of a blsPubkey in its valset.
+    /// @param blsPubkey The BLS public key of the validator.
+    /// @param vault The address of the vault.
+    /// @param operator The address of the operator.
+    /// @return The position in the valset or 0 if not present.
+    function getPositionInValset(bytes calldata blsPubkey, address vault, address operator) external view returns (uint256);
 }
