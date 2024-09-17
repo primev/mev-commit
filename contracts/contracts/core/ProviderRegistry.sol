@@ -121,7 +121,15 @@ contract ProviderRegistry is
     ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
         uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
-        require(providerStakes[provider] >= residualAmt + penaltyFee, "Insufficient funds to slash");
+        uint256 providerStake = providerStakes[provider];
+
+        if (providerStake < residualAmt + penaltyFee) {
+            emit InsufficientFundsToSlash(provider, providerStake, residualAmt, penaltyFee);
+            if (providerStake < residualAmt) {
+                residualAmt = providerStake;
+            }
+            penaltyFee = providerStake - residualAmt;
+        }
         providerStakes[provider] -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
