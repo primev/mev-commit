@@ -229,11 +229,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         uint256 len = blsPubkeys.length;
         require(len == infractionTimestamps.length, InvalidArrayLengths(len, infractionTimestamps.length));
         for (uint256 i = 0; i < len; ++i) {
+            bytes calldata pubkey = blsPubkeys[i];
             // These and other checks in _slashValidator will succeed if current tx executes within
             // slashPeriodSeconds of validator being marked as "not opted-in",
             // OR relevant validator/vault/operator has not fully deregistered yet.
-            ValidatorRecord storage valRecord = validatorRecords[blsPubkeys[i]];
-            require(valRecord.exists, MissingValidatorRecord(blsPubkeys[i]));
+            ValidatorRecord storage valRecord = validatorRecords[pubkey];
+            require(valRecord.exists, MissingValidatorRecord(pubkey));
             // Store slash record if it doesn't already exist. To ensure desirable ordering, _getNumSlashableVals should 
             // intentionally be computed once for the slash record, as collateral that is slashed later in this function
             // affects the metric.
@@ -249,7 +250,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             }
             // Swap about to be slashed pubkey with last slashable pubkey in valset.
             uint256 positionToSwapWith = slashRecord.numInitSlashable - slashRecord.numSlashed;
-            _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(blsPubkeys[i], positionToSwapWith);
+            _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(pubkey, positionToSwapWith);
 
             ++slashRecord.numSlashed;
             _slashValidator(blsPubkeys[i], infractionTimestamps[i], valRecord);
