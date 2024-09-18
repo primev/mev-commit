@@ -815,7 +815,76 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.slashValidators(blsPubkeys, timestamps);
     }
 
-    function test_slashValidators() public { }
+    function test_slashValidatorsSuccess() public { 
+        test_registerValidators();
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        bytes[] memory firstTwoBlsPubkeys = new bytes[](2);
+        firstTwoBlsPubkeys[0] = sampleValPubkey1;
+        firstTwoBlsPubkeys[1] = sampleValPubkey2;
+
+        address operator1 = vm.addr(0x1117);
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = 0;
+        timestamps[1] = 101;
+
+        vm.prank(slashOracle);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InfractionTimestampMustBeNonZero.selector)
+        );
+        mevCommitMiddleware.slashValidators(firstTwoBlsPubkeys, timestamps);
+
+        timestamps[0] = 100;
+
+        IMevCommitMiddleware.ValidatorRecord memory valRecord1 = getValidatorRecord(sampleValPubkey1);
+        IMevCommitMiddleware.ValidatorRecord memory valRecord2 = getValidatorRecord(sampleValPubkey2);
+        assertTrue(valRecord1.exists);
+        assertTrue(valRecord2.exists);
+        assertFalse(valRecord1.deregRequestOccurrence.exists);
+        assertFalse(valRecord2.deregRequestOccurrence.exists);
+
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
+
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey1));
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey2));
+
+        uint256 pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
+        assertEq(pos1, 1);
+        uint256 pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
+        assertEq(pos2, 2);
+
+        vm.prank(slashOracle);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashed(sampleValPubkey1, operator1, address(vault1), 10);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashed(sampleValPubkey2, operator1, address(vault1), 10);
+        mevCommitMiddleware.slashValidators(firstTwoBlsPubkeys, timestamps); 
+
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
+
+        valRecord1 = getValidatorRecord(sampleValPubkey1);
+        valRecord2 = getValidatorRecord(sampleValPubkey2);
+        assertTrue(valRecord1.exists);
+        assertTrue(valRecord2.exists);
+        assertTrue(valRecord1.deregRequestOccurrence.exists);
+        assertTrue(valRecord2.deregRequestOccurrence.exists);
+
+        // TODO: need to improve function to swap vals with last n vals in the set, these asserts will fail
+
+        // assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey1));
+        // assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey2));
+
+        // pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
+        // assertEq(pos1, 6);
+        // pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
+        // assertEq(pos2, 7);
+    }
+
+    // TODO: test behavior of isValidatorOptedIn, after slash has happened for symbiotic, 
+    // where stake function returns less (as enforced by mocks). Does slashed validator need to be pushed 
+    // to back of set to keep others opted in? probably
 
     // TODO: test all cases and requires for slashValidators
 

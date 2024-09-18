@@ -484,6 +484,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Slashes a validator and marks it for deregistration.
     /// @param blsPubkey The L1 validator BLS public key to slash.
     /// @param infractionTimestamp The block.timestamp for the block during which the infraction occurred.
+    /// @dev Operator and vault are not deregistered for the validator's infraction,
+    /// so as to avoid opting-out large groups of validators at once.
     function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp) internal {
         // These will succeed if current tx executes within
         // slashPeriodSeconds of validator being marked as "not opted-in",
@@ -523,9 +525,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         // Move slashed pubkey to end of array s.t. it's not slashable again when vault's stake is decremented.
         _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithLast(blsPubkey);
-
-        // Operator and vault are not deregistered for the validator's infraction,
-        // so as to avoid opting-out large groups of validators at once.
     }
 
     /// @dev Internal function to set the network registry.
