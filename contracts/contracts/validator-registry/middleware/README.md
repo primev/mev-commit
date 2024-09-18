@@ -96,7 +96,7 @@ Further, Vaults with instant slashers must have an `epochDuration` greater than 
 
 Since a permissioned oracle account invokes slashing, the mev-commit middleware contract only requires the most basic slashing interface. Hence for Vaults that use a `VetoSlasher`, the resolver is required to be disabled via `address(0)`.
 
-Upon the oracle submitting a slash transaction, the middleware contract emits a `ValidatorSlashed` event. This event contains an enum for slasher type that was used. If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `IVetoSlasher.executeSlash` during the execute phase. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
+Upon the oracle successfully calling `slashValidators`, the middleware contract emits one of two events for each slashed validator. `ValidatorSlashed` will be emitted for slashers with `INSTANT_SLASHER_TYPE`. `ValidatorSlashRequested` will be emitted for slashers with `VETO_SLASHER_TYPE`. If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `IVetoSlasher.executeSlash` during the execute phase, AND this call must execute on L1 prior to the oracle calling `slashValidators` again. This ensures the oracle's subsequent calls to `slashValidators` will incorporate a properly decremented slashable stake from relevant Vaults. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
 
 ### Configuration of slashPeriodSeconds
 
