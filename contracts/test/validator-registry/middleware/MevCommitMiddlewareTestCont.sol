@@ -747,9 +747,73 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.slashValidators(blsPubkeys, timestamps);
     }
 
-    function test_slashValidatorsVaultDeregistered() public { }
+    function test_slashValidatorsVaultDeregistered() public { 
+        test_registerValidators();
+        address[] memory vaults = new address[](2);
+        vaults[0] = address(vault1);
+        vaults[1] = address(vault2);
 
-    function test_slashValidatorsOperatorDeregistered() public { }
+        address operator1 = vm.addr(0x1117);
+
+        vm.prank(owner);
+        mevCommitMiddleware.requestVaultDeregistrations(vaults);
+
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        uint256[] memory timestamps = new uint256[](6);
+        timestamps[0] = 100;
+        timestamps[1] = 101;
+        timestamps[2] = 102;
+        timestamps[3] = 103;
+        timestamps[4] = 104;
+        timestamps[5] = 105;
+        vm.prank(slashOracle);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashed(sampleValPubkey1, operator1, address(vault1), 10);
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps); // slash successful with req dereg
+
+        vm.warp(block.timestamp + 1000);
+        vm.prank(owner);
+        mevCommitMiddleware.deregisterVaults(vaults);
+
+        vm.prank(slashOracle);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.MissingVaultRecord.selector, address(vault1))
+        );
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps);
+    }
+
+    function test_slashValidatorsOperatorDeregistered() public { 
+        test_registerValidators();
+        address[] memory operators = new address[](2);
+        operators[0] = vm.addr(0x1117);
+        operators[1] = vm.addr(0x1118);
+
+        vm.prank(owner);
+        mevCommitMiddleware.requestOperatorDeregistrations(operators);
+
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        uint256[] memory timestamps = new uint256[](6);
+        timestamps[0] = 100;
+        timestamps[1] = 101;
+        timestamps[2] = 102;
+        timestamps[3] = 103;
+        timestamps[4] = 104;
+        timestamps[5] = 105;
+        vm.prank(slashOracle);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashed(sampleValPubkey1, operators[0], address(vault1), 10);
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps); // slash successful with req dereg
+
+        vm.warp(block.timestamp + 1000);
+        vm.prank(owner);
+        mevCommitMiddleware.deregisterOperators(operators);
+
+        vm.prank(slashOracle);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.MissingOperatorRecord.selector, operators[0])
+        );
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps);
+    }
 
     function test_slashValidators() public { }
 
