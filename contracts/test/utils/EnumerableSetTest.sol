@@ -178,4 +178,37 @@ contract EnumerableSetTest is Test {
 
         require(foundCount == expected.length, "Not all expected elements found");
     }
+
+    function testSwapWithLast() public {
+        bytes memory data1 = "data1";
+        bytes memory data2 = "data2";
+        bytes memory data3 = "data3";
+
+        assertTrue(set.add(data1), "data1 should be added");
+        assertTrue(set.add(data2), "data2 should be added");
+        assertTrue(set.add(data3), "data3 should be added");
+        assertEq(set.length(), 3, "Set should have 3 elements");
+
+        assertEq(set._positions[data1], 1, "data1 should be at (1 indexed) position 1");
+        assertEq(set._positions[data2], 2, "data2 should be at (1 indexed) position 2");
+        assertEq(set._positions[data3], 3, "data3 should be at (1 indexed) position 3");
+
+        set.swapWithLast(data2);
+
+        bytes memory lastElement = set.at(set.length() - 1);
+        assertEq(lastElement, data2, "data2 should be the last element after swap");
+
+        bytes memory firstElement = set.at(0);
+        bytes memory secondElement = set.at(1);
+        assertTrue(
+            (keccak256(firstElement) == keccak256(data1) && keccak256(secondElement) == keccak256(data3)) ||
+            (keccak256(firstElement) == keccak256(data3) && keccak256(secondElement) == keccak256(data1)),
+            "First and second elements should be data1 and data3 in any order"
+        );
+
+        assertEq(set.length(), 3, "Set should still have 3 elements");
+        assertEq(set._positions[data1], 1, "data1 should be at (1 indexed) position 1");
+        assertEq(set._positions[data2], 3, "data2 should be at (1 indexed) position 3");
+        assertEq(set._positions[data3], 2, "data3 should be at (1 indexed) position 2");
+    }
 }

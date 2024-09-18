@@ -74,9 +74,12 @@ interface IMevCommitMiddleware {
 
     /// @notice Emmitted when a validator record is deleted by the contract owner
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
-    
-    /// @notice Emmitted when a validator is slashed
-    event ValidatorSlashed(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slasherType);
+
+    /// @notice Emmitted when a validator slash is requested from a veto slasher
+    event ValidatorSlashRequested(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashIndex);
+
+    /// @notice Emmitted when a validator is slashed from an instant slasher
+    event ValidatorSlashed(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashedAmount);
 
     /// @notice Emmitted when the network registry is set
     event NetworkRegistrySet(address networkRegistry);
@@ -170,6 +173,12 @@ interface IMevCommitMiddleware {
     error MissingOperatorRecord(address operator);
 
     error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);
+
+    error InfractionTimestampMustBeNonZero();
+
+    error ValidatorNotRemovedFromValset(bytes blsPubkey, address vault, address operator);
+
+    error ValidatorNotSlashable(bytes blsPubkey, address vault, address operator);
 
     /// @notice Registers multiple operators.
     function registerOperators(address[] calldata operators) external;

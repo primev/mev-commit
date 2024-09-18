@@ -226,6 +226,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @param infractionTimestamps The block.timestamps for blocks during which each infraction occurred.
     function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata infractionTimestamps) external onlySlashOracle {
         uint256 len = blsPubkeys.length;
+        require(len == infractionTimestamps.length, InvalidArrayLengths(len, infractionTimestamps.length));
         for (uint256 i = 0; i < len; ++i) {
             _slashValidator(blsPubkeys[i], infractionTimestamps[i]);
         }
@@ -474,7 +475,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (msg.sender != owner()) {
             _checkCallingOperator(record.operator);
         }
-        _vaultAndOperatorToValset[record.vault][record.operator].remove(blsPubkey);
+        bool removed = _vaultAndOperatorToValset[record.vault][record.operator].remove(blsPubkey);
+        require(removed, ValidatorNotRemovedFromValset(blsPubkey, record.vault, record.operator));
         delete validatorRecords[blsPubkey];
         emit ValRecordDeleted(blsPubkey, msg.sender);
     }
@@ -493,17 +495,24 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         OperatorRecord storage operatorRecord = operatorRecords[valRecord.operator];
         require(operatorRecord.exists, MissingOperatorRecord(valRecord.operator));
 
+        require(infractionTimestamp != 0, InfractionTimestampMustBeNonZero());
+
+        require(_isValidatorSlashable(blsPubkey, valRecord.vault, valRecord.operator),
+            ValidatorNotSlashable(blsPubkey, valRecord.vault, valRecord.operator));
+
         // Slash amount is enforced as non-zero in _registerVault.
         uint256 amount = vaultRecord.slashAmount;
 
         address slasher = IVault(valRecord.vault).slasher();
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == VETO_SLASHER_TYPE) {
-            IVetoSlasher(slasher).requestSlash(
+            uint256 slashIndex = IVetoSlasher(slasher).requestSlash(
                 _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
+            emit ValidatorSlashRequested(blsPubkey, valRecord.operator, valRecord.vault, slashIndex);
         } else if (slasherType == INSTANT_SLASHER_TYPE) {
-            ISlasher(slasher).slash(
+            uint256 slashedAmount = ISlasher(slasher).slash(
                 _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
+            emit ValidatorSlashed(blsPubkey, valRecord.operator, valRecord.vault, slashedAmount);
         }
 
         // If validator has not already requested deregistration,
@@ -512,7 +521,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             TimestampOccurrence.captureOccurrence(valRecord.deregRequestOccurrence);
         }
 
-        emit ValidatorSlashed(blsPubkey, valRecord.operator, valRecord.vault, slasherType);
+        // Move slashed pubkey to end of array s.t. it's not slashable again when vault's stake is decremented.
+        _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithLast(blsPubkey);
 
         // Operator and vault are not deregistered for the validator's infraction,
         // so as to avoid opting-out large groups of validators at once.

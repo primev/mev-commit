@@ -54,7 +54,8 @@ contract MevCommitMiddlewareTest is Test {
     event VaultSlashAmountUpdated(address indexed vault, uint256 slashAmount);
     event VaultDeregistrationRequested(address indexed vault);
     event VaultDeregistered(address indexed vault);
-    event ValidatorSlashed(bytes blsPubkey, address indexed operator, uint256 indexed position);
+    event ValidatorSlashRequested(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashIndex);
+    event ValidatorSlashed(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashedAmount);
     event NetworkRegistrySet(address networkRegistry);
     event OperatorRegistrySet(address operatorRegistry);
     event VaultFactorySet(address vaultFactory);

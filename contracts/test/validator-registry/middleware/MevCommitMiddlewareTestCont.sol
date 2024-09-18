@@ -688,6 +688,73 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(pubkey, bytes(""));
     }
 
+    function test_slashValidatorsNotOracle() public {
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        uint256[] memory timestamps = new uint256[](6);
+        timestamps[0] = 100;
+        timestamps[1] = 101;
+        timestamps[2] = 102;
+        timestamps[3] = 103;
+        timestamps[4] = 104;
+        timestamps[5] = 105;
+        vm.prank(vm.addr(0x99999998888888));
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OnlySlashOracle.selector, slashOracle)
+        );
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps);
+    }
+
+    function test_slashValidatorsInvalidArrayLengths() public {
+        bytes[] memory blsPubkeys = getSixPubkeys();
+        uint256[] memory timestamps = new uint256[](1);
+        timestamps[0] = 100;
+        vm.prank(slashOracle);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidArrayLengths.selector, 6, 1)
+        );
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps);
+    }
+
+    function test_slashValidatorsValidatorDeregistered() public {
+        test_registerValidators();
+        bytes[] memory blsPubkeys = getSixPubkeys();
+
+        address operator1 = vm.addr(0x1117);
+
+        vm.prank(owner);
+        mevCommitMiddleware.requestValDeregistrations(blsPubkeys);
+
+        uint256[] memory timestamps = new uint256[](6);
+        timestamps[0] = 100;
+        timestamps[1] = 101;
+        timestamps[2] = 102;
+        timestamps[3] = 103;
+        timestamps[4] = 104;
+        timestamps[5] = 105;
+        vm.prank(slashOracle);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashed(sampleValPubkey1, operator1, address(vault1), 10);
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps); // slash successful with req dereg
+
+        vm.warp(block.timestamp + 1000);
+        vm.prank(owner);
+        mevCommitMiddleware.deregisterValidators(blsPubkeys);
+
+        vm.prank(slashOracle);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.MissingValidatorRecord.selector, sampleValPubkey1)
+        );
+        mevCommitMiddleware.slashValidators(blsPubkeys, timestamps);
+    }
+
+    function test_slashValidatorsVaultDeregistered() public { }
+
+    function test_slashValidatorsOperatorDeregistered() public { }
+
+    function test_slashValidators() public { }
+
+    // TODO: test all cases and requires for slashValidators
+
     // TODO: test for areValidatorsOptedIn not causing a revert (or at least an explicit one) for invalid bls key.
 
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests

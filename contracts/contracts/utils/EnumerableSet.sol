@@ -37,6 +37,14 @@ library EnumerableSet {
     }
 
     /**
+     * @dev Swaps any value with the last value in the array.
+     * @return boolean indicating if the swap was successful
+     */
+    function swapWithLast(BytesSet storage set, bytes memory value) internal returns (bool) {
+        return _swapWithLast(set, value);
+    }
+
+    /**
      * @dev Returns true if the value is in the set. O(1).
      */
     function contains(BytesSet storage set, bytes memory value) internal view returns (bool) {
@@ -169,6 +177,28 @@ library EnumerableSet {
         } else {
             return false;
         }
+    }
+
+    /**
+     * @dev Swaps any value with the last value in the array.
+     * @return boolean indicating if the swap was successful
+     */
+    function _swapWithLast(BytesSet storage set, bytes memory value) private returns (bool) {
+        uint256 pos = set._positions[value];
+        if (pos == 0) {
+            return false;
+        }
+        uint256 valueIndex = pos - 1;
+        uint256 lastIndex = set._values.length - 1;
+        if (valueIndex == lastIndex) {
+            return true;
+        }
+        bytes storage lastValue = set._values[lastIndex];
+        set._values[valueIndex] = lastValue;
+        set._positions[lastValue] = pos;
+        set._values[lastIndex] = value;
+        set._positions[value] = lastIndex + 1;
+        return true;
     }
 
     /**
