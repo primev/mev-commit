@@ -1195,6 +1195,37 @@
   },
   {
     "type": "event",
+    "name": "ValidatorSlashRequested",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "slashIndex",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ValidatorSlashed",
     "inputs": [
       {
@@ -1216,7 +1247,7 @@
         "internalType": "address"
       },
       {
-        "name": "slasherType",
+        "name": "slashedAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1353,6 +1384,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "InfractionTimestampMustBeNonZero",
+    "inputs": []
   },
   {
     "type": "error",
@@ -1760,6 +1796,48 @@
         "name": "deregRequestTimestamp",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorNotRemovedFromValset",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ValidatorNotSlashable",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
