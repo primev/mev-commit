@@ -10,14 +10,14 @@ pragma solidity 0.8.26;
 /// This implementation is streamlined to only support a set of "bytes" type.
 library EnumerableSet {
 
-    error StartMustBeLessThanEnd();
-    error EndTooLarge();
-
     // Represents a set of byte array values
     struct BytesSet {
         bytes[] _values;
         mapping(bytes value => uint256) _positions;
     }
+
+    error StartMustBeLessThanEnd();
+    error EndTooLarge();
 
     /**
      * @dev Add a value to a set. O(1).
@@ -39,12 +39,8 @@ library EnumerableSet {
         return _remove(set, value);
     }
 
-    /**
-     * @dev Swaps any value with the last value in the array.
-     * @return boolean indicating if the swap was successful
-     */
-    function swapWithLast(BytesSet storage set, bytes memory value) internal returns (bool) {
-        return _swapWithLast(set, value);
+    function swapWithPosition(BytesSet storage set, bytes memory originalValue, uint256 targetPosition) internal returns (bool) {
+        return _swapWithPosition(set, originalValue, targetPosition);
     }
 
     /**
@@ -70,9 +66,6 @@ library EnumerableSet {
 
     /**
      * @dev Returns the value stored at position `index` in the set. O(1).
-     *
-     * Note that there are no guarantees on the ordering of values inside the
-     * array, and it may change when more values are added or removed.
      *
      * Requirements:
      *
@@ -183,24 +176,36 @@ library EnumerableSet {
     }
 
     /**
-     * @dev Swaps any value with the last value in the array.
+     * @dev Swaps any value with the value at the specified (1-indexed) position in the array.
      * @return boolean indicating if the swap was successful
      */
-    function _swapWithLast(BytesSet storage set, bytes memory value) private returns (bool) {
-        uint256 pos = set._positions[value];
-        if (pos == 0) {
+    function _swapWithPosition(BytesSet storage set, bytes memory originalValue, uint256 targetPosition) private returns (bool) {
+        uint256 len = set._values.length;
+
+        if (targetPosition == 0 || targetPosition > len) {
             return false;
         }
-        uint256 valueIndex = pos - 1;
-        uint256 lastIndex = set._values.length - 1;
-        if (valueIndex == lastIndex) {
+
+        uint256 originalPosition = set._positions[originalValue];
+        if (originalPosition == 0) {
+            return false;
+        }
+
+        if (originalPosition == targetPosition) {
             return true;
         }
-        bytes storage lastValue = set._values[lastIndex];
-        set._values[valueIndex] = lastValue;
-        set._positions[lastValue] = pos;
-        set._values[lastIndex] = value;
-        set._positions[value] = lastIndex + 1;
+
+        uint256 originalIndex = originalPosition - 1;
+        uint256 targetIndex = targetPosition - 1;
+
+        bytes memory targetValue = set._values[targetIndex];
+
+        set._values[originalIndex] = targetValue;
+        set._values[targetIndex] = originalValue;
+
+        set._positions[targetValue] = originalPosition;
+        set._positions[originalValue] = targetPosition;
+
         return true;
     }
 
@@ -227,9 +232,6 @@ library EnumerableSet {
 
     /**
      * @dev Returns the value stored at position `index` in the set. O(1).
-     *
-     * Note that there are no guarantees on the ordering of values inside the
-     * array, and it may change when more values are added or removed.
      *
      * Requirements:
      *

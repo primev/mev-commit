@@ -228,7 +228,30 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         uint256 len = blsPubkeys.length;
         require(len == infractionTimestamps.length, InvalidArrayLengths(len, infractionTimestamps.length));
         for (uint256 i = 0; i < len; ++i) {
-            _slashValidator(blsPubkeys[i], infractionTimestamps[i]);
+            // These and other checks in _slashValidator will succeed if current tx executes within
+            // slashPeriodSeconds of validator being marked as "not opted-in",
+            // OR relevant validator/vault/operator has not fully deregistered yet.
+            ValidatorRecord storage valRecord = validatorRecords[blsPubkeys[i]];
+            require(valRecord.exists, MissingValidatorRecord(blsPubkeys[i]));
+            // Store slash record if it doesn't already exist. To ensure desirable ordering, _getNumSlashableVals should 
+            // intentionally be computed once for the slash record, as collateral that is slashed later in this function
+            // affects the metric.
+            SlashRecord storage slashRecord = _slashRecords[valRecord.vault][valRecord.operator][block.number];
+            if (!slashRecord.exists) {
+                uint256 numSlashable = _getNumSlashableVals(valRecord.vault, valRecord.operator);
+                require(numSlashable != 0, ValidatorsNotSlashable(valRecord.vault, valRecord.operator, len, numSlashable));
+                _slashRecords[valRecord.vault][valRecord.operator][block.number] = SlashRecord({
+                    exists: true,
+                    numSlashed: 0,
+                    numInitSlashable: numSlashable
+                });
+            }
+            // Swap about to be slashed pubkey with last slashable pubkey in valset.
+            uint256 positionToSwapWith = slashRecord.numInitSlashable - slashRecord.numSlashed;
+            _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(blsPubkeys[i], positionToSwapWith);
+
+            ++slashRecord.numSlashed;
+            _slashValidator(blsPubkeys[i], infractionTimestamps[i], valRecord);
         }
     }
 
@@ -282,7 +305,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _isValidatorSlashable(blsPubkey, record.vault, record.operator);
     }
 
-    /// @notice Queries the number of potential slashable validators for a vault and operator.
+    /// @return Number of potential new validators that could be registered and be slashable.
     function potentialSlashableValidators(address vault, address operator) external view returns (uint256) {
         return _potentialSlashableVals(vault, operator);
     }
@@ -486,12 +509,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @param infractionTimestamp The block.timestamp for the block during which the infraction occurred.
     /// @dev Operator and vault are not deregistered for the validator's infraction,
     /// so as to avoid opting-out large groups of validators at once.
-    function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp) internal {
-        // These will succeed if current tx executes within
-        // slashPeriodSeconds of validator being marked as "not opted-in",
-        // OR relevant validator/vault/operator has not fully deregistered yet.
-        ValidatorRecord storage valRecord = validatorRecords[blsPubkey];
-        require(valRecord.exists, MissingValidatorRecord(blsPubkey));
+    function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp, ValidatorRecord storage valRecord) internal {
         VaultRecord storage vaultRecord = vaultRecords[valRecord.vault];
         require(vaultRecord.exists, MissingVaultRecord(valRecord.vault));
         OperatorRecord storage operatorRecord = operatorRecords[valRecord.operator];
@@ -522,9 +540,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         if (!valRecord.deregRequestOccurrence.exists) {
             TimestampOccurrence.captureOccurrence(valRecord.deregRequestOccurrence);
         }
-
-        // Move slashed pubkey to end of array s.t. it's not slashable again when vault's stake is decremented.
-        _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithLast(blsPubkey);
     }
 
     /// @dev Internal function to set the network registry.
@@ -640,13 +655,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return position <= slashableVals; // position is 1-indexed
     }
 
+    /// @return Number of potential new validators that could be registered and be slashable.
     function _potentialSlashableVals(address vault, address operator) internal view returns (uint256) {
         uint256 slashableVals = _getNumSlashableVals(vault, operator);
-        uint256 alreadyRegistered = _vaultAndOperatorToValset[vault][operator].length();
-        if (slashableVals < alreadyRegistered) {
+        uint256 numRegistered = _vaultAndOperatorToValset[vault][operator].length();
+        if (slashableVals < numRegistered) {
             return 0;
         }
-        return slashableVals - alreadyRegistered;
+        return slashableVals - numRegistered;
     }
     
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {

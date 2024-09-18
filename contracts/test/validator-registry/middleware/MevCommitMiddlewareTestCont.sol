@@ -817,7 +817,6 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
     function test_slashValidatorsSuccess() public { 
         test_registerValidators();
-        bytes[] memory blsPubkeys = getSixPubkeys();
         bytes[] memory firstTwoBlsPubkeys = new bytes[](2);
         firstTwoBlsPubkeys[0] = sampleValPubkey1;
         firstTwoBlsPubkeys[1] = sampleValPubkey2;
@@ -871,24 +870,14 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertTrue(valRecord1.deregRequestOccurrence.exists);
         assertTrue(valRecord2.deregRequestOccurrence.exists);
 
-        // TODO: need to improve function to swap vals with last n vals in the set, these asserts will fail
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
 
-        // assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey1));
-        // assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey2));
-
-        // pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
-        // assertEq(pos1, 6);
-        // pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
-        // assertEq(pos2, 7);
+        pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
+        assertEq(pos1, 4); // final position of first set
+        pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
+        assertEq(pos2, 3); // second to final position of first set
     }
-
-    // TODO: test behavior of isValidatorOptedIn, after slash has happened for symbiotic, 
-    // where stake function returns less (as enforced by mocks). Does slashed validator need to be pushed 
-    // to back of set to keep others opted in? probably
-
-    // TODO: test all cases and requires for slashValidators
-
-    // TODO: test for areValidatorsOptedIn not causing a revert (or at least an explicit one) for invalid bls key.
 
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests
     function getSixPubkeys() internal view returns (bytes[] memory) {

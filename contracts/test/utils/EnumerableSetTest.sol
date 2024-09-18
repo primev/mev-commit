@@ -179,7 +179,7 @@ contract EnumerableSetTest is Test {
         require(foundCount == expected.length, "Not all expected elements found");
     }
 
-    function testSwapWithLast() public {
+    function testSwapWithPosition() public {
         bytes memory data1 = "data1";
         bytes memory data2 = "data2";
         bytes memory data3 = "data3";
@@ -189,26 +189,23 @@ contract EnumerableSetTest is Test {
         assertTrue(set.add(data3), "data3 should be added");
         assertEq(set.length(), 3, "Set should have 3 elements");
 
-        assertEq(set._positions[data1], 1, "data1 should be at (1 indexed) position 1");
-        assertEq(set._positions[data2], 2, "data2 should be at (1 indexed) position 2");
-        assertEq(set._positions[data3], 3, "data3 should be at (1 indexed) position 3");
+        assertEq(set._positions[data1], 1, "data1 should be at position 1");
+        assertEq(set._positions[data2], 2, "data2 should be at position 2");
+        assertEq(set._positions[data3], 3, "data3 should be at position 3");
 
-        set.swapWithLast(data2);
+        bool success = set.swapWithPosition(data2, 1);
+        assertTrue(success, "Swap should succeed");
 
-        bytes memory lastElement = set.at(set.length() - 1);
-        assertEq(lastElement, data2, "data2 should be the last element after swap");
+        assertEq(set._positions[data2], 1, "data2 should be at position 1");
+        assertEq(set._positions[data1], 2, "data1 should be at position 2");
+        assertEq(set._positions[data3], 3, "data3 should remain at position 3");
 
         bytes memory firstElement = set.at(0);
         bytes memory secondElement = set.at(1);
-        assertTrue(
-            (keccak256(firstElement) == keccak256(data1) && keccak256(secondElement) == keccak256(data3)) ||
-            (keccak256(firstElement) == keccak256(data3) && keccak256(secondElement) == keccak256(data1)),
-            "First and second elements should be data1 and data3 in any order"
-        );
+        bytes memory thirdElement = set.at(2);
 
-        assertEq(set.length(), 3, "Set should still have 3 elements");
-        assertEq(set._positions[data1], 1, "data1 should be at (1 indexed) position 1");
-        assertEq(set._positions[data2], 3, "data2 should be at (1 indexed) position 3");
-        assertEq(set._positions[data3], 2, "data3 should be at (1 indexed) position 2");
+        assertEq(firstElement, data2, "First element should be data2");
+        assertEq(secondElement, data1, "Second element should be data1");
+        assertEq(thirdElement, data3, "Third element should be data3");
     }
 }

@@ -38,6 +38,16 @@ interface IMevCommitMiddleware {
         TimestampOccurrence.Occurrence deregRequestOccurrence;
     }
 
+    struct SlashRecord {
+        /// @notice Whether this slash record exists.
+        bool exists;
+        /// @notice The number of validators slashed for this vault and operator at the current block.
+        uint256 numSlashed;
+        /// @notice The number of validators that are initially slashable for this vault and operator at the current block.
+        /// @dev This is computed once upon slash record creation to ensure desirable valset ordering.
+        uint256 numInitSlashable;
+    }
+
     /// @notice Emmitted when an operator is registered
     event OperatorRegistered(address indexed operator);
 
