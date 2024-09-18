@@ -189,13 +189,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _checkOperator(operator);
         for (uint256 i = 0; i < vaultLen; ++i) {
             address vault = vaults[i];
-            uint256 keyLen = blsPubkeys[i].length;
             _checkVault(vault);
             uint256 potentialSlashableVals = _potentialSlashableVals(vault, operator);
+            bytes[] calldata pubkeyArray = blsPubkeys[i];
+            uint256 keyLen = pubkeyArray.length;
             require(keyLen <= potentialSlashableVals,
                 ValidatorsNotSlashable(vault, operator, keyLen, potentialSlashableVals));
             for (uint256 j = 0; j < keyLen; ++j) {
-                _addValRecord(blsPubkeys[i][j], vault, operator);
+                _addValRecord(pubkeyArray[j], vault, operator);
             }
         }
     }
