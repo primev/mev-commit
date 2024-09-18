@@ -168,6 +168,7 @@ job "{{ job.name }}" {
           exec local/mev-commit
         EOH
         destination = "local/run.sh"
+        change_mode = "noop"
         perms = "0755"
       }
 
