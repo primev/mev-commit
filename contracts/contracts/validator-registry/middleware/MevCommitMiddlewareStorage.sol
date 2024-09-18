@@ -55,9 +55,7 @@ abstract contract MevCommitMiddlewareStorage {
     /// by the vault.
     mapping(address vault => mapping(address operator => EnumerableSet.BytesSet)) internal _vaultAndOperatorToValset;
 
-    /// @notice Mapping of a vault and operator to block number to a number of validators that have been slashed.
-    /// @dev It would be far simpler and gas efficient to replace this with a locally instantiated mapping in slashValidators,
-    /// but solidity doesn't support this. See https://forum.soliditylang.org/t/mapping-in-memory-functions-optimisation/873
+    /// @notice Mapping of a vault and operator to block number to slash record.
     mapping(address vault => mapping(address operator => mapping(uint256 blockNumber => IMevCommitMiddleware.SlashRecord))) internal _slashRecords;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
