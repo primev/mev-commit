@@ -10,6 +10,9 @@ pragma solidity 0.8.26;
 /// This implementation is streamlined to only support a set of "bytes" type.
 library EnumerableSet {
 
+    error StartMustBeLessThanEnd();
+    error EndTooLarge();
+
     // Represents a set of byte array values
     struct BytesSet {
         bytes[] _values;
@@ -109,8 +112,8 @@ library EnumerableSet {
      * - `end` must be less than or equal to the length of the set.
      */
     function valueSubset(BytesSet storage set, uint256 start, uint256 end) internal view returns (bytes[] memory) {
-        require(start < end, "Start must be less than end");
-        require(end <= set._values.length, "End too large");
+        require(start < end, StartMustBeLessThanEnd());
+        require(end <= set._values.length, EndTooLarge());
 
         bytes[] memory result = new bytes[](end - start);
 
