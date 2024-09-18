@@ -51,12 +51,12 @@ abstract contract MevCommitMiddlewareStorage {
     /// @notice Mapping of a vault's address to its vault record.
     mapping(address vaultAddress => IMevCommitMiddleware.VaultRecord) public vaultRecords;
 
+    /// @notice Mapping of a vault and operator to block number to slash record.
+    mapping(address vault => mapping(address operator => mapping(uint256 blockNumber => IMevCommitMiddleware.SlashRecord))) public slashRecords;
+
     /// @notice Mapping of a vault to its representative operator, to a set of validator BLS public keys being secured
     /// by the vault.
     mapping(address vault => mapping(address operator => EnumerableSet.BytesSet)) internal _vaultAndOperatorToValset;
-
-    /// @notice Mapping of a vault and operator to block number to slash record.
-    mapping(address vault => mapping(address operator => mapping(uint256 blockNumber => IMevCommitMiddleware.SlashRecord))) internal _slashRecords;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;

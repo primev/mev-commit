@@ -62,6 +62,7 @@ contract MevCommitMiddlewareTest is Test {
     event NetworkSet(address network);
     event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
     event SlashOracleSet(address slashOracle);
+    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashable);
 
     function setUp() public virtual {
         networkRegistryMock = new RegistryMock();
@@ -587,7 +588,7 @@ contract MevCommitMiddlewareTest is Test {
 
         uint256 vetoDuration = 5;
         MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration);
-        MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88);
+        MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88, mockDelegator2);
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
@@ -1022,5 +1023,11 @@ contract MevCommitMiddlewareTest is Test {
         (address vault, address operator, bool exists, TimestampOccurrence.Occurrence memory occurrence) =
             mevCommitMiddleware.validatorRecords(blsPubkey);
         return IMevCommitMiddleware.ValidatorRecord(vault, operator, exists, occurrence);
+    }
+
+    function getSlashRecord(address vault, address operator, uint256 blockNumber) public view
+        returns (IMevCommitMiddleware.SlashRecord memory) {
+        (bool exists, uint256 numSlashed, uint256 numInitSlashable) = mevCommitMiddleware.slashRecords(vault, operator, blockNumber);
+        return IMevCommitMiddleware.SlashRecord(exists, numSlashed, numInitSlashable);
     }
 }

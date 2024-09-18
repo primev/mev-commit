@@ -112,6 +112,9 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the slash oracle is set
     event SlashOracleSet(address slashOracle);
 
+    /// @notice Emmitted when a slash record is created
+    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashable);
+
     error OnlySlashOracle(address slashOracle);
 
     error OnlyOperator(address operator);

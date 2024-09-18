@@ -238,15 +238,16 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             // Store slash record if it doesn't already exist. To ensure desirable ordering, _getNumSlashableVals should 
             // intentionally be computed once for the slash record, as collateral that is slashed later in this function
             // affects the metric.
-            SlashRecord storage slashRecord = _slashRecords[valRecord.vault][valRecord.operator][block.number];
+            SlashRecord storage slashRecord = slashRecords[valRecord.vault][valRecord.operator][block.number];
             if (!slashRecord.exists) {
                 uint256 numSlashable = _getNumSlashableVals(valRecord.vault, valRecord.operator);
                 require(numSlashable != 0, ValidatorsNotSlashable(valRecord.vault, valRecord.operator, len, numSlashable));
-                _slashRecords[valRecord.vault][valRecord.operator][block.number] = SlashRecord({
+                slashRecords[valRecord.vault][valRecord.operator][block.number] = SlashRecord({
                     exists: true,
                     numSlashed: 0,
                     numInitSlashable: numSlashable
                 });
+                emit SlashRecordCreated(valRecord.vault, valRecord.operator, block.number, numSlashable);
             }
             // Swap about to be slashed pubkey with last slashable pubkey in valset.
             uint256 positionToSwapWith = slashRecord.numInitSlashable - slashRecord.numSlashed;

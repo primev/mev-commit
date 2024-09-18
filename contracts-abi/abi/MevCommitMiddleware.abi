@@ -676,6 +676,45 @@
   },
   {
     "type": "function",
+    "name": "slashRecords",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exists",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "numSlashed",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "numInitSlashable",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "slashValidators",
     "inputs": [
       {
@@ -1085,6 +1124,37 @@
     "inputs": [
       {
         "name": "slashPeriodSeconds",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashRecordCreated",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "numInitSlashable",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"

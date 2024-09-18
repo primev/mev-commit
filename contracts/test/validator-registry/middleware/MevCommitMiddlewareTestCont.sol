@@ -51,7 +51,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mockDelegator1.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
         mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
 
-        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE());
+        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE(), mockDelegator1);
         MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5);
 
         vault1.setSlasher(address(mockSlasher1));
@@ -115,7 +115,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mockDelegator1.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
         mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
 
-        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE());
+        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE(), mockDelegator1);
         MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5);
 
         vault1.setSlasher(address(mockSlasher1));
@@ -130,8 +130,14 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         // delegator 1 (associated with vault 1) allocates 29 stake to operator 1
         mockDelegator1.setStake(operator1, 29);
 
+        uint256 potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault1), operator1);
+        assertEq(potentialSlashableVals, 2);
+
         // delegator 2 (associated with vault 2) allocates 55 stake to operator 1
         mockDelegator2.setStake(operator1, 55);
+
+        potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1);
+        assertEq(potentialSlashableVals, 2);
 
         bytes[][] memory blsPubkeys = new bytes[][](2);
         blsPubkeys[0] = new bytes[](3);
@@ -161,6 +167,9 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         mockDelegator1.setStake(operator1, 30);
 
+        potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault1), operator1);
+        assertEq(potentialSlashableVals, 3);
+
         vm.prank(operator1);
         vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.ValidatorsNotSlashable.selector,
@@ -187,6 +196,9 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
 
         mockDelegator2.setStake(operator1, 99);
+
+        potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1);
+        assertEq(potentialSlashableVals, 4);
 
         for (uint256 i = 0; i < blsPubkeys.length; i++) {
             for (uint256 j = 0; j < blsPubkeys[i].length; j++) {
@@ -256,6 +268,12 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1), 2);
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 3);
 
+        potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault1), operator1);
+        assertEq(potentialSlashableVals, 0);
+
+        potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1);
+        assertEq(potentialSlashableVals, 1);
+
         blsPubkeys = new bytes[][](1);
         blsPubkeys[0] = new bytes[](1);
         blsPubkeys[0][0] = sampleValPubkey3;
@@ -297,6 +315,9 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
 
         mockDelegator1.setStake(operator1, 40);
+
+        potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault1), operator1);
+        assertEq(potentialSlashableVals, 1);
 
         vm.prank(operator1);
         vm.expectEmit(true, true, true, true);
@@ -853,7 +874,14 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint256 pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
         assertEq(pos2, 2);
 
+        IMevCommitMiddleware.SlashRecord memory slashRecord = getSlashRecord(address(vault1), operator1, block.number);
+        assertFalse(slashRecord.exists);
+        assertEq(slashRecord.numInitSlashable, 0);
+        assertEq(slashRecord.numSlashed, 0);
+
         vm.prank(slashOracle);
+        vm.expectEmit(true, true, true, true);
+        emit SlashRecordCreated(address(vault1), operator1, block.number, 4);
         vm.expectEmit(true, true, true, true);
         emit ValidatorSlashed(sampleValPubkey1, operator1, address(vault1), 10);
         vm.expectEmit(true, true, true, true);
@@ -877,6 +905,11 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(pos1, 4); // final position of first set
         pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
         assertEq(pos2, 3); // second to final position of first set
+
+        slashRecord = getSlashRecord(address(vault1), operator1, block.number);
+        assertTrue(slashRecord.exists);
+        assertEq(slashRecord.numInitSlashable, 4);
+        assertEq(slashRecord.numSlashed, 2);
     }
 
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests
