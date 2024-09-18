@@ -72,6 +72,7 @@ job "{{ job.name }}" {
 
         EOH
         destination = "etc/datadog-agent/datadog.yaml"
+        change_mode = "noop"
       }
 
       {% if job.type == 'logs' %}
