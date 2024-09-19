@@ -349,6 +349,8 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
         assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey3));
         assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey7));
+
+        mockDelegator1.setStake(operator1, 40);
     }
 
     function test_requestValidatorDeregistrationsMissingValidatorRecord() public { 
@@ -1091,6 +1093,47 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1), 1);
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 2);
+    }
+
+    function test_operatorGreifingScenario() public { 
+        test_registerValidators();
+
+        address operator1 = vm.addr(0x1117);
+
+        vm.prank(owner);
+        address[] memory operators = new address[](1);
+        operators[0] = operator1;
+        mevCommitMiddleware.blacklistOperators(operators);
+
+        // confirm operator cant opt in any more validators
+        bytes[][] memory pubkeys = new bytes[][](1);
+        pubkeys[0] = new bytes[](1);
+        pubkeys[0][0] = sampleValPubkey8;
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OperatorIsBlacklisted.selector, operator1)
+        );
+        mevCommitMiddleware.registerValidators(pubkeys, operators);
+
+        bytes[] memory allPubkeys = getSixPubkeys();
+        bytes[] memory allPubkeysWith7 = new bytes[](7);
+        for (uint256 i = 0; i < allPubkeys.length; i++) {
+            allPubkeysWith7[i] = allPubkeys[i];
+        }
+        allPubkeysWith7[6] = sampleValPubkey7;
+
+        vm.prank(owner);
+        mevCommitMiddleware.requestValDeregistrations(allPubkeys);
+
+        vm.warp(block.timestamp + 1000);
+
+        vm.prank(owner);
+        mevCommitMiddleware.deregisterValidators(allPubkeys);
+
+        for (uint256 i = 0; i < allPubkeys.length; i++) {
+            IMevCommitMiddleware.ValidatorRecord memory valRecord = getValidatorRecord(allPubkeys[i]);
+            assertFalse(valRecord.exists);
+        }
     }
 
     function test_isValidatorOptedInBadKey() public view {
