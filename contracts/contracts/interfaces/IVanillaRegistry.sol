@@ -33,9 +33,6 @@ interface IVanillaRegistry {
     /// @dev Event emitted when the min stake parameter is set.
     event MinStakeSet(address indexed msgSender, uint256 newMinStake);
 
-    /// @dev Event emitted when the slash amount parameter is set.
-    event SlashAmountSet(address indexed msgSender, uint256 newSlashAmount);
-
     /// @dev Event emitted when the slash oracle parameter is set.
     event SlashOracleSet(address indexed msgSender, address newSlashOracle);
 
@@ -53,6 +50,7 @@ interface IVanillaRegistry {
     error SenderIsNotSlashOracle(address sender, address slashOracle);
     error WithdrawalAddressMustBeSet();
     error MustUnstakeToWithdraw();
+    error NothingToWithdraw();
     error AtLeastOneRecipientRequired();
     error StakeTooLowForNumberOfKeys(uint256 msgValue, uint256 numberOfKeys);
     error WithdrawingTooSoon();
@@ -69,7 +67,6 @@ interface IVanillaRegistry {
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
         uint256 _minStake, 
-        uint256 _slashAmount,
         address _slashOracle,
         address _slashReceiver,
         uint256 _unstakePeriodBlocks, 
@@ -123,9 +120,6 @@ interface IVanillaRegistry {
 
     /// @dev Enables the owner to set the minimum stake parameter.
     function setMinStake(uint256 newMinStake) external;
-
-    /// @dev Enables the owner to set the slash amount parameter.
-    function setSlashAmount(uint256 newSlashAmount) external;
 
     /// @dev Enables the owner to set the slash oracle parameter.
     function setSlashOracle(address newSlashOracle) external;

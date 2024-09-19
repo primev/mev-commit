@@ -82,14 +82,12 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
         uint256 _minStake, 
-        uint256 _slashAmount,
         address _slashOracle,
         address _slashReceiver,
         uint256 _unstakePeriodBlocks, 
         address _owner
     ) external initializer {
         _setMinStake(_minStake);
-        _setSlashAmount(_slashAmount);
         _setSlashOracle(_slashOracle);
         _setSlashReceiver(_slashReceiver);
         _setUnstakePeriodBlocks(_unstakePeriodBlocks);
@@ -178,11 +176,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev Enables the owner to set the minimum stake parameter.
     function setMinStake(uint256 newMinStake) external onlyOwner {
         _setMinStake(newMinStake);
-    }
-
-    /// @dev Enables the owner to set the slash amount parameter.
-    function setSlashAmount(uint256 newSlashAmount) external onlyOwner {
-        _setSlashAmount(newSlashAmount);
     }
 
     /// @dev Enables the owner to set the slash oracle parameter.
@@ -321,6 +314,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             require(block.number > stakedValidators[pubKey].unstakeOccurrence.blockHeight + unstakePeriodBlocks,
                 IVanillaRegistry.WithdrawingTooSoon());
             uint256 balance = stakedValidators[pubKey].balance;
+            require(balance != 0, IVanillaRegistry.NothingToWithdraw());
             address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
             delete stakedValidators[pubKey];
             (bool success, ) = withdrawalAddress.call{value: balance}("");
@@ -330,23 +324,21 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     }
 
     /* 
-     * @dev Internal function to slash ETH on behalf of one or multiple validators via their BLS pubkey.
+     * @dev Internal function to slash minStake worth of ETH on behalf of one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The BLS public keys to slash.
      */
     function _slash(bytes[] calldata blsPubKeys) internal {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(stakedValidators[pubKey].balance > slashAmount,
-                IVanillaRegistry.NotEnoughBalanceToSlash());
-            stakedValidators[pubKey].balance -= slashAmount;
-            if (!_isUnstaking(pubKey)) {
-                _unstakeSingle(pubKey);
+            require(stakedValidators[pubKey].balance >= minStake, IVanillaRegistry.NotEnoughBalanceToSlash());
+            stakedValidators[pubKey].balance -= minStake;
+            if (!_isUnstaking(pubKey)) { 
+                _unstakeSingle(pubKey); 
             }
-            (bool success, ) = slashReceiver.call{value: slashAmount}("");
+            (bool success, ) = slashReceiver.call{value: minStake}("");
             require(success, IVanillaRegistry.SlashingTransferFailed());
-            emit Slashed(msg.sender, slashReceiver,
-                stakedValidators[pubKey].withdrawalAddress, pubKey, slashAmount);
+            emit Slashed(msg.sender, slashReceiver, stakedValidators[pubKey].withdrawalAddress, pubKey, minStake);
         }
     }
 
@@ -355,14 +347,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         require(newMinStake != 0, IVanillaRegistry.MinStakeMustBePositive());
         minStake = newMinStake;
         emit MinStakeSet(msg.sender, newMinStake);
-    }
-
-    /// @dev Internal function to set the slash amount parameter.
-    function _setSlashAmount(uint256 newSlashAmount) internal {
-        require(newSlashAmount != 0, IVanillaRegistry.SlashAmountMustBePositive());
-        require(newSlashAmount < minStake, IVanillaRegistry.SlashAmountMustBeLessThanMinStake());
-        slashAmount = newSlashAmount;
-        emit SlashAmountSet(msg.sender, newSlashAmount);
     }
 
     /// @dev Internal function to set the slash oracle parameter.
