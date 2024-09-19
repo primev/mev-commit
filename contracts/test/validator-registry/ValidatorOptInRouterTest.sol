@@ -12,7 +12,7 @@ import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol"
 import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
 import {IMevCommitMiddleware} from "../../contracts/interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddleware} from "../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
-import {MevCommitMiddlewareTest} from "./middleware/MevCommitMiddlewareTest.sol";
+import {MevCommitMiddlewareTestCont} from "./middleware/MevCommitMiddlewareTestCont.sol";
 
 contract ValidatorOptInRouterTest is Test {
     ValidatorOptInRouter public validatorOptInRouter;
@@ -22,7 +22,7 @@ contract ValidatorOptInRouterTest is Test {
     MevCommitAVS public mevCommitAVS;
     MevCommitAVSTest public mevCommitAVSTest;
     MevCommitMiddleware public mevCommitMiddleware;
-    MevCommitMiddlewareTest public mevCommitMiddlewareTest;
+    MevCommitMiddlewareTestCont public mevCommitMiddlewareTest;
 
     address public owner;
     address public user1;
@@ -45,7 +45,7 @@ contract ValidatorOptInRouterTest is Test {
         mevCommitAVSTest.setUp();
         mevCommitAVS = mevCommitAVSTest.mevCommitAVS();
 
-        mevCommitMiddlewareTest = new MevCommitMiddlewareTest();
+        mevCommitMiddlewareTest = new MevCommitMiddlewareTestCont();
         mevCommitMiddlewareTest.setUp();
         mevCommitMiddleware = mevCommitMiddlewareTest.mevCommitMiddleware();
 
@@ -122,5 +122,17 @@ contract ValidatorOptInRouterTest is Test {
         }
     }
 
-    // TODO: test areValidatorsOptedIn for mevCommitMiddleware
+    function testAreValidatorsOptedInForMevCommitMiddleware() public {
+        mevCommitMiddlewareTest.test_registerValidators();
+
+        bytes[] memory valPubkeys = new bytes[](2);
+        valPubkeys[0] = mevCommitMiddlewareTest.sampleValPubkey1();
+        valPubkeys[1] = mevCommitMiddlewareTest.sampleValPubkey2();
+
+        bool[] memory areOptedIn = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
+        assertEq(areOptedIn.length, 2);
+        for (uint256 i = 0; i < areOptedIn.length; ++i) {
+            assertTrue(areOptedIn[i]);
+        }
+    }
 }
