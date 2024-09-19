@@ -487,12 +487,12 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	txns, ok := u.l1BlockCache.Get(blockNum)
 	if ok {
 		u.metrics.BlockTxnCacheHits.Inc()
-		u.logger.Info("cache hit for block transactions", "blockNum", blockNum)
+		u.logger.Debug("cache hit for block transactions", "blockNum", blockNum)
 		return txns, nil
 	}
 
 	u.metrics.BlockTxnCacheMisses.Inc()
-	u.logger.Info("cache miss for block transactions", "blockNum", blockNum)
+	u.logger.Debug("cache miss for block transactions", "blockNum", blockNum)
 
 	block, err := u.l1Client.BlockByNumber(ctx, big.NewInt(0).SetUint64(blockNum))
 	if err != nil {
@@ -500,7 +500,7 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 		return nil, fmt.Errorf("failed to get block by number: %w", err)
 	}
 
-	u.logger.Info("retrieved block", "blockNum", blockNum, "blockHash", block.Hash().Hex())
+	u.logger.Debug("retrieved block", "blockNum", blockNum, "blockHash", block.Hash().Hex())
 
 	var txnReceipts sync.Map
 	eg, ctx := errgroup.WithContext(ctx)
@@ -527,22 +527,22 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 	for _, bucket := range buckets {
 		eg.Go(func() error {
 			start := time.Now()
-			u.logger.Info("requesting batch receipts", "bucketSize", len(bucket))
+			u.logger.Debug("requesting batch receipts", "bucketSize", len(bucket))
 			results, err := u.receiptBatcher.BatchReceipts(ctx, bucket)
 			if err != nil {
 				u.logger.Error("failed to get batch receipts", "error", err)
 				return fmt.Errorf("failed to get batch receipts: %w", err)
 			}
 			u.metrics.TxnReceiptRequestDuration.Observe(time.Since(start).Seconds())
-			u.logger.Info("received batch receipts", "duration", time.Since(start).Seconds())
+			u.logger.Debug("received batch receipts", "duration", time.Since(start).Seconds())
 			for _, result := range results {
 				if result.Err != nil {
 					u.logger.Error("failed to get receipt for txn", "txnHash", result.Receipt.TxHash.Hex(), "error", result.Err)
-					return fmt.Errorf("failed to get receipt for txn: %s", result.Err)
+					continue
 				}
 
 				txnReceipts.Store(result.Receipt.TxHash.Hex(), result.Receipt)
-				u.logger.Info("stored receipt", "txnHash", result.Receipt.TxHash.Hex())
+				u.logger.Debug("stored receipt", "txnHash", result.Receipt.TxHash.Hex())
 			}
 
 			return nil
@@ -562,14 +562,14 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 		receipt, ok := txnReceipts.Load(tx.Hex())
 		if !ok {
 			u.logger.Error("receipt not found for txn", "txnHash", tx.Hex())
-			return nil, fmt.Errorf("receipt not found for txn: %s", tx)
+			continue
 		}
 		txnsMap[strings.TrimPrefix(tx.Hex(), "0x")] = TxMetadata{PosInBlock: i, Succeeded: receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful}
-		u.logger.Info("added txn to map", "txnHash", tx.Hex(), "posInBlock", i, "succeeded", receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful)
+		u.logger.Debug("added txn to map", "txnHash", tx.Hex(), "posInBlock", i, "succeeded", receipt.(*types.Receipt).Status == types.ReceiptStatusSuccessful)
 	}
 
 	_ = u.l1BlockCache.Add(blockNum, txnsMap)
-	u.logger.Info("added block transactions to cache", "blockNum", blockNum)
+	u.logger.Debug("added block transactions to cache", "blockNum", blockNum)
 
 	return txnsMap, nil
 }
@@ -579,24 +579,28 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 // (e.g they could be unix or unixMili timestamps)
 func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
 	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
-		u.logger.Info("timestamp out of range", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
+		u.logger.Debug("timestamp out of range", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
 		return 0
 	}
 
 	// Calculate the total time in seconds
 	totalTime := endTimestamp - startTimestamp
-	u.logger.Info("totalTime", "totalTime", totalTime)
 	// Calculate the time passed in seconds
 	timePassed := commitTimestamp - startTimestamp
-	u.logger.Info("timePassed", "timePassed", timePassed)
 	// Calculate the decay percentage
 	decayPercentage := float64(timePassed) / float64(totalTime)
-	u.logger.Info("decayPercentage", "decayPercentage", decayPercentage)
 
 	decayPercentageRound := int64(math.Round(decayPercentage * 100))
 	if decayPercentageRound > 100 {
 		decayPercentageRound = 100
 	}
-	u.logger.Info("decayPercentageRound", "decayPercentageRound", decayPercentageRound)
+	u.logger.Debug("decay information",
+		"startTimestamp", startTimestamp,
+		"endTimestamp", endTimestamp,
+		"commitTimestamp", commitTimestamp,
+		"totalTime", totalTime,
+		"timePassed", timePassed,
+		"decayPercentage", decayPercentage,
+	)
 	return decayPercentageRound
 }

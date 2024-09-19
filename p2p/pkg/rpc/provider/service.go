@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -38,6 +39,7 @@ type Service struct {
 	optsGetter       OptsGetter
 	metrics          *metrics
 	validator        *protovalidate.Validator
+	activeReceivers  atomic.Int32
 }
 
 type ProviderRegistryContract interface {
@@ -89,6 +91,9 @@ func (s *Service) ProcessBid(
 	ctx context.Context,
 	bid *preconfpb.Bid,
 ) (chan ProcessedBidResponse, error) {
+	if s.activeReceivers.Load() == 0 {
+		return nil, status.Error(codes.Internal, "no active receivers")
+	}
 	var revertingTxnHashes []string
 	if bid.RevertingTxHashes != "" {
 		revertingTxnHashes = strings.Split(bid.RevertingTxHashes, ",")
@@ -139,6 +144,9 @@ func (s *Service) ReceiveBids(
 	_ *providerapiv1.EmptyMessage,
 	srv providerapiv1.Provider_ReceiveBidsServer,
 ) error {
+	s.activeReceivers.Add(1)
+	defer s.activeReceivers.Add(-1)
+
 	for {
 		select {
 		case <-srv.Context().Done():

@@ -49,7 +49,6 @@ func NewEVMHelperWithLogger(client *ethclient.Client, logger *slog.Logger, contr
 
 // BatchReceipts retrieves multiple receipts for a list of transaction hashes.
 func (e *EVMHelperImpl) BatchReceipts(ctx context.Context, txHashes []common.Hash) ([]Result, error) {
-	e.logger.Debug("Starting BatchReceipts", "txHashes", txHashes)
 	batch := make([]rpc.BatchElem, len(txHashes))
 
 	for i, hash := range txHashes {
@@ -92,19 +91,31 @@ func (e *EVMHelperImpl) BatchReceipts(ctx context.Context, txHashes []common.Has
 
 	// Retry individual failed transactions
 	for i, receipt := range receipts {
-		if receipt.Err != nil {
-			e.logger.Info("Retrying failed transaction", "index", i, "hash", txHashes[i].Hex())
-			for attempts := 0; attempts < 50; attempts++ {
-				e.logger.Info("Attempting individual call", "attempt", attempts+1, "hash", txHashes[i].Hex())
-				err = e.client.Client().CallContext(context.Background(), receipt.Receipt, "eth_getTransactionReceipt", txHashes[i])
-				if err == nil {
-					e.logger.Info("Individual call succeeded", "attempt", attempts+1, "hash", txHashes[i].Hex())
-					receipts[i].Err = nil
-					break
-				}
-				e.logger.Error("Individual call attempt failed", "attempt", attempts+1, "hash", txHashes[i].Hex(), "error", err)
-				time.Sleep(1 * time.Second)
+		switch {
+		case receipt.Err == nil:
+			continue
+		case errors.Is(receipt.Err, ethereum.NotFound):
+			e.logger.Info("Transaction not found", "index", i, "hash", txHashes[i].Hex())
+			continue
+		case errors.Is(receipt.Err, rpc.ErrMissingBatchResponse):
+			e.logger.Info("Missing batch response", "index", i, "hash", txHashes[i].Hex())
+		case errors.Is(receipt.Err, rpc.ErrNoResult):
+			e.logger.Info("No result from batch call", "index", i, "hash", txHashes[i].Hex())
+		default:
+			e.logger.Error("Unknown error", "index", i, "hash", txHashes[i].Hex(), "error", receipt.Err)
+			continue
+		}
+		e.logger.Info("Retrying failed transaction", "index", i, "hash", txHashes[i].Hex())
+		for attempts := 0; attempts < 10; attempts++ {
+			e.logger.Info("Attempting individual call", "attempt", attempts+1, "hash", txHashes[i].Hex())
+			err = e.client.Client().CallContext(context.Background(), receipt.Receipt, "eth_getTransactionReceipt", txHashes[i])
+			if err == nil {
+				e.logger.Info("Individual call succeeded", "attempt", attempts+1, "hash", txHashes[i].Hex())
+				receipt.Err = nil
+				break
 			}
+			e.logger.Error("Individual call attempt failed", "attempt", attempts+1, "hash", txHashes[i].Hex(), "error", err)
+			time.Sleep(1 * time.Second)
 		}
 	}
 

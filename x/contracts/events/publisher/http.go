@@ -71,8 +71,8 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 			case <-ticker.C:
 				blockNumber, err := h.evmClient.BlockNumber(ctx)
 				if err != nil {
-					h.logger.Error("failed to get block number", "error", err)
-					return
+					h.logger.Warn("failed to get block number", "error", err)
+					continue
 				}
 
 				if blockNumber > lastBlock {
@@ -84,8 +84,8 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 
 					logs, err := h.evmClient.FilterLogs(ctx, q)
 					if err != nil {
-						h.logger.Error("failed to filter logs", "error", err)
-						return
+						h.logger.Warn("failed to filter logs", "error", err)
+						continue
 					}
 
 					for _, logMsg := range logs {
