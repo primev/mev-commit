@@ -14,6 +14,7 @@ contract BaseDeploy is Script {
     function deployValidatorOptInRouter(
         address vanillaRegistry,
         address mevCommitAVS,
+        address mevCommitMiddleware,
         address owner
     ) public returns (address) {
         console.log("Deploying ValidatorOptInRouter on chain:", block.chainid);
@@ -21,7 +22,7 @@ contract BaseDeploy is Script {
             "ValidatorOptInRouter.sol",
             abi.encodeCall(
                 ValidatorOptInRouter.initialize,
-                (vanillaRegistry, mevCommitAVS, owner)
+                (vanillaRegistry, mevCommitAVS, mevCommitMiddleware, owner)
             )
         );
         console.log("ValidatorOptInRouter UUPS proxy deployed to:", address(proxy));
@@ -34,6 +35,7 @@ contract BaseDeploy is Script {
 contract DeployHolesky is BaseDeploy {
     address constant public VANILLA_REGISTRY = 0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf;
     address constant public MEV_COMMIT_AVS = 0xEDEDB8ed37A43Fd399108A44646B85b780D85DD4;
+    address constant public MEV_COMMIT_MIDDLEWARE = 0x0000000000000000000000000000000000000000;
 
     // This is the most important field. On mainnet it'll be the primev multisig.
     address constant public OWNER = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
@@ -45,6 +47,7 @@ contract DeployHolesky is BaseDeploy {
         deployValidatorOptInRouter(
             VANILLA_REGISTRY,
             MEV_COMMIT_AVS,
+            MEV_COMMIT_MIDDLEWARE,
             OWNER
         );
         vm.stopBroadcast();

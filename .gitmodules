@@ -16,3 +16,6 @@
 [submodule "contracts/lib/eigenlayer-contracts"]
 	path = contracts/lib/eigenlayer-contracts
 	url = https://github.com/Layr-Labs/eigenlayer-contracts.git
+[submodule "contracts/lib/core"]
+	path = contracts/lib/core
+	url = https://github.com/symbioticfi/core
