@@ -116,7 +116,7 @@ interface IMevCommitMiddleware {
     event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered);
 
     /// @notice Emmitted when a validator position is swapped as a part of slashing
-    event ValidatorPositionSwapped(address vault, address operator, uint256 oldPosition, uint256 newPosition);
+    event ValidatorPositionSwapped(address vault, address operator, uint256 newPosition);
 
     error OnlySlashOracle(address slashOracle);
 

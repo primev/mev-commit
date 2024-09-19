@@ -250,10 +250,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
                 emit SlashRecordCreated(valRecord.vault, valRecord.operator, block.number, numSlashableRegistered);
             }
             // Swap about to be slashed pubkey with last slashable pubkey in valset.
-            uint256 oldPosition = _getPositionInValset(pubkey, valRecord.vault, valRecord.operator);
             uint256 newPosition = slashRecord.numInitSlashableRegistered - slashRecord.numSlashed; // 1-indexed
             _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(pubkey, newPosition);
-            emit ValidatorPositionSwapped(valRecord.vault, valRecord.operator, oldPosition, newPosition);
+            emit ValidatorPositionSwapped(valRecord.vault, valRecord.operator, newPosition);
 
             ++slashRecord.numSlashed;
             _slashValidator(blsPubkeys[i], infractionTimestamps[i], valRecord);

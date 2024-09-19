@@ -967,11 +967,11 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vm.expectEmit(true, true, true, true);
         emit SlashRecordCreated(address(vault2), operator1, block.number, 3);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorPositionSwapped(address(vault2), operator1, 1, 3);
+        emit ValidatorPositionSwapped(address(vault2), operator1, 3);
         vm.expectEmit(true, true, true, true);
         emit ValidatorSlashRequested(sampleValPubkey4, operator1, address(vault2), 0);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorPositionSwapped(address(vault2), operator1, 2, 2);
+        emit ValidatorPositionSwapped(address(vault2), operator1, 2);
         vm.expectEmit(true, true, true, true);
         emit ValidatorSlashRequested(sampleValPubkey5, operator1, address(vault2), 1);
         mevCommitMiddleware.slashValidators(firstTwoBlsPubkeysFromVault2, timestamps); 
@@ -1052,7 +1052,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vm.expectEmit(true, true, true, true);
         emit SlashRecordCreated(address(vault2), operator1, block.number, 2);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorPositionSwapped(address(vault2), operator1, 1, 2);
+        emit ValidatorPositionSwapped(address(vault2), operator1, 2);
         vm.expectEmit(true, true, true, true);
         emit ValidatorSlashRequested(sampleValPubkey6, operator1, address(vault2), 2);
         mevCommitMiddleware.slashValidators(pubkeys, timestamps);
@@ -1061,6 +1061,8 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertTrue(slashRecord.exists);
         assertEq(slashRecord.numInitSlashableRegistered, 2);
         assertEq(slashRecord.numSlashed, 1);
+
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey6));
 
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1), 1);
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 2);
