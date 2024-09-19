@@ -7,6 +7,7 @@ import {IMevCommitMiddleware} from "../../../contracts/interfaces/IMevCommitMidd
 import {MevCommitMiddlewareTest} from "./MevCommitMiddlewareTest.sol";
 import {MockVetoSlasher} from "./MockVetoSlasher.sol";
 import {MockInstantSlasher} from "./MockInstantSlasher.sol";
+import {MockDelegator} from "./MockDelegator.sol";
 
 contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
@@ -52,7 +53,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE(), mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5);
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5, mockDelegator2);
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
@@ -116,7 +117,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE(), mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5);
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5, mockDelegator2);
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
@@ -869,14 +870,18 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey1));
         assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey2));
 
+        assertEq(mevCommitMiddleware.potentialSlashableValidators(address(vault1), operator1), 0);
+
         uint256 pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
         assertEq(pos1, 1);
         uint256 pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
         assertEq(pos2, 2);
 
+        assertEq(mevCommitMiddleware.valsetLength(address(vault1), operator1), 4);
+
         IMevCommitMiddleware.SlashRecord memory slashRecord = getSlashRecord(address(vault1), operator1, block.number);
         assertFalse(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashable, 0);
+        assertEq(slashRecord.numInitSlashableRegistered, 0);
         assertEq(slashRecord.numSlashed, 0);
 
         vm.prank(slashOracle);
@@ -888,9 +893,6 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         emit ValidatorSlashed(sampleValPubkey2, operator1, address(vault1), 10);
         mevCommitMiddleware.slashValidators(firstTwoBlsPubkeys, timestamps); 
 
-        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
-        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
-
         valRecord1 = getValidatorRecord(sampleValPubkey1);
         valRecord2 = getValidatorRecord(sampleValPubkey2);
         assertTrue(valRecord1.exists);
@@ -901,15 +903,172 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
         assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
 
+        // Validators should no longer be slashable, since instant slasher decrements stake immediately.
+        assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey1));
+        assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey2));
+
+        assertEq(mevCommitMiddleware.potentialSlashableValidators(address(vault1), operator1), 0);
+
         pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey1, address(vault1), operator1);
         assertEq(pos1, 4); // final position of first set
         pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey2, address(vault1), operator1);
         assertEq(pos2, 3); // second to final position of first set
 
+        assertEq(mevCommitMiddleware.valsetLength(address(vault1), operator1), 4);
+
         slashRecord = getSlashRecord(address(vault1), operator1, block.number);
         assertTrue(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashable, 4);
+        assertEq(slashRecord.numInitSlashableRegistered, 4);
         assertEq(slashRecord.numSlashed, 2);
+    }
+
+    function test_slashValidatorsWithVetoSlasher() public { 
+        test_slashValidatorsSuccess();
+        address operator1 = vm.addr(0x1117);
+
+        vm.roll(block.number + 20);
+        
+        bytes[] memory firstTwoBlsPubkeysFromVault2 = new bytes[](2);
+        firstTwoBlsPubkeysFromVault2[0] = sampleValPubkey4;
+        firstTwoBlsPubkeysFromVault2[1] = sampleValPubkey5;
+
+        uint256[] memory timestamps = new uint256[](2);
+        timestamps[0] = 201;
+        timestamps[1] = 202;
+
+        IMevCommitMiddleware.ValidatorRecord memory valRecord4 = getValidatorRecord(sampleValPubkey4);
+        IMevCommitMiddleware.ValidatorRecord memory valRecord5 = getValidatorRecord(sampleValPubkey5);
+        assertTrue(valRecord4.exists);
+        assertTrue(valRecord5.exists);
+        assertFalse(valRecord4.deregRequestOccurrence.exists);
+        assertFalse(valRecord5.deregRequestOccurrence.exists);
+
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey4));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey5));
+
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey4));
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey5));
+
+        assertEq(mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1), 1);
+
+        uint256 pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey4, address(vault2), operator1);
+        assertEq(pos1, 1);
+        uint256 pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1);
+        assertEq(pos2, 2);
+
+        assertEq(mevCommitMiddleware.valsetLength(address(vault2), operator1), 3);
+
+        IMevCommitMiddleware.SlashRecord memory slashRecord = getSlashRecord(address(vault2), operator1, block.number);
+        assertFalse(slashRecord.exists);
+        assertEq(slashRecord.numInitSlashableRegistered, 0);
+        assertEq(slashRecord.numSlashed, 0);
+
+        vm.prank(slashOracle);
+        vm.expectEmit(true, true, true, true);
+        emit SlashRecordCreated(address(vault2), operator1, block.number, 3);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorPositionSwapped(address(vault2), operator1, 1, 3);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashRequested(sampleValPubkey4, operator1, address(vault2), 0);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorPositionSwapped(address(vault2), operator1, 2, 2);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashRequested(sampleValPubkey5, operator1, address(vault2), 1);
+        mevCommitMiddleware.slashValidators(firstTwoBlsPubkeysFromVault2, timestamps); 
+
+        valRecord4 = getValidatorRecord(sampleValPubkey4);
+        valRecord5 = getValidatorRecord(sampleValPubkey5);
+        assertTrue(valRecord4.exists);
+        assertTrue(valRecord5.exists);
+        assertTrue(valRecord4.deregRequestOccurrence.exists);
+        assertTrue(valRecord5.deregRequestOccurrence.exists);
+
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey4));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey5));
+
+        // Validators should still be slashable, since veto slasher doesn't decrement stake immediately.
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey4));
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey5));
+
+        assertEq(mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1), 1);
+
+        pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey4, address(vault2), operator1);
+        assertEq(pos1, 3); // final position of second set
+        pos2 = mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1);
+        assertEq(pos2, 2); // second to final position of second set
+
+        assertEq(mevCommitMiddleware.valsetLength(address(vault2), operator1), 3);
+
+        slashRecord = getSlashRecord(address(vault1), operator1, block.number);
+        assertFalse(slashRecord.exists);
+
+        slashRecord = getSlashRecord(address(vault1), operator1, block.number-20);
+        assertTrue(slashRecord.exists);
+        assertEq(slashRecord.numInitSlashableRegistered, 4);
+        assertEq(slashRecord.numSlashed, 2);
+
+        slashRecord = getSlashRecord(address(vault2), operator1, block.number);
+        assertTrue(slashRecord.exists);
+        assertEq(slashRecord.numInitSlashableRegistered, 3);
+        assertEq(slashRecord.numSlashed, 2);
+
+        MockDelegator delegator = MockDelegator(vault2.delegator());
+        uint256 allocatedStake = delegator.stake(bytes32("subnet"), operator1);
+        assertEq(allocatedStake, 99);
+
+        // Before slash execution, vault is colateralized in excess.
+        assertEq(mevCommitMiddleware.getNumSlashableVals(address(vault2), operator1), 4);
+        assertEq(mevCommitMiddleware.valsetLength(address(vault2), operator1), 3);
+
+        vm.roll(block.number + 20);
+
+        MockVetoSlasher slasher = MockVetoSlasher(vault2.slasher());
+        uint256 slashIndex = 0;
+        slasher.executeSlash(slashIndex, "");
+        slashIndex = 1;
+        slasher.executeSlash(slashIndex, "");
+
+        allocatedStake = delegator.stake(bytes32("subnet"), operator1);
+        assertEq(allocatedStake, 59);
+
+        assertEq(mevCommitMiddleware.getNumSlashableVals(address(vault2), operator1), 2);
+        assertEq(mevCommitMiddleware.valsetLength(address(vault2), operator1), 3);
+
+        assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 1);
+
+        // First two validators are slashable, last one is not
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey6));
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey5));
+        assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey4));
+
+        // now slash validator 6 at a later block
+        vm.roll(block.number + 20);
+
+        bytes[] memory pubkeys = new bytes[](1);
+        pubkeys[0] = sampleValPubkey6;
+        timestamps = new uint256[](1);
+        timestamps[0] = 203;
+        vm.prank(slashOracle);
+        vm.expectEmit(true, true, true, true);
+        emit SlashRecordCreated(address(vault2), operator1, block.number, 2);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorPositionSwapped(address(vault2), operator1, 1, 2);
+        vm.expectEmit(true, true, true, true);
+        emit ValidatorSlashRequested(sampleValPubkey6, operator1, address(vault2), 2);
+        mevCommitMiddleware.slashValidators(pubkeys, timestamps);
+
+        slashRecord = getSlashRecord(address(vault2), operator1, block.number);
+        assertTrue(slashRecord.exists);
+        assertEq(slashRecord.numInitSlashableRegistered, 2);
+        assertEq(slashRecord.numSlashed, 1);
+
+        assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1), 1);
+        assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 2);
+    }
+
+    function test_isValidatorOptedInBadKey() public view {
+        bytes memory badKey = bytes("0x1234");
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(badKey));
     }
 
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests

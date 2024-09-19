@@ -39,6 +39,11 @@ library EnumerableSet {
         return _remove(set, value);
     }
 
+    /**
+     * @dev Swaps a value with another value at a target (1-indexed) position. O(1).
+     *
+     * Returns true if the swap was successful.
+     */
     function swapWithPosition(BytesSet storage set, bytes memory originalValue, uint256 targetPosition) internal returns (bool) {
         return _swapWithPosition(set, originalValue, targetPosition);
     }

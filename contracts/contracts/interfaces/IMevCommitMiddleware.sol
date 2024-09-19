@@ -43,9 +43,9 @@ interface IMevCommitMiddleware {
         bool exists;
         /// @notice The number of validators slashed for this vault and operator at the current block.
         uint256 numSlashed;
-        /// @notice The number of validators that are initially slashable for this vault and operator at the current block.
+        /// @notice The number of validators that are initially slashable and registered for this vault and operator at the current block.
         /// @dev This is computed once upon slash record creation to ensure desirable valset ordering.
-        uint256 numInitSlashable;
+        uint256 numInitSlashableRegistered;
     }
 
     /// @notice Emmitted when an operator is registered
@@ -113,7 +113,10 @@ interface IMevCommitMiddleware {
     event SlashOracleSet(address slashOracle);
 
     /// @notice Emmitted when a slash record is created
-    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashable);
+    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered);
+
+    /// @notice Emmitted when a validator position is swapped as a part of slashing
+    event ValidatorPositionSwapped(address vault, address operator, uint256 oldPosition, uint256 newPosition);
 
     error OnlySlashOracle(address slashOracle);
 
@@ -265,13 +268,20 @@ interface IMevCommitMiddleware {
     /// @notice Returns the potential number of slashable validators for a given vault and operator.
     function potentialSlashableValidators(address vault, address operator) external view returns (uint256);
 
-    /// @notice Checks if all validators for a given vault and operator are slashable.
-    function allValidatorsAreSlashable(address vault, address operator) external view returns (bool);
-
     /// @notice Returns the one-indexed position of a blsPubkey in its valset.
     /// @param blsPubkey The BLS public key of the validator.
     /// @param vault The address of the vault.
     /// @param operator The address of the operator.
     /// @return The position in the valset or 0 if not present.
     function getPositionInValset(bytes calldata blsPubkey, address vault, address operator) external view returns (uint256);
+
+    /// @return Number of validators that could be slashable according to vault stake.
+    function getNumSlashableVals(address vault, address operator) external view returns (uint256);
+
+    /// @notice Queries the BLS pubkey at a given one-indexed position in the valset for a vault and operator.
+    /// @return An empty bytes array if the index is out of bounds or the valset is empty.
+    function pubkeyAtPositionInValset(uint256 index, address vault, address operator) external view returns (bytes memory);
+
+    /// @return Length of the valset for a given vault and operator.
+    function valsetLength(address vault, address operator) external view returns (uint256);
 }

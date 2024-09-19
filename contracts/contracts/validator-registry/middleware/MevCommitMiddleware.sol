@@ -240,18 +240,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             // affects the metric.
             SlashRecord storage slashRecord = slashRecords[valRecord.vault][valRecord.operator][block.number];
             if (!slashRecord.exists) {
-                uint256 numSlashable = _getNumSlashableVals(valRecord.vault, valRecord.operator);
-                require(numSlashable != 0, ValidatorsNotSlashable(valRecord.vault, valRecord.operator, len, numSlashable));
+                uint256 numSlashableRegistered = _getNumSlashableRegisteredVals(valRecord.vault, valRecord.operator);
+                require(numSlashableRegistered != 0, ValidatorsNotSlashable(valRecord.vault, valRecord.operator, len, numSlashableRegistered));
                 slashRecords[valRecord.vault][valRecord.operator][block.number] = SlashRecord({
                     exists: true,
                     numSlashed: 0,
-                    numInitSlashable: numSlashable
+                    numInitSlashableRegistered: numSlashableRegistered
                 });
-                emit SlashRecordCreated(valRecord.vault, valRecord.operator, block.number, numSlashable);
+                emit SlashRecordCreated(valRecord.vault, valRecord.operator, block.number, numSlashableRegistered);
             }
             // Swap about to be slashed pubkey with last slashable pubkey in valset.
-            uint256 positionToSwapWith = slashRecord.numInitSlashable - slashRecord.numSlashed;
-            _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(pubkey, positionToSwapWith);
+            uint256 oldPosition = _getPositionInValset(pubkey, valRecord.vault, valRecord.operator);
+            uint256 newPosition = slashRecord.numInitSlashableRegistered - slashRecord.numSlashed; // 1-indexed
+            _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(pubkey, newPosition);
+            emit ValidatorPositionSwapped(valRecord.vault, valRecord.operator, oldPosition, newPosition);
 
             ++slashRecord.numSlashed;
             _slashValidator(blsPubkeys[i], infractionTimestamps[i], valRecord);
@@ -313,15 +315,15 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _potentialSlashableVals(vault, operator);
     }
 
-    /// @notice Queries if all validators for a vault and operator are slashable.
-    function allValidatorsAreSlashable(address vault, address operator) external view returns (bool) {
-        return _allValidatorsAreSlashable(vault, operator);
-    }
-
     /// @notice Queries the one-indexed position of a validator's BLS pubkey in its valset.
     /// @return 0 if the blsPubkey is not in the valset.
     function getPositionInValset(bytes calldata blsPubkey, address vault, address operator) external view returns (uint256) {
         return _getPositionInValset(blsPubkey, vault, operator);
+    }
+
+    /// @return Number of validators that could be slashable according to vault stake.
+    function getNumSlashableVals(address vault, address operator) external view returns (uint256) {
+        return _getNumSlashableVals(vault, operator);
     }
 
     /// @notice Queries the BLS pubkey at a given one-indexed position in the valset for a vault and operator.
@@ -333,7 +335,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _vaultAndOperatorToValset[vault][operator].at(index - 1);
     }
 
-    /// @return The length of the valset for a given vault and operator.
+    /// @return Length of the valset for a given vault and operator.
     function valsetLength(address vault, address operator) external view returns (uint256) {
         return _vaultAndOperatorToValset[vault][operator].length();
     }
@@ -638,6 +640,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return Subnetwork.subnetwork(network, SUBNETWORK_ID);
     }
 
+    /// @return Number of validators that could be slashable according to vault stake.
     function _getNumSlashableVals(address vault, address operator) internal view returns (uint256) {
         IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
         uint256 allocatedStake = delegator.stake(_getSubnetwork(), operator);
@@ -645,10 +648,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return allocatedStake / slashAmount;
     }
 
-    function _allValidatorsAreSlashable(address vault, address operator) internal view returns (bool) {
+    /// @return Number of validators that are both slashable and registered.
+    function _getNumSlashableRegisteredVals(address vault, address operator) internal view returns (uint256) {
         uint256 slashableVals = _getNumSlashableVals(vault, operator);
-        uint256 numVals = _vaultAndOperatorToValset[vault][operator].length();
-        return slashableVals >= numVals;
+        uint256 numRegistered = _vaultAndOperatorToValset[vault][operator].length();
+        return slashableVals < numRegistered ? slashableVals : numRegistered;
     }
 
     function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {

@@ -62,7 +62,8 @@ contract MevCommitMiddlewareTest is Test {
     event NetworkSet(address network);
     event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
     event SlashOracleSet(address slashOracle);
-    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashable);
+    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered);
+    event ValidatorPositionSwapped(address vault, address operator, uint256 oldPosition, uint256 newPosition);
 
     function setUp() public virtual {
         networkRegistryMock = new RegistryMock();
@@ -587,7 +588,7 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         uint256 vetoDuration = 5;
-        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration);
+        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration, mockDelegator1);
         MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88, mockDelegator2);
 
         vault1.setSlasher(address(mockSlasher1));
