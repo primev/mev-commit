@@ -269,6 +269,13 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1), 2);
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 3);
 
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey3));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey4));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey5));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey6));
+
         potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault1), operator1);
         assertEq(potentialSlashableVals, 0);
 
@@ -324,6 +331,24 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vm.expectEmit(true, true, true, true);
         emit ValRecordAdded(sampleValPubkey7, operator1, address(vault1), 4);
         mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        mockDelegator1.setStake(operator1, 11);
+
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey3));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey7));
+
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey4));
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey5));
+        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey6));
+
+        mockDelegator1.setStake(operator1, 51);
+
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey2));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey3));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey7));
     }
 
     function test_requestValidatorDeregistrationsMissingValidatorRecord() public { 
