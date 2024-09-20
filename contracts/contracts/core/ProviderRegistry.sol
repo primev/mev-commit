@@ -174,6 +174,7 @@ contract ProviderRegistry is
         require(providerStakes[msg.sender] != 0, "No stake to withdraw");
         require(withdrawalRequests[msg.sender] == 0, "Unstake request exists");
         withdrawalRequests[msg.sender] = block.timestamp;
+        providerRegistered[msg.sender] = false;
         emit Unstake(msg.sender, block.timestamp);
     }
 
