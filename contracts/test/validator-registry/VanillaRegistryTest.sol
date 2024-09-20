@@ -13,7 +13,6 @@ contract VanillaRegistryTest is Test {
     address public user2;
 
     uint256 public constant MIN_STAKE = 1 ether;
-    uint256 public constant SLASH_AMOUNT = 0.1 ether;
     uint256 public constant UNSTAKE_PERIOD = 10;
     address public constant SLASH_ORACLE = address(0x78888);
     address public constant SLASH_RECEIVER = address(0x78886);
@@ -28,7 +27,6 @@ contract VanillaRegistryTest is Test {
     event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
     event MinStakeSet(address indexed owner, uint256 minStake);
-    event SlashAmountSet(address indexed owner, uint256 slashAmount);
     event SlashOracleSet(address indexed owner, address slashOracle);
     event SlashReceiverSet(address indexed owner, address slashReceiver);
     event UnstakePeriodBlocksSet(address indexed owner, uint256 unstakePeriodBlocks);
@@ -43,7 +41,7 @@ contract VanillaRegistryTest is Test {
         
         address proxy = Upgrades.deployUUPSProxy(
             "VanillaRegistry.sol",
-            abi.encodeCall(VanillaRegistry.initialize, (MIN_STAKE, SLASH_AMOUNT, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner))
+            abi.encodeCall(VanillaRegistry.initialize, (MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner))
         );
         validatorRegistry = VanillaRegistry(payable(proxy));
     }
@@ -51,7 +49,7 @@ contract VanillaRegistryTest is Test {
     function testSecondInitialize() public {
         vm.prank(owner);
         vm.expectRevert();
-        validatorRegistry.initialize(MIN_STAKE, SLASH_AMOUNT, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner);
+        validatorRegistry.initialize(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner);
         vm.stopPrank();
     }
 
@@ -81,21 +79,21 @@ contract VanillaRegistryTest is Test {
         validators[0] = user1BLSKey;
         validators[1] = user2BLSKey;
 
-        uint256 totalAmount = 2 ether;
-        vm.deal(user1, 3 ether);
-        assertEq(user1.balance, 3 ether);
+        uint256 totalAmount = 6 ether;
+        vm.deal(user1, 7 ether);
+        assertEq(user1.balance, 7 ether);
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit Staked(user1, user1, user1BLSKey, 1 ether);
+        emit Staked(user1, user1, user1BLSKey, 3 ether);
         vm.expectEmit(true, true, true, true);
-        emit Staked(user1, user1, user2BLSKey, 1 ether);
+        emit Staked(user1, user1, user2BLSKey, 3 ether);
         validatorRegistry.stake{value: totalAmount}(validators);
         vm.stopPrank();
 
         assertEq(user1.balance, 1 ether);
-        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 1 ether);
-        assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 1 ether);
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 3 ether);
+        assertEq(validatorRegistry.getStakedAmount(user2BLSKey), 3 ether);
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
@@ -306,18 +304,15 @@ contract VanillaRegistryTest is Test {
         vm.prank(SLASH_ORACLE);
         validatorRegistry.slash(validators);
 
-        vm.deal(user1, 1 ether);
+        vm.deal(user1, 2 ether);
         vm.startPrank(user1);
-        uint256 stakeAmount = MIN_STAKE/2+1;
+        uint256 stakeAmount = MIN_STAKE+1;
         validatorRegistry.stake{value: stakeAmount}(validators);
         vm.stopPrank();
 
-        vm.prank(owner);
-        validatorRegistry.setSlashAmount(MIN_STAKE/2);
-
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
-        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE/2);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.slash(validators);
 
         vm.expectRevert(IVanillaRegistry.NotEnoughBalanceToSlash.selector);
@@ -352,14 +347,14 @@ contract VanillaRegistryTest is Test {
 
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
-        emit Unstaked(SLASH_ORACLE, user1, user1BLSKey, 0.9 ether);
+        emit Unstaked(SLASH_ORACLE, user1, user1BLSKey, 0 ether);
         vm.expectEmit(true, true, true, true);
-        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 0.1 ether);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 1 ether);
         validatorRegistry.slash(validators);
 
         assertEq(address(user1).balance, 8.0 ether);
-        assertEq(address(SLASH_RECEIVER).balance, 0.1 ether);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
+        assertEq(address(SLASH_RECEIVER).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 11);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
@@ -388,7 +383,7 @@ contract VanillaRegistryTest is Test {
 
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
-        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 0.1 ether);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 1 ether);
         validatorRegistry.slash(validators);
 
         finalAssertions(); // See directly below
@@ -397,8 +392,8 @@ contract VanillaRegistryTest is Test {
     // Split final assertions into own func to avoid stack overflow
     function finalAssertions() public view {
         assertEq(address(user1).balance, 8 ether);
-        assertEq(address(SLASH_RECEIVER).balance, 0.1 ether);
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
+        assertEq(address(SLASH_RECEIVER).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
         // Unstake occurrence should not be updated for already unstaked validators
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 11);
@@ -407,8 +402,8 @@ contract VanillaRegistryTest is Test {
 
     function testBatchedSlashing() public {
         testMultiStake();
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
-        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 3 ether);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 3 ether);
 
         vm.roll(14);
 
@@ -416,16 +411,16 @@ contract VanillaRegistryTest is Test {
         vals[0] = user1BLSKey;
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit Unstaked(user1, user1, user1BLSKey, 1 ether);
+        emit Unstaked(user1, user1, user1BLSKey, 3 ether);
         validatorRegistry.unstake(vals);
         vm.stopPrank();
 
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 3 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 14);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
-        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 1 ether);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 3 ether);
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user1);
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeOccurrence.blockHeight, 0);
         assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
@@ -437,20 +432,20 @@ contract VanillaRegistryTest is Test {
         toSlash[1] = user2BLSKey;
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
-        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 0.1 ether);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 1 ether);
         vm.expectEmit(true, true, true, true);
-        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user2BLSKey, 0.1 ether);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user2BLSKey, 1 ether);
         validatorRegistry.slash(toSlash);
 
-        assertEq(address(SLASH_RECEIVER).balance, 0.2 ether);
+        assertEq(address(SLASH_RECEIVER).balance, 2 ether);
 
-        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0.9 ether);
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 2 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
         // Unstake occurrence should not be updated for already unstaked validators
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 14);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
 
-        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 0.9 ether);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).balance, 2 ether);
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user1);
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeOccurrence.blockHeight, 78);
         assertFalse(validatorRegistry.isValidatorOptedIn(user2BLSKey));
@@ -587,18 +582,6 @@ contract VanillaRegistryTest is Test {
         validatorRegistry.setMinStake(17 ether);
         vm.stopPrank();
         assertEq(validatorRegistry.minStake(), 17 ether);
-
-        vm.startPrank(user1);
-        vm.expectRevert();
-        validatorRegistry.setSlashAmount(0.2 ether);
-        vm.stopPrank();
-
-        vm.startPrank(owner);
-        vm.expectEmit(true, true, true, true);
-        emit SlashAmountSet(owner, 0.2 ether);
-        validatorRegistry.setSlashAmount(0.2 ether);
-        vm.stopPrank();
-        assertEq(validatorRegistry.slashAmount(), 0.2 ether);
 
         vm.startPrank(user1);
         vm.expectRevert();

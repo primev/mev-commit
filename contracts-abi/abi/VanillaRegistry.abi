@@ -164,11 +164,6 @@
         "internalType": "uint256"
       },
       {
-        "name": "_slashAmount",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "_slashOracle",
         "type": "address",
         "internalType": "address"
@@ -315,19 +310,6 @@
     "inputs": [
       {
         "name": "newMinStake",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setSlashAmount",
-    "inputs": [
-      {
-        "name": "newSlashAmount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -641,25 +623,6 @@
         "type": "address",
         "indexed": false,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "SlashAmountSet",
-    "inputs": [
-      {
-        "name": "msgSender",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "newSlashAmount",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1010,6 +973,11 @@
   {
     "type": "error",
     "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NothingToWithdraw",
     "inputs": []
   },
   {
