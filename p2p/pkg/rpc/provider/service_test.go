@@ -379,6 +379,17 @@ func TestBidHandling(t *testing.T) {
 				}
 			}()
 
+			activeReceiverTimeout := time.Now().Add(2 * time.Second)
+			for {
+				if svc.ActiveReceivers() > 0 {
+					break
+				}
+				if time.Now().After(activeReceiverTimeout) {
+					t.Fatalf("timed out waiting for active receivers")
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+
 			sndr, err := client.SendProcessedBids(context.Background())
 			if err != nil {
 				t.Fatalf("error sending processed bids: %v", err)
