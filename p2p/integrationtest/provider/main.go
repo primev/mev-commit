@@ -184,7 +184,7 @@ func main() {
 		err = providerClient.SendBidResponse(context.Background(), &providerapiv1.BidResponse{
 			BidDigest:         bid.BidDigest,
 			Status:            status,
-			DispatchTimestamp: time.Now().UnixMilli() + 380,
+			DispatchTimestamp: time.Now().UnixMilli() + 400,
 		})
 		if err != nil {
 			logger.Error("failed to send bid response", "error", err)
