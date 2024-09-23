@@ -25,7 +25,7 @@ contract DeployTestnet is Script {
         );
         uint16 feePercent = 2;
         uint16 providerPenaltyPercent = 5;
-        uint64 commitmentDispatchWindow = 350;
+        uint64 commitmentDispatchWindow = 500;
         uint256 blocksPerWindow = 10;
         uint256 withdrawalDelay = 24 * 3600 * 1000; // 24 hours in milliseconds
         uint256 protocolFeePayoutPeriodBlocks = 5 * 3600; // 1 hour with 200ms blocks
