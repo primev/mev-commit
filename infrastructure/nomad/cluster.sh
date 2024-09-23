@@ -100,6 +100,7 @@ check_deps() {
         flock
         ansible
         bootnode
+        remarshal
         goreleaser
     )
     for util in "${required_utilities[@]}"; do

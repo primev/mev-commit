@@ -44,7 +44,8 @@ jobs:
     count: 1
     artifacts:
       - *geth_artifact
-      - boot_key: true
+      - nodekey:
+          name: geth_bootnode1_nodekey
     ports:
       - metrics:
           to: 6060
@@ -55,6 +56,7 @@ jobs:
           static: 8546
           to: 8546
         p2p:
+          static: 30301
           to: 30301
     env:
       ip: 0.0.0.0
@@ -68,6 +70,8 @@ jobs:
     template: mev-commit-geth.nomad.j2
     artifacts:
       - *geth_artifact
+      - nodekey:
+          name: geth_signer_node1_nodekey
       - keystore:
           name: geth_signer1_keystore
           allocation: true
@@ -76,6 +80,7 @@ jobs:
       - metrics:
           to: 6060
         p2p:
+          static: 30311
           to: 30311
     env:
       ip: 0.0.0.0
@@ -88,6 +93,8 @@ jobs:
     template: mev-commit-geth.nomad.j2
     artifacts:
       - *geth_artifact
+      - nodekey:
+          name: geth_member_node_nodekey
     count: 1
     ports:
       - metrics:
@@ -99,6 +106,7 @@ jobs:
           static: 8556
           to: 8546
         p2p:
+          static: 30321
           to: 30311
     env:
       ip: 0.0.0.0
