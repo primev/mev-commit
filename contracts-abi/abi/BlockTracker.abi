@@ -509,6 +509,11 @@
   },
   {
     "type": "error",
+    "name": "BlockNumberIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -540,16 +545,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidBlockNumber",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidCall",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InvalidFallback",
     "inputs": []
   },
@@ -571,7 +566,18 @@
   {
     "type": "error",
     "name": "NotOracleAccount",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "oracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

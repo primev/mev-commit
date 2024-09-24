@@ -436,7 +436,18 @@
   {
     "type": "error",
     "name": "BuilderNotBlockWinner",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "blockWinner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "builder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -471,11 +482,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidCall",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InvalidFallback",
     "inputs": []
   },
@@ -497,7 +503,18 @@
   {
     "type": "error",
     "name": "NotOracleAccount",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "oracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -524,7 +541,13 @@
   {
     "type": "error",
     "name": "ResidualBidPercentAfterDecayExceeds100",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "residualBidPercentAfterDecay",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

@@ -931,7 +931,23 @@
   {
     "type": "error",
     "name": "DelayNotPassed",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "withdrawalRequestTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "withdrawalDelay",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentBlockTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -967,17 +983,34 @@
   {
     "type": "error",
     "name": "InsufficientStake",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "stake",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "InvalidBLSPublicKeyLength",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "InvalidCall",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expectedLength",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -997,12 +1030,24 @@
   {
     "type": "error",
     "name": "NoStakeToWithdraw",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "NoUnstakeRequest",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1012,7 +1057,18 @@
   {
     "type": "error",
     "name": "NotPreconfContract",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "preconfManager",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1039,7 +1095,13 @@
   {
     "type": "error",
     "name": "PendingWithdrawalRequest",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1049,22 +1111,51 @@
   {
     "type": "error",
     "name": "ProviderAlreadyRegistered",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "ProviderCommitmentsPending",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "numPending",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "ProviderNotRegistered",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "ProviderStakedAmountZero",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1074,12 +1165,34 @@
   {
     "type": "error",
     "name": "StakeTransferFailed",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "TransferToBidderFailed",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1100,6 +1213,12 @@
   {
     "type": "error",
     "name": "UnstakeRequestExists",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   }
 ]

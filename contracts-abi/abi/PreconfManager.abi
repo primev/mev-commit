@@ -1724,7 +1724,18 @@
   {
     "type": "error",
     "name": "SenderIsNotOracleContract",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "oracleContract",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

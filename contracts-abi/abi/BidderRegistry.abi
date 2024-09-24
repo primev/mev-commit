@@ -997,12 +997,23 @@
   {
     "type": "error",
     "name": "BidNotPreConfirmed",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "BidWasNotPreConfirmed",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "bidID",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actualState",
+        "type": "uint8",
+        "internalType": "enum IBidderRegistry.State"
+      },
+      {
+        "name": "expectedState",
+        "type": "uint8",
+        "internalType": "enum IBidderRegistry.State"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1053,7 +1064,18 @@
   {
     "type": "error",
     "name": "OnlyBidderCanWithdraw",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1080,7 +1102,13 @@
   {
     "type": "error",
     "name": "ProviderAmountIsZero",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1090,17 +1118,50 @@
   {
     "type": "error",
     "name": "SenderIsNotPreconfManager",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "preconfManager",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "TransferToBidderFailed",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
     "name": "TransferToProviderFailed",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1126,6 +1187,17 @@
   {
     "type": "error",
     "name": "WithdrawAfterWindowSettled",
-    "inputs": []
+    "inputs": [
+      {
+        "name": "window",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentWindow",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   }
 ]
