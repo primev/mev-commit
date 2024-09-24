@@ -143,6 +143,7 @@ jobs:
           sudo add-apt-repository --yes ppa:ethereum/ethereum
           sudo apt-get update
           sudo apt-get install --yes goreleaser ethereum
+          sudo snap install remarshal
           python3 -m venv primevenv
           source primevenv/bin/activate
           pip install boto3 botocore

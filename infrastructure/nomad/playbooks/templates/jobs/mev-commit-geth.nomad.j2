@@ -199,12 +199,18 @@ job "{{ job.name }}" {
 
       {% if env != 'devenv' %}
       artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/config_{{ version }}.toml"
+      }
+      artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_{{ version }}.json"
       }
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/config_{{ version }}.toml"
+      }
       artifact {
         source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/genesis_{{ version }}.json"
       }
@@ -218,6 +224,7 @@ job "{{ job.name }}" {
           {%- raw %}
           GETH_DATA_DIR="/alloc/data/node-{{ env "NOMAD_ALLOC_INDEX" }}"
           {% endraw %}
+          GETH_CONFIG="local/config_{{ version }}.toml"
           GENESIS_L1_PATH="local/genesis_{{ version }}.json"
           GETH_BIN_PATH="local/mev-commit-geth"
           NODE_IP="{{ job.env['ip'] }}"
@@ -229,11 +236,10 @@ job "{{ job.name }}" {
           GETH_VERBOSITY={{ job.env.get('log-verbosity', '3') }}
           GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
           GETH_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
-          {% if job.env['type'] == 'bootnode' %}
           {%- raw %}
-          BOOT_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key }}{{ end }}"
+          NODE_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('nodekey', 'defined') | map(attribute='nodekey.name') | first }}{% raw %} }}{{ end }}"
           {% endraw %}
-          {% elif job.env['type'] == 'signer' %}
+          {% if job.env['type'] == 'signer' %}
           {%- raw %}
           GETH_KEYSTORE_DIR="/alloc/data/node-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
@@ -248,7 +254,7 @@ job "{{ job.name }}" {
           {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "p2p" .Tags }}
-          BOOTNODE_ENDPOINT="enode://{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_boot_key_address }}{{ end }}@{{ .Address }}:{{ .Port }}"
+          BOOTNODE_ENDPOINT="enode://{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('nodekey', 'defined') | map(attribute='nodekey.name') | first }}_address{% raw %} }}{{ end }}@{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {% endraw %}

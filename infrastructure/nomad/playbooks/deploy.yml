@@ -217,12 +217,14 @@
         SIGNERS="{{ dist_dir }}/signers.txt"
         INVENTORY="{{ dist_dir }}/artifacts.txt"
         ALLOCATIONS="{{ dist_dir }}/allocations.txt"
+        STATIC_NODES="{{ dist_dir }}/geth_static_nodes.json"
         DESTINATION_DIR="{{ dist_dir }}/{{ item.name }}" && mkdir -p ${DESTINATION_DIR}
 
         [ ! -f "${SECRETS}" ] && echo '{}' > "${SECRETS}"
         [ ! -f "${SIGNERS}" ] && touch "${SIGNERS}"
         [ ! -f "${INVENTORY}" ] && touch "${INVENTORY}"
         [ ! -f "${ALLOCATIONS}" ] && touch "${ALLOCATIONS}"
+        [ ! -f "${STATIC_NODES}" ] && echo '{"Node":{"P2P":{"StaticNodes":[]}}}' > "${STATIC_NODES}"
 
         exec 192>>"${SIGNERS}"
         exec 193<>"${INVENTORY}"
@@ -302,21 +304,34 @@
               {% endif %}
             {% endif %}
 
-            {% if artifact.boot_key | default(false) %}
-              bootnode -genkey "${DESTINATION_DIR}/boot.key"
+            {% if artifact.nodekey is defined %}
+              bootnode -genkey "${DESTINATION_DIR}/node.key"
+              if [ $? -ne 0 ]; then exit 1; fi
+
+              nodekey_address=$(bootnode -nodekey "${DESTINATION_DIR}/node.key" -writeaddress)
               if [ $? -ne 0 ]; then exit 1; fi
 
               cat "${SECRETS}" | jq \
-                --arg item_name "{{ (item.name | regex_replace('^mev-commit-', '') | replace('-', '_')) }}" \
-                --arg boot_key "$(cat ${DESTINATION_DIR}/boot.key)" \
-                --arg boot_key_address "$(bootnode -nodekey ${DESTINATION_DIR}/boot.key -writeaddress)" \
+                --arg nodekey "$(cat ${DESTINATION_DIR}/node.key)" \
+                --arg nodekey_address "${nodekey_address}" \
                 '. + {
-                  ($item_name + "_boot_key"): $boot_key,
-                  ($item_name + "_boot_key_address"): $boot_key_address
+                  "{{ artifact.nodekey.name }}": $nodekey,
+                  "{{ artifact.nodekey.name }}_address": $nodekey_address
                 }' \
               > "${SECRETS}.tmp" && mv "${SECRETS}.tmp" "${SECRETS}"
               if [ $? -ne 0 ]; then
-                echo "Error: Failed to write boot key to secrets for {{ item.name }}."
+                echo "Error: Failed to write node key to secrets for {{ item.name }}."
+                exit 1;
+              fi
+
+              cat "${STATIC_NODES}" | jq \
+                --arg nodekey_address "${nodekey_address}" \
+                --arg target_machine_ip "{{ ansible_facts['default_ipv4']['address'] }}" \
+                --arg target_machine_port "{{ item.ports[0].p2p.static }}" \
+                '.Node.P2P.StaticNodes += ["enode://\($nodekey_address)@\($target_machine_ip):\($target_machine_port)"]' \
+              > "${STATIC_NODES}.tmp" && mv "${STATIC_NODES}.tmp" "${STATIC_NODES}"
+              if [ $? -ne 0 ]; then
+                echo "Error: Failed to write enode to static nodes for {{ item.name }}."
                 exit 1; 
               fi
             {% endif %}
@@ -415,6 +430,20 @@
       loop: "{{ build_artifacts_async.results }}"
       loop_control:
         label: "{{ item.item.name }}"
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts
+
+    - name: Assemble config.toml for Geth Static Nodes
+      ansible.builtin.shell: |
+        STATIC_NODES="{{ dist_dir }}/geth_static_nodes.json"
+        if [ ! -f "${STATIC_NODES}" ]; then
+          echo "Error: No static nodes found."
+          exit 1
+        fi
+        cat "${STATIC_NODES}" | remarshal --if json --of toml - > "{{ dist_dir }}/config_{{ environments[env].version }}.toml"
+      args:
+        executable: bash
       delegate_to: localhost
       run_once: true
       when: build_artifacts
