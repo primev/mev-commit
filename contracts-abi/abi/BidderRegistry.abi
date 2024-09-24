@@ -396,7 +396,7 @@
   },
   {
     "type": "function",
-    "name": "preConfirmationsContract",
+    "name": "preconfManager",
     "inputs": [],
     "outputs": [
       {
@@ -504,6 +504,19 @@
   },
   {
     "type": "function",
+    "name": "setBlockTrackerContract",
+    "inputs": [
+      {
+        "name": "newBlockTrackerContract",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setNewFeePayoutPeriodBlocks",
     "inputs": [
       {
@@ -543,7 +556,7 @@
   },
   {
     "type": "function",
-    "name": "setPreconfirmationsContract",
+    "name": "setPreconfManager",
     "inputs": [
       {
         "name": "contractAddress",
@@ -730,6 +743,19 @@
   },
   {
     "type": "event",
+    "name": "BlockTrackerUpdated",
+    "inputs": [
+      {
+        "name": "newBlockTracker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "FeePayoutPeriodBlocksUpdated",
     "inputs": [
       {
@@ -737,6 +763,19 @@
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FeePercentUpdated",
+    "inputs": [
+      {
+        "name": "newFeePercent",
+        "type": "uint16",
+        "indexed": true,
+        "internalType": "uint16"
       }
     ],
     "anonymous": false
@@ -887,6 +926,19 @@
         "name": "account",
         "type": "address",
         "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PreconfManagerUpdated",
+    "inputs": [
+      {
+        "name": "newPreconfManager",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],

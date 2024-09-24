@@ -31,7 +31,7 @@ var (
 
 // OracleMetaData contains all meta data concerning the Oracle contract.
 var OracleMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"preConfContract_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockTrackerContract_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"oracleAccount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleAccount\",\"inputs\":[{\"name\":\"newOracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleAccountSet\",\"inputs\":[{\"name\":\"oldOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"preconfManager_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockTrackerContract_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"oracleAccount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setBlockTracker\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleAccount\",\"inputs\":[{\"name\":\"newOracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPreconfManager\",\"inputs\":[{\"name\":\"newPreconfManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"BlockTrackerSet\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleAccountSet\",\"inputs\":[{\"name\":\"oldOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PreconfManagerSet\",\"inputs\":[{\"name\":\"newPreconfManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
 }
 
 // OracleABI is the input ABI used to generate the binding from.
@@ -420,23 +420,23 @@ func (_Oracle *OracleTransactorSession) AcceptOwnership() (*types.Transaction, e
 
 // Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function initialize(address preConfContract_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
-func (_Oracle *OracleTransactor) Initialize(opts *bind.TransactOpts, preConfContract_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "initialize", preConfContract_, blockTrackerContract_, oracleAccount_, owner_)
+// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleTransactor) Initialize(opts *bind.TransactOpts, preconfManager_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.contract.Transact(opts, "initialize", preconfManager_, blockTrackerContract_, oracleAccount_, owner_)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function initialize(address preConfContract_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
-func (_Oracle *OracleSession) Initialize(preConfContract_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preConfContract_, blockTrackerContract_, oracleAccount_, owner_)
+// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleSession) Initialize(preconfManager_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preconfManager_, blockTrackerContract_, oracleAccount_, owner_)
 }
 
 // Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
 //
-// Solidity: function initialize(address preConfContract_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
-func (_Oracle *OracleTransactorSession) Initialize(preConfContract_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preConfContract_, blockTrackerContract_, oracleAccount_, owner_)
+// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleTransactorSession) Initialize(preconfManager_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preconfManager_, blockTrackerContract_, oracleAccount_, owner_)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -502,6 +502,27 @@ func (_Oracle *OracleTransactorSession) RenounceOwnership() (*types.Transaction,
 	return _Oracle.Contract.RenounceOwnership(&_Oracle.TransactOpts)
 }
 
+// SetBlockTracker is a paid mutator transaction binding the contract method 0x8b0ebeb9.
+//
+// Solidity: function setBlockTracker(address newBlockTracker) returns()
+func (_Oracle *OracleTransactor) SetBlockTracker(opts *bind.TransactOpts, newBlockTracker common.Address) (*types.Transaction, error) {
+	return _Oracle.contract.Transact(opts, "setBlockTracker", newBlockTracker)
+}
+
+// SetBlockTracker is a paid mutator transaction binding the contract method 0x8b0ebeb9.
+//
+// Solidity: function setBlockTracker(address newBlockTracker) returns()
+func (_Oracle *OracleSession) SetBlockTracker(newBlockTracker common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.SetBlockTracker(&_Oracle.TransactOpts, newBlockTracker)
+}
+
+// SetBlockTracker is a paid mutator transaction binding the contract method 0x8b0ebeb9.
+//
+// Solidity: function setBlockTracker(address newBlockTracker) returns()
+func (_Oracle *OracleTransactorSession) SetBlockTracker(newBlockTracker common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.SetBlockTracker(&_Oracle.TransactOpts, newBlockTracker)
+}
+
 // SetOracleAccount is a paid mutator transaction binding the contract method 0x58b20365.
 //
 // Solidity: function setOracleAccount(address newOracleAccount) returns()
@@ -521,6 +542,27 @@ func (_Oracle *OracleSession) SetOracleAccount(newOracleAccount common.Address) 
 // Solidity: function setOracleAccount(address newOracleAccount) returns()
 func (_Oracle *OracleTransactorSession) SetOracleAccount(newOracleAccount common.Address) (*types.Transaction, error) {
 	return _Oracle.Contract.SetOracleAccount(&_Oracle.TransactOpts, newOracleAccount)
+}
+
+// SetPreconfManager is a paid mutator transaction binding the contract method 0x3b79297c.
+//
+// Solidity: function setPreconfManager(address newPreconfManager) returns()
+func (_Oracle *OracleTransactor) SetPreconfManager(opts *bind.TransactOpts, newPreconfManager common.Address) (*types.Transaction, error) {
+	return _Oracle.contract.Transact(opts, "setPreconfManager", newPreconfManager)
+}
+
+// SetPreconfManager is a paid mutator transaction binding the contract method 0x3b79297c.
+//
+// Solidity: function setPreconfManager(address newPreconfManager) returns()
+func (_Oracle *OracleSession) SetPreconfManager(newPreconfManager common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.SetPreconfManager(&_Oracle.TransactOpts, newPreconfManager)
+}
+
+// SetPreconfManager is a paid mutator transaction binding the contract method 0x3b79297c.
+//
+// Solidity: function setPreconfManager(address newPreconfManager) returns()
+func (_Oracle *OracleTransactorSession) SetPreconfManager(newPreconfManager common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.SetPreconfManager(&_Oracle.TransactOpts, newPreconfManager)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -626,6 +668,150 @@ func (_Oracle *OracleSession) Receive() (*types.Transaction, error) {
 // Solidity: receive() payable returns()
 func (_Oracle *OracleTransactorSession) Receive() (*types.Transaction, error) {
 	return _Oracle.Contract.Receive(&_Oracle.TransactOpts)
+}
+
+// OracleBlockTrackerSetIterator is returned from FilterBlockTrackerSet and is used to iterate over the raw logs and unpacked data for BlockTrackerSet events raised by the Oracle contract.
+type OracleBlockTrackerSetIterator struct {
+	Event *OracleBlockTrackerSet // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *OracleBlockTrackerSetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OracleBlockTrackerSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(OracleBlockTrackerSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *OracleBlockTrackerSetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *OracleBlockTrackerSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// OracleBlockTrackerSet represents a BlockTrackerSet event raised by the Oracle contract.
+type OracleBlockTrackerSet struct {
+	NewBlockTracker common.Address
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterBlockTrackerSet is a free log retrieval operation binding the contract event 0x99960ca3579bdd85d13cec5a46a9f349e2d4d9079d063608f362d736a573c311.
+//
+// Solidity: event BlockTrackerSet(address indexed newBlockTracker)
+func (_Oracle *OracleFilterer) FilterBlockTrackerSet(opts *bind.FilterOpts, newBlockTracker []common.Address) (*OracleBlockTrackerSetIterator, error) {
+
+	var newBlockTrackerRule []interface{}
+	for _, newBlockTrackerItem := range newBlockTracker {
+		newBlockTrackerRule = append(newBlockTrackerRule, newBlockTrackerItem)
+	}
+
+	logs, sub, err := _Oracle.contract.FilterLogs(opts, "BlockTrackerSet", newBlockTrackerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &OracleBlockTrackerSetIterator{contract: _Oracle.contract, event: "BlockTrackerSet", logs: logs, sub: sub}, nil
+}
+
+// WatchBlockTrackerSet is a free log subscription operation binding the contract event 0x99960ca3579bdd85d13cec5a46a9f349e2d4d9079d063608f362d736a573c311.
+//
+// Solidity: event BlockTrackerSet(address indexed newBlockTracker)
+func (_Oracle *OracleFilterer) WatchBlockTrackerSet(opts *bind.WatchOpts, sink chan<- *OracleBlockTrackerSet, newBlockTracker []common.Address) (event.Subscription, error) {
+
+	var newBlockTrackerRule []interface{}
+	for _, newBlockTrackerItem := range newBlockTracker {
+		newBlockTrackerRule = append(newBlockTrackerRule, newBlockTrackerItem)
+	}
+
+	logs, sub, err := _Oracle.contract.WatchLogs(opts, "BlockTrackerSet", newBlockTrackerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(OracleBlockTrackerSet)
+				if err := _Oracle.contract.UnpackLog(event, "BlockTrackerSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseBlockTrackerSet is a log parse operation binding the contract event 0x99960ca3579bdd85d13cec5a46a9f349e2d4d9079d063608f362d736a573c311.
+//
+// Solidity: event BlockTrackerSet(address indexed newBlockTracker)
+func (_Oracle *OracleFilterer) ParseBlockTrackerSet(log types.Log) (*OracleBlockTrackerSet, error) {
+	event := new(OracleBlockTrackerSet)
+	if err := _Oracle.contract.UnpackLog(event, "BlockTrackerSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // OracleCommitmentProcessedIterator is returned from FilterCommitmentProcessed and is used to iterate over the raw logs and unpacked data for CommitmentProcessed events raised by the Oracle contract.
@@ -1494,6 +1680,150 @@ func (_Oracle *OracleFilterer) WatchPaused(opts *bind.WatchOpts, sink chan<- *Or
 func (_Oracle *OracleFilterer) ParsePaused(log types.Log) (*OraclePaused, error) {
 	event := new(OraclePaused)
 	if err := _Oracle.contract.UnpackLog(event, "Paused", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// OraclePreconfManagerSetIterator is returned from FilterPreconfManagerSet and is used to iterate over the raw logs and unpacked data for PreconfManagerSet events raised by the Oracle contract.
+type OraclePreconfManagerSetIterator struct {
+	Event *OraclePreconfManagerSet // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *OraclePreconfManagerSetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OraclePreconfManagerSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(OraclePreconfManagerSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *OraclePreconfManagerSetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *OraclePreconfManagerSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// OraclePreconfManagerSet represents a PreconfManagerSet event raised by the Oracle contract.
+type OraclePreconfManagerSet struct {
+	NewPreconfManager common.Address
+	Raw               types.Log // Blockchain specific contextual infos
+}
+
+// FilterPreconfManagerSet is a free log retrieval operation binding the contract event 0xb30b787197e154c5c4d294707cb846f2999047cd1d9209d7aec68fe010584acf.
+//
+// Solidity: event PreconfManagerSet(address indexed newPreconfManager)
+func (_Oracle *OracleFilterer) FilterPreconfManagerSet(opts *bind.FilterOpts, newPreconfManager []common.Address) (*OraclePreconfManagerSetIterator, error) {
+
+	var newPreconfManagerRule []interface{}
+	for _, newPreconfManagerItem := range newPreconfManager {
+		newPreconfManagerRule = append(newPreconfManagerRule, newPreconfManagerItem)
+	}
+
+	logs, sub, err := _Oracle.contract.FilterLogs(opts, "PreconfManagerSet", newPreconfManagerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &OraclePreconfManagerSetIterator{contract: _Oracle.contract, event: "PreconfManagerSet", logs: logs, sub: sub}, nil
+}
+
+// WatchPreconfManagerSet is a free log subscription operation binding the contract event 0xb30b787197e154c5c4d294707cb846f2999047cd1d9209d7aec68fe010584acf.
+//
+// Solidity: event PreconfManagerSet(address indexed newPreconfManager)
+func (_Oracle *OracleFilterer) WatchPreconfManagerSet(opts *bind.WatchOpts, sink chan<- *OraclePreconfManagerSet, newPreconfManager []common.Address) (event.Subscription, error) {
+
+	var newPreconfManagerRule []interface{}
+	for _, newPreconfManagerItem := range newPreconfManager {
+		newPreconfManagerRule = append(newPreconfManagerRule, newPreconfManagerItem)
+	}
+
+	logs, sub, err := _Oracle.contract.WatchLogs(opts, "PreconfManagerSet", newPreconfManagerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(OraclePreconfManagerSet)
+				if err := _Oracle.contract.UnpackLog(event, "PreconfManagerSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParsePreconfManagerSet is a log parse operation binding the contract event 0xb30b787197e154c5c4d294707cb846f2999047cd1d9209d7aec68fe010584acf.
+//
+// Solidity: event PreconfManagerSet(address indexed newPreconfManager)
+func (_Oracle *OracleFilterer) ParsePreconfManagerSet(log types.Log) (*OraclePreconfManagerSet, error) {
+	event := new(OraclePreconfManagerSet)
+	if err := _Oracle.contract.UnpackLog(event, "PreconfManagerSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
