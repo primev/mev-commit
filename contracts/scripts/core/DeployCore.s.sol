@@ -82,14 +82,10 @@ contract DeployTestnet is Script {
         PreconfManager preconfManager = PreconfManager(payable(preconfCommitmentStoreProxy));
         console.log("PreconfManager:", address(preconfManager));
 
-        providerRegistry.setPreconfirmationsContract(
-            address(preconfManager)
-        );
+        providerRegistry.setPreconfManager(address(preconfManager));
         console.log("_ProviderRegistryWithPreconfManager:", address(preconfManager));
 
-        bidderRegistry.setPreconfirmationsContract(
-            address(preconfManager)
-        );
+        bidderRegistry.setPreconfManager(address(preconfManager));
         console.log("_BidderRegistryWithPreconfManager:", address(preconfManager));
 
         address oracleProxy = Upgrades.deployUUPSProxy(

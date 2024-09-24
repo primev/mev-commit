@@ -9,6 +9,12 @@ interface IOracle {
         address indexed newOracleAccount
     );
 
+    /// @dev Event emitted when the preconf manager is set.
+    event PreconfManagerSet(address indexed newPreconfManager);
+
+    /// @dev Event emitted when the block tracker is set.
+    event BlockTrackerSet(address indexed newBlockTracker);
+
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
 

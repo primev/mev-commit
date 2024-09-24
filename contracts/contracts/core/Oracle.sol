@@ -25,19 +25,19 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
 
     /**
      * @dev Initializes the contract with a PreConfirmations contract.
-     * @param preConfContract_ The address of the pre-confirmations contract.
+     * @param preconfManager_ The address of the preconf manager contract.
      * @param blockTrackerContract_ The address of the block tracker contract.
      * @param oracleAccount_ The address of the oracle account.
      * @param owner_ Owner of the contract, explicitly needed since contract is deployed with create2 factory.
      */
     function initialize(
-        address preConfContract_,
+        address preconfManager_,
         address blockTrackerContract_,
         address oracleAccount_,
         address owner_
     ) external initializer {
-        _preConfContract = IPreconfManager(preConfContract_);
-        _blockTrackerContract = IBlockTracker(blockTrackerContract_);
+        _setPreconfManager(preconfManager_);
+        _setBlockTracker(blockTrackerContract_);
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
         __Pausable_init();
@@ -87,7 +87,7 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         );
 
         IPreconfManager.OpenedCommitment
-            memory commitment = _preConfContract.getCommitment(commitmentIndex);
+            memory commitment = _preconfManager.getCommitment(commitmentIndex);
         if (
             commitment.committer == builder &&
             commitment.blockNumber == blockNumber
@@ -103,6 +103,16 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
     /// @dev Allows the owner to set the oracle account.
     function setOracleAccount(address newOracleAccount) external onlyOwner {
         _setOracleAccount(newOracleAccount);
+    }
+
+    /// @dev Allows the owner to set the preconf manager.
+    function setPreconfManager(address newPreconfManager) external onlyOwner {
+        _setPreconfManager(newPreconfManager);
+    }
+
+    /// @dev Allows the owner to set the block tracker.
+    function setBlockTracker(address newBlockTracker) external onlyOwner {
+        _setBlockTracker(newBlockTracker);
     }
 
     /// @dev Allows the owner to pause the contract.
@@ -125,6 +135,24 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         emit OracleAccountSet(oldOracleAccount, newOracleAccount);
     }
 
+    /**
+     * @dev Internal function to set the preconf manager.
+     * @param newPreconfManager The new address of the preconf manager.
+     */
+    function _setPreconfManager(address newPreconfManager) internal {
+        _preconfManager = IPreconfManager(newPreconfManager);
+        emit PreconfManagerSet(newPreconfManager);
+    }
+
+    /**
+     * @dev Internal function to set the block tracker.
+     * @param newBlockTracker The new address of the block tracker.
+     */
+    function _setBlockTracker(address newBlockTracker) internal {
+        _blockTrackerContract = IBlockTracker(newBlockTracker);
+        emit BlockTrackerSet(newBlockTracker);
+    }
+
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
@@ -140,12 +168,12 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         uint256 residualBidPercentAfterDecay
     ) private {
         if (isSlash) {
-            _preConfContract.initiateSlash(
+            _preconfManager.initiateSlash(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );
         } else {
-            _preConfContract.initiateReward(
+            _preconfManager.initiateReward(
                 commitmentIndex,
                 residualBidPercentAfterDecay
             );

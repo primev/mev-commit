@@ -319,7 +319,7 @@
   },
   {
     "type": "function",
-    "name": "preConfirmationsContract",
+    "name": "preconfManager",
     "inputs": [],
     "outputs": [
       {
@@ -416,6 +416,19 @@
   },
   {
     "type": "function",
+    "name": "setMinStake",
+    "inputs": [
+      {
+        "name": "_minStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setNewFeePercent",
     "inputs": [
       {
@@ -442,7 +455,7 @@
   },
   {
     "type": "function",
-    "name": "setPreconfirmationsContract",
+    "name": "setPreconfManager",
     "inputs": [
       {
         "name": "contractAddress",
@@ -600,6 +613,19 @@
   },
   {
     "type": "event",
+    "name": "FeePercentUpdated",
+    "inputs": [
+      {
+        "name": "newFeePercent",
+        "type": "uint16",
+        "indexed": true,
+        "internalType": "uint16"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "FeeTransfer",
     "inputs": [
       {
@@ -701,6 +727,19 @@
   },
   {
     "type": "event",
+    "name": "MinStakeUpdated",
+    "inputs": [
+      {
+        "name": "newMinStake",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferStarted",
     "inputs": [
       {
@@ -756,6 +795,19 @@
     "inputs": [
       {
         "name": "newPenaltyFeeRecipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PreconfManagerUpdated",
+    "inputs": [
+      {
+        "name": "newPreconfManager",
         "type": "address",
         "indexed": true,
         "internalType": "address"

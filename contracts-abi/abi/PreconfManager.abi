@@ -1001,6 +1001,32 @@
   },
   {
     "type": "function",
+    "name": "updateBlockTracker",
+    "inputs": [
+      {
+        "name": "newBlockTracker",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateBlocksPerWindow",
+    "inputs": [
+      {
+        "name": "newBlocksPerWindow",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "updateCommitmentDispatchWindow",
     "inputs": [
       {
@@ -1188,6 +1214,58 @@
   },
   {
     "type": "event",
+    "name": "BidderRegistryUpdated",
+    "inputs": [
+      {
+        "name": "newBidderRegistry",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BlockTrackerUpdated",
+    "inputs": [
+      {
+        "name": "newBlockTracker",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BlocksPerWindowUpdated",
+    "inputs": [
+      {
+        "name": "newBlocksPerWindow",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CommitmentDispatchWindowUpdated",
+    "inputs": [
+      {
+        "name": "newDispatchWindow",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -1298,6 +1376,19 @@
   },
   {
     "type": "event",
+    "name": "OracleContractUpdated",
+    "inputs": [
+      {
+        "name": "newOracleContract",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "OwnershipTransferStarted",
     "inputs": [
       {
@@ -1340,6 +1431,19 @@
     "inputs": [
       {
         "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProviderRegistryUpdated",
+    "inputs": [
+      {
+        "name": "newProviderRegistry",
         "type": "address",
         "indexed": false,
         "internalType": "address"

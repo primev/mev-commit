@@ -23,11 +23,11 @@ contract BidderRegistry is
     PausableUpgradeable
 {
     /**
-     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
+     * @dev Modifier to restrict a function to only be callable by the preconfManager contract.
      */
-    modifier onlyPreConfirmationEngine() {
+    modifier onlyPreconfManager() {
         require(
-            msg.sender == preConfirmationsContract,
+            msg.sender == preconfManager,
             "sender is not preconf contract"
         );
         _;
@@ -78,20 +78,6 @@ contract BidderRegistry is
      */
     fallback() external payable {
         revert("Invalid call");
-    }
-
-    /**
-     * @dev Sets the pre-confirmations contract address. Can only be called by the owner.
-     * @param contractAddress The address of the pre-confirmations contract.
-     */
-    function setPreconfirmationsContract(
-        address contractAddress
-    ) external onlyOwner {
-        require(
-            preConfirmationsContract == address(0),
-            "preconfs contract already set"
-        );
-        preConfirmationsContract = contractAddress;
     }
 
     /**
@@ -191,7 +177,7 @@ contract BidderRegistry is
         bytes32 commitmentDigest,
         address payable provider,
         uint256 residualBidPercentAfterDecay
-    ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
+    ) external nonReentrant onlyPreconfManager whenNotPaused {
         BidState storage bidState = bidPayment[commitmentDigest];
         require(
             bidState.state == State.PreConfirmed,
@@ -240,7 +226,7 @@ contract BidderRegistry is
     function unlockFunds(
         uint256 window,
         bytes32 bidID
-    ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
+    ) external nonReentrant onlyPreconfManager whenNotPaused {
         BidState storage bidState = bidPayment[bidID];
         require(
             bidState.state == State.PreConfirmed,
@@ -268,7 +254,7 @@ contract BidderRegistry is
         uint256 bid,
         address bidder,
         uint64 blockNumber
-    ) external onlyPreConfirmationEngine whenNotPaused {
+    ) external onlyPreconfManager whenNotPaused {
         BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
             return;
@@ -291,7 +277,7 @@ contract BidderRegistry is
             (bool success, ) = payable(bidder).call{value: bid - availableAmount}("");
             require(success, "couldn't transfer to bidder");
 
-            bid = uint64(availableAmount);
+            bid = availableAmount;
         }
 
         // Update the used funds for the block and locked funds if bid is greater than 0
@@ -306,6 +292,32 @@ contract BidderRegistry is
     }
 
     /**
+     * @dev Sets the preconfManager contract address. Can only be called by the owner.
+     * @param contractAddress The address of the preconfManager contract.
+     */
+    function setPreconfManager(
+        address contractAddress
+    ) external onlyOwner {
+        preconfManager = contractAddress;
+        emit PreconfManagerUpdated(contractAddress);
+    }
+
+    /**
+     * @notice Sets the new fee percent
+     * @dev onlyOwner restriction
+     * @param newFeePercent this is the new fee percent
+     */
+    function setNewFeePercent(uint16 newFeePercent) external onlyOwner {
+        feePercent = newFeePercent;
+        emit FeePercentUpdated(newFeePercent);
+    }
+    
+    function setBlockTrackerContract(address newBlockTrackerContract) external onlyOwner {
+        blockTrackerContract = IBlockTracker(newBlockTrackerContract);
+        emit BlockTrackerUpdated(newBlockTrackerContract);
+    }
+    
+    /**
      * @notice Sets the new fee recipient
      * @dev onlyOwner restriction
      * @param newProtocolFeeRecipient The new address to accumulate protocol fees
@@ -313,15 +325,6 @@ contract BidderRegistry is
     function setNewProtocolFeeRecipient(address newProtocolFeeRecipient) external onlyOwner {
         protocolFeeTracker.recipient = newProtocolFeeRecipient;
         emit ProtocolFeeRecipientUpdated(newProtocolFeeRecipient);
-    }
-
-    /**
-     * @notice Sets the new fee recipient
-     * @dev onlyOwner restriction
-     * @param newFeePercent this is the new fee percent
-     */
-    function setNewFeePercent(uint16 newFeePercent) external onlyOwner {
-        feePercent = newFeePercent;
     }
 
     /** 

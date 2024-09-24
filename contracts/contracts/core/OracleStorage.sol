@@ -12,7 +12,7 @@ abstract contract OracleStorage {
     address public oracleAccount;
 
     /// @dev Reference to the PreconfManager contract interface.
-    IPreconfManager internal _preConfContract;
+    IPreconfManager internal _preconfManager;
 
     /// @dev Reference to the BlockTracker contract interface.
     IBlockTracker internal _blockTrackerContract;

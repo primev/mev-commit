@@ -56,7 +56,7 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "preConfContract_",
+        "name": "preconfManager_",
         "type": "address",
         "internalType": "address"
       },
@@ -193,10 +193,36 @@
   },
   {
     "type": "function",
+    "name": "setBlockTracker",
+    "inputs": [
+      {
+        "name": "newBlockTracker",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setOracleAccount",
     "inputs": [
       {
         "name": "newOracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setPreconfManager",
+    "inputs": [
+      {
+        "name": "newPreconfManager",
         "type": "address",
         "internalType": "address"
       }
@@ -241,6 +267,19 @@
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "event",
+    "name": "BlockTrackerSet",
+    "inputs": [
+      {
+        "name": "newBlockTracker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -339,6 +378,19 @@
         "name": "account",
         "type": "address",
         "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PreconfManagerSet",
+    "inputs": [
+      {
+        "name": "newPreconfManager",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],

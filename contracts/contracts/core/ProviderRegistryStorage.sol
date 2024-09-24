@@ -7,14 +7,14 @@ abstract contract ProviderRegistryStorage {
     using FeePayout for FeePayout.Tracker;
 
     /// @dev For improved precision
-    uint256 public constant PRECISION = 10 ** 25;
+    uint256 public constant PRECISION = 1e25;
     uint256 public constant PERCENT = 100 * PRECISION;
 
     /// @dev Minimum stake required for registration
     uint256 public minStake;
 
-    /// @dev Address of the pre-confirmations contract
-    address public preConfirmationsContract;
+    /// @dev Address of the preconf manager
+    address public preconfManager;
 
     /// @dev Fee percent that would be taken by protocol when provider is slashed
     uint16 public feePercent;

@@ -56,7 +56,7 @@ contract BidderRegistryTest is Test {
         assertEq(lastPayoutBlock, block.number);
         assertEq(accumulatedAmount, 0);
         assertEq(bidderRegistry.feePercent(), feePercent);
-        assertEq(bidderRegistry.preConfirmationsContract(), address(0));
+        assertEq(bidderRegistry.preconfManager(), address(0));
         assertEq(bidderRegistry.bidderRegistered(bidder), false);
     }
 
@@ -153,22 +153,22 @@ contract BidderRegistryTest is Test {
         bidderRegistry.setNewFeePercent(uint16(25));
     }
 
-    function test_SetPreConfContract() public {
+    function test_SetPreconfManager() public {
         vm.prank(address(this));
         address newPreConfContract = vm.addr(3);
-        bidderRegistry.setPreconfirmationsContract(newPreConfContract);
-        assertEq(bidderRegistry.preConfirmationsContract(), newPreConfContract);
+        bidderRegistry.setPreconfManager(newPreConfContract);
+        assertEq(bidderRegistry.preconfManager(), newPreConfContract);
     }
 
-    function testFail_SetPreConfContract() public {
+    function testFail_SetPreconfManager() public {
         vm.prank(address(this));
         vm.expectRevert(bytes(""));
-        bidderRegistry.setPreconfirmationsContract(address(0));
+        bidderRegistry.setPreconfManager(address(0));
     }
 
     function test_shouldRetrieveFunds() public {
         bytes32 bidID = keccak256("1234");
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
 
@@ -192,7 +192,7 @@ contract BidderRegistryTest is Test {
 
     function test_shouldRetrieveFundsWithDecay() public {
         bytes32 bidID = keccak256("1234");
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
 
@@ -220,7 +220,7 @@ contract BidderRegistryTest is Test {
 
     function test_shouldReturnFunds() public {
         bytes32 bidID = keccak256("1234");
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
 
@@ -261,7 +261,7 @@ contract BidderRegistryTest is Test {
 
     function testFail_shouldRetrieveFundsGreaterThanStake() public {
         vm.prank(address(this));
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
 
         vm.prank(bidder);
         uint256 currentWindow = blockTracker.getCurrentWindow();
@@ -278,7 +278,7 @@ contract BidderRegistryTest is Test {
     }
 
     function test_withdrawProviderAmount() public {
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
         vm.prank(bidder);
@@ -300,7 +300,7 @@ contract BidderRegistryTest is Test {
     }
 
     function testFail_withdrawProviderAmount() public {
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
         vm.prank(bidder);
@@ -385,7 +385,7 @@ contract BidderRegistryTest is Test {
         vm.deal(testBidder, 10 ether);
 
         // Simulate the pre-confirmations contract
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         
         // Deposit some funds for the next window
         uint256 currentWindow = blockTracker.getCurrentWindow();
@@ -420,7 +420,7 @@ contract BidderRegistryTest is Test {
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
         vm.roll(250); // roll past protocol fee payout period
 
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
         vm.prank(bidder);
@@ -441,7 +441,7 @@ contract BidderRegistryTest is Test {
     }
 
     function test_ProtocolFeeAccumulation() public {
-        bidderRegistry.setPreconfirmationsContract(address(this));
+        bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
         vm.prank(bidder);

@@ -27,6 +27,15 @@ interface IProviderRegistry {
     /// @dev Event emitted when the fee payout period in blocks is updated
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
 
+    /// @dev Event emitted when the min stake is updated
+    event MinStakeUpdated(uint256 indexed newMinStake);
+
+    /// @dev Event emitted when the preconf manager is updated
+    event PreconfManagerUpdated(address indexed newPreconfManager);
+
+    /// @dev Event emitted when the fee percent is updated
+    event FeePercentUpdated(uint16 indexed newFeePercent);
+
     /// @dev Event emitted when there are insufficient funds to slash
     event InsufficientFundsToSlash(
         address indexed provider,

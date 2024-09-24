@@ -55,11 +55,20 @@ interface IBidderRegistry {
         uint256 indexed amount
     );
 
-    /// @dev Event emitted when the protocol fee recipient is updated
-    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
+    /// @dev Event emitted when the preconfManager is updated
+    event PreconfManagerUpdated(address indexed newPreconfManager);
+
+    /// @dev Event emitted when the fee percent is updated
+    event FeePercentUpdated(uint16 indexed newFeePercent);
+
+    /// @dev Event emitted when the block tracker is updated
+    event BlockTrackerUpdated(address indexed newBlockTracker);
 
     /// @dev Event emitted when the fee payout period in blocks is updated
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+
+    /// @dev Event emitted when the protocol fee recipient is updated
+    event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
 
     function openBid(
         bytes32 commitmentDigest,

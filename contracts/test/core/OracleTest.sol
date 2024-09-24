@@ -152,12 +152,8 @@ contract OracleTest is Test {
         vm.stopPrank();
 
         preconfManager.updateOracleContract(address(oracle));
-        bidderRegistry.setPreconfirmationsContract(
-            address(preconfManager)
-        );
-        providerRegistry.setPreconfirmationsContract(
-            address(preconfManager)
-        );
+        bidderRegistry.setPreconfManager(address(preconfManager));
+        providerRegistry.setPreconfManager(address(preconfManager));
 
         // We set the system time to 1010 and dispatchTimestamps for testing to 1000
         dispatchTimestampTesting = 1000;
