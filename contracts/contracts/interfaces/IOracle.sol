@@ -18,6 +18,11 @@ interface IOracle {
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
 
+    error NotOracleAccount();
+    error InvalidCall();
+    error BuilderNotBlockWinner();
+    error ResidualBidPercentAfterDecayExceeds100();
+
     receive() external payable;
 
     fallback() external payable;

@@ -7,6 +7,7 @@ import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {PreconfManager} from "../../contracts/core/PreconfManager.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
 
 contract ProviderRegistryTest is Test {
     uint256 public testNumber;
@@ -494,7 +495,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.unstake();
         vm.warp(block.timestamp + 23 hours); // Move forward less than 24 hours
         vm.prank(newProvider);
-        vm.expectRevert("Delay has not passed");
+        vm.expectRevert(IProviderRegistry.DelayNotPassed.selector);
         providerRegistry.withdraw();
     }
 
@@ -504,7 +505,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
         vm.prank(newProvider);
-        vm.expectRevert("No unstake request");
+        vm.expectRevert(IProviderRegistry.NoUnstakeRequest.selector);
         providerRegistry.withdraw();
     }
 }

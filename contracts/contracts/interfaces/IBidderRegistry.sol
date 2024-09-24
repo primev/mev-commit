@@ -70,6 +70,17 @@ interface IBidderRegistry {
     /// @dev Event emitted when the protocol fee recipient is updated
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
 
+    error SenderIsNotPreconfManager();
+    error BidNotPreConfirmed();
+    error TransferToBidderFailed();
+    error WithdrawAfterWindowSettled();
+    error BidWasNotPreConfirmed();
+    error TransferToProviderFailed();
+    error ProviderAmountIsZero();
+    error OnlyBidderCanWithdraw();
+    error WindowNotSettled();
+    error BidderAmountIsZero();
+
     function openBid(
         bytes32 commitmentDigest,
         uint256 bid,

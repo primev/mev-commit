@@ -11,6 +11,7 @@ import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {PreconfManagerStorage} from "./PreconfManagerStorage.sol";
 import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
+import {Errors} from "../utils/Errors.sol";
 
 /**
  * @title PreconfManager - A contract for managing preconfirmation commitments and bids.
@@ -64,7 +65,7 @@ contract PreconfManager is
      * @dev Makes sure transaction sender is oracle contract
      */
     modifier onlyOracleContract() {
-        require(msg.sender == oracleContract, "sender is not oracle contract");
+        require(msg.sender == oracleContract, SenderIsNotOracleContract());
         _;
     }
 
@@ -107,14 +108,14 @@ contract PreconfManager is
      * @dev Revert if eth sent to this contract
      */
     receive() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidReceive();
     }
 
     /**
      * @dev fallback to revert all the calls.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidFallback();
     }
 
     /**
@@ -391,7 +392,7 @@ contract PreconfManager is
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract whenNotPaused {
         OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isSettled, "Commitment already settled");
+        require(!commitment.isSettled, CommitmentAlreadySettled(commitmentIndex));
 
         commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
@@ -420,7 +421,7 @@ contract PreconfManager is
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract whenNotPaused {
         OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isSettled, "Commitment already settled");
+        require(!commitment.isSettled, CommitmentAlreadySettled(commitmentIndex));
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,

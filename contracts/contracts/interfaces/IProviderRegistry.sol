@@ -44,6 +44,23 @@ interface IProviderRegistry {
         uint256 penaltyFee
     );
 
+    error NotPreconfContract();
+    error InvalidCall();
+    error TransferToBidderFailed();
+    error NoStakeToWithdraw();
+    error UnstakeRequestExists();
+    error NoUnstakeRequest();
+    error DelayNotPassed();
+    error ProviderStakedAmountZero();
+    error PreconfManagerNotSet();
+    error ProviderCommitmentsPending();
+    error StakeTransferFailed();
+    error ProviderAlreadyRegistered();
+    error InsufficientStake();
+    error InvalidBLSPublicKeyLength();
+    error ProviderNotRegistered();
+    error PendingWithdrawalRequest();
+
     function registerAndStake(bytes calldata blsPublicKey) external payable;
 
     function stake() external payable;

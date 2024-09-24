@@ -9,6 +9,7 @@ import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
+import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
 
 contract PreconfManagerTest is Test {
     struct TestCommitment {
@@ -940,7 +941,7 @@ contract PreconfManagerTest is Test {
 
         // Step 2: Attempt to store the commitment and expect it to fail due to insufficient stake
         vm.prank(committer);
-        vm.expectRevert("Insufficient stake");
+        vm.expectRevert(IProviderRegistry.InsufficientStake.selector);
         preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
@@ -971,7 +972,7 @@ contract PreconfManagerTest is Test {
 
         // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
         vm.prank(committer);
-        vm.expectRevert("Pending withdrawal request");
+        vm.expectRevert(IProviderRegistry.PendingWithdrawalRequest.selector);
         preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
