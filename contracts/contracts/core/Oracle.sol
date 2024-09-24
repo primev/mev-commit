@@ -20,7 +20,7 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, NotOracleAccount());
+        require(msg.sender == oracleAccount, NotOracleAccount(msg.sender, oracleAccount));
         _;
     }
 
@@ -77,14 +77,9 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle whenNotPaused {
-        require(
-            _blockTrackerContract.getBlockWinner(blockNumber) == builder,
-            BuilderNotBlockWinner()
-        );
-        require(
-            residualBidPercentAfterDecay <= 100,
-            ResidualBidPercentAfterDecayExceeds100()
-        );
+        address blockWinner = _blockTrackerContract.getBlockWinner(blockNumber);
+        require(blockWinner == builder, BuilderNotBlockWinner(blockWinner, builder));
+        require(residualBidPercentAfterDecay <= 100, ResidualBidPercentAfterDecayExceeds100(residualBidPercentAfterDecay));
 
         IPreconfManager.OpenedCommitment
             memory commitment = _preconfManager.getCommitment(commitmentIndex);

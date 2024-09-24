@@ -26,7 +26,7 @@ contract ProviderRegistry is
      * @dev Modifier to restrict a function to only be callable by the preconf manager.
      */
     modifier onlyPreconfManager() {
-        require(msg.sender == preconfManager, NotPreconfContract());
+        require(msg.sender == preconfManager, NotPreconfContract(msg.sender, preconfManager));
         _;
     }
 
@@ -122,7 +122,7 @@ contract ProviderRegistry is
         }
 
         (bool success, ) = payable(bidder).call{value: residualAmt}("");
-        require(success, TransferToBidderFailed());
+        require(success, TransferToBidderFailed(bidder, residualAmt));
 
         emit FundsSlashed(provider, residualAmt + penaltyFee);
     }
@@ -182,31 +182,32 @@ contract ProviderRegistry is
 
     /// @dev Requests unstake of the staked amount.
     function unstake() external whenNotPaused {
-        require(providerStakes[msg.sender] != 0, NoStakeToWithdraw());
-        require(withdrawalRequests[msg.sender] == 0, UnstakeRequestExists());
+        require(providerStakes[msg.sender] != 0, NoStakeToWithdraw(msg.sender));
+        require(withdrawalRequests[msg.sender] == 0, UnstakeRequestExists(msg.sender));
         withdrawalRequests[msg.sender] = block.timestamp;
         emit Unstake(msg.sender, block.timestamp);
     }
 
     /// @dev Completes the withdrawal of the staked amount.
     function withdraw() external nonReentrant whenNotPaused {
-        require(withdrawalRequests[msg.sender] != 0, NoUnstakeRequest());
-        require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalDelay, DelayNotPassed());
+        require(withdrawalRequests[msg.sender] != 0, NoUnstakeRequest(msg.sender));
+        require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalDelay,
+            DelayNotPassed(withdrawalRequests[msg.sender], withdrawalDelay, block.timestamp));
 
         uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
         withdrawalRequests[msg.sender] = 0;
-        require(providerStake != 0, ProviderStakedAmountZero());
+        require(providerStake != 0, ProviderStakedAmountZero(msg.sender));
         require(preconfManager != address(0), PreconfManagerNotSet());
 
         uint256 providerPendingCommitmentsCount = PreconfManager(
             payable(preconfManager)
         ).commitmentsCount(msg.sender);
 
-        require(providerPendingCommitmentsCount == 0, ProviderCommitmentsPending());
+        require(providerPendingCommitmentsCount == 0, ProviderCommitmentsPending(msg.sender, providerPendingCommitmentsCount));
 
         (bool success, ) = msg.sender.call{value: providerStake}("");
-        require(success, StakeTransferFailed());
+        require(success, StakeTransferFailed(msg.sender, providerStake));
 
         emit Withdraw(msg.sender, providerStake);
     }
@@ -268,20 +269,21 @@ contract ProviderRegistry is
 
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
     function isProviderValid(address provider) public view {
-        require(providerStakes[provider] >= minStake, InsufficientStake());
-        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest());
+        uint256 providerStake = providerStakes[provider];
+        require(providerStake >= minStake, InsufficientStake(providerStake, minStake));
+        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
     }
 
     function _stake(address provider) internal {
-        require(providerRegistered[provider], ProviderNotRegistered());
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
     }
 
     function _registerAndStake(address provider, bytes calldata blsPublicKey) internal {
-        require(!providerRegistered[provider], ProviderAlreadyRegistered());
-        require(msg.value >= minStake, InsufficientStake());
-        require(blsPublicKey.length == 48, InvalidBLSPublicKeyLength());
+        require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
+        require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
+        require(blsPublicKey.length == 48, InvalidBLSPublicKeyLength(blsPublicKey.length, 48));
         
         eoaToBlsPubkey[provider] = blsPublicKey;
         providerStakes[provider] = msg.value;

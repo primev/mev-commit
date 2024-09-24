@@ -65,7 +65,7 @@ contract PreconfManager is
      * @dev Makes sure transaction sender is oracle contract
      */
     modifier onlyOracleContract() {
-        require(msg.sender == oracleContract, SenderIsNotOracleContract());
+        require(msg.sender == oracleContract, SenderIsNotOracleContract(msg.sender, oracleContract));
         _;
     }
 

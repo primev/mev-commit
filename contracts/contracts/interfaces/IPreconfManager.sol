@@ -104,7 +104,7 @@ interface IPreconfManager {
     event BlockTrackerUpdated(address newBlockTracker);
 
     /// @dev Error if sender is not oracle contract
-    error SenderIsNotOracleContract();
+    error SenderIsNotOracleContract(address sender, address oracleContract);
 
     /// @dev Error if dispatch timestamp is invalid
     error InvalidDispatchTimestamp(uint256 minTime, uint64 dispatchTimestamp);

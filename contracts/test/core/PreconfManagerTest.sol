@@ -941,7 +941,13 @@ contract PreconfManagerTest is Test {
 
         // Step 2: Attempt to store the commitment and expect it to fail due to insufficient stake
         vm.prank(committer);
-        vm.expectRevert(IProviderRegistry.InsufficientStake.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IProviderRegistry.InsufficientStake.selector,
+                0,
+                1e18 // min stake
+            )
+        );
         preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,
@@ -972,7 +978,9 @@ contract PreconfManagerTest is Test {
 
         // Step 2: Attempt to store the commitment and expect it to fail due to pending withdrawal request
         vm.prank(committer);
-        vm.expectRevert(IProviderRegistry.PendingWithdrawalRequest.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IProviderRegistry.PendingWithdrawalRequest.selector, committer)
+        );
         preconfManager.storeUnopenedCommitment(
             commitmentDigest,
             commitmentSignature,

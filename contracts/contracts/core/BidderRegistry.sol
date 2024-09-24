@@ -26,7 +26,7 @@ contract BidderRegistry is
      * @dev Modifier to restrict a function to only be callable by the preconfManager contract.
      */
     modifier onlyPreconfManager() {
-        require(msg.sender == preconfManager, SenderIsNotPreconfManager());
+        require(msg.sender == preconfManager, SenderIsNotPreconfManager(msg.sender, preconfManager));
         _;
     }
 
@@ -139,7 +139,7 @@ contract BidderRegistry is
         uint256 len = windows.length;
         for (uint256 i = 0; i < len; ++i) {
             uint256 window = windows[i];
-            require(window < currentWindow, WithdrawAfterWindowSettled());
+            require(window < currentWindow, WithdrawAfterWindowSettled(window, currentWindow));
 
             uint256 amount = lockedFunds[msg.sender][window];
             if (amount == 0) {
@@ -154,7 +154,7 @@ contract BidderRegistry is
         }
 
         (bool success, ) = msg.sender.call{value: totalAmount}("");
-        require(success, TransferToBidderFailed());
+        require(success, TransferToBidderFailed(msg.sender, totalAmount));
     }
 
     /**
@@ -172,7 +172,7 @@ contract BidderRegistry is
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreconfManager whenNotPaused {
         BidState storage bidState = bidPayment[commitmentDigest];
-        require(bidState.state == State.PreConfirmed, BidNotPreConfirmed());
+        require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
         
         uint256 decayedAmt = (bidState.bidAmt *
             residualBidPercentAfterDecay *
@@ -193,7 +193,7 @@ contract BidderRegistry is
         uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
             (bool success, ) = payable(bidState.bidder).call{value: (fundsToReturn)}("");
-            require(success, TransferToBidderFailed());
+            require(success, TransferToBidderFailed(bidState.bidder, fundsToReturn));
         }
 
         bidState.state = State.Withdrawn;
@@ -219,14 +219,14 @@ contract BidderRegistry is
         bytes32 bidID
     ) external nonReentrant onlyPreconfManager whenNotPaused {
         BidState storage bidState = bidPayment[bidID];
-        require(bidState.state == State.PreConfirmed, BidWasNotPreConfirmed());
+        require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(bidID, bidState.state, State.PreConfirmed));
         
         uint256 amt = bidState.bidAmt;
         bidState.state = State.Withdrawn;
         bidState.bidAmt = 0;
 
         (bool success, ) = payable(bidState.bidder).call{value: amt}("");
-        require(success, TransferToBidderFailed());
+        require(success, TransferToBidderFailed(bidState.bidder, amt));
 
         emit FundsRetrieved(bidID, bidState.bidder, window, amt);
     }
@@ -264,7 +264,7 @@ contract BidderRegistry is
         // Check if bid exceeds the available amount for the block
         if (availableAmount < bid) {
             (bool success, ) = payable(bidder).call{value: bid - availableAmount}("");
-            require(success, TransferToBidderFailed());
+            require(success, TransferToBidderFailed(bidder, bid - availableAmount));
 
             bid = availableAmount;
         }
@@ -336,10 +336,10 @@ contract BidderRegistry is
         uint256 amount = providerAmount[provider];
         providerAmount[provider] = 0;
 
-        require(amount != 0, ProviderAmountIsZero());
+        require(amount != 0, ProviderAmountIsZero(provider));
 
         (bool success, ) = provider.call{value: amount}("");
-        require(success, TransferToProviderFailed());
+        require(success, TransferToProviderFailed(provider, amount));
     }
 
     /**
@@ -351,7 +351,7 @@ contract BidderRegistry is
         address payable bidder,
         uint256 window
     ) external nonReentrant whenNotPaused {
-        require(msg.sender == bidder, OnlyBidderCanWithdraw());
+        require(msg.sender == bidder, OnlyBidderCanWithdraw(msg.sender, bidder));
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
         // withdraw is enabled only when closed and settled
         require(window < currentWindow, WindowNotSettled());
@@ -362,7 +362,7 @@ contract BidderRegistry is
         maxBidPerBlock[bidder][window] = 0;
 
         (bool success, ) = bidder.call{value: amount}("");
-        require(success, TransferToBidderFailed());
+        require(success, TransferToBidderFailed(bidder, amount));
 
         emit BidderWithdrawal(bidder, window, amount);
     }

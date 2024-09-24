@@ -18,10 +18,14 @@ interface IOracle {
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
 
-    error NotOracleAccount();
-    error InvalidCall();
-    error BuilderNotBlockWinner();
-    error ResidualBidPercentAfterDecayExceeds100();
+    /// @dev Error emitted when the sender is not the oracle account
+    error NotOracleAccount(address sender, address oracleAccount);
+
+    /// @dev Error emitted when the builder is not the block winner
+    error BuilderNotBlockWinner(address blockWinner, address builder);
+
+    /// @dev Error emitted when the residual bid percent after decay exceeds 100
+    error ResidualBidPercentAfterDecayExceeds100(uint256 residualBidPercentAfterDecay);
 
     receive() external payable;
 

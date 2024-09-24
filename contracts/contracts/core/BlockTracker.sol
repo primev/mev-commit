@@ -18,7 +18,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, NotOracleAccount());
+        require(msg.sender == oracleAccount, NotOracleAccount(msg.sender, oracleAccount));
         _;
     }
 
@@ -157,7 +157,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      */
     function _recordBlockWinner(uint256 blockNumber, address winner) internal {
         // Check if the block number is valid (not 0)
-        require(blockNumber != 0, InvalidBlockNumber());
+        require(blockNumber != 0, BlockNumberIsZero());
 
         blockWinners[blockNumber] = winner;
     }

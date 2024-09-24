@@ -495,7 +495,14 @@ contract ProviderRegistryTest is Test {
         providerRegistry.unstake();
         vm.warp(block.timestamp + 23 hours); // Move forward less than 24 hours
         vm.prank(newProvider);
-        vm.expectRevert(IProviderRegistry.DelayNotPassed.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IProviderRegistry.DelayNotPassed.selector,
+                block.timestamp - 23 hours, // withdrawalRequestTimestamp
+                24 hours, // withdrawalDelay
+                block.timestamp // currentBlockTimestamp
+            )
+        );
         providerRegistry.withdraw();
     }
 
@@ -505,7 +512,9 @@ contract ProviderRegistryTest is Test {
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
         vm.prank(newProvider);
-        vm.expectRevert(IProviderRegistry.NoUnstakeRequest.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IProviderRegistry.NoUnstakeRequest.selector, newProvider)
+        );
         providerRegistry.withdraw();
     }
 }
