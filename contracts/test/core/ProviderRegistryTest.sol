@@ -98,7 +98,7 @@ contract ProviderRegistryTest is Test {
         assertEq(feePercent, feePercent);
         assertEq(withdrawalDelay, withdrawalDelay);
         assertEq(providerRegistry.feePercent(), feePercent);
-        assertEq(providerRegistry.preConfirmationsContract(), address(0));
+        assertEq(providerRegistry.preconfManager(), address(0));
         assertEq(providerRegistry.providerRegistered(provider), false);
         (address recipient, uint256 accumulatedAmount, uint256 lastPayoutBlock, uint256 payoutPeriodBlocks) = bidderRegistry.protocolFeeTracker();
         assertEq(recipient, feeRecipient);
@@ -209,10 +209,10 @@ contract ProviderRegistryTest is Test {
     function test_SetPreConfContract() public {
         vm.prank(address(this));
         address newPreConfContract = vm.addr(3);
-        providerRegistry.setPreconfirmationsContract(newPreConfContract);
+        providerRegistry.setPreconfManager(newPreConfContract);
 
         assertEq(
-            providerRegistry.preConfirmationsContract(),
+            providerRegistry.preconfManager(),
             newPreConfContract
         );
     }
@@ -220,11 +220,11 @@ contract ProviderRegistryTest is Test {
     function testFail_SetPreConfContract() public {
         vm.prank(address(this));
         vm.expectRevert(bytes(""));
-        providerRegistry.setPreconfirmationsContract(address(0));
+        providerRegistry.setPreconfManager(address(0));
     }
 
     function test_ShouldSlashProvider() public {
-        providerRegistry.setPreconfirmationsContract(address(this));
+        providerRegistry.setPreconfManager(address(this));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
@@ -241,7 +241,7 @@ contract ProviderRegistryTest is Test {
     function test_ShouldSlashProviderWithoutFeeRecipient() public {
         vm.prank(address(this));
         providerRegistry.setNewPenaltyFeeRecipient(address(0));
-        providerRegistry.setPreconfirmationsContract(address(this));
+        providerRegistry.setPreconfManager(address(this));
 
         vm.deal(provider, 3 ether);
         vm.prank(provider);
@@ -265,7 +265,7 @@ contract ProviderRegistryTest is Test {
     }
     function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStake() public {
         vm.prank(address(this));
-        providerRegistry.setPreconfirmationsContract(address(this));
+        providerRegistry.setPreconfManager(address(this));
 
         vm.deal(provider, 3 ether);
         vm.prank(provider);
@@ -283,7 +283,7 @@ contract ProviderRegistryTest is Test {
 
     function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStakePenaltyNotCovered() public {
         vm.prank(address(this));
-        providerRegistry.setPreconfirmationsContract(address(this));
+        providerRegistry.setPreconfManager(address(this));
 
         vm.deal(provider, 3 ether);
         vm.prank(provider);
@@ -301,7 +301,7 @@ contract ProviderRegistryTest is Test {
 
     function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStakePenaltyNotFullyCovered() public {
         vm.prank(address(this));
-        providerRegistry.setPreconfirmationsContract(address(this));
+        providerRegistry.setPreconfManager(address(this));
 
         vm.deal(provider, 3.1 ether);
         vm.prank(provider);
@@ -324,7 +324,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
 
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
-        providerRegistry.setPreconfirmationsContract(address(this));
+        providerRegistry.setPreconfManager(address(this));
         providerRegistry.slash(1e18 wei, provider, payable(bidder), 50);
         assertEq(
             providerRegistry.getAccumulatedPenaltyFee(),
@@ -362,7 +362,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
-        providerRegistry.setPreconfirmationsContract(
+        providerRegistry.setPreconfManager(
             address(preconfManager)
         );
         vm.prank(address(preconfManager));
@@ -463,7 +463,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
-        providerRegistry.setPreconfirmationsContract(
+        providerRegistry.setPreconfManager(
             address(preconfManager)
         );
         vm.prank(address(preconfManager));

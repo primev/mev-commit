@@ -85,6 +85,24 @@ interface IPreconfManager {
         uint64 blockNumber
     );
 
+    /// @dev Event to log successful update of the commitment dispatch window
+    event CommitmentDispatchWindowUpdated(uint64 newDispatchWindow);
+
+    /// @dev Event to log successful update of the oracle contract
+    event OracleContractUpdated(address newOracleContract);
+
+    /// @dev Event to log successful update of the blocks per window
+    event BlocksPerWindowUpdated(uint256 newBlocksPerWindow);
+
+    /// @dev Event to log successful update of the provider registry
+    event ProviderRegistryUpdated(address newProviderRegistry);
+
+    /// @dev Event to log successful update of the bidder registry
+    event BidderRegistryUpdated(address newBidderRegistry);
+
+    /// @dev Event to log successful update of the block tracker
+    event BlockTrackerUpdated(address newBlockTracker);
+
     /// @dev Error if dispatch timestamp is invalid
     error InvalidDispatchTimestamp(uint256 minTime, uint64 dispatchTimestamp);
 

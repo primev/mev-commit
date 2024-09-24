@@ -125,6 +125,7 @@ contract PreconfManager is
         uint64 newDispatchWindow
     ) external onlyOwner {
         commitmentDispatchWindow = newDispatchWindow;
+        emit CommitmentDispatchWindowUpdated(newDispatchWindow);
     }
 
     /**
@@ -135,16 +136,18 @@ contract PreconfManager is
         address newOracleContract
     ) external onlyOwner {
         oracleContract = newOracleContract;
+        emit OracleContractUpdated(newOracleContract);
     }
 
     /**
-     * @dev Updates the address of the bidder registry.
-     * @param newBidderRegistry The new bidder registry address.
+     * @dev Updates the number of blocks per window.
+     * @param newBlocksPerWindow The new number of blocks per window.
      */
-    function updateBidderRegistry(
-        address newBidderRegistry
+    function updateBlocksPerWindow(
+        uint256 newBlocksPerWindow
     ) external onlyOwner {
-        bidderRegistry = IBidderRegistry(newBidderRegistry);
+        blocksPerWindow = newBlocksPerWindow;
+        emit BlocksPerWindowUpdated(newBlocksPerWindow);
     }
 
     /**
@@ -155,6 +158,29 @@ contract PreconfManager is
         address newProviderRegistry
     ) external onlyOwner {
         providerRegistry = IProviderRegistry(newProviderRegistry);
+        emit ProviderRegistryUpdated(newProviderRegistry);
+    }
+
+    /**
+     * @dev Updates the address of the bidder registry.
+     * @param newBidderRegistry The new bidder registry address.
+     */
+    function updateBidderRegistry(
+        address newBidderRegistry
+    ) external onlyOwner {
+        bidderRegistry = IBidderRegistry(newBidderRegistry);
+        emit BidderRegistryUpdated(newBidderRegistry);
+    }
+
+    /**
+     * @dev Updates the address of the block tracker.
+     * @param newBlockTracker The new block tracker address.
+     */
+    function updateBlockTracker(
+        address newBlockTracker
+    ) external onlyOwner {
+        blockTracker = IBlockTracker(newBlockTracker);
+        emit BlockTrackerUpdated(newBlockTracker);
     }
 
     /// @dev Allows the owner to pause the contract.

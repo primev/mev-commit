@@ -22,13 +22,10 @@ contract ProviderRegistry is
     PausableUpgradeable
 {
     /**
-     * @dev Modifier to restrict a function to only be callable by the pre-confirmations contract.
+     * @dev Modifier to restrict a function to only be callable by the preconf manager.
      */
-    modifier onlyPreConfirmationEngine() {
-        require(
-            msg.sender == preConfirmationsContract,
-            "sender is not preconf contract"
-        );
+    modifier onlyPreconfManager() {
+        require(msg.sender == preconfManager, "sender is not preconf contract");
         _;
     }
 
@@ -79,20 +76,6 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Sets the pre-confirmations contract address. Can only be called by the owner.
-     * @param contractAddress The address of the pre-confirmations contract.
-     */
-    function setPreconfirmationsContract(
-        address contractAddress
-    ) external onlyOwner {
-        require(
-            preConfirmationsContract == address(0),
-            "preconf contract already set"
-        );
-        preConfirmationsContract = contractAddress;
-    }
-
-    /**
      * @dev Stake more funds into the provider's stake.
      */
     function stake() external payable whenNotPaused {
@@ -118,7 +101,7 @@ contract ProviderRegistry is
         address provider,
         address payable bidder,
         uint256 residualBidPercentAfterDecay
-    ) external nonReentrant onlyPreConfirmationEngine whenNotPaused {
+    ) external nonReentrant onlyPreconfManager whenNotPaused {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
         uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
         uint256 providerStake = providerStakes[provider];
@@ -144,22 +127,31 @@ contract ProviderRegistry is
     }
 
     /**
-     * @notice Sets a new penalty fee recipient
-     * @dev onlyOwner restriction
-     * @param newFeeRecipient The address of the new penalty fee recipient
+     * @dev Sets the minimum stake required for registration. Can only be called by the owner.
+     * @param _minStake The new minimum stake amount.
      */
-    function setNewPenaltyFeeRecipient(address newFeeRecipient) external onlyOwner {
-        penaltyFeeTracker.recipient = newFeeRecipient;
-        emit PenaltyFeeRecipientUpdated(newFeeRecipient);
+    function setMinStake(uint256 _minStake) external onlyOwner {
+        minStake = _minStake;
+        emit MinStakeUpdated(_minStake);
     }
 
     /**
-     * @notice Sets the new fee recipient
+     * @dev Sets the pre-confirmations contract address. Can only be called by the owner.
+     * @param contractAddress The address of the pre-confirmations contract.
+     */
+    function setPreconfManager(address contractAddress) external onlyOwner {
+        preconfManager = contractAddress;
+        emit PreconfManagerUpdated(contractAddress);
+    }
+
+    /**
+     * @notice Sets the new fee percent
      * @dev onlyOwner restriction
      * @param newFeePercent this is the new fee percent
      */
     function setNewFeePercent(uint16 newFeePercent) external onlyOwner {
         feePercent = newFeePercent;
+        emit FeePercentUpdated(newFeePercent);
     }
 
     /// @dev Sets the withdrawal delay. Can only be called by the owner.
@@ -168,6 +160,16 @@ contract ProviderRegistry is
     function setWithdrawalDelay(uint256 _withdrawalDelay) external onlyOwner {
         withdrawalDelay = _withdrawalDelay;
         emit WithdrawalDelayUpdated(_withdrawalDelay);
+    }
+
+    /**
+     * @notice Sets a new penalty fee recipient
+     * @dev onlyOwner restriction
+     * @param newFeeRecipient The address of the new penalty fee recipient
+     */
+    function setNewPenaltyFeeRecipient(address newFeeRecipient) external onlyOwner {
+        penaltyFeeTracker.recipient = newFeeRecipient;
+        emit PenaltyFeeRecipientUpdated(newFeeRecipient);
     }
 
     /// @dev Sets the fee payout period in blocks
@@ -194,10 +196,10 @@ contract ProviderRegistry is
         providerStakes[msg.sender] = 0;
         withdrawalRequests[msg.sender] = 0;
         require(providerStake != 0, "Provider Staked Amount is zero");
-        require(preConfirmationsContract != address(0), "preconf contract not set");
+        require(preconfManager != address(0), "preconf manager not set");
 
         uint256 providerPendingCommitmentsCount = PreconfManager(
-            payable(preConfirmationsContract)
+            payable(preconfManager)
         ).commitmentsCount(msg.sender);
 
         require(providerPendingCommitmentsCount == 0, "provider commitments are pending");

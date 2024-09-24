@@ -124,9 +124,7 @@ contract PreconfManagerTest is Test {
 
         // Sets fake block timestamp
         vm.warp(500);
-        bidderRegistry.setPreconfirmationsContract(
-            address(preconfManager)
-        );
+        bidderRegistry.setPreconfManager(address(preconfManager));
     }
 
     function test_GetBidHash1() public {
@@ -715,9 +713,7 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            providerRegistry.setPreconfirmationsContract(
-                address(preconfManager)
-            );
+            providerRegistry.setPreconfManager(address(preconfManager));
             uint256 blockNumber = 2;
             blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(blockNumber, "test");
