@@ -930,6 +930,11 @@
   },
   {
     "type": "error",
+    "name": "DelayNotPassed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -961,12 +966,52 @@
   },
   {
     "type": "error",
+    "name": "InsufficientStake",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBLSPublicKeyLength",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
     "inputs": []
   },
   {
     "type": "error",
+    "name": "InvalidReceive",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoStakeToWithdraw",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoUnstakeRequest",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotPreconfContract",
     "inputs": []
   },
   {
@@ -993,7 +1038,47 @@
   },
   {
     "type": "error",
+    "name": "PendingWithdrawalRequest",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PreconfManagerNotSet",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProviderAlreadyRegistered",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProviderCommitmentsPending",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProviderNotRegistered",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProviderStakedAmountZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "StakeTransferFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferToBidderFailed",
     "inputs": []
   },
   {
@@ -1011,5 +1096,10 @@
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "UnstakeRequestExists",
+    "inputs": []
   }
 ]

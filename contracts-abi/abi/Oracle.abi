@@ -435,6 +435,11 @@
   },
   {
     "type": "error",
+    "name": "BuilderNotBlockWinner",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -466,12 +471,32 @@
   },
   {
     "type": "error",
+    "name": "InvalidCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
     "inputs": []
   },
   {
     "type": "error",
+    "name": "InvalidReceive",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOracleAccount",
     "inputs": []
   },
   {
@@ -495,6 +520,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "ResidualBidPercentAfterDecayExceeds100",
+    "inputs": []
   },
   {
     "type": "error",

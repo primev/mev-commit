@@ -1575,6 +1575,17 @@
   },
   {
     "type": "error",
+    "name": "CommitmentAlreadySettled",
+    "inputs": [
+      {
+        "name": "commitmentIndex",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1654,7 +1665,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidReceive",
     "inputs": []
   },
   {
@@ -1699,6 +1720,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "SenderIsNotOracleContract",
+    "inputs": []
   },
   {
     "type": "error",

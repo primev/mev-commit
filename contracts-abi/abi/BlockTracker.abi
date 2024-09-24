@@ -151,7 +151,7 @@
     "name": "getBuilder",
     "inputs": [
       {
-        "name": "builderNameGrafiti",
+        "name": "builderNameGraffiti",
         "type": "string",
         "internalType": "string"
       }
@@ -540,12 +540,37 @@
   },
   {
     "type": "error",
+    "name": "InvalidBlockNumber",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
     "inputs": []
   },
   {
     "type": "error",
+    "name": "InvalidReceive",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOracleAccount",
     "inputs": []
   },
   {

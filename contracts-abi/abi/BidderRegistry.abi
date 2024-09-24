@@ -996,6 +996,21 @@
   },
   {
     "type": "error",
+    "name": "BidNotPreConfirmed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BidWasNotPreConfirmed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BidderAmountIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1037,6 +1052,11 @@
   },
   {
     "type": "error",
+    "name": "OnlyBidderCanWithdraw",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -1059,7 +1079,27 @@
   },
   {
     "type": "error",
+    "name": "ProviderAmountIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderIsNotPreconfManager",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferToBidderFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferToProviderFailed",
     "inputs": []
   },
   {
@@ -1077,5 +1117,15 @@
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "WindowNotSettled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawAfterWindowSettled",
+    "inputs": []
   }
 ]
