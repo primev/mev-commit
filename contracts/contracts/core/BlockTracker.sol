@@ -136,11 +136,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      * @param blockNumber The number of the block.
      * @return The address of the block winner.
      */
-    function getBlockWinner(uint256 blockNumber)
-        external
-        view
-        returns (address)
-    {
+    function getBlockWinner(uint256 blockNumber) external view returns (address) {
         return blockWinners[blockNumber];
     }
 
