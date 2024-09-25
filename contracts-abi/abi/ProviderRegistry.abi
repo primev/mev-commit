@@ -982,11 +982,6 @@
   },
   {
     "type": "error",
-    "name": "FeeRecipientIsZero",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "InsufficientStake",
     "inputs": [
       {
@@ -1099,11 +1094,6 @@
   },
   {
     "type": "error",
-    "name": "PayoutPeriodMustBePositive",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "PendingWithdrawalRequest",
     "inputs": [
       {
@@ -1203,11 +1193,6 @@
         "internalType": "uint256"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "TransferToRecipientFailed",
-    "inputs": []
   },
   {
     "type": "error",
