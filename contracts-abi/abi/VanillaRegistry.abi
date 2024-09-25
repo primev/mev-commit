@@ -65,6 +65,19 @@
   },
   {
     "type": "function",
+    "name": "getAccumulatedSlashingFunds",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getBlocksTillWithdrawAllowed",
     "inputs": [
       {
@@ -179,6 +192,11 @@
         "internalType": "uint256"
       },
       {
+        "name": "_slashingPayoutPeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "_owner",
         "type": "address",
         "internalType": "address"
@@ -186,6 +204,19 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isSlashingPayoutDue",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -224,6 +255,13 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "manuallyTransferSlashingFunds",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -345,6 +383,19 @@
   },
   {
     "type": "function",
+    "name": "setSlashingPayoutPeriodBlocks",
+    "inputs": [
+      {
+        "name": "newSlashingPayoutPeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setUnstakePeriodBlocks",
     "inputs": [
       {
@@ -364,6 +415,11 @@
         "name": "blsPubKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
+      },
+      {
+        "name": "payoutIfDue",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
@@ -397,13 +453,28 @@
   },
   {
     "type": "function",
-    "name": "slashReceiver",
+    "name": "slashingFundsTracker",
     "inputs": [],
     "outputs": [
       {
-        "name": "",
+        "name": "recipient",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "accumulatedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "lastPayoutBlock",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "payoutPeriodBlocks",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -543,6 +614,25 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "FeeTransfer",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -695,6 +785,25 @@
       },
       {
         "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashingPayoutPeriodBlocksSet",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newSlashingPayoutPeriodBlocks",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -926,6 +1035,11 @@
   },
   {
     "type": "error",
+    "name": "FeeRecipientIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidBLSPubKeyLength",
     "inputs": [
       {
@@ -1004,6 +1118,11 @@
   },
   {
     "type": "error",
+    "name": "PayoutPeriodMustBePositive",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "SenderIsNotSlashOracle",
     "inputs": [
       {
@@ -1056,6 +1175,11 @@
   },
   {
     "type": "error",
+    "name": "SlashingPayoutPeriodMustBePositive",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "SlashingTransferFailed",
     "inputs": []
   },
@@ -1074,6 +1198,11 @@
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "TransferToRecipientFailed",
+    "inputs": []
   },
   {
     "type": "error",

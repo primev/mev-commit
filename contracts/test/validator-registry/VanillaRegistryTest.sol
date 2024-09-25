@@ -14,11 +14,13 @@ contract VanillaRegistryTest is Test {
 
     uint256 public constant MIN_STAKE = 1 ether;
     uint256 public constant UNSTAKE_PERIOD = 10;
+    uint256 public constant PAYOUT_PERIOD = 20;
     address public constant SLASH_ORACLE = address(0x78888);
     address public constant SLASH_RECEIVER = address(0x78886);
 
     bytes public user1BLSKey = hex"96db1884af7bf7a1b57c77222723286a8ce3ef9a16ab6c5542ec5160662d450a1b396b22fc519679adae6ad741547268";
     bytes public user2BLSKey = hex"a5c99dfdfc69791937ac5efc5d33316cd4e0698be24ef149bbc18f0f25ad92e5e11aafd39701dcdab6d3205ad38c307b";
+    bytes public user3BLSKey = hex"a97794deb52ea4529d37d283213ca7e298ea9be0a2fec1bb3134a1464ab8cf9eb2c703d1b42dd68d97b5f1c8e74cc0df";
 
     event Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event StakeAdded(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount, uint256 newBalance);
@@ -31,6 +33,8 @@ contract VanillaRegistryTest is Test {
     event SlashReceiverSet(address indexed owner, address slashReceiver);
     event UnstakePeriodBlocksSet(address indexed owner, uint256 unstakePeriodBlocks);
 
+    event FeeTransfer(uint256 amount, address indexed recipient);
+
     function setUp() public {
         owner = address(this);
         user1 = address(0x123);
@@ -41,7 +45,7 @@ contract VanillaRegistryTest is Test {
         
         address proxy = Upgrades.deployUUPSProxy(
             "VanillaRegistry.sol",
-            abi.encodeCall(VanillaRegistry.initialize, (MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner))
+            abi.encodeCall(VanillaRegistry.initialize, (MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, PAYOUT_PERIOD, owner))
         );
         validatorRegistry = VanillaRegistry(payable(proxy));
     }
@@ -49,7 +53,7 @@ contract VanillaRegistryTest is Test {
     function testSecondInitialize() public {
         vm.prank(owner);
         vm.expectRevert();
-        validatorRegistry.initialize(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, owner);
+        validatorRegistry.initialize(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD, PAYOUT_PERIOD, owner);
         vm.stopPrank();
     }
 
@@ -302,7 +306,7 @@ contract VanillaRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.prank(SLASH_ORACLE);
-        validatorRegistry.slash(validators);
+        validatorRegistry.slash(validators, true);
 
         vm.deal(user1, 2 ether);
         vm.startPrank(user1);
@@ -313,11 +317,11 @@ contract VanillaRegistryTest is Test {
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
         emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE);
-        validatorRegistry.slash(validators);
+        validatorRegistry.slash(validators, true);
 
         vm.expectRevert(IVanillaRegistry.NotEnoughBalanceToSlash.selector);
         vm.prank(SLASH_ORACLE);
-        validatorRegistry.slash(validators);
+        validatorRegistry.slash(validators, true);
     }
 
     function testUnauthorizedSlash() public {
@@ -327,7 +331,7 @@ contract VanillaRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.prank(user2);
-        validatorRegistry.slash(validators);
+        validatorRegistry.slash(validators, true);
     }
 
     function testSlashingStakedValidator() public {
@@ -347,13 +351,17 @@ contract VanillaRegistryTest is Test {
 
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
-        emit Unstaked(SLASH_ORACLE, user1, user1BLSKey, 0 ether);
+        emit Unstaked(SLASH_ORACLE, user1, user1BLSKey, 1 ether);
         vm.expectEmit(true, true, true, true);
         emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 1 ether);
-        validatorRegistry.slash(validators);
+        validatorRegistry.slash(validators, true);
 
         assertEq(address(user1).balance, 8.0 ether);
-        assertEq(address(SLASH_RECEIVER).balance, 1 ether);
+
+        assertEq(address(SLASH_RECEIVER).balance, 0 ether);
+        assertEq(validatorRegistry.getAccumulatedSlashingFunds(), 1 ether);
+        assertFalse(validatorRegistry.isSlashingPayoutDue());
+
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 11);
@@ -384,7 +392,7 @@ contract VanillaRegistryTest is Test {
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
         emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 1 ether);
-        validatorRegistry.slash(validators);
+        validatorRegistry.slash(validators, false);
 
         finalAssertions(); // See directly below
     }
@@ -392,7 +400,11 @@ contract VanillaRegistryTest is Test {
     // Split final assertions into own func to avoid stack overflow
     function finalAssertions() public view {
         assertEq(address(user1).balance, 8 ether);
-        assertEq(address(SLASH_RECEIVER).balance, 1 ether);
+
+        assertEq(address(SLASH_RECEIVER).balance, 0 ether);
+        assertEq(validatorRegistry.getAccumulatedSlashingFunds(), 1 ether);
+        assertTrue(validatorRegistry.isSlashingPayoutDue());
+
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 0 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
         // Unstake occurrence should not be updated for already unstaked validators
@@ -427,6 +439,10 @@ contract VanillaRegistryTest is Test {
 
         vm.roll(78);
 
+        assertTrue(validatorRegistry.isSlashingPayoutDue());
+        assertEq(address(SLASH_RECEIVER).balance, 0 ether);
+        assertEq(validatorRegistry.getAccumulatedSlashingFunds(), 0 ether);
+
         bytes[] memory toSlash = new bytes[](2);
         toSlash[0] = user1BLSKey;
         toSlash[1] = user2BLSKey;
@@ -435,9 +451,11 @@ contract VanillaRegistryTest is Test {
         emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, 1 ether);
         vm.expectEmit(true, true, true, true);
         emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user2BLSKey, 1 ether);
-        validatorRegistry.slash(toSlash);
+        validatorRegistry.slash(toSlash, true);
 
+        assertFalse(validatorRegistry.isSlashingPayoutDue());
         assertEq(address(SLASH_RECEIVER).balance, 2 ether);
+        assertEq(validatorRegistry.getAccumulatedSlashingFunds(), 0 ether);
 
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 2 ether);
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
@@ -450,7 +468,47 @@ contract VanillaRegistryTest is Test {
         assertEq(validatorRegistry.getStakedValidator(user2BLSKey).unstakeOccurrence.blockHeight, 78);
         assertFalse(validatorRegistry.isValidatorOptedIn(user2BLSKey));
     }
-   
+
+    function testManualPayout() public { 
+        testBatchedSlashing();
+
+        vm.roll(10000);
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user3BLSKey;
+        address user3 = vm.addr(0x23333);
+        vm.deal(user3, 10 ether);
+        vm.startPrank(user3);
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user3, user3, user3BLSKey, MIN_STAKE);
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+        vm.stopPrank();
+
+        assertTrue(validatorRegistry.isSlashingPayoutDue());
+        assertEq(address(SLASH_RECEIVER).balance, 2 ether);
+        assertEq(validatorRegistry.getAccumulatedSlashingFunds(), 0 ether);
+
+        vm.prank(SLASH_ORACLE);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(SLASH_ORACLE, user3, user3BLSKey, MIN_STAKE);
+        vm.expectEmit(true, true, true, true);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user3, user3BLSKey, MIN_STAKE);
+        validatorRegistry.slash(validators, false);
+
+        assertTrue(validatorRegistry.isSlashingPayoutDue());
+        assertEq(address(SLASH_RECEIVER).balance, 2 ether);
+        assertEq(validatorRegistry.getAccumulatedSlashingFunds(), 1 ether);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit FeeTransfer(1 ether, SLASH_RECEIVER);
+        validatorRegistry.manuallyTransferSlashingFunds();
+
+        assertFalse(validatorRegistry.isSlashingPayoutDue());
+        assertEq(address(SLASH_RECEIVER).balance, 3 ether);
+        assertEq(validatorRegistry.getAccumulatedSlashingFunds(), 0 ether);
+    }
+
     function testGetBlocksTillWithdrawAllowed() public {
         testSelfStake();
 
@@ -605,7 +663,8 @@ contract VanillaRegistryTest is Test {
         emit SlashReceiverSet(owner, user2);
         validatorRegistry.setSlashReceiver(user2);
         vm.stopPrank();
-        assertEq(validatorRegistry.slashReceiver(), user2);
+        (address recipient,,,) = validatorRegistry.slashingFundsTracker();
+        assertEq(recipient, user2);
 
         vm.startPrank(user1);
         vm.expectRevert();

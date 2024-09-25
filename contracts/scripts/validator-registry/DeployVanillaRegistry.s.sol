@@ -16,6 +16,7 @@ contract BaseDeploy is Script {
         address slashOracle,
         address slashReceiver,
         uint256 unstakePeriodBlocks,
+        uint256 payoutPeriodBlocks,
         address owner
     ) public returns (address) {
         console.log("Deploying VanillaRegistry on chain:", block.chainid);
@@ -23,7 +24,7 @@ contract BaseDeploy is Script {
             "VanillaRegistry.sol",
             abi.encodeCall(
                 VanillaRegistry.initialize,
-                (minStake, slashOracle, slashReceiver, unstakePeriodBlocks, owner)
+                (minStake, slashOracle, slashReceiver, unstakePeriodBlocks, payoutPeriodBlocks, owner)
             )
         );
         console.log("VanillaRegistry UUPS proxy deployed to:", address(proxy));
@@ -38,6 +39,7 @@ contract DeployHolesky is BaseDeploy {
     address constant public SLASH_ORACLE = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
     address constant public SLASH_RECEIVER = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
     uint256 constant public UNSTAKE_PERIOD_BLOCKS = 32 * 3; // 2 epoch finalization time + settlement buffer
+    uint256 constant public PAYOUT_PERIOD = 10000; // 10k * 12s = 1.39 days
 
     // This is the most important field. On mainnet it'll be the primev multisig.
     address constant public OWNER = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
@@ -45,7 +47,7 @@ contract DeployHolesky is BaseDeploy {
     function run() external {
         require(block.chainid == 17000, "must deploy on Holesky");
         vm.startBroadcast();
-        deployVanillaRegistry(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, OWNER);
+        deployVanillaRegistry(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, PAYOUT_PERIOD, OWNER);
         vm.stopBroadcast();
     }
 }
@@ -55,11 +57,11 @@ contract DeployAnvil is BaseDeploy {
     address constant public SLASH_ORACLE = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
     address constant public SLASH_RECEIVER = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
     uint256 constant public UNSTAKE_PERIOD_BLOCKS = 100;
-
+    uint256 constant public PAYOUT_PERIOD = 200;
     function run() external {
         require(block.chainid == 31337, "must deploy on anvil");
         vm.startBroadcast();
-        deployVanillaRegistry(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, msg.sender);
+        deployVanillaRegistry(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, PAYOUT_PERIOD, msg.sender);
         vm.stopBroadcast();
     }
 }

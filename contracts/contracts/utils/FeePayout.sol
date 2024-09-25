@@ -17,10 +17,14 @@ library FeePayout {
     /// @dev Event emitted when fees are transferred to the recipient.
     event FeeTransfer(uint256 amount, address indexed recipient);
 
+    error FeeRecipientIsZero();
+    error PayoutPeriodMustBePositive();
+    error TransferToRecipientFailed();
+
     /// @dev Initialize a new fee tracker in storage
     function init(Tracker storage self, address _recipient, uint256 _payoutPeriodBlocks) internal {
-        require(_recipient != address(0), "fee recipient is zero");
-        require(_payoutPeriodBlocks != 0, "pay period must be positive");
+        require(_recipient != address(0), FeeRecipientIsZero());
+        require(_payoutPeriodBlocks != 0, PayoutPeriodMustBePositive());
         self.recipient = _recipient;
         self.accumulatedAmount = 0;
         self.lastPayoutBlock = block.number;
@@ -32,7 +36,7 @@ library FeePayout {
     function transferToRecipient(Tracker storage tracker) internal {
         uint256 amountToPay = tracker.accumulatedAmount;
         (bool success, ) = payable(tracker.recipient).call{value: amountToPay}("");
-        require(success, "transfer to recipient failed");
+        require(success, TransferToRecipientFailed());
         tracker.accumulatedAmount = 0;
         tracker.lastPayoutBlock = block.number;
         emit FeeTransfer(amountToPay, tracker.recipient);

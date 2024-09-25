@@ -1053,6 +1053,11 @@
   },
   {
     "type": "error",
+    "name": "FeeRecipientIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
     "inputs": []
   },
@@ -1098,6 +1103,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "PayoutPeriodMustBePositive",
+    "inputs": []
   },
   {
     "type": "error",
@@ -1162,6 +1172,11 @@
         "internalType": "uint256"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "TransferToRecipientFailed",
+    "inputs": []
   },
   {
     "type": "error",

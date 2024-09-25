@@ -42,6 +42,9 @@ interface IVanillaRegistry {
     /// @dev Event emitted when the unstake period blocks parameter is set.
     event UnstakePeriodBlocksSet(address indexed msgSender, uint256 newUnstakePeriodBlocks);
 
+    /// @dev Event emitted when the slashing payout period blocks parameter is set.
+    event SlashingPayoutPeriodBlocksSet(address indexed msgSender, uint256 newSlashingPayoutPeriodBlocks);
+
     error ValidatorRecordMustExist(bytes valBLSPubKey);
     error ValidatorRecordMustNotExist(bytes valBLSPubKey);
     error ValidatorCannotBeUnstaking(bytes valBLSPubKey);
@@ -63,6 +66,7 @@ interface IVanillaRegistry {
     error SlashOracleMustBeSet();
     error SlashReceiverMustBeSet();
     error UnstakePeriodMustBePositive();
+    error SlashingPayoutPeriodMustBePositive();
 
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
@@ -70,6 +74,7 @@ interface IVanillaRegistry {
         address _slashOracle,
         address _slashReceiver,
         uint256 _unstakePeriodBlocks, 
+        uint256 _slashingPayoutPeriodBlocks,
         address _owner
     ) external;
 
@@ -106,11 +111,10 @@ interface IVanillaRegistry {
      */
     function withdraw(bytes[] calldata blsPubKeys) external;
 
-    /* 
-     * @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to slash.
-     */
-    function slash(bytes[] calldata blsPubKeys) external;
+    /// @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
+    /// @param blsPubKeys The BLS public keys to slash.
+    /// @param payoutIfDue Whether to payout slashed funds to receiver if the payout period is due.
+    function slash(bytes[] calldata blsPubKeys, bool payoutIfDue) external;
 
     /// @dev Enables the owner to pause the contract.
     function pause() external;
