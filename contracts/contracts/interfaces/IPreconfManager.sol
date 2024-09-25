@@ -103,6 +103,9 @@ interface IPreconfManager {
     /// @dev Event to log successful update of the block tracker
     event BlockTrackerUpdated(address newBlockTracker);
 
+    /// @dev Error if sender is not oracle contract
+    error SenderIsNotOracleContract(address sender, address oracleContract);
+
     /// @dev Error if dispatch timestamp is invalid
     error InvalidDispatchTimestamp(uint256 minTime, uint64 dispatchTimestamp);
 
@@ -123,6 +126,9 @@ interface IPreconfManager {
 
     /// @dev Error if encrypted commitment is sent by the committer
     error SenderIsNotCommitter(address expected, address actual);
+
+    /// @dev Error if commitment is already settled
+    error CommitmentAlreadySettled(bytes32 commitmentIndex);
 
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.

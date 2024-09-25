@@ -435,6 +435,22 @@
   },
   {
     "type": "error",
+    "name": "BuilderNotBlockWinner",
+    "inputs": [
+      {
+        "name": "blockWinner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "builder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -466,13 +482,39 @@
   },
   {
     "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidReceive",
     "inputs": []
   },
   {
     "type": "error",
     "name": "NotInitializing",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOracleAccount",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "oracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -493,6 +535,17 @@
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ResidualBidPercentAfterDecayExceeds100",
+    "inputs": [
+      {
+        "name": "residualBidPercentAfterDecay",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

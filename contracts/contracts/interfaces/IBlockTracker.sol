@@ -18,6 +18,9 @@ interface IBlockTracker {
     /// @dev Event emitted when the oracle account is set.
     event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
+    error NotOracleAccount(address sender, address oracleAccount);
+    error BlockNumberIsZero();
+
     /// @notice Records a new L1 block with its winner.
     /// @param _blockNumber The block number of the new L1 block.
     /// @param _winnerGrafitti The graffiti of the winner of the new L1 block.

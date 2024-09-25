@@ -996,6 +996,32 @@
   },
   {
     "type": "error",
+    "name": "BidNotPreConfirmed",
+    "inputs": [
+      {
+        "name": "bidID",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actualState",
+        "type": "uint8",
+        "internalType": "enum IBidderRegistry.State"
+      },
+      {
+        "name": "expectedState",
+        "type": "uint8",
+        "internalType": "enum IBidderRegistry.State"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BidderAmountIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1037,6 +1063,22 @@
   },
   {
     "type": "error",
+    "name": "OnlyBidderCanWithdraw",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -1059,8 +1101,67 @@
   },
   {
     "type": "error",
+    "name": "ProviderAmountIsZero",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderIsNotPreconfManager",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "preconfManager",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TransferToBidderFailed",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TransferToProviderFailed",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1075,6 +1176,27 @@
         "name": "slot",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WindowNotSettled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "WithdrawAfterWindowSettled",
+    "inputs": [
+      {
+        "name": "window",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "currentWindow",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   }

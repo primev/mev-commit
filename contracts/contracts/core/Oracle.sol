@@ -8,6 +8,7 @@ import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {OracleStorage} from "./OracleStorage.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
+import {Errors} from "../utils/Errors.sol";
 
 /**
  * @title Oracle
@@ -19,7 +20,7 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        require(msg.sender == oracleAccount, NotOracleAccount(msg.sender, oracleAccount));
         _;
     }
 
@@ -49,19 +50,18 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         _disableInitializers();
     }
 
-    /// @dev Empty receive function to silence compiler warnings about missing payable functions.
+    /// @dev Empty receive function to prevent unintended interactions.
     receive() external payable {
-        // Empty receive function
+        revert Errors.InvalidReceive();
     }
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidFallback();
     }
 
-    // Function to receive and process the block data (this would be automated in a real-world scenario)
     /**
      * @dev Processes a builder's commitment for a specific block number.
      * @param commitmentIndex The id of the commitment in the PreconfManager.
@@ -77,14 +77,9 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle whenNotPaused {
-        require(
-            _blockTrackerContract.getBlockWinner(blockNumber) == builder,
-            "builder is not block winner"
-        );
-        require(
-            residualBidPercentAfterDecay <= 100,
-            "residBidPercentAfterDecay > 100%"
-        );
+        address blockWinner = _blockTrackerContract.getBlockWinner(blockNumber);
+        require(blockWinner == builder, BuilderNotBlockWinner(blockWinner, builder));
+        require(residualBidPercentAfterDecay <= 100, ResidualBidPercentAfterDecayExceeds100(residualBidPercentAfterDecay));
 
         IPreconfManager.OpenedCommitment
             memory commitment = _preconfManager.getCommitment(commitmentIndex);

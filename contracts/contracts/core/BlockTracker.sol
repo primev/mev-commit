@@ -7,6 +7,7 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
+import {Errors} from "../utils/Errors.sol";
 
 /**
  * @title BlockTracker
@@ -17,7 +18,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
 
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, "sender isn't oracle account");
+        require(msg.sender == oracleAccount, NotOracleAccount(msg.sender, oracleAccount));
         _;
     }
 
@@ -46,14 +47,14 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      * Should be removed from here in case the registerAndStake function becomes more complex
      */
     receive() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidReceive();
     }
 
     /**
      * @dev Fallback function to revert all calls, ensuring no unintended interactions.
      */
     fallback() external payable {
-        revert("Invalid call");
+        revert Errors.InvalidFallback();
     }
 
     /**
@@ -113,13 +114,13 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
 
     /**
      * @dev Returns the builder's address corresponding to the given name.
-     * @param builderNameGrafiti The name (or graffiti) of the block builder.
+     * @param builderNameGraffiti The name (or graffiti) of the block builder.
      * @return The Ethereum address of the builder.
      */
     function getBuilder(
-        string calldata builderNameGrafiti
+        string calldata builderNameGraffiti
     ) external view returns (address) {
-        return blockBuilderNameToAddress[builderNameGrafiti];
+        return blockBuilderNameToAddress[builderNameGraffiti];
     }
 
     /**
@@ -130,13 +131,14 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         return blocksPerWindow;
     }
 
-    // Function to get the winner of a specific block
-    function getBlockWinner(
-        uint256 blockNumber
-    ) external view returns (address) {
+    /**
+     * @dev Function to get the winner of a specific block.
+     * @param blockNumber The number of the block.
+     * @return The address of the block winner.
+     */
+    function getBlockWinner(uint256 blockNumber) external view returns (address) {
         return blockWinners[blockNumber];
     }
-
 
     /**
      * @dev Internal function to set the oracle account.
@@ -149,13 +151,13 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     }
 
     /**
-    * @dev Internal function to record a new block winner
-    * @param blockNumber The number of the block
-    * @param winner The address of the block winner
-    */
+     * @dev Internal function to record a new block winner.
+     * @param blockNumber The number of the block.
+     * @param winner The address of the block winner.
+     */
     function _recordBlockWinner(uint256 blockNumber, address winner) internal {
         // Check if the block number is valid (not 0)
-        require(blockNumber != 0, "Invalid block number");
+        require(blockNumber != 0, BlockNumberIsZero());
 
         blockWinners[blockNumber] = winner;
     }
