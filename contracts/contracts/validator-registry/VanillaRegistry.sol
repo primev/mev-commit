@@ -8,6 +8,7 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Errors} from "../utils/Errors.sol";
+import {FeePayout} from "../utils/FeePayout.sol";
 
 /// @title Vanilla Registry
 /// @notice Logic contract enabling L1 validators to opt-in to mev-commit 
@@ -85,12 +86,13 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         address _slashOracle,
         address _slashReceiver,
         uint256 _unstakePeriodBlocks, 
+        uint256 _slashingPayoutPeriodBlocks,
         address _owner
     ) external initializer {
         _setMinStake(_minStake);
         _setSlashOracle(_slashOracle);
-        _setSlashReceiver(_slashReceiver);
         _setUnstakePeriodBlocks(_unstakePeriodBlocks);
+        FeePayout.init(slashingFundsTracker, _slashReceiver, _slashingPayoutPeriodBlocks);
         __Ownable_init(_owner);
     }
 
@@ -154,13 +156,12 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         _withdraw(blsPubKeys);
     }
 
-    /* 
-     * @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to slash.
-     */
-    function slash(bytes[] calldata blsPubKeys) external
+    /// @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
+    /// @param blsPubKeys The BLS public keys to slash.
+    /// @param payoutIfDue Whether to payout slashed funds to receiver if the payout period is due.
+    function slash(bytes[] calldata blsPubKeys, bool payoutIfDue) external
         onlyExistentValidatorRecords(blsPubKeys) onlySlashOracle whenNotPaused() {
-        _slash(blsPubKeys);
+        _slash(blsPubKeys, payoutIfDue);
     }
 
     /// @dev Enables the owner to pause the contract.
@@ -193,6 +194,16 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         _setUnstakePeriodBlocks(newUnstakePeriodBlocks);
     }
 
+    /// @dev Enables the owner to set the slashing payout period parameter.
+    function setSlashingPayoutPeriodBlocks(uint256 newSlashingPayoutPeriodBlocks) external onlyOwner {
+        _setSlashingPayoutPeriodBlocks(newSlashingPayoutPeriodBlocks);
+    }
+
+    /// @dev Enables the owner to manually transfer slashing funds.
+    function manuallyTransferSlashingFunds() external onlyOwner {
+        FeePayout.transferToRecipient(slashingFundsTracker);
+    }
+
     /// @dev Returns true if a validator is considered "opted-in" to mev-commit via this registry.
     function isValidatorOptedIn(bytes calldata valBLSPubKey) external view returns (bool) {
         return _isValidatorOptedIn(valBLSPubKey);
@@ -218,6 +229,15 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         require(_isUnstaking(valBLSPubKey), IVanillaRegistry.MustUnstakeToWithdraw());
         uint256 blocksSinceUnstakeInitiated = block.number - stakedValidators[valBLSPubKey].unstakeOccurrence.blockHeight;
         return blocksSinceUnstakeInitiated > unstakePeriodBlocks ? 0 : unstakePeriodBlocks - blocksSinceUnstakeInitiated;
+    }
+
+    /// @dev Returns true if the slashing payout period is due.
+    function isSlashingPayoutDue() external view returns (bool) {
+        return FeePayout.isPayoutDue(slashingFundsTracker);
+    }
+
+    function getAccumulatedSlashingFunds() external view returns (uint256) {
+        return slashingFundsTracker.accumulatedAmount;
     }
 
     /*
@@ -308,6 +328,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      */
     function _withdraw(bytes[] calldata blsPubKeys) internal {
         uint256 len = blsPubKeys.length;
+        uint256 totalAmount = 0;
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             require(_isUnstaking(pubKey), IVanillaRegistry.MustUnstakeToWithdraw());
@@ -315,30 +336,34 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
                 IVanillaRegistry.WithdrawingTooSoon());
             uint256 balance = stakedValidators[pubKey].balance;
             require(balance != 0, IVanillaRegistry.NothingToWithdraw());
-            address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
+            totalAmount += balance;
             delete stakedValidators[pubKey];
-            (bool success, ) = withdrawalAddress.call{value: balance}("");
-            require(success, IVanillaRegistry.WithdrawalFailed());
-            emit StakeWithdrawn(msg.sender, withdrawalAddress, pubKey, balance);
+            // msg.sender must be withdrawal address from wrapping onlyWithdrawalAddress modifier
+            emit StakeWithdrawn(msg.sender, pubKey, balance);
         }
+        (bool success, ) = msg.sender.call{value: totalAmount}("");
+        require(success, IVanillaRegistry.WithdrawalFailed());
+        emit TotalStakeWithdrawn(msg.sender, totalAmount);
     }
 
-    /* 
-     * @dev Internal function to slash minStake worth of ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to slash.
-     */
-    function _slash(bytes[] calldata blsPubKeys) internal {
+    /// @dev Internal function to slash minStake worth of ETH on behalf of one or multiple validators via their BLS pubkey.
+    /// @param blsPubKeys The BLS public keys to slash.
+    /// @param payoutIfDue Whether to payout slashed funds to receiver if the payout period is due.
+    function _slash(bytes[] calldata blsPubKeys, bool payoutIfDue) internal {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             require(stakedValidators[pubKey].balance >= minStake, IVanillaRegistry.NotEnoughBalanceToSlash());
-            stakedValidators[pubKey].balance -= minStake;
             if (!_isUnstaking(pubKey)) { 
-                _unstakeSingle(pubKey); 
+                _unstakeSingle(pubKey);
             }
-            (bool success, ) = slashReceiver.call{value: minStake}("");
-            require(success, IVanillaRegistry.SlashingTransferFailed());
-            emit Slashed(msg.sender, slashReceiver, stakedValidators[pubKey].withdrawalAddress, pubKey, minStake);
+            stakedValidators[pubKey].balance -= minStake;
+            slashingFundsTracker.accumulatedAmount += minStake;
+            bool isLastEntry = i == len - 1;
+            if (payoutIfDue && FeePayout.isPayoutDue(slashingFundsTracker) && isLastEntry) {
+                FeePayout.transferToRecipient(slashingFundsTracker);
+            }
+            emit Slashed(msg.sender, slashingFundsTracker.recipient, stakedValidators[pubKey].withdrawalAddress, pubKey, minStake);
         }
     }
 
@@ -359,7 +384,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev Internal function to set the slash receiver parameter.
     function _setSlashReceiver(address newSlashReceiver) internal {
         require(newSlashReceiver != address(0), IVanillaRegistry.SlashReceiverMustBeSet());
-        slashReceiver = newSlashReceiver;
+        slashingFundsTracker.recipient = newSlashReceiver;
         emit SlashReceiverSet(msg.sender, newSlashReceiver);
     }
 
@@ -368,6 +393,13 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         require(newUnstakePeriodBlocks != 0, IVanillaRegistry.UnstakePeriodMustBePositive());
         unstakePeriodBlocks = newUnstakePeriodBlocks;
         emit UnstakePeriodBlocksSet(msg.sender, newUnstakePeriodBlocks);
+    }
+
+    /// @dev Internal function to set the slashing payout period parameter in blocks.
+    function _setSlashingPayoutPeriodBlocks(uint256 newSlashingPayoutPeriodBlocks) internal {
+        require(newSlashingPayoutPeriodBlocks != 0, IVanillaRegistry.SlashingPayoutPeriodMustBePositive());
+        slashingFundsTracker.payoutPeriodBlocks = newSlashingPayoutPeriodBlocks;
+        emit SlashingPayoutPeriodBlocksSet(msg.sender, newSlashingPayoutPeriodBlocks);
     }
 
     /// @dev Internal function to check if a validator is considered "opted-in" to mev-commit via this registry.

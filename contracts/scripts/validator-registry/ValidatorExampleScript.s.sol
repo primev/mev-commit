@@ -171,7 +171,7 @@ contract SlashExample is ExampleScript {
 
         checkStaking(validators);
 
-        _validatorRegistry.slash(validators);
+        _validatorRegistry.slash(validators, true);
         console.log("Slash initiated");
 
         checkStaking(validators);

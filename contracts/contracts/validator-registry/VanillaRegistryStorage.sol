@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {IVanillaRegistry} from "../interfaces/IVanillaRegistry.sol";
+import {FeePayout} from "../utils/FeePayout.sol";
 
 /// @title VanillaRegistryStorage
 /// @notice Storage components of the VanillaRegistry contract.
@@ -16,11 +17,11 @@ contract VanillaRegistryStorage {
     /// @dev Permissioned account that is able to invoke slashes.
     address public slashOracle; 
 
-    /// @dev Account to receive all slashed ETH.
-    address public slashReceiver;
-
     /// @dev Number of blocks required between unstake initiation and withdrawal.
     uint256 public unstakePeriodBlocks;
+
+    /// @dev Struct enabling automatic slashing funds payouts
+    FeePayout.Tracker public slashingFundsTracker;
 
     /// @dev Mapping of BLS pubkeys to stored staked validator structs. 
     mapping(bytes => IVanillaRegistry.StakedValidator) public stakedValidators;
