@@ -91,7 +91,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     ) external initializer {
         _setMinStake(_minStake);
         _setSlashOracle(_slashOracle);
-        _setSlashReceiver(_slashReceiver);
         _setUnstakePeriodBlocks(_unstakePeriodBlocks);
         FeePayout.init(slashingFundsTracker, _slashReceiver, _slashingPayoutPeriodBlocks);
         __Ownable_init(_owner);
