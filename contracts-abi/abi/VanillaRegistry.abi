@@ -853,12 +853,6 @@
     "name": "StakeWithdrawn",
     "inputs": [
       {
-        "name": "msgSender",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
         "name": "withdrawalAddress",
         "type": "address",
         "indexed": true,
@@ -903,6 +897,25 @@
       },
       {
         "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TotalStakeWithdrawn",
+    "inputs": [
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "totalAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"

@@ -329,6 +329,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      */
     function _withdraw(bytes[] calldata blsPubKeys) internal {
         uint256 len = blsPubKeys.length;
+        uint256 totalAmount = 0;
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             require(_isUnstaking(pubKey), IVanillaRegistry.MustUnstakeToWithdraw());
@@ -336,12 +337,14 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
                 IVanillaRegistry.WithdrawingTooSoon());
             uint256 balance = stakedValidators[pubKey].balance;
             require(balance != 0, IVanillaRegistry.NothingToWithdraw());
-            address withdrawalAddress = stakedValidators[pubKey].withdrawalAddress;
+            totalAmount += balance;
             delete stakedValidators[pubKey];
-            (bool success, ) = withdrawalAddress.call{value: balance}("");
-            require(success, IVanillaRegistry.WithdrawalFailed());
-            emit StakeWithdrawn(msg.sender, withdrawalAddress, pubKey, balance);
+            // msg.sender must be withdrawal address from wrapping onlyWithdrawalAddress modifier
+            emit StakeWithdrawn(msg.sender, pubKey, balance);
         }
+        (bool success, ) = msg.sender.call{value: totalAmount}("");
+        require(success, IVanillaRegistry.WithdrawalFailed());
+        emit TotalStakeWithdrawn(msg.sender, totalAmount);
     }
 
     /// @dev Internal function to slash minStake worth of ETH on behalf of one or multiple validators via their BLS pubkey.
