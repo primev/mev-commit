@@ -9,6 +9,9 @@ import {IAllocator} from "../interfaces/IAllocator.sol";
 contract SettlementGateway is Gateway {
 
     address public allocatorAddr;
+
+    error IncorrectEtherValueSent(uint256 msgValue, uint256 amountExpected);
+    error TransferFailed(address recipient, uint256 amount);
     
     function initialize(
         address _allocatorAddr,
@@ -37,9 +40,9 @@ contract SettlementGateway is Gateway {
     // Burns native ether on settlement chain by sending it to the allocator contract,
     // there should be equiv ether on L1 which will be UNLOCKED during finalization.
     function _decrementMsgSender(uint256 _amount) internal override {
-        require(msg.value == _amount, "Incorrect Ether value sent");
+        require(msg.value == _amount, IncorrectEtherValueSent(msg.value, _amount));
         (bool success, ) = allocatorAddr.call{value: msg.value}("");
-        require(success, "Failed to send Ether");
+        require(success, TransferFailed(allocatorAddr, msg.value));
     }
 
     // Mints native ether on settlement chain via allocator contract,

@@ -32,6 +32,10 @@ interface IGateway {
         uint256 indexed counterpartyIdx
     );
 
+    error SenderNotRelayer(address sender, address relayer);
+    error AmountTooSmall(uint256 amount, uint256 counterpartyFee);
+    error InvalidCounterpartyIndex(uint256 counterpartyIdx, uint256 transferFinalizedIdx);
+
     /**
      * @notice Initiates a cross-chain transfer.
      * @param _recipient Address to receive the tokens.

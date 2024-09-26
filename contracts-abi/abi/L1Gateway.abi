@@ -431,6 +431,22 @@
   },
   {
     "type": "error",
+    "name": "AmountTooSmall",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "counterpartyFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -462,6 +478,54 @@
   },
   {
     "type": "error",
+    "name": "IncorrectEtherValueSent",
+    "inputs": [
+      {
+        "name": "msgValue",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountExpected",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientContractBalance",
+    "inputs": [
+      {
+        "name": "thisContractBalance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountRequested",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCounterpartyIndex",
+    "inputs": [
+      {
+        "name": "counterpartyIdx",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "transferFinalizedIdx",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
     "inputs": []
   },
@@ -489,6 +553,43 @@
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderNotRelayer",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "relayer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

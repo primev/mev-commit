@@ -8,6 +8,10 @@ import {Gateway} from "./Gateway.sol";
 /// @dev This contract will escrow locked ETH, while a corresponding amount is minted from the SettlementGateway on the mev-commit chain.
 contract L1Gateway is Gateway {
 
+    error IncorrectEtherValueSent(uint256 msgValue, uint256 amountExpected);
+    error InsufficientContractBalance(uint256 thisContractBalance, uint256 amountRequested);
+    error TransferFailed(address recipient, uint256 amount);
+
     function initialize(
         address _owner, 
         address _relayer, 
@@ -33,14 +37,14 @@ contract L1Gateway is Gateway {
     receive() external payable {}
 
     function _decrementMsgSender(uint256 _amount) internal override {
-        require(msg.value == _amount, "Incorrect Ether value sent");
+        require(msg.value == _amount, IncorrectEtherValueSent(msg.value, _amount));
         // Wrapping function initiateTransfer is payable. Ether is escrowed in contract balance
     }
 
     function _fund(uint256 _amount, address _toFund) internal override {
-        require(address(this).balance >= _amount, "Insufficient contract balance");
+        require(address(this).balance >= _amount, InsufficientContractBalance(address(this).balance, _amount));
         (bool success, ) = _toFund.call{value: _amount}("");
-        require(success, "Transfer to _toFund failed");
+        require(success, TransferFailed(_toFund, _amount));
     }
 }
 

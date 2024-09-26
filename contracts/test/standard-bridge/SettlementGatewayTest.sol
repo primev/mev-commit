@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {SettlementGateway} from "../../contracts/standard-bridge/SettlementGateway.sol";
 import {Allocator} from "../../contracts/standard-bridge/Allocator.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {IGateway} from "../../contracts/interfaces/IGateway.sol";
+import {IAllocator} from "../../contracts/interfaces/IAllocator.sol";
 
 contract SettlementGatewayTest is Test {
 
@@ -96,7 +98,8 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount too small");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.AmountTooSmall.selector, 0.04 ether, 0.1 ether));
+
         vm.prank(bridgeUser);
         settlementGateway.initiateTransfer{value: 0.04 ether}(bridgeUser, 0.04 ether);
 
@@ -129,7 +132,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Incorrect Ether value sent");
+        vm.expectRevert(abi.encodeWithSelector(SettlementGateway.IncorrectEtherValueSent.selector, 0.8 ether, 0.9 ether));
         vm.prank(bridgeUser);
         settlementGateway.initiateTransfer{value: 0.8 ether}(bridgeUser, 0.9 ether);
 
@@ -191,7 +194,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("sender is not relayer");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.SenderNotRelayer.selector, bridgeUser, relayer));
         vm.prank(bridgeUser);
         settlementGateway.finalizeTransfer(address(0x101), amount, 1);
 
@@ -212,7 +215,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount too small");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.AmountTooSmall.selector, 0.04 ether, 0.05 ether));
         vm.prank(relayer);
         settlementGateway.finalizeTransfer(bridgeUser, 0.04 ether, 1);
 
@@ -234,7 +237,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Invalid counterparty index");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.InvalidCounterpartyIndex.selector, 7, 1));
         vm.prank(relayer);
         settlementGateway.finalizeTransfer(bridgeUser, amount, 7);
 
@@ -256,7 +259,7 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Insufficient contract balance");
+        vm.expectRevert(abi.encodeWithSelector(IAllocator.InsufficientContractBalance.selector, 0.04 ether, 0.1 ether - finalizationFee));
         vm.prank(relayer);
         settlementGateway.finalizeTransfer(bridgeUser, amount, 1);
 

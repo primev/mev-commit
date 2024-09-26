@@ -41,10 +41,10 @@ contract Allocator is AllocatorStorage, IAllocator,
 
     // "Mints" native tokens (transfer ether from this contract) if the sender is whitelisted.
     function mint(address _mintTo, uint256 _amount) external whenNotPaused nonReentrant {
-        require(isWhitelisted(msg.sender), "Sender is not whitelisted");
-        require(address(this).balance >= _amount, "Insufficient contract balance");
+        require(isWhitelisted(msg.sender), SenderNotWhitelisted(msg.sender));
+        require(address(this).balance >= _amount, InsufficientContractBalance(address(this).balance, _amount));
         (bool success, ) = _mintTo.call{value: _amount}("");
-        require(success, "Transfer to _mintTo failed");
+        require(success, TransferFailed(_mintTo, _amount));
     }
 
     /// @dev Allows the owner to pause the contract.

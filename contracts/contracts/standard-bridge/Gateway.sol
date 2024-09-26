@@ -12,13 +12,13 @@ abstract contract Gateway is IGateway, GatewayStorage,
     Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {   
 
     modifier onlyRelayer() {
-        require(msg.sender == relayer, "sender is not relayer");
+        require(msg.sender == relayer, SenderNotRelayer(msg.sender, relayer));
         _;
     }
 
     function initiateTransfer(address _recipient, uint256 _amount) 
         external payable whenNotPaused nonReentrant returns (uint256 returnIdx) {
-        require(_amount >= counterpartyFee, "Amount too small");
+        require(_amount >= counterpartyFee, AmountTooSmall(_amount, counterpartyFee));
         _decrementMsgSender(_amount);
         ++transferInitiatedIdx;
         emit TransferInitiated(msg.sender, _recipient, _amount, transferInitiatedIdx);
@@ -27,8 +27,8 @@ abstract contract Gateway is IGateway, GatewayStorage,
 
     function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx) 
         external onlyRelayer whenNotPaused nonReentrant {
-        require(_amount >= finalizationFee, "Amount too small");
-        require(_counterpartyIdx == transferFinalizedIdx, "Invalid counterparty index");
+        require(_amount >= finalizationFee, AmountTooSmall(_amount, finalizationFee));
+        require(_counterpartyIdx == transferFinalizedIdx, InvalidCounterpartyIndex(_counterpartyIdx, transferFinalizedIdx));
         uint256 amountAfterFee = _amount - finalizationFee;
         _fund(amountAfterFee, _recipient);
         _fund(finalizationFee, relayer);

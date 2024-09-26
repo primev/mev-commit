@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {L1Gateway} from "../../contracts/standard-bridge/L1Gateway.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {IGateway} from "../../contracts/interfaces/IGateway.sol";
 
 contract L1GatewayTest is Test {
     L1Gateway l1Gateway;
@@ -74,7 +75,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount too small");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.AmountTooSmall.selector, 0.04 ether, 0.05 ether));
         vm.prank(bridgeUser);
         l1Gateway.initiateTransfer{value: 0.04 ether}(bridgeUser, 0.04 ether);
 
@@ -107,7 +108,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Incorrect Ether value sent");
+        vm.expectRevert(abi.encodeWithSelector(L1Gateway.IncorrectEtherValueSent.selector, 0.8 ether, 0.9 ether));
         vm.prank(bridgeUser);
         l1Gateway.initiateTransfer{value: 0.8 ether}(bridgeUser, 0.9 ether);
 
@@ -158,7 +159,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("sender is not relayer");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.SenderNotRelayer.selector, bridgeUser, relayer));
         vm.prank(bridgeUser);
         l1Gateway.finalizeTransfer(address(0x101), amount, 1);
 
@@ -176,7 +177,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Amount too small");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.AmountTooSmall.selector, 0.09 ether, 0.1 ether));
         vm.prank(relayer);
         l1Gateway.finalizeTransfer(address(0x101), amount, 1);
 
@@ -195,7 +196,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
 
-        vm.expectRevert("Invalid counterparty index");
+        vm.expectRevert(abi.encodeWithSelector(IGateway.InvalidCounterpartyIndex.selector, 2, 1));
         vm.prank(relayer);
         l1Gateway.finalizeTransfer(address(0x101), amount, 2);
 
@@ -214,7 +215,7 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.transferInitiatedIdx(), 0);
         assertEq(l1Gateway.transferFinalizedIdx(), 1);
         
-        vm.expectRevert("Insufficient contract balance");
+        vm.expectRevert(abi.encodeWithSelector(L1Gateway.InsufficientContractBalance.selector, 0.09 ether, 4 ether - finalizationFee));
         vm.prank(relayer);
         l1Gateway.finalizeTransfer(bridgeUser, amount, counterpartyIdx);
 
