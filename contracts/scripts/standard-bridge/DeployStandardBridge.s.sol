@@ -8,7 +8,7 @@ pragma solidity 0.8.26;
 import {Script} from "forge-std/Script.sol";
 import {SettlementGateway} from "../../contracts/standard-bridge/SettlementGateway.sol";
 import {L1Gateway} from "../../contracts/standard-bridge/L1Gateway.sol";
-import {Whitelist} from "../../contracts/standard-bridge/Whitelist.sol";
+import {Allocator} from "../../contracts/standard-bridge/Allocator.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {console} from "forge-std/console.sol";
@@ -31,24 +31,24 @@ contract DeploySettlementGateway is Script {
             relayerAddr,
             1, 1)) // Fees set to 1 wei for now
         );
-        SettlementGateway gateway = SettlementGateway(sgProxy);
+        SettlementGateway gateway = SettlementGateway(payable(sgProxy));
         console.log("Standard bridge gateway for settlement chain deployed to:",
             address(gateway));
-        address whitelistProxy = Upgrades.deployUUPSProxy(
-            "Whitelist.sol",
-            abi.encodeCall(Whitelist.initialize, (msg.sender))
+        address allocatorProxy = Upgrades.deployUUPSProxy(
+            "Allocator.sol",
+            abi.encodeCall(Allocator.initialize, (msg.sender))
         );
-        Whitelist whitelist = Whitelist(payable(whitelistProxy));
-        console.log("Whitelist deployed to:", address(whitelist));
+        Allocator allocator = Allocator(payable(allocatorProxy));
+        console.log("Allocator deployed to:", address(allocator));
 
-        whitelist.addToWhitelist(address(gateway));
+        allocator.addToWhitelist(address(gateway));
         console.log("Settlement gateway has been whitelisted. Gateway contract address:", address(gateway));
 
         string memory jsonOutput = string.concat(
             "{'settlement_gateway_addr': '",
             Strings.toHexString(address(gateway)),
             "', 'whitelist_addr': '",
-            Strings.toHexString(address(whitelist)),
+            Strings.toHexString(address(allocator)),
             "'}"
         );
         console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput); 

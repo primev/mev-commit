@@ -5,6 +5,14 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "fallback",
+    "stateMutability": "payable"
+  },
+  {
+    "type": "receive",
+    "stateMutability": "payable"
+  },
+  {
     "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
@@ -23,6 +31,19 @@
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "allocatorAddr",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -78,7 +99,7 @@
     "name": "initialize",
     "inputs": [
       {
-        "name": "_whitelistAddr",
+        "name": "_allocatorAddr",
         "type": "address",
         "internalType": "address"
       },
@@ -274,19 +295,6 @@
     "stateMutability": "payable"
   },
   {
-    "type": "function",
-    "name": "whitelistAddr",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
     "type": "event",
     "name": "Initialized",
     "inputs": [
@@ -445,6 +453,22 @@
   },
   {
     "type": "error",
+    "name": "AmountTooSmall",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "counterpartyFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -476,7 +500,49 @@
   },
   {
     "type": "error",
+    "name": "IncorrectEtherValueSent",
+    "inputs": [
+      {
+        "name": "msgValue",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amountExpected",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCounterpartyIndex",
+    "inputs": [
+      {
+        "name": "counterpartyIdx",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "transferFinalizedIdx",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidReceive",
     "inputs": []
   },
   {
@@ -503,6 +569,43 @@
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SenderNotRelayer",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "relayer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "TransferFailed",
+    "inputs": [
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
