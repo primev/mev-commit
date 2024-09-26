@@ -316,6 +316,19 @@ contract MevCommitAVSTest is Test {
         assertFalse(regInfo0.deregRequestOccurrence.exists);
         assertFalse(regInfo1.deregRequestOccurrence.exists);
 
+        address[] memory invalidPodOwners = new address[](1);
+        invalidPodOwners[0] = address(0x1423432432423432);
+        vm.prank(invalidPodOwners[0]);
+        delegationManagerMock.delegateTo(operator, sig, bytes32("salt"));
+        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.NoPodExists.selector, invalidPodOwners[0]));
+        vm.prank(invalidPodOwners[0]);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, invalidPodOwners);
+
+        eigenPodManagerMock.setMockPod(invalidPodOwners[0], new EigenPodMock());
+        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorNotActiveWithEigenCore.selector, sampleValPubkey1));
+        vm.prank(invalidPodOwners[0]);
+        mevCommitAVS.registerValidatorsByPodOwners(arrayValPubkeys, invalidPodOwners);
+
         vm.expectEmit(true, true, true, true);
         emit ValidatorRegistered(sampleValPubkey1, podOwner);
         vm.expectEmit(true, true, true, true);

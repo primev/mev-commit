@@ -425,6 +425,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         address operator = _delegationManager.delegatedTo(podOwner);
         require(operatorRegistrations[operator].exists, IMevCommitAVS.OperatorNotRegistered(operator));
         require(!operatorRegistrations[operator].deregRequestOccurrence.exists, IMevCommitAVS.OperatorDeregAlreadyRequested());
+        require(_eigenPodManager.hasPod(podOwner), IMevCommitAVS.NoPodExists(podOwner));
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
