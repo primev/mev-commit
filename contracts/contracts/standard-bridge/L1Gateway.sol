@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {Gateway} from "./Gateway.sol";
+import {Errors} from "../utils/Errors.sol";
 
 /// @title L1Gateway
 /// @notice Gateway contract deployed on L1 enabling the mev-commit standard bridge.
@@ -34,7 +35,15 @@ contract L1Gateway is Gateway {
         _disableInitializers();
     }
 
-    receive() external payable {}
+    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function is disabled for this contract to prevent unintended interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
 
     function _decrementMsgSender(uint256 _amount) internal override {
         require(msg.value == _amount, IncorrectEtherValueSent(msg.value, _amount));

@@ -31,7 +31,7 @@ contract DeploySettlementGateway is Script {
             relayerAddr,
             1, 1)) // Fees set to 1 wei for now
         );
-        SettlementGateway gateway = SettlementGateway(sgProxy);
+        SettlementGateway gateway = SettlementGateway(payable(sgProxy));
         console.log("Standard bridge gateway for settlement chain deployed to:",
             address(gateway));
         address allocatorProxy = Upgrades.deployUUPSProxy(

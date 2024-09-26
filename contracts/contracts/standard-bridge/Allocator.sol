@@ -7,12 +7,13 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/Pau
 import {IAllocator} from "../interfaces/IAllocator.sol";
 import {AllocatorStorage} from "./AllocatorStorage.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {Errors} from "../utils/Errors.sol";
 
 /// @title Allocator
 /// @notice Contract that allows an admin to add/remove addresses from a whitelist,
 /// which can "mint" native ETH on the mev-commit chain, enabling native ETH bridging.
 /// @dev This contract must be funded (ideally on genesis) prior to being an effective minting entity.
-/// @dev Contracts which "mint" should implement "burning" tokens as transferring them to this contract.
+/// @dev Contracts which "mint" should implement "burning" eth as transferring it to this contract with no data.
 contract Allocator is AllocatorStorage, IAllocator,
     Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
 
@@ -28,8 +29,13 @@ contract Allocator is AllocatorStorage, IAllocator,
         _disableInitializers();
     }
 
-    // Receiver for native tokens to be "burnt"
+    /// @dev Receiver for native eth to be "burnt"
     receive() external payable {}
+
+    /// @dev Fallback function is disabled for this contract to prevent unintended interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
 
     function addToWhitelist(address _address) external onlyOwner {
         whitelistedAddresses[_address] = true;
@@ -39,7 +45,7 @@ contract Allocator is AllocatorStorage, IAllocator,
         whitelistedAddresses[_address] = false;
     }
 
-    // "Mints" native tokens (transfer ether from this contract) if the sender is whitelisted.
+    // "Mints" native eth (transfer ether from this contract) if the sender is whitelisted.
     function mint(address _mintTo, uint256 _amount) external whenNotPaused nonReentrant {
         require(isWhitelisted(msg.sender), SenderNotWhitelisted(msg.sender));
         require(address(this).balance >= _amount, InsufficientContractBalance(address(this).balance, _amount));
