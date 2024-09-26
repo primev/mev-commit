@@ -3,6 +3,9 @@ pragma solidity 0.8.26;
 
 import {Gateway} from "./Gateway.sol";
 
+/// @title L1Gateway
+/// @notice Gateway contract deployed on L1 enabling the mev-commit standard bridge.
+/// @dev This contract will escrow locked ETH, while a corresponding amount is minted from the SettlementGateway on the mev-commit chain.
 contract L1Gateway is Gateway {
 
     function initialize(
@@ -18,6 +21,7 @@ contract L1Gateway is Gateway {
         transferFinalizedIdx = 1; // First expected transfer index is 1
         __Ownable_init(_owner);
         __Pausable_init();
+        __ReentrancyGuard_init();
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
