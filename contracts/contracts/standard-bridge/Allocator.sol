@@ -12,7 +12,7 @@ import {Errors} from "../utils/Errors.sol";
 /// @title Allocator
 /// @notice Contract that allows an admin to add/remove addresses from a whitelist,
 /// which can "mint" native ETH on the mev-commit chain, enabling native ETH bridging.
-/// @dev This contract must be funded (ideally on genesis) prior to being an effective minting entity.
+/// @dev This contract must be funded prior to being an effective minting entity.
 /// @dev Contracts which "mint" should implement "burning" eth as transferring it to this contract with no data.
 contract Allocator is AllocatorStorage, IAllocator,
     Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
