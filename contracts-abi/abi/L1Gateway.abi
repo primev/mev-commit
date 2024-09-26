@@ -5,6 +5,10 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "fallback",
+    "stateMutability": "payable"
+  },
+  {
     "type": "receive",
     "stateMutability": "payable"
   },
@@ -526,7 +530,17 @@
   },
   {
     "type": "error",
+    "name": "InvalidFallback",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidInitialization",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidReceive",
     "inputs": []
   },
   {
