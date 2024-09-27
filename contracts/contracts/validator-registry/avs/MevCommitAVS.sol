@@ -511,9 +511,14 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to freeze a validator.
     function _freeze(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].freezeOccurrence.exists, ValidatorAlreadyFrozen());
-        BlockHeightOccurrence.captureOccurrence(validatorRegistrations[valPubKey].freezeOccurrence);
-        emit ValidatorFrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
+        IMevCommitAVS.ValidatorRegistrationInfo storage valRegistration = validatorRegistrations[valPubKey];
+        require(!valRegistration.freezeOccurrence.exists, ValidatorAlreadyFrozen());
+        BlockHeightOccurrence.captureOccurrence(valRegistration.freezeOccurrence);
+        // Similar to slash behavior in other registries, we request validator deregistration if not already requested.
+        if (!valRegistration.deregRequestOccurrence.exists) {
+            BlockHeightOccurrence.captureOccurrence(valRegistration.deregRequestOccurrence);
+        }
+        emit ValidatorFrozen(valPubKey, valRegistration.podOwner);
     }
 
     /// @dev Internal function to unfreeze a validator.
