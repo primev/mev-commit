@@ -20,8 +20,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyExistentValidatorRecords(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(stakedValidators[blsPubKeys[i]].exists,
-                IVanillaRegistry.ValidatorRecordMustExist(blsPubKeys[i]));
+            require(stakedValidators[blsPubKeys[i]].exists, IVanillaRegistry.ValidatorRecordMustExist(blsPubKeys[i]));
         }
         _;
     }
@@ -30,8 +29,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyNonExistentValidatorRecords(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(!stakedValidators[blsPubKeys[i]].exists,
-                IVanillaRegistry.ValidatorRecordMustNotExist(blsPubKeys[i]));
+            require(!stakedValidators[blsPubKeys[i]].exists, IVanillaRegistry.ValidatorRecordMustNotExist(blsPubKeys[i]));
         }
         _;
     }
@@ -40,8 +38,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyNotUnstaking(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(!_isUnstaking(blsPubKeys[i]),
-                IVanillaRegistry.ValidatorCannotBeUnstaking(blsPubKeys[i]));
+            require(!_isUnstaking(blsPubKeys[i]), IVanillaRegistry.ValidatorCannotBeUnstaking(blsPubKeys[i]));
         }
         _;
     }
@@ -50,9 +47,9 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(stakedValidators[blsPubKeys[i]].withdrawalAddress == msg.sender,
-                IVanillaRegistry.SenderIsNotWithdrawalAddress(
-                    msg.sender, stakedValidators[blsPubKeys[i]].withdrawalAddress));
+            IVanillaRegistry.StakedValidator storage validator = stakedValidators[blsPubKeys[i]];
+            require(validator.withdrawalAddress == msg.sender,
+                IVanillaRegistry.SenderIsNotWithdrawalAddress(msg.sender, validator.withdrawalAddress));
         }
         _;
     }
@@ -61,16 +58,14 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyValidBLSPubKeys(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(blsPubKeys[i].length == 48, IVanillaRegistry.InvalidBLSPubKeyLength(
-                48, blsPubKeys[i].length));
+            require(blsPubKeys[i].length == 48, IVanillaRegistry.InvalidBLSPubKeyLength(48, blsPubKeys[i].length));
         }
         _;
     }
 
     /// @dev Modifier to confirm the sender is the oracle account.
     modifier onlySlashOracle() {
-        require(msg.sender == slashOracle, IVanillaRegistry.SenderIsNotSlashOracle(
-            msg.sender, slashOracle));
+        require(msg.sender == slashOracle, IVanillaRegistry.SenderIsNotSlashOracle(msg.sender, slashOracle));
         _;
     }
 
