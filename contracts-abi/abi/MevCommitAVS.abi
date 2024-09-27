@@ -1565,6 +1565,17 @@
   },
   {
     "type": "error",
+    "name": "NoPodExists",
+    "inputs": [
+      {
+        "name": "podOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },
