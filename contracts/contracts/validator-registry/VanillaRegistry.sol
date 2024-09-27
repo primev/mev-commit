@@ -20,8 +20,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyExistentValidatorRecords(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(stakedValidators[blsPubKeys[i]].exists,
-                IVanillaRegistry.ValidatorRecordMustExist(blsPubKeys[i]));
+            require(stakedValidators[blsPubKeys[i]].exists, IVanillaRegistry.ValidatorRecordMustExist(blsPubKeys[i]));
         }
         _;
     }
@@ -30,8 +29,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyNonExistentValidatorRecords(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(!stakedValidators[blsPubKeys[i]].exists,
-                IVanillaRegistry.ValidatorRecordMustNotExist(blsPubKeys[i]));
+            require(!stakedValidators[blsPubKeys[i]].exists, IVanillaRegistry.ValidatorRecordMustNotExist(blsPubKeys[i]));
         }
         _;
     }
@@ -40,8 +38,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyNotUnstaking(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(!_isUnstaking(blsPubKeys[i]),
-                IVanillaRegistry.ValidatorCannotBeUnstaking(blsPubKeys[i]));
+            require(!_isUnstaking(blsPubKeys[i]), IVanillaRegistry.ValidatorCannotBeUnstaking(blsPubKeys[i]));
         }
         _;
     }
@@ -50,9 +47,9 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(stakedValidators[blsPubKeys[i]].withdrawalAddress == msg.sender,
-                IVanillaRegistry.SenderIsNotWithdrawalAddress(
-                    msg.sender, stakedValidators[blsPubKeys[i]].withdrawalAddress));
+            IVanillaRegistry.StakedValidator storage validator = stakedValidators[blsPubKeys[i]];
+            require(validator.withdrawalAddress == msg.sender,
+                IVanillaRegistry.SenderIsNotWithdrawalAddress(msg.sender, validator.withdrawalAddress));
         }
         _;
     }
@@ -61,16 +58,14 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     modifier onlyValidBLSPubKeys(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(blsPubKeys[i].length == 48, IVanillaRegistry.InvalidBLSPubKeyLength(
-                48, blsPubKeys[i].length));
+            require(blsPubKeys[i].length == 48, IVanillaRegistry.InvalidBLSPubKeyLength(48, blsPubKeys[i].length));
         }
         _;
     }
 
     /// @dev Modifier to confirm the sender is the oracle account.
     modifier onlySlashOracle() {
-        require(msg.sender == slashOracle, IVanillaRegistry.SenderIsNotSlashOracle(
-            msg.sender, slashOracle));
+        require(msg.sender == slashOracle, IVanillaRegistry.SenderIsNotSlashOracle(msg.sender, slashOracle));
         _;
     }
 
@@ -317,9 +312,9 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @param pubKey The single BLS public key to unstake.
      */
     function _unstakeSingle(bytes calldata pubKey) internal {
-        BlockHeightOccurrence.captureOccurrence(stakedValidators[pubKey].unstakeOccurrence);
-        emit Unstaked(msg.sender, stakedValidators[pubKey].withdrawalAddress,
-            pubKey, stakedValidators[pubKey].balance);
+        IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+        BlockHeightOccurrence.captureOccurrence(validator.unstakeOccurrence);
+        emit Unstaked(msg.sender, validator.withdrawalAddress, pubKey, validator.balance);
     }
 
     /* 
@@ -331,10 +326,11 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
+            IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
             require(_isUnstaking(pubKey), IVanillaRegistry.MustUnstakeToWithdraw());
-            require(block.number > stakedValidators[pubKey].unstakeOccurrence.blockHeight + unstakePeriodBlocks,
+            require(block.number > validator.unstakeOccurrence.blockHeight + unstakePeriodBlocks,
                 IVanillaRegistry.WithdrawingTooSoon());
-            uint256 balance = stakedValidators[pubKey].balance;
+            uint256 balance = validator.balance;
             require(balance != 0, IVanillaRegistry.NothingToWithdraw());
             totalAmount += balance;
             delete stakedValidators[pubKey];
@@ -353,17 +349,18 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
-            require(stakedValidators[pubKey].balance >= minStake, IVanillaRegistry.NotEnoughBalanceToSlash());
+            IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+            require(validator.balance >= minStake, IVanillaRegistry.NotEnoughBalanceToSlash());
             if (!_isUnstaking(pubKey)) { 
                 _unstakeSingle(pubKey);
             }
-            stakedValidators[pubKey].balance -= minStake;
+            validator.balance -= minStake;
             slashingFundsTracker.accumulatedAmount += minStake;
             bool isLastEntry = i == len - 1;
             if (payoutIfDue && FeePayout.isPayoutDue(slashingFundsTracker) && isLastEntry) {
                 FeePayout.transferToRecipient(slashingFundsTracker);
             }
-            emit Slashed(msg.sender, slashingFundsTracker.recipient, stakedValidators[pubKey].withdrawalAddress, pubKey, minStake);
+            emit Slashed(msg.sender, slashingFundsTracker.recipient, validator.withdrawalAddress, pubKey, minStake);
         }
     }
 
