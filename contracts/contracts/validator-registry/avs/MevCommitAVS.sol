@@ -92,7 +92,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     modifier onlyPodOwnerOrOperatorOfValidators(bytes[] calldata valPubKeys) {
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            IMevCommitAVS.ValidatorRegistrationInfo memory regInfo = validatorRegistrations[valPubKeys[i]];
+            IMevCommitAVS.ValidatorRegistrationInfo storage regInfo = validatorRegistrations[valPubKeys[i]];
             require(msg.sender == regInfo.podOwner
                 || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
                 IMevCommitAVS.SenderNotPodOwnerOrOperatorOfValidator(valPubKeys[i]));
@@ -399,15 +399,17 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to request deregistration of an operator.
     function _requestOperatorDeregistration(address operator) internal {
-        require(!operatorRegistrations[operator].deregRequestOccurrence.exists, IMevCommitAVS.OperatorDeregAlreadyRequested());
-        BlockHeightOccurrence.captureOccurrence(operatorRegistrations[operator].deregRequestOccurrence);
+        IMevCommitAVS.OperatorRegistrationInfo storage reg = operatorRegistrations[operator];
+        require(!reg.deregRequestOccurrence.exists, IMevCommitAVS.OperatorDeregAlreadyRequested());
+        BlockHeightOccurrence.captureOccurrence(reg.deregRequestOccurrence);
         emit OperatorDeregistrationRequested(operator);
     }
 
     /// @dev Internal function to deregister an operator.
     function _deregisterOperator(address operator) internal {
-        require(operatorRegistrations[operator].deregRequestOccurrence.exists, IMevCommitAVS.DeregistrationNotRequested());
-        require(block.number > operatorRegistrations[operator].deregRequestOccurrence.blockHeight + operatorDeregPeriodBlocks, IMevCommitAVS.DeregistrationTooSoon());
+        IMevCommitAVS.OperatorRegistrationInfo storage reg = operatorRegistrations[operator];
+        require(reg.deregRequestOccurrence.exists, IMevCommitAVS.DeregistrationNotRequested());
+        require(block.number > reg.deregRequestOccurrence.blockHeight + operatorDeregPeriodBlocks, IMevCommitAVS.DeregistrationTooSoon());
         _eigenAVSDirectory.deregisterOperatorFromAVS(operator);
         delete operatorRegistrations[operator];
         emit OperatorDeregistered(operator);
@@ -423,8 +425,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         address podOwner
     ) internal onlyNonRegisteredValidators(valPubKeys) onlyPodOwnerOrOperator(podOwner)  {
         address operator = _delegationManager.delegatedTo(podOwner);
-        require(operatorRegistrations[operator].exists, IMevCommitAVS.OperatorNotRegistered(operator));
-        require(!operatorRegistrations[operator].deregRequestOccurrence.exists, IMevCommitAVS.OperatorDeregAlreadyRequested());
+        IMevCommitAVS.OperatorRegistrationInfo storage operatorReg = operatorRegistrations[operator];
+        require(operatorReg.exists, IMevCommitAVS.OperatorNotRegistered(operator));
+        require(!operatorReg.deregRequestOccurrence.exists, IMevCommitAVS.OperatorDeregAlreadyRequested());
         require(_eigenPodManager.hasPod(podOwner), IMevCommitAVS.NoPodExists(podOwner));
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         uint256 len = valPubKeys.length;
@@ -453,17 +456,19 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to request deregistration of a validator.
     function _requestValidatorDeregistration(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].deregRequestOccurrence.exists, IMevCommitAVS.ValidatorDeregAlreadyRequested());
-        BlockHeightOccurrence.captureOccurrence(validatorRegistrations[valPubKey].deregRequestOccurrence);
-        emit ValidatorDeregistrationRequested(valPubKey, validatorRegistrations[valPubKey].podOwner);
+        IMevCommitAVS.ValidatorRegistrationInfo storage valReg = validatorRegistrations[valPubKey];
+        require(!valReg.deregRequestOccurrence.exists, IMevCommitAVS.ValidatorDeregAlreadyRequested());
+        BlockHeightOccurrence.captureOccurrence(valReg.deregRequestOccurrence);
+        emit ValidatorDeregistrationRequested(valPubKey, valReg.podOwner);
     }
 
     /// @dev Internal function to deregister a validator.
     function _deregisterValidator(bytes calldata valPubKey) internal {
-        require(!validatorRegistrations[valPubKey].freezeOccurrence.exists, IMevCommitAVS.FrozenValidatorCannotDeregister());
-        require(validatorRegistrations[valPubKey].deregRequestOccurrence.exists, IMevCommitAVS.DeregistrationNotRequested());
-        require(block.number > validatorRegistrations[valPubKey].deregRequestOccurrence.blockHeight + validatorDeregPeriodBlocks, IMevCommitAVS.DeregistrationTooSoon());
-        address podOwner = validatorRegistrations[valPubKey].podOwner;
+        IMevCommitAVS.ValidatorRegistrationInfo storage valReg = validatorRegistrations[valPubKey];
+        require(!valReg.freezeOccurrence.exists, IMevCommitAVS.FrozenValidatorCannotDeregister());
+        require(valReg.deregRequestOccurrence.exists, IMevCommitAVS.DeregistrationNotRequested());
+        require(block.number > valReg.deregRequestOccurrence.blockHeight + validatorDeregPeriodBlocks, IMevCommitAVS.DeregistrationTooSoon());
+        address podOwner = valReg.podOwner;
         delete validatorRegistrations[valPubKey];
         emit ValidatorDeregistered(valPubKey, podOwner);
     }
@@ -523,9 +528,10 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Internal function to unfreeze a validator.
     function _unfreeze(bytes calldata valPubKey) internal {
-        require(block.number > validatorRegistrations[valPubKey].freezeOccurrence.blockHeight + unfreezePeriodBlocks, UnfreezeTooSoon());
-        BlockHeightOccurrence.del(validatorRegistrations[valPubKey].freezeOccurrence);
-        emit ValidatorUnfrozen(valPubKey, validatorRegistrations[valPubKey].podOwner);
+        IMevCommitAVS.ValidatorRegistrationInfo storage valReg = validatorRegistrations[valPubKey];
+        require(block.number > valReg.freezeOccurrence.blockHeight + unfreezePeriodBlocks, UnfreezeTooSoon());
+        BlockHeightOccurrence.del(valReg.freezeOccurrence);
+        emit ValidatorUnfrozen(valPubKey, valReg.podOwner);
     }
 
     /// @dev Internal function to set the AVS directory.
@@ -601,13 +607,13 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     }
 
     /// @dev Internal function to update the eigenlayer metadata URI.
-    function _updateMetadataURI(string memory metadataURI_) internal {
+    function _updateMetadataURI(string calldata metadataURI_) internal {
         _eigenAVSDirectory.updateAVSMetadataURI(metadataURI_);
     }
 
     /// @dev Internal function to check if a validator is opted-in.
     function _isValidatorOptedIn(bytes calldata valPubKey) internal view returns (bool) {
-        IMevCommitAVS.ValidatorRegistrationInfo memory valRegistration = validatorRegistrations[valPubKey];
+        IMevCommitAVS.ValidatorRegistrationInfo storage valRegistration = validatorRegistrations[valPubKey];
         bool isValRegistered = valRegistration.exists;
         if (!isValRegistered) {
             return false;
@@ -630,7 +636,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
             return false;
         }
         address delegatedOperator = _delegationManager.delegatedTo(valRegistration.podOwner);
-        IMevCommitAVS.OperatorRegistrationInfo memory operatorRegistration = operatorRegistrations[delegatedOperator];
+        IMevCommitAVS.OperatorRegistrationInfo storage operatorRegistration = operatorRegistrations[delegatedOperator];
         bool isOperatorRegistered = operatorRegistration.exists;
         if (!isOperatorRegistered) {
             return false;
