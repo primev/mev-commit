@@ -48,9 +48,9 @@ If any validator pubkey acts against this agreement as determined by the mev-com
 
 Each Operator entity must be registered by the `MevCommitMiddleware` contract owner, and may be deregistered by the contract owner as needed. On mainnet the contract owner will be a Primev multisig, this multisig may need to execute regular transactions which register Operator(s).
 
-Without an implicit, on-chain way to verify the association between L1 validator pubkeys and Operators through Symbiotic, Operators are **trusted by the owner** to register only pubkeys for which they have control over.
+Upon an Operator registering validator(s), the validator pubkeys are only verified by length, and not verified as a pubkey residing from an active validator on the beacon chain. Without an implicit, on-chain way to verify the association between L1 validator pubkeys and an Operator, Operators are **trusted by the owner** to register only **active beacon chain validator** pubkeys for which **they have access to the private key**.
 
-Any validator pubkey can only be mapped to a single Operator. So if an Operator registers a pubkey for which they do not own/manage (think “greifing”), the contract owner account reserves the right to *blacklist* Operators. The contract owner also reserves the right to *blacklist* Operators who register non-active or sybiled L1 validator pubkeys.
+Any validator pubkey can only be mapped to a single Operator. So if an Operator registers a pubkey for which they do not own/manage (think “greifing”), the contract owner account reserves the right to *blacklist* Operators. The contract owner also reserves the right to *blacklist* Operators who register non-active or sybiled L1 validator pubkeys. Discretion is left to the contract owner account to resolve social disputes off-chain.
 
 An on-chain dispute mechanism could eventually replace permissioned blacklisting, but is not worth targeting for v1.
 

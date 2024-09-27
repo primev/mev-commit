@@ -25,10 +25,10 @@ interface IVanillaRegistry {
     event Unstaked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
     /// @dev Event emitted when a validator's stake is withdrawn.
-    event StakeWithdrawn(address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
+    event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
     /// @dev Event emitted when total stake is withdrawn.
-    event TotalStakeWithdrawn(address indexed withdrawalAddress, uint256 totalAmount);
+    event TotalStakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, uint256 totalAmount);
 
     /// @dev Event emitted when a validator is slashed.
     event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
@@ -48,13 +48,19 @@ interface IVanillaRegistry {
     /// @dev Event emitted when the slashing payout period blocks parameter is set.
     event SlashingPayoutPeriodBlocksSet(address indexed msgSender, uint256 newSlashingPayoutPeriodBlocks);
 
+    /// @dev Event emitted when a withdrawal address is blacklisted.
+    event WithdrawalAddressBlacklisted(address indexed msgSender, address indexed withdrawalAddress);
+
+    /// @dev Event emitted when a withdrawal address is unblacklisted.
+    event WithdrawalAddressUnblacklisted(address indexed msgSender, address indexed withdrawalAddress);
+
     error ValidatorRecordMustExist(bytes valBLSPubKey);
     error ValidatorRecordMustNotExist(bytes valBLSPubKey);
     error ValidatorCannotBeUnstaking(bytes valBLSPubKey);
-    error SenderIsNotWithdrawalAddress(address sender, address withdrawalAddress);
     error InvalidBLSPubKeyLength(uint256 expected, uint256 actual);
     error SenderIsNotSlashOracle(address sender, address slashOracle);
     error WithdrawalAddressMustBeSet();
+    error WithdrawalAddressMismatch(address actual, address expected);
     error MustUnstakeToWithdraw();
     error NothingToWithdraw();
     error AtLeastOneRecipientRequired();
@@ -70,6 +76,9 @@ interface IVanillaRegistry {
     error SlashReceiverMustBeSet();
     error UnstakePeriodMustBePositive();
     error SlashingPayoutPeriodMustBePositive();
+    error AlreadyBlacklisted(address withdrawalAddress);
+    error OwnerCantBlacklistSelf(address owner);
+    error NotBlacklisted(address withdrawalAddress);
 
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
