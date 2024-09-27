@@ -684,7 +684,8 @@ contract MevCommitAVSTest is Test {
         assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.blockHeight, 461);
         assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestOccurrence.exists);
         assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).deregRequestOccurrence.blockHeight, 403);
-        assertFalse(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestOccurrence.exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestOccurrence.exists);
+        assertEq(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).deregRequestOccurrence.blockHeight, 461);
 
         vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorAlreadyFrozen.selector));
         vm.prank(freezeOracle);

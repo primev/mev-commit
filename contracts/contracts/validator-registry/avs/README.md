@@ -97,7 +97,7 @@ To exit the frozen state, a configurable unfreeze period must first pass. Then a
 function unfreeze(bytes[] calldata valPubKey) payable external;
 ```
 
-where a minimum of `unfreezeFee` must be included in the transaction. If the validator was in the `REQUESTED_DEREGISTRATION` state prior to being frozen, the validator will be returned to the `REGISTERED` state. That is, a validator must *not* be frozen for a full deregistration period, before it's able to deregister.
+where a minimum of `unfreezeFee` must be included in the transaction. Upon being unfrozen, the validator transitions to the `REQUESTED_DEREGISTRATION` state (ie. is no longer "opted-in"), and can eventually deregister from the AVS.
 
 The points/rewards for LST restakers will consider freeze related events. However, LST restakers are allowed to deregister from the AVS even if any of their chosen validator(s) are frozen.
 
