@@ -48,6 +48,8 @@ Any validator pubkey can only be mapped to a single withdrawal address. So if a 
 
 An on-chain dispute mechanism could eventually replace permissioned blacklisting.
 
-Blacklisting consists of the contract owner account marking particular withdrawal addresses as blacklisted. All validator pubkeys associated to blacklisted withdrawal address(es) are no longer considered *opted-in*. Further, the contract owner has the ability to unstake and withdraw validator pubkeys associated with blacklisted withdrawal address(es), thus allowing non-malicious withdrawal addresses to register previously greifed validator pubkeys.
+Blacklisting consists of the contract owner account marking particular withdrawal addresses as blacklisted. All validator pubkeys associated to blacklisted withdrawal address(es) are no longer considered *opted-in*. A blacklisted address can not call core functions such as `stake`, `addStake`, `unstake`, and `withdraw`.
+
+Further, the contract owner has the ability to unstake and withdraw validator pubkeys associated with blacklisted withdrawal address(es), thus allowing non-malicious withdrawal addresses to register previously greifed validator pubkeys.
 
 Note when the contract owner withdraws on behalf of a blacklisted validator, funds are still transferred to the blacklisted address.

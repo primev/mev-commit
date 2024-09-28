@@ -64,7 +64,7 @@ interface IVanillaRegistry {
     error MustUnstakeToWithdraw();
     error NothingToWithdraw();
     error AtLeastOneRecipientRequired();
-    error StakeTooLowForNumberOfKeys(uint256 msgValue, uint256 numberOfKeys);
+    error StakeTooLowForNumberOfKeys(uint256 msgValue, uint256 required);
     error WithdrawingTooSoon();
     error WithdrawalFailed();
     error NotEnoughBalanceToSlash();
@@ -76,6 +76,7 @@ interface IVanillaRegistry {
     error SlashReceiverMustBeSet();
     error UnstakePeriodMustBePositive();
     error SlashingPayoutPeriodMustBePositive();
+    error AddressIsBlacklisted(address withdrawalAddress);
     error AlreadyBlacklisted(address withdrawalAddress);
     error OwnerCantBlacklistSelf(address owner);
     error NotBlacklisted(address withdrawalAddress);

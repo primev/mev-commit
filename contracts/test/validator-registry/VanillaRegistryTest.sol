@@ -5,6 +5,7 @@ import {Test} from"forge-std/Test.sol";
 import {VanillaRegistry} from"../../contracts/validator-registry/VanillaRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 contract VanillaRegistryTest is Test {
     VanillaRegistry public validatorRegistry;
@@ -138,23 +139,39 @@ contract VanillaRegistryTest is Test {
         vm.deal(user1, 10 ether);
         assertEq(user1.balance, 10 ether);
 
+        vm.deal(user2, 10 ether);
+        assertEq(user2.balance, 10 ether);
+
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
 
-        vm.startPrank(user1);
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakeTooLowForNumberOfKeys.selector, MIN_STAKE/2, MIN_STAKE));
         validatorRegistry.stake{value: MIN_STAKE/2}(validators);
-        vm.stopPrank();
 
-        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE/2);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.prank(user1);
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakeTooLowForNumberOfKeys.selector, 0, 1));
+        validatorRegistry.addStake{value: 0}(validators);
+
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector, user1, user2));
+        validatorRegistry.addStake{value: MIN_STAKE/2}(validators);
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeAdded(user1, user1, user1BLSKey, MIN_STAKE/2, MIN_STAKE);
+        emit StakeAdded(user1, user1, user1BLSKey, MIN_STAKE/2, 3*MIN_STAKE/2);
         validatorRegistry.addStake{value: MIN_STAKE/2}(validators);
         vm.stopPrank();
 
-        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 3*MIN_STAKE/2);
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
@@ -888,5 +905,31 @@ contract VanillaRegistryTest is Test {
 
         assertEq(user1.balance, 0);
         assertEq(address(validatorRegistry).balance, 200 wei);
+    }
+
+    function testBlacklistWithdrawalAddresses() public { 
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
+        validatorRegistry.blacklistWithdrawalAddresses(new address[](0));
+
+        address[] memory withdrawalAddresses = new address[](1);
+        withdrawalAddresses[0] = address(0);
+        vm.expectRevert(IVanillaRegistry.WithdrawalAddressMustBeSet.selector);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        withdrawalAddresses[0] = owner;
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.OwnerCantBlacklistSelf.selector, owner));
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        withdrawalAddresses[0] = user2;
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user2);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.AlreadyBlacklisted.selector, user2));
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
     }
 }
