@@ -163,7 +163,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     }
 
     /// @dev Enables the owner to unstake validators corresponding to a blacklisted withdrawal address.
-    function unstakeFromBlacklist(bytes[] calldata blsPubKeys, address addr) external
+    function unstakeViaBlacklist(bytes[] calldata blsPubKeys, address addr) external
         onlyExistentValidatorRecords(blsPubKeys) onlyNotUnstaking(blsPubKeys) onlyOwner {
         require(blacklistedAddrs[addr], IVanillaRegistry.NotBlacklisted(addr));
         _unstake(blsPubKeys, addr);
@@ -171,7 +171,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
 
     /// @dev Enables the owner to withdraw ETH corresponding to a blacklisted withdrawal address.
     /// @dev The ETH is withdrawn to the withdrawal address specified.
-    function withdrawFromBlacklist(bytes[] calldata blsPubKeys, address addr) external
+    function withdrawViaBlacklist(bytes[] calldata blsPubKeys, address addr) external
         onlyExistentValidatorRecords(blsPubKeys) onlyOwner {
         require(blacklistedAddrs[addr], IVanillaRegistry.NotBlacklisted(addr));
         _withdraw(blsPubKeys, addr);
