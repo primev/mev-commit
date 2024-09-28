@@ -43,17 +43,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         _;
     }
 
-    /// @dev Modifier to confirm the sender is the withdrawal address for all provided BLS pubkeys.
-    modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
-        uint256 len = blsPubKeys.length;
-        for (uint256 i = 0; i < len; ++i) {
-            IVanillaRegistry.StakedValidator storage validator = stakedValidators[blsPubKeys[i]];
-            require(validator.withdrawalAddress == msg.sender,
-                IVanillaRegistry.SenderIsNotWithdrawalAddress(msg.sender, validator.withdrawalAddress));
-        }
-        _;
-    }
-
     /// @dev Modifier to confirm all provided BLS pubkeys are valid length.
     modifier onlyValidBLSPubKeys(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
@@ -107,7 +96,9 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      */
     function stake(bytes[] calldata blsPubKeys) external payable
         onlyNonExistentValidatorRecords(blsPubKeys) onlyValidBLSPubKeys(blsPubKeys) whenNotPaused() {
-        _stake(blsPubKeys, msg.sender);
+        address withdrawalAddress = msg.sender;
+        require(!blacklistedAddrs[withdrawalAddress], IVanillaRegistry.AddressIsBlacklisted(withdrawalAddress));
+        _stake(blsPubKeys, withdrawalAddress);
     }
 
     /* 
@@ -119,36 +110,38 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     function delegateStake(bytes[] calldata blsPubKeys, address withdrawalAddress) external payable
         onlyNonExistentValidatorRecords(blsPubKeys) onlyValidBLSPubKeys(blsPubKeys) onlyOwner {
         require(withdrawalAddress != address(0), IVanillaRegistry.WithdrawalAddressMustBeSet());
+        require(!blacklistedAddrs[withdrawalAddress], IVanillaRegistry.AddressIsBlacklisted(withdrawalAddress));
         _stake(blsPubKeys, withdrawalAddress);
     }
 
-    /* 
-     * @dev Adds ETH to the staked balance of one or multiple validators via their BLS pubkey.
-     * @dev A staking entry must already exist for each provided BLS pubkey.
-     * @param blsPubKeys The BLS public keys to add stake to.
-     */
+    /// @dev Adds ETH to the staked balance of one or multiple validators via their BLS pubkey.
+    /// @dev A staking entry must already exist for each provided BLS pubkey.
+    /// @param blsPubKeys The BLS public keys to add stake to.
     function addStake(bytes[] calldata blsPubKeys) external payable 
         onlyExistentValidatorRecords(blsPubKeys) onlyNotUnstaking(blsPubKeys) whenNotPaused() {
-        _addStake(blsPubKeys);
+        address expectedWithdrawalAddress = msg.sender;
+        require(!blacklistedAddrs[expectedWithdrawalAddress], IVanillaRegistry.AddressIsBlacklisted(expectedWithdrawalAddress));
+        _addStake(blsPubKeys, expectedWithdrawalAddress);
     }
 
-    /* 
-     * @dev Unstakes ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to unstake.
-     */
+    /// @dev Unstakes ETH on behalf of one or multiple validators via their BLS pubkey.
+    /// @dev msg.sender must be the withdrawal address for all provided pubkeys.
+    /// @param blsPubKeys The BLS public keys to unstake.
     function unstake(bytes[] calldata blsPubKeys) external 
-        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys)
-            onlyNotUnstaking(blsPubKeys) whenNotPaused() {
-        _unstake(blsPubKeys);
+        onlyExistentValidatorRecords(blsPubKeys) onlyNotUnstaking(blsPubKeys) whenNotPaused() {
+        address expectedWithdrawalAddress = msg.sender;
+        require(!blacklistedAddrs[expectedWithdrawalAddress], IVanillaRegistry.AddressIsBlacklisted(expectedWithdrawalAddress));
+        _unstake(blsPubKeys, expectedWithdrawalAddress);
     }
 
-    /* 
-     * @dev Withdraws ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to withdraw.
-     */
+    /// @dev Withdraws ETH on behalf of one or multiple validators via their BLS pubkey.
+    /// @dev msg.sender must be the withdrawal address for all provided pubkeys.
+    /// @param blsPubKeys The BLS public keys to withdraw.
     function withdraw(bytes[] calldata blsPubKeys) external
-        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys) whenNotPaused() {
-        _withdraw(blsPubKeys);
+        onlyExistentValidatorRecords(blsPubKeys) whenNotPaused() {
+        address expectedWithdrawalAddress = msg.sender;
+        require(!blacklistedAddrs[expectedWithdrawalAddress], IVanillaRegistry.AddressIsBlacklisted(expectedWithdrawalAddress));
+        _withdraw(blsPubKeys, expectedWithdrawalAddress);
     }
 
     /// @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
@@ -157,6 +150,31 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     function slash(bytes[] calldata blsPubKeys, bool payoutIfDue) external
         onlyExistentValidatorRecords(blsPubKeys) onlySlashOracle whenNotPaused() {
         _slash(blsPubKeys, payoutIfDue);
+    }
+
+    /// @dev Enables the owner to blacklist withdrawal addresses.
+    function blacklistWithdrawalAddresses(address[] calldata withdrawalAddresses) external onlyOwner {
+        _blacklistWithdrawalAddresses(withdrawalAddresses);
+    }
+
+    /// @dev Enables the owner to unblacklist withdrawal addresses.
+    function unblacklistWithdrawalAddresses(address[] calldata withdrawalAddresses) external onlyOwner {
+        _unblacklistWithdrawalAddresses(withdrawalAddresses);
+    }
+
+    /// @dev Enables the owner to unstake validators corresponding to a blacklisted withdrawal address.
+    function unstakeViaBlacklist(bytes[] calldata blsPubKeys, address addr) external
+        onlyExistentValidatorRecords(blsPubKeys) onlyNotUnstaking(blsPubKeys) onlyOwner {
+        require(blacklistedAddrs[addr], IVanillaRegistry.NotBlacklisted(addr));
+        _unstake(blsPubKeys, addr);
+    }
+
+    /// @dev Enables the owner to withdraw ETH corresponding to a blacklisted withdrawal address.
+    /// @dev The ETH is withdrawn to the withdrawal address specified.
+    function withdrawViaBlacklist(bytes[] calldata blsPubKeys, address addr) external
+        onlyExistentValidatorRecords(blsPubKeys) onlyOwner {
+        require(blacklistedAddrs[addr], IVanillaRegistry.NotBlacklisted(addr));
+        _withdraw(blsPubKeys, addr);
     }
 
     /// @dev Enables the owner to pause the contract.
@@ -250,8 +268,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     ) internal {
         require(blsPubKeys.length != 0, IVanillaRegistry.AtLeastOneRecipientRequired());
         uint256 baseStakeAmount = msg.value / blsPubKeys.length;
-        require(baseStakeAmount != 0, IVanillaRegistry.StakeTooLowForNumberOfKeys(
-            msg.value, blsPubKeys.length));
         uint256 lastStakeAmount = msg.value - (baseStakeAmount * (blsPubKeys.length - 1));
         uint256 numKeys = blsPubKeys.length;
         for (uint256 i = 0; i < numKeys; ++i) {
@@ -260,12 +276,13 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         }
     }
 
-    /*
-     * @dev Internal function to stake ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The validator BLS public keys to stake.
-     * @param withdrawalAddress The address to receive the staked ETH.
-     */
+    /// @dev Internal function to stake ETH on behalf of one or multiple validators via their BLS pubkey.
+    /// @param blsPubKeys The validator BLS public keys to stake.
+    /// @param withdrawalAddress The address to receive the staked ETH.
     function _stake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
+        // Upon creating a staked validator record, minStake must be staked per pubkey.
+        require(msg.value >= minStake * blsPubKeys.length,
+            IVanillaRegistry.StakeTooLowForNumberOfKeys(msg.value, minStake * blsPubKeys.length));
         _splitStakeAndApplyAction(blsPubKeys, withdrawalAddress, _stakeAction);
     }
 
@@ -280,53 +297,56 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         emit Staked(msg.sender, withdrawalAddress, pubKey, stakeAmount);
     }
 
-    /* 
-     * @dev Internal function to add ETH to the staked balance of one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to add stake to.
-     */
-    function _addStake(bytes[] calldata blsPubKeys) internal {
-        _splitStakeAndApplyAction(blsPubKeys, address(0), _addStakeAction);
+    /// @dev Internal function to add ETH to the staked balance of one or multiple validators via their BLS pubkey.
+    /// @param blsPubKeys The BLS public keys to add stake to.
+    /// @dev msg.sender must be the withdrawal address for all provided pubkeys.
+    function _addStake(bytes[] calldata blsPubKeys, address withdrawalAddress) internal {
+        // At least 1 wei must be staked for each pubkey.
+        require(msg.value >= blsPubKeys.length, IVanillaRegistry.StakeTooLowForNumberOfKeys(msg.value, blsPubKeys.length));
+        _splitStakeAndApplyAction(blsPubKeys, withdrawalAddress, _addStakeAction);
     }
 
     /// @dev Internal function that adds stake to an already existing validator record, emitting a StakeAdded event.
-    function _addStakeAction(bytes calldata pubKey, uint256 stakeAmount, address) internal {
+    function _addStakeAction(bytes calldata pubKey, uint256 stakeAmount, address withdrawalAddress) internal {
         IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+        require(validator.withdrawalAddress == withdrawalAddress, IVanillaRegistry.WithdrawalAddressMismatch(validator.withdrawalAddress, withdrawalAddress));
         validator.balance += stakeAmount;
-        emit StakeAdded(msg.sender, validator.withdrawalAddress, pubKey, stakeAmount, validator.balance);
+        emit StakeAdded(msg.sender, withdrawalAddress, pubKey, stakeAmount, validator.balance);
     }
 
-    /* 
-     * @dev Internal function to unstake ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to unstake.
-     */
-    function _unstake(bytes[] calldata blsPubKeys) internal {
+    /// @dev Internal function to unstake ETH on behalf of one or multiple validators via their BLS pubkey.
+    /// @param blsPubKeys The BLS public keys to unstake.
+    /// @param expectedWithdrawalAddress The expected withdrawal address for all provided pubkeys.
+    function _unstake(bytes[] calldata blsPubKeys, address expectedWithdrawalAddress) internal {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            _unstakeSingle(blsPubKeys[i]);
+            bytes calldata pubKey = blsPubKeys[i];
+            IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+            require(validator.withdrawalAddress == expectedWithdrawalAddress,
+                IVanillaRegistry.WithdrawalAddressMismatch(validator.withdrawalAddress, expectedWithdrawalAddress));
+            _unstakeSingle(validator, pubKey);
         }
     }
 
-    /* 
-     * @dev Internal function to unstake ETH on behalf of one validator via their BLS pubkey.
-     * This function is necessary for slashing. 
-     * @param pubKey The single BLS public key to unstake.
-     */
-    function _unstakeSingle(bytes calldata pubKey) internal {
-        IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+    /// @dev Internal function to unstake ETH on behalf of one validator via their BLS pubkey.
+    /// @param validator The staked validator struct to unstake.
+    /// @param pubKey Corresponding BLS public key for the validator.
+    function _unstakeSingle(IVanillaRegistry.StakedValidator storage validator, bytes calldata pubKey) internal {
         BlockHeightOccurrence.captureOccurrence(validator.unstakeOccurrence);
         emit Unstaked(msg.sender, validator.withdrawalAddress, pubKey, validator.balance);
     }
-
-    /* 
-     * @dev Internal function to withdraw ETH on behalf of one or multiple validators via their BLS pubkey.
-     * @param blsPubKeys The BLS public keys to withdraw.
-     */
-    function _withdraw(bytes[] calldata blsPubKeys) internal {
+     
+    /// @dev Internal function to withdraw ETH on behalf of one or multiple validators via their BLS pubkey.
+    /// @param blsPubKeys The BLS public keys to withdraw.
+    /// @param expectedWithdrawalAddress The expected withdrawal address for all provided pubkeys.
+    function _withdraw(bytes[] calldata blsPubKeys, address expectedWithdrawalAddress) internal {
         uint256 len = blsPubKeys.length;
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+            require(validator.withdrawalAddress == expectedWithdrawalAddress,
+                IVanillaRegistry.WithdrawalAddressMismatch(validator.withdrawalAddress, expectedWithdrawalAddress));
             require(_isUnstaking(pubKey), IVanillaRegistry.MustUnstakeToWithdraw());
             require(block.number > validator.unstakeOccurrence.blockHeight + unstakePeriodBlocks,
                 IVanillaRegistry.WithdrawingTooSoon());
@@ -334,12 +354,11 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             require(balance != 0, IVanillaRegistry.NothingToWithdraw());
             totalAmount += balance;
             delete stakedValidators[pubKey];
-            // msg.sender must be withdrawal address from wrapping onlyWithdrawalAddress modifier
-            emit StakeWithdrawn(msg.sender, pubKey, balance);
+            emit StakeWithdrawn(msg.sender, expectedWithdrawalAddress, pubKey, balance);
         }
-        (bool success, ) = msg.sender.call{value: totalAmount}("");
+        (bool success, ) = expectedWithdrawalAddress.call{value: totalAmount}("");
         require(success, IVanillaRegistry.WithdrawalFailed());
-        emit TotalStakeWithdrawn(msg.sender, totalAmount);
+        emit TotalStakeWithdrawn(msg.sender, expectedWithdrawalAddress, totalAmount);
     }
 
     /// @dev Internal function to slash minStake worth of ETH on behalf of one or multiple validators via their BLS pubkey.
@@ -352,7 +371,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
             require(validator.balance >= minStake, IVanillaRegistry.NotEnoughBalanceToSlash());
             if (!_isUnstaking(pubKey)) { 
-                _unstakeSingle(pubKey);
+                _unstakeSingle(validator, pubKey);
             }
             validator.balance -= minStake;
             slashingFundsTracker.accumulatedAmount += minStake;
@@ -361,6 +380,30 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
                 FeePayout.transferToRecipient(slashingFundsTracker);
             }
             emit Slashed(msg.sender, slashingFundsTracker.recipient, validator.withdrawalAddress, pubKey, minStake);
+        }
+    }
+
+    /// @dev Internal function to blacklist withdrawal addresses.
+    function _blacklistWithdrawalAddresses(address[] calldata withdrawalAddresses) internal {
+        uint256 len = withdrawalAddresses.length;
+        for (uint256 i = 0; i < len; ++i) {
+            address addr = withdrawalAddresses[i];
+            require(addr != address(0), IVanillaRegistry.WithdrawalAddressMustBeSet());
+            require(!blacklistedAddrs[addr], IVanillaRegistry.AlreadyBlacklisted(addr));
+            require(addr != owner(), IVanillaRegistry.OwnerCantBlacklistSelf(owner()));
+            blacklistedAddrs[addr] = true;
+            emit WithdrawalAddressBlacklisted(msg.sender, addr);
+        }
+    }
+
+    /// @dev Internal function to unblacklist withdrawal addresses.
+    function _unblacklistWithdrawalAddresses(address[] calldata withdrawalAddresses) internal {
+        uint256 len = withdrawalAddresses.length;
+        for (uint256 i = 0; i < len; ++i) {
+            address addr = withdrawalAddresses[i];
+            require(blacklistedAddrs[addr], IVanillaRegistry.NotBlacklisted(addr));
+            blacklistedAddrs[addr] = false;
+            emit WithdrawalAddressUnblacklisted(msg.sender, addr);
         }
     }
 
@@ -401,7 +444,17 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
 
     /// @dev Internal function to check if a validator is considered "opted-in" to mev-commit via this registry.
     function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
-        return !_isUnstaking(valBLSPubKey) && stakedValidators[valBLSPubKey].balance >= minStake;
+        bool isValUnstaking = _isUnstaking(valBLSPubKey);
+        if (isValUnstaking) {
+            return false;
+        }
+        IVanillaRegistry.StakedValidator storage validator = stakedValidators[valBLSPubKey];
+        bool isWithdrawalAddrBlacklisted = blacklistedAddrs[validator.withdrawalAddress];
+        if (isWithdrawalAddrBlacklisted) {
+            return false;
+        }
+        bool isValSufficentlyStaked = validator.balance >= minStake;
+        return isValSufficentlyStaked;
     }
 
     /// @dev Internal function to check if a validator is currently unstaking.

@@ -5,6 +5,7 @@ import {Test} from"forge-std/Test.sol";
 import {VanillaRegistry} from"../../contracts/validator-registry/VanillaRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 contract VanillaRegistryTest is Test {
     VanillaRegistry public validatorRegistry;
@@ -25,8 +26,8 @@ contract VanillaRegistryTest is Test {
     event Staked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
     event StakeAdded(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount, uint256 newBalance);
     event Unstaked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
-    event StakeWithdrawn(address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
-    event TotalStakeWithdrawn(address indexed withdrawalAddress, uint256 totalAmount);
+    event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
+    event TotalStakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, uint256 totalAmount);
     event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
     event MinStakeSet(address indexed owner, uint256 minStake);
@@ -35,6 +36,9 @@ contract VanillaRegistryTest is Test {
     event UnstakePeriodBlocksSet(address indexed owner, uint256 unstakePeriodBlocks);
 
     event FeeTransfer(uint256 amount, address indexed recipient);
+
+    event WithdrawalAddressBlacklisted(address indexed msgSender, address indexed withdrawalAddress);
+    event WithdrawalAddressUnblacklisted(address indexed msgSender, address indexed withdrawalAddress);
 
     function setUp() public {
         owner = address(this);
@@ -135,23 +139,39 @@ contract VanillaRegistryTest is Test {
         vm.deal(user1, 10 ether);
         assertEq(user1.balance, 10 ether);
 
+        vm.deal(user2, 10 ether);
+        assertEq(user2.balance, 10 ether);
+
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
 
-        vm.startPrank(user1);
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakeTooLowForNumberOfKeys.selector, MIN_STAKE/2, MIN_STAKE));
         validatorRegistry.stake{value: MIN_STAKE/2}(validators);
-        vm.stopPrank();
 
-        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE/2);
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.prank(user1);
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.StakeTooLowForNumberOfKeys.selector, 0, 1));
+        validatorRegistry.addStake{value: 0}(validators);
+
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector, user1, user2));
+        validatorRegistry.addStake{value: MIN_STAKE/2}(validators);
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeAdded(user1, user1, user1BLSKey, MIN_STAKE/2, MIN_STAKE);
+        emit StakeAdded(user1, user1, user1BLSKey, MIN_STAKE/2, 3*MIN_STAKE/2);
         validatorRegistry.addStake{value: MIN_STAKE/2}(validators);
         vm.stopPrank();
 
-        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), MIN_STAKE);
+        assertEq(validatorRegistry.getStakedAmount(user1BLSKey), 3*MIN_STAKE/2);
         assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
@@ -172,9 +192,83 @@ contract VanillaRegistryTest is Test {
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
         vm.startPrank(user2);
-        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.SenderIsNotWithdrawalAddress.selector, user2, user1));
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector,
+        user1, // actual from validator record
+        user2)); // expected from msg.sender
         validatorRegistry.unstake(validators);
         vm.stopPrank();
+    }
+
+    function testUnathorizedMultiUnstake() public {
+        testSelfStake();
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user2BLSKey;
+        vm.deal(user2, MIN_STAKE);
+        vm.prank(user2);
+        validatorRegistry.stake{value: MIN_STAKE}(validators);
+
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+        assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user2);
+
+        bytes[] memory bothValidators = new bytes[](2);
+        bothValidators[0] = user1BLSKey;
+        bothValidators[1] = user2BLSKey;
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector,
+        user2, // actual from (second) validator record
+        user1)); // expected from msg.sender
+        validatorRegistry.unstake(bothValidators);
+    }
+
+    function testUnauthorizedWithdraw() public {
+        testSelfStake();
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.prank(user1);
+        validatorRegistry.unstake(validators);
+
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector, 
+        user1, // actual from validator record
+        user2)); // expected from msg.sender
+        validatorRegistry.withdraw(validators);
+    }
+
+    function testUnathorizedMultiWithdraw() public {
+        testUnathorizedMultiUnstake(); // Use setup where two validators are staked from different withdrawal addresses
+
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+        assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+        assertEq(validatorRegistry.getStakedValidator(user1BLSKey).withdrawalAddress, user1);
+        assertEq(validatorRegistry.getStakedValidator(user2BLSKey).withdrawalAddress, user2);
+
+
+        bytes[] memory val1 = new bytes[](1);
+        val1[0] = user1BLSKey;
+        vm.prank(user1);
+        validatorRegistry.unstake(val1);
+
+        bytes[] memory val2 = new bytes[](1);
+        val2[0] = user2BLSKey;
+        vm.prank(user2);
+        validatorRegistry.unstake(val2);
+
+        assertTrue(validatorRegistry.isUnstaking(user1BLSKey));
+        assertTrue(validatorRegistry.isUnstaking(user2BLSKey));
+
+        vm.roll(2000);
+
+        bytes[] memory bothValidators = new bytes[](2);
+        bothValidators[0] = user1BLSKey;
+        bothValidators[1] = user2BLSKey;
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector,
+        user2, // actual from validator record
+        user1)); // expected from msg.sender
+        validatorRegistry.withdraw(bothValidators);
     }
 
     function testWithdrawBeforeUnstake() public {
@@ -207,11 +301,11 @@ contract VanillaRegistryTest is Test {
         assertEq(address(user1).balance, 1 ether);
 
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, 3 ether);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, 3 ether);
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user2BLSKey, 3 ether);
+        emit StakeWithdrawn(user1, user1, user2BLSKey, 3 ether);
         vm.expectEmit(true, true, true, true);
-        emit TotalStakeWithdrawn(user1, 6 ether);
+        emit TotalStakeWithdrawn(user1, user1, 6 ether);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
 
@@ -281,7 +375,7 @@ contract VanillaRegistryTest is Test {
         assertEq(address(user1).balance, 8 ether);
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
         assertEq(address(user1).balance, 9 ether);
@@ -318,7 +412,7 @@ contract VanillaRegistryTest is Test {
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
 
@@ -441,6 +535,7 @@ contract VanillaRegistryTest is Test {
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
     }
 
+    // solhint-disable-next-line ordering
     function testBatchedSlashing() public {
         testMultiStake();
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).balance, 3 ether);
@@ -586,7 +681,7 @@ contract VanillaRegistryTest is Test {
 
         vm.startPrank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
     }
@@ -639,7 +734,7 @@ contract VanillaRegistryTest is Test {
 
         vm.prank(user1);
         vm.expectEmit(true, true, true, true);
-        emit StakeWithdrawn(user1, user1BLSKey, MIN_STAKE);
+        emit StakeWithdrawn(user1, user1, user1BLSKey, MIN_STAKE);
         validatorRegistry.withdraw(validators);
         vm.stopPrank();
     }
@@ -811,5 +906,253 @@ contract VanillaRegistryTest is Test {
 
         assertEq(user1.balance, 0);
         assertEq(address(validatorRegistry).balance, 200 wei);
+    }
+
+    function testBlacklistWithdrawalAddresses() public { 
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
+        validatorRegistry.blacklistWithdrawalAddresses(new address[](0));
+
+        address[] memory withdrawalAddresses = new address[](1);
+        withdrawalAddresses[0] = address(0);
+        vm.expectRevert(IVanillaRegistry.WithdrawalAddressMustBeSet.selector);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        withdrawalAddresses[0] = owner;
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.OwnerCantBlacklistSelf.selector, owner));
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        withdrawalAddresses[0] = user2;
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user2);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.AlreadyBlacklisted.selector, user2));
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+    }
+
+    function testUnblacklistWithdrawalAddresses() public {
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
+        validatorRegistry.blacklistWithdrawalAddresses(new address[](0));
+
+        address[] memory withdrawalAddresses = new address[](1);
+        withdrawalAddresses[0] = user2;
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.NotBlacklisted.selector, user2));
+        validatorRegistry.unblacklistWithdrawalAddresses(withdrawalAddresses);
+
+        testBlacklistWithdrawalAddresses();
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressUnblacklisted(owner, user2);
+        validatorRegistry.unblacklistWithdrawalAddresses(withdrawalAddresses);
+    }
+
+    function testBlacklistedAddrCantStake() public {
+        testBlacklistWithdrawalAddresses();
+
+        vm.deal(user2, MIN_STAKE);
+        vm.prank(user2);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.AddressIsBlacklisted.selector, user2));
+        validatorRegistry.stake{value: MIN_STAKE}(new bytes[](0));
+    }
+
+    function testOwnerCantDelegateStakeToBlacklistedAddr() public {
+        testBlacklistWithdrawalAddresses();
+
+        vm.deal(owner, MIN_STAKE);
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.AddressIsBlacklisted.selector, user2));
+        validatorRegistry.delegateStake(new bytes[](0), user2);
+    }
+
+    function testBlacklistedAddrCantAddStake() public {
+        testSelfStake();
+
+        address[] memory withdrawalAddresses = new address[](1);
+        withdrawalAddresses[0] = user1;
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user1);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        vm.deal(user1, 2*MIN_STAKE);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.AddressIsBlacklisted.selector, user1));
+        validatorRegistry.addStake(validators);
+    }
+
+    function testBlacklistedAddrCantUnstake() public {
+        testSelfStake();
+
+        address[] memory withdrawalAddresses = new address[](1);
+        withdrawalAddresses[0] = user1;
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user1);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.AddressIsBlacklisted.selector, user1));
+        validatorRegistry.unstake(validators);
+    }
+
+    function testBlacklistedAddrCantWithdraw() public {
+        testSelfStake();
+
+        vm.prank(user1);
+        bytes[] memory validators = new bytes[](1);
+        validators[0] = user1BLSKey;
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user1, user1, user1BLSKey, MIN_STAKE);
+        validatorRegistry.unstake(validators);
+
+        address[] memory withdrawalAddresses = new address[](1);
+        withdrawalAddresses[0] = user1;
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user1);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.AddressIsBlacklisted.selector, user1));
+        validatorRegistry.withdraw(validators);
+    }
+
+    function testBlacklistingWithRegisteredValidators() public {
+        testMultiStake();
+
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+        assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+
+        vm.prank(owner);
+        address[] memory withdrawalAddresses = new address[](1);
+        withdrawalAddresses[0] = user1;
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user1);
+        validatorRegistry.blacklistWithdrawalAddresses(withdrawalAddresses);
+
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+        assertFalse(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressUnblacklisted(owner, user1);
+        validatorRegistry.unblacklistWithdrawalAddresses(withdrawalAddresses);
+
+        assertTrue(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+        assertTrue(validatorRegistry.isValidatorOptedIn(user2BLSKey));
+    }
+
+    function testUnstakeViaBlacklist() public { 
+        bytes[] memory validators = new bytes[](2);
+        validators[0] = user1BLSKey;
+        validators[1] = user2BLSKey;
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
+        validatorRegistry.unstakeViaBlacklist(validators, user1);
+
+        testMultiStake();
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
+        validatorRegistry.unstakeViaBlacklist(validators, user1);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.NotBlacklisted.selector, user1));
+        validatorRegistry.unstakeViaBlacklist(validators, user1);
+
+        address[] memory toBlacklist = new address[](2);
+        toBlacklist[0] = user1;
+        toBlacklist[1] = user2;
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user1);
+        validatorRegistry.blacklistWithdrawalAddresses(toBlacklist);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector, user1, user2));
+        validatorRegistry.unstakeViaBlacklist(validators, user2);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(owner, user1, user1BLSKey, 3 ether);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(owner, user1, user2BLSKey, 3 ether);
+        validatorRegistry.unstakeViaBlacklist(validators, user1);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorCannotBeUnstaking.selector, user1BLSKey));
+        validatorRegistry.unstakeViaBlacklist(validators, user1);
+    }
+
+    function testWithdrawViaBlacklist() public { 
+        bytes[] memory validators = new bytes[](2);
+        validators[0] = user1BLSKey;
+        validators[1] = user2BLSKey;
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
+        validatorRegistry.withdrawViaBlacklist(validators, user1);
+
+        testMultiStake();
+        vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user1, user1, user1BLSKey, 3 ether);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(user1, user1, user2BLSKey, 3 ether);
+        validatorRegistry.unstake(validators);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
+        validatorRegistry.withdrawViaBlacklist(validators, user1);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.NotBlacklisted.selector, user1));
+        validatorRegistry.withdrawViaBlacklist(validators, user1);
+
+        address[] memory toBlacklist = new address[](2);
+        toBlacklist[0] = user1;
+        toBlacklist[1] = user2;
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalAddressBlacklisted(owner, user1);
+        validatorRegistry.blacklistWithdrawalAddresses(toBlacklist);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawingTooSoon.selector));
+        validatorRegistry.withdrawViaBlacklist(validators, user1);
+
+        vm.roll(200);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit StakeWithdrawn(owner, user1, user1BLSKey, 3 ether);
+        vm.expectEmit(true, true, true, true);
+        emit StakeWithdrawn(owner, user1, user2BLSKey, 3 ether);
+        validatorRegistry.withdrawViaBlacklist(validators, user1);
+
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
+        validatorRegistry.withdrawViaBlacklist(validators, user1);
+    }
+
+    function testGriefScenarioAlleviated() public {
+        // TODO: use withdrawl address change func
+    }
+
+    function testIsValidatorOptedInInvalidInput() public view {
+        bytes memory invalidBLSPubKey = hex"0000000004";
+        assertFalse(validatorRegistry.isValidatorOptedIn(invalidBLSPubKey));
     }
 }
