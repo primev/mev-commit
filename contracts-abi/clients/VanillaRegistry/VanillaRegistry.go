@@ -45,7 +45,7 @@ type IVanillaRegistryStakedValidator struct {
 
 // Validatorregistryv1MetaData contains all meta data concerning the Validatorregistryv1 contract.
 var Validatorregistryv1MetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addStake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"delegateStake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"getAccumulatedSlashingFunds\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlocksTillWithdrawAllowed\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStakedAmount\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStakedValidator\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIVanillaRegistry.StakedValidator\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"unstakeOccurrence\",\"type\":\"tuple\",\"internalType\":\"structBlockHeightOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_minStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_slashReceiver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_unstakePeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashingPayoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isSlashingPayoutDue\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isUnstaking\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"manuallyTransferSlashingFunds\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"minStake\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setMinStake\",\"inputs\":[{\"name\":\"newMinStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashOracle\",\"inputs\":[{\"name\":\"newSlashOracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashReceiver\",\"inputs\":[{\"name\":\"newSlashReceiver\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashingPayoutPeriodBlocks\",\"inputs\":[{\"name\":\"newSlashingPayoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setUnstakePeriodBlocks\",\"inputs\":[{\"name\":\"newUnstakePeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slash\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"payoutIfDue\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashAmount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashingFundsTracker\",\"inputs\":[],\"outputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"accumulatedAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"lastPayoutBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"payoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"stake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"stakedValidators\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"unstakeOccurrence\",\"type\":\"tuple\",\"internalType\":\"structBlockHeightOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstakePeriodBlocks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"FeeTransfer\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStakeSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newMinStake\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashOracleSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSlashOracle\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashReceiverSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSlashReceiver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Slashed\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashReceiver\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashingPayoutPeriodBlocksSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSlashingPayoutPeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeAdded\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeWithdrawn\",\"inputs\":[{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Staked\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TotalStakeWithdrawn\",\"inputs\":[{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"totalAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UnstakePeriodBlocksSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newUnstakePeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unstaked\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"AtLeastOneRecipientRequired\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FeeRecipientIsZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBLSPubKeyLength\",\"inputs\":[{\"name\":\"expected\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actual\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MinStakeMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MustUnstakeToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotEnoughBalanceToSlash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NothingToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"PayoutPeriodMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SenderIsNotSlashOracle\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"slashOracle\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SenderIsNotWithdrawalAddress\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SlashAmountMustBeLessThanMinStake\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashAmountMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashOracleMustBeSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashReceiverMustBeSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashingPayoutPeriodMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashingTransferFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"StakeTooLowForNumberOfKeys\",\"inputs\":[{\"name\":\"msgValue\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"numberOfKeys\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"TransferToRecipientFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnstakePeriodMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ValidatorCannotBeUnstaking\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordMustExist\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordMustNotExist\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"WithdrawalAddressMustBeSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WithdrawalFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WithdrawingTooSoon\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addStake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"blacklistWithdrawalAddresses\",\"inputs\":[{\"name\":\"withdrawalAddresses\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blacklistedAddrs\",\"inputs\":[{\"name\":\"withdrawlAddr\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"isBlacklisted\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"delegateStake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"getAccumulatedSlashingFunds\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlocksTillWithdrawAllowed\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStakedAmount\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getStakedValidator\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIVanillaRegistry.StakedValidator\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"unstakeOccurrence\",\"type\":\"tuple\",\"internalType\":\"structBlockHeightOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_minStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_slashReceiver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_unstakePeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashingPayoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isSlashingPayoutDue\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isUnstaking\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"manuallyTransferSlashingFunds\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"minStake\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setMinStake\",\"inputs\":[{\"name\":\"newMinStake\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashOracle\",\"inputs\":[{\"name\":\"newSlashOracle\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashReceiver\",\"inputs\":[{\"name\":\"newSlashReceiver\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashingPayoutPeriodBlocks\",\"inputs\":[{\"name\":\"newSlashingPayoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setUnstakePeriodBlocks\",\"inputs\":[{\"name\":\"newUnstakePeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slash\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"payoutIfDue\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashAmount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashingFundsTracker\",\"inputs\":[],\"outputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"accumulatedAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"lastPayoutBlock\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"payoutPeriodBlocks\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"stake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"stakedValidators\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"balance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"unstakeOccurrence\",\"type\":\"tuple\",\"internalType\":\"structBlockHeightOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockHeight\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unblacklistWithdrawalAddresses\",\"inputs\":[{\"name\":\"withdrawalAddresses\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstake\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstakeFromBlacklist\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unstakePeriodBlocks\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"withdrawFromBlacklist\",\"inputs\":[{\"name\":\"blsPubKeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"addr\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"FeeTransfer\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"MinStakeSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newMinStake\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashOracleSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSlashOracle\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashReceiverSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSlashReceiver\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Slashed\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashReceiver\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashingPayoutPeriodBlocksSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSlashingPayoutPeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeAdded\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"newBalance\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"StakeWithdrawn\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Staked\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TotalStakeWithdrawn\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"totalAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UnstakePeriodBlocksSet\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newUnstakePeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unstaked\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalAddressBlacklisted\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"WithdrawalAddressUnblacklisted\",\"inputs\":[{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"AddressIsBlacklisted\",\"inputs\":[{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"AlreadyBlacklisted\",\"inputs\":[{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"AtLeastOneRecipientRequired\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FeeRecipientIsZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBLSPubKeyLength\",\"inputs\":[{\"name\":\"expected\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actual\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MinStakeMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"MustUnstakeToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotBlacklisted\",\"inputs\":[{\"name\":\"withdrawalAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotEnoughBalanceToSlash\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NothingToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnerCantBlacklistSelf\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"PayoutPeriodMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SenderIsNotSlashOracle\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"slashOracle\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SlashAmountMustBeLessThanMinStake\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashAmountMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashOracleMustBeSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashReceiverMustBeSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashingPayoutPeriodMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SlashingTransferFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"StakeTooLowForNumberOfKeys\",\"inputs\":[{\"name\":\"msgValue\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"required\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"TransferToRecipientFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnstakePeriodMustBePositive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ValidatorCannotBeUnstaking\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordMustExist\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordMustNotExist\",\"inputs\":[{\"name\":\"valBLSPubKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"WithdrawalAddressMismatch\",\"inputs\":[{\"name\":\"actual\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"expected\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"WithdrawalAddressMustBeSet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WithdrawalFailed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"WithdrawingTooSoon\",\"inputs\":[]}]",
 }
 
 // Validatorregistryv1ABI is the input ABI used to generate the binding from.
@@ -223,6 +223,37 @@ func (_Validatorregistryv1 *Validatorregistryv1Session) UPGRADEINTERFACEVERSION(
 // Solidity: function UPGRADE_INTERFACE_VERSION() view returns(string)
 func (_Validatorregistryv1 *Validatorregistryv1CallerSession) UPGRADEINTERFACEVERSION() (string, error) {
 	return _Validatorregistryv1.Contract.UPGRADEINTERFACEVERSION(&_Validatorregistryv1.CallOpts)
+}
+
+// BlacklistedAddrs is a free data retrieval call binding the contract method 0x665e90b1.
+//
+// Solidity: function blacklistedAddrs(address withdrawlAddr) view returns(bool isBlacklisted)
+func (_Validatorregistryv1 *Validatorregistryv1Caller) BlacklistedAddrs(opts *bind.CallOpts, withdrawlAddr common.Address) (bool, error) {
+	var out []interface{}
+	err := _Validatorregistryv1.contract.Call(opts, &out, "blacklistedAddrs", withdrawlAddr)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// BlacklistedAddrs is a free data retrieval call binding the contract method 0x665e90b1.
+//
+// Solidity: function blacklistedAddrs(address withdrawlAddr) view returns(bool isBlacklisted)
+func (_Validatorregistryv1 *Validatorregistryv1Session) BlacklistedAddrs(withdrawlAddr common.Address) (bool, error) {
+	return _Validatorregistryv1.Contract.BlacklistedAddrs(&_Validatorregistryv1.CallOpts, withdrawlAddr)
+}
+
+// BlacklistedAddrs is a free data retrieval call binding the contract method 0x665e90b1.
+//
+// Solidity: function blacklistedAddrs(address withdrawlAddr) view returns(bool isBlacklisted)
+func (_Validatorregistryv1 *Validatorregistryv1CallerSession) BlacklistedAddrs(withdrawlAddr common.Address) (bool, error) {
+	return _Validatorregistryv1.Contract.BlacklistedAddrs(&_Validatorregistryv1.CallOpts, withdrawlAddr)
 }
 
 // GetAccumulatedSlashingFunds is a free data retrieval call binding the contract method 0x5ddae85d.
@@ -842,6 +873,27 @@ func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) AddStake(blsPu
 	return _Validatorregistryv1.Contract.AddStake(&_Validatorregistryv1.TransactOpts, blsPubKeys)
 }
 
+// BlacklistWithdrawalAddresses is a paid mutator transaction binding the contract method 0x0fee6318.
+//
+// Solidity: function blacklistWithdrawalAddresses(address[] withdrawalAddresses) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Transactor) BlacklistWithdrawalAddresses(opts *bind.TransactOpts, withdrawalAddresses []common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.contract.Transact(opts, "blacklistWithdrawalAddresses", withdrawalAddresses)
+}
+
+// BlacklistWithdrawalAddresses is a paid mutator transaction binding the contract method 0x0fee6318.
+//
+// Solidity: function blacklistWithdrawalAddresses(address[] withdrawalAddresses) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Session) BlacklistWithdrawalAddresses(withdrawalAddresses []common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.BlacklistWithdrawalAddresses(&_Validatorregistryv1.TransactOpts, withdrawalAddresses)
+}
+
+// BlacklistWithdrawalAddresses is a paid mutator transaction binding the contract method 0x0fee6318.
+//
+// Solidity: function blacklistWithdrawalAddresses(address[] withdrawalAddresses) returns()
+func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) BlacklistWithdrawalAddresses(withdrawalAddresses []common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.BlacklistWithdrawalAddresses(&_Validatorregistryv1.TransactOpts, withdrawalAddresses)
+}
+
 // DelegateStake is a paid mutator transaction binding the contract method 0x4b7952b3.
 //
 // Solidity: function delegateStake(bytes[] blsPubKeys, address withdrawalAddress) payable returns()
@@ -1115,6 +1167,27 @@ func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) TransferOwners
 	return _Validatorregistryv1.Contract.TransferOwnership(&_Validatorregistryv1.TransactOpts, newOwner)
 }
 
+// UnblacklistWithdrawalAddresses is a paid mutator transaction binding the contract method 0x2d9c986a.
+//
+// Solidity: function unblacklistWithdrawalAddresses(address[] withdrawalAddresses) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Transactor) UnblacklistWithdrawalAddresses(opts *bind.TransactOpts, withdrawalAddresses []common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.contract.Transact(opts, "unblacklistWithdrawalAddresses", withdrawalAddresses)
+}
+
+// UnblacklistWithdrawalAddresses is a paid mutator transaction binding the contract method 0x2d9c986a.
+//
+// Solidity: function unblacklistWithdrawalAddresses(address[] withdrawalAddresses) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Session) UnblacklistWithdrawalAddresses(withdrawalAddresses []common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.UnblacklistWithdrawalAddresses(&_Validatorregistryv1.TransactOpts, withdrawalAddresses)
+}
+
+// UnblacklistWithdrawalAddresses is a paid mutator transaction binding the contract method 0x2d9c986a.
+//
+// Solidity: function unblacklistWithdrawalAddresses(address[] withdrawalAddresses) returns()
+func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) UnblacklistWithdrawalAddresses(withdrawalAddresses []common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.UnblacklistWithdrawalAddresses(&_Validatorregistryv1.TransactOpts, withdrawalAddresses)
+}
+
 // Unpause is a paid mutator transaction binding the contract method 0x3f4ba83a.
 //
 // Solidity: function unpause() returns()
@@ -1157,6 +1230,27 @@ func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) Unstake(blsPub
 	return _Validatorregistryv1.Contract.Unstake(&_Validatorregistryv1.TransactOpts, blsPubKeys)
 }
 
+// UnstakeFromBlacklist is a paid mutator transaction binding the contract method 0x17fa5910.
+//
+// Solidity: function unstakeFromBlacklist(bytes[] blsPubKeys, address addr) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Transactor) UnstakeFromBlacklist(opts *bind.TransactOpts, blsPubKeys [][]byte, addr common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.contract.Transact(opts, "unstakeFromBlacklist", blsPubKeys, addr)
+}
+
+// UnstakeFromBlacklist is a paid mutator transaction binding the contract method 0x17fa5910.
+//
+// Solidity: function unstakeFromBlacklist(bytes[] blsPubKeys, address addr) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Session) UnstakeFromBlacklist(blsPubKeys [][]byte, addr common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.UnstakeFromBlacklist(&_Validatorregistryv1.TransactOpts, blsPubKeys, addr)
+}
+
+// UnstakeFromBlacklist is a paid mutator transaction binding the contract method 0x17fa5910.
+//
+// Solidity: function unstakeFromBlacklist(bytes[] blsPubKeys, address addr) returns()
+func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) UnstakeFromBlacklist(blsPubKeys [][]byte, addr common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.UnstakeFromBlacklist(&_Validatorregistryv1.TransactOpts, blsPubKeys, addr)
+}
+
 // UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
 //
 // Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
@@ -1197,6 +1291,27 @@ func (_Validatorregistryv1 *Validatorregistryv1Session) Withdraw(blsPubKeys [][]
 // Solidity: function withdraw(bytes[] blsPubKeys) returns()
 func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) Withdraw(blsPubKeys [][]byte) (*types.Transaction, error) {
 	return _Validatorregistryv1.Contract.Withdraw(&_Validatorregistryv1.TransactOpts, blsPubKeys)
+}
+
+// WithdrawFromBlacklist is a paid mutator transaction binding the contract method 0x7bd56106.
+//
+// Solidity: function withdrawFromBlacklist(bytes[] blsPubKeys, address addr) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Transactor) WithdrawFromBlacklist(opts *bind.TransactOpts, blsPubKeys [][]byte, addr common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.contract.Transact(opts, "withdrawFromBlacklist", blsPubKeys, addr)
+}
+
+// WithdrawFromBlacklist is a paid mutator transaction binding the contract method 0x7bd56106.
+//
+// Solidity: function withdrawFromBlacklist(bytes[] blsPubKeys, address addr) returns()
+func (_Validatorregistryv1 *Validatorregistryv1Session) WithdrawFromBlacklist(blsPubKeys [][]byte, addr common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.WithdrawFromBlacklist(&_Validatorregistryv1.TransactOpts, blsPubKeys, addr)
+}
+
+// WithdrawFromBlacklist is a paid mutator transaction binding the contract method 0x7bd56106.
+//
+// Solidity: function withdrawFromBlacklist(bytes[] blsPubKeys, address addr) returns()
+func (_Validatorregistryv1 *Validatorregistryv1TransactorSession) WithdrawFromBlacklist(blsPubKeys [][]byte, addr common.Address) (*types.Transaction, error) {
+	return _Validatorregistryv1.Contract.WithdrawFromBlacklist(&_Validatorregistryv1.TransactOpts, blsPubKeys, addr)
 }
 
 // Fallback is a paid mutator transaction binding the contract fallback function.
@@ -2929,40 +3044,49 @@ func (it *Validatorregistryv1StakeWithdrawnIterator) Close() error {
 
 // Validatorregistryv1StakeWithdrawn represents a StakeWithdrawn event raised by the Validatorregistryv1 contract.
 type Validatorregistryv1StakeWithdrawn struct {
+	MsgSender         common.Address
 	WithdrawalAddress common.Address
 	ValBLSPubKey      []byte
 	Amount            *big.Int
 	Raw               types.Log // Blockchain specific contextual infos
 }
 
-// FilterStakeWithdrawn is a free log retrieval operation binding the contract event 0x60e5b516955702ed9d33ecfc7eaaf6b2f5cea6bd67820e5e4f0096eed587c29b.
+// FilterStakeWithdrawn is a free log retrieval operation binding the contract event 0x3ff0f1758b0b95c72d1f781b732306588b99dabb298fec793499eb8803b05465.
 //
-// Solidity: event StakeWithdrawn(address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)
-func (_Validatorregistryv1 *Validatorregistryv1Filterer) FilterStakeWithdrawn(opts *bind.FilterOpts, withdrawalAddress []common.Address) (*Validatorregistryv1StakeWithdrawnIterator, error) {
+// Solidity: event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) FilterStakeWithdrawn(opts *bind.FilterOpts, msgSender []common.Address, withdrawalAddress []common.Address) (*Validatorregistryv1StakeWithdrawnIterator, error) {
 
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
 	var withdrawalAddressRule []interface{}
 	for _, withdrawalAddressItem := range withdrawalAddress {
 		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
 	}
 
-	logs, sub, err := _Validatorregistryv1.contract.FilterLogs(opts, "StakeWithdrawn", withdrawalAddressRule)
+	logs, sub, err := _Validatorregistryv1.contract.FilterLogs(opts, "StakeWithdrawn", msgSenderRule, withdrawalAddressRule)
 	if err != nil {
 		return nil, err
 	}
 	return &Validatorregistryv1StakeWithdrawnIterator{contract: _Validatorregistryv1.contract, event: "StakeWithdrawn", logs: logs, sub: sub}, nil
 }
 
-// WatchStakeWithdrawn is a free log subscription operation binding the contract event 0x60e5b516955702ed9d33ecfc7eaaf6b2f5cea6bd67820e5e4f0096eed587c29b.
+// WatchStakeWithdrawn is a free log subscription operation binding the contract event 0x3ff0f1758b0b95c72d1f781b732306588b99dabb298fec793499eb8803b05465.
 //
-// Solidity: event StakeWithdrawn(address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)
-func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchStakeWithdrawn(opts *bind.WatchOpts, sink chan<- *Validatorregistryv1StakeWithdrawn, withdrawalAddress []common.Address) (event.Subscription, error) {
+// Solidity: event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchStakeWithdrawn(opts *bind.WatchOpts, sink chan<- *Validatorregistryv1StakeWithdrawn, msgSender []common.Address, withdrawalAddress []common.Address) (event.Subscription, error) {
 
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
 	var withdrawalAddressRule []interface{}
 	for _, withdrawalAddressItem := range withdrawalAddress {
 		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
 	}
 
-	logs, sub, err := _Validatorregistryv1.contract.WatchLogs(opts, "StakeWithdrawn", withdrawalAddressRule)
+	logs, sub, err := _Validatorregistryv1.contract.WatchLogs(opts, "StakeWithdrawn", msgSenderRule, withdrawalAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2994,9 +3118,9 @@ func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchStakeWithdrawn(opt
 	}), nil
 }
 
-// ParseStakeWithdrawn is a log parse operation binding the contract event 0x60e5b516955702ed9d33ecfc7eaaf6b2f5cea6bd67820e5e4f0096eed587c29b.
+// ParseStakeWithdrawn is a log parse operation binding the contract event 0x3ff0f1758b0b95c72d1f781b732306588b99dabb298fec793499eb8803b05465.
 //
-// Solidity: event StakeWithdrawn(address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)
+// Solidity: event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount)
 func (_Validatorregistryv1 *Validatorregistryv1Filterer) ParseStakeWithdrawn(log types.Log) (*Validatorregistryv1StakeWithdrawn, error) {
 	event := new(Validatorregistryv1StakeWithdrawn)
 	if err := _Validatorregistryv1.contract.UnpackLog(event, "StakeWithdrawn", log); err != nil {
@@ -3230,39 +3354,48 @@ func (it *Validatorregistryv1TotalStakeWithdrawnIterator) Close() error {
 
 // Validatorregistryv1TotalStakeWithdrawn represents a TotalStakeWithdrawn event raised by the Validatorregistryv1 contract.
 type Validatorregistryv1TotalStakeWithdrawn struct {
+	MsgSender         common.Address
 	WithdrawalAddress common.Address
 	TotalAmount       *big.Int
 	Raw               types.Log // Blockchain specific contextual infos
 }
 
-// FilterTotalStakeWithdrawn is a free log retrieval operation binding the contract event 0xa203e93c4d6544275822dd51a94cddc513bf3b5c012b7fa31e8b44e4f4ea9306.
+// FilterTotalStakeWithdrawn is a free log retrieval operation binding the contract event 0xf0ac877c24c32b3466c3766ad66c170058d5f4ae8347c93bc5adc21b10c14cbe.
 //
-// Solidity: event TotalStakeWithdrawn(address indexed withdrawalAddress, uint256 totalAmount)
-func (_Validatorregistryv1 *Validatorregistryv1Filterer) FilterTotalStakeWithdrawn(opts *bind.FilterOpts, withdrawalAddress []common.Address) (*Validatorregistryv1TotalStakeWithdrawnIterator, error) {
+// Solidity: event TotalStakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, uint256 totalAmount)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) FilterTotalStakeWithdrawn(opts *bind.FilterOpts, msgSender []common.Address, withdrawalAddress []common.Address) (*Validatorregistryv1TotalStakeWithdrawnIterator, error) {
 
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
 	var withdrawalAddressRule []interface{}
 	for _, withdrawalAddressItem := range withdrawalAddress {
 		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
 	}
 
-	logs, sub, err := _Validatorregistryv1.contract.FilterLogs(opts, "TotalStakeWithdrawn", withdrawalAddressRule)
+	logs, sub, err := _Validatorregistryv1.contract.FilterLogs(opts, "TotalStakeWithdrawn", msgSenderRule, withdrawalAddressRule)
 	if err != nil {
 		return nil, err
 	}
 	return &Validatorregistryv1TotalStakeWithdrawnIterator{contract: _Validatorregistryv1.contract, event: "TotalStakeWithdrawn", logs: logs, sub: sub}, nil
 }
 
-// WatchTotalStakeWithdrawn is a free log subscription operation binding the contract event 0xa203e93c4d6544275822dd51a94cddc513bf3b5c012b7fa31e8b44e4f4ea9306.
+// WatchTotalStakeWithdrawn is a free log subscription operation binding the contract event 0xf0ac877c24c32b3466c3766ad66c170058d5f4ae8347c93bc5adc21b10c14cbe.
 //
-// Solidity: event TotalStakeWithdrawn(address indexed withdrawalAddress, uint256 totalAmount)
-func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchTotalStakeWithdrawn(opts *bind.WatchOpts, sink chan<- *Validatorregistryv1TotalStakeWithdrawn, withdrawalAddress []common.Address) (event.Subscription, error) {
+// Solidity: event TotalStakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, uint256 totalAmount)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchTotalStakeWithdrawn(opts *bind.WatchOpts, sink chan<- *Validatorregistryv1TotalStakeWithdrawn, msgSender []common.Address, withdrawalAddress []common.Address) (event.Subscription, error) {
 
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
 	var withdrawalAddressRule []interface{}
 	for _, withdrawalAddressItem := range withdrawalAddress {
 		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
 	}
 
-	logs, sub, err := _Validatorregistryv1.contract.WatchLogs(opts, "TotalStakeWithdrawn", withdrawalAddressRule)
+	logs, sub, err := _Validatorregistryv1.contract.WatchLogs(opts, "TotalStakeWithdrawn", msgSenderRule, withdrawalAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3294,9 +3427,9 @@ func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchTotalStakeWithdraw
 	}), nil
 }
 
-// ParseTotalStakeWithdrawn is a log parse operation binding the contract event 0xa203e93c4d6544275822dd51a94cddc513bf3b5c012b7fa31e8b44e4f4ea9306.
+// ParseTotalStakeWithdrawn is a log parse operation binding the contract event 0xf0ac877c24c32b3466c3766ad66c170058d5f4ae8347c93bc5adc21b10c14cbe.
 //
-// Solidity: event TotalStakeWithdrawn(address indexed withdrawalAddress, uint256 totalAmount)
+// Solidity: event TotalStakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, uint256 totalAmount)
 func (_Validatorregistryv1 *Validatorregistryv1Filterer) ParseTotalStakeWithdrawn(log types.Log) (*Validatorregistryv1TotalStakeWithdrawn, error) {
 	event := new(Validatorregistryv1TotalStakeWithdrawn)
 	if err := _Validatorregistryv1.contract.UnpackLog(event, "TotalStakeWithdrawn", log); err != nil {
@@ -3878,6 +4011,312 @@ func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchUpgraded(opts *bin
 func (_Validatorregistryv1 *Validatorregistryv1Filterer) ParseUpgraded(log types.Log) (*Validatorregistryv1Upgraded, error) {
 	event := new(Validatorregistryv1Upgraded)
 	if err := _Validatorregistryv1.contract.UnpackLog(event, "Upgraded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// Validatorregistryv1WithdrawalAddressBlacklistedIterator is returned from FilterWithdrawalAddressBlacklisted and is used to iterate over the raw logs and unpacked data for WithdrawalAddressBlacklisted events raised by the Validatorregistryv1 contract.
+type Validatorregistryv1WithdrawalAddressBlacklistedIterator struct {
+	Event *Validatorregistryv1WithdrawalAddressBlacklisted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *Validatorregistryv1WithdrawalAddressBlacklistedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(Validatorregistryv1WithdrawalAddressBlacklisted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(Validatorregistryv1WithdrawalAddressBlacklisted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *Validatorregistryv1WithdrawalAddressBlacklistedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *Validatorregistryv1WithdrawalAddressBlacklistedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// Validatorregistryv1WithdrawalAddressBlacklisted represents a WithdrawalAddressBlacklisted event raised by the Validatorregistryv1 contract.
+type Validatorregistryv1WithdrawalAddressBlacklisted struct {
+	MsgSender         common.Address
+	WithdrawalAddress common.Address
+	Raw               types.Log // Blockchain specific contextual infos
+}
+
+// FilterWithdrawalAddressBlacklisted is a free log retrieval operation binding the contract event 0x040be29369f46e085252453a1411c89f2f337e45cb7ae2c0aa01e57c457bf39b.
+//
+// Solidity: event WithdrawalAddressBlacklisted(address indexed msgSender, address indexed withdrawalAddress)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) FilterWithdrawalAddressBlacklisted(opts *bind.FilterOpts, msgSender []common.Address, withdrawalAddress []common.Address) (*Validatorregistryv1WithdrawalAddressBlacklistedIterator, error) {
+
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
+	var withdrawalAddressRule []interface{}
+	for _, withdrawalAddressItem := range withdrawalAddress {
+		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
+	}
+
+	logs, sub, err := _Validatorregistryv1.contract.FilterLogs(opts, "WithdrawalAddressBlacklisted", msgSenderRule, withdrawalAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return &Validatorregistryv1WithdrawalAddressBlacklistedIterator{contract: _Validatorregistryv1.contract, event: "WithdrawalAddressBlacklisted", logs: logs, sub: sub}, nil
+}
+
+// WatchWithdrawalAddressBlacklisted is a free log subscription operation binding the contract event 0x040be29369f46e085252453a1411c89f2f337e45cb7ae2c0aa01e57c457bf39b.
+//
+// Solidity: event WithdrawalAddressBlacklisted(address indexed msgSender, address indexed withdrawalAddress)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchWithdrawalAddressBlacklisted(opts *bind.WatchOpts, sink chan<- *Validatorregistryv1WithdrawalAddressBlacklisted, msgSender []common.Address, withdrawalAddress []common.Address) (event.Subscription, error) {
+
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
+	var withdrawalAddressRule []interface{}
+	for _, withdrawalAddressItem := range withdrawalAddress {
+		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
+	}
+
+	logs, sub, err := _Validatorregistryv1.contract.WatchLogs(opts, "WithdrawalAddressBlacklisted", msgSenderRule, withdrawalAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(Validatorregistryv1WithdrawalAddressBlacklisted)
+				if err := _Validatorregistryv1.contract.UnpackLog(event, "WithdrawalAddressBlacklisted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseWithdrawalAddressBlacklisted is a log parse operation binding the contract event 0x040be29369f46e085252453a1411c89f2f337e45cb7ae2c0aa01e57c457bf39b.
+//
+// Solidity: event WithdrawalAddressBlacklisted(address indexed msgSender, address indexed withdrawalAddress)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) ParseWithdrawalAddressBlacklisted(log types.Log) (*Validatorregistryv1WithdrawalAddressBlacklisted, error) {
+	event := new(Validatorregistryv1WithdrawalAddressBlacklisted)
+	if err := _Validatorregistryv1.contract.UnpackLog(event, "WithdrawalAddressBlacklisted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// Validatorregistryv1WithdrawalAddressUnblacklistedIterator is returned from FilterWithdrawalAddressUnblacklisted and is used to iterate over the raw logs and unpacked data for WithdrawalAddressUnblacklisted events raised by the Validatorregistryv1 contract.
+type Validatorregistryv1WithdrawalAddressUnblacklistedIterator struct {
+	Event *Validatorregistryv1WithdrawalAddressUnblacklisted // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *Validatorregistryv1WithdrawalAddressUnblacklistedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(Validatorregistryv1WithdrawalAddressUnblacklisted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(Validatorregistryv1WithdrawalAddressUnblacklisted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *Validatorregistryv1WithdrawalAddressUnblacklistedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *Validatorregistryv1WithdrawalAddressUnblacklistedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// Validatorregistryv1WithdrawalAddressUnblacklisted represents a WithdrawalAddressUnblacklisted event raised by the Validatorregistryv1 contract.
+type Validatorregistryv1WithdrawalAddressUnblacklisted struct {
+	MsgSender         common.Address
+	WithdrawalAddress common.Address
+	Raw               types.Log // Blockchain specific contextual infos
+}
+
+// FilterWithdrawalAddressUnblacklisted is a free log retrieval operation binding the contract event 0xaba00da0a2847c832a01b6a342113ae67237a6a26777cd9a035a8d1ca7216918.
+//
+// Solidity: event WithdrawalAddressUnblacklisted(address indexed msgSender, address indexed withdrawalAddress)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) FilterWithdrawalAddressUnblacklisted(opts *bind.FilterOpts, msgSender []common.Address, withdrawalAddress []common.Address) (*Validatorregistryv1WithdrawalAddressUnblacklistedIterator, error) {
+
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
+	var withdrawalAddressRule []interface{}
+	for _, withdrawalAddressItem := range withdrawalAddress {
+		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
+	}
+
+	logs, sub, err := _Validatorregistryv1.contract.FilterLogs(opts, "WithdrawalAddressUnblacklisted", msgSenderRule, withdrawalAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return &Validatorregistryv1WithdrawalAddressUnblacklistedIterator{contract: _Validatorregistryv1.contract, event: "WithdrawalAddressUnblacklisted", logs: logs, sub: sub}, nil
+}
+
+// WatchWithdrawalAddressUnblacklisted is a free log subscription operation binding the contract event 0xaba00da0a2847c832a01b6a342113ae67237a6a26777cd9a035a8d1ca7216918.
+//
+// Solidity: event WithdrawalAddressUnblacklisted(address indexed msgSender, address indexed withdrawalAddress)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) WatchWithdrawalAddressUnblacklisted(opts *bind.WatchOpts, sink chan<- *Validatorregistryv1WithdrawalAddressUnblacklisted, msgSender []common.Address, withdrawalAddress []common.Address) (event.Subscription, error) {
+
+	var msgSenderRule []interface{}
+	for _, msgSenderItem := range msgSender {
+		msgSenderRule = append(msgSenderRule, msgSenderItem)
+	}
+	var withdrawalAddressRule []interface{}
+	for _, withdrawalAddressItem := range withdrawalAddress {
+		withdrawalAddressRule = append(withdrawalAddressRule, withdrawalAddressItem)
+	}
+
+	logs, sub, err := _Validatorregistryv1.contract.WatchLogs(opts, "WithdrawalAddressUnblacklisted", msgSenderRule, withdrawalAddressRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(Validatorregistryv1WithdrawalAddressUnblacklisted)
+				if err := _Validatorregistryv1.contract.UnpackLog(event, "WithdrawalAddressUnblacklisted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseWithdrawalAddressUnblacklisted is a log parse operation binding the contract event 0xaba00da0a2847c832a01b6a342113ae67237a6a26777cd9a035a8d1ca7216918.
+//
+// Solidity: event WithdrawalAddressUnblacklisted(address indexed msgSender, address indexed withdrawalAddress)
+func (_Validatorregistryv1 *Validatorregistryv1Filterer) ParseWithdrawalAddressUnblacklisted(log types.Log) (*Validatorregistryv1WithdrawalAddressUnblacklisted, error) {
+	event := new(Validatorregistryv1WithdrawalAddressUnblacklisted)
+	if err := _Validatorregistryv1.contract.UnpackLog(event, "WithdrawalAddressUnblacklisted", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

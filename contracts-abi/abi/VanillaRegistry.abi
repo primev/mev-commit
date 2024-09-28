@@ -47,6 +47,38 @@
   },
   {
     "type": "function",
+    "name": "blacklistWithdrawalAddresses",
+    "inputs": [
+      {
+        "name": "withdrawalAddresses",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "blacklistedAddrs",
+    "inputs": [
+      {
+        "name": "withdrawlAddr",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isBlacklisted",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "delegateStake",
     "inputs": [
       {
@@ -553,6 +585,19 @@
   },
   {
     "type": "function",
+    "name": "unblacklistWithdrawalAddresses",
+    "inputs": [
+      {
+        "name": "withdrawalAddresses",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "unpause",
     "inputs": [],
     "outputs": [],
@@ -566,6 +611,24 @@
         "name": "blsPubKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unstakeFromBlacklist",
+    "inputs": [
+      {
+        "name": "blsPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -610,6 +673,24 @@
         "name": "blsPubKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawFromBlacklist",
+    "inputs": [
+      {
+        "name": "blsPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "addr",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -853,6 +934,12 @@
     "name": "StakeWithdrawn",
     "inputs": [
       {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
         "name": "withdrawalAddress",
         "type": "address",
         "indexed": true,
@@ -908,6 +995,12 @@
     "type": "event",
     "name": "TotalStakeWithdrawn",
     "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
       {
         "name": "withdrawalAddress",
         "type": "address",
@@ -1000,11 +1093,71 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "WithdrawalAddressBlacklisted",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "WithdrawalAddressUnblacklisted",
+    "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "AddressEmptyCode",
     "inputs": [
       {
         "name": "target",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AddressIsBlacklisted",
+    "inputs": [
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "AlreadyBlacklisted",
+    "inputs": [
+      {
+        "name": "withdrawalAddress",
         "type": "address",
         "internalType": "address"
       }
@@ -1094,6 +1247,17 @@
   },
   {
     "type": "error",
+    "name": "NotBlacklisted",
+    "inputs": [
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotEnoughBalanceToSlash",
     "inputs": []
   },
@@ -1131,6 +1295,17 @@
   },
   {
     "type": "error",
+    "name": "OwnerCantBlacklistSelf",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "PayoutPeriodMustBePositive",
     "inputs": []
   },
@@ -1145,22 +1320,6 @@
       },
       {
         "name": "slashOracle",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "SenderIsNotWithdrawalAddress",
-    "inputs": [
-      {
-        "name": "sender",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "withdrawalAddress",
         "type": "address",
         "internalType": "address"
       }
@@ -1206,7 +1365,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "numberOfKeys",
+        "name": "required",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1268,6 +1427,22 @@
         "name": "valBLSPubKey",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalAddressMismatch",
+    "inputs": [
+      {
+        "name": "actual",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
