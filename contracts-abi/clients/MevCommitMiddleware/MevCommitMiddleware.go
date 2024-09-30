@@ -37,7 +37,7 @@ type TimestampOccurrenceOccurrence struct {
 
 // MevcommitmiddlewareMetaData contains all meta data concerning the Mevcommitmiddleware contract.
 var MevcommitmiddlewareMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"FULL_RESTAKE_DELEGATOR_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"INSTANT_SLASHER_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"NETWORK_RESTAKE_DELEGATOR_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"SUBNETWORK_ID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint96\",\"internalType\":\"uint96\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"VETO_SLASHER_TYPE\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blacklistOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getNumSlashableVals\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPositionInValset\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_slashPeriodSeconds\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorSlashable\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"network\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"networkRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRecords\",\"inputs\":[{\"name\":\"operatorAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"isBlacklisted\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"potentialSlashableValidators\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pubkeyAtPositionInValset\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[][]\",\"internalType\":\"bytes[][]\"},{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestOperatorDeregistrations\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestValDeregistrations\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestVaultDeregistrations\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetwork\",\"inputs\":[{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetworkRegistry\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOperatorRegistry\",\"inputs\":[{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashOracle\",\"inputs\":[{\"name\":\"slashOracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashPeriodSeconds\",\"inputs\":[{\"name\":\"slashPeriodSeconds_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setVaultFactory\",\"inputs\":[{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashPeriodSeconds\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashRecords\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"numSlashed\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"numInitSlashableRegistered\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"infractionTimestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unblacklistOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateSlashAmounts\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"validatorRecords\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"valsetLength\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultFactory\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultRecords\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkRegistrySet\",\"inputs\":[{\"name\":\"networkRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkSet\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistrationRequested\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistrySet\",\"inputs\":[{\"name\":\"operatorRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorUnblacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashOracleSet\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashPeriodBlocksSet\",\"inputs\":[{\"name\":\"slashPeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashPeriodSecondsSet\",\"inputs\":[{\"name\":\"slashPeriodSeconds\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashRecordCreated\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"numInitSlashableRegistered\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordAdded\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordDeleted\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistrationRequested\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorPositionSwapped\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newPosition\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorSlashRequested\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashIndex\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorSlashed\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashedAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistrationRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultFactorySet\",\"inputs\":[{\"name\":\"vaultFactory\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultSlashAmountUpdated\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FullRestakeDelegatorNotSupported\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InfractionTimestampMustBeNonZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidArrayLengths\",\"inputs\":[{\"name\":\"vaultLen\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"pubkeyLen\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidBLSPubKeyLength\",\"inputs\":[{\"name\":\"expectedLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actualLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidVaultEpochDuration\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultEpochDurationSec\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"slashPeriodSec\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"MissingOperatorRecord\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"MissingValRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingValidatorRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingVaultRecord\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NetworkNotEntity\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OnlyOperator\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OnlySlashOracle\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorDeregRequestExists\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorIsBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotEntity\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"OperatorNotRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SafeCastOverflowedUintDowncast\",\"inputs\":[{\"name\":\"bits\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"SlashAmountMustBeNonZero\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SlasherNotSetForVault\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnknownDelegatorType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"delegatorType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UnknownSlasherType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"slasherType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorDeregRequestExists\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotInValset\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotRemovedFromValset\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotSlashable\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordAlreadyExists\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorsNotSlashable\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"numRequested\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"potentialSlashableVals\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultAlreadyRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregNotRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregRequestExists\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotEntity\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotReadyToDeregister\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultNotRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VetoSlasherMustHaveZeroResolver\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ZeroAddressNotAllowed\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blacklistOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"deregisterVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getNumSlashableVals\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPositionInValset\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"},{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_slashPeriodSeconds\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_slashOracle\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isValidatorOptedIn\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"isValidatorSlashable\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"network\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"networkRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRecords\",\"inputs\":[{\"name\":\"operatorAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"isBlacklisted\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"potentialSlashableValidators\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pubkeyAtPositionInValset\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"registerOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[][]\",\"internalType\":\"bytes[][]\"},{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"registerVaults\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestOperatorDeregistrations\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestValDeregistrations\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"requestVaultDeregistrations\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetwork\",\"inputs\":[{\"name\":\"_network\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setNetworkRegistry\",\"inputs\":[{\"name\":\"_networkRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOperatorRegistry\",\"inputs\":[{\"name\":\"_operatorRegistry\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashOracle\",\"inputs\":[{\"name\":\"slashOracle_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setSlashPeriodSeconds\",\"inputs\":[{\"name\":\"slashPeriodSeconds_\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setVaultFactory\",\"inputs\":[{\"name\":\"_vaultFactory\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"slashOracle\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashPeriodSeconds\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashRecords\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"numSlashed\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"numInitSlashableRegistered\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"slashValidators\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"internalType\":\"bytes[]\"},{\"name\":\"infractionTimestamps\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unblacklistOperators\",\"inputs\":[{\"name\":\"operators\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateSlashAmounts\",\"inputs\":[{\"name\":\"vaults\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"slashAmounts\",\"type\":\"uint256[]\",\"internalType\":\"uint256[]\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"validatorRecords\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"valsetLength\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultFactory\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"vaultRecords\",\"inputs\":[{\"name\":\"vaultAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"deregRequestOccurrence\",\"type\":\"tuple\",\"internalType\":\"structTimestampOccurrence.Occurrence\",\"components\":[{\"name\":\"exists\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"timestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkRegistrySet\",\"inputs\":[{\"name\":\"networkRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NetworkSet\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorDeregistrationRequested\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRegistrySet\",\"inputs\":[{\"name\":\"operatorRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorUnblacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashOracleSet\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashPeriodBlocksSet\",\"inputs\":[{\"name\":\"slashPeriodBlocks\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SlashPeriodSecondsSet\",\"inputs\":[{\"name\":\"slashPeriodSeconds\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordAdded\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValRecordDeleted\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorDeregistrationRequested\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"msgSender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"position\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorPositionsSwapped\",\"inputs\":[{\"name\":\"blsPubkeys\",\"type\":\"bytes[]\",\"indexed\":false,\"internalType\":\"bytes[]\"},{\"name\":\"vaults\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"operators\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"},{\"name\":\"newPositions\",\"type\":\"uint256[]\",\"indexed\":false,\"internalType\":\"uint256[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorSlashRequested\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashIndex\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ValidatorSlashed\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashedAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultDeregistrationRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultFactorySet\",\"inputs\":[{\"name\":\"vaultFactory\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"VaultSlashAmountUpdated\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"slashAmount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FullRestakeDelegatorNotSupported\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"InfractionTimestampMustBeNonZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidArrayLengths\",\"inputs\":[{\"name\":\"vaultLen\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"pubkeyLen\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidBLSPubKeyLength\",\"inputs\":[{\"name\":\"expectedLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"actualLength\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidVaultEpochDuration\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"vaultEpochDurationSec\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"slashPeriodSec\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"MissingOperatorRecord\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"MissingValRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingValidatorRecord\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"MissingVaultRecord\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NetworkNotEntity\",\"inputs\":[{\"name\":\"network\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OnlyOperator\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OnlySlashOracle\",\"inputs\":[{\"name\":\"slashOracle\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorDeregRequestExists\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorIsBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotBlacklisted\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotEntity\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OperatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"OperatorNotRegistered\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SafeCastOverflowedUintDowncast\",\"inputs\":[{\"name\":\"bits\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"value\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"SlashAmountMustBeNonZero\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SlasherNotSetForVault\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnknownDelegatorType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"delegatorType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UnknownSlasherType\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"slasherType\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorDeregRequestExists\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotInValset\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotReadyToDeregister\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotRemovedFromValset\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ValidatorNotSlashable\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ValidatorRecordAlreadyExists\",\"inputs\":[{\"name\":\"blsPubkey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]},{\"type\":\"error\",\"name\":\"ValidatorsNotSlashable\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"numRequested\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"potentialSlashableVals\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultAlreadyRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregNotRequested\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultDeregRequestExists\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotEntity\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VaultNotReadyToDeregister\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"currentTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"deregRequestTimestamp\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"VaultNotRegistered\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"VetoSlasherMustHaveZeroResolver\",\"inputs\":[{\"name\":\"vault\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ZeroAddressNotAllowed\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZeroUintNotAllowed\",\"inputs\":[]}]",
 }
 
 // MevcommitmiddlewareABI is the input ABI used to generate the binding from.
@@ -186,130 +186,6 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareTransactorRaw) Transact(opts *bin
 	return _Mevcommitmiddleware.Contract.contract.Transact(opts, method, params...)
 }
 
-// FULLRESTAKEDELEGATORTYPE is a free data retrieval call binding the contract method 0x3c4bf8e7.
-//
-// Solidity: function FULL_RESTAKE_DELEGATOR_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) FULLRESTAKEDELEGATORTYPE(opts *bind.CallOpts) (uint64, error) {
-	var out []interface{}
-	err := _Mevcommitmiddleware.contract.Call(opts, &out, "FULL_RESTAKE_DELEGATOR_TYPE")
-
-	if err != nil {
-		return *new(uint64), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
-
-	return out0, err
-
-}
-
-// FULLRESTAKEDELEGATORTYPE is a free data retrieval call binding the contract method 0x3c4bf8e7.
-//
-// Solidity: function FULL_RESTAKE_DELEGATOR_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) FULLRESTAKEDELEGATORTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.FULLRESTAKEDELEGATORTYPE(&_Mevcommitmiddleware.CallOpts)
-}
-
-// FULLRESTAKEDELEGATORTYPE is a free data retrieval call binding the contract method 0x3c4bf8e7.
-//
-// Solidity: function FULL_RESTAKE_DELEGATOR_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) FULLRESTAKEDELEGATORTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.FULLRESTAKEDELEGATORTYPE(&_Mevcommitmiddleware.CallOpts)
-}
-
-// INSTANTSLASHERTYPE is a free data retrieval call binding the contract method 0x1a7bb3e3.
-//
-// Solidity: function INSTANT_SLASHER_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) INSTANTSLASHERTYPE(opts *bind.CallOpts) (uint64, error) {
-	var out []interface{}
-	err := _Mevcommitmiddleware.contract.Call(opts, &out, "INSTANT_SLASHER_TYPE")
-
-	if err != nil {
-		return *new(uint64), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
-
-	return out0, err
-
-}
-
-// INSTANTSLASHERTYPE is a free data retrieval call binding the contract method 0x1a7bb3e3.
-//
-// Solidity: function INSTANT_SLASHER_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) INSTANTSLASHERTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.INSTANTSLASHERTYPE(&_Mevcommitmiddleware.CallOpts)
-}
-
-// INSTANTSLASHERTYPE is a free data retrieval call binding the contract method 0x1a7bb3e3.
-//
-// Solidity: function INSTANT_SLASHER_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) INSTANTSLASHERTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.INSTANTSLASHERTYPE(&_Mevcommitmiddleware.CallOpts)
-}
-
-// NETWORKRESTAKEDELEGATORTYPE is a free data retrieval call binding the contract method 0x006c84a0.
-//
-// Solidity: function NETWORK_RESTAKE_DELEGATOR_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) NETWORKRESTAKEDELEGATORTYPE(opts *bind.CallOpts) (uint64, error) {
-	var out []interface{}
-	err := _Mevcommitmiddleware.contract.Call(opts, &out, "NETWORK_RESTAKE_DELEGATOR_TYPE")
-
-	if err != nil {
-		return *new(uint64), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
-
-	return out0, err
-
-}
-
-// NETWORKRESTAKEDELEGATORTYPE is a free data retrieval call binding the contract method 0x006c84a0.
-//
-// Solidity: function NETWORK_RESTAKE_DELEGATOR_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) NETWORKRESTAKEDELEGATORTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.NETWORKRESTAKEDELEGATORTYPE(&_Mevcommitmiddleware.CallOpts)
-}
-
-// NETWORKRESTAKEDELEGATORTYPE is a free data retrieval call binding the contract method 0x006c84a0.
-//
-// Solidity: function NETWORK_RESTAKE_DELEGATOR_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) NETWORKRESTAKEDELEGATORTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.NETWORKRESTAKEDELEGATORTYPE(&_Mevcommitmiddleware.CallOpts)
-}
-
-// SUBNETWORKID is a free data retrieval call binding the contract method 0xce8a6513.
-//
-// Solidity: function SUBNETWORK_ID() view returns(uint96)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) SUBNETWORKID(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Mevcommitmiddleware.contract.Call(opts, &out, "SUBNETWORK_ID")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// SUBNETWORKID is a free data retrieval call binding the contract method 0xce8a6513.
-//
-// Solidity: function SUBNETWORK_ID() view returns(uint96)
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) SUBNETWORKID() (*big.Int, error) {
-	return _Mevcommitmiddleware.Contract.SUBNETWORKID(&_Mevcommitmiddleware.CallOpts)
-}
-
-// SUBNETWORKID is a free data retrieval call binding the contract method 0xce8a6513.
-//
-// Solidity: function SUBNETWORK_ID() view returns(uint96)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) SUBNETWORKID() (*big.Int, error) {
-	return _Mevcommitmiddleware.Contract.SUBNETWORKID(&_Mevcommitmiddleware.CallOpts)
-}
-
 // UPGRADEINTERFACEVERSION is a free data retrieval call binding the contract method 0xad3cb1cc.
 //
 // Solidity: function UPGRADE_INTERFACE_VERSION() view returns(string)
@@ -339,37 +215,6 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareSession) UPGRADEINTERFACEVERSION(
 // Solidity: function UPGRADE_INTERFACE_VERSION() view returns(string)
 func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) UPGRADEINTERFACEVERSION() (string, error) {
 	return _Mevcommitmiddleware.Contract.UPGRADEINTERFACEVERSION(&_Mevcommitmiddleware.CallOpts)
-}
-
-// VETOSLASHERTYPE is a free data retrieval call binding the contract method 0xee4a2ca8.
-//
-// Solidity: function VETO_SLASHER_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCaller) VETOSLASHERTYPE(opts *bind.CallOpts) (uint64, error) {
-	var out []interface{}
-	err := _Mevcommitmiddleware.contract.Call(opts, &out, "VETO_SLASHER_TYPE")
-
-	if err != nil {
-		return *new(uint64), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
-
-	return out0, err
-
-}
-
-// VETOSLASHERTYPE is a free data retrieval call binding the contract method 0xee4a2ca8.
-//
-// Solidity: function VETO_SLASHER_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareSession) VETOSLASHERTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.VETOSLASHERTYPE(&_Mevcommitmiddleware.CallOpts)
-}
-
-// VETOSLASHERTYPE is a free data retrieval call binding the contract method 0xee4a2ca8.
-//
-// Solidity: function VETO_SLASHER_TYPE() view returns(uint64)
-func (_Mevcommitmiddleware *MevcommitmiddlewareCallerSession) VETOSLASHERTYPE() (uint64, error) {
-	return _Mevcommitmiddleware.Contract.VETOSLASHERTYPE(&_Mevcommitmiddleware.CallOpts)
 }
 
 // GetNumSlashableVals is a free data retrieval call binding the contract method 0xf9a9184d.
@@ -3790,143 +3635,6 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseSlashPeriodSeconds
 	return event, nil
 }
 
-// MevcommitmiddlewareSlashRecordCreatedIterator is returned from FilterSlashRecordCreated and is used to iterate over the raw logs and unpacked data for SlashRecordCreated events raised by the Mevcommitmiddleware contract.
-type MevcommitmiddlewareSlashRecordCreatedIterator struct {
-	Event *MevcommitmiddlewareSlashRecordCreated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *MevcommitmiddlewareSlashRecordCreatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(MevcommitmiddlewareSlashRecordCreated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(MevcommitmiddlewareSlashRecordCreated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *MevcommitmiddlewareSlashRecordCreatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *MevcommitmiddlewareSlashRecordCreatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// MevcommitmiddlewareSlashRecordCreated represents a SlashRecordCreated event raised by the Mevcommitmiddleware contract.
-type MevcommitmiddlewareSlashRecordCreated struct {
-	Vault                      common.Address
-	Operator                   common.Address
-	BlockNumber                *big.Int
-	NumInitSlashableRegistered *big.Int
-	Raw                        types.Log // Blockchain specific contextual infos
-}
-
-// FilterSlashRecordCreated is a free log retrieval operation binding the contract event 0xfb529bce1d7b869d5e8be3d6f01cc4a7eb790e90f93686c5ae6a9b149871ff52.
-//
-// Solidity: event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterSlashRecordCreated(opts *bind.FilterOpts) (*MevcommitmiddlewareSlashRecordCreatedIterator, error) {
-
-	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "SlashRecordCreated")
-	if err != nil {
-		return nil, err
-	}
-	return &MevcommitmiddlewareSlashRecordCreatedIterator{contract: _Mevcommitmiddleware.contract, event: "SlashRecordCreated", logs: logs, sub: sub}, nil
-}
-
-// WatchSlashRecordCreated is a free log subscription operation binding the contract event 0xfb529bce1d7b869d5e8be3d6f01cc4a7eb790e90f93686c5ae6a9b149871ff52.
-//
-// Solidity: event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchSlashRecordCreated(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareSlashRecordCreated) (event.Subscription, error) {
-
-	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "SlashRecordCreated")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(MevcommitmiddlewareSlashRecordCreated)
-				if err := _Mevcommitmiddleware.contract.UnpackLog(event, "SlashRecordCreated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseSlashRecordCreated is a log parse operation binding the contract event 0xfb529bce1d7b869d5e8be3d6f01cc4a7eb790e90f93686c5ae6a9b149871ff52.
-//
-// Solidity: event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseSlashRecordCreated(log types.Log) (*MevcommitmiddlewareSlashRecordCreated, error) {
-	event := new(MevcommitmiddlewareSlashRecordCreated)
-	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "SlashRecordCreated", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // MevcommitmiddlewareUnpausedIterator is returned from FilterUnpaused and is used to iterate over the raw logs and unpacked data for Unpaused events raised by the Mevcommitmiddleware contract.
 type MevcommitmiddlewareUnpausedIterator struct {
 	Event *MevcommitmiddlewareUnpaused // Event containing the contract specifics and raw log
@@ -4667,9 +4375,9 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseValidatorDeregistr
 	return event, nil
 }
 
-// MevcommitmiddlewareValidatorPositionSwappedIterator is returned from FilterValidatorPositionSwapped and is used to iterate over the raw logs and unpacked data for ValidatorPositionSwapped events raised by the Mevcommitmiddleware contract.
-type MevcommitmiddlewareValidatorPositionSwappedIterator struct {
-	Event *MevcommitmiddlewareValidatorPositionSwapped // Event containing the contract specifics and raw log
+// MevcommitmiddlewareValidatorPositionsSwappedIterator is returned from FilterValidatorPositionsSwapped and is used to iterate over the raw logs and unpacked data for ValidatorPositionsSwapped events raised by the Mevcommitmiddleware contract.
+type MevcommitmiddlewareValidatorPositionsSwappedIterator struct {
+	Event *MevcommitmiddlewareValidatorPositionsSwapped // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -4683,7 +4391,7 @@ type MevcommitmiddlewareValidatorPositionSwappedIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *MevcommitmiddlewareValidatorPositionSwappedIterator) Next() bool {
+func (it *MevcommitmiddlewareValidatorPositionsSwappedIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -4692,7 +4400,7 @@ func (it *MevcommitmiddlewareValidatorPositionSwappedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(MevcommitmiddlewareValidatorPositionSwapped)
+			it.Event = new(MevcommitmiddlewareValidatorPositionsSwapped)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -4707,7 +4415,7 @@ func (it *MevcommitmiddlewareValidatorPositionSwappedIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(MevcommitmiddlewareValidatorPositionSwapped)
+		it.Event = new(MevcommitmiddlewareValidatorPositionsSwapped)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -4723,43 +4431,44 @@ func (it *MevcommitmiddlewareValidatorPositionSwappedIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *MevcommitmiddlewareValidatorPositionSwappedIterator) Error() error {
+func (it *MevcommitmiddlewareValidatorPositionsSwappedIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *MevcommitmiddlewareValidatorPositionSwappedIterator) Close() error {
+func (it *MevcommitmiddlewareValidatorPositionsSwappedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// MevcommitmiddlewareValidatorPositionSwapped represents a ValidatorPositionSwapped event raised by the Mevcommitmiddleware contract.
-type MevcommitmiddlewareValidatorPositionSwapped struct {
-	Vault       common.Address
-	Operator    common.Address
-	NewPosition *big.Int
-	Raw         types.Log // Blockchain specific contextual infos
+// MevcommitmiddlewareValidatorPositionsSwapped represents a ValidatorPositionsSwapped event raised by the Mevcommitmiddleware contract.
+type MevcommitmiddlewareValidatorPositionsSwapped struct {
+	BlsPubkeys   [][]byte
+	Vaults       []common.Address
+	Operators    []common.Address
+	NewPositions []*big.Int
+	Raw          types.Log // Blockchain specific contextual infos
 }
 
-// FilterValidatorPositionSwapped is a free log retrieval operation binding the contract event 0x727e411c46823f7dc7da4bfd1f058137d1f094d7850fd6f0f3f6de2350a82fcc.
+// FilterValidatorPositionsSwapped is a free log retrieval operation binding the contract event 0xe0cafa4f48344c7bc84dcc427b7f80feae065a8ef4dd485cbd07f5e1f954cd97.
 //
-// Solidity: event ValidatorPositionSwapped(address vault, address operator, uint256 newPosition)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorPositionSwapped(opts *bind.FilterOpts) (*MevcommitmiddlewareValidatorPositionSwappedIterator, error) {
+// Solidity: event ValidatorPositionsSwapped(bytes[] blsPubkeys, address[] vaults, address[] operators, uint256[] newPositions)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) FilterValidatorPositionsSwapped(opts *bind.FilterOpts) (*MevcommitmiddlewareValidatorPositionsSwappedIterator, error) {
 
-	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValidatorPositionSwapped")
+	logs, sub, err := _Mevcommitmiddleware.contract.FilterLogs(opts, "ValidatorPositionsSwapped")
 	if err != nil {
 		return nil, err
 	}
-	return &MevcommitmiddlewareValidatorPositionSwappedIterator{contract: _Mevcommitmiddleware.contract, event: "ValidatorPositionSwapped", logs: logs, sub: sub}, nil
+	return &MevcommitmiddlewareValidatorPositionsSwappedIterator{contract: _Mevcommitmiddleware.contract, event: "ValidatorPositionsSwapped", logs: logs, sub: sub}, nil
 }
 
-// WatchValidatorPositionSwapped is a free log subscription operation binding the contract event 0x727e411c46823f7dc7da4bfd1f058137d1f094d7850fd6f0f3f6de2350a82fcc.
+// WatchValidatorPositionsSwapped is a free log subscription operation binding the contract event 0xe0cafa4f48344c7bc84dcc427b7f80feae065a8ef4dd485cbd07f5e1f954cd97.
 //
-// Solidity: event ValidatorPositionSwapped(address vault, address operator, uint256 newPosition)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorPositionSwapped(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValidatorPositionSwapped) (event.Subscription, error) {
+// Solidity: event ValidatorPositionsSwapped(bytes[] blsPubkeys, address[] vaults, address[] operators, uint256[] newPositions)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorPositionsSwapped(opts *bind.WatchOpts, sink chan<- *MevcommitmiddlewareValidatorPositionsSwapped) (event.Subscription, error) {
 
-	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValidatorPositionSwapped")
+	logs, sub, err := _Mevcommitmiddleware.contract.WatchLogs(opts, "ValidatorPositionsSwapped")
 	if err != nil {
 		return nil, err
 	}
@@ -4769,8 +4478,8 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorPositionS
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(MevcommitmiddlewareValidatorPositionSwapped)
-				if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValidatorPositionSwapped", log); err != nil {
+				event := new(MevcommitmiddlewareValidatorPositionsSwapped)
+				if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValidatorPositionsSwapped", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -4791,12 +4500,12 @@ func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) WatchValidatorPositionS
 	}), nil
 }
 
-// ParseValidatorPositionSwapped is a log parse operation binding the contract event 0x727e411c46823f7dc7da4bfd1f058137d1f094d7850fd6f0f3f6de2350a82fcc.
+// ParseValidatorPositionsSwapped is a log parse operation binding the contract event 0xe0cafa4f48344c7bc84dcc427b7f80feae065a8ef4dd485cbd07f5e1f954cd97.
 //
-// Solidity: event ValidatorPositionSwapped(address vault, address operator, uint256 newPosition)
-func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseValidatorPositionSwapped(log types.Log) (*MevcommitmiddlewareValidatorPositionSwapped, error) {
-	event := new(MevcommitmiddlewareValidatorPositionSwapped)
-	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValidatorPositionSwapped", log); err != nil {
+// Solidity: event ValidatorPositionsSwapped(bytes[] blsPubkeys, address[] vaults, address[] operators, uint256[] newPositions)
+func (_Mevcommitmiddleware *MevcommitmiddlewareFilterer) ParseValidatorPositionsSwapped(log types.Log) (*MevcommitmiddlewareValidatorPositionsSwapped, error) {
+	event := new(MevcommitmiddlewareValidatorPositionsSwapped)
+	if err := _Mevcommitmiddleware.contract.UnpackLog(event, "ValidatorPositionsSwapped", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
