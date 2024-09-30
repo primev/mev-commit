@@ -186,6 +186,8 @@ interface IMevCommitMiddleware {
 
     error NetworkNotEntity(address network);
 
+    error ZeroUintNotAllowed();
+
     error MissingOperatorRecord(address operator);
 
     error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);

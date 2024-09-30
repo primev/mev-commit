@@ -8,19 +8,19 @@ import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 abstract contract MevCommitMiddlewareStorage {
 
     /// @notice The only subnetwork ID for mev-commit middleware. Ie. mev-commit doesn't implement multiple subnets.
-    uint96 public constant SUBNETWORK_ID = 1;
+    uint96 internal constant _SUBNETWORK_ID = 1;
 
     /// @notice Enum TYPE for Symbiotic core NetworkRestakeDelegator.
-    uint64 public constant NETWORK_RESTAKE_DELEGATOR_TYPE = 0;
+    uint64 internal constant _NETWORK_RESTAKE_DELEGATOR_TYPE = 0;
 
     /// @notice Enum TYPE for Symbiotic core FullRestakeDelegator.
-    uint64 public constant FULL_RESTAKE_DELEGATOR_TYPE = 1;
+    uint64 internal constant _FULL_RESTAKE_DELEGATOR_TYPE = 1;
 
     /// @notice Enum TYPE for Symbiotic core InstantSlasher.
-    uint64 public constant INSTANT_SLASHER_TYPE = 0;
+    uint64 internal constant _INSTANT_SLASHER_TYPE = 0;
 
     /// @notice Enum TYPE for Symbiotic core VetoSlasher.
-    uint64 public constant VETO_SLASHER_TYPE = 1;
+    uint64 internal constant _VETO_SLASHER_TYPE = 1;
 
     /// @notice Symbiotic core network registry.
     IRegistry public networkRegistry;

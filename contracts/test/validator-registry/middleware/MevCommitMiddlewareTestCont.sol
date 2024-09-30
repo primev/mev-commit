@@ -49,11 +49,16 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         slashAmounts[0] = 10;
         slashAmounts[1] = 20;
 
-        mockDelegator1.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
-        mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
+        uint64 networkRestakeDelegatorType = 0;
 
-        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE(), mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5, mockDelegator2);
+        mockDelegator1.setType(networkRestakeDelegatorType);
+        mockDelegator2.setType(networkRestakeDelegatorType);
+
+        uint64 instantSlasherType = 0;
+        uint64 vetoSlasherType = 1;
+
+        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2);
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
@@ -113,11 +118,16 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         slashAmounts[0] = 10;
         slashAmounts[1] = 20;
 
-        mockDelegator1.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
-        mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
+        uint64 networkRestakeDelegatorType = 0;
 
-        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(mevCommitMiddleware.INSTANT_SLASHER_TYPE(), mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(mevCommitMiddleware.VETO_SLASHER_TYPE(), address(0), 5, mockDelegator2);
+        mockDelegator1.setType(networkRestakeDelegatorType);
+        mockDelegator2.setType(networkRestakeDelegatorType);
+
+        uint64 instantSlasherType = 0;
+        uint64 vetoSlasherType = 1;
+
+        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2);
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
