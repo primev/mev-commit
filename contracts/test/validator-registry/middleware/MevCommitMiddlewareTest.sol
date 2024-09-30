@@ -64,8 +64,7 @@ contract MevCommitMiddlewareTest is Test {
     event NetworkSet(address network);
     event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
     event SlashOracleSet(address slashOracle);
-    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered);
-    event ValidatorPositionSwapped(address vault, address operator, uint256 newPosition);
+    event ValidatorPositionsSwapped(bytes[] blsPubkeys, address[] vaults, address[] operators, uint256[] newPositions);
 
     function setUp() public virtual {
         networkRegistryMock = new RegistryMock();

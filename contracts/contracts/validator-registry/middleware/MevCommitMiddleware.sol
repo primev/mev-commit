@@ -229,6 +229,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata infractionTimestamps) external onlySlashOracle {
         uint256 len = blsPubkeys.length;
         require(len == infractionTimestamps.length, InvalidArrayLengths(len, infractionTimestamps.length));
+
+        address[] memory swappedOperators = new address[](len);
+        address[] memory swappedVaults = new address[](len);
+        uint256[] memory newPositions = new uint256[](len);
+
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubkey = blsPubkeys[i];
             // These and other checks in _slashValidator will succeed if current tx executes within
@@ -248,16 +253,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
                     numSlashed: 0,
                     numInitSlashableRegistered: numSlashableRegistered
                 });
-                emit SlashRecordCreated(valRecord.vault, valRecord.operator, block.number, numSlashableRegistered);
             }
             // Swap about to be slashed pubkey with last slashable pubkey in valset.
             uint256 newPosition = slashRecord.numInitSlashableRegistered - slashRecord.numSlashed; // 1-indexed
             _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(pubkey, newPosition);
-            emit ValidatorPositionSwapped(valRecord.vault, valRecord.operator, newPosition);
+            swappedVaults[i] = valRecord.vault;
+            swappedOperators[i] = valRecord.operator;
+            newPositions[i] = newPosition;
 
             ++slashRecord.numSlashed;
             _slashValidator(blsPubkeys[i], infractionTimestamps[i], valRecord);
         }
+        emit ValidatorPositionsSwapped(blsPubkeys, swappedVaults, swappedOperators, newPositions);
     }
 
     /// @dev Pauses the contract, restricted to contract owner.

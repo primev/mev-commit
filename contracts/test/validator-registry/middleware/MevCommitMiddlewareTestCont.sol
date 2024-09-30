@@ -923,8 +923,6 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         vm.prank(slashOracle);
         vm.expectEmit(true, true, true, true);
-        emit SlashRecordCreated(address(vault1), operator1, block.number, 4);
-        vm.expectEmit(true, true, true, true);
         emit ValidatorSlashed(sampleValPubkey1, operator1, address(vault1), 10);
         vm.expectEmit(true, true, true, true);
         emit ValidatorSlashed(sampleValPubkey2, operator1, address(vault1), 10);
@@ -1002,15 +1000,20 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         vm.prank(slashOracle);
         vm.expectEmit(true, true, true, true);
-        emit SlashRecordCreated(address(vault2), operator1, block.number, 3);
-        vm.expectEmit(true, true, true, true);
-        emit ValidatorPositionSwapped(address(vault2), operator1, 3);
-        vm.expectEmit(true, true, true, true);
         emit ValidatorSlashRequested(sampleValPubkey4, operator1, address(vault2), 0);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorPositionSwapped(address(vault2), operator1, 2);
-        vm.expectEmit(true, true, true, true);
         emit ValidatorSlashRequested(sampleValPubkey5, operator1, address(vault2), 1);
+        vm.expectEmit(true, true, true, true);
+        address[] memory expectedVaults = new address[](2);
+        expectedVaults[0] = address(vault2);
+        expectedVaults[1] = address(vault2);
+        address[] memory expectedOperators = new address[](2);
+        expectedOperators[0] = operator1;
+        expectedOperators[1] = operator1;
+        uint256[] memory expectedPositions = new uint256[](2);
+        expectedPositions[0] = 3;
+        expectedPositions[1] = 2;
+        emit ValidatorPositionsSwapped(firstTwoBlsPubkeysFromVault2, expectedVaults, expectedOperators, expectedPositions);
         mevCommitMiddleware.slashValidators(firstTwoBlsPubkeysFromVault2, timestamps); 
 
         valRecord4 = getValidatorRecord(sampleValPubkey4);
@@ -1087,11 +1090,15 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         timestamps[0] = 203;
         vm.prank(slashOracle);
         vm.expectEmit(true, true, true, true);
-        emit SlashRecordCreated(address(vault2), operator1, block.number, 2);
-        vm.expectEmit(true, true, true, true);
-        emit ValidatorPositionSwapped(address(vault2), operator1, 2);
-        vm.expectEmit(true, true, true, true);
         emit ValidatorSlashRequested(sampleValPubkey6, operator1, address(vault2), 2);
+        vm.expectEmit(true, true, true, true);
+        expectedVaults = new address[](1);
+        expectedVaults[0] = address(vault2);
+        expectedOperators = new address[](1);
+        expectedOperators[0] = operator1;
+        expectedPositions = new uint256[](1);
+        expectedPositions[0] = 2;
+        emit ValidatorPositionsSwapped(pubkeys, expectedVaults, expectedOperators, expectedPositions);
         mevCommitMiddleware.slashValidators(pubkeys, timestamps);
 
         slashRecord = getSlashRecord(address(vault2), operator1, block.number);
@@ -1152,7 +1159,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
     }
 
     // For repeated use in requestValidatorDeregistrations and deregisterValidators tests
-    function getSixPubkeys() internal view returns (bytes[] memory) {
+    function getSixPubkeys() public view returns (bytes[] memory) {
         bytes[] memory blsPubkeys = new bytes[](6);
         blsPubkeys[0] = sampleValPubkey1;
         blsPubkeys[1] = sampleValPubkey2;
