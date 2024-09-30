@@ -112,11 +112,9 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the slash oracle is set
     event SlashOracleSet(address slashOracle);
 
-    /// @notice Emmitted when a slash record is created
-    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered);
-
-    /// @notice Emmitted when a validator position is swapped as a part of slashing
-    event ValidatorPositionSwapped(address vault, address operator, uint256 newPosition);
+    /// @notice Emmitted when validator positions are swapped as a part of slashing
+    /// @dev Each array index corresponds to a swap instance. ie. all lists should be of equal length.
+    event ValidatorPositionsSwapped(bytes[] blsPubkeys, address[] vaults, address[] operators, uint256[] newPositions);
 
     error OnlySlashOracle(address slashOracle);
 
@@ -185,6 +183,8 @@ interface IMevCommitMiddleware {
     error ZeroAddressNotAllowed();
 
     error NetworkNotEntity(address network);
+
+    error ZeroUintNotAllowed();
 
     error MissingOperatorRecord(address operator);
 

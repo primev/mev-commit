@@ -64,8 +64,7 @@ contract MevCommitMiddlewareTest is Test {
     event NetworkSet(address network);
     event SlashPeriodSecondsSet(uint256 slashPeriodSeconds);
     event SlashOracleSet(address slashOracle);
-    event SlashRecordCreated(address vault, address operator, uint256 blockNumber, uint256 numInitSlashableRegistered);
-    event ValidatorPositionSwapped(address vault, address operator, uint256 newPosition);
+    event ValidatorPositionsSwapped(bytes[] blsPubkeys, address[] vaults, address[] operators, uint256[] newPositions);
 
     function setUp() public virtual {
         networkRegistryMock = new RegistryMock();
@@ -571,8 +570,10 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        mockDelegator1.setType(mevCommitMiddleware.FULL_RESTAKE_DELEGATOR_TYPE());
-        mockDelegator2.setType(mevCommitMiddleware.FULL_RESTAKE_DELEGATOR_TYPE());
+        uint64 fullRestakeDelegatorType = 1;
+
+        mockDelegator1.setType(fullRestakeDelegatorType);
+        mockDelegator2.setType(fullRestakeDelegatorType);
 
         vm.prank(owner);
         vm.expectRevert(
@@ -580,8 +581,10 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        mockDelegator1.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
-        mockDelegator2.setType(mevCommitMiddleware.NETWORK_RESTAKE_DELEGATOR_TYPE());
+        uint64 networkRestakeDelegatorType = 0;
+
+        mockDelegator1.setType(networkRestakeDelegatorType);
+        mockDelegator2.setType(networkRestakeDelegatorType);
 
         vm.prank(owner);
         vm.expectRevert(
@@ -602,7 +605,9 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        mockSlasher1.setType(mevCommitMiddleware.VETO_SLASHER_TYPE());
+        uint64 vetoSlasherType = 1;
+
+        mockSlasher1.setType(vetoSlasherType);
 
         vm.prank(owner);
         vm.expectRevert(
@@ -640,7 +645,9 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        mockSlasher2.setType(mevCommitMiddleware.INSTANT_SLASHER_TYPE());
+        uint64 instantSlasherType = 0;
+
+        mockSlasher2.setType(instantSlasherType);
 
         vm.prank(owner);
         vm.expectEmit(true, true, true, true);

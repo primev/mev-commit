@@ -14,58 +14,6 @@
   },
   {
     "type": "function",
-    "name": "FULL_RESTAKE_DELEGATOR_TYPE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "INSTANT_SLASHER_TYPE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "NETWORK_RESTAKE_DELEGATOR_TYPE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "SUBNETWORK_ID",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint96",
-        "internalType": "uint96"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -73,19 +21,6 @@
         "name": "",
         "type": "string",
         "internalType": "string"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "VETO_SLASHER_TYPE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint64",
-        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -1133,37 +1068,6 @@
   },
   {
     "type": "event",
-    "name": "SlashRecordCreated",
-    "inputs": [
-      {
-        "name": "vault",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "operator",
-        "type": "address",
-        "indexed": false,
-        "internalType": "address"
-      },
-      {
-        "name": "blockNumber",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "numInitSlashableRegistered",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -1265,25 +1169,31 @@
   },
   {
     "type": "event",
-    "name": "ValidatorPositionSwapped",
+    "name": "ValidatorPositionsSwapped",
     "inputs": [
       {
-        "name": "vault",
-        "type": "address",
+        "name": "blsPubkeys",
+        "type": "bytes[]",
         "indexed": false,
-        "internalType": "address"
+        "internalType": "bytes[]"
       },
       {
-        "name": "operator",
-        "type": "address",
+        "name": "vaults",
+        "type": "address[]",
         "indexed": false,
-        "internalType": "address"
+        "internalType": "address[]"
       },
       {
-        "name": "newPosition",
-        "type": "uint256",
+        "name": "operators",
+        "type": "address[]",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "address[]"
+      },
+      {
+        "name": "newPositions",
+        "type": "uint256[]",
+        "indexed": false,
+        "internalType": "uint256[]"
       }
     ],
     "anonymous": false
@@ -2063,6 +1973,11 @@
   {
     "type": "error",
     "name": "ZeroAddressNotAllowed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroUintNotAllowed",
     "inputs": []
   }
 ]

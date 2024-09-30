@@ -228,6 +228,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata infractionTimestamps) external onlySlashOracle {
         uint256 len = blsPubkeys.length;
         require(len == infractionTimestamps.length, InvalidArrayLengths(len, infractionTimestamps.length));
+
+        address[] memory swappedOperators = new address[](len);
+        address[] memory swappedVaults = new address[](len);
+        uint256[] memory newPositions = new uint256[](len);
+
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubkey = blsPubkeys[i];
             // These and other checks in _slashValidator will succeed if current tx executes within
@@ -247,16 +252,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
                     numSlashed: 0,
                     numInitSlashableRegistered: numSlashableRegistered
                 });
-                emit SlashRecordCreated(valRecord.vault, valRecord.operator, block.number, numSlashableRegistered);
             }
             // Swap about to be slashed pubkey with last slashable pubkey in valset.
             uint256 newPosition = slashRecord.numInitSlashableRegistered - slashRecord.numSlashed; // 1-indexed
             _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(pubkey, newPosition);
-            emit ValidatorPositionSwapped(valRecord.vault, valRecord.operator, newPosition);
+            swappedVaults[i] = valRecord.vault;
+            swappedOperators[i] = valRecord.operator;
+            newPositions[i] = newPosition;
 
             ++slashRecord.numSlashed;
             _slashValidator(blsPubkeys[i], infractionTimestamps[i], valRecord);
         }
+        emit ValidatorPositionsSwapped(blsPubkeys, swappedVaults, swappedOperators, newPositions);
     }
 
     /// @dev Pauses the contract, restricted to contract owner.
@@ -411,9 +418,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
 
         IEntity delegator = IEntity(IVault(vault).delegator());
-        if (delegator.TYPE() == FULL_RESTAKE_DELEGATOR_TYPE) {
+        if (delegator.TYPE() == _FULL_RESTAKE_DELEGATOR_TYPE) {
             revert FullRestakeDelegatorNotSupported(vault);
-        } else if (delegator.TYPE() != NETWORK_RESTAKE_DELEGATOR_TYPE) {
+        } else if (delegator.TYPE() != _NETWORK_RESTAKE_DELEGATOR_TYPE) {
             revert UnknownDelegatorType(vault, delegator.TYPE());
         }
 
@@ -423,14 +430,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         address slasher = IVault(vault).slasher();
         require(slasher != address(0), SlasherNotSetForVault(vault));
         uint256 slasherType = IEntity(slasher).TYPE();
-        if (slasherType == VETO_SLASHER_TYPE) {
+        if (slasherType == _VETO_SLASHER_TYPE) {
             IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
             // For veto slashers, incorporate that veto duration will eat into vault's epoch duration.
             /// @dev vetoDuration must be less than epochDuration as enforced by VetoSlasher.sol.
             vaultEpochDurationSeconds -= vetoSlasher.vetoDuration();
             require(vetoSlasher.resolver(_getSubnetwork(), new bytes(0)) == address(0),
                 VetoSlasherMustHaveZeroResolver(vault));
-        } else if (slasherType != INSTANT_SLASHER_TYPE) {
+        } else if (slasherType != _INSTANT_SLASHER_TYPE) {
             revert UnknownSlasherType(vault, slasherType);
         }
 
@@ -529,11 +536,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         address slasher = IVault(valRecord.vault).slasher();
         uint256 slasherType = IEntity(slasher).TYPE();
-        if (slasherType == VETO_SLASHER_TYPE) {
+        if (slasherType == _VETO_SLASHER_TYPE) {
             uint256 slashIndex = IVetoSlasher(slasher).requestSlash(
                 _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
             emit ValidatorSlashRequested(blsPubkey, valRecord.operator, valRecord.vault, slashIndex);
-        } else if (slasherType == INSTANT_SLASHER_TYPE) {
+        } else if (slasherType == _INSTANT_SLASHER_TYPE) {
             uint256 slashedAmount = ISlasher(slasher).slash(
                 _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
             emit ValidatorSlashed(blsPubkey, valRecord.operator, valRecord.vault, slashedAmount);
@@ -569,6 +576,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     /// @dev Internal function to set the network address, which must have registered with the NETWORK_REGISTRY.
     function _setNetwork(address _network) internal {
+        require(_network != address(0), ZeroAddressNotAllowed());
         require(networkRegistry.isEntity(_network), NetworkNotEntity(_network));
         network = _network;
         emit NetworkSet(_network);
@@ -576,12 +584,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     /// @dev Internal function to set the slash period in seconds.
     function _setSlashPeriodSeconds(uint256 slashPeriodSeconds_) internal {
+        require(slashPeriodSeconds_ != 0, ZeroUintNotAllowed());
         slashPeriodSeconds = slashPeriodSeconds_;
         emit SlashPeriodSecondsSet(slashPeriodSeconds_);
     }
 
     /// @dev Internal function to set the slash oracle.
     function _setSlashOracle(address slashOracle_) internal {
+        require(slashOracle_ != address(0), ZeroAddressNotAllowed());
         slashOracle = slashOracle_;
         emit SlashOracleSet(slashOracle_);
     }
@@ -636,7 +646,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     function _getSubnetwork() internal view returns (bytes32) {
-        return Subnetwork.subnetwork(network, SUBNETWORK_ID);
+        return Subnetwork.subnetwork(network, _SUBNETWORK_ID);
     }
 
     /// @return Number of validators that could be slashable according to vault stake.
