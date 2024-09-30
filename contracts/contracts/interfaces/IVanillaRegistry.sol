@@ -25,10 +25,10 @@ interface IVanillaRegistry {
     event Unstaked(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
     /// @dev Event emitted when a validator's stake is withdrawn.
-    event StakeWithdrawn(address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
+    event StakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
 
     /// @dev Event emitted when total stake is withdrawn.
-    event TotalStakeWithdrawn(address indexed withdrawalAddress, uint256 totalAmount);
+    event TotalStakeWithdrawn(address indexed msgSender, address indexed withdrawalAddress, uint256 totalAmount);
 
     /// @dev Event emitted when a validator is slashed.
     event Slashed(address indexed msgSender, address indexed slashReceiver, address indexed withdrawalAddress, bytes valBLSPubKey, uint256 amount);
@@ -56,10 +56,10 @@ interface IVanillaRegistry {
     error SenderIsNotSlashOracle(address sender, address slashOracle);
     error WithdrawalAddressMustBeSet();
     error MustUnstakeToWithdraw();
-    error NothingToWithdraw();
     error AtLeastOneRecipientRequired();
-    error StakeTooLowForNumberOfKeys(uint256 msgValue, uint256 numberOfKeys);
+    error StakeTooLowForNumberOfKeys(uint256 msgValue, uint256 required);
     error WithdrawingTooSoon();
+    error WithdrawalAddressMismatch(address actualWithdrawalAddress, address expectedWithdrawalAddress);
     error WithdrawalFailed();
     error NotEnoughBalanceToSlash();
     error SlashingTransferFailed();

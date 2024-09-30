@@ -17,9 +17,9 @@ The vanilla registry allows validators to _opt-in to mev-commit_ by staking nati
 
 ### Staking
 
-Staking involves an account depositing ETH into the contract on behalf of one or more validator BLS pubkeys. Validator pubkeys are only verified by length, and not verified as a pubkey residing from an active validator on the beacon chain. Therefore stake associated with a non-active or otherwise invalid validator pubkey **can be slashed by the oracle to prevent spam**.
+Staking involves an account depositing ETH into the contract on behalf of one or more validator BLS pubkeys. Validator pubkeys are only verified by length, and not verified as a pubkey residing from an active validator on the beacon chain. Therefore stake associated with a non-active or otherwise invalid validator pubkey **may be slashed by the oracle to prevent spam**.
 
-For the `stake` function, the account which stakes each validator pubkey is the withdrawal address for that validator. The `delegateStake` function allows only the contract owner to stake on behalf of other specified withdrawal accounts.
+For the `stake` function, the account which stakes each validator pubkey is the withdrawal address for that validator. The transaction calling `stake` must attach `minStake` ETH for each validator pubkey to be staked. The `delegateStake` function allows only the contract owner to stake on behalf of other specified withdrawal accounts.
 
 ### Unstaking
 
@@ -28,6 +28,8 @@ Unstaking involves the withdrawal account for a validator pubkey calling `Unstak
 ### Withdrawals
 
 After a validator has been unstaked, and `unstakePeriodBlocks` amount of blocks have passed, the withdrawal account for a validator can call `withdraw`. This will transfer the validator's ETH back to their withdrawal address.
+
+The owner account is also able to call `withdraw` for any validator pubkey who's already unstaked. This gives the owner the ability to forcefully delete records for validators that have either been slashed, or explicitly unstaked by the user.
 
 ### Slashing
 

@@ -616,6 +616,24 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "withdrawAsOwner",
+    "inputs": [
+      {
+        "name": "blsPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "event",
     "name": "FeeTransfer",
     "inputs": [
@@ -853,6 +871,12 @@
     "name": "StakeWithdrawn",
     "inputs": [
       {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
         "name": "withdrawalAddress",
         "type": "address",
         "indexed": true,
@@ -908,6 +932,12 @@
     "type": "event",
     "name": "TotalStakeWithdrawn",
     "inputs": [
+      {
+        "name": "msgSender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
       {
         "name": "withdrawalAddress",
         "type": "address",
@@ -1104,11 +1134,6 @@
   },
   {
     "type": "error",
-    "name": "NothingToWithdraw",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [
       {
@@ -1206,7 +1231,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "numberOfKeys",
+        "name": "required",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1268,6 +1293,22 @@
         "name": "valBLSPubKey",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "WithdrawalAddressMismatch",
+    "inputs": [
+      {
+        "name": "actualWithdrawalAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "expectedWithdrawalAddress",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
