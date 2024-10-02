@@ -15,7 +15,7 @@ deploy_version="HEAD"
 environment_name="devenv"
 profile_name="devnet"
 datadog_key=""
-l1_rpc_url=""
+l1_rpc_urls=""
 otel_collector_endpoint_url=""
 genesis_file_url=""
 geth_bootnode_url=""
@@ -23,7 +23,7 @@ geth_bootnode_url=""
 help() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--backup] [--debug]]"
     echo "$0 --help"
     echo
@@ -39,7 +39,7 @@ help() {
     echo "    --force-build-templates              Force the build of all job templates before deployment."
     echo "    --no-logs-collection                 Disable the collection of logs from deployed jobs."
     echo "    --datadog-key <key>]                 Datadog API key, cannot be empty."
-    echo "    --l1-rpc-url <url>]                  L1 RPC URL, cannot be empty."
+    echo "    --l1-rpc-urls <urls>]                Comma separated list of L1 RPC URLs, cannot be empty."
     echo "    --otel-collector-endpoint-url <url>] OpenTelemetry Collector Endpoint URL, cannot be empty."
     echo "    --genesis-file-url <url>]            URL to the genesis file, cannot be empty."
     echo "    --geth-bootnode-url <url>]           URL to the Geth bootnode, cannot be empty."
@@ -75,7 +75,7 @@ help() {
     echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --force-build-templates"
     echo
     echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection, Datadog API key, L1 RPC URL, OpenTelemetry Collector Endpoint URL, genesis file URL, and Geth bootnode URL:"
-    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --l1-rpc-url your_rpc_url --otel-collector-endpoint-url your_otel_url --genesis-file-url your_genesis_file_url --geth-bootnode-url your_geth_bootnode_url --debug"
+    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --l1-rpc-urls your_rpc_urls --otel-collector-endpoint-url your_otel_url --genesis-file-url your_genesis_file_url --geth-bootnode-url your_geth_bootnode_url --debug"
     echo
     echo "  Destroy all jobs but backup before do so:"
     echo "    $0 destroy --backup --debug"
@@ -85,7 +85,7 @@ help() {
 usage() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-url <url>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--backup] [--debug]]"
     echo "$0 --help"
     exit 1
@@ -216,12 +216,12 @@ parse_args() {
                         usage
                     fi
                 fi
-                if [[ $# -gt 0 && $1 == "--l1-rpc-url" ]]; then
+                if [[ $# -gt 0 && $1 == "--l1-rpc-urls" ]]; then
                     if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
-                        l1_rpc_url="$2"
+                        l1_rpc_urls="$2"
                         shift 2
                     else
-                        echo "Error: --l1-rpc-url requires a value."
+                        echo "Error: --l1-rpc-urls requires a value."
                         usage
                     fi
                 fi
@@ -311,7 +311,7 @@ main() {
             [[ "${no_logs_collection_flag}" == true ]] && flags+=("--extra-vars" "no_logs_collection=true")
             [[ "${force_build_templates_flag}" == true ]] && flags+=("--extra-vars" "build_templates=true")
             [[ -n "${datadog_key}" ]] && flags+=("--extra-vars" "datadog_key=${datadog_key}")
-            [[ -n "${l1_rpc_url}" ]] && flags+=("--extra-vars" "l1_rpc_url=${l1_rpc_url}")
+            [[ -n "${l1_rpc_urls}" ]] && flags+=("--extra-vars" "l1_rpc_urls=${l1_rpc_urls}")
             [[ -n "${otel_collector_endpoint_url}" ]] && flags+=("--extra-vars" "otel_collector_endpoint_url=${otel_collector_endpoint_url}")
             [[ -n "${genesis_file_url}" ]] && flags+=("--extra-vars" "genesis_file_url=${genesis_file_url}")
             [[ -n "${geth_bootnode_url}" ]] && flags+=("--extra-vars" "geth_bootnode_url=${geth_bootnode_url}")
