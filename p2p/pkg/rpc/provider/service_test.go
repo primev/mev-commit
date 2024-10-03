@@ -27,15 +27,21 @@ import (
 type testRegistryContract struct {
 	stake    *big.Int
 	minStake *big.Int
+	blsKey   []byte
 }
 
 func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error) {
 	t.stake = opts.Value
+	t.blsKey = blsPublicKey
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
 func (t *testRegistryContract) GetProviderStake(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
 	return t.stake, nil
+}
+
+func (t *testRegistryContract) GetBLSKey(_ *bind.CallOpts, address common.Address) ([]byte, error) {
+	return t.blsKey, nil
 }
 
 func (t *testRegistryContract) MinStake(_ *bind.CallOpts) (*big.Int, error) {
@@ -226,6 +232,9 @@ func TestStakeHandling(t *testing.T) {
 		}
 		if stake.Amount != "1000000000000000000" {
 			t.Fatalf("expected amount to be 1000000000000000000, got %v", stake.Amount)
+		}
+		if stake.BlsPublicKey != "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456" {
+			t.Fatalf("expected bls public key to be 123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456, got %v", stake.BlsPublicKey)
 		}
 	})
 
