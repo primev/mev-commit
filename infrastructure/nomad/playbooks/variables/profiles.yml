@@ -474,7 +474,7 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_rpc_url: "{{ l1_rpc_url }}"
+      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_emulator_nodes: &mev_commit_bidder_emulator_nodes_job
@@ -489,7 +489,7 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_rpc_url: "{{ l1_rpc_url }}"
+      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_oracle: &mev_commit_oracle_job
     name: mev-commit-oracle
@@ -514,7 +514,7 @@ jobs:
         metrics:
           to: 8080
     env:
-      l1_rpc_url: "{{ l1_rpc_url }}"
+      l1_rpc_urls: "{{ l1_rpc_urls }}"
 
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
@@ -525,7 +525,7 @@ jobs:
           to: 8080
     env:
       l1_chain_id: 11155111
-      l1_rpc_url: "{{ l1_rpc_url }}"
+      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_faucet: &mev_commit_faucet_job
     name: mev-commit-faucet

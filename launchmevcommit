@@ -13,6 +13,8 @@ BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"
 CONTRACTS_URL="https://contracts.${DOMAIN}"
 OTEL_COLLECTOR_ENDPOINT_URL=""
 SERVICE_NAME=""
+NAT_ADDR=""
+NAT_PORT=""
 
 # Default mev-commit binary download values.
 ARTIFACTS_URL="https://github.com/primev/mev-commit/releases/latest/download/"
@@ -45,7 +47,7 @@ fi
 
 # Prints usage information for the script.
 usage() {
-  echo "Usage: $0 --node-type [bidder|provider] --otel-collector-endpoint-url [url] --nickname [nickname]"
+  echo "Usage: $0 --node-type [bidder|provider] [--nat-ip ip_address[:port]] [--otel-collector-endpoint-url url] [--nickname nickname]"
   exit 1
 }
 
@@ -164,9 +166,36 @@ parse_args() {
           *)
             log_error "Invalid node type: ${NODE_TYPE}, must be 'bidder' or 'provider'"
             usage
-            exit 1
             ;;
         esac
+        shift
+        ;;
+      --nat-ip)
+        NAT_IP="${2}"
+        if [[ ! ${NAT_IP} =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]{1,5})?$ ]]; then
+          log_error "Invalid NAT IP address: ${NAT_IP}"
+          usage
+        fi
+        if [[ "${NAT_IP}" == *":"* ]]; then
+          NAT_ADDR="${NAT_IP%%:*}"
+          NAT_PORT="${NAT_IP##*:}"
+        else
+          NAT_ADDR="${NAT_IP}"
+          NAT_PORT=""
+        fi
+        IFS='.' read -r -a octets <<< "${NAT_ADDR}"
+        for octet in "${octets[@]}"; do
+          if ! [[ "${octet}" =~ ^[0-9]+$ ]] || (( octet < 0 || octet > 255 )); then
+            log_error "Invalid NAT IP address: ${NAT_IP}"
+            usage
+          fi
+        done
+        if [ -n "${NAT_PORT}" ]; then
+          if ! [[ "${NAT_PORT}" =~ ^[0-9]+$ ]] || (( NAT_PORT < 1 || NAT_PORT > 65535 )); then
+            log_error "Invalid NAT port: ${NAT_PORT}, must be a number between 1 and 65535"
+            usage
+          fi
+        fi
         shift
         ;;
       --otel-collector-endpoint-url)
@@ -180,7 +209,6 @@ parse_args() {
       *)
         log_error "Unknown parameter passed: ${1}"
         usage
-        exit 1
         ;;
     esac
     shift
@@ -215,6 +243,9 @@ cleanup() {
 }
 
 main() {
+  check_utils
+  parse_args "$@"
+
   log_info "Starting mev-commit setup script..."
   log_info "Version of mev-commit: ${VERSION}"
   log_info "Type of node: ${NODE_TYPE}"
@@ -226,8 +257,6 @@ main() {
     exit 1
   fi
 
-  check_utils
-  parse_args "$@"
   install_mev_commit
 
   if [ ! -x "$(command -v forge)" ] && [ ! -d "${HOME}/.foundry/bin" ]; then
@@ -253,6 +282,12 @@ main() {
     --peer-type "${NODE_TYPE}"
     --bootnodes "${BOOTNODE}"
   )
+  if [ -n "${NAT_ADDR}" ]; then
+    flags+=(--nat-addr "${NAT_ADDR}")
+    if [ -n "${NAT_PORT}" ]; then
+      flags+=(--nat-port "${NAT_PORT}")
+    fi
+  fi
   if [ -n "${OTEL_COLLECTOR_ENDPOINT_URL}" ]; then
     flags+=(--otel-collector-endpoint-url "${OTEL_COLLECTOR_ENDPOINT_URL}")
   fi

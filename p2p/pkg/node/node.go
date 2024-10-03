@@ -761,7 +761,9 @@ func (n *Node) Close() error {
 	}
 
 	var err error
-	_, err = n.autoDeposit.Stop()
+	if n.autoDeposit != nil {
+		_, err = n.autoDeposit.Stop()
+	}
 
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())

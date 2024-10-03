@@ -99,10 +99,10 @@ var (
 		},
 	})
 
-	optionL1RPCUrl = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "l1-rpc-url",
-		Usage:   "URL for L1 RPC",
-		EnvVars: []string{"MEV_ORACLE_L1_RPC_URL"},
+	optionL1RPCUrls = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:    "l1-rpc-urls",
+		Usage:   "URLs for L1 RPC",
+		EnvVars: []string{"MEV_ORACLE_L1_RPC_URLS"},
 	})
 
 	optionSettlementRPCUrlHTTP = altsrc.NewStringFlag(&cli.StringFlag{
@@ -252,7 +252,7 @@ func main() {
 		optionLogFmt,
 		optionLogLevel,
 		optionLogTags,
-		optionL1RPCUrl,
+		optionL1RPCUrls,
 		optionSettlementRPCUrlHTTP,
 		optionSettlementRPCUrlWS,
 		optionOracleContractAddr,
@@ -374,7 +374,7 @@ func launchOracleWithConfig(c *cli.Context) error {
 		Logger:                       logger,
 		KeySigner:                    keySigner,
 		HTTPPort:                     c.Int(optionHTTPPort.Name),
-		L1RPCUrl:                     c.String(optionL1RPCUrl.Name),
+		L1RPCUrls:                    c.StringSlice(optionL1RPCUrls.Name),
 		SettlementRPCUrl:             rpcURL,
 		OracleContractAddr:           common.HexToAddress(c.String(optionOracleContractAddr.Name)),
 		PreconfContractAddr:          common.HexToAddress(c.String(optionPreconfContractAddr.Name)),
