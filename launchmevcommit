@@ -215,6 +215,9 @@ cleanup() {
 }
 
 main() {
+  check_utils
+  parse_args "$@"
+
   log_info "Starting mev-commit setup script..."
   log_info "Version of mev-commit: ${VERSION}"
   log_info "Type of node: ${NODE_TYPE}"
@@ -226,8 +229,6 @@ main() {
     exit 1
   fi
 
-  check_utils
-  parse_args "$@"
   install_mev_commit
 
   if [ ! -x "$(command -v forge)" ] && [ ! -d "${HOME}/.foundry/bin" ]; then
