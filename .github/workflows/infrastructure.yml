@@ -73,7 +73,7 @@ jobs:
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
           CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
-          CLUSTER_L1_RPC_URL_FLAG="--l1-rpc-url ${{ secrets.L1_RPC_URL }}"
+          CLUSTER_L1_RPC_URL_FLAG="--l1-rpc-urls ${{ secrets.L1_RPC_URL }}"
           CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=$([ "${{ github.event.inputs.tracing }}" == "true" ] && echo "--otel-collector-endpoint-url grpc://${TARGET_MACHINE_IP}:4317" || echo "")
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
 

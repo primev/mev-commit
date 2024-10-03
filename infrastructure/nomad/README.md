@@ -121,7 +121,7 @@ Example of destroying running Nomad cluster:
 
 Example of deploying Nomad cluster:
 ```shell
-./cluster.sh deploy --no-logs-collection --datadog-key <DATADOG_API_KEY> --l1-rpc-url <L1_RPC_URL>
+./cluster.sh deploy --no-logs-collection --datadog-key <DATADOG_API_KEY> --l1-rpc-urls <L1_RPC_URLs>
 ```
 
 > If only artifacts for a particular architecture and operating system are needed, you 

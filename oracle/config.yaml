@@ -1,6 +1,6 @@
 keystore_path: /keystore
 log-level: debug
-l1-rpc-url: <L1_URL>
+l1-rpc-urls: <L1_URLs>
 settlement-rpc-url: http://sl-bootnode:8545
 pg-host: oracle-db
 pg-port: 5432

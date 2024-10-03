@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
-	"math/rand/v2"
 	"net/url"
 	"strings"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
@@ -46,7 +44,7 @@ type Options struct {
 	KeySigner                    keysigner.KeySigner
 	HTTPPort                     int
 	SettlementRPCUrl             string
-	L1RPCUrl                     string
+	L1RPCUrls                    []string
 	OracleContractAddr           common.Address
 	PreconfContractAddr          common.Address
 	BlockTrackerContractAddr     common.Address
@@ -100,25 +98,6 @@ func NewNode(opts *Options) (*Node, error) {
 	if err != nil {
 		nd.logger.Error("failed getting chain ID", "error", err)
 		return nil, err
-	}
-
-	l1Client, err := ethclient.Dial(opts.L1RPCUrl)
-	if err != nil {
-		nd.logger.Error("failed to connect to the L1 Ethereum client", "error", err)
-		return nil, err
-	}
-
-	var listenerL1Client l1Listener.EthClient = l1Client
-	if opts.LaggerdMode > 0 {
-		listenerL1Client = &laggerdL1Client{
-			EthClient: listenerL1Client,
-			amount:    opts.LaggerdMode,
-		}
-	}
-	listenerL1Client = &retryL1Client{
-		EthClient:  listenerL1Client,
-		logger:     nd.logger,
-		maxRetries: 30,
 	}
 
 	contracts, err := getContractABIs(opts)
@@ -218,8 +197,20 @@ func NewNode(opts *Options) (*Node, error) {
 		TransactOpts: *tOpts,
 	}
 
-	if opts.OverrideWinners != nil && len(opts.OverrideWinners) > 0 {
-		listenerL1Client = &winnerOverrideL1Client{EthClient: listenerL1Client, winners: opts.OverrideWinners}
+	l1ClientOpts := []l1ClientOptions{
+		l1ClientWithMaxRetries(30),
+	}
+	if opts.LaggerdMode > 0 {
+		l1ClientOpts = append(
+			l1ClientOpts,
+			l1ClientWithBlockNumberDrift(opts.LaggerdMode),
+		)
+	}
+	if len(opts.OverrideWinners) > 0 {
+		l1ClientOpts = append(
+			l1ClientOpts,
+			l1ClientWithWinnersOverride(opts.OverrideWinners),
+		)
 		for _, winner := range opts.OverrideWinners {
 			nd.logger.Info("setting builder mapping", "builderName", winner, "builderAddress", winner)
 			err := setBuilderMapping(
@@ -237,10 +228,20 @@ func NewNode(opts *Options) (*Node, error) {
 			}
 		}
 	}
+	l1Client, err := newL1Client(
+		nd.logger,
+		opts.L1RPCUrls,
+		l1ClientOpts...,
+	)
+	if err != nil {
+		nd.logger.Error("failed to instantiate L1 client", "error", err)
+		cancel()
+		return nil, err
+	}
 
 	l1Lis := l1Listener.NewL1Listener(
 		nd.logger.With("component", "l1_listener"),
-		listenerL1Client,
+		l1Client,
 		st,
 		evtMgr,
 		blockTrackerTransactor,
@@ -250,11 +251,11 @@ func NewNode(opts *Options) (*Node, error) {
 
 	updtr, err := updater.NewUpdater(
 		nd.logger.With("component", "updater"),
-		listenerL1Client,
+		l1Client,
 		st,
 		evtMgr,
 		oracleTransactorSession,
-		txmonitor.NewEVMHelperWithLogger(l1Client, nd.logger, contracts),
+		txmonitor.NewEVMHelperWithLogger(l1Client.clients[0].cli.(*ethclient.Client), nd.logger, contracts),
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate updater", "error", err)
@@ -414,107 +415,6 @@ func getContractABIs(opts *Options) (map[common.Address]*abi.ABI, error) {
 	abis[opts.OracleContractAddr] = &orABI
 
 	return abis, nil
-}
-
-type laggerdL1Client struct {
-	l1Listener.EthClient
-	amount int
-}
-
-func (l *laggerdL1Client) BlockNumber(ctx context.Context) (uint64, error) {
-	blkNum, err := l.EthClient.BlockNumber(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	return blkNum - uint64(l.amount), nil
-}
-
-type winnerOverrideL1Client struct {
-	l1Listener.EthClient
-	winners []string
-}
-
-func (w *winnerOverrideL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	hdr, err := w.EthClient.HeaderByNumber(ctx, number)
-	if err != nil {
-		return nil, err
-	}
-
-	idx := number.Int64() % int64(len(w.winners))
-	hdr.Extra = []byte(w.winners[idx])
-
-	return hdr, nil
-}
-
-// errRetry is returned when retry maxRetries is exhausted.
-var errRetry = errors.New("retry attempts exhausted")
-
-// retryL1Client retries the underlying L1Client operations up to maxRetries times.
-// When maxRetries is exhausted, errRetry is returned together with all the errors from the retries.
-// A random delay is introduced between each retry.
-type retryL1Client struct {
-	l1Listener.EthClient
-
-	logger     *slog.Logger
-	maxRetries int
-}
-
-func (r *retryL1Client) BlockNumber(ctx context.Context) (uint64, error) {
-	var errs error
-	for i := range r.maxRetries {
-		bn, err := r.EthClient.BlockNumber(ctx)
-		if err == nil {
-			r.logger.Debug("get block number succeeded", "attempt", i, "block", bn)
-			return bn, err
-		}
-		errs = errors.Join(errs, err)
-		r.logger.Warn("get block number failed", "attempt", i, "error", err)
-		if i < r.maxRetries-1 {
-			d := time.Duration(1+rand.Int64N(6)) * time.Second
-			r.logger.Info("get block number retry", "in", d)
-			time.Sleep(d)
-		}
-	}
-	return 0, errors.Join(errs, fmt.Errorf("get block number: %w", errRetry))
-}
-
-func (r *retryL1Client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	var errs error
-	for i := range r.maxRetries {
-		b, err := r.EthClient.BlockByNumber(ctx, number)
-		if err == nil {
-			r.logger.Debug("get block by number succeeded", "attempt", i, "block", b)
-			return b, err
-		}
-		errs = errors.Join(errs, err)
-		r.logger.Warn("get block by number failed", "number", number, "attempt", i, "error", err)
-		if i < r.maxRetries-1 {
-			d := time.Duration(1+rand.Int64N(6)) * time.Second
-			r.logger.Info("get block by number retry", "in", d)
-			time.Sleep(d)
-		}
-	}
-	return nil, errors.Join(errs, fmt.Errorf("get block by number: %w", errRetry))
-}
-
-func (r *retryL1Client) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	var errs error
-	for i := range r.maxRetries {
-		hdr, err := r.EthClient.HeaderByNumber(ctx, number)
-		if err == nil {
-			r.logger.Debug("get header by number succeeded", "attempt", i, "header", hdr)
-			return hdr, err
-		}
-		errs = errors.Join(errs, err)
-		r.logger.Warn("get header by number failed", "number", number, "attempt", i, "error", err)
-		if i < r.maxRetries-1 {
-			d := time.Duration(1+rand.Int64N(6)) * time.Second
-			r.logger.Info("get header by number retry", "in", d)
-			time.Sleep(d)
-		}
-	}
-	return nil, errors.Join(errs, fmt.Errorf("get header by number: %w", errRetry))
 }
 
 func setBuilderMapping(

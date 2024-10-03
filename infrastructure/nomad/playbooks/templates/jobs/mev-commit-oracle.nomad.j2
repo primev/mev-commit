@@ -185,7 +185,7 @@ job "{{ job.name }}" {
           MEV_ORACLE_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           MEV_ORACLE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
           MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '10') }}"
-          MEV_ORACLE_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
+          MEV_ORACLE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           {%- raw %}
           MEV_ORACLE_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           MEV_ORACLE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
