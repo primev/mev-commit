@@ -1,9 +1,7 @@
 package providerapi_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"math/big"
 	"net"
@@ -34,6 +32,7 @@ type testRegistryContract struct {
 
 func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error) {
 	t.stake = opts.Value
+	t.blsKey = blsPublicKey
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
@@ -104,11 +103,7 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 	}
 
 	owner := common.HexToAddress("0x00001")
-	registryContract := &testRegistryContract{
-		stake:    big.NewInt(2000000000000000000),
-		minStake: big.NewInt(100000000000000000),
-		blsKey:   []byte("0x12345"),
-	}
+	registryContract := &testRegistryContract{minStake: big.NewInt(100000000000000000)}
 
 	srvImpl := providerapi.NewService(
 		logger,
@@ -235,16 +230,11 @@ func TestStakeHandling(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error getting stake: %v", err)
 		}
-		if stake.Amount != "2000000000000000000" {
-			t.Fatalf("expected amount to be 2000000000000000000, got %v", stake.Amount)
+		if stake.Amount != "1000000000000000000" {
+			t.Fatalf("expected amount to be 1000000000000000000, got %v", stake.Amount)
 		}
-		blsKey, err := hex.DecodeString(stake.BlsPublicKey)
-		if err != nil {
-			t.Fatalf("error decoding bls public key: %v", err)
-		}
-		expected := []byte("0x12345")
-		if !bytes.Equal(blsKey, expected) {
-			t.Fatalf("expected bls public key to be 0x12345, got %v", stake.BlsPublicKey)
+		if stake.BlsPublicKey != "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456" {
+			t.Fatalf("expected bls public key to be 123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456, got %v", stake.BlsPublicKey)
 		}
 	})
 
