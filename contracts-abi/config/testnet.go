@@ -18,11 +18,11 @@ var TestnetContracts = Contracts{
 	// If these addresses change for a testnet deployment,
 	// please also update snippets/testnet-addresses.mdx
 	// in https://github.com/primev/mev-commit-docs
-	BidderRegistry:   "0x7ffa86fF89489Bca72Fec2a978e33f9870B2Bd25",
-	ProviderRegistry: "0x4FC9b98e1A0Ff10de4c2cf294656854F1d5B207D",
-	PreconfManager:   "0xCAC68D97a56b19204Dd3dbDC103CB24D47A825A3",
-	Oracle:           "0x6856Eb630C79D491886E104D328834643B3F69E3",
-	BlockTracker:     "0x2eEbF31f5c932D51556E70235FB98bB2237d065c",
+	BidderRegistry:   "0x401B3287364f95694c43ACA3252831cAc02e5C41",
+	ProviderRegistry: "0xf4F10e18244d836311508917A3B04694D88999Dd",
+	PreconfManager:   "0x9433bCD9e89F923ce587f7FA7E39e120E93eb84D",
+	Oracle:           "0x0a3ad886AEfd3bA877bcB23E171e0e2a375806a0",
+	BlockTracker:     "0x7538F3AaA07dA1990486De21A0B438F55e9639e4",
 }
 
 var HoleskyContracts = L1Contracts{
