@@ -45,6 +45,7 @@ type Service struct {
 type ProviderRegistryContract interface {
 	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
+	GetBLSKey(*bind.CallOpts, common.Address) ([]byte, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
 	ParseUnstake(types.Log) (*providerregistry.ProviderregistryUnstake, error)
@@ -269,7 +270,15 @@ func (s *Service) GetStake(
 		return nil, status.Errorf(codes.Internal, "getting stake: %v", err)
 	}
 
-	return &providerapiv1.StakeResponse{Amount: stakeAmount.String()}, nil
+	blsPubkey, err := s.registryContract.GetBLSKey(&bind.CallOpts{
+		Context: ctx,
+		From:    s.owner,
+	}, s.owner)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getting bls public key: %v", err)
+	}
+
+	return &providerapiv1.StakeResponse{Amount: stakeAmount.String(), BlsPublicKey: hex.EncodeToString(blsPubkey)}, nil
 }
 
 func (s *Service) GetMinStake(
