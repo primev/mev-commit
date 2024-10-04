@@ -1,6 +1,6 @@
 module github.com/primev/mev-commit/p2p
 
-go 1.22
+go 1.23
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.32.0-20240221180331-f05a6f4403ce.1
@@ -8,7 +8,7 @@ require (
 	github.com/armon/go-radix v1.0.0
 	github.com/bufbuild/protovalidate-go v0.6.0
 	github.com/cockroachdb/pebble v1.1.1
-	github.com/ethereum/go-ethereum v1.13.14
+	github.com/ethereum/go-ethereum v1.13.15
 	github.com/go-logr/logr v1.4.2
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7

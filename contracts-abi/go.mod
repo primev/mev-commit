@@ -1,8 +1,8 @@
 module github.com/primev/mev-commit/contracts-abi
 
-go 1.22
+go 1.23
 
-require github.com/ethereum/go-ethereum v1.13.14
+require github.com/ethereum/go-ethereum v1.13.15
 
 require (
 	github.com/DataDog/zstd v1.5.5 // indirect

@@ -34,7 +34,7 @@ func (f *SettlementFilterer) ObtainTransferInitiatedBySender(
 		return TransferInitiatedEvent{}, fmt.Errorf("failed to filter transfer initiated: %w", err)
 	}
 	if !iter.Next() {
-		return TransferInitiatedEvent{}, fmt.Errorf("failed to obtain single transfer initiated event with sender: " + sender.String())
+		return TransferInitiatedEvent{}, fmt.Errorf("failed to obtain single transfer initiated event with sender: %s", sender)
 	}
 	return TransferInitiatedEvent{
 		Sender:      iter.Event.Sender,
