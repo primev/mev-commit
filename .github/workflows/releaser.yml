@@ -39,7 +39,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: 1.23
           check-latest: true
           cache-dependency-path: go.work.sum
 

@@ -45,7 +45,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: 1.23
           check-latest: true
           cache-dependency-path: go.work.sum
 
@@ -84,11 +84,11 @@ jobs:
       - name: Run Lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.59
+          version: v1.61
           args: --timeout 15m --verbose ${{ env.GO_LINT_MODULES }}
 
       - name: Run Build
-        run: echo ${GO_MODULES} | tr ' ' '\n' | xargs -I {} sh -c 'go build -C {} -v ./...'
+        run: echo ${GO_MODULES} | tr ' ' '\n' | xargs -I {} sh -c 'go build -C {} -ldflags=-checklinkname=0 -v ./...' # The -ldflags=-checklinkname=0 is required for the https://github.com/fjl/memsize module and can be removed when the module is no longer used by external/geth: https://github.com/fjl/memsize/commit/09937c23818edfe26b4f6ede71d28126c7f9657c#diff-2b7814d3fca2e99e56c51b6ff2aa313ea6e9da6424804240aa8ad891fdfe0900R9
         env:
           GOWORK: off
 

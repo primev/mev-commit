@@ -1,9 +1,9 @@
 module github.com/primev/mev-commit/infrastructure/tools/keystore-generator
 
-go 1.21.2
+go 1.23
 
 require (
-	github.com/ethereum/go-ethereum v1.13.14
+	github.com/ethereum/go-ethereum v1.13.15
 	github.com/urfave/cli/v2 v2.27.1
 )
 

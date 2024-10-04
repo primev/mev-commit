@@ -11,7 +11,7 @@ RUN chmod +x /gen-certificates.sh
 RUN /gen-certificates.sh "/C=US/O=${SERVICE_NAME} CA" "/C=US/O=${SERVICE_NAME}"
 
 
-FROM golang:1.22.1 AS mev_commit_builder
+FROM golang:1.23.2 AS mev_commit_builder
 WORKDIR /
 COPY ./p2p ./p2p
 COPY ./contracts-abi ./contracts-abi

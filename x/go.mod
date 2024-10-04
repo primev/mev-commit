@@ -1,9 +1,9 @@
 module github.com/primev/mev-commit/x
 
-go 1.22
+go 1.23
 
 require (
-	github.com/ethereum/go-ethereum v1.13.14
+	github.com/ethereum/go-ethereum v1.13.15
 	github.com/google/go-cmp v0.6.0
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/prometheus/client_golang v1.19.1
