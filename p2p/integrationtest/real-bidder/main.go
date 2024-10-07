@@ -353,6 +353,8 @@ func sendBid(
 
 	sentBids.Inc()
 
+	ctx, span := otel.Tracer("").Start(rcv.Context(), "receive")
+	logger.InfoContext(ctx, "receiving preconfs")
 	preConfCount := 0
 	for {
 		_, err := rcv.Recv()
@@ -370,6 +372,8 @@ func sendBid(
 		receivedPreconfs.Inc()
 		preConfCount++
 	}
+	logger.InfoContext(ctx, "received preconfs")
+	span.End()
 
 	sendBidDuration.WithLabelValues(
 		"success",

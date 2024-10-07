@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	slogotel "github.com/remychantenay/slog-otel"
 )
 
 func PadKeyTo32Bytes(key *big.Int) []byte {
@@ -55,7 +57,11 @@ func NewLogger(lvl, logFmt, tags string, sink io.Writer) (*slog.Logger, error) {
 		return nil, fmt.Errorf("invalid log format: %s", logFmt)
 	}
 
-	logger := slog.New(handler)
+	logger := slog.New(slogotel.OtelHandler{
+		Next:          handler,
+		NoBaggage:     true,
+		NoTraceEvents: true,
+	})
 
 	if tags == "" {
 		return logger, nil
