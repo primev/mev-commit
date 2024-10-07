@@ -28,8 +28,8 @@ client {
   artifact {
     decompression_file_count_limit = 16384
   }
-  host_volume "tmp-volume" {
-    path = "/tmp/{{ env }}"
+  host_volume "data-volume" {
+    path = "/var/lib/mev-commit/{{ env }}"
   }
   {% if env == "devenv" %}
   host_volume "artifacts-volume" {

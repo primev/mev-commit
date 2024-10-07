@@ -702,7 +702,6 @@
       ansible.builtin.shell: |
         nomad var purge "nomad/jobs"
         nomad system gc
-        nomad var put -namespace=default "nomad/jobs" MEV_COMMIT_GETH_CHAIN_BACKUP="false"
       args:
         executable: bash
 
