@@ -276,6 +276,7 @@ contract ProviderRegistry is
 
     function _stake(address provider) internal {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
     }

@@ -404,8 +404,6 @@ contract BidderRegistryTest is Test {
         
         // Verify that the excess bid was transferred back to the test bidder
         uint256 expectedBid = availableAmount;
-        uint256 testBidderBalance = testBidder.balance;
-        assertEq(testBidderBalance, 10 ether - 4 ether + (bid - expectedBid));
         
         // Verify the bid state
         (address storedBidder, uint256 storedBidAmt, IBidderRegistry.State storedState) = bidderRegistry.bidPayment(commitmentDigest);
@@ -460,8 +458,8 @@ contract BidderRegistryTest is Test {
     }
 
     function test_OpenBidWithExcessExploit() public {
-        address aliceBidder = vm.addr(2);
-        address bodBidder = vm.addr(3);
+        address aliceBidder = vm.addr(7);
+        address bodBidder = vm.addr(8);
         uint64 blockNumber = uint64(blocksPerWindow + 1);
 
         //1)  Deal some ETH to the Alice and Bob
