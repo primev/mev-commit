@@ -263,9 +263,6 @@ contract BidderRegistry is
 
         // Check if bid exceeds the available amount for the block
         if (availableAmount < bid) {
-            (bool success, ) = payable(bidder).call{value: bid - availableAmount}("");
-            require(success, TransferToBidderFailed(bidder, bid - availableAmount));
-
             bid = availableAmount;
         }
 

