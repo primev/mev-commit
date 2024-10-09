@@ -46,12 +46,26 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
+          {% raw %}
+          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
+          {% endraw %}
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
 
           GETH_BIN="local/geth-linux-amd64-1.14.11-f3c696fa/geth"
 
-          # Mutate genesis file to only have a single alloc to 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+          # Mutate genesis file to only have a single alloc to contract deployer
           ${GETH_BIN} --dev dumpgenesis > local/custom_genesis.json
-          jq '.alloc = {"f39fd6e51aad88f6f4ce6ab8827279cfffb92266": {"balance": "0x45"}}' local/custom_genesis.json > local/temp.json && mv local/temp.json local/custom_genesis.json
+          TO_ALLOC=$(echo "${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}" | sed 's/.*--//')
+          AMOUNT="0x45"
+          echo "Allocating ${AMOUNT} on genesis to: ${TO_ALLOC}"
+          jq ".alloc = {\"${TO_ALLOC}\": {\"balance\": \"${AMOUNT}\"}}" local/custom_genesis.json > local/temp.json && mv local/temp.json local/custom_genesis.json
           ${GETH_BIN} --datadir local/data init local/custom_genesis.json
 
           exec ${GETH_BIN} \
