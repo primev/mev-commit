@@ -63,7 +63,7 @@ job "{{ job.name }}" {
           # Mutate genesis file to only have a single alloc to contract deployer
           ${GETH_BIN} --dev dumpgenesis > local/custom_genesis.json
           TO_ALLOC=$(echo "${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}" | sed 's/.*--//')
-          AMOUNT="0x45"
+          AMOUNT="0x10000000000000000000" # 10 ether
           echo "Allocating ${AMOUNT} on genesis to: ${TO_ALLOC}"
           jq ".alloc = {\"${TO_ALLOC}\": {\"balance\": \"${AMOUNT}\"}}" local/custom_genesis.json > local/temp.json && mv local/temp.json local/custom_genesis.json
           ${GETH_BIN} --datadir local/data init local/custom_genesis.json
