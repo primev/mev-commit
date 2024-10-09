@@ -130,6 +130,9 @@ interface IPreconfManager {
     /// @dev Error if commitment is already settled
     error CommitmentAlreadySettled(bytes32 commitmentIndex);
 
+    /// @dev Error if unopened commitment already exist
+    error UnopenedCommitmentAlreadyExists(bytes32 commitmentIndex);
+
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
      * @param _providerRegistry The address of the provider registry.

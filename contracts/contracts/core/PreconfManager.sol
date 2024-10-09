@@ -369,6 +369,8 @@ contract PreconfManager is
 
         commitmentIndex = getUnopenedCommitmentIndex(newCommitment);
 
+        require(unopenedCommitments[commitmentIndex].committer == address(0), UnopenedCommitmentAlreadyExists(commitmentIndex));
+
         unopenedCommitments[commitmentIndex] = newCommitment;
 
         emit UnopenedCommitmentStored(
