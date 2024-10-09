@@ -81,6 +81,8 @@ contract BidderRegistry is
      * @param window The window for which the deposit is being made.
      */
     function depositForWindow(uint256 window) external payable whenNotPaused {
+        require(msg.value != 0, DepositAmountIsZero());
+
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -99,6 +101,8 @@ contract BidderRegistry is
      * @param windows The windows for which the deposits are being made.
      */
     function depositForWindows(uint256[] calldata windows) external payable whenNotPaused {
+        require(msg.value != 0, DepositAmountIsZero());
+
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }

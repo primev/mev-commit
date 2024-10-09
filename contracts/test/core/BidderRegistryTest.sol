@@ -535,4 +535,14 @@ contract BidderRegistryTest is Test {
         assertEq(bobBalanceAfter, 8 ether, "Bob balance AFTER");
         assertEq(registryBalanceAfter, 2.2 ether, "BidderRegistry balance AFTER");
     }
+
+    function test_BidderStakeAndRegisteratZero() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+
+        vm.startPrank(bidder);
+
+        vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
+        bidderRegistry.depositForWindow{value: 0 ether}(nextWindow);   
+    }
 }

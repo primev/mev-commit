@@ -91,6 +91,9 @@ interface IBidderRegistry {
     /// @dev Error emitted when the only bidder can withdraw
     error OnlyBidderCanWithdraw(address sender, address bidder);
 
+    /// @dev Error emitted when the bidder tries to deposit 0 amount
+    error DepositAmountIsZero();
+
     /// @dev Error emitted when the window is not settled
     error WindowNotSettled();
     error BidderAmountIsZero();
