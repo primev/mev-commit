@@ -220,11 +220,9 @@ interface IPreconfManager {
     /**
      * @dev Initiates a slash for a commitment.
      * @param commitmentIndex The hash of the commitment to be slashed.
-     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function initiateSlash(
-        bytes32 commitmentIndex,
-        uint256 residualBidPercentAfterDecay
+        bytes32 commitmentIndex
     ) external;
 
     /**

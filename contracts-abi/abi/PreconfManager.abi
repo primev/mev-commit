@@ -643,11 +643,6 @@
         "name": "commitmentIndex",
         "type": "bytes32",
         "internalType": "bytes32"
-      },
-      {
-        "name": "residualBidPercentAfterDecay",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -1771,6 +1766,17 @@
         "name": "sender",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnopenedCommitmentAlreadyExists",
+    "inputs": [
+      {
+        "name": "commitmentIndex",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },

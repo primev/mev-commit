@@ -95,36 +95,33 @@ contract ProviderRegistry is
      * @param amt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
-     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function slash(
         uint256 amt,
         address provider,
-        address payable bidder,
-        uint256 residualBidPercentAfterDecay
+        address payable bidder
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
-        uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
+        uint256 penaltyFee = (amt * uint256(feePercent) * PRECISION) / PERCENT;
         uint256 providerStake = providerStakes[provider];
 
-        if (providerStake < residualAmt + penaltyFee) {
-            emit InsufficientFundsToSlash(provider, providerStake, residualAmt, penaltyFee);
-            if (providerStake < residualAmt) {
-                residualAmt = providerStake;
+        if (providerStake < amt + penaltyFee) {
+            emit InsufficientFundsToSlash(provider, providerStake, amt, penaltyFee);
+            if (providerStake < amt) {
+                amt = providerStake;
             }
-            penaltyFee = providerStake - residualAmt;
+            penaltyFee = providerStake - amt;
         }
-        providerStakes[provider] -= residualAmt + penaltyFee;
+        providerStakes[provider] -= amt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        (bool success, ) = payable(bidder).call{value: residualAmt}("");
-        require(success, TransferToBidderFailed(bidder, residualAmt));
+        (bool success, ) = payable(bidder).call{value: amt}("");
+        require(success, TransferToBidderFailed(bidder, amt));
 
-        emit FundsSlashed(provider, residualAmt + penaltyFee);
+        emit FundsSlashed(provider, amt + penaltyFee);
     }
 
     /**

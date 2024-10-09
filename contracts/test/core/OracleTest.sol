@@ -253,7 +253,7 @@ contract OracleTest is Test {
         );
         vm.stopPrank();
         assertEq(
-            providerRegistry.getProviderStake(provider) + ((bid * 55) / 100),
+            providerRegistry.getProviderStake(provider) + (bid * feePercent) / 100 + bid,
             250 ether
         );
     }

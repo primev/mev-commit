@@ -1022,6 +1022,11 @@
   },
   {
     "type": "error",
+    "name": "DepositAmountIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {

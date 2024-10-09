@@ -732,7 +732,7 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.sharedSecretKey
             );
             vm.prank(oracleContract);
-            preconfManager.initiateSlash(index, 100);
+            preconfManager.initiateSlash(index);
 
             (, isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);

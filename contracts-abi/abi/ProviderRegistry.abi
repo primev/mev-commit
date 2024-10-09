@@ -497,11 +497,6 @@
         "name": "bidder",
         "type": "address",
         "internalType": "address payable"
-      },
-      {
-        "name": "residualBidPercentAfterDecay",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [],
