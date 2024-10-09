@@ -561,6 +561,19 @@ jobs:
           to: 80
         metrics:
           to: 8888
+  
+  mock_l1: &mock_l1_job
+    name: mock-l1
+    template: mock-l1.nomad.j2
+    count: 1
+    ports:
+      - http:
+          static: 9545
+          to: 8545
+    env:
+      ip: 0.0.0.0
+      public_ip: 0.0.0.0
+      net_restrict: 0.0.0.0/0
 
 profiles:
   ci:
@@ -576,6 +589,7 @@ profiles:
       - *mev_commit_bidder_node1_job
       - *mev_commit_bidder_node1_funder_job
       - *mev_commit_faucet_job
+      - *mock_l1_job
 
   devnet:
     jobs:
@@ -596,6 +610,7 @@ profiles:
       - *mev_commit_bidder_emulator_node1_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
+      - *mock_l1_job
 
   testnet:
     jobs:
@@ -645,6 +660,7 @@ profiles:
       - *mev_commit_bidder_emulator_nodes_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
+      - *mock_l1_job
 
   manual-test:
     jobs:
@@ -666,6 +682,7 @@ profiles:
       - *mev_commit_oracle_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
+      - *mock_l1_job
 
   archive:
     jobs:
