@@ -59,7 +59,7 @@ job "{{ job.name }}" {
             --http \
             --http.addr 0.0.0.0 \
             --http.api eth,net,web3 \
-            --dev.period 12
+            --dev.period 12 \
             --datadir local/data
         EOH
         destination = "local/run.sh"
