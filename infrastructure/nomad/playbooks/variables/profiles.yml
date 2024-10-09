@@ -581,6 +581,7 @@ profiles:
       - *artifacts_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
+      - *mock_l1_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -589,7 +590,6 @@ profiles:
       - *mev_commit_bidder_node1_job
       - *mev_commit_bidder_node1_funder_job
       - *mev_commit_faucet_job
-      - *mock_l1_job
 
   devnet:
     jobs:
@@ -599,6 +599,7 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
+      - *mock_l1_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -610,7 +611,6 @@ profiles:
       - *mev_commit_bidder_emulator_node1_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
-      - *mock_l1_job
 
   testnet:
     jobs:
@@ -637,6 +637,7 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
+      - *mock_l1_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -660,7 +661,6 @@ profiles:
       - *mev_commit_bidder_emulator_nodes_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
-      - *mock_l1_job
 
   manual-test:
     jobs:
@@ -670,6 +670,7 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
+      - *mock_l1_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -682,7 +683,6 @@ profiles:
       - *mev_commit_oracle_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
-      - *mock_l1_job
 
   archive:
     jobs:
