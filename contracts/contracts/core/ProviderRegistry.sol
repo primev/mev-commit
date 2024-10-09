@@ -193,6 +193,7 @@ contract ProviderRegistry is
 
         uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
+        providerRegistered[msg.sender] = false;
         withdrawalRequests[msg.sender] = 0;
         require(providerStake != 0, ProviderStakedAmountZero(msg.sender));
         require(preconfManager != address(0), PreconfManagerNotSet());
