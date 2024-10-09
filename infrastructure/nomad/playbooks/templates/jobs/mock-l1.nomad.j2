@@ -43,15 +43,33 @@ job "{{ job.name }}" {
         source = "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.14.11-f3c696fa.tar.gz"
       }
 
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          GETH_BIN="local/geth-linux-amd64-1.14.11-f3c696fa/geth"
+
+          # Mutate genesis file to only have a single alloc to 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+          ${GETH_BIN} --dev dumpgenesis > local/custom_genesis.json
+          jq '.alloc = {"f39fd6e51aad88f6f4ce6ab8827279cfffb92266": {"balance": "0x45"}}' local/custom_genesis.json > local/temp.json && mv local/temp.json local/custom_genesis.json
+          ${GETH_BIN} --datadir local/data init local/custom_genesis.json
+
+          exec ${GETH_BIN} \
+            --dev \
+            --http \
+            --http.addr 0.0.0.0 \
+            --http.api eth,net,web3 \
+            --dev.period 12
+            --datadir local/data
+        EOH
+        destination = "local/run.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
       config {
-        command = "local/geth-linux-amd64-1.14.11-f3c696fa/geth"
-        args = [
-          "--dev",
-          "--http",
-          "--http.addr", "0.0.0.0",
-          "--http.api", "eth,net,web3",
-          "--dev.period", "12",
-        ]
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
       }
     }
   }
