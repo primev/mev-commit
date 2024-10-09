@@ -29,13 +29,13 @@ contract PreconfManager is
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
         );
 
     // EIP-712 domain separator
@@ -197,7 +197,7 @@ contract PreconfManager is
     /**
      * @dev Open a commitment
      * @param unopenedCommitmentIndex The index of the unopened commitment
-     * @param bid The bid amount
+     * @param bidAmt The bid amount
      * @param blockNumber The block number
      * @param txnHash The transaction hash
      * @param revertingTxHashes The reverting transaction hashes
@@ -210,7 +210,7 @@ contract PreconfManager is
      */
     function openCommitment(
         bytes32 unopenedCommitmentIndex,
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         string memory txnHash,
         string memory revertingTxHashes,
@@ -225,7 +225,7 @@ contract PreconfManager is
         }
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
-            bid,
+            bidAmt,
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
@@ -237,7 +237,7 @@ contract PreconfManager is
         bytes32 commitmentDigest = getPreConfHash(
             txnHash,
             revertingTxHashes,
-            bid,
+            bidAmt,
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
@@ -283,7 +283,7 @@ contract PreconfManager is
             decayEndTimeStamp,
             unopenedCommitment.dispatchTimestamp,
             committerAddress,
-            bid,
+            bidAmt,
             bHash,
             commitmentDigest,
             bidSignature,
@@ -302,7 +302,7 @@ contract PreconfManager is
 
         bidderRegistry.openBid(
             commitmentDigest,
-            bid,
+            bidAmt,
             bidderAddress,
             blockNumber
         );
@@ -313,7 +313,7 @@ contract PreconfManager is
             commitmentIndex,
             bidderAddress,
             committerAddress,
-            bid,
+            bidAmt,
             blockNumber,
             bHash,
             decayStartTimeStamp,
@@ -403,7 +403,7 @@ contract PreconfManager is
         );
 
         providerRegistry.slash(
-            commitment.bid,
+            commitment.bidAmt,
             commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
@@ -475,7 +475,7 @@ contract PreconfManager is
     /**
      * @dev Gives digest to be signed for bids
      * @param _txnHash transaction Hash.
-     * @param _bid bid id.
+     * @param _bidAmt bid amount.
      * @param _blockNumber block number
      * @param _revertingTxHashes reverting transaction hashes.
      * @return digest it returns a digest that can be used for signing bids
@@ -483,7 +483,7 @@ contract PreconfManager is
     function getBidHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp
@@ -496,7 +496,7 @@ contract PreconfManager is
                         EIP712_BID_TYPEHASH,
                         keccak256(abi.encodePacked(_txnHash)),
                         keccak256(abi.encodePacked(_revertingTxHashes)),
-                        _bid,
+                        _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp
@@ -508,7 +508,7 @@ contract PreconfManager is
     /**
      * @dev Gives digest to be signed for pre confirmation
      * @param _txnHash transaction Hash.
-     * @param _bid bid id.
+     * @param _bidAmt bid amount.
      * @param _blockNumber block number.
      * @param _revertingTxHashes reverting transaction hashes.
      * @param _bidHash hash of the bid.
@@ -519,7 +519,7 @@ contract PreconfManager is
     function getPreConfHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
@@ -535,7 +535,7 @@ contract PreconfManager is
                         EIP712_COMMITMENT_TYPEHASH,
                         keccak256(abi.encodePacked(_txnHash)),
                         keccak256(abi.encodePacked(_revertingTxHashes)),
-                        _bid,
+                        _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp,
@@ -551,18 +551,18 @@ contract PreconfManager is
 
     /**
      * @dev Internal function to verify a bid
-     * @param bid bid id.
+     * @param bidAmt bid amount.
      * @param blockNumber block number.
      * @param decayStartTimeStamp decay start time.
      * @param decayEndTimeStamp decay end time.
      * @param txnHash transaction Hash.
      * @param revertingTxHashes reverting transaction hashes.
      * @param bidSignature bid signature.
-     * @return messageDigest returns the bid hash for given bid id.
+     * @return messageDigest returns the bid hash for given bid info.
      * @return recoveredAddress the address from the bid hash.
      */
     function verifyBid(
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
@@ -573,7 +573,7 @@ contract PreconfManager is
         messageDigest = getBidHash(
             txnHash,
             revertingTxHashes,
-            bid,
+            bidAmt,
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp
@@ -638,7 +638,7 @@ contract PreconfManager is
             getPreConfHash(
                 params.txnHash,
                 params.revertingTxHashes,
-                params.bid,
+                params.bidAmt,
                 params.blockNumber,
                 params.decayStartTimeStamp,
                 params.decayEndTimeStamp,

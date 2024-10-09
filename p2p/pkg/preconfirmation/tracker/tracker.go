@@ -65,7 +65,7 @@ type PreconfContract interface {
 	OpenCommitment(
 		opts *bind.TransactOpts,
 		encryptedCommitmentIndex [32]byte,
-		bid *big.Int,
+		bidAmt *big.Int,
 		blockNumber uint64,
 		txnHash string,
 		revertingTxHashes string,

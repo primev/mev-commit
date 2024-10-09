@@ -15,7 +15,7 @@ interface IPreconfManager {
         uint64 decayEndTimeStamp;
         uint64 dispatchTimestamp;
         address committer;
-        uint256 bid;
+        uint256 bidAmt;
         bytes32 bidHash;
         bytes32 commitmentDigest;
         bytes bidSignature;
@@ -29,7 +29,7 @@ interface IPreconfManager {
     struct CommitmentParams {
         string txnHash;
         string revertingTxHashes;
-        uint256 bid;
+        uint256 bidAmt;
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
@@ -53,7 +53,7 @@ interface IPreconfManager {
         bytes32 indexed commitmentIndex,
         address bidder,
         address committer,
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         bytes32 bidHash,
         uint64 decayStartTimeStamp,
@@ -81,7 +81,7 @@ interface IPreconfManager {
         address indexed signer,
         string txnHash,
         string revertingTxHashes,
-        uint256 indexed bid,
+        uint256 indexed bidAmt,
         uint64 blockNumber
     );
 
@@ -177,7 +177,7 @@ interface IPreconfManager {
     /**
      * @dev Opens a commitment.
      * @param unopenedCommitmentIndex The index of the unopened commitment.
-     * @param bid The bid amount.
+     * @param bidAmt The bid amount.
      * @param blockNumber The block number.
      * @param txnHash The transaction hash.
      * @param revertingTxHashes The reverting transaction hashes.
@@ -190,7 +190,7 @@ interface IPreconfManager {
      */
     function openCommitment(
         bytes32 unopenedCommitmentIndex,
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         string memory txnHash,
         string memory revertingTxHashes,
@@ -265,7 +265,7 @@ interface IPreconfManager {
      * @dev Computes the bid hash for a given set of parameters.
      * @param _txnHash The transaction hash.
      * @param _revertingTxHashes The reverting transaction hashes.
-     * @param _bid The bid amount.
+     * @param _bidAmt The bid amount.
      * @param _blockNumber The block number.
      * @param _decayStartTimeStamp The start time of the decay.
      * @param _decayEndTimeStamp The end time of the decay.
@@ -274,7 +274,7 @@ interface IPreconfManager {
     function getBidHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp
@@ -284,7 +284,7 @@ interface IPreconfManager {
      * @dev Computes the pre-confirmation hash for a given set of parameters.
      * @param _txnHash The transaction hash.
      * @param _revertingTxHashes The reverting transaction hashes.
-     * @param _bid The bid amount.
+     * @param _bidAmt The bid amount.
      * @param _blockNumber The block number.
      * @param _decayStartTimeStamp The start time of the decay.
      * @param _decayEndTimeStamp The end time of the decay.
@@ -296,7 +296,7 @@ interface IPreconfManager {
     function getPreConfHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,

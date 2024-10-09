@@ -35,7 +35,7 @@ var bidMessageTypeHash = crypto.Keccak256Hash(
 	[]byte("PreConfBid(" +
 		"string txnHash," +
 		"string revertingTxHashes," +
-		"uint256 bid," +
+		"uint256 bidAmt," +
 		"uint64 blockNumber," +
 		"uint64 decayStartTimeStamp," +
 		"uint64 decayEndTimeStamp)"),
@@ -45,7 +45,7 @@ var commitmentTypeHash = crypto.Keccak256Hash(
 	[]byte("OpenedCommitment(" +
 		"string txnHash," +
 		"string revertingTxHashes," +
-		"uint256 bid," +
+		"uint256 bidAmt," +
 		"uint64 blockNumber," +
 		"uint64 decayStartTimeStamp," +
 		"uint64 decayEndTimeStamp," +

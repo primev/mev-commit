@@ -187,7 +187,7 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
+		expHash := "c311dfce5df35601ec4b562dfdf048e22cb66373fb6ba5160e83dac3d72f0d2b"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -215,8 +215,8 @@ func TestHashing(t *testing.T) {
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
-		bidSignature := "f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c81b"
+		bidHash := "c311dfce5df35601ec4b562dfdf048e22cb66373fb6ba5160e83dac3d72f0d2b"
+		bidSignature := "77731700031fe79fba2dae5614bc44af07167f39a42ae5c1b4e136035870d0fb6ee98e239bc27fe289b47d9dc9cd461de2f0a50528bc8f24c2290fb4286821a41b"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
 		if err != nil {
@@ -250,7 +250,7 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "47662cacd554166e7a1835d52ccc33ffe9d3be42e07c316e5828cd7c3584d954"
+		expHash := "6ebb8f592c9e75ea8c4a2403884e97237ce3a559da30461317391b388f440eac"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -273,8 +273,8 @@ func TestHashing(t *testing.T) {
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	bidSig := "f9b66c6d57dac947a3aa2b37010df745592cf57f907d437767bc0af6d44b3dc1112168e4cab311d6dfddf7f58c0d07bb95403fca2cc48d4450e088cf9ee894c800"
-	bidHash := "9890bcda118cfabed02ff3b9d05a54dca5310e9ace3b05f259f4731f58ad0900"
+	bidSig := "77731700031fe79fba2dae5614bc44af07167f39a42ae5c1b4e136035870d0fb6ee98e239bc27fe289b47d9dc9cd461de2f0a50528bc8f24c2290fb4286821a41b"
+	bidHash := "c311dfce5df35601ec4b562dfdf048e22cb66373fb6ba5160e83dac3d72f0d2b"
 
 	bidHashBytes, err := hex.DecodeString(bidHash)
 	if err != nil {

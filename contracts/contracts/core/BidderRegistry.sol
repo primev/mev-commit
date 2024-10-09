@@ -212,14 +212,14 @@ contract BidderRegistry is
      * @dev Return funds to a bidder's deposit (only callable by the pre-confirmations contract).
      * @dev reenterancy not necessary but still putting here for precaution
      * @param window The window for which the funds are being retrieved.
-     * @param bidID is the Bid ID that allows us to identify the bid, and deposit
+     * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      */
     function unlockFunds(
         uint256 window,
-        bytes32 bidID
+        bytes32 commitmentDigest
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        BidState storage bidState = bidPayment[bidID];
-        require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(bidID, bidState.state, State.PreConfirmed));
+        BidState storage bidState = bidPayment[commitmentDigest];
+        require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
         
         uint256 amt = bidState.bidAmt;
         bidState.state = State.Withdrawn;
@@ -228,19 +228,19 @@ contract BidderRegistry is
         (bool success, ) = payable(bidState.bidder).call{value: amt}("");
         require(success, TransferToBidderFailed(bidState.bidder, amt));
 
-        emit FundsRetrieved(bidID, bidState.bidder, window, amt);
+        emit FundsRetrieved(commitmentDigest, bidState.bidder, window, amt);
     }
 
     /**
      * @dev Open a bid and update the used funds for the block (only callable by the pre-confirmations contract).
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
-     * @param bid The bid amount.
+     * @param bidAmt The bid amount.
      * @param bidder The address of the bidder.
      * @param blockNumber The block number.
      */
     function openBid(
         bytes32 commitmentDigest,
-        uint256 bid,
+        uint256 bidAmt,
         address bidder,
         uint64 blockNumber
     ) external onlyPreconfManager whenNotPaused {
@@ -262,19 +262,19 @@ contract BidderRegistry is
             : 0;
 
         // Check if bid exceeds the available amount for the block
-        if (availableAmount < bid) {
-            bid = availableAmount;
+        if (availableAmount < bidAmt) {
+            bidAmt = availableAmount;
         }
 
         // Update the used funds for the block and locked funds if bid is greater than 0
-        if (bid > 0) {
-            usedFunds[bidder][blockNumber] += bid;
-            lockedFunds[bidder][currentWindow] -= bid;
+        if (bidAmt > 0) {
+            usedFunds[bidder][blockNumber] += bidAmt;
+            lockedFunds[bidder][currentWindow] -= bidAmt;
         }
 
         bidState.state = State.PreConfirmed;
         bidState.bidder = bidder;
-        bidState.bidAmt = bid;
+        bidState.bidAmt = bidAmt;
     }
 
     /**

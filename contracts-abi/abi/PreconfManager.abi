@@ -183,7 +183,7 @@
         "internalType": "string"
       },
       {
-        "name": "_bid",
+        "name": "_bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -264,7 +264,7 @@
             "internalType": "address"
           },
           {
-            "name": "bid",
+            "name": "bidAmt",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -353,7 +353,7 @@
             "internalType": "address"
           },
           {
-            "name": "bid",
+            "name": "bidAmt",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -419,7 +419,7 @@
         "internalType": "string"
       },
       {
-        "name": "_bid",
+        "name": "_bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -663,7 +663,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -764,7 +764,7 @@
         "internalType": "address"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -1087,7 +1087,7 @@
     "name": "verifyBid",
     "inputs": [
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -1156,7 +1156,7 @@
             "internalType": "string"
           },
           {
-            "name": "bid",
+            "name": "bidAmt",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -1300,7 +1300,7 @@
         "internalType": "address"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1474,7 +1474,7 @@
         "internalType": "string"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"

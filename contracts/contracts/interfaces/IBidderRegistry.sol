@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 interface IBidderRegistry {
     struct OpenedCommitment {
         string txnHash;
-        uint256 bid;
+        uint256 bidAmt;
         uint64 blockNumber;
         string bidHash;
         string bidSignature;
@@ -74,7 +74,7 @@ interface IBidderRegistry {
     error SenderIsNotPreconfManager(address sender, address preconfManager);
 
     /// @dev Error emitted when the bid is not preconfirmed
-    error BidNotPreConfirmed(bytes32 bidID, State actualState, State expectedState);
+    error BidNotPreConfirmed(bytes32 commitmentDigest, State actualState, State expectedState);
 
     /// @dev Error emitted when the transfer to the bidder fails
     error TransferToBidderFailed(address bidder, uint256 amount);
@@ -97,7 +97,7 @@ interface IBidderRegistry {
 
     function openBid(
         bytes32 commitmentDigest,
-        uint256 bid,
+        uint256 bidAmt,
         address bidder,
         uint64 blockNumber
     ) external;

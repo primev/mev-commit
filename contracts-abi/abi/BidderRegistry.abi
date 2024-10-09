@@ -330,7 +330,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -590,7 +590,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "bidID",
+        "name": "commitmentDigest",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -999,7 +999,7 @@
     "name": "BidNotPreConfirmed",
     "inputs": [
       {
-        "name": "bidID",
+        "name": "commitmentDigest",
         "type": "bytes32",
         "internalType": "bytes32"
       },
