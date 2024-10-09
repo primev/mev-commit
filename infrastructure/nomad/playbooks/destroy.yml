@@ -3,60 +3,26 @@
   gather_facts: no
 
   vars:
+    version: "unknown"
+    profile: "unknown"
     nomad_vars_path: "nomad/jobs"
 
+  pre_tasks:
+    - name: Include Environment Definitions
+      include_vars:
+        file: variables/environments.yml
+
+    - name: Check Environment Name
+      ansible.builtin.assert:
+        that:
+          - env is defined
+          - env | length > 0
+          - env in environments
+        fail_msg: "The environment name is not set correctly."
+        success_msg: "The environment name is set to: {{ env }}."
+
   tasks:
-    - name: Stop Jobs
-      ansible.builtin.shell: |
-        NOMAD_JOBS=$(nomad job status -json | jq -r 'sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID')
-        for job in $(echo "${NOMAD_JOBS}" | grep -v artifacts); do
-          if [ "${job}" != "null" ]; then
-            nomad stop "${job}"
-
-            while true; do
-            STATUS=$(nomad job status -json "${job}" | jq -r '.[0].Allocations[0].ClientStatus')
-              case "${STATUS}" in
-                "failed" | "complete")
-                  break
-                  ;;
-                *)
-                  sleep 1
-                  ;;
-              esac
-            done
-          fi
-        done
-        
-        if echo "${NOMAD_JOBS}" | grep -q artifacts; then
-          nomad stop -yes "artifacts"
-        fi
-      args:
-        executable: bash
-      when: backup is defined and backup
-
-    - name: Purge Stopped Jobs
-      ansible.builtin.shell: |
-        TIMEOUT=30
-        while [ "$(nomad job status)" != "No running jobs" ]; do
-          RUNNING_JOBS=$(nomad job status -json | jq '[.[] | select(.Summary.Summary | to_entries[] | select(.value.Running > 0 or .value.Starting > 0))] | sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID')
-          if [ "${RUNNING_JOBS}" = "[]" ]; then
-            break
-          fi
-          sleep 1
-          TIMEOUT=$((TIMEOUT - 1))
-          if [ "${TIMEOUT}" -eq 0 ]; then
-            echo "Timeout waiting for jobs to stop has been exceeded."
-            return 1
-          fi
-        done
-
-        nomad var purge {{ nomad_vars_path }}
-        nomad system gc
-      args:
-        executable: bash
-      when: backup is defined and backup
-
-    - name: Force Stop and Purge Jobs
+    - name: Stop and Purge Jobs
       ansible.builtin.shell: |
         for job in $(nomad job status -json | jq -r 'sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID'); do
           if [ "${job}" != "null" ]; then
@@ -65,6 +31,7 @@
         done
         nomad var purge "nomad/jobs"
         nomad system gc
+        rm -rf /var/lib/mev-commit/{{ env }}/*
       args:
         executable: bash
-      when: backup is not defined or not backup
+      become: yes
