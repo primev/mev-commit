@@ -52,7 +52,7 @@ var (
 				return fmt.Errorf("no transaction hashes provided")
 			}
 			for _, txHash := range txHashes {
-				if !common.IsHexAddress(txHash) {
+				if len(txHash) != 66 && len(txHash) != 64 {
 					return fmt.Errorf("invalid transaction hash: %s", txHash)
 				}
 			}
@@ -72,14 +72,12 @@ var (
 		},
 	}
 	optionBlockNumber = &cli.Int64Flag{
-		Name:     "block-number",
-		Usage:    "block number",
-		Required: true,
+		Name:  "block-number",
+		Usage: "block number",
 	}
 	optionDecayDuration = &cli.StringFlag{
-		Name:     "decay-duration",
-		Usage:    "decay duration",
-		Required: true,
+		Name:  "decay-duration",
+		Usage: "decay duration",
 		Action: func(c *cli.Context, duration string) error {
 			_, err := time.ParseDuration(duration)
 			if err != nil {
@@ -94,7 +92,7 @@ var (
 		Usage: "reverting transaction hashes",
 		Action: func(c *cli.Context, txHashes []string) error {
 			for _, txHash := range txHashes {
-				if !common.IsHexAddress(txHash) {
+				if len(txHash) != 66 && len(txHash) != 64 {
 					return fmt.Errorf("invalid transaction hash: %s", txHash)
 				}
 			}
@@ -161,6 +159,7 @@ func main() {
 			Usage: "Send a bid to the gRPC bidder server",
 			Flags: []cli.Flag{
 				optionRPCURL,
+				optionL1RPCURL,
 				optionVerbose,
 				optionTxHashes,
 				optionBidAmount,
@@ -190,12 +189,29 @@ func main() {
 
 				client := pb.NewBidderClient(conn)
 
+				blkNum := c.Int64(optionBlockNumber.Name)
+				if blkNum == 0 {
+					client, err := ethclient.Dial(c.String(optionL1RPCURL.Name))
+					if err != nil {
+						return fmt.Errorf("Failed to connect to the Ethereum client: %v", err)
+					}
+
+					bNo, err := client.BlockNumber(c.Context)
+					if err != nil {
+						return fmt.Errorf("failed to get block number: %w", err)
+					}
+					blkNum = int64(bNo) + 1
+					if c.Bool(optionVerbose.Name) {
+						fmt.Fprintf(app.Writer, "using latest block number: %d\n", blkNum)
+					}
+				}
+
 				bid := &pb.Bid{
 					TxHashes:            c.StringSlice(optionTxHashes.Name),
 					Amount:              c.String(optionBidAmount.Name),
-					BlockNumber:         c.Int64(optionBlockNumber.Name),
-					DecayStartTimestamp: time.Now().Unix(),
-					DecayEndTimestamp:   time.Now().Add(decay).Unix(),
+					BlockNumber:         blkNum,
+					DecayStartTimestamp: time.Now().UnixMilli(),
+					DecayEndTimestamp:   time.Now().Add(decay).UnixMilli(),
 					RevertingTxHashes:   c.StringSlice(optionRevertingTxHashes.Name),
 				}
 
@@ -215,7 +231,7 @@ func main() {
 						}
 						return fmt.Errorf("failed to receive preconfirmation: %w", err)
 					}
-					prettyPrintMsg(preConfirmation)
+					fmt.Fprintln(app.Writer, prettyPrintMsg(preConfirmation))
 				}
 			},
 		},
@@ -321,7 +337,7 @@ func main() {
 				chainID := big.NewInt(17000)
 
 				// Sign the transaction
-				signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
+				signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), privateKey)
 				if err != nil {
 					return fmt.Errorf("failed to sign transaction payload: %w", err)
 				}
@@ -348,12 +364,25 @@ func main() {
 
 				rpcClient := pb.NewBidderClient(conn)
 
+				blkNum := c.Int64(optionBlockNumber.Name)
+				if blkNum == 0 {
+					bNo, err := client.BlockNumber(c.Context)
+					if err != nil {
+						return fmt.Errorf("failed to get block number: %w", err)
+					}
+
+					blkNum = int64(bNo) + 1
+					if c.Bool(optionVerbose.Name) {
+						fmt.Fprintf(app.Writer, "using latest block number: %d\n", blkNum)
+					}
+				}
+
 				bid := &pb.Bid{
 					RawTransactions:     []string{hex.EncodeToString(txHex)},
 					Amount:              c.String(optionBidAmount.Name),
-					BlockNumber:         c.Int64(optionBlockNumber.Name),
-					DecayStartTimestamp: time.Now().Unix(),
-					DecayEndTimestamp:   time.Now().Add(decay).Unix(),
+					BlockNumber:         blkNum,
+					DecayStartTimestamp: time.Now().UnixMilli(),
+					DecayEndTimestamp:   time.Now().Add(decay).UnixMilli(),
 				}
 
 				ctx := context.Background()
@@ -374,7 +403,7 @@ func main() {
 						}
 						return fmt.Errorf("failed to receive preconfirmation: %w", err)
 					}
-					prettyPrintMsg(preConfirmation)
+					fmt.Fprintf(app.Writer, prettyPrintMsg(preConfirmation))
 				}
 
 				return nil

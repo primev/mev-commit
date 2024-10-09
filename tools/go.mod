@@ -6,6 +6,7 @@ toolchain go1.23.0
 
 require (
 	github.com/ethereum/go-ethereum v1.13.15
+	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/urfave/cli/v2 v2.27.4
 	google.golang.org/grpc v1.67.1
@@ -13,6 +14,8 @@ require (
 )
 
 replace github.com/primev/mev-commit/p2p => ../p2p
+
+replace github.com/primev/mev-commit/contracts-abi => ../contracts-abi
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.32.0-20240221180331-f05a6f4403ce.1 // indirect
@@ -30,6 +33,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/holiman/uint256 v1.2.4 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
