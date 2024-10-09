@@ -6,13 +6,6 @@
     nomad_vars_path: "nomad/jobs"
 
   tasks:
-    - name: Set Backup Var
-      ansible.builtin.shell: |
-        nomad var put -force -namespace=default {{ nomad_vars_path }} MEV_COMMIT_GETH_CHAIN_BACKUP="true"
-      args:
-        executable: bash
-      when: backup is defined and backup
-
     - name: Stop Jobs
       ansible.builtin.shell: |
         NOMAD_JOBS=$(nomad job status -json | jq -r 'sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID')
