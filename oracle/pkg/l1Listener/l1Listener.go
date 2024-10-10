@@ -3,9 +3,16 @@ package l1Listener
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"log/slog"
 	"math/big"
+	"net/http"
+	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,6 +47,18 @@ type L1Listener struct {
 	eventMgr       events.EventManager
 	recorder       L1Recorder
 	metrics        *metrics
+	relayUrls      []string
+	builderData    map[int64]string
+	builderDataMu  sync.RWMutex
+}
+
+type RelayData struct {
+	RelayName     string
+	BuilderPubkey string
+	BlockNumber   int64
+	BlockHash     string
+	Slot          string
+	Timestamp     string
 }
 
 func NewL1Listener(
@@ -48,6 +67,7 @@ func NewL1Listener(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	recorder L1Recorder,
+	relayUrls []string,
 ) *L1Listener {
 	return &L1Listener{
 		logger:         logger,
@@ -56,6 +76,8 @@ func NewL1Listener(
 		eventMgr:       evtMgr,
 		recorder:       recorder,
 		metrics:        newMetrics(),
+		relayUrls:      relayUrls,
+		builderData:    make(map[int64]string),
 	}
 }
 
@@ -70,6 +92,10 @@ func (l *L1Listener) Start(ctx context.Context) <-chan struct{} {
 
 	eg.Go(func() error {
 		return l.watchL1Block(egCtx)
+	})
+
+	eg.Go(func() error {
+		return l.watchRelays(egCtx)
 	})
 
 	evt := events.NewEventHandler(
@@ -171,7 +197,17 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 					continue
 				}
 
-				winner := string(bytes.ToValidUTF8(header.Extra, []byte("�")))
+				winner := string(bytes.ToValidUTF8(header.Extra, []byte("")))
+
+				// TODO: Use the builder pubkey in the contracts
+				builderPubKey, ok := l.builderData[int64(b)]
+				if !ok {
+					l.logger.Error("builder data not found", "block", b)
+					continue
+				}
+				_ = builderPubKey
+
+				// End of changes needed to be done.
 
 				l.logger.Info(
 					"new L1 winner",
@@ -202,4 +238,86 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 			currentBlockNo = int64(blockNum)
 		}
 	}
+}
+
+func (l *L1Listener) watchRelays(ctx context.Context) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var lastBlockNumber int64
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			relayData, err := l.fetchRelayData()
+			if err != nil {
+				l.logger.Error("failed to fetch relay data", "error", err)
+				continue
+			}
+
+			for _, data := range relayData {
+				if data.BlockNumber > lastBlockNumber {
+					l.logger.Info("New relay data",
+						"timestamp", data.Timestamp,
+						"block_number", data.BlockNumber,
+						"relay_name", data.RelayName,
+						"builder_pubkey", data.BuilderPubkey,
+						"block_hash", data.BlockHash,
+						"slot", data.Slot,
+					)
+					lastBlockNumber = data.BlockNumber
+
+					l.builderDataMu.Lock()
+					l.builderData[data.BlockNumber] = data.BuilderPubkey
+					l.builderDataMu.Unlock()
+				}
+			}
+		}
+	}
+}
+
+func (l *L1Listener) fetchRelayData() ([]RelayData, error) {
+	var allData []RelayData
+
+	for _, url := range l.relayUrls {
+		resp, err := http.Get(url)
+		if err != nil {
+			l.logger.Error("failed to fetch data from relay", "url", url, "error", err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			l.logger.Error("failed to read response body", "url", url, "error", err)
+			continue
+		}
+
+		var data []map[string]interface{}
+		if err := json.Unmarshal(body, &data); err != nil {
+			l.logger.Error("failed to unmarshal response", "url", url, "error", err)
+			continue
+		}
+
+		if len(data) > 0 {
+			latestBid := data[0]
+			relayData := RelayData{
+				RelayName:     url[8:strings.Index(url, "/relay")],
+				BuilderPubkey: fmt.Sprintf("%v", latestBid["builder_pubkey"]),
+				BlockNumber:   int64(latestBid["block_number"].(float64)),
+				BlockHash:     fmt.Sprintf("%.10s...", latestBid["block_hash"]),
+				Slot:          fmt.Sprintf("%v", latestBid["slot"]),
+				Timestamp:     time.Now().Format("2006-01-02 15:04:05"),
+			}
+			allData = append(allData, relayData)
+		}
+	}
+
+	sort.Slice(allData, func(i, j int) bool {
+		return allData[i].BlockNumber > allData[j].BlockNumber
+	})
+
+	return allData, nil
 }
