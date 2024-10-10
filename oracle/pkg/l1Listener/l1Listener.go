@@ -3,9 +3,15 @@ package l1Listener
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"log/slog"
 	"math/big"
+	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,6 +46,16 @@ type L1Listener struct {
 	eventMgr       events.EventManager
 	recorder       L1Recorder
 	metrics        *metrics
+	relayUrls      []string
+}
+
+type RelayData struct {
+	RelayName     string
+	BuilderPubkey string
+	BlockNumber   int64
+	BlockHash     string
+	Slot          string
+	Timestamp     string
 }
 
 func NewL1Listener(
@@ -56,6 +72,18 @@ func NewL1Listener(
 		eventMgr:       evtMgr,
 		recorder:       recorder,
 		metrics:        newMetrics(),
+		relayUrls: []string{
+			"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://bloxroute.max-profit.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://bloxroute.regulated.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.edennetwork.io/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://mainnet-relay.securerpc.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.ultrasound.money/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://agnostic-relay.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://aestus.live/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.wenmerge.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://blockspace.frontier.tech/relay/v1/data/bidtraces/proposer_payload_delivered",
+		},
 	}
 }
 
@@ -70,6 +98,10 @@ func (l *L1Listener) Start(ctx context.Context) <-chan struct{} {
 
 	eg.Go(func() error {
 		return l.watchL1Block(egCtx)
+	})
+
+	eg.Go(func() error {
+		return l.watchRelays(egCtx)
 	})
 
 	evt := events.NewEventHandler(
@@ -202,4 +234,82 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 			currentBlockNo = int64(blockNum)
 		}
 	}
+}
+
+func (l *L1Listener) watchRelays(ctx context.Context) error {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	var lastBlockNumber int64
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			relayData, err := l.fetchRelayData()
+			if err != nil {
+				l.logger.Error("failed to fetch relay data", "error", err)
+				continue
+			}
+
+			for _, data := range relayData {
+				if data.BlockNumber > lastBlockNumber {
+					l.logger.Info("New relay data",
+						"timestamp", data.Timestamp,
+						"block_number", data.BlockNumber,
+						"relay_name", data.RelayName,
+						"builder_pubkey", data.BuilderPubkey,
+						"block_hash", data.BlockHash,
+						"slot", data.Slot,
+					)
+					lastBlockNumber = data.BlockNumber
+				}
+			}
+		}
+	}
+}
+
+func (l *L1Listener) fetchRelayData() ([]RelayData, error) {
+	var allData []RelayData
+
+	for _, url := range l.relayUrls {
+		resp, err := http.Get(url)
+		if err != nil {
+			l.logger.Error("failed to fetch data from relay", "url", url, "error", err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			l.logger.Error("failed to read response body", "url", url, "error", err)
+			continue
+		}
+
+		var data []map[string]interface{}
+		if err := json.Unmarshal(body, &data); err != nil {
+			l.logger.Error("failed to unmarshal response", "url", url, "error", err)
+			continue
+		}
+
+		if len(data) > 0 {
+			latestBid := data[0]
+			relayData := RelayData{
+				RelayName:     url[8:strings.Index(url, "/relay")],
+				BuilderPubkey: fmt.Sprintf("%.10s...", latestBid["builder_pubkey"]),
+				BlockNumber:   int64(latestBid["block_number"].(float64)),
+				BlockHash:     fmt.Sprintf("%.10s...", latestBid["block_hash"]),
+				Slot:          fmt.Sprintf("%v", latestBid["slot"]),
+				Timestamp:     time.Now().Format("2006-01-02 15:04:05"),
+			}
+			allData = append(allData, relayData)
+		}
+	}
+
+	sort.Slice(allData, func(i, j int) bool {
+		return allData[i].BlockNumber > allData[j].BlockNumber
+	})
+
+	return allData, nil
 }
