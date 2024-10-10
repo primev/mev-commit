@@ -89,19 +89,19 @@ interface IPreconfManager {
     event CommitmentDispatchWindowUpdated(uint64 newDispatchWindow);
 
     /// @dev Event to log successful update of the oracle contract
-    event OracleContractUpdated(address newOracleContract);
+    event OracleContractUpdated(address indexed newOracleContract);
 
     /// @dev Event to log successful update of the blocks per window
     event BlocksPerWindowUpdated(uint256 newBlocksPerWindow);
 
     /// @dev Event to log successful update of the provider registry
-    event ProviderRegistryUpdated(address newProviderRegistry);
+    event ProviderRegistryUpdated(address indexed newProviderRegistry);
 
     /// @dev Event to log successful update of the bidder registry
-    event BidderRegistryUpdated(address newBidderRegistry);
+    event BidderRegistryUpdated(address indexed newBidderRegistry);
 
     /// @dev Event to log successful update of the block tracker
-    event BlockTrackerUpdated(address newBlockTracker);
+    event BlockTrackerUpdated(address indexed newBlockTracker);
 
     /// @dev Error if sender is not oracle contract
     error SenderIsNotOracleContract(address sender, address oracleContract);

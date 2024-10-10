@@ -1214,7 +1214,7 @@
       {
         "name": "newBidderRegistry",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1227,7 +1227,7 @@
       {
         "name": "newBlockTracker",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1376,7 +1376,7 @@
       {
         "name": "newOracleContract",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1440,7 +1440,7 @@
       {
         "name": "newProviderRegistry",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
