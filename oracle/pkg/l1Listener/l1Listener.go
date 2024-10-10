@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -47,6 +48,8 @@ type L1Listener struct {
 	recorder       L1Recorder
 	metrics        *metrics
 	relayUrls      []string
+	builderData    map[int64]string
+	builderDataMu  sync.RWMutex
 }
 
 type RelayData struct {
@@ -64,6 +67,7 @@ func NewL1Listener(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	recorder L1Recorder,
+	relayUrls []string,
 ) *L1Listener {
 	return &L1Listener{
 		logger:         logger,
@@ -72,18 +76,8 @@ func NewL1Listener(
 		eventMgr:       evtMgr,
 		recorder:       recorder,
 		metrics:        newMetrics(),
-		relayUrls: []string{
-			"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://bloxroute.max-profit.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://bloxroute.regulated.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://relay.edennetwork.io/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://mainnet-relay.securerpc.com/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://relay.ultrasound.money/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://agnostic-relay.net/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://aestus.live/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://relay.wenmerge.com/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://blockspace.frontier.tech/relay/v1/data/bidtraces/proposer_payload_delivered",
-		},
+		relayUrls:      relayUrls,
+		builderData:    make(map[int64]string),
 	}
 }
 
@@ -203,7 +197,17 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 					continue
 				}
 
-				winner := string(bytes.ToValidUTF8(header.Extra, []byte("�")))
+				winner := string(bytes.ToValidUTF8(header.Extra, []byte("")))
+
+				// TODO: Use the builder pubkey in the contracts
+				builderPubKey, ok := l.builderData[int64(b)]
+				if !ok {
+					l.logger.Error("builder data not found", "block", b)
+					continue
+				}
+				_ = builderPubKey
+
+				// End of changes needed to be done.
 
 				l.logger.Info(
 					"new L1 winner",
@@ -264,6 +268,10 @@ func (l *L1Listener) watchRelays(ctx context.Context) error {
 						"slot", data.Slot,
 					)
 					lastBlockNumber = data.BlockNumber
+
+					l.builderDataMu.Lock()
+					l.builderData[data.BlockNumber] = data.BuilderPubkey
+					l.builderDataMu.Unlock()
 				}
 			}
 		}
@@ -297,7 +305,7 @@ func (l *L1Listener) fetchRelayData() ([]RelayData, error) {
 			latestBid := data[0]
 			relayData := RelayData{
 				RelayName:     url[8:strings.Index(url, "/relay")],
-				BuilderPubkey: fmt.Sprintf("%.10s...", latestBid["builder_pubkey"]),
+				BuilderPubkey: fmt.Sprintf("%v", latestBid["builder_pubkey"]),
 				BlockNumber:   int64(latestBid["block_number"].(float64)),
 				BlockHash:     fmt.Sprintf("%.10s...", latestBid["block_hash"]),
 				Slot:          fmt.Sprintf("%v", latestBid["slot"]),
