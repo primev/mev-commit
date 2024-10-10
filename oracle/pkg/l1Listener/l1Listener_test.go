@@ -53,6 +53,7 @@ func TestL1Listener(t *testing.T) {
 		reg,
 		eventManager,
 		rec,
+		[]string{"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered"},
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 
