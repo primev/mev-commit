@@ -45,6 +45,7 @@ type Options struct {
 	KeySigner                    keysigner.KeySigner
 	HTTPPort                     int
 	SettlementRPCUrl             string
+	RelayUrls                    []string
 	L1RPCUrls                    []string
 	OracleContractAddr           common.Address
 	PreconfContractAddr          common.Address
@@ -246,6 +247,7 @@ func NewNode(opts *Options) (*Node, error) {
 		st,
 		evtMgr,
 		blockTrackerTransactor,
+		opts.RelayUrls,
 	)
 	l1LisClosed := l1Lis.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("l1_listener", l1LisClosed))
