@@ -112,6 +112,10 @@ func main() {
 		Flags: []cli.Flag{
 			optionRPCURL,
 			optionHTTPPort,
+			optionStartBlock,
+			optionLogFmt,
+			optionLogLevel,
+			optionLogTags,
 		},
 		Action: func(c *cli.Context) error {
 			abis, err := getContractABIs()

@@ -84,11 +84,6 @@ func New(
 		bidderAllowances: bidderAllowances,
 	}
 
-	err := srv.configureDashboard()
-	if err != nil {
-		logger.Error("failed to configure dashboard", "error", err)
-	}
-
 	srv.router.Handle("/register_provider", srv.registerProvider(token))
 
 	srv.registerDebugEndpoints()
