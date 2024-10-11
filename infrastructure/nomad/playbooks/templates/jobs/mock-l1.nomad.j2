@@ -39,6 +39,15 @@ job "{{ job.name }}" {
     task "geth" {
       driver = "exec"
 
+      {% for port_name in job.ports[0] %}
+      service {
+        name = "{{ job.name }}"
+        port = "{{ port_name }}"
+        tags = ["{{ port_name }}"]
+        provider = "nomad"
+      }
+      {% endfor %}
+
       artifact {
         source = "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.14.11-f3c696fa.tar.gz"
       }
