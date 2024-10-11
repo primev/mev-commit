@@ -150,13 +150,13 @@ func main() {
 				evtMgr,
 			)
 
-			ctx, cancel := context.WithCancel(context.Background())
-			pbStopped := pb.Start(ctx)
-
 			statHdlr, err := newStatHandler(evtMgr, 10)
 			if err != nil {
 				return err
 			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			pbStopped := pb.Start(ctx)
 
 			mux := http.NewServeMux()
 			registerRoutes(mux, statHdlr)

@@ -45,7 +45,6 @@ type Service struct {
 	blockTracker     *blocktracker.BlocktrackerTransactorSession
 	providerRegistry *providerregistry.ProviderregistryCallerSession
 	monitor          *txmonitor.Monitor
-	lastBlock        uint64
 	shutdown         chan struct{}
 }
 

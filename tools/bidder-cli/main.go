@@ -174,7 +174,7 @@ func main() {
 				}
 
 				creds := insecure.NewCredentials()
-				conn, err := grpc.Dial(
+				conn, err := grpc.NewClient(
 					c.String(optionRPCURL.Name),
 					grpc.WithTransportCredentials(creds),
 				)
@@ -352,7 +352,7 @@ func main() {
 				}
 
 				creds := insecure.NewCredentials()
-				conn, err := grpc.Dial(c.String(optionRPCURL.Name), grpc.WithTransportCredentials(creds))
+				conn, err := grpc.NewClient(c.String(optionRPCURL.Name), grpc.WithTransportCredentials(creds))
 				if err != nil {
 					return err
 				}
@@ -403,10 +403,8 @@ func main() {
 						}
 						return fmt.Errorf("failed to receive preconfirmation: %w", err)
 					}
-					fmt.Fprintf(app.Writer, prettyPrintMsg(preConfirmation))
+					fmt.Fprintln(app.Writer, prettyPrintMsg(preConfirmation))
 				}
-
-				return nil
 			},
 		},
 	}
