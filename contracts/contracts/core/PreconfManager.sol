@@ -141,17 +141,6 @@ contract PreconfManager is
     }
 
     /**
-     * @dev Updates the number of blocks per window.
-     * @param newBlocksPerWindow The new number of blocks per window.
-     */
-    function updateBlocksPerWindow(
-        uint256 newBlocksPerWindow
-    ) external onlyOwner {
-        blocksPerWindow = newBlocksPerWindow;
-        emit BlocksPerWindowUpdated(newBlocksPerWindow);
-    }
-
-    /**
      * @dev Updates the address of the provider registry.
      * @param newProviderRegistry The new provider registry address.
      */
