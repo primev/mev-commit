@@ -524,8 +524,8 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_chain_id: 11155111
-      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
+      # This and RPC URL will be different on holesky/mainnet.
+      l1_chain_id: 1337
 
   mev_commit_faucet: &mev_commit_faucet_job
     name: mev-commit-faucet
@@ -600,6 +600,7 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *mev_commit_bridge_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
