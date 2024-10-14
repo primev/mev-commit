@@ -23,6 +23,9 @@ artifacts:
   p2p: &p2p_artifact
     type: binary
     path: p2p
+  dashboard: &dashboard_artifact
+    type: binary
+    path: tools/dashboard
 
 jobs:
   artifacts: &artifacts_job
@@ -516,6 +519,19 @@ jobs:
     env:
       l1_rpc_urls: "{{ l1_rpc_urls }}"
 
+  mev_commit_dashboard: &mev_commit_dashboard_job
+    name: mev-commit-dashboard
+    template: mev-commit-dashboard.nomad.j2
+    artifacts:
+      - *dashboard_artifact
+    dependencies:
+      contracts_deployer: *contracts_deployer_job
+    count: 1
+    ports:
+      - http:
+          static: 8081
+          to: 8081
+
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2
@@ -609,6 +625,7 @@ profiles:
       - *mev_commit_bidder_node1_funder_job
       - *mev_commit_provider_emulator_node1_job
       - *mev_commit_bidder_emulator_node1_job
+      - *mev_commit_dashboard_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
 
@@ -627,6 +644,7 @@ profiles:
       - *mev_commit_oracle_job
       - *mev_commit_provider_emulator_node1_job
       - *mev_commit_faucet_job
+      - *mev_commit_dashboard_job
       - *datadog_agent_metrics_collector_job
 
   stressnet:
@@ -660,6 +678,7 @@ profiles:
       - *mev_commit_bidder_node5_funder_job
       - *mev_commit_bidder_emulator_nodes_job
       - *mev_commit_faucet_job
+      - *mev_commit_dashboard_job
       - *datadog_agent_metrics_collector_job
 
   manual-test:
@@ -682,6 +701,7 @@ profiles:
       - *mev_commit_provider_emulator_nodes_job
       - *mev_commit_oracle_job
       - *mev_commit_faucet_job
+      - *mev_commit_dashboard_job
       - *datadog_agent_metrics_collector_job
 
   archive:

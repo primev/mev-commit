@@ -17,12 +17,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+	contracts "github.com/primev/mev-commit/contracts-abi/config"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/util"
@@ -33,28 +35,28 @@ var (
 	optionRPCURL = &cli.StringFlag{
 		Name:    "settlement-rpc-url",
 		Usage:   "URL of the Settlement RPC server",
-		EnvVars: []string{"DASH_CLI_RPC_URL"},
+		EnvVars: []string{"DASHBOARD_RPC_URL"},
 		Value:   "wss://chainrpc-wss.testnet.mev-commit.xyz",
 	}
 
 	optionHTTPPort = &cli.IntFlag{
 		Name:    "http-port",
 		Usage:   "port for the HTTP server",
-		EnvVars: []string{"DASH_HTTP_PORT"},
+		EnvVars: []string{"DASHBOARD_HTTP_PORT"},
 		Value:   8080,
 	}
 
 	optionStartBlock = &cli.IntFlag{
 		Name:    "start-block",
 		Usage:   "start block for reading the events for the dashboard",
-		EnvVars: []string{"DASH_START_BLOCK"},
+		EnvVars: []string{"DASHBOARD_START_BLOCK"},
 		Value:   0,
 	}
 
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
-		EnvVars: []string{"DASH_LOG_FMT"},
+		EnvVars: []string{"DASHBOARD_LOG_FMT"},
 		Value:   "text",
 		Action: func(ctx *cli.Context, s string) error {
 			if !slices.Contains([]string{"text", "json"}, s) {
@@ -67,7 +69,7 @@ var (
 	optionLogLevel = &cli.StringFlag{
 		Name:    "log-level",
 		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
-		EnvVars: []string{"DASH_LOG_LEVEL"},
+		EnvVars: []string{"DASHBOARD_LOG_LEVEL"},
 		Value:   "info",
 		Action: func(ctx *cli.Context, s string) error {
 			if !slices.Contains([]string{"debug", "info", "warn", "error"}, s) {
@@ -80,7 +82,7 @@ var (
 	optionLogTags = &cli.StringFlag{
 		Name:    "log-tags",
 		Usage:   "log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
-		EnvVars: []string{"DASH_LOG_TAGS"},
+		EnvVars: []string{"DASHBOARD_LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
 			for i, p := range strings.Split(s, ",") {
 				if len(strings.Split(p, ":")) != 2 {
@@ -89,6 +91,41 @@ var (
 			}
 			return nil
 		},
+	}
+
+	optionOracleContractAddr = &cli.StringFlag{
+		Name:    "oracle-contract-addr",
+		Usage:   "address of the oracle contract",
+		EnvVars: []string{"DASHBOARD_ORACLE_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.Oracle,
+	}
+
+	optionPreconfContractAddr = &cli.StringFlag{
+		Name:    "preconf-contract-addr",
+		Usage:   "address of the preconf contract",
+		EnvVars: []string{"DASHBOARD_PRECONF_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.PreconfManager,
+	}
+
+	optionBlockTrackerContractAddr = &cli.StringFlag{
+		Name:    "blocktracker-contract-addr",
+		Usage:   "address of the block tracker contract",
+		EnvVars: []string{"DASHBOARD_BLOCKTRACKER_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.BlockTracker,
+	}
+
+	optionBidderRegistryContractAddr = &cli.StringFlag{
+		Name:    "bidder-registry-contract-addr",
+		Usage:   "address of the bidder registry contract",
+		EnvVars: []string{"DASHBOARD_BIDDERREGISTRY_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.BidderRegistry,
+	}
+
+	optionProviderRegistryContractAddr = &cli.StringFlag{
+		Name:    "provider-registry-contract-addr",
+		Usage:   "address of the provider registry contract",
+		EnvVars: []string{"DASHBOARD_PROVIDERREGISTRY_CONTRACT_ADDR"},
+		Value:   contracts.TestnetContracts.ProviderRegistry,
 	}
 )
 
@@ -116,6 +153,11 @@ func main() {
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
+			optionOracleContractAddr,
+			optionPreconfContractAddr,
+			optionBlockTrackerContractAddr,
+			optionBidderRegistryContractAddr,
+			optionProviderRegistryContractAddr,
 		},
 		Action: func(c *cli.Context) error {
 			abis, err := getContractABIs()
@@ -156,7 +198,14 @@ func main() {
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
-			pbStopped := pb.Start(ctx)
+			pbStopped := pb.Start(
+				ctx,
+				common.HexToAddress(c.String(optionOracleContractAddr.Name)),
+				common.HexToAddress(c.String(optionPreconfContractAddr.Name)),
+				common.HexToAddress(c.String(optionBlockTrackerContractAddr.Name)),
+				common.HexToAddress(c.String(optionBidderRegistryContractAddr.Name)),
+				common.HexToAddress(c.String(optionProviderRegistryContractAddr.Name)),
+			)
 
 			mux := http.NewServeMux()
 			registerRoutes(mux, statHdlr)
