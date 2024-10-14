@@ -11,8 +11,7 @@ builds:
     goarch:
       - amd64
       - arm64
-    dir: ./tools
-    main: ./dashboard
+    dir: ./tools/dashboard
     binary: "{{ .ProjectName }}"
     flags:
       - -v
