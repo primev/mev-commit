@@ -25,7 +25,7 @@ artifacts:
     path: p2p
   dashboard: &dashboard_artifact
     type: binary
-    path: tools/dashboard
+    path: tools
 
 jobs:
   artifacts: &artifacts_job
