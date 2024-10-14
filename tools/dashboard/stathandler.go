@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -27,19 +28,18 @@ type statHandler struct {
 	totalRewards              uint64
 	totalSlashes              uint64
 	evtMgr                    events.EventManager
-	subs                      []events.Subscription
+	sub                       events.Subscription
 	unsub                     func()
 }
 
 type BlockStats struct {
-	Number                 uint64             `json:"number"`
-	Winner                 string             `json:"winner"`
-	Window                 int64              `json:"window"`
-	TotalOpenedCommitments int                `json:"total_opened_commitments"`
-	TotalRewards           int                `json:"total_rewards"`
-	TotalSlashes           int                `json:"total_slashes"`
-	TotalAmount            string             `json:"total_amount"`
-	Bidders                []*BidderAllowance `json:"bidders"`
+	Number                 uint64 `json:"number"`
+	Winner                 string `json:"winner"`
+	Window                 int64  `json:"window"`
+	TotalOpenedCommitments int    `json:"total_opened_commitments"`
+	TotalRewards           int    `json:"total_rewards"`
+	TotalSlashes           int    `json:"total_slashes"`
+	TotalAmount            string `json:"total_amount"`
 }
 
 type ProviderBalances struct {
@@ -245,6 +245,7 @@ func (s *statHandler) configureDashboard() error {
 				}
 				existing.Stake = upd.StakedAmount.String()
 				_ = s.providerStakes.Add(upd.Provider.Hex(), existing)
+				fmt.Println("ProviderRegistered", existing)
 			},
 		),
 		events.NewEventHandler(
@@ -397,35 +398,22 @@ func (s *statHandler) configureDashboard() error {
 		),
 	}
 
-	subs := make([]events.Subscription, 0, len(handlers))
-	unsub := func() {
-		for _, sub := range subs {
-			sub.Unsubscribe()
-		}
+	sub, err := s.evtMgr.Subscribe(handlers...)
+	if err != nil {
+		return err
 	}
 
-	for _, h := range handlers {
-		sub, err := s.evtMgr.Subscribe(h)
-		if err != nil {
-			unsub()
-			return err
-		}
-		subs = append(subs, sub)
-	}
-
-	s.unsub = unsub
-	s.subs = subs
+	s.sub = sub
+	s.unsub = sub.Unsubscribe
 
 	return nil
 }
 
 func (s *statHandler) healthy() bool {
-	for _, sub := range s.subs {
-		select {
-		case <-sub.Err():
-			return false
-		default:
-		}
+	select {
+	case <-s.sub.Err():
+		return false
+	default:
 	}
 	return true
 }
