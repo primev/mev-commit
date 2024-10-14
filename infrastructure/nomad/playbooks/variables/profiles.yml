@@ -531,6 +531,7 @@ jobs:
       - http:
           static: 8081
           to: 8081
+    env:
 
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
