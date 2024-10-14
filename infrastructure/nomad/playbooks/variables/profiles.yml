@@ -532,6 +532,8 @@ jobs:
           static: 8081
           to: 8081
     env:
+      log-fmt: "json"
+      log-level: "info"
 
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
