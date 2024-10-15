@@ -628,6 +628,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
@@ -636,7 +637,6 @@ profiles:
       - *mev_commit_bidder_node1_funder_job
       - *mev_commit_provider_emulator_node1_job
       - *mev_commit_bidder_emulator_node1_job
-      - *mev_commit_dashboard_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
 
@@ -649,13 +649,13 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
       - *mev_commit_oracle_job
       - *mev_commit_provider_emulator_node1_job
       - *mev_commit_faucet_job
-      - *mev_commit_dashboard_job
       - *datadog_agent_metrics_collector_job
 
   stressnet:
@@ -668,6 +668,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
@@ -689,7 +690,6 @@ profiles:
       - *mev_commit_bidder_node5_funder_job
       - *mev_commit_bidder_emulator_nodes_job
       - *mev_commit_faucet_job
-      - *mev_commit_dashboard_job
       - *datadog_agent_metrics_collector_job
 
   manual-test:
@@ -702,6 +702,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
@@ -712,7 +713,6 @@ profiles:
       - *mev_commit_provider_emulator_nodes_job
       - *mev_commit_oracle_job
       - *mev_commit_faucet_job
-      - *mev_commit_dashboard_job
       - *datadog_agent_metrics_collector_job
 
   archive:
