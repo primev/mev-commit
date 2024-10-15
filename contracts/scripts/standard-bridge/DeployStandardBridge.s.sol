@@ -98,7 +98,7 @@ contract DeploySettlementGateway is BridgeBase {
         );
         console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput); 
 
-        success = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
+        (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
 
         vm.stopBroadcast();
@@ -144,7 +144,7 @@ contract DeployL1Gateway is BridgeBase {
         );
         console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput);
 
-        success = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
+        (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
 
         vm.stopBroadcast();
