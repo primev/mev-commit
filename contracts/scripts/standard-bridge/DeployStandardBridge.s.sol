@@ -26,6 +26,9 @@ contract BridgeBase is Script {
     // between mev-commit chain ETH and L1 ETH.
     uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING; 
 
+    // Amount of ETH required on L1 to initialize the L1 gateway, make transfer calls, and initially fund the relayer on L1.
+    uint256 public constant L1_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING;
+
     error RelayerAddressNotSet(address addr);
     error L1FinalizationFeeNotSet(uint256 fee);
     error SettlementFinalizationFeeNotSet(uint256 fee);
@@ -119,9 +122,9 @@ contract DeployL1Gateway is BridgeBase {
         uint256 l1FinalizationFee = _getL1FinalizationFee();
         uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
 
-        // Caller needs funds to cover mev-commit chain setup cost AND initial relayer funding on L1.
-        require(address(msg.sender).balance >= MEV_COMMIT_CHAIN_SETUP_COST + RELAYER_INITIAL_FUNDING,
-            DeployerMustHaveEnoughFunds(address(msg.sender).balance, MEV_COMMIT_CHAIN_SETUP_COST + RELAYER_INITIAL_FUNDING));
+        // Caller needs funds to lock ETH w.r.t mev-commit chain setup cost, and ETH for L1 setup cost.
+        require(address(msg.sender).balance >= MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST,
+            DeployerMustHaveEnoughFunds(address(msg.sender).balance, MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST));
         
         address l1gProxy = Upgrades.deployUUPSProxy(
             "L1Gateway.sol",
