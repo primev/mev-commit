@@ -7,5 +7,6 @@ use (
 	./oracle
 	./p2p
 	./testing
+	./tools
 	./x
 )

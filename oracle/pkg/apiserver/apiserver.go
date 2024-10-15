@@ -10,12 +10,10 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	lru "github.com/hashicorp/golang-lru/v2"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
@@ -44,14 +42,9 @@ type Service struct {
 	srv              *http.Server
 	evtMgr           events.EventManager
 	store            Store
-	statMu           sync.RWMutex
-	blockStats       *lru.Cache[uint64, *BlockStats]
-	providerStakes   *lru.Cache[string, *ProviderBalances]
-	bidderAllowances *lru.Cache[uint64, []*BidderAllowance]
 	blockTracker     *blocktracker.BlocktrackerTransactorSession
 	providerRegistry *providerregistry.ProviderregistryCallerSession
 	monitor          *txmonitor.Monitor
-	lastBlock        uint64
 	shutdown         chan struct{}
 }
 
@@ -65,9 +58,6 @@ func New(
 	providerRegistry *providerregistry.ProviderregistryCallerSession,
 	monitor *txmonitor.Monitor,
 ) *Service {
-	blockStats, _ := lru.New[uint64, *BlockStats](10000)
-	providerStakes, _ := lru.New[string, *ProviderBalances](1000)
-	bidderAllowances, _ := lru.New[uint64, []*BidderAllowance](1000)
 
 	srv := &Service{
 		logger:           logger,
@@ -79,14 +69,6 @@ func New(
 		providerRegistry: providerRegistry,
 		monitor:          monitor,
 		shutdown:         make(chan struct{}),
-		blockStats:       blockStats,
-		providerStakes:   providerStakes,
-		bidderAllowances: bidderAllowances,
-	}
-
-	err := srv.configureDashboard()
-	if err != nil {
-		logger.Error("failed to configure dashboard", "error", err)
 	}
 
 	srv.router.Handle("/register_provider", srv.registerProvider(token))
