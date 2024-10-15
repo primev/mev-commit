@@ -286,6 +286,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *provider_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 1
     target_type: provider
     target_name: mev-commit-provider-node
@@ -300,6 +302,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *provider_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 3
     target_type: provider
     target_name: mev-commit-provider-node
@@ -470,6 +474,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *bidder_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 1
     target_type: bidder
     target_name: mev-commit-bidder-node
@@ -485,6 +491,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *bidder_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 5
     target_type: bidder
     target_name: mev-commit-bidder-node
