@@ -35,10 +35,8 @@ contract L1Gateway is Gateway {
         _disableInitializers();
     }
 
-    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
-    }
+    /// @dev Receiver for native ETH.
+    receive() external payable { }
 
     /// @dev Fallback function is disabled for this contract to prevent unintended interactions.
     fallback() external payable {
