@@ -540,11 +540,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidReceive",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },
