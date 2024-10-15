@@ -31,17 +31,17 @@ contract BridgeBase is Script {
     error SettlementFinalizationFeeNotSet(uint256 fee);
     error FailedToSendETHToRelayer(address addr);
 
-    function getRelayerAddress() internal returns (address relayerAddr) {
+    function _getRelayerAddress() internal returns (address relayerAddr) {
         relayerAddr = vm.envAddress("RELAYER_ADDRESS");
         require(relayerAddr != address(0), RelayerAddressNotSet(relayerAddr));
     }
 
-    function getL1FinalizationFee() internal returns (uint256 l1FinalizationFee) {
+    function _getL1FinalizationFee() internal returns (uint256 l1FinalizationFee) {
         l1FinalizationFee = vm.envUint("L1_FINALIZATION_FEE");
         require(l1FinalizationFee != 0, L1FinalizationFeeNotSet(l1FinalizationFee));
     }
 
-    function getSettlementFinalizationFee() internal returns (uint256 settlementFinalizationFee) {
+    function _getSettlementFinalizationFee() internal returns (uint256 settlementFinalizationFee) {
         settlementFinalizationFee = vm.envUint("SETTLEMENT_FINALIZATION_FEE");
         require(settlementFinalizationFee != 0, SettlementFinalizationFeeNotSet(settlementFinalizationFee));
     }
@@ -55,9 +55,9 @@ contract DeploySettlementGateway is BridgeBase {
 
         vm.startBroadcast();
 
-        address relayerAddr = getRelayerAddress();
-        uint256 l1FinalizationFee = getL1FinalizationFee();
-        uint256 settlementFinalizationFee = getSettlementFinalizationFee();
+        address relayerAddr = _getRelayerAddress();
+        uint256 l1FinalizationFee = _getL1FinalizationFee();
+        uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
 
         require(address(msg.sender).balance >= DEPLOYER_GENESIS_ALLOCATION, 
             DeployerMustHaveGenesisAllocation(address(msg.sender).balance, DEPLOYER_GENESIS_ALLOCATION));
@@ -98,7 +98,7 @@ contract DeploySettlementGateway is BridgeBase {
         );
         console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput); 
 
-        success = payable(relayerAddr).send(RELAYER_INITIAL_FUNDING);
+        success = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
 
         vm.stopBroadcast();
@@ -110,19 +110,14 @@ contract DeployL1Gateway is BridgeBase {
     error DeployerMustHaveEnoughFunds(uint256 balance, uint256 expected);
     error FailedToFundL1Gateway(address gateway);
 
-    function getL1OwnerAddress() internal returns (address ownerAddr) {
-        ownerAddr = vm.envAddress("L1_OWNER_ADDRESS");
-        require(ownerAddr != address(0), L1OwnerAddressNotSet(ownerAddr));
-    }
-
     function run() external {
 
         vm.startBroadcast();
 
-        address owner = getL1OwnerAddress(); // On mainnet, this must be the primev multisig.
-        address relayerAddr = getRelayerAddress();
-        uint256 l1FinalizationFee = getL1FinalizationFee();
-        uint256 settlementFinalizationFee = getSettlementFinalizationFee();
+        address owner = _getL1OwnerAddress(); // On mainnet, this must be the primev multisig.
+        address relayerAddr = _getRelayerAddress();
+        uint256 l1FinalizationFee = _getL1FinalizationFee();
+        uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
 
         // Caller needs funds to cover mev-commit chain setup cost AND initial relayer funding on L1.
         require(address(msg.sender).balance >= MEV_COMMIT_CHAIN_SETUP_COST + RELAYER_INITIAL_FUNDING,
@@ -149,9 +144,14 @@ contract DeployL1Gateway is BridgeBase {
         );
         console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput);
 
-        success = payable(relayerAddr).send(RELAYER_INITIAL_FUNDING);
+        success = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
 
         vm.stopBroadcast();
+    }
+
+    function _getL1OwnerAddress() internal returns (address ownerAddr) {
+        ownerAddr = vm.envAddress("L1_OWNER_ADDRESS");
+        require(ownerAddr != address(0), L1OwnerAddressNotSet(ownerAddr));
     }
 }
