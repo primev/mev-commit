@@ -1,0 +1,109 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "{{ job.name }}" {
+  datacenters = ["{{ datacenter }}"]
+
+  group "{{ job.name }}-group" {
+    count = {{ job.count }}
+
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+
+      {% for port_name, port_details in job.ports[0].items() %}
+      port "{{ port_name }}" {
+        {% if port_details.get('static') %}
+        static = {{ port_details['static'] }}
+        {% endif %}
+        {% if port_details.get('to') %}
+        to = {{ port_details['to'] }}
+        {% endif %}
+      }
+      {% endfor %}
+    }
+
+    task "l1-transactor" {
+      driver = "exec"
+
+      {% if profile == 'testnet' %}
+      resources {
+        memory = 4096
+      }
+      {% elif profile == 'stressnet' %}
+      resources {
+        memory = 4096
+      }
+      {% endif %}
+
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/l1-transactor_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/l1-transactor_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          TRANSACTOR_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
+          TRANSACTOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          TRANSACTOR_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
+          {%- raw %}
+          TRANSACTOR_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          TRANSACTOR_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
+          TRANSACTOR_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          {{- range nomadService "mock-l1" }}
+            {{- if contains "ws" .Tags }}
+          TRANSACTOR_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          {% raw %}
+          {{- range nomadService "datadog-agent-logs-collector" }}
+            {{ if contains "tcp" .Tags }}
+          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+          {% endraw %}
+
+          chmod +x local/l1-transactor
+          exec local/l1-transactor
+          {% endraw %}
+        EOH
+        destination = "local/run.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
+      }
+    }
+  }
+}
