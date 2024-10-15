@@ -69,10 +69,13 @@ job "{{ job.name }}" {
       }
       {% endif %}
 
-      # TODO: Change this back to secret, and use keystore. Also will need to derive RELAYER_ADDRESS below.
       template {
         data = <<-EOH
-          0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+          {%- raw %}
+          {{- with secret "secret/data/mev-commit" }}
+          {{- .Data.data.bridge_relayer_private_key }}
+          {{- end }}
+          {% endraw %}
         EOH
         destination = "secrets/relayer_key"
         perms = "0600"
@@ -85,23 +88,18 @@ job "{{ job.name }}" {
           STANDARD_BRIDGE_RELAYER_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           STANDARD_BRIDGE_RELAYER_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           {%- raw %}
+          RELAYER_PRIVKEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.bridge_relayer_private_key }}{{ end }}"
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {% endraw %}
-          # TODO: If-statement s.t. non-mock RPC is used when not in devenv.
-          {{- range nomadService "mock-l1" }}
-            {{- if contains "http" .Tags }}
-          STANDARD_BRIDGE_RELAYER_L1_RPC_URL="http://{{ .Address }}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
+          STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           STANDARD_BRIDGE_RELAYER_PRIV_KEY_FILE="secrets/relayer_key"
           L1_CHAIN_ID="{{ job.env['l1_chain_id'] }}"
           CONTRACTS_PATH="local/contracts"
           ARTIFACT_OUT_PATH="local"
-          RELAYER_ADDRESS="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
         EOH
         destination = "secrets/.env"
         env = true
@@ -110,8 +108,6 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
-
-          # TODO: if prod deployment, have bridge this service block until deployer account is funded on L1. If mock l1, deployer is already funded.
 
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
@@ -128,40 +124,11 @@ job "{{ job.name }}" {
           if [ -f "local/L1GatewayArtifact.json" ] && [ -f "local/SettlementGatewayArtifact.json" ]; then
             echo "Artifacts exist. Skipping contract deployment..."
           else
-            echo "Deploying bridge contracts..."
-            forge script \
-              DeployStandardBridge.s.sol:DeploySettlementGatewayWithAllocator \
-              --rpc-url "${STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL}" \
-              --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
-              --password "${KEYSTORE_PASSWORD}" \
-              --sender "${SENDER}" \
-              --broadcast \
-              --chain-id "${CHAIN_ID}" \
-              -vvvv \
-              --use 0.8.26 \
-              --root "${CONTRACT_REPO_ROOT_PATH}" \
-              --via-ir
-
-            forge script \
-              DeployStandardBridge.s.sol:DeployL1Gateway \
-              --rpc-url "${STANDARD_BRIDGE_RELAYER_L1_RPC_URL}" \
-              --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
-              --password "${KEYSTORE_PASSWORD}" \
-              --sender "${SENDER}" \
-              --broadcast \
-              --chain-id "${CHAIN_ID}" \
-              -vvvv \
-              --use 0.8.26 \
-              --root "${CONTRACT_REPO_ROOT_PATH}" \
-              --via-ir \
-              --skip-simulation \
-              --force \
-              --json \
-              --legacy
-
+            echo "Deploying contracts..."
+            chmod +x local/deploy_contracts.sh
+            ./local/deploy_contracts.sh
           fi
 
-          # TODO: Obtain these addresses from forge deploy artifacts, similar to core contracts.
           export STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR="$(jq -r '.l1_gateway_addr' local/L1GatewayArtifact.json)"
           export STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR="$(jq -r '.settlement_gateway_addr' local/SettlementGatewayArtifact.json)"
 
@@ -177,9 +144,8 @@ job "{{ job.name }}" {
           echo "L1 Contract Address: $STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR"
           echo "Settlement Contract Address: $STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR"
 
-          # TODO: uncomment this
-          # chmod +x local/relayer-linux-amd64
-          # exec ./local/relayer-linux-amd64 start
+          chmod +x local/relayer-linux-amd64
+          exec ./local/relayer-linux-amd64 start
         EOH
         destination = "local/run.sh"
         change_mode = "noop"
