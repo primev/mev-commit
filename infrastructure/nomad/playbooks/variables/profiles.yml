@@ -158,6 +158,22 @@ jobs:
     env:
       chain-id: "{{ environments[env].chain_id }}"
 
+  mev_commit_dashboard: &mev_commit_dashboard_job
+    name: mev-commit-dashboard
+    template: mev-commit-dashboard.nomad.j2
+    artifacts:
+      - *dashboard_artifact
+    dependencies:
+      contracts_deployer: *contracts_deployer_job
+    count: 1
+    ports:
+      - http:
+          static: 8081
+          to: 8081
+    env:
+      log-fmt: "json"
+      log-level: "info"
+
   mev_commit_bootnode1: &mev_commit_bootnode1_job
     name: mev-commit-bootnode1
     template: mev-commit.nomad.j2
@@ -526,22 +542,6 @@ jobs:
           to: 8080
     env:
       l1_rpc_urls: "{{ l1_rpc_urls }}"
-
-  mev_commit_dashboard: &mev_commit_dashboard_job
-    name: mev-commit-dashboard
-    template: mev-commit-dashboard.nomad.j2
-    artifacts:
-      - *dashboard_artifact
-    dependencies:
-      contracts_deployer: *contracts_deployer_job
-    count: 1
-    ports:
-      - http:
-          static: 8081
-          to: 8081
-    env:
-      log-fmt: "json"
-      log-level: "info"
 
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
