@@ -81,7 +81,7 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {{- range nomadService "bridge-emulator" }}
-            {{- if contains "http" .Tags }}
+            {{- if contains "metrics" .Tags }}
           EMULATOR_HTTP_PORT="{{ .Port }}"
             {{- end }}
           {{- end }}

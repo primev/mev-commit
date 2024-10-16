@@ -626,6 +626,9 @@ jobs:
     count: 1
     dependencies:
       mock_l1: *mock_l1_job
+    ports:
+      - metrics:
+        to: 8080
     env:
 
 profiles:
