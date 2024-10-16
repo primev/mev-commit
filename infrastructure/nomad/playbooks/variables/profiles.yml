@@ -616,12 +616,16 @@ jobs:
     name: l1-transactor
     template: l1-transactor.nomad.j2
     count: 1
+    dependencies:
+      mock_l1: *mock_l1_job
     env:
 
   bridge-emulator: &bridge_emulator_job
     name: bridge-emulator
     template: bridge-emulator.nomad.j2
     count: 1
+    dependencies:
+      mock_l1: *mock_l1_job
     env:
 
 profiles:
@@ -631,6 +635,7 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -649,7 +654,9 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
+      - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -689,7 +696,9 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
+      - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -723,6 +732,7 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
