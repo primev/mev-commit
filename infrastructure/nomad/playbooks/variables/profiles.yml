@@ -75,9 +75,9 @@ jobs:
       - *geth_artifact
       - nodekey:
           name: geth_signer_node1_nodekey
-      - keystore:
-          name: geth_signer1_keystore
-          allocation: true
+      - keystores:
+          geth_signer1_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -147,9 +147,9 @@ jobs:
     template: contracts-deployer.nomad.j2
     artifacts:
       - *contracts_artifact
-      - keystore:
-          name: contract_deployer_keystore
-          allocation: true
+      - keystores:
+          contract_deployer_keystore:
+            allocation: true
     count: 1
     ports:
       - http:
@@ -179,8 +179,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bootnode1_keystore
+      - keystores:
+          bootnode1_keystore:
+            allocation: false
     count: 1
     ports:
       - metrics:
@@ -205,9 +206,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: provider1_keystore
-          allocation: true
+      - keystores:
+          provider1_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -232,9 +233,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: provider2_keystore
-          allocation: true
+      - keystores:
+          provider2_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -258,9 +259,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: provider3_keystore
-          allocation: true
+      - keystores:
+          provider3_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -334,9 +335,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder1_keystore
-          allocation: true
+      - keystores:
+          bidder1_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -360,9 +361,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder2_keystore
-          allocation: true
+      - keystores:
+          bidder2_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -385,9 +386,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder3_keystore
-          allocation: true
+      - keystores:
+          bidder3_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -410,9 +411,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder4_keystore
-          allocation: true
+      - keystores:
+          bidder4_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -435,9 +436,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder5_keystore
-          allocation: true
+      - keystores:
+          bidder5_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -525,9 +526,9 @@ jobs:
       - *oracle_artifact
       - auth_token:
           name: oracle_register_provider_api_auth_token
-      - keystore:
-          name: oracle_keystore
-          allocation: true
+      - keystores:
+          oracle_keystore:
+            allocation: true
     dependencies:
       contracts_deployer: *contracts_deployer_job
     count: 1
@@ -558,9 +559,9 @@ jobs:
     name: mev-commit-faucet
     template: mev-commit-faucet.nomad.j2
     artifacts:
-      - keystore:
-          name: faucet_keystore
-          allocation: true
+      - keystores:
+          faucet_keystore:
+            allocation: true
     count: 1
     ports:
       - http:

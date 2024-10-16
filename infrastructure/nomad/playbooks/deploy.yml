@@ -264,12 +264,12 @@
 
           case "{{ environments[env].secrets }}" in
             "generate")
-            {% if artifact.keystore is defined %}
+            {% for keystore_name, keystore_info in artifact.get('keystores', {}).items() %}
               PASSPHRASE="{{ lookup('password', '/dev/null', length=1024, chars=['ascii_letters', 'digits']) }}"
 
               RESULT=$(
                 {{ keystore_generator.stdout }} generate \
-                  --keystore-dir="${DESTINATION_DIR}" \
+                  --keystore-dir="${DESTINATION_DIR}->{{ keystore_name }}" \
                   --passphrase="${PASSPHRASE}" \
                   --log-fmt="json"
               )
@@ -281,9 +281,9 @@
                 --arg keystore_filename "$(basename ${ARTIFACT_PATH})" \
                 --arg keystore_password "${PASSPHRASE}" \
                 '. + {
-                  "{{ artifact.keystore.name }}": $keystore,
-                  "{{ artifact.keystore.name }}_filename": $keystore_filename,
-                  "{{ artifact.keystore.name }}_password": $keystore_password
+                  "{{ keystore_name }}": $keystore,
+                  "{{ keystore_name }}_filename": $keystore_filename,
+                  "{{ keystore_name }}_password": $keystore_password
                 }' \
               > "${SECRETS}.tmp" && mv "${SECRETS}.tmp" "${SECRETS}"
               if [ $? -ne 0 ]; then
@@ -292,7 +292,7 @@
               fi
 
               ADDRESS="$(cat ${ARTIFACT_PATH} | jq -r '.address')"
-              {% if artifact.keystore.allocation | default(false) %}
+              {% if keystore_info.allocation | default(false) %}
                 flock -v -x 194
                 echo "${ADDRESS}" >> "${ALLOCATIONS}"
                 flock -v -u 194
@@ -302,7 +302,7 @@
                 echo "${ADDRESS}" >> "${SIGNERS}"
                 flock -v -u 192
               {% endif %}
-            {% endif %}
+            {% endfor %}
 
             {% if artifact.nodekey is defined %}
               bootnode -genkey "${DESTINATION_DIR}/node.key"
@@ -366,20 +366,20 @@
                 exit 1
               fi
 
-            {% if artifact.keystore is defined %}
-              KEYSTORE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}')
+            {% for keystore_name, keystore_info in artifact.get('keystores', {}).items() %}
+              KEYSTORE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ keystore_name }}')
               if [ -z "${KEYSTORE}" ]; then
-                echo "Error: No keystore found for {{ artifact.keystore.name }}."
+                echo "Error: No keystore found for {{ keystore_name }}."
                 exit 1
               fi
-              PASSPHRASE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ artifact.keystore.name }}_password')
+              PASSPHRASE=$(echo "${RESPONSE}" | jq -r '.data.data.{{ keystore_name }}_password')
               if [ -z "${PASSPHRASE}" ]; then
-                echo "Error: No passphrase found for {{ artifact.keystore.name }}."
+                echo "Error: No passphrase found for {{ keystore_name }}."
                 exit 1
               fi
 
               ADDRESS=$(echo "${KEYSTORE}" | jq -r '.address')
-              {% if artifact.keystore.allocation | default(false) %}
+              {% if keystore_info.allocation | default(false) %}
                 flock -v -x 194
                 echo "${ADDRESS}" >> "${ALLOCATIONS}"
                 flock -v -u 194
@@ -389,7 +389,7 @@
                 echo "${ADDRESS}" >> "${SIGNERS}"
                 flock -v -u 192
               {% endif %}
-            {% endif %}
+            {% endfor %}
               ;;
             *)
               echo "Error: Unknown secrets type: {{ environments[env].secrets }}."

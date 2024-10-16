@@ -120,8 +120,8 @@ job "{{ job.name }}" {
           {% if job.env['type'] == 'signer' %}
           {%- raw %}
           GETH_KEYSTORE_DIR="/local/data/{% endraw %}{{ job.name }}{% raw %}/node-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
-          GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
-          GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          GETH_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
+          GETH_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
           {% endraw %}
           {% endif %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
@@ -158,11 +158,11 @@ job "{{ job.name }}" {
 
           mkdir -p "${GETH_DATA_DIR}" > /dev/null 2>&1
 
-          {% if job.artifacts | selectattr('keystore', 'defined') | list | length > 0 %}
+          {% if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
           mkdir -p "${GETH_KEYSTORE_DIR}" > /dev/null 2>&1
           {%- raw %}
             {{- with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME}"
+          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %} }}' > "${GETH_KEYSTORE_DIR}/${GETH_KEYSTORE_FILENAME}"
             {{ end }}
           {% endraw %}
             {% if job.env['type'] == 'signer' %}

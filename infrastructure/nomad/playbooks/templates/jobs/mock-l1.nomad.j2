@@ -49,13 +49,13 @@ job "{{ job.name }}" {
       {% endfor %}
 
       artifact {
-        source = "https://gethstore.blob.core.windows.net/builds/geth-linux-amd64-1.14.11-f3c696fa.tar.gz"
+        source = "https://gethstore.blob.core.windows.net/builds/geth-linux-{{ 'amd64' if target_system_architecture == 'x86_64' else 'arm64' }}-1.14.11-f3c696fa.tar.gz"
       }
 
       template {
         data = <<-EOH
-          #!/usr/bin/env bash
           {% raw %}
+          GETH_BIN="local/geth-linux-{% endraw %}{{ 'amd64' if target_system_architecture == 'x86_64' else 'arm64' }}{% raw %}-1.14.11-f3c696fa/geth"
           CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
           {% endraw %}
         EOH
@@ -66,8 +66,6 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
-
-          GETH_BIN="local/geth-linux-amd64-1.14.11-f3c696fa/geth"
 
           # Mutate genesis file to only have a single alloc to contract deployer
           ${GETH_BIN} --dev dumpgenesis > local/custom_genesis.json
