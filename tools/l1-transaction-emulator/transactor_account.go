@@ -75,11 +75,7 @@ func newTransactorAccount(logger *slog.Logger, keystorePath, password string, l1
 func (t *transactorAccount) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	t.closeFn(ctx)
-	if ctx.Err() != nil {
-		return fmt.Errorf("failed to close transactor account: %w", ctx.Err())
-	}
-	return nil
+	return t.closeFn(ctx)
 }
 
 func (t *transactorAccount) Address() common.Address {
