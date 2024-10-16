@@ -213,6 +213,8 @@ contract PreconfManager is
             revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
         }
 
+        require(processedTxnHashes[txnHash] == false, TxnHashAlreadyProcessed(txnHash));
+        
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bidAmt,
             blockNumber,
@@ -298,6 +300,8 @@ contract PreconfManager is
 
         ++commitmentsCount[committerAddress];
 
+        processedTxnHashes[txnHash] = true;
+        
         emit OpenedCommitmentStored(
             commitmentIndex,
             bidderAddress,

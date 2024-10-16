@@ -988,6 +988,190 @@ contract PreconfManagerTest is Test {
         );
     }
 
+    function test_OpenCommitmentWithDuplicateTxnHash() public {
+        // Set up the initial commitment data
+        TestCommitment memory testCommitment = _testCommitmentAliceBob;
+
+        // Set up the initial commitment
+        (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
+        vm.deal(bidder, 5 ether);
+
+        depositForBidder(bidder, testCommitment.blockNumber);
+
+        (address committer, uint256 committerPk) = makeAddrAndKey("bob");
+        vm.deal(committer, 11 ether);
+
+        // Store and open the first commitment
+        bytes32 unopenedIndex1 = storeFirstCommitment(committer, testCommitment);
+        blockTracker.addBuilderAddress("test", committer);
+        blockTracker.recordL1Block(testCommitment.blockNumber, "test");
+
+        openFirstCommitment(
+            bidder,
+            unopenedIndex1,
+            testCommitment
+        );
+
+        // Verify that the first commitment is processed
+        assertTrue(
+            preconfManager.processedTxnHashes(testCommitment.txnHash),
+            "First txnHash should be marked as processed"
+        );
+
+        // Prepare and store the second commitment with the same txnHash
+        TestCommitment memory testCommitment2 = prepareSecondCommitment(
+            bidderPk,
+            committerPk,
+            testCommitment
+        );
+
+        bytes32 unopenedIndex2 = storeSecondCommitment(committer, testCommitment2);
+
+        blockTracker.addBuilderAddress("test2", committer);
+        blockTracker.recordL1Block(testCommitment2.blockNumber, "test2");
+
+        // Attempt to open the second commitment with the same txnHash
+        vm.prank(bidder);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IPreconfManager.TxnHashAlreadyProcessed.selector,
+                testCommitment2.txnHash
+            )
+        );
+        preconfManager.openCommitment(
+            unopenedIndex2,
+            testCommitment2.bidAmt,
+            testCommitment2.blockNumber,
+            testCommitment2.txnHash,
+            testCommitment2.revertingTxHashes,
+            testCommitment2.decayStartTimestamp,
+            testCommitment2.decayEndTimestamp,
+            testCommitment2.bidSignature,
+            testCommitment2.commitmentSignature,
+            testCommitment2.sharedSecretKey
+        );
+    }
+
+    function depositForBidder(address bidder, uint64 blockNumber) internal returns (uint256) {
+        vm.prank(bidder);
+        uint256 depositWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
+            blockNumber,
+            blocksPerWindow
+        );
+        bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
+        return depositWindow;
+    }
+
+    function registerProvider(address committer, bytes memory blsPubkey) internal {
+        vm.startPrank(committer);
+        providerRegistry.registerAndStake{value: 10 ether}(blsPubkey);
+        vm.stopPrank();
+    }
+
+    function storeFirstCommitment(
+        address committer,
+        TestCommitment memory testCommitment
+    ) internal returns (bytes32) {
+        return storeCommitment(
+            committer,
+            testCommitment.bidAmt,
+            testCommitment.blockNumber,
+            testCommitment.txnHash,
+            testCommitment.revertingTxHashes,
+            testCommitment.decayStartTimestamp,
+            testCommitment.decayEndTimestamp,
+            testCommitment.bidSignature,
+            testCommitment.commitmentSignature,
+            testCommitment.dispatchTimestamp,
+            testCommitment.sharedSecretKey
+        );
+    }
+
+    function openFirstCommitment(
+        address bidder,
+        bytes32 unopenedIndex,
+        TestCommitment memory testCommitment
+    ) internal returns (bytes32) {
+        return openCommitment(
+            bidder,
+            unopenedIndex,
+            testCommitment.bidAmt,
+            testCommitment.blockNumber,
+            testCommitment.txnHash,
+            testCommitment.revertingTxHashes,
+            testCommitment.decayStartTimestamp,
+            testCommitment.decayEndTimestamp,
+            testCommitment.bidSignature,
+            testCommitment.commitmentSignature,
+            testCommitment.sharedSecretKey
+        );
+    }
+
+    function prepareSecondCommitment(
+        uint256 bidderPk,
+        uint256 committerPk,
+        TestCommitment memory testCommitment
+    ) internal view returns (TestCommitment memory) {
+        TestCommitment memory testCommitment2 = testCommitment;
+
+        // Update the fields for the second commitment
+        testCommitment2.bidAmt += 1;
+        testCommitment2.blockNumber += 1;
+        testCommitment2.decayStartTimestamp += 1;
+        testCommitment2.decayEndTimestamp += 1;
+        testCommitment2.dispatchTimestamp += 1;
+
+        // Recompute bidHash and bidSignature
+        bytes32 bidHash2 = preconfManager.getBidHash(
+            testCommitment2.txnHash,
+            testCommitment2.revertingTxHashes,
+            testCommitment2.bidAmt,
+            testCommitment2.blockNumber,
+            testCommitment2.decayStartTimestamp,
+            testCommitment2.decayEndTimestamp
+        );
+
+        testCommitment2.bidDigest = bidHash2;
+        testCommitment2.bidSignature = signHash(bidderPk, bidHash2);
+
+        // Recompute commitmentDigest and commitmentSignature
+        bytes32 commitmentDigest2 = preconfManager.getPreConfHash(
+            testCommitment2.txnHash,
+            testCommitment2.revertingTxHashes,
+            testCommitment2.bidAmt,
+            testCommitment2.blockNumber,
+            testCommitment2.decayStartTimestamp,
+            testCommitment2.decayEndTimestamp,
+            bidHash2,
+            _bytesToHexString(testCommitment2.bidSignature),
+            _bytesToHexString(testCommitment2.sharedSecretKey)
+        );
+
+        testCommitment2.commitmentDigest = commitmentDigest2;
+        testCommitment2.commitmentSignature = signHash(committerPk, commitmentDigest2);
+
+        return testCommitment2;
+    }
+
+    function storeSecondCommitment(
+        address committer,
+        TestCommitment memory testCommitment2
+    ) internal returns (bytes32) {
+        vm.startPrank(committer);
+        bytes32 unopenedIndex = preconfManager.storeUnopenedCommitment(
+            testCommitment2.commitmentDigest,
+            testCommitment2.commitmentSignature,
+            testCommitment2.dispatchTimestamp
+        );
+        vm.stopPrank();
+        return unopenedIndex;
+    }
+
+    function signHash(uint256 privateKey, bytes32 hash) internal pure returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
+        return abi.encodePacked(r, s, v);
+    }
+
     function _bytesToHexString(
         bytes memory _bytes
     ) internal pure returns (string memory) {

@@ -36,6 +36,10 @@ abstract contract PreconfManagerStorage {
     /// @dev Only stores valid unopened commitments
     mapping(bytes32 => IPreconfManager.UnopenedCommitment) public unopenedCommitments;
 
+    /// @dev Mapping from txn hash to if it has been processed
+    /// @dev Used to prevent rewarding/slashing multiple times
+    mapping(string => bool) public processedTxnHashes;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
 }
