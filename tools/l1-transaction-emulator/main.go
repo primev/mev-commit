@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"os/signal"
+	"path"
 	"slices"
 	"strings"
 	"syscall"
@@ -111,7 +112,7 @@ func main() {
 			txtors := make([]*transactorAccount, 0)
 			for _, kp := range c.StringSlice(optionKeystorePathPassword.Name) {
 				parts := strings.Split(kp, ":")
-				t, err := newTransactorAccount(logger, parts[0], parts[1], l1RPC)
+				t, err := newTransactorAccount(logger, path.Dir(parts[0]), parts[1], l1RPC)
 				if err != nil {
 					return err
 				}

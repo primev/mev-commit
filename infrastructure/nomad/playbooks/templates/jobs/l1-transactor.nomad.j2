@@ -44,9 +44,9 @@ job "{{ job.name }}" {
           TRANSACTOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           TRANSACTOR_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
           {%- raw %}
-          TRANSACTOR_KEYSTORE_DIR="/local/data/{% endraw %}{{ job.name }}{% raw %}-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          TRANSACTOR_KEYSTORES_DIR="/local/data/{% endraw %}{{ job.name }}{% raw %}-{{ env "NOMAD_ALLOC_INDEX" }}/keystores"
           {% endraw %}
-          {%- set transactor_keystore_dir = '/local/data/' ~ job.name ~ '-' ~ '{{ env "NOMAD_ALLOC_INDEX" }}' ~ '/keystore' %}
+          {%- set transactor_keystores_dir = '/local/data/' ~ job.name ~ '-' ~ '{{ env "NOMAD_ALLOC_INDEX" }}' ~ '/keystores' %}
           {%- set ns = namespace(keystore_path_passwd=[]) %}
           {%- for artifact in job.artifacts %}
             {%- set keystores = artifact.get('keystores', {}) %}
@@ -59,7 +59,7 @@ job "{{ job.name }}" {
           {%- for keystore_name in ns.keystore_path_passwd %}
             {%- set filename_var = keystore_name + '_filename' %}
             {%- set password_var = keystore_name + '_password' %}
-            {%- set pair = transactor_keystore_dir ~ '/' ~ nomad_interpolate(filename_var) ~ ':' ~ nomad_interpolate(password_var) %}
+            {%- set pair = transactor_keystores_dir ~ '/' ~ keystore_name ~ '/' ~ nomad_interpolate(filename_var) ~ ':' ~ nomad_interpolate(password_var) %}
             {%- set ns.kp_pairs = ns.kp_pairs + [pair] %}
           {%- endfor %}
           TRANSACTOR_KEYSTORE_PATH_PASSWORD={{ ns.kp_pairs | join(',') | replace('\\n', '') | replace('\\r', '') }}
@@ -88,7 +88,7 @@ job "{{ job.name }}" {
           {% endraw %}
 
           {% if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
-          mkdir -p "${TRANSACTOR_KEYSTORE_DIR}" > /dev/null 2>&1
+          mkdir -p "${TRANSACTOR_KEYSTORES_DIR}" > /dev/null 2>&1
           {% macro ldelim() %}{{ '{{' }}{% endmacro %}
           {% macro rdelim() %}{{ '}}' }}{% endmacro %}
           {% set ns = namespace(keystore_path_passwd=[]) %}
@@ -98,7 +98,8 @@ job "{{ job.name }}" {
           {% endfor %}
           {% for keystore_name in ns.keystore_path_passwd %}
             {{ ldelim() }} with secret "secret/data/mev-commit" {{ rdelim() }}
-            echo '{{ ldelim() }} .Data.data.{{ keystore_name }} {{ rdelim() }}' > "${TRANSACTOR_KEYSTORE_DIR}/{{ ldelim() }} .Data.data.{{ keystore_name }}_filename {{ rdelim() }}"
+            mkdir -p "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}" > /dev/null 2>&1
+            echo '{{ ldelim() }} .Data.data.{{ keystore_name }} {{ rdelim() }}' > "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}/{{ ldelim() }} .Data.data.{{ keystore_name }}_filename {{ rdelim() }}"
             {{ ldelim() }} end {{ rdelim() }}
           {% endfor %}
           {% endif %}
