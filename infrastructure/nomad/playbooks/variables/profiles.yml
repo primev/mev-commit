@@ -26,6 +26,9 @@ artifacts:
   dashboard: &dashboard_artifact
     type: binary
     path: tools/dashboard
+  l1-transactor: &l1_transactor_artifact
+    type: binary
+    path: tools/l1-transaction-emulator
 
 jobs:
   artifacts: &artifacts_job
@@ -589,7 +592,7 @@ jobs:
           to: 80
         metrics:
           to: 8888
-  
+
   mock_l1: &mock_l1_job
     name: mock-l1
     template: mock-l1.nomad.j2
@@ -598,10 +601,19 @@ jobs:
       - http:
           static: 9545
           to: 8545
+      - ws:
+          static: 9546
+          to: 8546
     env:
       ip: 0.0.0.0
       public_ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
+
+  l1-transactor: &l1_transactor_job
+    name: l1-transactor
+    template: l1-transactor.nomad.j2
+    count: 1
+    env:
 
 profiles:
   ci:

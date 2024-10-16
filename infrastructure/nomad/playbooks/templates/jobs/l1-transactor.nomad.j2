@@ -23,31 +23,10 @@ job "{{ job.name }}" {
       dns {
         servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
       }
-
-      {% for port_name, port_details in job.ports[0].items() %}
-      port "{{ port_name }}" {
-        {% if port_details.get('static') %}
-        static = {{ port_details['static'] }}
-        {% endif %}
-        {% if port_details.get('to') %}
-        to = {{ port_details['to'] }}
-        {% endif %}
-      }
-      {% endfor %}
     }
 
     task "l1-transactor" {
       driver = "exec"
-
-      {% if profile == 'testnet' %}
-      resources {
-        memory = 4096
-      }
-      {% elif profile == 'stressnet' %}
-      resources {
-        memory = 4096
-      }
-      {% endif %}
 
       {% if env != 'devenv' %}
       artifact {
@@ -65,7 +44,14 @@ job "{{ job.name }}" {
           TRANSACTOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           TRANSACTOR_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
           {%- raw %}
-          TRANSACTOR_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          {% set all_keystore_names = [] %}
+          {% for artifact in artifacts %}
+            {% set keystores = artifact.get('keystores', {}) %}
+            {% set passwords = artifact.get('keystores', {}) %}
+            {% set all_keystore_names = all_keystore_names + (keystores | list) %}
+          {% endfor %}
+          GETH_KEYSTORE_FILENAME={{ all_keystore_names | unique | join(',') }}
+          TRANSACTOR_KEYSTORE_PATH_PASSWORD="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           TRANSACTOR_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
           TRANSACTOR_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
           {{- range nomadService "mock-l1" }}

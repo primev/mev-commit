@@ -80,6 +80,9 @@ job "{{ job.name }}" {
             --http \
             --http.addr 0.0.0.0 \
             --http.api eth,net,web3 \
+            --ws \
+            --ws.addr 0.0.0.0 \
+            --ws.api=debug,eth,txpool,net,engine \
             --dev.period 12 \
             --datadir local/data
         EOH
