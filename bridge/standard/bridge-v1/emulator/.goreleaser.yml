@@ -1,7 +1,7 @@
 version: 1
 
-project_name: l1-transactor
-dist: /tmp/dist/l1-transactor
+project_name: bridge-emulator
+dist: /tmp/dist/bridge-emulator
 
 builds:
   - env:
@@ -11,7 +11,7 @@ builds:
     goarch:
       - amd64
       - arm64
-    dir: ./tools/l1-transaction-emulator
+    dir: ./bridge/standard/bridge-v1/emulator
     binary: "{{ .ProjectName }}"
     flags:
       - -v
