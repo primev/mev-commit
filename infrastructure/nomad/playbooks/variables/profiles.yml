@@ -604,7 +604,7 @@ jobs:
       - http:
           static: 9545
           to: 8545
-      - ws:
+        ws:
           static: 9546
           to: 8546
     env:
@@ -617,6 +617,7 @@ jobs:
     template: l1-transactor.nomad.j2
     count: 1
     artifacts:
+      - *l1_transactor_artifact
       - keystores:
           l1_transactor_account1_keystore:
             allocation: true

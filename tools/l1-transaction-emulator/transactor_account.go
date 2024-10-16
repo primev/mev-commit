@@ -60,6 +60,7 @@ func newTransactorAccount(logger *slog.Logger, keystorePath, password string, l1
 		chainID:    chainID,
 		monitor:    monitor,
 		transactor: txtor,
+		ethClient:  l1RPCClient,
 		closeFn: func(ctx context.Context) error {
 			cancel()
 			select {

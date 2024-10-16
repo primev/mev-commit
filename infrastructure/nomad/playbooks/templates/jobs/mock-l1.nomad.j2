@@ -77,9 +77,9 @@ job "{{ job.name }}" {
           #!/usr/bin/env bash
 
           # Mutate genesis file to only have a single alloc to contract deployer
-          ${GETH_BIN} --dev dumpgenesis > local/custom_genesis.json
-          jq -s '.[0].alloc = .[1].alloc | .[0]' local/custom_genesis.json local/genesis_{{ version }}.json > local/custom_genesis.json
-          ${GETH_BIN} --datadir local/data init local/custom_genesis.json
+          ${GETH_BIN} --dev dumpgenesis > local/default_genesis.json
+          jq -s '.[0].alloc = .[1].alloc | .[0]' local/default_genesis.json local/genesis_{{ version }}.json > local/genesis.json
+          ${GETH_BIN} --datadir local/data init local/genesis.json
 
           exec ${GETH_BIN} \
             --dev \
@@ -88,7 +88,7 @@ job "{{ job.name }}" {
             --http.api eth,net,web3 \
             --ws \
             --ws.addr 0.0.0.0 \
-            --ws.api=debug,eth,txpool,net,engine \
+            --ws.api eth,net,web3 \
             --dev.period 12 \
             --datadir local/data
         EOH
