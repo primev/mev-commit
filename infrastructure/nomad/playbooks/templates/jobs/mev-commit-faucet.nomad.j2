@@ -56,7 +56,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           {%- raw %}
           KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
-          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
+          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
@@ -72,7 +72,7 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           {%- raw %}
-          {{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}
+          {{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}
           {% endraw %}
         EOH
         destination = "secrets/keystore_password.txt"
@@ -92,7 +92,7 @@ job "{{ job.name }}" {
           mkdir -p "${KEYSTORE_PATH}" > /dev/null 2>&1
           KEYSTORE_FILE="${KEYSTORE_PATH}/${KEYSTORE_FILENAME}"
             {{- with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${KEYSTORE_FILE}"
+          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %} }}' > "${KEYSTORE_FILE}"
             {{ end }}
 
           chmod +x local/eth-faucet
