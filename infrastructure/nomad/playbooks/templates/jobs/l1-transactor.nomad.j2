@@ -43,23 +43,27 @@ job "{{ job.name }}" {
           TRANSACTOR_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           TRANSACTOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           TRANSACTOR_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
-          {%- raw %}
-          {% set all_keystore_names = [] %}
-          {% for artifact in artifacts %}
+          {%- set ns = namespace(keystore_path_passwd=[]) %}
+          {%- for artifact in job.artifacts %}
             {% set keystores = artifact.get('keystores', {}) %}
-            {% set passwords = artifact.get('keystores', {}) %}
-            {% set all_keystore_names = all_keystore_names + (keystores | list) %}
+            {% set ns.keystore_path_passwd = ns.keystore_path_passwd + (keystores | list) %}
           {% endfor %}
-          GETH_KEYSTORE_FILENAME={{ all_keystore_names | unique | join(',') }}
-          TRANSACTOR_KEYSTORE_PATH_PASSWORD="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
-          TRANSACTOR_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
-          TRANSACTOR_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          {% set ns.kp_pairs = [] %}
+          {% macro nomad_interpolate(var_name) -%}
+          {{ '{{ with secret "secret/data/mev-commit" }}{{ .Data.data.' ~ var_name ~ ' }}{{ end }}' }}
+          {%- endmacro %}
+          {% for keystore_name in ns.keystore_path_passwd %}
+            {% set filename_var = keystore_name + '_filename' %}
+            {% set password_var = keystore_name + '_password' %}
+            {% set pair = nomad_interpolate(filename_var) ~ ':' ~ nomad_interpolate(password_var) %}
+            {% set ns.kp_pairs = ns.kp_pairs + [pair] %}
+          {% endfor %}
+          TRANSACTOR_KEYSTORE_PATH_PASSWORD={{ ns.kp_pairs | join(',') }}
           {{- range nomadService "mock-l1" }}
             {{- if contains "ws" .Tags }}
           TRANSACTOR_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          {% endraw %}
         EOH
         destination = "secrets/.env"
         env = true

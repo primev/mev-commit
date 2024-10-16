@@ -29,9 +29,9 @@ artifacts:
   l1-transactor: &l1_transactor_artifact
     type: binary
     path: tools/l1-transaction-emulator
-  bridge-emulator: &bridge-emulator-artifact
-    type: binary
-    path: bridge/standard/bridge-v1/emulator
+  # bridge-emulator: &bridge-emulator-artifact
+  #   type: binary
+  #   path: bridge/standard/bridge-v1/emulator
 
 jobs:
   artifacts: &artifacts_job
@@ -616,9 +616,19 @@ jobs:
     name: l1-transactor
     template: l1-transactor.nomad.j2
     count: 1
+    artifacts:
+      - keystores:
+          l1_transactor_account1_keystore:
+            allocation: true
+          l1_transactor_account2_keystore:
+            allocation: true
+          l1_transactor_account3_keystore:
+            allocation: true
     dependencies:
       mock_l1: *mock_l1_job
     env:
+      log-fmt: "json"
+      log-level: "info"
 
   bridge-emulator: &bridge_emulator_job
     name: bridge-emulator

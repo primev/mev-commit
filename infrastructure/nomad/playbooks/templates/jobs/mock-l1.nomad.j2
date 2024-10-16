@@ -51,6 +51,15 @@ job "{{ job.name }}" {
       artifact {
         source = "https://gethstore.blob.core.windows.net/builds/geth-linux-{{ 'amd64' if target_system_architecture == 'x86_64' else 'arm64' }}-1.14.11-f3c696fa.tar.gz"
       }
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_{{ version }}.json"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/genesis_{{ version }}.json"
+      }
+      {% endif %}
 
       template {
         data = <<-EOH
@@ -69,10 +78,7 @@ job "{{ job.name }}" {
 
           # Mutate genesis file to only have a single alloc to contract deployer
           ${GETH_BIN} --dev dumpgenesis > local/custom_genesis.json
-          TO_ALLOC=$(echo "${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}" | sed 's/.*--//')
-          AMOUNT="0x10000000000000000000" # 10 ether
-          echo "Allocating ${AMOUNT} on genesis to: ${TO_ALLOC}"
-          jq ".alloc = {\"${TO_ALLOC}\": {\"balance\": \"${AMOUNT}\"}}" local/custom_genesis.json > local/temp.json && mv local/temp.json local/custom_genesis.json
+          jq -s '.[0].alloc = .[1].alloc | .[0]' local/custom_genesis.json local/genesis_{{ version }}.json > local/custom_genesis.json
           ${GETH_BIN} --datadir local/data init local/custom_genesis.json
 
           exec ${GETH_BIN} \
