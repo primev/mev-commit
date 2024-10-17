@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/relayer"
 	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/util"
+	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )
@@ -31,11 +31,16 @@ var (
 		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_CONFIG"},
 	}
 
-	optionPrivKeyFile = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "priv-key-file",
-		Usage:   "path to private key file",
-		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_PRIV_KEY_FILE"},
-		Value:   filepath.Join(defaultConfigDir, defaultKeyFile),
+	optionKeystorePassword = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "keystore-password",
+		Usage:   "use to access keystore",
+		EnvVars: []string{"MEV_ORACLE_KEYSTORE_PASSWORD"},
+	})
+
+	optionKeystorePath = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "keystore-path",
+		Usage:   "path to keystore location",
+		EnvVars: []string{"MEV_ORACLE_KEYSTORE_PATH"},
 	})
 
 	optionLogFmt = altsrc.NewStringFlag(&cli.StringFlag{
@@ -107,7 +112,8 @@ var (
 func main() {
 	flags := []cli.Flag{
 		optionConfig,
-		optionPrivKeyFile,
+		optionKeystorePath,
+		optionKeystorePassword,
 		optionLogFmt,
 		optionLogLevel,
 		optionLogTags,
@@ -146,20 +152,20 @@ func start(c *cli.Context) error {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 
-	privKeyFile, err := resolveFilePath(c.String(optionPrivKeyFile.Name))
+	signer, err := keysigner.NewKeystoreSigner(c.String(optionKeystorePath.Name), c.String(optionKeystorePassword.Name))
 	if err != nil {
-		return fmt.Errorf("failed to get private key file path: %w", err)
+		return fmt.Errorf("failed to create keystore signer: %w", err)
 	}
 
-	privKey, err := crypto.LoadECDSA(privKeyFile)
+	pk, err := signer.GetPrivateKey()
 	if err != nil {
-		return fmt.Errorf("failed to load private key: %w", err)
+		return fmt.Errorf("failed to get private key: %w", err)
 	}
 
 	r, err := relayer.NewRelayer(&relayer.Options{
 		Ctx:                    c.Context,
 		Logger:                 logger.With("component", "relayer"),
-		PrivateKey:             privKey,
+		PrivateKey:             pk,
 		L1RPCUrl:               c.String(optionL1RPCUrl.Name),
 		SettlementRPCUrl:       c.String(optionSettlementRPCUrl.Name),
 		L1ContractAddr:         common.HexToAddress(c.String(optionL1ContractAddr.Name)),
