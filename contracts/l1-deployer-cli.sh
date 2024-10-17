@@ -208,27 +208,22 @@ main() {
     check_dependencies
     check_env_variables
     parse_args "$@"
-
     get_chain_params
+    check_git_status
 
     if [[ "${deploy_all_flag}" == true ]]; then
-        check_git_status
         echo "Deploying all contracts to $chain..."
         deploy_vanilla
         deploy_avs
         deploy_middleware
         deploy_router
     elif [[ "${deploy_vanilla_flag}" == true ]]; then
-        check_git_status
         deploy_vanilla
     elif [[ "${deploy_avs_flag}" == true ]]; then
-        check_git_status
         deploy_avs
     elif [[ "${deploy_middleware_flag}" == true ]]; then
-        check_git_status
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
-        check_git_status
         deploy_router
     elif [[ "${verify_bridge_flag}" == true ]]; then
         verify_bridge
