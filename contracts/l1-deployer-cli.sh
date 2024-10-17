@@ -219,6 +219,45 @@ check_rpc_url() {
     fi
 }
 
+deploy_contract_generic() {
+    local script_path="$1"
+
+    forge clean
+    forge script "${script_path}:${deploy_contract}" \
+        --rpc-url "${RPC_URL}" \
+        --keystores "${KEYSTORES}" \
+        --password "${KEYSTORE_PASSWORD}" \
+        --sender "${SENDER}" \
+        --via-ir \
+        --chain-id "${chain_id}" \
+        --use 0.8.26 \
+        --broadcast
+
+    echo "Successfully ran ${script_path} on chain ID ${chain_id}."
+}
+
+deploy_vanilla() {
+    deploy_contract_generic "scripts/validator-registry/DeployVanillaRegistry.s.sol"
+}
+
+deploy_avs() {
+    deploy_contract_generic "scripts/validator-registry/avs/DeployAVS.s.sol"
+}
+
+deploy_middleware() {
+    deploy_contract_generic "scripts/validator-registry/middleware/DeployMiddleware.s.sol"
+}
+
+deploy_router() {
+    deploy_contract_generic "scripts/validator-registry/DeployValidatorOptInRouter.s.sol"
+}
+
+verify_bridge() {
+    echo "Verifying L1Gateway contract with etherscan..."
+    echo "Verifying on chain $chain_id"
+    # TODO: forge verify-contract command on its own
+}
+
 main() {
     check_dependencies
     check_env_variables
@@ -246,36 +285,6 @@ main() {
     else
         usage
     fi
-}
-
-deploy_vanilla() {
-    echo "Deploying VanillaRegistry contract to $chain..."
-    echo "Using $deploy_contract contract for deployment."
-    echo "Deploying to chain $chain_id"
-}
-
-deploy_avs() {
-    echo "Deploying MevCommitAVS contract to $chain..."
-    echo "Using $deploy_contract contract for deployment."
-    echo "Deploying to chain $chain_id"
-}
-
-deploy_middleware() {
-    echo "Deploying MevCommitMiddleware contract to $chain..."
-    echo "Using $deploy_contract contract for deployment."
-    echo "Deploying to chain $chain_id"
-}
-
-deploy_router() {
-    echo "Deploying ValidatorOptInRouter contract to $chain..."
-    echo "Using $deploy_contract contract for deployment."
-    echo "Deploying to chain $chain_id"
-}
-
-verify_bridge() {
-    echo "Verifying L1Gateway contract with etherscan..."
-    echo "Verifying on chain $chain_id"
-    # TODO: forge verify-contract command on its own
 }
 
 main "$@"
