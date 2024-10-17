@@ -6,16 +6,12 @@ deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
 verify_bridge_flag=false
+chain="holesky"
+chain_id=17000
 
 help() {
     echo "Usage:"
-    echo "  $0 deploy-all"
-    echo "  $0 deploy-vanilla"
-    echo "  $0 deploy-avs"
-    echo "  $0 deploy-middleware"
-    echo "  $0 deploy-router"
-    echo "  $0 verify-bridge"
-    echo "  $0 --help"
+    echo "  $0 [--chain <chain>] <command>"
     echo
     echo "Commands:"
     echo "  deploy-all          Deploy all components (vanilla, AVS, middleware, router, verify bridge)."
@@ -26,16 +22,17 @@ help() {
     echo "  verify-bridge       Verify the L1Gateway contract with etherscan."
     echo
     echo "Options:"
-    echo "  --help              Display this help message."
+    echo "  --chain, -c <chain>    Specify the chain to deploy to ('mainnet' or 'holesky'). Default is 'holesky'."
+    echo "  --help                 Display this help message."
     echo
     exit 1
 }
 
 usage() {
     echo "Usage:"
-    echo "  $0 <command>"
+    echo "  $0 [--chain <chain>] <command>"
     echo
-    echo "Use '$0 --help' to see available commands."
+    echo "Use '$0 --help' to see available commands and options."
     exit 1
 }
 
@@ -88,6 +85,23 @@ parse_args() {
                 verify_bridge_flag=true
                 shift
                 ;;
+            --chain|-c)
+                if [[ -z "$2" ]]; then
+                    echo "Error: --chain requires an argument."
+                    exit 1
+                fi
+                chain="$2"
+                if [[ "$chain" != "mainnet" && "$chain" != "holesky" ]]; then
+                    echo "Error: Unknown chain '$chain'. Valid options are 'mainnet' or 'holesky'."
+                    exit 1
+                fi
+                if [[ "$chain" == "mainnet" ]]; then
+                    chain_id=1
+                elif [[ "$chain" == "holesky" ]]; then
+                    chain_id=17000
+                fi
+                shift 2
+                ;;
             --help)
                 help
                 ;;
@@ -126,13 +140,24 @@ check_git_status() {
     fi
 }
 
+get_deploy_contract() {
+    if [[ "$chain" == "mainnet" ]]; then
+        deploy_contract_suffix="Mainnet"
+    elif [[ "$chain" == "holesky" ]]; then
+        deploy_contract_suffix="Holesky"
+    fi
+    deploy_contract="Deploy${deploy_contract_suffix}"
+}
+
 main() {
     check_dependencies
     parse_args "$@"
 
+    get_deploy_contract
+
     if [[ "${deploy_all_flag}" == true ]]; then
-        echo "Deploying all..."
         check_git_status
+        echo "Deploying all contracts to $chain..."
         deploy_vanilla
         deploy_avs
         deploy_middleware
@@ -157,23 +182,30 @@ main() {
 }
 
 deploy_vanilla() {
-    echo "Deploying VanillaRegistry contract..."
-    # Add actual deployment commands here
+    echo "Deploying VanillaRegistry contract to $chain..."
+    echo "Using $deploy_contract contract for deployment."
+    # Actual deployment commands go here, using $deploy_contract and $chain_id
+    # Example:
+    # forge script script/${deploy_contract}.sol:VanillaRegistry --chain-id $chain_id --other-options
+    echo $chain_id
 }
 
 deploy_avs() {
-    echo "Deploying MevCommitAVS contract..."
-    # Add actual deployment commands here
+    echo "Deploying MevCommitAVS contract to $chain..."
+    echo "Using $deploy_contract contract for deployment."
+    # Actual deployment commands go here, using $deploy_contract and $chain_id
 }
 
 deploy_middleware() {
-    echo "Deploying MevCommitMiddleware contract..."
-    # Add actual deployment commands here
+    echo "Deploying MevCommitMiddleware contract to $chain..."
+    echo "Using $deploy_contract contract for deployment."
+    # Actual deployment commands go here, using $deploy_contract and $chain_id
 }
 
 deploy_router() {
-    echo "Deploying ValidatorOptInRouter contract..."
-    # Add actual deployment commands here
+    echo "Deploying ValidatorOptInRouter contract to $chain..."
+    echo "Using $deploy_contract contract for deployment."
+    # Actual deployment commands go here, using $deploy_contract and $chain_id
 }
 
 verify_bridge() {
