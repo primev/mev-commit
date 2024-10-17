@@ -28,6 +28,12 @@ help() {
     echo "  --skip-release-verification        Skip the GitHub release verification step."
     echo "  --help                             Display this help message."
     echo
+    echo "Environment Variables Required:"
+    echo "  KEYSTORES          Path(s) to keystore(s) passed to forge script as --keystores flag."
+    echo "  KEYSTORE_PASSWORD  Password(s) for keystore(s) passed to forge script as --password flag."
+    echo "  SENDER             Address of the sender."
+    echo "  RPC_URL            RPC URL for the deployment chain."
+    echo
     exit 1
 }
 
@@ -44,6 +50,7 @@ check_dependencies() {
     local required_utilities=(
         git
         forge
+        cast
         curl
         jq
     )
@@ -54,6 +61,23 @@ check_dependencies() {
     done
     if [[ ${#missing_utils[@]} -ne 0 ]]; then
         echo "Error: The following required utilities are not installed: ${missing_utils[*]}."
+        exit 1
+    fi
+}
+
+check_env_variables() {
+    local missing_vars=()
+    local required_vars=("KEYSTORES" "KEYSTORE_PASSWORD" "SENDER" "RPC_URL")
+    
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var}" ]]; then
+            missing_vars+=("${var}")
+        fi
+    done
+
+    if [[ ${#missing_vars[@]} -ne 0 ]]; then
+        echo "Error: The following environment variables are not set: ${missing_vars[*]}."
+        echo "Please set them before running the script."
         exit 1
     fi
 }
@@ -182,6 +206,7 @@ get_chain_params() {
 
 main() {
     check_dependencies
+    check_env_variables
     parse_args "$@"
 
     get_chain_params
@@ -239,6 +264,7 @@ deploy_router() {
 verify_bridge() {
     echo "Verifying L1Gateway contract with etherscan..."
     echo "Verifying on chain $chain_id"
+    # TODO: forge verify-contract command on its own
 }
 
 main "$@"
