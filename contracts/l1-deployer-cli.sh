@@ -279,6 +279,19 @@ check_rpc_url() {
     fi
 }
 
+check_etherscan_api_key() {
+  response=$(curl -s "https://api.etherscan.io/api?module=account&action=balance&address=0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae&tag=latest&apikey=${ETHERSCAN_API_KEY}")
+
+  status=$(echo "$response" | grep -o '"status":"[0-9]"' | cut -d':' -f2 | tr -d '"')
+
+  if [[ "$status" != "1" ]]; then
+    echo "Error: API call failed or invalid API key."
+    exit 1
+  else
+    echo "API key is valid."
+  fi
+}
+
 deploy_contract_generic() {
     local script_path="$1"
 
@@ -342,6 +355,7 @@ main() {
     get_chain_params
     check_git_status
     check_rpc_url
+    check_etherscan_api_key
 
     if [[ "${deploy_all_flag}" == true ]]; then
         echo "Deploying all contracts to $chain using $wallet_type..."
