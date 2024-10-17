@@ -39,6 +39,23 @@ usage() {
     exit 1
 }
 
+check_dependencies() {
+    local missing_utils=()
+    local required_utilities=(
+        git
+        forge
+    )
+    for util in "${required_utilities[@]}"; do
+        if ! command -v "${util}" &> /dev/null; then
+            missing_utils+=("${util}")
+        fi
+    done
+    if [[ ${#missing_utils[@]} -ne 0 ]]; then
+        echo "Error: The following required utilities are not installed: ${missing_utils[*]}."
+        exit 1
+    fi
+}
+
 parse_args() {
     if [[ $# -eq 0 ]]; then
         usage
@@ -110,6 +127,7 @@ check_git_status() {
 }
 
 main() {
+    check_dependencies
     parse_args "$@"
 
     if [[ "${deploy_all_flag}" == true ]]; then
