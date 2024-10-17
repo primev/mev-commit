@@ -47,6 +47,7 @@ help() {
     echo "    KEYSTORE_PASSWORD  Password(s) for keystore(s) passed to forge script as --password flag."
     echo "    SENDER             Address of the sender."
     echo "    RPC_URL            RPC URL for the deployment chain."
+    echo "    ETHERSCAN_API_KEY  API key for etherscan contract verification."
     echo
     echo "  For Ledger or Trezor:"
     echo "    HD_PATHS           Derivation path(s) for hardware wallets passed to forge script as --hd-paths flag."
@@ -199,7 +200,7 @@ parse_args() {
 
 check_env_variables() {
     local missing_vars=()
-    local required_vars=("SENDER" "RPC_URL")
+    local required_vars=("SENDER" "RPC_URL" "ETHERSCAN_API_KEY")
 
     if [[ "$wallet_type" == "keystore" ]]; then
         required_vars+=("KEYSTORES" "KEYSTORE_PASSWORD")
