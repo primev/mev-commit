@@ -6,13 +6,14 @@ deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
 verify_bridge_flag=false
+skip_release_verification_flag=false
 chain=""
 chain_id=0
 deploy_contract=""
 
 help() {
     echo "Usage:"
-    echo "  $0 <command> --chain <chain>"
+    echo "  $0 <command> --chain <chain> [options]"
     echo
     echo "Commands:"
     echo "  deploy-all          Deploy all components (vanilla, AVS, middleware, router, verify bridge)."
@@ -23,15 +24,16 @@ help() {
     echo "  verify-bridge       Verify the L1Gateway contract with etherscan."
     echo
     echo "Options:"
-    echo "  --chain, -c <chain>    Specify the chain to deploy to ('mainnet' or 'holesky'). Default is 'holesky'."
-    echo "  --help                 Display this help message."
+    echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet' or 'holesky')."
+    echo "  --skip-release-verification        Skip the GitHub release verification step."
+    echo "  --help                             Display this help message."
     echo
     exit 1
 }
 
 usage() {
     echo "Usage:"
-    echo "  $0 <command> --chain <chain>"
+    echo "  $0 <command> --chain <chain> [options]"
     echo
     echo "Use '$0 --help' to see available commands and options."
     exit 1
@@ -42,6 +44,8 @@ check_dependencies() {
     local required_utilities=(
         git
         forge
+        curl
+        jq
     )
     for util in "${required_utilities[@]}"; do
         if ! command -v "${util}" &> /dev/null; then
@@ -98,6 +102,10 @@ parse_args() {
                 fi
                 shift 2
                 ;;
+            --skip-release-verification)
+                skip_release_verification_flag=true
+                shift
+                ;;
             --help)
                 help
                 ;;
@@ -130,7 +138,7 @@ parse_args() {
 }
 
 check_git_status() {
-    if ! git describe --tags --exact-match > /dev/null 2>&1; then
+    if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
         echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
         exit 1
     fi
@@ -138,6 +146,27 @@ check_git_status() {
     if [[ -n "$(git status --porcelain)" ]]; then
         echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
         exit 1
+    fi
+
+    if [[ "$skip_release_verification_flag" != true ]]; then
+        releases_url="https://api.github.com/repos/primev/mev-commit/releases?per_page=100"
+        releases_json=$(curl -s "$releases_url")
+
+        if [[ -z "$releases_json" ]]; then
+            echo "Error: Unable to fetch releases from GitHub."
+            exit 1
+        fi
+
+        release_tags=$(echo "$releases_json" | jq -r '.[].tag_name')
+
+        if echo "$release_tags" | grep -q "^$current_tag$"; then
+            echo "Tag '$current_tag' is associated with a release on GitHub."
+        else
+            echo "Error: Tag '$current_tag' is not associated with any release on GitHub. Please create a release for this tag before deploying."
+            exit 1
+        fi
+    else
+        echo "Skipping release verification as per user request."
     fi
 }
 
@@ -186,33 +215,30 @@ main() {
 deploy_vanilla() {
     echo "Deploying VanillaRegistry contract to $chain..."
     echo "Using $deploy_contract contract for deployment."
-    # Actual deployment commands go here, using $deploy_contract and $chain_id
-    # Example:
-    # forge script script/${deploy_contract}.sol:VanillaRegistry --chain-id $chain_id --other-options
-    echo $chain_id
+    echo "Deploying to chain $chain_id"
 }
 
 deploy_avs() {
     echo "Deploying MevCommitAVS contract to $chain..."
     echo "Using $deploy_contract contract for deployment."
-    # Actual deployment commands go here, using $deploy_contract and $chain_id
+    echo "Deploying to chain $chain_id"
 }
 
 deploy_middleware() {
     echo "Deploying MevCommitMiddleware contract to $chain..."
     echo "Using $deploy_contract contract for deployment."
-    # Actual deployment commands go here, using $deploy_contract and $chain_id
+    echo "Deploying to chain $chain_id"
 }
 
 deploy_router() {
     echo "Deploying ValidatorOptInRouter contract to $chain..."
     echo "Using $deploy_contract contract for deployment."
-    # Actual deployment commands go here, using $deploy_contract and $chain_id
+    echo "Deploying to chain $chain_id"
 }
 
 verify_bridge() {
     echo "Verifying L1Gateway contract with etherscan..."
-    # Add actual verification commands here
+    echo "Verifying on chain $chain_id"
 }
 
 main "$@"
