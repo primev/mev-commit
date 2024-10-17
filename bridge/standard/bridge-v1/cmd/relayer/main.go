@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"slices"
 	"strings"
 	"syscall"
@@ -16,12 +15,6 @@ import (
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
-)
-
-const (
-	defaultHTTPPort  = 8080
-	defaultConfigDir = "~/.mev-commit-bridge"
-	defaultKeyFile   = "key"
 )
 
 var (
@@ -201,21 +194,4 @@ func start(c *cli.Context) error {
 	}
 
 	return nil
-}
-
-func resolveFilePath(path string) (string, error) {
-	if path == "" {
-		return "", fmt.Errorf("path is empty")
-	}
-
-	if strings.HasPrefix(path, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-
-		return filepath.Join(home, path[1:]), nil
-	}
-
-	return path, nil
 }
