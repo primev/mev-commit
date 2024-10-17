@@ -205,9 +205,16 @@ check_git_status() {
 }
 
 check_rpc_url() {
-    queried_chain_id=$(cast chain-id --rpc-url "$RPC_URL")
+    queried_chain_id=$(cast chain-id --rpc-url "$RPC_URL" 2>/dev/null)
+    cast_exit_code=$?
+    if [[ $cast_exit_code -ne 0 ]]; then
+        echo "Error: Failed to retrieve chain ID using the provided RPC URL."
+        echo "Please ensure the RPC URL is correct and accessible."
+        exit 1
+    fi
     if [[ "$queried_chain_id" -ne "$chain_id" ]]; then
-        echo "Error: RPC URL does not match the expected chain ID. Expected $chain_id, but got $queried_chain_id."
+        echo "Error: RPC URL does not match the expected chain ID."
+        echo "Expected chain ID: $chain_id, but got: $queried_chain_id."
         exit 1
     fi
 }
