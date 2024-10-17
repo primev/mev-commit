@@ -6,12 +6,13 @@ deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
 verify_bridge_flag=false
-chain="holesky"
-chain_id=17000
+chain=""
+chain_id=0
+deploy_contract=""
 
 help() {
     echo "Usage:"
-    echo "  $0 [--chain <chain>] <command>"
+    echo "  $0 <command> --chain <chain>"
     echo
     echo "Commands:"
     echo "  deploy-all          Deploy all components (vanilla, AVS, middleware, router, verify bridge)."
@@ -30,7 +31,7 @@ help() {
 
 usage() {
     echo "Usage:"
-    echo "  $0 [--chain <chain>] <command>"
+    echo "  $0 <command> --chain <chain>"
     echo
     echo "Use '$0 --help' to see available commands and options."
     exit 1
@@ -95,11 +96,6 @@ parse_args() {
                     echo "Error: Unknown chain '$chain'. Valid options are 'mainnet' or 'holesky'."
                     exit 1
                 fi
-                if [[ "$chain" == "mainnet" ]]; then
-                    chain_id=1
-                elif [[ "$chain" == "holesky" ]]; then
-                    chain_id=17000
-                fi
                 shift 2
                 ;;
             --help)
@@ -111,6 +107,11 @@ parse_args() {
                 ;;
         esac
     done
+
+    if [[ -z "$chain" ]]; then
+        echo "Error: The --chain option is required."
+        usage
+    fi
 
     commands_specified=0
     for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag verify_bridge_flag; do
@@ -140,20 +141,21 @@ check_git_status() {
     fi
 }
 
-get_deploy_contract() {
+get_chain_params() {
     if [[ "$chain" == "mainnet" ]]; then
-        deploy_contract_suffix="Mainnet"
+        chain_id=1
+        deploy_contract="DeployMainnet"
     elif [[ "$chain" == "holesky" ]]; then
-        deploy_contract_suffix="Holesky"
+        chain_id=17000
+        deploy_contract="DeployHolesky"
     fi
-    deploy_contract="Deploy${deploy_contract_suffix}"
 }
 
 main() {
     check_dependencies
     parse_args "$@"
 
-    get_deploy_contract
+    get_chain_params
 
     if [[ "${deploy_all_flag}" == true ]]; then
         check_git_status
