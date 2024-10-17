@@ -97,22 +97,39 @@ parse_args() {
     fi
 }
 
+check_git_status() {
+    if ! git describe --tags --exact-match > /dev/null 2>&1; then
+        echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
+        exit 1
+    fi
+
+    if [[ -n "$(git status --porcelain)" ]]; then
+        echo "Error: There are uncommitted changes. Please commit or stash them before deploying."
+        exit 1
+    fi
+}
+
 main() {
     parse_args "$@"
 
     if [[ "${deploy_all_flag}" == true ]]; then
         echo "Deploying all..."
+        check_git_status
         deploy_vanilla
         deploy_avs
         deploy_middleware
         deploy_router
     elif [[ "${deploy_vanilla_flag}" == true ]]; then
+        check_git_status
         deploy_vanilla
     elif [[ "${deploy_avs_flag}" == true ]]; then
+        check_git_status
         deploy_avs
     elif [[ "${deploy_middleware_flag}" == true ]]; then
+        check_git_status
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
+        check_git_status
         deploy_router
     elif [[ "${verify_bridge_flag}" == true ]]; then
         verify_bridge
@@ -123,22 +140,27 @@ main() {
 
 deploy_vanilla() {
     echo "Deploying VanillaRegistry contract..."
+    # Add actual deployment commands here
 }
 
 deploy_avs() {
     echo "Deploying MevCommitAVS contract..."
+    # Add actual deployment commands here
 }
 
 deploy_middleware() {
     echo "Deploying MevCommitMiddleware contract..."
+    # Add actual deployment commands here
 }
 
 deploy_router() {
     echo "Deploying ValidatorOptInRouter contract..."
+    # Add actual deployment commands here
 }
 
 verify_bridge() {
     echo "Verifying L1Gateway contract with etherscan..."
+    # Add actual verification commands here
 }
 
 main "$@"
