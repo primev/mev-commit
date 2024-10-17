@@ -7,15 +7,16 @@ deploy_middleware_flag=false
 deploy_router_flag=false
 verify_bridge_flag=false
 skip_release_verification_flag=false
+wallet_type=""
 chain=""
 chain_id=0
 deploy_contract=""
 
 help() {
     echo "Usage:"
-    echo "  $0 <command> --chain <chain> [options]"
+    echo "  $0 <command> --chain <chain> <wallet option> [optional options]"
     echo
-    echo "Commands:"
+    echo "Commands (one required):"
     echo "  deploy-all          Deploy all components (vanilla, AVS, middleware, router, verify bridge)."
     echo "  deploy-vanilla      Deploy and verify the VanillaRegistry contract to L1."
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
@@ -23,23 +24,46 @@ help() {
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
     echo "  verify-bridge       Verify the L1Gateway contract with etherscan."
     echo
-    echo "Options:"
+    echo "Required Options:"
     echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet' or 'holesky')."
+    echo
+    echo "Wallet Options (exactly one required):"
+    echo "  --keystore                         Use a keystore for deployment."
+    echo "  --ledger                           Use a Ledger hardware wallet for deployment."
+    echo "  --trezor                           Use a Trezor hardware wallet for deployment."
+    echo
+    echo "Optional Options:"
     echo "  --skip-release-verification        Skip the GitHub release verification step."
     echo "  --help                             Display this help message."
     echo
+    echo "Notes:"
+    echo "  - Exactly one command and one wallet option must be specified."
+    echo "  - Options and commands can be specified in any order."
+    echo "  - Required arguments must immediately follow their options."
+    echo
     echo "Environment Variables Required:"
-    echo "  KEYSTORES          Path(s) to keystore(s) passed to forge script as --keystores flag."
-    echo "  KEYSTORE_PASSWORD  Password(s) for keystore(s) passed to forge script as --password flag."
-    echo "  SENDER             Address of the sender."
-    echo "  RPC_URL            RPC URL for the deployment chain."
+    echo "  For Keystore:"
+    echo "    KEYSTORES          Path(s) to keystore(s) passed to forge script as --keystores flag."
+    echo "    KEYSTORE_PASSWORD  Password(s) for keystore(s) passed to forge script as --password flag."
+    echo "    SENDER             Address of the sender."
+    echo "    RPC_URL            RPC URL for the deployment chain."
+    echo
+    echo "  For Ledger or Trezor:"
+    echo "    HD_PATHS           Derivation path(s) for hardware wallets passed to forge script as --hd-paths flag."
+    echo "    SENDER             Address of the sender."
+    echo "    RPC_URL            RPC URL for the deployment chain."
+    echo
+    echo "Examples:"
+    echo "  $0 deploy-all --chain mainnet --keystore"
+    echo "  $0 --ledger deploy-avs --chain holesky"
+    echo "  $0 --chain holesky deploy-middleware --trezor"
     echo
     exit 1
 }
 
 usage() {
     echo "Usage:"
-    echo "  $0 <command> --chain <chain> [options]"
+    echo "  $0 <command> --chain <chain> [wallet option] [options]"
     echo
     echo "Use '$0 --help' to see available commands and options."
     exit 1
@@ -61,23 +85,6 @@ check_dependencies() {
     done
     if [[ ${#missing_utils[@]} -ne 0 ]]; then
         echo "Error: The following required utilities are not installed: ${missing_utils[*]}."
-        exit 1
-    fi
-}
-
-check_env_variables() {
-    local missing_vars=()
-    local required_vars=("KEYSTORES" "KEYSTORE_PASSWORD" "SENDER" "RPC_URL")
-    
-    for var in "${required_vars[@]}"; do
-        if [[ -z "${!var}" ]]; then
-            missing_vars+=("${var}")
-        fi
-    done
-
-    if [[ ${#missing_vars[@]} -ne 0 ]]; then
-        echo "Error: The following environment variables are not set: ${missing_vars[*]}."
-        echo "Please set them before running the script."
         exit 1
     fi
 }
@@ -130,6 +137,30 @@ parse_args() {
                 skip_release_verification_flag=true
                 shift
                 ;;
+            --keystore)
+                if [[ -n "$wallet_type" ]]; then
+                    echo "Error: Multiple wallet types specified. Please specify only one of --keystore, --ledger, or --trezor."
+                    exit 1
+                fi
+                wallet_type="keystore"
+                shift
+                ;;
+            --ledger)
+                if [[ -n "$wallet_type" ]]; then
+                    echo "Error: Multiple wallet types specified. Please specify only one of --keystore, --ledger, or --trezor."
+                    exit 1
+                fi
+                wallet_type="ledger"
+                shift
+                ;;
+            --trezor)
+                if [[ -n "$wallet_type" ]]; then
+                    echo "Error: Multiple wallet types specified. Please specify only one of --keystore, --ledger, or --trezor."
+                    exit 1
+                fi
+                wallet_type="trezor"
+                shift
+                ;;
             --help)
                 help
                 ;;
@@ -142,6 +173,11 @@ parse_args() {
 
     if [[ -z "$chain" ]]; then
         echo "Error: The --chain option is required."
+        usage
+    fi
+
+    if [[ -z "$wallet_type" ]]; then
+        echo "Error: A wallet option is required. Please specify one of --keystore, --ledger, or --trezor."
         usage
     fi
 
@@ -158,6 +194,29 @@ parse_args() {
     elif [[ $commands_specified -gt 1 ]]; then
         echo "Error: Multiple commands specified. Please specify only one command at a time."
         usage
+    fi
+}
+
+check_env_variables() {
+    local missing_vars=()
+    local required_vars=("SENDER" "RPC_URL")
+
+    if [[ "$wallet_type" == "keystore" ]]; then
+        required_vars+=("KEYSTORES" "KEYSTORE_PASSWORD")
+    elif [[ "$wallet_type" == "ledger" || "$wallet_type" == "trezor" ]]; then
+        required_vars+=("HD_PATHS")
+    fi
+
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var}" ]]; then
+            missing_vars+=("${var}")
+        fi
+    done
+
+    if [[ ${#missing_vars[@]} -ne 0 ]]; then
+        echo "Error: The following environment variables are not set: ${missing_vars[*]}."
+        echo "Please set them before running the script."
+        exit 1
     fi
 }
 
@@ -223,18 +282,31 @@ deploy_contract_generic() {
     local script_path="$1"
 
     forge clean
-    if forge script "${script_path}:${deploy_contract}" \
-        --rpc-url "${RPC_URL}" \
-        --keystores "${KEYSTORES}" \
-        --password "${KEYSTORE_PASSWORD}" \
-        --sender "${SENDER}" \
-        --via-ir \
-        --chain-id "${chain_id}" \
-        --use 0.8.26 \
-        --broadcast; then
-        echo "Successfully ran ${script_path} on chain ID ${chain_id}."
+
+    declare -a forge_args=()
+    forge_args+=("script" "${script_path}:${deploy_contract}")
+    forge_args+=("--rpc-url" "${RPC_URL}")
+    forge_args+=("--sender" "${SENDER}")
+    forge_args+=("--via-ir")
+    forge_args+=("--chain-id" "${chain_id}")
+    forge_args+=("--use" "0.8.26")
+    forge_args+=("--broadcast")
+
+    if [[ "$wallet_type" == "keystore" ]]; then
+        forge_args+=("--keystores" "${KEYSTORES}")
+        forge_args+=("--password" "${KEYSTORE_PASSWORD}")
+    elif [[ "$wallet_type" == "ledger" ]]; then
+        forge_args+=("--ledger")
+        forge_args+=("--hd-paths" "${HD_PATHS}")
+    elif [[ "$wallet_type" == "trezor" ]]; then
+        forge_args+=("--trezor")
+        forge_args+=("--hd-paths" "${HD_PATHS}")
+    fi
+
+    if forge "${forge_args[@]}"; then
+        echo "Successfully ran ${script_path} on chain ID ${chain_id} using ${wallet_type}."
     else
-        echo "Error: Failed to run ${script_path} on chain ID ${chain_id}."
+        echo "Error: Failed to run ${script_path} on chain ID ${chain_id} using ${wallet_type}."
         exit 1
     fi
 }
@@ -263,14 +335,14 @@ verify_bridge() {
 
 main() {
     check_dependencies
-    check_env_variables
     parse_args "$@"
+    check_env_variables
     get_chain_params
     check_git_status
     check_rpc_url
 
     if [[ "${deploy_all_flag}" == true ]]; then
-        echo "Deploying all contracts to $chain..."
+        echo "Deploying all contracts to $chain using $wallet_type..."
         deploy_vanilla
         deploy_avs
         deploy_middleware
