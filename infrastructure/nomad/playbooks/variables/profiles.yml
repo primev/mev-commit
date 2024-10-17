@@ -156,6 +156,8 @@ jobs:
       - keystores:
           contract_deployer_keystore:
             allocation: true
+          bridge_relayer_keystore:
+            allocation: true
     count: 1
     ports:
       - http:
@@ -177,7 +179,6 @@ jobs:
           static: 8081
           to: 8081
     env:
-      log-fmt: "json"
       log-level: "info"
 
   mev_commit_bootnode1: &mev_commit_bootnode1_job
@@ -553,12 +554,14 @@ jobs:
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2
+    artifacts:
+      - *bridge_v1_artifact
     count: 1
     ports:
       - metrics:
           to: 8080
     env:
-      l1_chain_id: 11155111
+      l1_chain_id: "{{ environments[env].chain_id }}"
       l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_faucet: &mev_commit_faucet_job
@@ -628,7 +631,6 @@ jobs:
     dependencies:
       mock_l1: *mock_l1_job
     env:
-      log-fmt: "json"
       log-level: "info"
 
   bridge-emulator: &bridge_emulator_job
@@ -648,7 +650,7 @@ jobs:
     count: 1
     ports:
       - metrics:
-        to: 8080
+          to: 8080
     env:
 
 profiles:
@@ -679,6 +681,7 @@ profiles:
       - *mock_l1_job
       - *l1_transactor_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
       - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
