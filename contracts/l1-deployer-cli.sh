@@ -285,10 +285,8 @@ check_etherscan_api_key() {
   status=$(echo "$response" | grep -o '"status":"[0-9]"' | cut -d':' -f2 | tr -d '"')
 
   if [[ "$status" != "1" ]]; then
-    echo "Error: API call failed or invalid API key."
+    echo "Error: Etherscan API call failed or invalid etherscan API key."
     exit 1
-  else
-    echo "API key is valid."
   fi
 }
 
