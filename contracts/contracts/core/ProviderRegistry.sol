@@ -286,6 +286,7 @@ contract ProviderRegistry is
         require(blsPublicKey.length == 48, InvalidBLSPublicKeyLength(blsPublicKey.length, 48));
         
         eoaToBlsPubkey[provider] = blsPublicKey;
+        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
         providerStakes[provider] = msg.value;
         providerRegistered[provider] = true;
         emit ProviderRegistered(provider, msg.value, blsPublicKey);

@@ -89,6 +89,27 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         emit NewL1Block(_blockNumber, _winner, currentWindow);
     }
 
+
+    /**
+     * @dev Records a new L1 block and its winner.
+     * @param _blockNumber The number of the new L1 block.
+     * @param _winnerBLSKey The BLS key of the winner of the new L1 block.
+     */
+    function recordL1Block(
+        uint256 _blockNumber,
+        bytes calldata _winnerBLSKey
+    ) external onlyOracle whenNotPaused {
+        address _winner = blockBuilderBLSKeyToAddress[_winnerBLSKey];
+        _recordBlockWinner(_blockNumber, _winner);
+        uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
+        if (newWindow > currentWindow) {
+            // We've entered a new window
+            currentWindow = newWindow;
+            emit NewWindow(currentWindow);
+        }
+        emit NewL1Block(_blockNumber, _winner, currentWindow);
+    }
+
     /// @dev Allows the owner to set the oracle account.
     function setOracleAccount(address newOracleAccount) external onlyOwner {
         _setOracleAccount(newOracleAccount);

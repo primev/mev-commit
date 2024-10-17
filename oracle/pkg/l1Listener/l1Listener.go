@@ -3,9 +3,14 @@ package l1Listener
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,6 +45,18 @@ type L1Listener struct {
 	eventMgr       events.EventManager
 	recorder       L1Recorder
 	metrics        *metrics
+	relayQuerier   *MiniRelayQueryEngine
+	builderData    map[int64]string
+	builderDataMu  sync.RWMutex
+}
+
+type RelayData struct {
+	RelayName     string
+	BuilderPubkey string
+	BlockNumber   int64
+	BlockHash     string
+	Slot          string
+	Timestamp     string
 }
 
 func NewL1Listener(
@@ -48,6 +65,7 @@ func NewL1Listener(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	recorder L1Recorder,
+	relayUrls []string,
 ) *L1Listener {
 	return &L1Listener{
 		logger:         logger,
@@ -56,6 +74,8 @@ func NewL1Listener(
 		eventMgr:       evtMgr,
 		recorder:       recorder,
 		metrics:        newMetrics(),
+		relayQuerier:   NewMiniRelayQueryEngine(relayUrls, logger),
+		builderData:    make(map[int64]string),
 	}
 }
 
@@ -171,12 +191,19 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 					continue
 				}
 
-				winner := string(bytes.ToValidUTF8(header.Extra, []byte("�")))
+				winner := string(bytes.ToValidUTF8(header.Extra, []byte("")))
+
+				// End of changes needed to be done.
+				builderPubKey, err := l.relayQuerier.Query(int64(b), header.Hash().String())
+				if err != nil {
+					l.logger.Error("failed to query relay", "block", b, "error", err)
+				}
 
 				l.logger.Info(
 					"new L1 winner",
 					"winner", winner,
 					"block", header.Number.Int64(),
+					"builder_pubkey", builderPubKey,
 				)
 
 				winnerPostingTxn, err := l.recorder.RecordL1Block(
@@ -202,4 +229,71 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 			currentBlockNo = int64(blockNum)
 		}
 	}
+}
+
+type MiniRelayQueryEngine struct {
+	relayUrls []string
+	logger    *slog.Logger
+}
+
+func NewMiniRelayQueryEngine(relayUrls []string, logger *slog.Logger) *MiniRelayQueryEngine {
+	return &MiniRelayQueryEngine{
+		relayUrls: relayUrls,
+		logger:    logger,
+	}
+}
+
+func (m *MiniRelayQueryEngine) Query(blockNumber int64, blockHash string) (string, error) {
+	var wg sync.WaitGroup
+	resultChan := make(chan string, len(m.relayUrls))
+
+	for _, url := range m.relayUrls {
+		wg.Add(1)
+		go func(url string) {
+			defer wg.Done()
+			fullUrl := fmt.Sprintf("%s?block_number=%d", url, blockNumber)
+			resp, err := http.Get(fullUrl)
+			if err != nil {
+				m.logger.Error("failed to fetch data from relay", "url", fullUrl, "error", err)
+				return
+			}
+			defer resp.Body.Close()
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				m.logger.Error("failed to read response body", "url", fullUrl, "error", err)
+				return
+			}
+
+			var data []map[string]interface{}
+			if err := json.Unmarshal(body, &data); err != nil {
+				m.logger.Error("failed to unmarshal response", "url", fullUrl, "error", err)
+				return
+			}
+
+			for _, item := range data {
+				blockNum, ok := item["block_number"].(string)
+				if !ok {
+					m.logger.Error("block_number is not a string", "block_number", item["block_number"])
+					continue
+				}
+
+				if blockNum == fmt.Sprintf("%d", blockNumber) && item["block_hash"] == blockHash {
+					resultChan <- fmt.Sprintf("%v", item["builder_pubkey"])
+					return
+				}
+			}
+		}(url)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	for result := range resultChan {
+		return result, nil
+	}
+
+	return "", errors.New("no matching block found")
 }
