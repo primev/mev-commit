@@ -291,6 +291,7 @@ deploy_contract_generic() {
     forge_args+=("--chain-id" "${chain_id}")
     forge_args+=("--use" "0.8.26")
     forge_args+=("--broadcast")
+    forge_args+=("--verify")
 
     if [[ "$wallet_type" == "keystore" ]]; then
         forge_args+=("--keystores" "${KEYSTORES}")
