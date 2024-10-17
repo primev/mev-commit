@@ -26,6 +26,12 @@ artifacts:
   dashboard: &dashboard_artifact
     type: binary
     path: tools/dashboard
+  l1-transactor: &l1_transactor_artifact
+    type: binary
+    path: tools/l1-transaction-emulator
+  # bridge-emulator: &bridge-emulator-artifact
+  #   type: binary
+  #   path: bridge/standard/bridge-v1/emulator
 
 jobs:
   artifacts: &artifacts_job
@@ -589,7 +595,7 @@ jobs:
           to: 80
         metrics:
           to: 8888
-  
+
   mock_l1: &mock_l1_job
     name: mock-l1
     template: mock-l1.nomad.j2
@@ -598,10 +604,43 @@ jobs:
       - http:
           static: 9545
           to: 8545
+        ws:
+          static: 9546
+          to: 8546
     env:
       ip: 0.0.0.0
       public_ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
+
+  l1-transactor: &l1_transactor_job
+    name: l1-transactor
+    template: l1-transactor.nomad.j2
+    count: 1
+    artifacts:
+      - *l1_transactor_artifact
+      - keystores:
+          l1_transactor_account1_keystore:
+            allocation: true
+          l1_transactor_account2_keystore:
+            allocation: true
+          l1_transactor_account3_keystore:
+            allocation: true
+    dependencies:
+      mock_l1: *mock_l1_job
+    env:
+      log-fmt: "json"
+      log-level: "info"
+
+  bridge-emulator: &bridge_emulator_job
+    name: bridge-emulator
+    template: bridge-emulator.nomad.j2
+    count: 1
+    dependencies:
+      mock_l1: *mock_l1_job
+    ports:
+      - metrics:
+        to: 8080
+    env:
 
 profiles:
   ci:
@@ -610,6 +649,7 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -628,7 +668,9 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
+      # - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -668,7 +710,9 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
+      # - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -702,6 +746,7 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
