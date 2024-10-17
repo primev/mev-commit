@@ -25,6 +25,62 @@ import (
 	"github.com/primev/mev-commit/x/util"
 )
 
+// func TestMiniRelayQueryEngine(t *testing.T) {
+// 	t.Parallel()
+
+// 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+// 	relayUrls := []string{
+// 		"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://bloxroute.max-profit.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://bloxroute.regulated.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://relay.edennetwork.io/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://mainnet-relay.securerpc.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://relay.ultrasound.money/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://agnostic-relay.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://aestus.live/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://relay.wenmerge.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 	}
+
+// 	engine := l1Listener.NewMiniRelayQueryEngine(relayUrls, logger)
+
+// 	// Initialize L1 client
+// 	client, err := ethclient.Dial("https://eth.llamarpc.com")
+// 	if err != nil {
+// 		t.Fatalf("Failed to connect to the Ethereum client: %v", err)
+// 	}
+
+// 	// Get the latest block number
+// 	latestBlock, err := client.BlockNumber(context.Background())
+// 	if err != nil {
+// 		t.Fatalf("Failed to get latest block number: %v", err)
+// 	}
+
+// 	// Use the latest block number for the test
+// 	blockNumber := int64(latestBlock)
+
+// 	// Get the block hash for the latest block
+// 	block, err := client.BlockByNumber(context.Background(), big.NewInt(blockNumber))
+// 	if err != nil {
+// 		t.Fatalf("Failed to get block: %v", err)
+// 	}
+// 	blockHash := block.Hash().Hex()
+
+// 	builderPubKey, err := engine.Query(blockNumber, blockHash)
+// 	if err != nil {
+// 		t.Fatalf("Failed to query relay: %v", err)
+// 	}
+
+// 	if builderPubKey == "" {
+// 		t.Fatal("No builder public key received")
+// 	}
+// 	// Print the builder public key
+// 	t.Logf("Builder Public Key: %s", builderPubKey)
+
+//		// Additional assertion to ensure the public key is in the expected format
+//		if len(builderPubKey) != 98 || !strings.HasPrefix(builderPubKey, "0x") {
+//			t.Errorf("Unexpected format for builder public key: %s", builderPubKey)
+//		}
+//	}
 func TestL1Listener(t *testing.T) {
 	t.Parallel()
 
@@ -53,7 +109,17 @@ func TestL1Listener(t *testing.T) {
 		reg,
 		eventManager,
 		rec,
-		[]string{"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered"},
+		[]string{
+			"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://bloxroute.max-profit.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://bloxroute.regulated.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.edennetwork.io/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://mainnet-relay.securerpc.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.ultrasound.money/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://agnostic-relay.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://aestus.live/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.wenmerge.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+		},
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 
