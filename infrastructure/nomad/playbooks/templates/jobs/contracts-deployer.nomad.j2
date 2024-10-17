@@ -100,8 +100,8 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
-          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
-          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
+          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
           {% endraw %}
           CHAIN_ID="{{ job.env['chain-id'] }}"
           SCRIPT_PATH_PREFIX="local/contracts/scripts/"
@@ -123,11 +123,11 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
-          {%- if job.artifacts | selectattr('keystore', 'defined') | list | length > 0 %}
+          {%- if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
           mkdir -p "${KEYSTORE_DIR}" > /dev/null 2>&1
           {%- raw %}
             {{- with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}"
+          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %} }}' > "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}"
           export SENDER=$(cat "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" | jq -r '.address')
             {{ end }}
           {% endraw %}

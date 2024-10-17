@@ -188,8 +188,8 @@ job "{{ job.name }}" {
           MEV_ORACLE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           {%- raw %}
           MEV_ORACLE_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
-          MEV_ORACLE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_filename }}{{ end }}"
-          MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %}_password }}{{ end }}"
+          MEV_ORACLE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
+          MEV_ORACLE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
           MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_register_provider_api_auth_token }}{{ end }}"
           {{- range nomadService "mev-commit-oracle" }}
             {{- if contains "http" .Tags }}
@@ -229,7 +229,7 @@ job "{{ job.name }}" {
 
           mkdir -p "${MEV_ORACLE_KEYSTORE_PATH}" > /dev/null 2>&1
             {{- with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystore', 'defined') | map(attribute='keystore.name') | first }}{% raw %} }}' > "${MEV_ORACLE_KEYSTORE_PATH}/${MEV_ORACLE_KEYSTORE_FILENAME}"
+          echo '{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %} }}' > "${MEV_ORACLE_KEYSTORE_PATH}/${MEV_ORACLE_KEYSTORE_FILENAME}"
             {{ end }}
 
           {% endraw %}
