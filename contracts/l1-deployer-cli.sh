@@ -223,7 +223,7 @@ deploy_contract_generic() {
     local script_path="$1"
 
     forge clean
-    forge script "${script_path}:${deploy_contract}" \
+    if forge script "${script_path}:${deploy_contract}" \
         --rpc-url "${RPC_URL}" \
         --keystores "${KEYSTORES}" \
         --password "${KEYSTORE_PASSWORD}" \
@@ -231,9 +231,12 @@ deploy_contract_generic() {
         --via-ir \
         --chain-id "${chain_id}" \
         --use 0.8.26 \
-        --broadcast
-
-    echo "Successfully ran ${script_path} on chain ID ${chain_id}."
+        --broadcast; then
+        echo "Successfully ran ${script_path} on chain ID ${chain_id}."
+    else
+        echo "Error: Failed to run ${script_path} on chain ID ${chain_id}."
+        exit 1
+    fi
 }
 
 deploy_vanilla() {
