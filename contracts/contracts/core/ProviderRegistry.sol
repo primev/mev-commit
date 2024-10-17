@@ -119,7 +119,10 @@ contract ProviderRegistry is
         }
 
         (bool success, ) = payable(bidder).call{value: amt}("");
-        require(success, TransferToBidderFailed(bidder, amt));
+        if (!success) {
+            emit TransferToBidderFailed(bidder, amt);
+            bidderSlashedAmount[bidder] += amt;
+        }
 
         emit FundsSlashed(provider, amt + penaltyFee);
     }
@@ -208,6 +211,17 @@ contract ProviderRegistry is
         require(success, StakeTransferFailed(msg.sender, providerStake));
 
         emit Withdraw(msg.sender, providerStake);
+    }
+
+    /**
+     * @dev Allows the bidder to withdraw the slashed amount.
+     */
+    function bidderWithdraw() external nonReentrant whenNotPaused() {
+        require(bidderSlashedAmount[msg.sender] != 0, BidderAmountIsZero(msg.sender));
+        uint256 amount = bidderSlashedAmount[msg.sender];
+        bidderSlashedAmount[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, BidderWithdrawalTransferFailed(msg.sender, amount));
     }
 
     /**

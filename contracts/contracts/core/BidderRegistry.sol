@@ -158,7 +158,7 @@ contract BidderRegistry is
         }
 
         (bool success, ) = msg.sender.call{value: totalAmount}("");
-        require(success, TransferToBidderFailed(msg.sender, totalAmount));
+        require(success, BidderWithdrawalTransferFailed(msg.sender, totalAmount));
     }
 
     /**
@@ -197,7 +197,11 @@ contract BidderRegistry is
         uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
             (bool success, ) = payable(bidState.bidder).call{value: (fundsToReturn)}("");
-            require(success, TransferToBidderFailed(bidState.bidder, fundsToReturn));
+            // edge case, when bidder is rejecting transfer
+            if (!success) {
+                emit TransferToBidderFailed(bidState.bidder, fundsToReturn);
+                lockedFunds[bidState.bidder][windowToSettle] += fundsToReturn;
+            }
         }
 
         bidState.state = State.Withdrawn;
@@ -230,7 +234,10 @@ contract BidderRegistry is
         bidState.bidAmt = 0;
 
         (bool success, ) = payable(bidState.bidder).call{value: amt}("");
-        require(success, TransferToBidderFailed(bidState.bidder, amt));
+        if (!success) {
+            emit TransferToBidderFailed(bidState.bidder, amt);
+            lockedFunds[bidState.bidder][window] += amt;
+        }
 
         emit FundsRetrieved(commitmentDigest, bidState.bidder, window, amt);
     }
@@ -363,7 +370,7 @@ contract BidderRegistry is
         maxBidPerBlock[bidder][window] = 0;
 
         (bool success, ) = bidder.call{value: amount}("");
-        require(success, TransferToBidderFailed(bidder, amount));
+        require(success, BidderWithdrawalTransferFailed(bidder, amount));
 
         emit BidderWithdrawal(bidder, window, amount);
     }
