@@ -161,6 +161,16 @@ parse_args() {
     fi
 }
 
+get_chain_params() {
+    if [[ "$chain" == "mainnet" ]]; then
+        chain_id=1
+        deploy_contract="DeployMainnet"
+    elif [[ "$chain" == "holesky" ]]; then
+        chain_id=17000
+        deploy_contract="DeployHolesky"
+    fi
+}
+
 check_git_status() {
     if ! current_tag=$(git describe --tags --exact-match 2>/dev/null); then
         echo "Error: Current commit is not tagged. Please ensure the commit is tagged before deploying."
@@ -194,13 +204,11 @@ check_git_status() {
     fi
 }
 
-get_chain_params() {
-    if [[ "$chain" == "mainnet" ]]; then
-        chain_id=1
-        deploy_contract="DeployMainnet"
-    elif [[ "$chain" == "holesky" ]]; then
-        chain_id=17000
-        deploy_contract="DeployHolesky"
+check_rpc_url() {
+    queried_chain_id=$(cast chain-id --rpc-url "$RPC_URL")
+    if [[ "$queried_chain_id" -ne "$chain_id" ]]; then
+        echo "Error: RPC URL does not match the expected chain ID. Expected $chain_id, but got $queried_chain_id."
+        exit 1
     fi
 }
 
@@ -210,6 +218,7 @@ main() {
     parse_args "$@"
     get_chain_params
     check_git_status
+    check_rpc_url
 
     if [[ "${deploy_all_flag}" == true ]]; then
         echo "Deploying all contracts to $chain..."
