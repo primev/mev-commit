@@ -62,7 +62,7 @@ contract DeploySettlementGateway is BridgeBase {
         uint256 l1FinalizationFee = _getL1FinalizationFee();
         uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
 
-        require(address(msg.sender).balance >= DEPLOYER_GENESIS_ALLOCATION, 
+        require(address(msg.sender).balance >= DEPLOYER_GENESIS_ALLOCATION,
             DeployerMustHaveGenesisAllocation(address(msg.sender).balance, DEPLOYER_GENESIS_ALLOCATION));
 
         address allocatorProxy = Upgrades.deployUUPSProxy(
