@@ -88,7 +88,9 @@ job "{{ job.name }}" {
           STANDARD_BRIDGE_RELAYER_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           STANDARD_BRIDGE_RELAYER_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           {%- raw %}
-          RELAYER_PRIVKEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.bridge_relayer_private_key }}{{ end }}"
+          STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          STANDARD_BRIDGE_RELAYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.bridge_relayer_keystore_filename }}{{ end }}"
+          STANDARD_BRIDGE_RELAYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.bridge_relayer_keystore_password }}{{ end }}"
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
@@ -117,35 +119,29 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
-          chmod +x local/foundry.sh && local/foundry.sh
-          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
-          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
+          {%- if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
+          mkdir -p "${STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR}" > /dev/null 2>&1
+          {%- raw %}
+            {{- with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.bridge_relayer_keystore }}' > "${STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR}/${STANDARD_BRIDGE_RELAYER_KEYSTORE_FILENAME}"
+            {{ end }}
+          {% endraw %}
+          {% endif %}
 
-          if [ -f "local/L1GatewayArtifact.json" ] && [ -f "local/SettlementGatewayArtifact.json" ]; then
-            echo "Artifacts exist. Skipping contract deployment..."
-          else
-            echo "Deploying contracts..."
-            chmod +x local/deploy_contracts.sh
-            ./local/deploy_contracts.sh
-          fi
+          {% raw %}
+          {{- range nomadService "contracts-deployer" }}
+            {{ if contains "http" .Tags }}
+          URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
+          CONTRACTS_FILE="/local/contracts.json"
+          curl -s -o "${CONTRACTS_FILE}" "${URL}"
+          export STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR="$(jq -r '.SettlementGateway' ${CONTRACTS_FILE})"
+          export STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR="$(jq -r '.L1Gateway' ${CONTRACTS_FILE})"
+            {{ end }}
+          {{- end }}
+          {% endraw %}
 
-          export STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR="$(jq -r '.l1_gateway_addr' local/L1GatewayArtifact.json)"
-          export STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR="$(jq -r '.settlement_gateway_addr' local/SettlementGatewayArtifact.json)"
-
-          if [ -z "$STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR" ] || ! echo "$STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR" | grep -q "^0x"; then
-            echo "Error: L1 Contract Address is not populated"
-            exit 1
-          fi
-          if [ -z "$STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR" ] || ! echo "$STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR" | grep -q "^0x"; then
-              echo "Error: Settlement Contract Address is not populated"
-              exit 1
-          fi
-
-          echo "L1 Contract Address: $STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR"
-          echo "Settlement Contract Address: $STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR"
-
-          chmod +x local/relayer-linux-amd64
-          exec ./local/relayer-linux-amd64 start
+          chmod +x local/relayer
+          exec ./local/relayer start
         EOH
         destination = "local/run.sh"
         change_mode = "noop"

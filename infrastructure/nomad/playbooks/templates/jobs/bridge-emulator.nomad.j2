@@ -50,14 +50,14 @@ job "{{ job.name }}" {
 
       {% if env != 'devenv' %}
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/{{ job.target_type }}-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-bridge-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/contracts_{{ version }}.tar.gz"
       }
       {% else %}
       artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/{{ job.target_type }}-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-bridge-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       artifact {
         source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/contracts_{{ version }}.tar.gz"
@@ -66,7 +66,7 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
-          EMULATOR_BINARY="local/{{ job.target_type }}-emulator"
+          EMULATOR_BINARY="local/emulator"
           EMULATOR_LOG_FMT="{{ job.env.get('log-format', 'json') if job.get('env') else 'json' }}"
           EMULATOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           EMULATOR_LOG_LEVEL="{{ job.env.get('log-level', 'info') if job.get('env') else 'info' }}"
