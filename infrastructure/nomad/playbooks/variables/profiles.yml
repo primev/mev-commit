@@ -29,9 +29,9 @@ artifacts:
   l1-transactor: &l1_transactor_artifact
     type: binary
     path: tools/l1-transaction-emulator
-  # bridge-emulator: &bridge-emulator-artifact
-  #   type: binary
-  #   path: bridge/standard/bridge-v1/emulator
+  bridge-emulator: &bridge-emulator-artifact
+    type: binary
+    path: bridge/standard/bridge-v1/emulator
 
 jobs:
   artifacts: &artifacts_job
@@ -634,9 +634,18 @@ jobs:
   bridge-emulator: &bridge_emulator_job
     name: bridge-emulator
     template: bridge-emulator.nomad.j2
-    count: 1
+    artifacts:
+      - *l1_transactor_artifact
+      - keystores:
+          bridge_emulator_account1_keystore:
+            allocation: true
+          bridge_emulator_account2_keystore:
+            allocation: true
+          bridge_emulator_account3_keystore:
+            allocation: true
     dependencies:
-      mock_l1: *mock_l1_job
+      contracts_deployer: *contracts_deployer_job
+    count: 1
     ports:
       - metrics:
         to: 8080
@@ -670,7 +679,7 @@ profiles:
       - *mock_l1_job
       - *l1_transactor_job
       - *contracts_deployer_job
-      # - *bridge_emulator_job
+      - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -712,7 +721,7 @@ profiles:
       - *mock_l1_job
       - *l1_transactor_job
       - *contracts_deployer_job
-      # - *bridge_emulator_job
+      - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job

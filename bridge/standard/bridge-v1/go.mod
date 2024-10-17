@@ -5,7 +5,7 @@ go 1.23
 require (
 	github.com/ethereum/go-ethereum v1.13.15
 	github.com/primev/mev-commit/contracts-abi v0.0.1
-	github.com/primev/mev-commit/x v0.0.0-20241015112810-798fa51933a6
+	github.com/primev/mev-commit/x v0.0.1
 	github.com/prometheus/client_golang v1.19.1
 	github.com/urfave/cli/v2 v2.27.4
 	golang.org/x/crypto v0.26.0
@@ -54,3 +54,5 @@ require (
 )
 
 replace github.com/primev/mev-commit/contracts-abi => ../../../contracts-abi
+
+replace github.com/primev/mev-commit/x => ../../../x
