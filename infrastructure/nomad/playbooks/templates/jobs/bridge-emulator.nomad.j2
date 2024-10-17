@@ -52,9 +52,15 @@ job "{{ job.name }}" {
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/{{ job.target_type }}-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/contracts_{{ version }}.tar.gz"
+      }
       {% else %}
       artifact {
         source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/{{ job.target_type }}-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/contracts_{{ version }}.tar.gz"
       }
       {% endif %}
 
@@ -63,6 +69,7 @@ job "{{ job.name }}" {
           EMULATOR_BINARY="local/{{ job.target_type }}-emulator"
           EMULATOR_LOG_FMT="{{ job.env.get('log-format', 'json') if job.get('env') else 'json' }}"
           EMULATOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          EMULATOR_LOG_LEVEL="{{ job.env.get('log-level', 'info') if job.get('env') else 'info' }}"
           {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
@@ -85,7 +92,25 @@ job "{{ job.name }}" {
           EMULATOR_HTTP_PORT="{{ .Port }}"
             {{- end }}
           {{- end }}
+          EMULATOR_KEYSTORES_DIR="/local/data/{% endraw %}{{ job.name }}{% raw %}-{{ env "NOMAD_ALLOC_INDEX" }}/keystores"
           {% endraw %}
+          {%- set emulator_keystores_dir = '/local/data/' ~ job.name ~ '-' ~ '{{ env "NOMAD_ALLOC_INDEX" }}' ~ '/keystores' %}
+          {%- set ns = namespace(keystore_path_passwd=[]) %}
+          {%- for artifact in job.artifacts %}
+            {%- set keystores = artifact.get('keystores', {}) %}
+            {%- set ns.keystore_path_passwd = ns.keystore_path_passwd + (keystores | list) %}
+          {%- endfor %}
+          {%- set ns.kp_pairs = [] %}
+          {%- macro nomad_interpolate(var_name) -%}
+          {{ '{{ with secret "secret/data/mev-commit" }}{{ .Data.data.' ~ var_name ~ ' }}{{ end }}' }}
+          {%- endmacro %}
+          {%- for keystore_name in ns.keystore_path_passwd %}
+            {%- set filename_var = keystore_name + '_filename' %}
+            {%- set password_var = keystore_name + '_password' %}
+            {%- set pair = emulator_keystores_dir ~ '/' ~ keystore_name ~ '/' ~ nomad_interpolate(filename_var) ~ ':' ~ nomad_interpolate(password_var) %}
+            {%- set ns.kp_pairs = ns.kp_pairs + [pair] %}
+          {%- endfor %}
+          EMULATOR_KEYSTORE_PATH_PASSWORD={{ ns.kp_pairs | join(',') | replace('\\n', '') | replace('\\r', '') }}
         EOH
         destination = "secrets/.env"
         env = true
@@ -99,6 +124,16 @@ job "{{ job.name }}" {
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+
+          {{- range nomadService "contracts-deployer" }}
+            {{ if contains "http" .Tags }}
+          URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
+          CONTRACTS_FILE="/local/contracts.json"
+          curl -s -o "${CONTRACTS_FILE}" "${URL}"
+          export EMULATOR_L1_GATEWAY_CONTRACT_ADDR="$(jq -r '.L1Gateway' ${CONTRACTS_FILE})"
+          export EMULATOR_SETTLEMENT_GATEWAY_CONTRACT_ADDR="$(jq -r '.SettlementGateway' ${CONTRACTS_FILE})"
             {{ end }}
           {{- end }}
           {% endraw %}
