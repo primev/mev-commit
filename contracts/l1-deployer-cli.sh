@@ -318,6 +318,7 @@ deploy_contract_generic() {
 
     if forge "${forge_args[@]}"; then
         echo "Successfully ran ${script_path} on chain ID ${chain_id} using ${wallet_type}."
+        echo "Remember to update documentation with new contract addresses!"
     else
         echo "Error: Failed to run ${script_path} on chain ID ${chain_id} using ${wallet_type}."
         exit 1

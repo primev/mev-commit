@@ -1,5 +1,18 @@
 # Contracts
 
+## L1 Deployer CLI
+
+The `l1-deployer-cli.sh` enables deployment of L1 contracts and publishing of artifacts. This deployment workflow is decoupled from the core mev-commit chain contracts.
+
+This cli accepts keystore (not suggested for production), ledger, or trezor wallets. The contracts must be deployed from a tagged mev-commit release, and will be verified with etherscan during deployment.
+
+### Dependencies
+
+- [Foundry suite](https://book.getfoundry.sh/getting-started/installation)
+- [git](https://git-scm.com/downloads)
+- [curl](https://everything.curl.dev/install/linux.html)
+- [jq](https://stedolan.github.io/jq/download/)
+
 ## Contract Upgrades
 
 Contract upgrades are not always possible, as there are [strict limitations as enforced by Solidity](https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#modifying-your-contracts). When a contract feat/fix cannot be implemented as a contract upgrade, simply PR the changes into main, and release/deploy a new contract instance as needed.
