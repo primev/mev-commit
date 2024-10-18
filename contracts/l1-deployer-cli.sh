@@ -5,7 +5,6 @@ deploy_vanilla_flag=false
 deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
-verify_bridge_flag=false
 skip_release_verification_flag=false
 wallet_type=""
 chain=""
@@ -17,12 +16,11 @@ help() {
     echo "  $0 <command> --chain <chain> <wallet option> [optional options]"
     echo
     echo "Commands (one required):"
-    echo "  deploy-all          Deploy all components (vanilla, AVS, middleware, router, verify bridge)."
+    echo "  deploy-all          Deploy all components (vanilla, AVS, middleware, router)."
     echo "  deploy-vanilla      Deploy and verify the VanillaRegistry contract to L1."
     echo "  deploy-avs          Deploy and verify the MevCommitAVS contract to L1."
     echo "  deploy-middleware   Deploy and verify the MevCommitMiddleware contract to L1."
     echo "  deploy-router       Deploy and verify the ValidatorOptInRouter contract to L1."
-    echo "  verify-bridge       Verify the L1Gateway contract with etherscan."
     echo
     echo "Required Options:"
     echo "  --chain, -c <chain>                Specify the chain to deploy to ('mainnet' or 'holesky')."
@@ -118,10 +116,6 @@ parse_args() {
                 deploy_router_flag=true
                 shift
                 ;;
-            verify-bridge)
-                verify_bridge_flag=true
-                shift
-                ;;
             --chain|-c)
                 if [[ -z "$2" ]]; then
                     echo "Error: --chain requires an argument."
@@ -183,7 +177,7 @@ parse_args() {
     fi
 
     commands_specified=0
-    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag verify_bridge_flag; do
+    for flag in deploy_all_flag deploy_vanilla_flag deploy_avs_flag deploy_middleware_flag deploy_router_flag; do
         if [[ "${!flag}" == true ]]; then
             ((commands_specified++))
         fi
@@ -280,14 +274,14 @@ check_rpc_url() {
 }
 
 check_etherscan_api_key() {
-  response=$(curl -s "https://api.etherscan.io/api?module=account&action=balance&address=0xde0b295669a9fd93d5f28d9ec85e40f4cb697bae&tag=latest&apikey=${ETHERSCAN_API_KEY}")
+    response=$(curl -s "https://api.etherscan.io/api?module=account&action=balance&address=${SENDER}&tag=latest&apikey=${ETHERSCAN_API_KEY}")
 
-  status=$(echo "$response" | grep -o '"status":"[0-9]"' | cut -d':' -f2 | tr -d '"')
+    status=$(echo "$response" | grep -o '"status":"[0-9]"' | cut -d':' -f2 | tr -d '"')
 
-  if [[ "$status" != "1" ]]; then
-    echo "Error: Etherscan API call failed or invalid etherscan API key."
-    exit 1
-  fi
+    if [[ "$status" != "1" ]]; then
+        echo "Error: Etherscan API call failed or invalid etherscan API key."
+        exit 1
+    fi
 }
 
 deploy_contract_generic() {
@@ -341,12 +335,6 @@ deploy_router() {
     deploy_contract_generic "scripts/validator-registry/DeployValidatorOptInRouter.s.sol"
 }
 
-verify_bridge() {
-    echo "Verifying L1Gateway contract with etherscan..."
-    echo "Verifying on chain $chain_id"
-    # TODO: forge verify-contract command on its own
-}
-
 main() {
     check_dependencies
     parse_args "$@"
@@ -370,8 +358,6 @@ main() {
         deploy_middleware
     elif [[ "${deploy_router_flag}" == true ]]; then
         deploy_router
-    elif [[ "${verify_bridge_flag}" == true ]]; then
-        verify_bridge
     else
         usage
     fi
