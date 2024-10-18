@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit-geth-cl/ethclient"
+	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/redis/go-redis/v9"
 )
 

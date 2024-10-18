@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/primev/mev-commit-geth-cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/redis/go-redis/v9"
 )
 

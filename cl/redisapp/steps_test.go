@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/primev/mev-commit-geth-cl/logger"
-	"github.com/primev/mev-commit-geth-cl/mocks"
-	"github.com/primev/mev-commit-geth-cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/logger"
+	"github.com/primev/mev-commit/cl/mocks"
+	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

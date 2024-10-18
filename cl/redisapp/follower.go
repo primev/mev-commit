@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/primev/mev-commit-geth-cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/redisapp/types"
 )
 
 type Follower struct {

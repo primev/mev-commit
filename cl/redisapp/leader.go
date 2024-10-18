@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit-geth-cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/redisapp/types"
 )
 
 type Leader struct {
