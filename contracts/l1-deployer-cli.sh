@@ -271,6 +271,16 @@ check_rpc_url() {
         echo "Expected chain ID: $chain_id, but got: $queried_chain_id."
         exit 1
     fi
+
+    if [[ "$RPC_URL" != *"alchemy"* && "$RPC_URL" != *"infura"* ]]; then
+        echo "Are you using a public rate-limited RPC URL? If so, contract verification may fail."
+        read -p "Do you want to continue? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Exiting script."
+            exit 1
+        fi
+    fi
 }
 
 check_etherscan_api_key() {
