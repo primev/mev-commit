@@ -278,14 +278,14 @@ func (s *RedisStateManager) ReadMessagesFromStream(ctx context.Context, msgType 
 		&redis.XReadGroupArgs{
 			Group:    s.groupName,
 			Consumer: s.consumerName,
-			Streams:  []string{redisStreamName, string(msgType)}, // "0" to read pending messages
+			Streams:  []string{redisStreamName, string(msgType)},
 			Count:    1,
 			Block:    1 * time.Second,
 		},
 	).Result()
 
 	if err != nil && err != redis.Nil {
-		return nil, fmt.Errorf("error reading pending messages: %w", err)
+		return nil, fmt.Errorf("error reading messages: %w", err)
 	}
 
 	return messages, nil
