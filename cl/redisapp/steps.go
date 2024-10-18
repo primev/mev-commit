@@ -242,6 +242,7 @@ func isSyncing(status engine.PayloadStatusV1) bool {
 	return status.Status == engine.SYNCING || status.Status == engine.ACCEPTED
 }
 
+// temp function for testing
 func sometimesFails() error {
 	rand.Seed(uint64(time.Now().UnixNano()))
 
