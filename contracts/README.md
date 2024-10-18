@@ -10,6 +10,8 @@ If contract deployment succeeds but etherscan verification fails, try running [f
 forge verify-contract --watch --rpc-url $RPC_URL 0x4c31ad10617bb36e7749c686eedf6fef0fd2502e ValidatorOptInRouter
 ```
 
+To avoid issues with etherscan verification, use a non-public RPC that can support rapid requests.
+
 ### Dependencies
 
 - [Foundry suite](https://book.getfoundry.sh/getting-started/installation)
