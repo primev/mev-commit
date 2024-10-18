@@ -133,6 +133,7 @@ func startApplication(c *cli.Context, log *logger.LogrusWrapper) error {
 		cfg.GenesisBlockHash,
 		log,
 		cfg.RedisAddr,
+		cfg.EVMBuildDelay,
 	)
 	if err != nil {
 		log.Error("Failed to initialize RappChain", "error", err)

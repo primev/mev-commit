@@ -22,13 +22,15 @@ type StepsManager struct {
 	stateManager StateManager
 	engineCl     EngineClient
 	logger       Logger
+	buildDelay   time.Duration
 	ctx          context.Context
 }
 
-func NewStepsManager(ctx context.Context, stateManager StateManager, engineCl EngineClient, logger Logger) *StepsManager {
+func NewStepsManager(ctx context.Context, stateManager StateManager, engineCl EngineClient, logger Logger, buildDelay time.Duration) *StepsManager {
 	return &StepsManager{
 		stateManager: stateManager,
 		engineCl:     engineCl,
+		buildDelay:   buildDelay,
 		logger:       logger,
 		ctx:          ctx,
 	}
@@ -100,13 +102,13 @@ func (s *StepsManager) getPayload(ctx context.Context) error {
 		return errors.New("failed to start build")
 	}
 
-	waitTo := time.Now().Add(defaultEVMBuildDelay)
+	waitTo := time.Now().Add(s.buildDelay)
 	select {
 	case <-ctx.Done():
 		s.logger.Info("context cancelled")
 		return nil
 	case <-time.After(time.Until(waitTo)):
-		s.logger.Info("Leader: Waited for EVM build delay", "delay", defaultEVMBuildDelay)
+		s.logger.Info("Leader: Waited for EVM build delay", "delay", s.buildDelay)
 	}
 
 	if payloadID == nil {

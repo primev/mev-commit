@@ -13,10 +13,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const (
-	defaultEVMBuildDelay = time.Millisecond * 1000
-)
-
 type EngineClient interface {
 	NewPayloadV3(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
 		beaconRoot *common.Hash) (engine.PayloadStatusV1, error)
@@ -30,7 +26,6 @@ type EngineClient interface {
 type MevCommitChain struct {
 	InstanceID       string
 	engineCl         EngineClient
-	buildDelay       time.Duration
 	genesisBlockHash string
 	logger           Logger
 
@@ -53,7 +48,7 @@ type Logger interface {
 	Warn(msg string, keyvals ...interface{})
 }
 
-func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, logger Logger, redisAddr string) (*MevCommitChain, error) {
+func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, logger Logger, redisAddr string, buildDelay time.Duration) (*MevCommitChain, error) {
 	// Create a context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -97,7 +92,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	var wg sync.WaitGroup
 
-	stepsManager := NewStepsManager(ctx, stateManager, engineCL, logger)
+	stepsManager := NewStepsManager(ctx, stateManager, engineCL, logger, buildDelay)
 
 	follower := NewFollower(ctx, instanceID, &wg, stateManager, stepsManager, logger)
 
