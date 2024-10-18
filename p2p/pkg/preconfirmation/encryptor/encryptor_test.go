@@ -259,7 +259,7 @@ func TestHashing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	
+
 		hash, err := preconfencryptor.GetPreConfirmationHash(preConfirmation, domainSeparatorPreConfHash)
 		if err != nil {
 			t.Fatal(err)

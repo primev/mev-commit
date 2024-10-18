@@ -39,8 +39,8 @@ contract PreconfManager is
         );
 
     // EIP-712 domain separator
-    bytes32 public DOMAIN_SEPARATOR_PRECONF;
-    bytes32 public DOMAIN_SEPARATOR_BID;
+    bytes32 public domainSeparatorPreconf;
+    bytes32 public domainSeparatorBid;
 
     // Hex characters
     bytes public constant HEXCHARS = "0123456789abcdef";
@@ -49,7 +49,10 @@ contract PreconfManager is
      * @dev Makes sure transaction sender is oracle contract
      */
     modifier onlyOracleContract() {
-        require(msg.sender == oracleContract, SenderIsNotOracleContract(msg.sender, oracleContract));
+        require(
+            msg.sender == oracleContract,
+            SenderIsNotOracleContract(msg.sender, oracleContract)
+        );
         _;
     }
 
@@ -86,18 +89,22 @@ contract PreconfManager is
         assembly {
             chainId := chainid()
         }
-        DOMAIN_SEPARATOR_PRECONF = keccak256(
+        domainSeparatorPreconf = keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
                 "OpenedCommitment",
                 "1",
                 chainId,
                 address(this)
             )
         );
-        DOMAIN_SEPARATOR_BID = keccak256(
+        domainSeparatorBid = keccak256(
             abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
                 "PreConfBid",
                 "1",
                 chainId,
@@ -174,9 +181,7 @@ contract PreconfManager is
      * @dev Updates the address of the block tracker.
      * @param newBlockTracker The new block tracker address.
      */
-    function updateBlockTracker(
-        address newBlockTracker
-    ) external onlyOwner {
+    function updateBlockTracker(address newBlockTracker) external onlyOwner {
         blockTracker = IBlockTracker(newBlockTracker);
         emit BlockTrackerUpdated(newBlockTracker);
     }
@@ -221,8 +226,11 @@ contract PreconfManager is
             revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
         }
 
-        require(processedTxnHashes[txnHash] == false, TxnHashAlreadyProcessed(txnHash));
-        
+        require(
+            processedTxnHashes[txnHash] == false,
+            TxnHashAlreadyProcessed(txnHash)
+        );
+
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bidAmt,
             blockNumber,
@@ -271,7 +279,11 @@ contract PreconfManager is
         }
 
         if (msg.sender != winner && msg.sender != bidderAddress) {
-            revert UnauthorizedOpenCommitment(committerAddress, bidderAddress, msg.sender);
+            revert UnauthorizedOpenCommitment(
+                committerAddress,
+                bidderAddress,
+                msg.sender
+            );
         }
 
         OpenedCommitment memory newCommitment = OpenedCommitment(
@@ -309,7 +321,7 @@ contract PreconfManager is
         ++commitmentsCount[committerAddress];
 
         processedTxnHashes[txnHash] = true;
-        
+
         emit OpenedCommitmentStored(
             commitmentIndex,
             bidderAddress,
@@ -370,7 +382,10 @@ contract PreconfManager is
 
         commitmentIndex = getUnopenedCommitmentIndex(newCommitment);
 
-        require(unopenedCommitments[commitmentIndex].committer == address(0), UnopenedCommitmentAlreadyExists(commitmentIndex));
+        require(
+            unopenedCommitments[commitmentIndex].committer == address(0),
+            UnopenedCommitmentAlreadyExists(commitmentIndex)
+        );
 
         unopenedCommitments[commitmentIndex] = newCommitment;
 
@@ -392,8 +407,13 @@ contract PreconfManager is
     function initiateSlash(
         bytes32 commitmentIndex
     ) public onlyOracleContract whenNotPaused {
-        OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isSettled, CommitmentAlreadySettled(commitmentIndex));
+        OpenedCommitment storage commitment = openedCommitments[
+            commitmentIndex
+        ];
+        require(
+            !commitment.isSettled,
+            CommitmentAlreadySettled(commitmentIndex)
+        );
 
         commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
@@ -420,8 +440,13 @@ contract PreconfManager is
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract whenNotPaused {
-        OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isSettled, CommitmentAlreadySettled(commitmentIndex));
+        OpenedCommitment storage commitment = openedCommitments[
+            commitmentIndex
+        ];
+        require(
+            !commitment.isSettled,
+            CommitmentAlreadySettled(commitmentIndex)
+        );
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
             commitment.blockNumber,
@@ -490,7 +515,7 @@ contract PreconfManager is
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_BID,
+                domainSeparatorBid,
                 keccak256(
                     abi.encode(
                         EIP712_BID_TYPEHASH,
@@ -529,7 +554,7 @@ contract PreconfManager is
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_PRECONF,
+                domainSeparatorPreconf,
                 keccak256(
                     abi.encode(
                         EIP712_COMMITMENT_TYPEHASH,
