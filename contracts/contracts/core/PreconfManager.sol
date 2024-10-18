@@ -39,24 +39,8 @@ contract PreconfManager is
         );
 
     // EIP-712 domain separator
-    bytes32 public constant DOMAIN_SEPARATOR_PRECONF =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256("OpenedCommitment"),
-                keccak256("1")
-            )
-        );
-
-    // EIP-712 domain separator
-    bytes32 public constant DOMAIN_SEPARATOR_BID =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256("PreConfBid"),
-                keccak256("1")
-            )
-        );
+    bytes32 public DOMAIN_SEPARATOR_PRECONF;
+    bytes32 public DOMAIN_SEPARATOR_BID;
 
     // Hex characters
     bytes public constant HEXCHARS = "0123456789abcdef";
@@ -96,6 +80,30 @@ contract PreconfManager is
         commitmentDispatchWindow = _commitmentDispatchWindow;
         blocksPerWindow = _blocksPerWindow;
         __Pausable_init();
+
+        // Compute the domain separators
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        DOMAIN_SEPARATOR_PRECONF = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                "OpenedCommitment",
+                "1",
+                chainId,
+                address(this)
+            )
+        );
+        DOMAIN_SEPARATOR_BID = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                "PreConfBid",
+                "1",
+                chainId,
+                address(this)
+            )
+        );
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -233,8 +241,8 @@ contract PreconfManager is
             decayStartTimeStamp,
             decayEndTimeStamp,
             bHash,
-            _bytesToHexString(bidSignature),
-            _bytesToHexString(sharedSecretKey)
+            bidSignature,
+            sharedSecretKey
         );
 
         UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
@@ -479,15 +487,15 @@ contract PreconfManager is
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp
-    ) public pure returns (bytes32) {
+    ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
                 DOMAIN_SEPARATOR_BID,
                 keccak256(
                     abi.encode(
                         EIP712_BID_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        keccak256(abi.encodePacked(_revertingTxHashes)),
+                        keccak256(bytes(_txnHash)),
+                        keccak256(bytes(_revertingTxHashes)),
                         _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
@@ -516,26 +524,24 @@ contract PreconfManager is
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
-        string memory _bidSignature,
-        string memory _sharedSecretKey
-    ) public pure returns (bytes32) {
+        bytes memory _bidSignature,
+        bytes memory _sharedSecretKey
+    ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
                 DOMAIN_SEPARATOR_PRECONF,
                 keccak256(
                     abi.encode(
                         EIP712_COMMITMENT_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        keccak256(abi.encodePacked(_revertingTxHashes)),
+                        keccak256(bytes(_txnHash)),
+                        keccak256(bytes(_revertingTxHashes)),
                         _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp,
-                        keccak256(
-                            abi.encodePacked(_bytes32ToHexString(_bidHash))
-                        ),
-                        keccak256(abi.encodePacked(_bidSignature)),
-                        keccak256(abi.encodePacked(_sharedSecretKey))
+                        _bidHash,
+                        keccak256(_bidSignature),
+                        keccak256(_sharedSecretKey)
                     )
                 )
             );
@@ -561,7 +567,7 @@ contract PreconfManager is
         string memory txnHash,
         string memory revertingTxHashes,
         bytes calldata bidSignature
-    ) public pure returns (bytes32 messageDigest, address recoveredAddress) {
+    ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
             txnHash,
             revertingTxHashes,
@@ -581,7 +587,7 @@ contract PreconfManager is
      */
     function verifyPreConfCommitment(
         CommitmentParams memory params
-    ) public pure returns (bytes32 preConfHash, address committerAddress) {
+    ) public view returns (bytes32 preConfHash, address committerAddress) {
         preConfHash = _getPreConfHash(params);
         committerAddress = preConfHash.recover(params.commitmentSignature);
     }
@@ -625,7 +631,7 @@ contract PreconfManager is
 
     function _getPreConfHash(
         CommitmentParams memory params
-    ) internal pure returns (bytes32) {
+    ) internal view returns (bytes32) {
         return
             getPreConfHash(
                 params.txnHash,
@@ -635,41 +641,8 @@ contract PreconfManager is
                 params.decayStartTimeStamp,
                 params.decayEndTimeStamp,
                 params.bidHash,
-                _bytesToHexString(params.bidSignature),
-                _bytesToHexString(params.sharedSecretKey)
+                params.bidSignature,
+                params.sharedSecretKey
             );
-    }
-
-    /**
-     * @dev Internal Function to convert bytes32 to hex string without 0x
-     * @param _bytes32 the byte array to convert to string
-     * @return hex string from the byte 32 array
-     */
-    function _bytes32ToHexString(
-        bytes32 _bytes32
-    ) internal pure returns (string memory) {
-        bytes memory _string = new bytes(64);
-        for (uint8 i = 0; i < 32; ++i) {
-            _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
-            _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
-        }
-        return string(_string);
-    }
-
-    /**
-     * @dev Internal Function to convert bytes array to hex string without 0x
-     * @param _bytes the byte array to convert to string
-     * @return hex string from the bytes array
-     */
-    function _bytesToHexString(
-        bytes memory _bytes
-    ) internal pure returns (string memory) {
-        bytes memory _string = new bytes(_bytes.length * 2);
-        uint256 len = _bytes.length;
-        for (uint256 i = 0; i < len; ++i) {
-            _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
-            _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
-        }
-        return string(_string);
     }
 }

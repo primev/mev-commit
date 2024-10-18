@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	mrand "math/rand"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
@@ -39,7 +41,7 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		encryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
+		encryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore, big.NewInt(31337), "0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +64,7 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		encryptorProvider, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
+		encryptorProvider, err := preconfencryptor.NewEncryptor(keySigner, providerStore, big.NewInt(31337), "0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +102,7 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		bidderEncryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
+		bidderEncryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore, big.NewInt(31337), "0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,7 +126,7 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
+		providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore, big.NewInt(31337), "0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -180,14 +182,20 @@ func TestHashing(t *testing.T) {
 			DecayEndTimestamp:   20,
 		}
 
-		hash, err := preconfencryptor.GetBidHash(bid)
+		preconfAddr := common.HexToAddress("0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
+		chainID := big.NewInt(31337)
+		domainSeparatorBidHash, err := preconfencryptor.ComputeDomainSeparator("PreConfBid", chainID, preconfAddr)
 		if err != nil {
 			t.Fatal(err)
+		}
+		hash, err := preconfencryptor.GetBidHash(bid, domainSeparatorBidHash)
+		if err != nil {
+			t.Fatal(fmt.Errorf("failed to get bid hash %w", err))
 		}
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "c311dfce5df35601ec4b562dfdf048e22cb66373fb6ba5160e83dac3d72f0d2b"
+		expHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -215,8 +223,8 @@ func TestHashing(t *testing.T) {
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "c311dfce5df35601ec4b562dfdf048e22cb66373fb6ba5160e83dac3d72f0d2b"
-		bidSignature := "77731700031fe79fba2dae5614bc44af07167f39a42ae5c1b4e136035870d0fb6ee98e239bc27fe289b47d9dc9cd461de2f0a50528bc8f24c2290fb4286821a41b"
+		bidHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
+		bidSignature := "5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
 		if err != nil {
@@ -245,12 +253,19 @@ func TestHashing(t *testing.T) {
 			SharedSecret: sharedSecretBytes,
 		}
 
-		hash, err := preconfencryptor.GetPreConfirmationHash(preConfirmation)
+		chainID := big.NewInt(31337)
+		preconfContractAddr := common.HexToAddress("0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
+		domainSeparatorPreConfHash, err := preconfencryptor.ComputeDomainSeparator("OpenedCommitment", chainID, preconfContractAddr)
+		if err != nil {
+			t.Fatal(err)
+		}
+	
+		hash, err := preconfencryptor.GetPreConfirmationHash(preConfirmation, domainSeparatorPreConfHash)
 		if err != nil {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "6ebb8f592c9e75ea8c4a2403884e97237ce3a559da30461317391b388f440eac"
+		expHash := "a7f6241be0c5055f054fcbe03d98a1920f0ab874039474401323d8d95930a076"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -273,8 +288,8 @@ func TestHashing(t *testing.T) {
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	bidSig := "77731700031fe79fba2dae5614bc44af07167f39a42ae5c1b4e136035870d0fb6ee98e239bc27fe289b47d9dc9cd461de2f0a50528bc8f24c2290fb4286821a41b"
-	bidHash := "c311dfce5df35601ec4b562dfdf048e22cb66373fb6ba5160e83dac3d72f0d2b"
+	bidSig := "5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b"
+	bidHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
 
 	bidHashBytes, err := hex.DecodeString(bidHash)
 	if err != nil {
@@ -349,7 +364,7 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	encryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
+	encryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore, big.NewInt(31337), "0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -395,7 +410,7 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	bidderEncryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore)
+	bidderEncryptor, err := preconfencryptor.NewEncryptor(keySigner, bidderStore, big.NewInt(31337), "0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -418,7 +433,7 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore)
+	providerEncryptor, err := preconfencryptor.NewEncryptor(keySigner, providerStore, big.NewInt(31337), "0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
 	if err != nil {
 		b.Fatal(err)
 	}

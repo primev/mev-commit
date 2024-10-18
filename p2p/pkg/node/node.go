@@ -457,7 +457,7 @@ func NewNode(opts *Options) (*Node, error) {
 					Startable: depositMgr.(*depositmanager.DepositManager),
 				},
 			)
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore, chainID, opts.PreconfContract)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())
@@ -501,7 +501,7 @@ func NewNode(opts *Options) (*Node, error) {
 				return nil, errors.Join(err, nd.Close())
 			}
 
-			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore)
+			preconfEncryptor, err := preconfencryptor.NewEncryptor(opts.KeySigner, keysStore, chainID, opts.PreconfContract)
 			if err != nil {
 				opts.Logger.Error("failed to create preconf encryptor", "error", err)
 				return nil, errors.Join(err, nd.Close())

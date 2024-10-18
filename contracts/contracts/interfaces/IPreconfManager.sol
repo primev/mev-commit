@@ -282,7 +282,7 @@ interface IPreconfManager {
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp
-    ) external pure returns (bytes32);
+    ) external view returns (bytes32);
 
     /**
      * @dev Computes the pre-confirmation hash for a given set of parameters.
@@ -305,9 +305,9 @@ interface IPreconfManager {
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
-        string memory _bidSignature,
-        string memory _sharedSecretKey
-    ) external pure returns (bytes32);
+        bytes memory _bidSignature,
+        bytes memory _sharedSecretKey
+    ) external view returns (bytes32);
 
     /**
      * @dev Verifies a bid by computing the hash and recovering the signer's address.
@@ -329,7 +329,7 @@ interface IPreconfManager {
         string memory txnHash,
         string memory revertingTxHashes,
         bytes calldata bidSignature
-    ) external pure returns (bytes32 messageDigest, address recoveredAddress);
+    ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
     /**
      * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
@@ -339,7 +339,7 @@ interface IPreconfManager {
      */
     function verifyPreConfCommitment(
         CommitmentParams memory params
-    ) external pure returns (bytes32 preConfHash, address committerAddress);
+    ) external view returns (bytes32 preConfHash, address committerAddress);
 
     /**
      * @dev Computes the index of an opened commitment.
