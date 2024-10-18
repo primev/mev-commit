@@ -6,6 +6,7 @@ deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
 skip_release_verification_flag=false
+resume_flag=false
 wallet_type=""
 chain=""
 chain_id=0
@@ -32,6 +33,7 @@ help() {
     echo
     echo "Optional Options:"
     echo "  --skip-release-verification        Skip the GitHub release verification step."
+    echo "  --resume                           Resume a failed script, where --broadcast is removed and --resume is added to the forge command."
     echo "  --help                             Display this help message."
     echo
     echo "Notes:"
@@ -130,6 +132,10 @@ parse_args() {
                 ;;
             --skip-release-verification)
                 skip_release_verification_flag=true
+                shift
+                ;;
+            --resume)
+                resume_flag=true
                 shift
                 ;;
             --keystore)
@@ -296,7 +302,13 @@ deploy_contract_generic() {
     forge_args+=("--via-ir")
     forge_args+=("--chain-id" "${chain_id}")
     forge_args+=("--use" "0.8.26")
-    forge_args+=("--broadcast")
+    
+    if [[ "$resume_flag" == true ]]; then
+        forge_args+=("--resume")
+    else
+        forge_args+=("--broadcast")
+    fi
+
     forge_args+=("--verify")
 
     if [[ "$wallet_type" == "keystore" ]]; then
