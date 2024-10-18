@@ -34,4 +34,4 @@ testnet/node*/data/state.db
 testnet/node*/data/tx_index.db
 
 # build file
-mevc
+consensus-client
