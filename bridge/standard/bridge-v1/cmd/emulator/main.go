@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -17,7 +16,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/transfer"
+	"github.com/primev/mev-commit/bridge/standard/pkg/transfer"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/prometheus/client_golang/prometheus"
@@ -150,12 +149,7 @@ func main() {
 				return fmt.Errorf("failed to create logger: %w", err)
 			}
 
-			type txtor struct {
-				pk   *ecdsa.PrivateKey
-				addr common.Address
-			}
-
-			txtors := make([]*txtor, 0)
+			txtors := make([]keysigner.KeySigner, 0)
 			for _, kp := range c.StringSlice(optionKeystorePathPassword.Name) {
 				parts := strings.Split(kp, ":")
 				if len(parts) != 2 {
@@ -165,14 +159,7 @@ func main() {
 				if err != nil {
 					return fmt.Errorf("failed creating key signer: %w", err)
 				}
-				pk, err := keySigner.GetPrivateKey()
-				if err != nil {
-					return fmt.Errorf("failed to get private key: %w", err)
-				}
-				txtors = append(txtors, &txtor{
-					pk:   pk,
-					addr: keySigner.GetAddress(),
-				})
+				txtors = append(txtors, keySigner)
 			}
 
 			registry := prometheus.NewRegistry()
@@ -216,10 +203,9 @@ func main() {
 
 				// Create and start the transfer to the settlement chain
 				tSettlement, err := transfer.NewTransferToSettlement(
-					logger.With("component", "settlement_transfer"),
 					randWeiValue,
-					txtors[0].addr,
-					txtors[0].pk,
+					txtors[0].GetAddress(),
+					txtors[0],
 					c.String(optionSettlementRPCEndpoint.Name),
 					c.String(optionL1RPCURL.Name),
 					common.HexToAddress(c.String(optionL1GatewayContractAddr.Name)),
@@ -231,24 +217,27 @@ func main() {
 					continue
 				}
 				startTime := time.Now()
-				err = tSettlement.Start(c.Context)
-				if err != nil {
-					logger.Error("failed to start transfer to settlement", "error", err)
-					bridgeFailureDurations.WithLabelValues(
-						txtors[0].addr.String(),
-						"L1->Settlement",
-					).Set(time.Since(startTime).Seconds())
-					time.Sleep(time.Minute)
-					continue
+				statusC := tSettlement.Do(c.Context)
+				for status := range statusC {
+					if status.Error != nil {
+						logger.Error("failed transfer to settlement", "error", status.Error)
+						bridgeFailureDurations.WithLabelValues(
+							txtors[0].GetAddress().String(),
+							"L1->Settlement",
+						).Set(time.Since(startTime).Seconds())
+						time.Sleep(time.Minute)
+						continue
+					}
+					logger.Info("transfer to settlement status", "message", status.Message)
 				}
 				completionTimeSec := time.Since(startTime).Seconds()
 				logger.Info("completed settlement transfer",
 					"time", completionTimeSec,
 					"amount", randWeiValue.String(),
-					"address", txtors[0].addr.String(),
+					"address", txtors[0].GetAddress().String(),
 				)
 				bridgeSuccessDurations.WithLabelValues(
-					txtors[0].addr.String(),
+					txtors[0].GetAddress().String(),
 					"L1->Settlement",
 				).Set(completionTimeSec)
 
@@ -261,10 +250,9 @@ func main() {
 
 				// Create and start the transfer back to L1 with the same amount
 				tL1, err := transfer.NewTransferToL1(
-					logger.With("component", "l1_transfer"),
 					amountBack,
-					txtors[0].addr,
-					txtors[0].pk,
+					txtors[0].GetAddress(),
+					txtors[0],
 					c.String(optionSettlementRPCEndpoint.Name),
 					c.String(optionL1RPCURL.Name),
 					common.HexToAddress(c.String(optionL1GatewayContractAddr.Name)),
@@ -276,24 +264,27 @@ func main() {
 					continue
 				}
 				startTime = time.Now()
-				err = tL1.Start(c.Context)
-				if err != nil {
-					logger.Error("failed to start transfer to L1", "error", err)
-					bridgeFailureDurations.WithLabelValues(
-						txtors[0].addr.String(),
-						"Settlement->L1",
-					).Set(time.Since(startTime).Seconds())
-					time.Sleep(time.Minute)
-					continue
+				statusC = tL1.Do(c.Context)
+				for status := range statusC {
+					if status.Error != nil {
+						logger.Error("failed transfer to L1", "error", status.Error)
+						bridgeFailureDurations.WithLabelValues(
+							txtors[0].GetAddress().String(),
+							"Settlement->L1",
+						).Set(time.Since(startTime).Seconds())
+						time.Sleep(time.Minute)
+						continue
+					}
+					logger.Info("transfer to L1 status", "message", status.Message)
 				}
 				completionTimeSec = time.Since(startTime).Seconds()
 				logger.Info("completed L1 transfer",
 					"time", completionTimeSec,
 					"amount", amountBack.String(),
-					"address", txtors[0].addr.String(),
+					"address", txtors[0].GetAddress().String(),
 				)
 				bridgeSuccessDurations.WithLabelValues(
-					txtors[0].addr.String(),
+					txtors[0].GetAddress().String(),
 					"Settlement->L1",
 				).Set(completionTimeSec)
 

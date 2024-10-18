@@ -1,18 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"slices"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/relayer"
-	"github.com/primev/mev-commit/bridge/standard/bridge-v1/pkg/util"
+	"github.com/primev/mev-commit/bridge/standard/pkg/node"
 	"github.com/primev/mev-commit/x/keysigner"
+	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )
@@ -24,16 +24,25 @@ var (
 		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_CONFIG"},
 	}
 
+	optionHTTPPort = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "http-port",
+		Usage:   "port to listen on for HTTP",
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_HTTP_PORT"},
+		Value:   8080,
+	})
+
 	optionKeystorePath = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "keystore-dir",
-		Usage:   "directory where keystore file is stored",
-		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR"},
+		Name:     "keystore-dir",
+		Usage:    "directory where keystore file is stored",
+		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR"},
+		Required: true,
 	})
 
 	optionKeystorePassword = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "keystore-password",
-		Usage:   "use to access keystore",
-		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_KEYSTORE_PASSWORD"},
+		Name:     "keystore-password",
+		Usage:    "use to access keystore",
+		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_KEYSTORE_PASSWORD"},
+		Required: true,
 	})
 
 	optionLogFmt = altsrc.NewStringFlag(&cli.StringFlag{
@@ -77,34 +86,38 @@ var (
 	})
 
 	optionL1RPCUrl = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "l1-rpc-url",
-		Usage:   "URL for L1 RPC",
-		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_L1_RPC_URL"},
+		Name:     "l1-rpc-url",
+		Usage:    "URL for L1 RPC",
+		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_L1_RPC_URL"},
+		Required: true,
 	})
 
 	optionSettlementRPCUrl = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "settlement-rpc-url",
-		Usage:   "URL for settlement RPC",
-		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL"},
-		Value:   "http://localhost:8545",
+		Name:     "settlement-rpc-url",
+		Usage:    "URL for settlement RPC",
+		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL"},
+		Required: true,
 	})
 
 	optionL1ContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "l1-contract-addr",
-		Usage:   "address of the L1 gateway contract",
-		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR"},
+		Name:     "l1-contract-addr",
+		Usage:    "address of the L1 gateway contract",
+		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_L1_CONTRACT_ADDR"},
+		Required: true,
 	})
 
 	optionSettlementContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "settlement-contract-addr",
-		Usage:   "address of the settlement gateway contract",
-		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR"},
+		Name:     "settlement-contract-addr",
+		Usage:    "address of the settlement gateway contract",
+		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR"},
+		Required: true,
 	})
 )
 
 func main() {
 	flags := []cli.Flag{
 		optionConfig,
+		optionHTTPPort,
 		optionKeystorePath,
 		optionKeystorePassword,
 		optionLogFmt,
@@ -128,7 +141,19 @@ func main() {
 		}},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigc
+		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
+		cancel()
+		<-sigc
+		fmt.Fprintln(app.Writer, "force exiting...")
+		os.Exit(1)
+	}()
+
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		fmt.Fprintf(app.Writer, "exited with error: %v\n", err)
 	}
 }
@@ -150,48 +175,20 @@ func start(c *cli.Context) error {
 		return fmt.Errorf("failed to create keystore signer: %w", err)
 	}
 
-	pk, err := signer.GetPrivateKey()
-	if err != nil {
-		return fmt.Errorf("failed to get private key: %w", err)
-	}
-
-	r, err := relayer.NewRelayer(&relayer.Options{
-		Ctx:                    c.Context,
-		Logger:                 logger.With("component", "relayer"),
-		PrivateKey:             pk,
-		L1RPCUrl:               c.String(optionL1RPCUrl.Name),
-		SettlementRPCUrl:       c.String(optionSettlementRPCUrl.Name),
-		L1ContractAddr:         common.HexToAddress(c.String(optionL1ContractAddr.Name)),
+	nd, err := node.NewNode(&node.Options{
+		Logger:                 logger,
+		HTTPPort:               c.Int(optionHTTPPort.Name),
+		Signer:                 signer,
+		L1RPCURL:               c.String(optionL1RPCUrl.Name),
+		L1GatewayContractAddr:  common.HexToAddress(c.String(optionL1ContractAddr.Name)),
+		SettlementRPCURL:       c.String(optionSettlementRPCUrl.Name),
 		SettlementContractAddr: common.HexToAddress(c.String(optionSettlementContractAddr.Name)),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create node: %w", err)
 	}
 
-	interruptSigChan := make(chan os.Signal, 1)
-	signal.Notify(interruptSigChan, os.Interrupt, syscall.SIGTERM)
+	<-c.Context.Done()
 
-	// Block until interrupt signal OR context's Done channel is closed.
-	select {
-	case <-interruptSigChan:
-	case <-c.Done():
-	}
-	logger.Info("shutting down...")
-
-	closedAllSuccessfully := make(chan struct{})
-	go func() {
-		defer close(closedAllSuccessfully)
-
-		err := r.TryCloseAll()
-		if err != nil {
-			logger.Error("failed to close all routines and db connection", "error", err)
-		}
-	}()
-	select {
-	case <-closedAllSuccessfully:
-	case <-time.After(5 * time.Second):
-		logger.Error("failed to close all in time", "error", err)
-	}
-
-	return nil
+	return nd.Close()
 }

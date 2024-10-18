@@ -17,7 +17,7 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
-    dir: ./bridge/standard/bridge-v1
+    dir: ./bridge/standard
     main: ./cmd/relayer
     binary: relayer
   - id: user_cli
@@ -33,7 +33,7 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
-    dir: ./bridge/standard/bridge-v1
+    dir: ./bridge/standard
     main: ./cmd/user_cli
     binary: user-cli
   - id: emulator
