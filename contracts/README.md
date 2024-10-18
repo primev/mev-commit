@@ -2,9 +2,7 @@
 
 ## L1 Deployer CLI
 
-The `l1-deployer-cli.sh` enables deployment of L1 contracts and publishing of artifacts. This deployment workflow is decoupled from the core mev-commit chain contracts.
-
-This cli accepts keystore (not suggested for production), ledger, or trezor wallets. The contracts must be deployed from a tagged mev-commit release, and will be verified with etherscan during deployment.
+The `l1-deployer-cli.sh` enables production deployment of L1 contracts, with publishing of source code to etherscan (see [source code verification](https://info.etherscan.com/how-to-verify-contracts/)). This deployment workflow is decoupled from the core mev-commit chain contracts. This cli accepts keystore (not suggested), ledger, or trezor wallets. Any contract must be deployed from a tagged mev-commit release, unless the `--skip-release-verification` flag is set.
 
 ### Dependencies
 
