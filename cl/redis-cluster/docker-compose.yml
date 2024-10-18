@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  redis-master:
+    image: redis:7.0
+    container_name: redis-master
+    command: redis-server /usr/local/etc/redis/redis-master.conf
+    ports:
+      - "7001:7001"
+    volumes:
+      - ./redis-master.conf:/usr/local/etc/redis/redis-master.conf
+      - redis-master-data:/data
+    networks:
+      - redis-net
+
+  redis-replica1:
+    image: redis:7.0
+    container_name: redis-replica1
+    command: redis-server /usr/local/etc/redis/redis-replica.conf
+    ports:
+      - "7002:7002"
+    depends_on:
+      - redis-master
+    volumes:
+      - ./redis-replica.conf:/usr/local/etc/redis/redis-replica.conf
+      - redis-replica1-data:/data
+    networks:
+      - redis-net
+
+  redis-replica2:
+    image: redis:7.0
+    container_name: redis-replica2
+    command: redis-server /usr/local/etc/redis/redis-replica.conf
+    ports:
+      - "7003:7002" # Exposed as 7003 on host, runs as 7002 inside container
+    depends_on:
+      - redis-master
+    volumes:
+      - ./redis-replica.conf:/usr/local/etc/redis/redis-replica.conf
+      - redis-replica2-data:/data
+    networks:
+      - redis-net
+
+networks:
+  redis-net:
+    driver: bridge
+
+volumes:
+  redis-master-data:
+  redis-replica1-data:
+  redis-replica2-data:
