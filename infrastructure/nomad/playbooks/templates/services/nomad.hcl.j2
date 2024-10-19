@@ -5,15 +5,28 @@ bind_addr = "{{ '0.0.0.0' if env == 'devenv' else '127.0.0.1' }}"
 {% if nomad_servers_defined %}
 server {
   enabled = true
-  bootstrap_expect = 1
+  bootstrap_expect = {{ groups['nomad_servers'] | length }}
   raft_protocol = 3
+  server_join {
+    retry_join = [
+      {% for server in groups['nomad_servers'] %}
+      "{{ hostvars[server].ansible_default_ipv4.address }}"
+      {% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
 }
 {% endif %}
 
 {% if nomad_clients_defined %}
 client {
   enabled = true
-  servers = ["{{ nomad_server_ip if env == 'devenv' else '127.0.0.1' }}:4647"]
+  servers = [
+    {% for server in groups['nomad_servers'] %}
+    "{{ hostvars[server].ansible_default_ipv4.address if env == 'devenv' else '127.0.0.1' }}:4647"
+    {% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
   chroot_env {
     "/bin" = "/bin"
     "/etc" = "/etc"
