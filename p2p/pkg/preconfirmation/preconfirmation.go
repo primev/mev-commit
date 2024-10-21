@@ -292,7 +292,7 @@ func (p *Preconfirmation) handleBid(
 		}
 	}()
 
-	// try to get a decision within 30secs seconds
+	// try to get a decision within 30 seconds
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
