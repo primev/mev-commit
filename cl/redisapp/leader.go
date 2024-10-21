@@ -72,7 +72,6 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 						}
 					}
 
-					time.Sleep(2 * time.Second)
 					continue
 				}
 
@@ -90,7 +89,6 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 						}
 					}
 
-					time.Sleep(2 * time.Second)
 					continue
 				}
 				l.logger.Info("Leader: Resetting state to StepBuildBlock for next block")
