@@ -292,8 +292,8 @@ func (p *Preconfirmation) handleBid(
 		}
 	}()
 
-	// try to enqueue for 5 seconds
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	// try to get a decision within 30 seconds
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	statusC, err := p.processer.ProcessBid(ctx, bid)
