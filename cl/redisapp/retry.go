@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	initialBackoff = time.Millisecond * 200 // Initial backoff duration
+	initialBackoff = 200 * time.Millisecond // Initial backoff duration
 	maxBackoff     = 30 * time.Second       // Maximum backoff duration
 )
 
