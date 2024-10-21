@@ -67,8 +67,13 @@ func TestStepsManager_startBuild(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
-
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 	feeRecipient := common.Address{} // Use zero address or a specific one if needed
 	timestamp := time.Now()
 
@@ -144,7 +149,13 @@ func TestStepsManager_getPayload(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	hash := common.BytesToHash(executionHead.BlockHash)
 	ts := uint64(time.Now().Unix())
@@ -211,7 +222,13 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	payloadIDStr := "payloadID123"
 
@@ -284,7 +301,13 @@ func TestStepsManager_startBuild_LoadExecutionHeadError(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	feeRecipient := common.Address{}
 	timestamp := time.Now()
@@ -315,7 +338,13 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	feeRecipient := common.Address{}
 	timestamp := time.Now()
@@ -367,7 +396,13 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	feeRecipient := common.Address{}
 	timestamp := time.Now()
@@ -413,7 +448,13 @@ func TestStepsManager_getPayload_startBuildFails(t *testing.T) {
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
 
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	executionHeadKey := "executionHead:instanceID123"
 	redisMock.ExpectGet(executionHeadKey).SetErr(errors.New("redis error"))
@@ -443,7 +484,13 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
 
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	hash := common.BytesToHash(executionHead.BlockHash)
 	ts := uint64(time.Now().Unix())
@@ -499,7 +546,13 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	payloadIDStr := "payloadID123"
 	executionPayload := &engine.ExecutableData{
@@ -547,7 +600,13 @@ func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	payloadIDStr := "payloadID123"
 	executionPayload := engine.ExecutableData{
@@ -602,7 +661,13 @@ func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	payloadIDStr := "payloadID123"
 	executionPayload := engine.ExecutableData{
@@ -668,7 +733,13 @@ func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := NewStepsManager(ctx, stateManager, mockEngineClient, stLog, time.Duration(1*time.Second))
+	stepsManager := &StepsManager{
+		stateManager: stateManager,
+		engineCl:     mockEngineClient,
+		buildDelay:   time.Duration(1*time.Second),
+		logger:       stLog,
+		ctx:          ctx,
+	}
 
 	payloadIDStr := "payloadID123"
 	executionPayload := engine.ExecutableData{

@@ -26,16 +26,6 @@ type StepsManager struct {
 	ctx          context.Context
 }
 
-func NewStepsManager(ctx context.Context, stateManager StateManager, engineCl EngineClient, logger Logger, buildDelay time.Duration) *StepsManager {
-	return &StepsManager{
-		stateManager: stateManager,
-		engineCl:     engineCl,
-		buildDelay:   buildDelay,
-		logger:       logger,
-		ctx:          ctx,
-	}
-}
-
 func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Address, timestamp time.Time) (engine.ForkChoiceResponse, error) {
 	head, err := s.stateManager.LoadExecutionHead(ctx)
 	if err != nil {

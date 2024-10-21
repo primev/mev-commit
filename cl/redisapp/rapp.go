@@ -92,7 +92,13 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	var wg sync.WaitGroup
 
-	stepsManager := NewStepsManager(ctx, stateManager, engineCL, logger, buildDelay)
+	stepsManager := &StepsManager{
+		ctx:          ctx,
+		stateManager: stateManager,
+		engineCl:     engineCL,
+		logger:       logger,
+		buildDelay:   buildDelay,
+	}
 
 	follower := &Follower{
 		InstanceID:   instanceID,

@@ -3,7 +3,6 @@ package redisapp
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/primev/mev-commit/cl/redisapp/types"
 )

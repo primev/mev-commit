@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/heyvito/go-leader/leader"
 	"github.com/primev/mev-commit/cl/redisapp/types"
