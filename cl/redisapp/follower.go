@@ -61,7 +61,6 @@ func (f *Follower) followerLoop(ctx context.Context) {
 			messages, err := f.stateManager.ReadMessagesFromStream(ctx, types.RedisMsgTypePending)
 			if err != nil {
 				f.logger.Error("Error reading pending messages", "error", err)
-				time.Sleep(100 * time.Millisecond)
 				f.fMutex.Unlock()
 				continue
 			}
@@ -71,7 +70,6 @@ func (f *Follower) followerLoop(ctx context.Context) {
 				messages, err = f.stateManager.ReadMessagesFromStream(ctx, types.RedisMsgTypeNew)
 				if err != nil {
 					f.logger.Error("Error reading new messages", "error", err)
-					time.Sleep(100 * time.Millisecond)
 					f.fMutex.Unlock()
 					continue
 				}
