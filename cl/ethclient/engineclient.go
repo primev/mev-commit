@@ -58,7 +58,7 @@ type engineClient struct {
 }
 
 // NewAuthClient returns a new authenticated JSON-RPc engineClient.
-func NewAuthClient(ctx context.Context, urlAddr string, jwtSecret []byte) (EngineClient, error) {
+func NewAuthClient(ctx context.Context, urlAddr string, jwtSecret []byte) (engineClient, error) {
 	transport := http.DefaultTransport
 	if len(jwtSecret) > 0 {
 		transport = newJWTRoundTripper(http.DefaultTransport, jwtSecret)
