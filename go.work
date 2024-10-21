@@ -2,7 +2,6 @@ go 1.23
 
 use (
 	./bridge/standard/bridge-v1
-	./cl
 	./contracts-abi
 	./infrastructure/tools/keystore-generator
 	./oracle
