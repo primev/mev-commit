@@ -21,26 +21,6 @@ type Leader struct {
 	logger         Logger
 }
 
-func NewLeader(
-	ctx context.Context,
-	instanceID string,
-	wg *sync.WaitGroup,
-	stateManager StateManager,
-	stepsManager *StepsManager,
-	leaderElection leader.Leader,
-	logger Logger,
-) *Leader {
-	return &Leader{
-		ctx:            ctx,
-		InstanceID:     instanceID,
-		wg:             wg,
-		stateManager:   stateManager,
-		stepsManager:   stepsManager,
-		leaderElection: leaderElection,
-		logger:         logger,
-	}
-}
-
 func (l *Leader) startLeaderLoop() {
 	l.logger.Info("Starting leader loop")
 	leaderCtx, leaderCancel := context.WithCancel(l.ctx)

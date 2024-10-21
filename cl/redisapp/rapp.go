@@ -94,10 +94,25 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	stepsManager := NewStepsManager(ctx, stateManager, engineCL, logger, buildDelay)
 
-	follower := NewFollower(ctx, instanceID, &wg, stateManager, stepsManager, logger)
+	follower := &Follower{
+		InstanceID:   instanceID,
+		wg:           &wg,
+		stateManager: stateManager,
+		stepsManager: stepsManager,
+		logger:       logger,
+		ctx:          ctx,
+	}
 
-	leader := NewLeader(ctx, instanceID, &wg, stateManager, stepsManager, procLeader, logger)
-
+	leader := &Leader{
+		ctx:            ctx,
+		InstanceID:     instanceID,
+		wg:             &wg,
+		stateManager:   stateManager,
+		stepsManager:   stepsManager,
+		leaderElection: procLeader,
+		logger:         logger,
+	}
+	
 	// Initialize LeaderElectionHandler
 	leaderElectionHandler := NewLeaderElectionHandler(
 		ctx,

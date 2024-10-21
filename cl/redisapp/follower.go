@@ -22,22 +22,6 @@ type Follower struct {
 	syncWaitChannel chan struct{}
 }
 
-func NewFollower(ctx context.Context,
-	instanceID string,
-	wg *sync.WaitGroup,
-	stateManager StateManager,
-	stepsManager *StepsManager,
-	logger Logger) *Follower {
-	return &Follower{
-		InstanceID:   instanceID,
-		wg:           wg,
-		stateManager: stateManager,
-		stepsManager: stepsManager,
-		logger:       logger,
-		ctx:          ctx,
-	}
-}
-
 func (f *Follower) startFollowerLoop() {
 	f.logger.Info("Starting follower loop")
 	followerCtx, followerCancel := context.WithCancel(f.ctx)
