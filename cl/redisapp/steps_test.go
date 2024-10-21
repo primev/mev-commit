@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/primev/mev-commit/cl/logger"
 	"github.com/primev/mev-commit/cl/mocks"
 	"github.com/primev/mev-commit/cl/redisapp/types"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -25,7 +25,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var stLog = &logger.LogrusWrapper{Logger: logrus.New()}
+var handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	Level: slog.LevelInfo,
+})
+var stLog = slog.New(handler)
 
 type MockEngineClient struct {
 	mock.Mock

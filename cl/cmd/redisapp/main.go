@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/primev/mev-commit/cl/logger"
-	redisapp "github.com/primev/mev-commit/cl/redisapp"
-	"github.com/sirupsen/logrus"
+	"github.com/primev/mev-commit/cl/redisapp"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
 )
@@ -26,13 +25,10 @@ type Config struct {
 
 func main() {
 	// Initialize the logger
-	baseLogger := logrus.New()
-	baseLogger.SetLevel(logrus.InfoLevel)
-	baseLogger.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
 	})
-
-	log := &logger.LogrusWrapper{Logger: baseLogger}
+	log := slog.New(handler)
 
 	// Define flags
 	flags := []cli.Flag{
@@ -108,7 +104,7 @@ func main() {
 	}
 }
 
-func startApplication(c *cli.Context, log *logger.LogrusWrapper) error {
+func startApplication(c *cli.Context, log *slog.Logger) error {
 	// Load configuration
 	cfg := Config{
 		InstanceID:       c.String("instance-id"),
