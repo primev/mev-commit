@@ -70,7 +70,7 @@ func TestStepsManager_startBuild(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -152,7 +152,7 @@ func TestStepsManager_getPayload(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -225,7 +225,7 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -304,7 +304,7 @@ func TestStepsManager_startBuild_LoadExecutionHeadError(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -341,7 +341,7 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -399,7 +399,7 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -451,7 +451,7 @@ func TestStepsManager_getPayload_startBuildFails(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -487,7 +487,7 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -549,7 +549,7 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -603,7 +603,7 @@ func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -664,7 +664,7 @@ func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}
@@ -736,7 +736,7 @@ func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 	stepsManager := &StepsManager{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
-		buildDelay:   time.Duration(1*time.Second),
+		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
 		ctx:          ctx,
 	}

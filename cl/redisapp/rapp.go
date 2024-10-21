@@ -118,7 +118,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		leaderElection: procLeader,
 		logger:         logger,
 	}
-	
+
 	// Initialize LeaderElectionHandler
 	leaderElectionHandler := NewLeaderElectionHandler(
 		ctx,
