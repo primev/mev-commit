@@ -82,7 +82,7 @@ func (f *Follower) followerLoop(ctx context.Context) {
 				select {
 				case f.syncWaitChannel <- struct{}{}:
 					f.logger.Info("follower is synced")
-				case <-f.ctx.Done():
+				case <-ctx.Done():
 					f.logger.Info("ctx done")
 				}
 				f.syncWaitChannel = nil
