@@ -1,0 +1,21 @@
+FROM golang:1.23.0-alpine AS builder
+
+WORKDIR /app
+
+COPY oracle/go.mod oracle/go.sum /app/oracle/
+COPY x/go.mod x/go.sum /app/x/
+COPY contracts-abi/go.mod contracts-abi/go.sum /app/contracts-abi/
+
+RUN cd /app/oracle && go mod download
+RUN cd /app/x && go mod download
+RUN cd /app/contracts-abi && go mod download
+
+COPY . .
+
+RUN go build -o /app/mev-commit-oracle ./oracle/cmd
+
+FROM alpine:3.10
+
+COPY --from=builder /app/mev-commit-oracle /usr/local/bin/mev-commit-oracle
+
+ENTRYPOINT ["mev-commit"]
