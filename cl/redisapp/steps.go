@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -169,8 +171,30 @@ func (s *StepsManager) processLastPayload(ctx context.Context) error {
 		_, err := retryWithInfiniteBackoffWithMutex(ctx, &mtx, func() (bool, error) {
 			err := s.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
 			if err != nil {
-				s.logger.Warn("Follower: Failed to finalize block, retrying...", "error", err)
-				return false, nil
+				re := regexp.MustCompile(`invalid block height: (\d+), expected: (\d+)`)
+				matches := re.FindStringSubmatch(err.Error())
+				// handling edge, if leader fails to reset state, but already pushed his block to the EVM
+				if len(matches) == 3 {
+					invalidHeight, err1 := strconv.Atoi(matches[1])
+					expectedHeight, err2 := strconv.Atoi(matches[2])
+
+					if err1 == nil && err2 == nil {
+						if invalidHeight == expectedHeight-1 {
+							s.logger.Warn("Follower: Block already pushed to EVM, resetting state to StepBuildBlock")
+							return true, nil
+						} else {
+							s.logger.Warn("Follower: Invalid block height, exit", "invalid_height", invalidHeight, "expected_height", expectedHeight)
+							return false, err
+						}
+					} else {
+						// impossible to reach, unless geth will change the error message response
+						s.logger.Warn("conversion error", "error1", err1, "error2", err2)
+						return false, fmt.Errorf("conversion error1: %w, error2: %w", err1, err2)
+					}
+				} else {
+					s.logger.Warn("Follower: Failed to finalize block, retrying...", "error", err)
+					return false, nil
+				}
 			}
 			return true, nil
 		})
