@@ -136,17 +136,8 @@ func startApplication(c *cli.Context, log *slog.Logger) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-signalChan
-		log.Info("Received shutdown signal")
-		cancel()
-	}()
+	ctx, stop := signal.NotifyContext(c.Context, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	<-ctx.Done()
 
