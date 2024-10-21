@@ -18,4 +18,4 @@ FROM alpine:3.10
 
 COPY --from=builder /app/mev-commit-oracle /usr/local/bin/mev-commit-oracle
 
-ENTRYPOINT ["mev-commit-oracle"]
+ENTRYPOINT ["mev-commit-oracle", "start"]
