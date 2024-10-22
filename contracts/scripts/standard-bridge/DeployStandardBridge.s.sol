@@ -9,7 +9,6 @@ import {Script} from "forge-std/Script.sol";
 import {SettlementGateway} from "../../contracts/standard-bridge/SettlementGateway.sol";
 import {L1Gateway} from "../../contracts/standard-bridge/L1Gateway.sol";
 import {Allocator} from "../../contracts/standard-bridge/Allocator.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {console} from "forge-std/console.sol";
 
