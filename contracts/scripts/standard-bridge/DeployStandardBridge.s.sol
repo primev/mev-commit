@@ -24,7 +24,7 @@ contract BridgeBase is Script {
     // AND initially fund the relayer, all on mev-commit chain.
     // This amount of ETH must be initially locked in the L1 gateway contract to ensure a 1:1 peg
     // between mev-commit chain ETH and L1 ETH.
-    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING; 
+    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING;
 
     // Amount of ETH required on L1 to initialize the L1 gateway, make transfer calls, and initially fund the relayer on L1.
     uint256 public constant L1_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING;
@@ -34,17 +34,17 @@ contract BridgeBase is Script {
     error SettlementFinalizationFeeNotSet(uint256 fee);
     error FailedToSendETHToRelayer(address addr);
 
-    function _getRelayerAddress() internal returns (address relayerAddr) {
+    function _getRelayerAddress() internal view returns (address relayerAddr) {
         relayerAddr = vm.envAddress("RELAYER_ADDRESS");
         require(relayerAddr != address(0), RelayerAddressNotSet(relayerAddr));
     }
 
-    function _getL1FinalizationFee() internal returns (uint256 l1FinalizationFee) {
+    function _getL1FinalizationFee() internal view returns (uint256 l1FinalizationFee) {
         l1FinalizationFee = vm.envUint("L1_FINALIZATION_FEE");
         require(l1FinalizationFee != 0, L1FinalizationFeeNotSet(l1FinalizationFee));
     }
 
-    function _getSettlementFinalizationFee() internal returns (uint256 settlementFinalizationFee) {
+    function _getSettlementFinalizationFee() internal view returns (uint256 settlementFinalizationFee) {
         settlementFinalizationFee = vm.envUint("SETTLEMENT_FINALIZATION_FEE");
         require(settlementFinalizationFee != 0, SettlementFinalizationFeeNotSet(settlementFinalizationFee));
     }
@@ -62,16 +62,16 @@ contract DeploySettlementGateway is BridgeBase {
         uint256 l1FinalizationFee = _getL1FinalizationFee();
         uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
 
-        require(address(msg.sender).balance >= DEPLOYER_GENESIS_ALLOCATION, 
+        require(address(msg.sender).balance >= DEPLOYER_GENESIS_ALLOCATION,
             DeployerMustHaveGenesisAllocation(address(msg.sender).balance, DEPLOYER_GENESIS_ALLOCATION));
 
         address allocatorProxy = Upgrades.deployUUPSProxy(
             "Allocator.sol",
             abi.encodeCall(Allocator.initialize,
-            (msg.sender)) // Owner
+                (msg.sender)) // Owner
         );
         Allocator allocator = Allocator(payable(allocatorProxy));
-        console.log("Allocator deployed to:", address(allocator));
+        console.log("_Allocator:", address(allocator));
 
         (bool success, ) = payable(address(allocator)).call{value: DEPLOYER_GENESIS_ALLOCATION - MEV_COMMIT_CHAIN_SETUP_COST}("");
         require(success, FailedToFundAllocator(address(allocator)));
@@ -79,27 +79,16 @@ contract DeploySettlementGateway is BridgeBase {
         address sgProxy = Upgrades.deployUUPSProxy(
             "SettlementGateway.sol",
             abi.encodeCall(SettlementGateway.initialize,
-            (allocatorProxy,
-            msg.sender, // Owner
-            relayerAddr,
-            settlementFinalizationFee, // SettlementGateway._finalizationFee
-            l1FinalizationFee)) // SettlementGateway._counterpartyFee
+                (allocatorProxy,
+                    msg.sender, // Owner
+                    relayerAddr,
+                    settlementFinalizationFee, // SettlementGateway._finalizationFee
+                    l1FinalizationFee)) // SettlementGateway._counterpartyFee
         );
         SettlementGateway settlementGateway = SettlementGateway(payable(sgProxy));
-        console.log("Standard bridge gateway for settlement chain deployed to:",
-            address(settlementGateway));
+        console.log("SettlementGateway:", address(settlementGateway));
 
         allocator.addToWhitelist(address(settlementGateway));
-        console.log("Settlement gateway has been whitelisted");
-
-        string memory jsonOutput = string.concat(
-            "{'settlement_gateway_addr': '",
-            Strings.toHexString(address(settlementGateway)),
-            "', 'allocator_addr': '",
-            Strings.toHexString(address(allocator)),
-            "'}"
-        );
-        console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput); 
 
         (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
@@ -125,27 +114,20 @@ contract DeployL1Gateway is BridgeBase {
         // Caller needs funds to lock ETH w.r.t mev-commit chain setup cost, and ETH for L1 setup cost.
         require(address(msg.sender).balance >= MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST,
             DeployerMustHaveEnoughFunds(address(msg.sender).balance, MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST));
-        
+
         address l1gProxy = Upgrades.deployUUPSProxy(
             "L1Gateway.sol",
             abi.encodeCall(L1Gateway.initialize,
-            (owner, // Owner
-            relayerAddr,
-            l1FinalizationFee, // L1Gateway._finalizationFee
-            settlementFinalizationFee)) // L1Gateway._counterpartyFee
+                (owner, // Owner
+                    relayerAddr,
+                    l1FinalizationFee, // L1Gateway._finalizationFee
+                    settlementFinalizationFee)) // L1Gateway._counterpartyFee
         );
         L1Gateway l1Gateway = L1Gateway(payable(l1gProxy));
-        console.log("Standard bridge gateway for l1 deployed to:", address(l1Gateway));
+        console.log("L1Gateway:", address(l1Gateway));
 
         (bool success, ) = payable(address(l1Gateway)).call{value: MEV_COMMIT_CHAIN_SETUP_COST}("");
         require(success, FailedToFundL1Gateway(address(l1Gateway)));
-
-        string memory jsonOutput = string.concat(
-            "{'l1_gateway_addr': '",
-            Strings.toHexString(address(l1Gateway)),
-            "'}"
-        );
-        console.log("JSON_DEPLOY_ARTIFACT:", jsonOutput);
 
         (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
@@ -153,7 +135,7 @@ contract DeployL1Gateway is BridgeBase {
         vm.stopBroadcast();
     }
 
-    function _getL1OwnerAddress() internal returns (address ownerAddr) {
+    function _getL1OwnerAddress() internal view returns (address ownerAddr) {
         ownerAddr = vm.envAddress("L1_OWNER_ADDRESS");
         require(ownerAddr != address(0), L1OwnerAddressNotSet(ownerAddr));
     }
