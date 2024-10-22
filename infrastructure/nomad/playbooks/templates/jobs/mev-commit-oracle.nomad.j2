@@ -307,7 +307,7 @@ job "{{ job.name }}" {
 
           if ! timeout 5m bash -c 'until pg_isready -h ${MEV_ORACLE_PG_HOST} -p ${MEV_ORACLE_PG_PORT} -U ${MEV_ORACLE_PG_USER} -d ${MEV_ORACLE_PG_DBNAME}; do sleep 1; done'; then
             echo "Waiting for PostgreSQL to start..."
-            sleep 1
+            sleep 3
           fi
 
           chmod +x local/mev-commit-oracle
