@@ -51,6 +51,11 @@ job "{{ job.name }}" {
     task "contracts" {
       driver = "exec"
 
+      resources {
+        cpu = 4000
+        memory = 2048
+      }
+
       {% for port_name in job.ports[0] %}
       service {
         name = "{{ job.name }}"
@@ -92,6 +97,8 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
+          L1_FINALIZATION_FEE="1"
+          SETTLEMENT_FINALIZATION_FEE="1"
           XDG_CONFIG_HOME="local/.config"
           {%- raw %}
           {{- range nomadService "mev-commit-geth-bootnode1" }}
@@ -104,7 +111,7 @@ job "{{ job.name }}" {
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
           {% endraw %}
           CHAIN_ID="{{ job.env['chain-id'] }}"
-          SCRIPT_PATH_PREFIX="local/contracts/scripts/"
+          SCRIPT_PATH_PREFIX="local/contracts/scripts"
           CONTRACT_REPO_ROOT_PATH="local/contracts"
         EOH
         destination = "secrets/.env"
@@ -142,17 +149,18 @@ job "{{ job.name }}" {
           chmod +x local/foundry.sh && local/foundry.sh
           chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
           export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
+          chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
+          echo ""
 
           start_time=$(date +%s)
-          echo "Deploying contracts..."
           export DEPLOY_TYPE="core"
+          echo "Deploying ${DEPLOY_TYPE} contracts..."
           {% raw %}
             {{ with secret "secret/data/mev-commit" }}
           echo '{{ .Data.data.oracle_keystore }}' > local/oracle_keystore
             {{ end }}
           {% endraw %}
           export ORACLE_KEYSTORE_ADDRESS=$(jq -r '.address' local/oracle_keystore)
-          chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
             echo "Failed to deploy contracts!"
@@ -160,16 +168,62 @@ job "{{ job.name }}" {
           fi
           end_time=$(date +%s)
           echo "Contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
-          echo "${LOGS}"
-
-          # TODO: this is a workaround to get the contract addresses, remove this once create3 is used.
-          TRANSACTIONS="${CONTRACT_REPO_ROOT_PATH}/broadcast/DeployCore.s.sol/{{ job.env['chain-id'] }}/run-latest.json"
-          mkdir -p /local/www > /dev/null 2>&1
           echo "${LOGS}" \
           | sed -n '/{.*}/p' \
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
-          > local/www/contracts.json
+          > local/${DEPLOY_TYPE}_addresses.json
+
+          forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
+
+          start_time=$(date +%s)
+          export DEPLOY_TYPE="settlement-gateway"
+          echo "Deploying ${DEPLOY_TYPE} contracts..."
+          {% raw %}
+            {{ with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.bridge_relayer_keystore }}' > local/bridge_relayer_keystore
+            {{ end }}
+          {% endraw %}
+          export RELAYER_ADDRESS=$(jq -r '.address' local/bridge_relayer_keystore)
+          LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
+          if [ $? -ne 0 ]; then
+            echo "Failed to deploy contracts!"
+            exit 1
+          fi
+          end_time=$(date +%s)
+          echo "Contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
+          echo "${LOGS}" \
+          | sed -n '/{.*}/p' \
+          | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
+          | jq -c 'with_entries(select(.key | startswith("_") | not))' \
+          > local/${DEPLOY_TYPE}_addresses.json
+
+          forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
+
+          start_time=$(date +%s)
+          export DEPLOY_TYPE="l1-gateway"
+          echo "Deploying ${DEPLOY_TYPE} contracts..."
+          {% raw %}
+            {{ with secret "secret/data/mev-commit" }}
+          echo '{{ .Data.data.bridge_relayer_keystore }}' > local/bridge_relayer_keystore
+            {{ end }}
+          {% endraw %}
+          export L1_OWNER_ADDRESS=${SENDER} // TODO: this should be a multisig address on mainnet.
+          LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
+          if [ $? -ne 0 ]; then
+            echo "Failed to deploy contracts!"
+            exit 1
+          fi
+          end_time=$(date +%s)
+          echo "Contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
+          echo "${LOGS}" \
+          | sed -n '/{.*}/p' \
+          | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
+          | jq -c 'with_entries(select(.key | startswith("_") | not))' \
+          > local/${DEPLOY_TYPE}_addresses.json
+
+          mkdir -p /local/www > /dev/null 2>&1
+          jq -s 'add' local/*_addresses.json > local/www/contracts.json
 
           exec python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/www
           # endtodo

@@ -65,7 +65,6 @@ job "{{ job.name }}" {
         data = <<-EOH
           {% raw %}
           GETH_BIN="local/geth-linux-{% endraw %}{{ 'amd64' if target_system_architecture == 'x86_64' else 'arm64' }}{% raw %}-1.14.11-f3c696fa/geth"
-          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
           {% endraw %}
         EOH
         destination = "secrets/.env"
