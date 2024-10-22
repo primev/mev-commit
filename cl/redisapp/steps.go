@@ -35,7 +35,7 @@ func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Addre
 	}
 
 	// Use provided time as timestamp for the next block.
-	ts := uint64(timestamp.Unix())
+	ts := uint64(timestamp.UnixMilli())
 	if ts <= head.BlockTime {
 		ts = head.BlockTime + 1 // Subsequent blocks must have a higher timestamp.
 	}
