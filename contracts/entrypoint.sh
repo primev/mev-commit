@@ -7,7 +7,7 @@ DEPLOY_TYPE=${DEPLOY_TYPE:-core}
 FORGE_BIN_PATH=${FORGE_BIN_PATH:-forge}
 
 # Define the script path prefix, default to 'scripts/' if not provided
-SCRIPT_PATH_PREFIX=${SCRIPT_PATH_PREFIX:-scripts/}
+SCRIPT_PATH_PREFIX=${SCRIPT_PATH_PREFIX:-scripts}
 
 KEYSTORE_DIR=${KEYSTORE_DIR:-"$PWD/deployer_keystore"}
 KEYSTORE_FILENAME=${KEYSTORE_FILENAME:-*}
@@ -22,7 +22,7 @@ if [ "${DEPLOY_TYPE}" = "core" ]; then
     echo "Deploying core contracts in testnet environment"
     ORACLE_KEYSTORE_ADDRESS="$ORACLE_KEYSTORE_ADDRESS" \
     "${FORGE_BIN_PATH}" script \
-        "${SCRIPT_PATH_PREFIX}"core/DeployCore.s.sol:DeployTestnet \
+        "${SCRIPT_PATH_PREFIX}/core/DeployCore.s.sol:DeployTestnet" \
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --priority-gas-price 2000000000 \
         --with-gas-price 5000000000 \
@@ -31,10 +31,39 @@ if [ "${DEPLOY_TYPE}" = "core" ]; then
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \
         --sender "${SENDER}" \
-        --skip-simulation \
         --use 0.8.26 \
         --broadcast \
-        --force \
         --json \
         --via-ir
-fi 
+elif [ "${DEPLOY_TYPE}" = "settlement-gateway" ]; then
+    echo "Deploying gateway contract on settlement chain"
+    "${FORGE_BIN_PATH}" script \
+        "${SCRIPT_PATH_PREFIX}/standard-bridge/DeployStandardBridge.s.sol:DeploySettlementGateway" \
+        --root "${CONTRACT_REPO_ROOT_PATH}" \
+        --priority-gas-price 2000000000 \
+        --with-gas-price 5000000000 \
+        --chain-id "${CHAIN_ID}" \
+        --rpc-url "${RPC_URL}" \
+        --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
+        --password "${KEYSTORE_PASSWORD}" \
+        --sender "${SENDER}" \
+        --use 0.8.26 \
+        --broadcast \
+        --json \
+        --via-ir
+elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
+    "${FORGE_BIN_PATH}" script \
+        "${SCRIPT_PATH_PREFIX}/standard-bridge/DeployStandardBridge.s.sol:DeployL1Gateway" \
+        --root "${CONTRACT_REPO_ROOT_PATH}" \
+        --priority-gas-price 2000000000 \
+        --with-gas-price 5000000000 \
+        --rpc-url "${RPC_URL}" \
+        --chain-id "${CHAIN_ID}" \
+        --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
+        --password "${KEYSTORE_PASSWORD}" \
+        --sender "${SENDER}" \
+        --use 0.8.26 \
+        --broadcast \
+        --json \
+        --via-ir
+fi
