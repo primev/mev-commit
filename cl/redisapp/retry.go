@@ -46,10 +46,10 @@ func retryWithInfiniteBackoff(ctx context.Context, operation func() (bool, error
 			if err != nil {
 				log.Printf("Operation failed (attempt %d): %v.", attempt+1, err)
 				return false, err
-			} else {
-				log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
-			}
-
+			} 
+			
+			log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
+			
 			time.Sleep(backoff(attempt))
 		}
 	}
@@ -73,9 +73,9 @@ func retryWithLimitedAttempts(ctx context.Context, operation func() (bool, error
 			if err != nil {
 				log.Printf("Operation failed (attempt %d): %v.", attempt+1, err)
 				return false, err
-			} else {
-				log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
 			}
+
+			log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
 
 			time.Sleep(backoff(attempt))
 		}
@@ -103,10 +103,10 @@ func retryWithInfiniteBackoffWithMutex(ctx context.Context, mtx *sync.Mutex, ope
 			if err != nil {
 				log.Printf("Operation failed (attempt %d): %v.", attempt+1, err)
 				return false, err
-			} else {
-				log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
 			}
-
+				
+			log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
+			
 			time.Sleep(backoff(attempt))
 		}
 	}
