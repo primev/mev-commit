@@ -305,7 +305,7 @@ job "{{ job.name }}" {
           export MEV_ORACLE_PG_PASSWORD="${POSTGRES_PASSWORD}"
           export MEV_ORACLE_PG_DBNAME="${POSTGRES_DB}"
 
-          if ! timeout 5m bash -c 'until pg_isready -h ${MEV_ORACLE_PG_HOST} -p ${MEV_ORACLE_PG_PORT} -U ${MEV_ORACLE_PG_USER} -d ${MEV_ORACLE_PG_DBNAME}; do sleep 1; done'; then
+          if ! timeout 5m bash -c 'until pg_isready -h ${MEV_ORACLE_PG_HOST} -p ${MEV_ORACLE_PG_PORT} -U ${MEV_ORACLE_PG_USER} -d ${MEV_ORACLE_PG_DBNAME}; do sleep 2; done'; then
             echo "Waiting for PostgreSQL to start..."
             sleep 3
           fi

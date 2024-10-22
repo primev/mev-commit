@@ -1,4 +1,5 @@
 datacenter: "dc1"
+resolved_l1_rpc_urls: "{{ ('http://' ~ ansible_facts['default_ipv4']['address'] ~ ':9545') if l1_rpc_urls == 'mock' else l1_rpc_urls }}"
 
 artifacts:
   bidder_emulator: &bidder_emulator_artifact
@@ -504,7 +505,7 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_emulator_nodes: &mev_commit_bidder_emulator_nodes_job
@@ -521,7 +522,7 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_oracle: &mev_commit_oracle_job
     name: mev-commit-oracle
@@ -546,7 +547,7 @@ jobs:
         metrics:
           to: 8080
     env:
-      l1_rpc_urls: "{{ l1_rpc_urls }}"
+      l1_rpc_urls: "{{ resolved_l1_rpc_urls }}"
 
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
@@ -559,7 +560,7 @@ jobs:
           to: 8080
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
-      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_faucet: &mev_commit_faucet_job
     name: mev-commit-faucet

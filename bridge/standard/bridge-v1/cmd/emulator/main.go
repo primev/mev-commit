@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"slices"
 	"strings"
 	"syscall"
@@ -160,7 +161,7 @@ func main() {
 				if len(parts) != 2 {
 					return fmt.Errorf("invalid keystore-path-password format: %s", kp)
 				}
-				keySigner, err := keysigner.NewKeystoreSigner(parts[0], parts[1])
+				keySigner, err := keysigner.NewKeystoreSigner(path.Dir(parts[0]), parts[1])
 				if err != nil {
 					return fmt.Errorf("failed creating key signer: %w", err)
 				}
