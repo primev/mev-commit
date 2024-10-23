@@ -106,6 +106,8 @@ contract DeployTestnet is Script {
 
         (bool success, ) = payable(oracleKeystoreAddress).call{value: ORACLE_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToOracle(oracleKeystoreAddress));
+        
+        blockTracker.setProviderRegistry(address(providerRegistry));
 
         vm.stopBroadcast();
     }
