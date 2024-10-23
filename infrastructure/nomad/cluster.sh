@@ -10,7 +10,6 @@ no_logs_collection_flag=false
 force_build_templates_flag=false
 skip_certificates_setup_flag=false
 release_flag=false
-backup_flag=false
 deploy_version="HEAD"
 environment_name="devenv"
 profile_name="devnet"
@@ -24,7 +23,7 @@ help() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
     echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
-    echo "$0 [destroy [--backup] [--debug]]"
+    echo "$0 [destroy [--environment <name=devenv>] [--debug]]"
     echo "$0 --help"
     echo
     echo "Parameters:"
@@ -46,39 +45,16 @@ help() {
     echo "    --release                            It will ignore the specified deployment version and use the current HEAD tag as the build version."
     echo "    --debug                              Enable debug mode for detailed output."
     echo
-    echo "  destroy    Destroy the whole cluster."
-    echo "    --backup  Create a backup before destroying the environment."
-    echo "    --debug   Enable debug mode for detailed output."
+    echo "  destroy [--environment <name=devenv>] [--debug]"
+    echo "    Destroy the whole cluster."
+    echo "    --environment <name=devenv>  Specify the environment to use (default is devenv)."
+    echo "    --debug                      Enable debug mode for detailed output."
     echo
     echo "  --help  Display this help message."
     echo
     echo "Examples:"
-    echo "  Initialize with default environment and profile:"
-    echo "    $0 init"
-    echo
-    echo "  Initialize with a specific environment and profile:"
-    echo "    $0 init --environment devenv --profile testnet"
-    echo
-    echo "  Initialize with a specific environment, profile and skip certificates setup:"
-    echo "    $0 init --environment devenv --profile testnet --skip-certificates-setup"
-    echo
-    echo "  Initialize with a specific environment, profile in debug mode:"
-    echo "    $0 init --environment devenv --profile testnet --debug"
-    echo
-    echo "  Deploy the current vcs version, environment and profile:"
-    echo "    $0 deploy"
-    echo
-    echo "  Deploy with a specific version, environment and profile:"
-    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet"
-    echo
-    echo "  Deploy with a specific version, environment, profile and force to build all job templates:"
-    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --force-build-templates"
-    echo
-    echo "  Deploy with a specific version, environment, profile in debug mode with disabled logs collection, Datadog API key, L1 RPC URL, OpenTelemetry Collector Endpoint URL, genesis file URL, and Geth bootnode URL:"
-    echo "    $0 deploy v0.1.0 --environment devenv --profile testnet --no-logs-collection --datadog-key your_datadog_key --l1-rpc-urls your_rpc_urls --otel-collector-endpoint-url your_otel_url --genesis-file-url your_genesis_file_url --geth-bootnode-url your_geth_bootnode_url --debug"
-    echo
-    echo "  Destroy all jobs but backup before do so:"
-    echo "    $0 destroy --backup --debug"
+    echo "  Destroy all jobs with a specific environment in debug mode:"
+    echo "    $0 destroy --environment devenv --debug"
     exit 1
 }
 
@@ -86,7 +62,7 @@ usage() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
     echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
-    echo "$0 [destroy [--backup] [--debug]]"
+    echo "$0 [destroy [--environment <name=devenv>] [--debug]]"
     echo "$0 --help"
     exit 1
 }
@@ -268,9 +244,14 @@ parse_args() {
             destroy)
                 destroy_flag=true
                 shift
-                if [[ $# -gt 0 && $1 == "--backup" ]]; then
-                    backup_flag=true
-                    shift
+                if [[ $# -gt 0 && $1 == "--environment" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        environment_name="$2"
+                        shift 2
+                    else
+                        echo "Error: --environment requires a value."
+                        usage
+                    fi
                 fi
                 if [[ $# -gt 0 && $1 == "--debug" ]]; then
                     debug_flag=true
@@ -319,7 +300,6 @@ main() {
             ;;
         "${destroy_flag}")
             playbook+="destroy.yml"
-            [[ "${backup_flag}" == true ]] && flags+=("--extra-vars" "backup=true")
             ;;
         *)
             usage

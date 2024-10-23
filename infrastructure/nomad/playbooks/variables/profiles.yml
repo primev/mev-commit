@@ -23,6 +23,9 @@ artifacts:
   p2p: &p2p_artifact
     type: binary
     path: p2p
+  dashboard: &dashboard_artifact
+    type: binary
+    path: tools/dashboard
 
 jobs:
   artifacts: &artifacts_job
@@ -155,6 +158,22 @@ jobs:
     env:
       chain-id: "{{ environments[env].chain_id }}"
 
+  mev_commit_dashboard: &mev_commit_dashboard_job
+    name: mev-commit-dashboard
+    template: mev-commit-dashboard.nomad.j2
+    artifacts:
+      - *dashboard_artifact
+    dependencies:
+      contracts_deployer: *contracts_deployer_job
+    count: 1
+    ports:
+      - http:
+          static: 8081
+          to: 8081
+    env:
+      log-fmt: "json"
+      log-level: "info"
+
   mev_commit_bootnode1: &mev_commit_bootnode1_job
     name: mev-commit-bootnode1
     template: mev-commit.nomad.j2
@@ -283,6 +302,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *provider_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 1
     target_type: provider
     target_name: mev-commit-provider-node
@@ -297,6 +318,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *provider_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 3
     target_type: provider
     target_name: mev-commit-provider-node
@@ -467,6 +490,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *bidder_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 1
     target_type: bidder
     target_name: mev-commit-bidder-node
@@ -482,6 +507,8 @@ jobs:
     template: mev-commit-emulator.nomad.j2
     artifacts:
       - *bidder_emulator_artifact
+    dependencies:
+      mev_commit_dashboard: *mev_commit_dashboard_job
     count: 5
     target_type: bidder
     target_name: mev-commit-bidder-node
@@ -561,6 +588,19 @@ jobs:
           to: 80
         metrics:
           to: 8888
+  
+  mock_l1: &mock_l1_job
+    name: mock-l1
+    template: mock-l1.nomad.j2
+    count: 1
+    ports:
+      - http:
+          static: 9545
+          to: 8545
+    env:
+      ip: 0.0.0.0
+      public_ip: 0.0.0.0
+      net_restrict: 0.0.0.0/0
 
 profiles:
   ci:
@@ -568,6 +608,7 @@ profiles:
       - *artifacts_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
+      - *mock_l1_job
       - *contracts_deployer_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -585,7 +626,9 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
+      - *mock_l1_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
@@ -606,6 +649,7 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
@@ -622,7 +666,9 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
+      - *mock_l1_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
@@ -654,7 +700,9 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
+      - *mock_l1_job
       - *contracts_deployer_job
+      - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
