@@ -9,7 +9,8 @@ import (
 type Chain int
 
 const (
-	Settlement Chain = iota
+	Unknown Chain = iota
+	Settlement
 	L1
 )
 
@@ -20,7 +21,7 @@ func (c Chain) String() string {
 	case L1:
 		return "L1"
 	default:
-		return "unknown"
+		return "Unknown"
 	}
 }
 
