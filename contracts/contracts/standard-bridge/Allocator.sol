@@ -49,8 +49,23 @@ contract Allocator is AllocatorStorage, IAllocator,
     function mint(address _mintTo, uint256 _amount) external whenNotPaused nonReentrant {
         require(isWhitelisted(msg.sender), SenderNotWhitelisted(msg.sender));
         require(address(this).balance >= _amount, InsufficientContractBalance(address(this).balance, _amount));
-        (bool success, ) = _mintTo.call{value: _amount}("");
-        require(success, TransferFailed(_mintTo, _amount));
+        if (!payable(_mintTo).send(_amount)) {
+            transferredFundsNeedingWithdrawal[_mintTo] += _amount;
+            emit TransferNeedsWithdrawal(_mintTo, _amount);
+            return;
+        }
+        emit TransferSuccess(_mintTo, _amount);
+    }
+
+    /// @dev Allows any account to manually withdraw funds that failed to be transferred by the relayer.
+    /// @dev The relayer should NEVER call this function.
+    function withdraw(address _recipient) external whenNotPaused nonReentrant {
+        uint256 amount = transferredFundsNeedingWithdrawal[_recipient];
+        require(amount > 0, NoFundsNeedingWithdrawal(_recipient));
+        transferredFundsNeedingWithdrawal[_recipient] = 0;
+        (bool success, ) = _recipient.call{value: amount}("");
+        require(success, TransferFailed(_recipient));
+        emit TransferSuccess(_recipient, amount);
     }
 
     /// @dev Allows the owner to pause the contract.

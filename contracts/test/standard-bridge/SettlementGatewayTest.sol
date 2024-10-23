@@ -7,6 +7,8 @@ import {Allocator} from "../../contracts/standard-bridge/Allocator.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {IGateway} from "../../contracts/interfaces/IGateway.sol";
 import {IAllocator} from "../../contracts/interfaces/IAllocator.sol";
+import {RevertingReceiver} from "./RevertingReceiver.sol";
+import {EventReceiver} from "./EventReceiver.sol";
 
 contract SettlementGatewayTest is Test {
 
@@ -59,6 +61,9 @@ contract SettlementGatewayTest is Test {
     // Expected event signature emitted in initiateTransfer()
     event TransferInitiated(
         address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx);
+
+    event TransferNeedsWithdrawal(address indexed recipient, uint256 amount);
+    event TransferSuccess(address indexed recipient, uint256 amount);
 
     function test_InitiateTransferSuccess() public {
         vm.deal(bridgeUser, 100 ether);
@@ -143,7 +148,7 @@ contract SettlementGatewayTest is Test {
 
     event TransferFinalized(
         address indexed recipient, uint256 amount, uint256 indexed counterpartyIdx);
-    
+
     function test_FinalizeTransferSuccess() public {
         uint256 amount = 2 ether;
         uint256 counterpartyIdx = 1;
@@ -161,6 +166,10 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
 
         // Set up expectation for event
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(bridgeUser, amount-finalizationFee);
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(relayer, finalizationFee);
         vm.expectEmit(true, true, true, true);
         emit TransferFinalized(bridgeUser, amount, counterpartyIdx);
 
@@ -177,6 +186,10 @@ contract SettlementGatewayTest is Test {
         assertEq(settlementGateway.transferFinalizedIdx(), 2);
 
         // One more
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(bridgeUser, 0.45 ether);
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(relayer, 0.05 ether);
         vm.expectEmit(true, true, true, true);
         emit TransferFinalized(bridgeUser, 0.5 ether, counterpartyIdx+1);
         vm.prank(relayer);
@@ -268,5 +281,110 @@ contract SettlementGatewayTest is Test {
         assertEq(relayer.balance, 1 ether);
         assertEq(settlementGateway.transferInitiatedIdx(), 0);
         assertEq(settlementGateway.transferFinalizedIdx(), 1);
+    }
+
+    function test_FinalizeTransferRevertingReceiver() public {
+        uint256 amount = 2 ether;
+        uint256 counterpartyIdx = 1;
+
+        vm.deal(address(allocator), 3 ether);
+        vm.deal(relayer, 3 ether);
+
+        RevertingReceiver revertingReceiver = new RevertingReceiver();
+        revertingReceiver.setShouldRevert(true);
+        address receiver = address(revertingReceiver);
+
+        assertEq(address(allocator).balance, 3 ether);
+        assertEq(relayer.balance, 3 ether);
+        assertEq(address(settlementGateway).balance, 0 ether);
+        assertEq(receiver.balance, 0 ether);
+        assertEq(settlementGateway.transferInitiatedIdx(), 0);
+        assertEq(settlementGateway.transferFinalizedIdx(), 1);
+
+        vm.expectEmit(true, true, false, false);
+        emit TransferNeedsWithdrawal(receiver, amount - finalizationFee);
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(relayer, finalizationFee);
+        vm.expectEmit(true, true, false, false);
+        emit TransferFinalized(receiver, amount, counterpartyIdx);
+
+        vm.prank(relayer);
+        settlementGateway.finalizeTransfer(receiver, amount, counterpartyIdx);
+
+        assertEq(address(allocator).balance, 2.95 ether);
+        assertEq(relayer.balance, 3.05 ether);
+        assertEq(address(settlementGateway).balance, 0 ether);
+        assertEq(receiver.balance, 0 ether);
+        assertEq(settlementGateway.transferInitiatedIdx(), 0);
+        assertEq(settlementGateway.transferFinalizedIdx(), 2);
+
+        // Any account can retry the transfer, but user is responsible for receiver functioning properly.
+        vm.expectRevert(abi.encodeWithSelector(IAllocator.TransferFailed.selector, receiver));
+        vm.prank(vm.addr(88));
+        allocator.withdraw(receiver);
+
+        revertingReceiver.setShouldRevert(false);
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(receiver, amount - finalizationFee);
+        vm.prank(vm.addr(99));
+        allocator.withdraw(receiver);
+
+        assertEq(address(allocator).balance, 1 ether);
+        assertEq(relayer.balance, 3.05 ether);
+        assertEq(receiver.balance, 1.95 ether);
+        assertEq(settlementGateway.transferInitiatedIdx(), 0);
+        assertEq(settlementGateway.transferFinalizedIdx(), 2);
+    }
+
+    function test_finalizeTransferEventReceiver() public {
+        uint256 amount = 2 ether;
+        uint256 counterpartyIdx = 1;
+
+        vm.deal(address(allocator), 3 ether);
+        vm.deal(relayer, 3 ether);
+
+        EventReceiver eventReceiver = new EventReceiver();
+        address receiver = address(eventReceiver);
+
+        assertEq(address(allocator).balance, 3 ether);
+        assertEq(relayer.balance, 3 ether);
+        assertEq(receiver.balance, 0 ether);
+        assertEq(settlementGateway.transferInitiatedIdx(), 0);
+        assertEq(settlementGateway.transferFinalizedIdx(), 1);
+        assertEq(allocator.transferredFundsNeedingWithdrawal(receiver), 0);
+
+        // Too much gas usage in receiver, so manual withdrawal is needed.
+        vm.expectEmit(true, true, false, false);
+        emit TransferNeedsWithdrawal(receiver, amount - finalizationFee);
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(relayer, finalizationFee);
+        vm.expectEmit(true, true, false, false);
+        emit TransferFinalized(receiver, amount, counterpartyIdx);
+
+        vm.prank(relayer);
+        settlementGateway.finalizeTransfer(receiver, amount, counterpartyIdx);
+
+        assertEq(address(allocator).balance, 2.95 ether);
+        assertEq(relayer.balance, 3.05 ether);
+        assertEq(receiver.balance, 0 ether);
+        assertEq(settlementGateway.transferInitiatedIdx(), 0);
+        assertEq(settlementGateway.transferFinalizedIdx(), 2);
+
+        vm.expectEmit(true, true, false, false);
+        emit TransferSuccess(receiver, 1.95 ether);
+        vm.prank(vm.addr(888));
+        allocator.withdraw(receiver);
+
+        assertEq(address(allocator).balance, 1 ether);
+        assertEq(relayer.balance, 3.05 ether);
+        assertEq(receiver.balance, 1.95 ether);
+        assertEq(settlementGateway.transferInitiatedIdx(), 0);
+        assertEq(settlementGateway.transferFinalizedIdx(), 2);
+    }
+
+    function test_WithdrawNoFundsNeedingWithdrawal() public {
+        vm.expectRevert(abi.encodeWithSelector(IAllocator.NoFundsNeedingWithdrawal.selector, vm.addr(999)));
+        vm.prank(vm.addr(888));
+        allocator.withdraw(vm.addr(999));
     }
 }
