@@ -138,7 +138,6 @@ func (s *Service) registerProvider(token string) http.Handler {
 			return
 		}
 
-		txn, err := s.blockTracker.AddBuilderAddress(grafiti, providerAddress)
 		if err != nil {
 			http.Error(w, "Failed to add provider mapping", http.StatusInternalServerError)
 			return

@@ -141,6 +141,7 @@ contract OracleTest is Test {
                 Oracle.initialize,
                 (
                     address(preconfManager),
+                    address(providerRegistry),
                     address(blockTracker),
                     ownerInstance,
                     ownerInstance
@@ -498,7 +499,6 @@ contract OracleTest is Test {
         }
 
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
-        blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         vm.stopPrank();
 
@@ -658,7 +658,6 @@ contract OracleTest is Test {
 
     function recordBlockData(address provider, uint64 blockNumber) public {
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
-        blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         vm.stopPrank();
     }

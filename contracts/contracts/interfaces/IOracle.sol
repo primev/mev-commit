@@ -18,6 +18,9 @@ interface IOracle {
     /// @dev Event emitted when a commitment is processed.
     event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash);
 
+    /// @dev Event emitted when the provider registry is set.
+    event ProviderRegistrySet(address indexed newProviderRegistry);
+
     /// @dev Error emitted when the sender is not the oracle account
     error NotOracleAccount(address sender, address oracleAccount);
 
@@ -34,6 +37,7 @@ interface IOracle {
     function initialize(
         address preConfContract_,
         address blockTrackerContract_,
+        address providerRegistryContract_,
         address oracleAccount_,
         address owner_
     ) external;
@@ -47,4 +51,5 @@ interface IOracle {
     ) external;
 
     function setOracleAccount(address newOracleAccount) external;
+
 }

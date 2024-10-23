@@ -66,6 +66,11 @@
         "internalType": "address"
       },
       {
+        "name": "providerRegistry_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "oracleAccount_",
         "type": "address",
         "internalType": "address"
@@ -389,6 +394,19 @@
     "inputs": [
       {
         "name": "newPreconfManager",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProviderRegistrySet",
+    "inputs": [
+      {
+        "name": "newProviderRegistry",
         "type": "address",
         "indexed": true,
         "internalType": "address"

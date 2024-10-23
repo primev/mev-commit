@@ -176,7 +176,7 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
         uint64 blockNumber = uint64(blocksPerWindow + 2);
-        blockTracker.addBuilderAddress("test", provider);
+
         blockTracker.recordL1Block(blockNumber, "test");
 
         bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
@@ -200,7 +200,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
         uint64 blockNumber = uint64(blocksPerWindow + 2);
-        blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
         bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
@@ -228,7 +227,6 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
         uint64 blockNumber = uint64(blocksPerWindow + 2);
-        blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
         uint256 bidderBalance = bidder.balance;
@@ -287,7 +285,6 @@ contract BidderRegistryTest is Test {
         uint256 balanceBefore = address(provider).balance;
         bytes32 bidID = keccak256("1234");
         uint64 blockNumber = uint64(blocksPerWindow + 2);
-        blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
         bidderRegistry.openBid(bidID, 2 ether, bidder, blockNumber);
@@ -429,7 +426,6 @@ contract BidderRegistryTest is Test {
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 bidID = keccak256("1234");
         uint64 blockNumber = uint64(blocksPerWindow + 2);
-        blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
         vm.expectEmit(true, true, true, true);
@@ -450,7 +446,6 @@ contract BidderRegistryTest is Test {
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 bidID = keccak256("1234");
         uint64 blockNumber = uint64(blocksPerWindow + 2);
-        blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
         bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);

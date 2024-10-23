@@ -5,6 +5,7 @@ import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/acces
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
+import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {OracleStorage} from "./OracleStorage.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
@@ -28,17 +29,20 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
      * @dev Initializes the contract with a PreConfirmations contract.
      * @param preconfManager_ The address of the preconf manager contract.
      * @param blockTrackerContract_ The address of the block tracker contract.
+     * @param providerRegistry_ The address of the provider registry contract.
      * @param oracleAccount_ The address of the oracle account.
      * @param owner_ Owner of the contract, explicitly needed since contract is deployed with create2 factory.
      */
     function initialize(
         address preconfManager_,
         address blockTrackerContract_,
+        address providerRegistry_,
         address oracleAccount_,
         address owner_
     ) external initializer {
         _setPreconfManager(preconfManager_);
         _setBlockTracker(blockTrackerContract_);
+        _setProviderRegistry(providerRegistry_);
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
         __Pausable_init();
@@ -77,7 +81,8 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle whenNotPaused {
-        address blockWinner = _blockTrackerContract.getBlockWinner(blockNumber);
+        bytes memory blockWinnerBLSKey = _blockTrackerContract.getBlockWinner(blockNumber);
+        address blockWinner = _providerRegistry.getEoaFromBLSKey(blockWinnerBLSKey);
         require(blockWinner == builder, BuilderNotBlockWinner(blockWinner, builder));
         require(residualBidPercentAfterDecay <= 100, ResidualBidPercentAfterDecayExceeds100(residualBidPercentAfterDecay));
 
@@ -146,6 +151,15 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
     function _setBlockTracker(address newBlockTracker) internal {
         _blockTrackerContract = IBlockTracker(newBlockTracker);
         emit BlockTrackerSet(newBlockTracker);
+    }
+
+    /**
+     * @dev Internal function to set the provider registry.
+     * @param newProviderRegistry The new address of the provider registry.
+     */
+    function _setProviderRegistry(address newProviderRegistry) internal {
+        _providerRegistry = IProviderRegistry(newProviderRegistry);
+        emit ProviderRegistrySet(newProviderRegistry);
     }
 
     // solhint-disable-next-line no-empty-blocks

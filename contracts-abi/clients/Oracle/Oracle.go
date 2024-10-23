@@ -31,7 +31,7 @@ var (
 
 // OracleMetaData contains all meta data concerning the Oracle contract.
 var OracleMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"preconfManager_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockTrackerContract_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"oracleAccount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setBlockTracker\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleAccount\",\"inputs\":[{\"name\":\"newOracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPreconfManager\",\"inputs\":[{\"name\":\"newPreconfManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"BlockTrackerSet\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleAccountSet\",\"inputs\":[{\"name\":\"oldOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PreconfManagerSet\",\"inputs\":[{\"name\":\"newPreconfManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"BuilderNotBlockWinner\",\"inputs\":[{\"name\":\"blockWinner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotOracleAccount\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ResidualBidPercentAfterDecayExceeds100\",\"inputs\":[{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"preconfManager_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockTrackerContract_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"providerRegistry_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"oracleAccount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processBuilderCommitmentForBlockNumber\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setBlockTracker\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleAccount\",\"inputs\":[{\"name\":\"newOracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setPreconfManager\",\"inputs\":[{\"name\":\"newPreconfManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"BlockTrackerSet\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CommitmentProcessed\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"isSlash\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleAccountSet\",\"inputs\":[{\"name\":\"oldOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"PreconfManagerSet\",\"inputs\":[{\"name\":\"newPreconfManager\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProviderRegistrySet\",\"inputs\":[{\"name\":\"newProviderRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"BuilderNotBlockWinner\",\"inputs\":[{\"name\":\"blockWinner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"builder\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotOracleAccount\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ResidualBidPercentAfterDecayExceeds100\",\"inputs\":[{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
 }
 
 // OracleABI is the input ABI used to generate the binding from.
@@ -418,25 +418,25 @@ func (_Oracle *OracleTransactorSession) AcceptOwnership() (*types.Transaction, e
 	return _Oracle.Contract.AcceptOwnership(&_Oracle.TransactOpts)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
+// Initialize is a paid mutator transaction binding the contract method 0x1459457a.
 //
-// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
-func (_Oracle *OracleTransactor) Initialize(opts *bind.TransactOpts, preconfManager_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
-	return _Oracle.contract.Transact(opts, "initialize", preconfManager_, blockTrackerContract_, oracleAccount_, owner_)
+// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address providerRegistry_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleTransactor) Initialize(opts *bind.TransactOpts, preconfManager_ common.Address, blockTrackerContract_ common.Address, providerRegistry_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.contract.Transact(opts, "initialize", preconfManager_, blockTrackerContract_, providerRegistry_, oracleAccount_, owner_)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
+// Initialize is a paid mutator transaction binding the contract method 0x1459457a.
 //
-// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
-func (_Oracle *OracleSession) Initialize(preconfManager_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preconfManager_, blockTrackerContract_, oracleAccount_, owner_)
+// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address providerRegistry_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleSession) Initialize(preconfManager_ common.Address, blockTrackerContract_ common.Address, providerRegistry_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preconfManager_, blockTrackerContract_, providerRegistry_, oracleAccount_, owner_)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xf8c8765e.
+// Initialize is a paid mutator transaction binding the contract method 0x1459457a.
 //
-// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address oracleAccount_, address owner_) returns()
-func (_Oracle *OracleTransactorSession) Initialize(preconfManager_ common.Address, blockTrackerContract_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
-	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preconfManager_, blockTrackerContract_, oracleAccount_, owner_)
+// Solidity: function initialize(address preconfManager_, address blockTrackerContract_, address providerRegistry_, address oracleAccount_, address owner_) returns()
+func (_Oracle *OracleTransactorSession) Initialize(preconfManager_ common.Address, blockTrackerContract_ common.Address, providerRegistry_ common.Address, oracleAccount_ common.Address, owner_ common.Address) (*types.Transaction, error) {
+	return _Oracle.Contract.Initialize(&_Oracle.TransactOpts, preconfManager_, blockTrackerContract_, providerRegistry_, oracleAccount_, owner_)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -1824,6 +1824,150 @@ func (_Oracle *OracleFilterer) WatchPreconfManagerSet(opts *bind.WatchOpts, sink
 func (_Oracle *OracleFilterer) ParsePreconfManagerSet(log types.Log) (*OraclePreconfManagerSet, error) {
 	event := new(OraclePreconfManagerSet)
 	if err := _Oracle.contract.UnpackLog(event, "PreconfManagerSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// OracleProviderRegistrySetIterator is returned from FilterProviderRegistrySet and is used to iterate over the raw logs and unpacked data for ProviderRegistrySet events raised by the Oracle contract.
+type OracleProviderRegistrySetIterator struct {
+	Event *OracleProviderRegistrySet // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *OracleProviderRegistrySetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(OracleProviderRegistrySet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(OracleProviderRegistrySet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *OracleProviderRegistrySetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *OracleProviderRegistrySetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// OracleProviderRegistrySet represents a ProviderRegistrySet event raised by the Oracle contract.
+type OracleProviderRegistrySet struct {
+	NewProviderRegistry common.Address
+	Raw                 types.Log // Blockchain specific contextual infos
+}
+
+// FilterProviderRegistrySet is a free log retrieval operation binding the contract event 0x1f0fa16c192be2cff8a73ddaf1394dc78718ff634425739ee1df537db3b58eb1.
+//
+// Solidity: event ProviderRegistrySet(address indexed newProviderRegistry)
+func (_Oracle *OracleFilterer) FilterProviderRegistrySet(opts *bind.FilterOpts, newProviderRegistry []common.Address) (*OracleProviderRegistrySetIterator, error) {
+
+	var newProviderRegistryRule []interface{}
+	for _, newProviderRegistryItem := range newProviderRegistry {
+		newProviderRegistryRule = append(newProviderRegistryRule, newProviderRegistryItem)
+	}
+
+	logs, sub, err := _Oracle.contract.FilterLogs(opts, "ProviderRegistrySet", newProviderRegistryRule)
+	if err != nil {
+		return nil, err
+	}
+	return &OracleProviderRegistrySetIterator{contract: _Oracle.contract, event: "ProviderRegistrySet", logs: logs, sub: sub}, nil
+}
+
+// WatchProviderRegistrySet is a free log subscription operation binding the contract event 0x1f0fa16c192be2cff8a73ddaf1394dc78718ff634425739ee1df537db3b58eb1.
+//
+// Solidity: event ProviderRegistrySet(address indexed newProviderRegistry)
+func (_Oracle *OracleFilterer) WatchProviderRegistrySet(opts *bind.WatchOpts, sink chan<- *OracleProviderRegistrySet, newProviderRegistry []common.Address) (event.Subscription, error) {
+
+	var newProviderRegistryRule []interface{}
+	for _, newProviderRegistryItem := range newProviderRegistry {
+		newProviderRegistryRule = append(newProviderRegistryRule, newProviderRegistryItem)
+	}
+
+	logs, sub, err := _Oracle.contract.WatchLogs(opts, "ProviderRegistrySet", newProviderRegistryRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(OracleProviderRegistrySet)
+				if err := _Oracle.contract.UnpackLog(event, "ProviderRegistrySet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseProviderRegistrySet is a log parse operation binding the contract event 0x1f0fa16c192be2cff8a73ddaf1394dc78718ff634425739ee1df537db3b58eb1.
+//
+// Solidity: event ProviderRegistrySet(address indexed newProviderRegistry)
+func (_Oracle *OracleFilterer) ParseProviderRegistrySet(log types.Log) (*OracleProviderRegistrySet, error) {
+	event := new(OracleProviderRegistrySet)
+	if err := _Oracle.contract.UnpackLog(event, "ProviderRegistrySet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

@@ -9,12 +9,9 @@ abstract contract BlockTrackerStorage {
 
     uint256 public blocksPerWindow;
 
-    // Mapping from block number to the winner's address
-    mapping(uint256 => address) public blockWinners;
-
-     /// @dev Maps builder names to their respective Ethereum addresses.
-    mapping(string => address) public blockBuilderNameToAddress;
+    // Mapping from block number to the winner's BLS key
+    mapping(uint256 => bytes) public blockWinners;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 }

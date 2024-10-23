@@ -244,6 +244,11 @@ contract ProviderRegistry is
         return eoaToBlsPubkey[provider];
     }
 
+    /// @dev Returns the EOA address corresponding to a provider's BLS public key.
+    function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address) {
+        return blsPubkeyToEoa[blsKey];
+    }
+
     /// @return penaltyFee amount not yet transferred to recipient
     function getAccumulatedPenaltyFee() external view returns (uint256) {
         return penaltyFeeTracker.accumulatedAmount;
@@ -284,7 +289,7 @@ contract ProviderRegistry is
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
         require(blsPublicKey.length == 48, InvalidBLSPublicKeyLength(blsPublicKey.length, 48));
-        
+        blsPubkeyToEoa[blsPublicKey] = provider;
         eoaToBlsPubkey[provider] = blsPublicKey;
         providerStakes[provider] = msg.value;
         providerRegistered[provider] = true;

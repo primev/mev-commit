@@ -57,36 +57,24 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         revert Errors.InvalidFallback();
     }
 
-    /**
-     * @dev Allows the oracle account to add a new builder address mapping.
-     * @param builderName The name of the block builder as it appears on extra data.
-     * @param builderAddress The Ethereum address of the builder.
-     */
-    function addBuilderAddress(
-        string calldata builderName,
-        address builderAddress
-    ) external onlyOracle whenNotPaused {
-        blockBuilderNameToAddress[builderName] = builderAddress;
-    }
 
     /**
      * @dev Records a new L1 block and its winner.
      * @param _blockNumber The number of the new L1 block.
-     * @param _winnerGraffiti The graffiti of the winner of the new L1 block.
+     * @param _winnerBLSKey The BLS key of the winner of the new L1 block.
      */
     function recordL1Block(
         uint256 _blockNumber,
-        string calldata _winnerGraffiti
+        bytes calldata _winnerBLSKey
     ) external onlyOracle whenNotPaused {
-        address _winner = blockBuilderNameToAddress[_winnerGraffiti];
-        _recordBlockWinner(_blockNumber, _winner);
+        _recordBlockWinner(_blockNumber, _winnerBLSKey);
         uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
         if (newWindow > currentWindow) {
             // We've entered a new window
             currentWindow = newWindow;
             emit NewWindow(currentWindow);
         }
-        emit NewL1Block(_blockNumber, _winner, currentWindow);
+        emit NewL1Block(_blockNumber, _winnerBLSKey, currentWindow);
     }
 
     /// @dev Allows the owner to set the oracle account.
@@ -112,16 +100,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         return currentWindow;
     }
 
-    /**
-     * @dev Returns the builder's address corresponding to the given name.
-     * @param builderNameGraffiti The name (or graffiti) of the block builder.
-     * @return The Ethereum address of the builder.
-     */
-    function getBuilder(
-        string calldata builderNameGraffiti
-    ) external view returns (address) {
-        return blockBuilderNameToAddress[builderNameGraffiti];
-    }
 
     /**
      * @dev Returns the number of blocks per window.
@@ -134,9 +112,9 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     /**
      * @dev Function to get the winner of a specific block.
      * @param blockNumber The number of the block.
-     * @return The address of the block winner.
+     * @return The BLS key of the block winner.
      */
-    function getBlockWinner(uint256 blockNumber) external view returns (address) {
+    function getBlockWinner(uint256 blockNumber) external view returns (bytes memory) {
         return blockWinners[blockNumber];
     }
 
@@ -153,13 +131,13 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     /**
      * @dev Internal function to record a new block winner.
      * @param blockNumber The number of the block.
-     * @param winner The address of the block winner.
+     * @param winnerBLSKey The BLS key of the block winner.
      */
-    function _recordBlockWinner(uint256 blockNumber, address winner) internal {
+    function _recordBlockWinner(uint256 blockNumber, bytes calldata winnerBLSKey) internal {
         // Check if the block number is valid (not 0)
         require(blockNumber != 0, BlockNumberIsZero());
 
-        blockWinners[blockNumber] = winner;
+        blockWinners[blockNumber] = winnerBLSKey;
     }
 
     // solhint-disable-next-line no-empty-blocks

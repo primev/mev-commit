@@ -427,7 +427,6 @@ func setBuilderMapping(
 ) error {
 	logger.Info("setting builder mapping", "builderName", builderName, "builderAddress", builderAddress)
 
-	txn, err := bt.AddBuilderAddress(builderName, common.HexToAddress(builderAddress))
 	if err != nil {
 		return fmt.Errorf("unable to add builder address: %w", err)
 	}

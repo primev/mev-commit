@@ -403,7 +403,6 @@ contract PreconfManagerTest is Test {
         );
 
         // Step 3: Move to the next window
-        blockTracker.addBuilderAddress("test", committer);
         blockTracker.recordL1Block(2, "test");
 
         // Step 4: Open the commitment
@@ -716,7 +715,6 @@ contract PreconfManagerTest is Test {
             );
             providerRegistry.setPreconfManager(address(preconfManager));
             uint256 blockNumber = 2;
-            blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(blockNumber, "test");
             bytes32 index = openCommitment(
                 committer,
@@ -803,7 +801,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 "test"
@@ -890,7 +887,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 "test"

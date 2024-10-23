@@ -34,43 +34,6 @@
   },
   {
     "type": "function",
-    "name": "addBuilderAddress",
-    "inputs": [
-      {
-        "name": "builderName",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "builderAddress",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "blockBuilderNameToAddress",
-    "inputs": [
-      {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "blockWinners",
     "inputs": [
       {
@@ -82,8 +45,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "stateMutability": "view"
@@ -127,8 +90,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "stateMutability": "view"
@@ -142,25 +105,6 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getBuilder",
-    "inputs": [
-      {
-        "name": "builderNameGraffiti",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -283,9 +227,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "_winnerGraffiti",
-        "type": "string",
-        "internalType": "string"
+        "name": "_winnerBLSKey",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [],
@@ -373,10 +317,10 @@
         "internalType": "uint256"
       },
       {
-        "name": "winner",
-        "type": "address",
+        "name": "winnerBLSKey",
+        "type": "bytes",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "bytes"
       },
       {
         "name": "window",

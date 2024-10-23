@@ -93,6 +93,7 @@ contract DeployTestnet is Script {
             abi.encodeCall(Oracle.initialize,
             (address(preconfManager), // preConfContract_ param
             address(blockTracker), // blockTrackerContract_ param
+            address(providerRegistry), // providerRegistryContract_ param
             oracleKeystoreAddress, // oracleAcount_ param
             msg.sender)) // owner_ param
         );

@@ -265,7 +265,8 @@ contract PreconfManager is
             commitmentSignature
         );
 
-        address winner = blockTracker.getBlockWinner(blockNumber);
+        bytes memory winnerBLSKey = blockTracker.getBlockWinner(blockNumber);
+        address winner = providerRegistry.getEoaFromBLSKey(winnerBLSKey);
 
         if (winner != committerAddress) {
             revert WinnerIsNotCommitter(committerAddress, winner);

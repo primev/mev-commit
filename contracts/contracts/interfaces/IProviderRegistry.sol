@@ -70,6 +70,8 @@ interface IProviderRegistry {
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external;
-    
+
+    function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address);
+
     function isProviderValid(address committerAddress) external view;
 }
