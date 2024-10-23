@@ -24,16 +24,16 @@ var (
 		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_CONFIG"},
 	}
 
+	optionKeystorePath = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "keystore-dir",
+		Usage:   "directory where keystore file is stored",
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR"},
+	})
+
 	optionKeystorePassword = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "keystore-password",
 		Usage:   "use to access keystore",
-		EnvVars: []string{"MEV_ORACLE_KEYSTORE_PASSWORD"},
-	})
-
-	optionKeystorePath = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "keystore-path",
-		Usage:   "path to keystore location",
-		EnvVars: []string{"MEV_ORACLE_KEYSTORE_PATH"},
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_KEYSTORE_PASSWORD"},
 	})
 
 	optionLogFmt = altsrc.NewStringFlag(&cli.StringFlag{
