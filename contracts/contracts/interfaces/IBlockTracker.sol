@@ -23,11 +23,11 @@ interface IBlockTracker {
 
     error NotOracleAccount(address sender, address oracleAccount);
     error BlockNumberIsZero();
-
+    
     /// @notice Records a new L1 block with its winner.
     /// @param _blockNumber The block number of the new L1 block.
-    /// @param _winnerGrafitti The graffiti of the winner of the new L1 block.
-    function recordL1Block(uint256 _blockNumber, string calldata _winnerGrafitti) external;
+    /// @param _winnerBLSKey The BLS public key of the winner of the new L1 block.
+    function recordL1Block(uint256 _blockNumber, bytes calldata _winnerBLSKey) external;
 
     /// @notice Retrieves the builder's address corresponding to the given name.
     /// @param builderNameGrafiti The name of the block builder.
@@ -46,4 +46,7 @@ interface IBlockTracker {
     /// @notice Retrieves the number of blocks per window.
     /// @return The number of blocks per window.
     function getBlocksPerWindow() external pure returns (uint256);
+    /// @notice Sets the provider registry.
+    /// @param newProviderRegistry The address of the new provider registry.
+    function setProviderRegistry(address newProviderRegistry) external;
 }

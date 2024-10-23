@@ -79,4 +79,6 @@ interface IProviderRegistry {
     ) external;
     
     function isProviderValid(address committerAddress) external view;
+
+    function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address);
 }

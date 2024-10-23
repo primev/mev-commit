@@ -40,6 +40,9 @@ abstract contract ProviderRegistryStorage {
     /// @dev Mapping from bidder to provider slashed amount
     mapping(address => uint256) public bidderSlashedAmount;
     
+    /// @dev Maps BLS public keys to their corresponding block builder addresses
+    mapping(bytes => address) public blockBuilderBLSKeyToAddress;
+    
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 }
