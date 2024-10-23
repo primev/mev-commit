@@ -119,14 +119,14 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
-          {%- if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
-          mkdir -p "${STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR}" > /dev/null 2>&1
-          {%- raw %}
-            {{- with secret "secret/data/mev-commit" }}
-          echo '{{ .Data.data.bridge_relayer_keystore }}' > "${STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR}/${STANDARD_BRIDGE_RELAYER_KEYSTORE_FILENAME}"
-            {{ end }}
-          {% endraw %}
-          {% endif %}
+          if [ ! -d ${STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR} ]; then
+            mkdir -p "${STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR}" > /dev/null 2>&1
+            {%- raw %}
+              {{- with secret "secret/data/mev-commit" }}
+            echo '{{ .Data.data.bridge_relayer_keystore }}' > "${STANDARD_BRIDGE_RELAYER_KEYSTORE_DIR}/${STANDARD_BRIDGE_RELAYER_KEYSTORE_FILENAME}"
+              {{ end }}
+            {% endraw %}
+          fi
 
           {% raw %}
           {{- range nomadService "contracts-deployer" }}

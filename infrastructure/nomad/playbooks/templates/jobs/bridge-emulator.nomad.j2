@@ -126,7 +126,25 @@ job "{{ job.name }}" {
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
             {{ end }}
           {{- end }}
+          {% endraw %}
 
+          if [ ! -d ${EMULATOR_KEYSTORES_DIR} ]; then
+            {%- macro ldelim() %}{{ '{{' }}{% endmacro %}
+            {%- macro rdelim() %}{{ '}}' }}{% endmacro %}
+            {%- set ns = namespace(keystore_path_passwd=[]) %}
+            {%- for artifact in job.artifacts %}
+              {% set keystores = artifact.get('keystores', {}) %}
+              {% set ns.keystore_path_passwd = ns.keystore_path_passwd + (keystores | list) %}
+            {% endfor %}
+            {%- for keystore_name in ns.keystore_path_passwd %}
+              {{ ldelim() }} with secret "secret/data/mev-commit" {{ rdelim() }}
+              mkdir -p "${EMULATOR_KEYSTORES_DIR}/{{ keystore_name }}" > /dev/null 2>&1
+              echo '{{ ldelim() }} .Data.data.{{ keystore_name }} {{ rdelim() }}' > "${EMULATOR_KEYSTORES_DIR}/{{ keystore_name }}/{{ ldelim() }} .Data.data.{{ keystore_name }}_filename {{ rdelim() }}"
+              {{ ldelim() }} end {{ rdelim() }}
+            {% endfor %}
+          fi
+
+          {% raw %}
           {{- range nomadService "contracts-deployer" }}
             {{ if contains "http" .Tags }}
           URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
