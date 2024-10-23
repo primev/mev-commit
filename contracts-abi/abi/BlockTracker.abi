@@ -27,6 +27,19 @@
   },
   {
     "type": "function",
+    "name": "_providerRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IProviderRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
@@ -265,9 +278,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "_winnerGraffiti",
-        "type": "string",
-        "internalType": "string"
+        "name": "_winnerBLSKey",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [],
@@ -286,6 +299,19 @@
     "inputs": [
       {
         "name": "newOracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setProviderRegistry",
+    "inputs": [
+      {
+        "name": "newProviderRegistry",
         "type": "address",
         "internalType": "address"
       }
