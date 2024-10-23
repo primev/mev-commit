@@ -49,8 +49,7 @@ contract Allocator is AllocatorStorage, IAllocator,
     function mint(address _mintTo, uint256 _amount) external whenNotPaused nonReentrant {
         require(isWhitelisted(msg.sender), SenderNotWhitelisted(msg.sender));
         require(address(this).balance >= _amount, InsufficientContractBalance(address(this).balance, _amount));
-        bool success = payable(_mintTo).send(_amount);
-        if (!success) {
+        if (!payable(_mintTo).send(_amount)) {
             transferredFundsNeedingWithdrawal[_mintTo] += _amount;
             emit TransferNeedsWithdrawal(_mintTo, _amount);
             return;
