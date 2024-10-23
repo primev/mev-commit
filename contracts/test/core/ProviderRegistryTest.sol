@@ -414,26 +414,6 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function test_DelegateRegisterAndStake() public {
-        address otherAccount = vm.addr(8);
-        vm.deal(otherAccount, 3 ether);
-
-        address newProvider = vm.addr(7);
-
-        vm.prank(otherAccount);
-        providerRegistry.delegateRegisterAndStake{value: 2e18 wei}(newProvider, validBLSPubkey);
-        assertEq(
-            providerRegistry.providerStakes(newProvider),
-            2e18 wei,
-            "Staked amount should match"
-        );
-        assertEq(
-            providerRegistry.providerRegistered(newProvider),
-            true,
-            "Provider should be registered"
-        );
-    }
-
     function testFail_WithdrawStakedAmountWithoutCommitments() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);

@@ -86,24 +86,6 @@
   },
   {
     "type": "function",
-    "name": "delegateRegisterAndStake",
-    "inputs": [
-      {
-        "name": "provider",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "blsPublicKey",
-        "type": "bytes",
-        "internalType": "bytes"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
     "name": "delegateStake",
     "inputs": [
       {

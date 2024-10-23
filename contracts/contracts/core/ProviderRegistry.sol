@@ -270,15 +270,6 @@ contract ProviderRegistry is
         _registerAndStake(msg.sender, blsPublicKey);
     }
 
-    /**
-     * @dev Register and stake on behalf of a provider.
-     * @param provider Address of the provider.
-     * @param blsPublicKey BLS public key of the provider.
-     */
-    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable whenNotPaused {
-        _registerAndStake(provider, blsPublicKey);
-    }
-
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
     function isProviderValid(address provider) public view {
         uint256 providerStake = providerStakes[provider];
