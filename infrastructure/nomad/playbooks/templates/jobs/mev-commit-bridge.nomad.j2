@@ -36,6 +36,101 @@ job "{{ job.name }}" {
       {% endfor %}
     }
 
+    task "db" {
+      driver = "exec"
+
+      lifecycle {
+        hook    = "prestart"
+        sidecar = true
+      }
+
+      {% if profile == 'testnet' %}
+      resources {
+        cores = 4
+        memory = 8192
+      }
+      {% elif profile == 'stressnet' %}
+      resources {
+        memory = 4096
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          POSTGRES_VERSION="15"
+          POSTGRES_DB="mev_commit_bridge"
+          POSTGRES_USERNAME="mev_commit_bridge"
+          POSTGRES_PASSWORD="{{ lookup('password', '/dev/null', length=64) }}"
+          POSTGRES_DATA="/local/pgdata-{% raw %}{{ env "NOMAD_ALLOC_INDEX" }}{% endraw %}"
+        EOH
+        destination = "alloc/data/postgres.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          {% raw %}
+          {{- range nomadService "datadog-agent-logs-collector" }}
+            {{ if contains "tcp" .Tags }}
+          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+
+          if [ -d "${POSTGRES_DATA}" ]; then
+            echo "Initialized and configured database found."
+            cp "${POSTGRES_DATA}/.env" /alloc/data/postgres.env
+            source "${POSTGRES_DATA}/.env"
+            postgres -D ${POSTGRES_DATA}
+            exit $?
+          fi
+
+          export PATH="/usr/lib/postgresql/${POSTGRES_VERSION}/bin:${PATH}"
+          mkdir -p /var/run/postgresql > /dev/null 2>&1
+          pg_ctl initdb --silent --pgdata="${POSTGRES_DATA}"
+          if [ $? -ne 0 ]; then
+            echo "Failed to initialize PostgreSQL."
+            exit 1
+          fi
+          cp /alloc/data/postgres.env "${POSTGRES_DATA}/.env"
+
+          pg_ctl start --pgdata="${POSTGRES_DATA}" --silent --wait --timeout=300 > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to start PostgreSQL."
+            exit 1
+          fi
+
+          createuser --superuser postgres > /dev/null 2>&1
+          createuser --username=postgres --createdb "${POSTGRES_USERNAME}"
+          createdb --username="${POSTGRES_USERNAME}" "${POSTGRES_DB}"
+          psql --quiet \
+               --username="${POSTGRES_USERNAME}" \
+               --dbname="${POSTGRES_DB}" \
+               --command="ALTER USER ${POSTGRES_USERNAME} WITH PASSWORD '${POSTGRES_PASSWORD}'; \
+                          GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USERNAME};"
+          echo "Database initialized and configured successfully."
+
+          pg_ctl stop --pgdata="${POSTGRES_DATA}" --silent --wait --timeout=300 > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to stop PostgreSQL."
+            exit 1
+          fi
+
+          exec postgres -D "${POSTGRES_DATA}"
+          {% endraw %}
+        EOH
+        destination = "local/run.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
+      }
+    }
+
     task "relayer" {
       driver = "exec"
 
@@ -96,6 +191,12 @@ job "{{ job.name }}" {
           STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
+            {{- if contains "db" .Tags }}
+          STANDARD_BRIDGE_RELAYER_PG_HOST="localhost"
+          STANDARD_BRIDGE_RELAYER_PG_PORT="{{ .Port }}"
+            {{- end }}
+          {{- end }}
           {% endraw %}
           STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           STANDARD_BRIDGE_RELAYER_PRIV_KEY_FILE="secrets/relayer_key"
@@ -139,6 +240,16 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
           {% endraw %}
+
+          source alloc/data/postgres.env
+          export STANDARD_BRIDGE_RELAYER_PG_USER="${POSTGRES_USERNAME}"
+          export STANDARD_BRIDGE_RELAYER_PG_PASSWORD="${POSTGRES_PASSWORD}"
+          export STANDARD_BRIDGE_RELAYER_PG_DBNAME="${POSTGRES_DB}"
+
+          if ! timeout 5m bash -c 'until pg_isready -h ${STANDARD_BRIDGE_RELAYER_PG_HOST} -p ${STANDARD_BRIDGE_RELAYER_PG_PORT} -U ${STANDARD_BRIDGE_RELAYER_PG_USER} -d ${STANDARD_BRIDGE_RELAYER_PG_DBNAME}; do sleep 2; done'; then
+            echo "Waiting for PostgreSQL to start..."
+            sleep 3
+          fi
 
           chmod +x local/relayer
           exec ./local/relayer start

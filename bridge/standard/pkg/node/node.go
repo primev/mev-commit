@@ -37,6 +37,11 @@ type Options struct {
 	L1GatewayContractAddr  common.Address
 	SettlementRPCURL       string
 	SettlementContractAddr common.Address
+	PgHost                 string
+	PgPort                 int
+	PgUser                 string
+	PgPassword             string
+	PgDB                   string
 }
 
 type StartableObjWithDesc struct {
@@ -67,15 +72,20 @@ func NewNode(opts *Options) (*Node, error) {
 		metrics: prometheus.NewRegistry(),
 	}
 
+	db, err := initDB(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init DB: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
-	err := n.createGatewayContract(
+	err = n.createGatewayContract(
 		ctx,
 		"l1",
 		opts.Logger,
 		opts.L1RPCURL,
 		opts.Signer,
 		opts.L1GatewayContractAddr,
-		nil,
+		db,
 	)
 	if err != nil {
 		cancel()
@@ -89,7 +99,7 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.SettlementRPCURL,
 		opts.Signer,
 		opts.SettlementContractAddr,
-		nil,
+		db,
 	)
 	if err != nil {
 		cancel()
@@ -136,6 +146,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 	n.closeFn = func() error {
 		cancel()
+		_ = db.Close()
 
 		closeCtx, closeCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer closeCancel()
@@ -315,4 +326,30 @@ func (n *Node) createGatewayContract(
 	}
 
 	return nil
+}
+
+func initDB(opts *Options) (db *sql.DB, err error) {
+	// Connection string
+	psqlInfo := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		opts.PgHost, opts.PgPort, opts.PgUser, opts.PgPassword, opts.PgDB,
+	)
+
+	// Open a connection
+	db, err = sql.Open("postgres", psqlInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the connection
+	err = db.Ping()
+	if err != nil {
+		return nil, err
+	}
+
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(1 * time.Hour)
+
+	return db, err
 }

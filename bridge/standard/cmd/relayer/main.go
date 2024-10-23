@@ -112,6 +112,41 @@ var (
 		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_SETTLEMENT_CONTRACT_ADDR"},
 		Required: true,
 	})
+
+	optionPgHost = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "pg-host",
+		Usage:   "PostgreSQL host",
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_PG_HOST"},
+		Value:   "localhost",
+	})
+
+	optionPgPort = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "pg-port",
+		Usage:   "PostgreSQL port",
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_PG_PORT"},
+		Value:   5432,
+	})
+
+	optionPgUser = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "pg-user",
+		Usage:   "PostgreSQL user",
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_PG_USER"},
+		Value:   "postgres",
+	})
+
+	optionPgPassword = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "pg-password",
+		Usage:   "PostgreSQL password",
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_PG_PASSWORD"},
+		Value:   "postgres",
+	})
+
+	optionPgDbname = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "pg-dbname",
+		Usage:   "PostgreSQL database name",
+		EnvVars: []string{"STANDARD_BRIDGE_RELAYER_PG_DBNAME"},
+		Value:   "mev_commit_bridge",
+	})
 )
 
 func main() {
@@ -127,6 +162,11 @@ func main() {
 		optionSettlementRPCUrl,
 		optionL1ContractAddr,
 		optionSettlementContractAddr,
+		optionPgHost,
+		optionPgPort,
+		optionPgUser,
+		optionPgPassword,
+		optionPgDbname,
 	}
 
 	app := &cli.App{
@@ -183,6 +223,11 @@ func start(c *cli.Context) error {
 		L1GatewayContractAddr:  common.HexToAddress(c.String(optionL1ContractAddr.Name)),
 		SettlementRPCURL:       c.String(optionSettlementRPCUrl.Name),
 		SettlementContractAddr: common.HexToAddress(c.String(optionSettlementContractAddr.Name)),
+		PgHost:                 c.String(optionPgHost.Name),
+		PgPort:                 c.Int(optionPgPort.Name),
+		PgUser:                 c.String(optionPgUser.Name),
+		PgPassword:             c.String(optionPgPassword.Name),
+		PgDB:                   c.String(optionPgDbname.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create node: %w", err)
