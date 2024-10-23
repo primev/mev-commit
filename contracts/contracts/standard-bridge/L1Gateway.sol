@@ -2,16 +2,25 @@
 pragma solidity 0.8.26;
 
 import {Gateway} from "./Gateway.sol";
+import {L1GatewayStorage} from "./L1GatewayStorage.sol";
 import {Errors} from "../utils/Errors.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /// @title L1Gateway
 /// @notice Gateway contract deployed on L1 enabling the mev-commit standard bridge.
 /// @dev This contract will escrow locked ETH, while a corresponding amount is minted from the SettlementGateway on the mev-commit chain.
-contract L1Gateway is Gateway {
+contract L1Gateway is L1GatewayStorage, Gateway {
 
     error IncorrectEtherValueSent(uint256 msgValue, uint256 amountExpected);
     error InsufficientContractBalance(uint256 thisContractBalance, uint256 amountRequested);
-    error TransferFailed(address recipient, uint256 amount);
+    error NoFundsNeedingWithdrawal(address recipient);
+    error TransferFailed(address recipient);
+
+    /// @dev Emitted when a transfer needs withdrawal.
+    event TransferNeedsWithdrawal(address indexed recipient, uint256 amount);
+
+    /// @dev Emitted when a transfer is successful.
+    event TransferSuccess(address indexed recipient, uint256 amount);
 
     function initialize(
         address _owner, 
@@ -50,8 +59,24 @@ contract L1Gateway is Gateway {
 
     function _fund(uint256 _amount, address _toFund) internal override {
         require(address(this).balance >= _amount, InsufficientContractBalance(address(this).balance, _amount));
-        (bool success, ) = _toFund.call{value: _amount}("");
-        require(success, TransferFailed(_toFund, _amount));
+        bool success = payable(_toFund).send(_amount);
+        if (!success) {
+            transferredFundsNeedingWithdrawal[_toFund] += _amount;
+            emit TransferNeedsWithdrawal(_toFund, _amount);
+            return;
+        } 
+        emit TransferSuccess(_toFund, _amount);
+    }
+
+    /// @dev Allows any account to manually withdraw funds that failed to be transferred by the relayer.
+    /// @dev The relayer should NEVER call this function.
+    function withdraw(address _recipient) external whenNotPaused nonReentrant {
+        uint256 amount = transferredFundsNeedingWithdrawal[_recipient];
+        require(amount > 0, NoFundsNeedingWithdrawal(_recipient));
+        transferredFundsNeedingWithdrawal[_recipient] = 0;
+        (bool success, ) = _recipient.call{value: amount}("");
+        require(success, TransferFailed(_recipient));
+        emit TransferSuccess(_recipient, amount);
     }
 }
 
