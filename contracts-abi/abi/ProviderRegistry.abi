@@ -60,14 +60,29 @@
   },
   {
     "type": "function",
+<<<<<<< HEAD
     "name": "bidderSlashedAmount",
     "inputs": [
       {
         "name": "",
+=======
+    "name": "blockBuilderBLSKeyToAddress",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+>>>>>>> 387f91e (chore: updates abi)
         "type": "address",
         "internalType": "address"
       }
     ],
+<<<<<<< HEAD
     "outputs": [
       {
         "name": "",
@@ -75,6 +90,8 @@
         "internalType": "uint256"
       }
     ],
+=======
+>>>>>>> 387f91e (chore: updates abi)
     "stateMutability": "view"
   },
   {
@@ -168,6 +185,25 @@
         "name": "",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEoaFromBLSKey",
+    "inputs": [
+      {
+        "name": "blsKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
