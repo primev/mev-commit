@@ -558,6 +558,9 @@ jobs:
     ports:
       - metrics:
           to: 8080
+        db:
+          static: 5432
+          to: 5432
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
