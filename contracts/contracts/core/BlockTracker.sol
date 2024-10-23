@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
+import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {BlockTrackerStorage} from "./BlockTrackerStorage.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -72,34 +73,13 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     /**
      * @dev Records a new L1 block and its winner.
      * @param _blockNumber The number of the new L1 block.
-     * @param _winnerGraffiti The graffiti of the winner of the new L1 block.
-     */
-    function recordL1Block(
-        uint256 _blockNumber,
-        string calldata _winnerGraffiti
-    ) external onlyOracle whenNotPaused {
-        address _winner = blockBuilderNameToAddress[_winnerGraffiti];
-        _recordBlockWinner(_blockNumber, _winner);
-        uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
-        if (newWindow > currentWindow) {
-            // We've entered a new window
-            currentWindow = newWindow;
-            emit NewWindow(currentWindow);
-        }
-        emit NewL1Block(_blockNumber, _winner, currentWindow);
-    }
-
-
-    /**
-     * @dev Records a new L1 block and its winner.
-     * @param _blockNumber The number of the new L1 block.
      * @param _winnerBLSKey The BLS key of the winner of the new L1 block.
      */
     function recordL1Block(
         uint256 _blockNumber,
         bytes calldata _winnerBLSKey
     ) external onlyOracle whenNotPaused {
-        address _winner = blockBuilderBLSKeyToAddress[_winnerBLSKey];
+        address _winner = _providerRegistry.getEoaFromBLSKey(_winnerBLSKey);
         _recordBlockWinner(_blockNumber, _winner);
         uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
         if (newWindow > currentWindow) {
@@ -169,6 +149,11 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         address oldOracleAccount = oracleAccount;
         oracleAccount = newOracleAccount;
         emit OracleAccountSet(oldOracleAccount, newOracleAccount);
+    }
+
+    /// @dev Allows the owner to set the provider registry.
+    function setProviderRegistry(address newProviderRegistry) external onlyOwner {
+        _providerRegistry = IProviderRegistry(newProviderRegistry);
     }
 
     /**

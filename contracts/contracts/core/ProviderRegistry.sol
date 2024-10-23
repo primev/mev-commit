@@ -244,6 +244,12 @@ contract ProviderRegistry is
         return eoaToBlsPubkey[provider];
     }
 
+    /// @dev Returns the EOA address corresponding to a provider's BLS public key.
+    function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address) {
+        return blockBuilderBLSKeyToAddress[blsKey];
+    }
+
+    
     /// @return penaltyFee amount not yet transferred to recipient
     function getAccumulatedPenaltyFee() external view returns (uint256) {
         return penaltyFeeTracker.accumulatedAmount;
