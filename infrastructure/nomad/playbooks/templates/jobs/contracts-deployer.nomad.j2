@@ -100,12 +100,7 @@ job "{{ job.name }}" {
           L1_FINALIZATION_FEE="1"
           SETTLEMENT_FINALIZATION_FEE="1"
           XDG_CONFIG_HOME="local/.config"
-          {%- raw %}
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
-            {{- if contains "http" .Tags }}
-          RPC_URL="http://{{ .Address }}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
+          {% raw %}
           KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
@@ -151,6 +146,14 @@ job "{{ job.name }}" {
           export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           echo ""
+
+          {%- raw %}
+          {{- range nomadService "mev-commit-geth-bootnode1" }}
+            {{- if contains "http" .Tags }}
+          export RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
 
           start_time=$(date +%s)
           export DEPLOY_TYPE="core"
@@ -199,6 +202,14 @@ job "{{ job.name }}" {
           > local/${DEPLOY_TYPE}_addresses.json
 
           forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
+
+          {%- raw %}
+          {{- range nomadService "mock-l1" }}
+            {{- if contains "http" .Tags }}
+          export RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
 
           start_time=$(date +%s)
           export DEPLOY_TYPE="l1-gateway"
