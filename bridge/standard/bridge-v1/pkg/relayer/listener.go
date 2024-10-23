@@ -53,7 +53,7 @@ func (l *Listener) Start(ctx context.Context) (
 		l.logger.Info("starting listener for mev-commit chain (settlement)")
 		l.chain = shared.Settlement
 	default:
-		return nil, nil, fmt.Errorf("unsupported chain id: %s", chainID.String())
+		return nil, nil, fmt.Errorf("unsupported chain id: %s", chainID)
 	}
 
 	l.DoneChan = make(chan struct{})
@@ -91,7 +91,7 @@ func (l *Listener) Start(ctx context.Context) (
 		for {
 			select {
 			case <-ctx.Done():
-				l.logger.Info("listener shutting down", "chain", l.chain)
+				l.logger.Info("listener shutting down", "chain", l.chain.String())
 				return
 			case <-ticker.C:
 			}
@@ -112,7 +112,7 @@ func (l *Listener) Start(ctx context.Context) (
 						"failed to query transfer initiated events",
 						"from_block", blockNumHandled+1,
 						"to_block", currentBlockNum,
-						"chain", l.chain,
+						"chain", l.chain.String(),
 					)
 					l.logger.Warn("listener restarting from block 0...")
 					blockNumHandled = 0
@@ -123,7 +123,7 @@ func (l *Listener) Start(ctx context.Context) (
 					"event_count", len(events),
 					"from_block", blockNumHandled+1,
 					"to_block", currentBlockNum,
-					"chain", l.chain,
+					"chain", l.chain.String(),
 				)
 				for _, event := range events {
 					l.logger.Info("transfer initiated event seen by listener", "event", event)
