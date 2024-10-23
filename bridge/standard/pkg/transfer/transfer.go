@@ -206,7 +206,7 @@ func (t *Transfer) Do(ctx context.Context) <-chan TransferStatus {
 		if receipt.Status != types.ReceiptStatusSuccessful {
 			statusChan <- TransferStatus{
 				Message: "Transaction failed",
-				Error:   fmt.Errorf("transaction failed: %s", receipt.Status),
+				Error:   fmt.Errorf("transaction failed: %d", receipt.Status),
 			}
 			return
 		}

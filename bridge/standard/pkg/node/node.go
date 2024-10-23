@@ -200,7 +200,7 @@ func (n *Node) createGatewayContract(
 		client,
 		txmonitor.NewEVMHelperWithLogger(
 			client,
-			logger.With("component", fmt.Sprintf("%s/evmhelper")),
+			logger.With("component", fmt.Sprintf("%s/evmhelper", component)),
 			map[common.Address]*abi.ABI{contractAddr: &parsedABI},
 		),
 		st,
