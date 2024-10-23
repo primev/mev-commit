@@ -24,7 +24,7 @@ import (
 var checkInterval = 2 * time.Second
 
 type L1Recorder interface {
-	RecordL1Block(blockNum *big.Int, winner string) (*types.Transaction, error)
+	RecordL1Block(blockNum *big.Int, winner []byte) (*types.Transaction, error)
 }
 
 type WinnerRegister interface {
@@ -208,7 +208,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 				winnerPostingTxn, err := l.recorder.RecordL1Block(
 					big.NewInt(0).SetUint64(b),
-					winner,
+					[]byte(builderPubKey),
 				)
 				if err != nil {
 					l.logger.Error("failed to register winner for block", "block", b, "error", err)
