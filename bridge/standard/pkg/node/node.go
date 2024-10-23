@@ -186,6 +186,8 @@ func (n *Node) createGatewayContract(
 		return fmt.Errorf("failed to get chain ID: %w", err)
 	}
 
+	setupMetricsNamespace(fmt.Sprintf("bridge_%s", component))
+
 	var contractABI string
 	switch component {
 	case "l1":
@@ -352,4 +354,10 @@ func initDB(opts *Options) (db *sql.DB, err error) {
 	db.SetConnMaxLifetime(1 * time.Hour)
 
 	return db, err
+}
+
+func setupMetricsNamespace(namespace string) {
+	txmonitor.Namespace = namespace
+	events.Namespace = namespace
+	transactor.Namespace = namespace
 }
