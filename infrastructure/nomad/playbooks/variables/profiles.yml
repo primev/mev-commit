@@ -559,7 +559,7 @@ jobs:
       - metrics:
           to: 8080
         db:
-          static: 5432
+          static: 5423
           to: 5432
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
