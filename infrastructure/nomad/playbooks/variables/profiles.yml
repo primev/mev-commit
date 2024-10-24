@@ -10,7 +10,7 @@ artifacts:
     path: p2p/integrationtest/provider
   bridge_v1: &bridge_v1_artifact
     type: binary
-    path: bridge/standard/bridge-v1
+    path: bridge/standard
   geth: &geth_artifact
     type: binary
     path: external/geth
@@ -558,6 +558,9 @@ jobs:
     ports:
       - metrics:
           to: 8080
+        db:
+          static: 5433
+          to: 5433
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"

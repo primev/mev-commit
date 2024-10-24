@@ -1,6 +1,0 @@
-priv-key-file: "example_config/relayer_key"
-log-level: "debug"
-l1-rpc-url: "http://l1-bootnode:8545"
-settlement-rpc-url: "http://sl-bootnode:8545"
-l1-contract-addr: "0x1a18dfEc4f2B66207b1Ad30aB5c7A0d62Ef4A40b"
-settlement-contract-addr: "0xc1f93bE11D7472c9B9a4d87B41dD0a491F1fbc75"

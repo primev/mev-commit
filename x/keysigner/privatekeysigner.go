@@ -21,6 +21,17 @@ type PrivateKeySigner struct {
 	privKey *ecdsa.PrivateKey
 }
 
+func NewPrivateKeySignerFromHex(hexKey string) (*PrivateKeySigner, error) {
+	privKey, err := crypto.HexToECDSA(hexKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load private key from hex: %w", err)
+	}
+
+	return &PrivateKeySigner{
+		privKey: privKey,
+	}, nil
+}
+
 func NewPrivateKeySigner(path string) (*PrivateKeySigner, error) {
 	privKeyFile, err := resolveFilePath(path)
 	if err != nil {

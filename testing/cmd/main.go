@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
 	"github.com/primev/mev-commit/testing/pkg/tests"
+	"github.com/primev/mev-commit/testing/pkg/tests/bridge"
+	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 )
@@ -192,6 +194,41 @@ var (
 			return nil
 		},
 	}
+
+	optionBridgeKeystoreJSON = &cli.StringFlag{
+		Name:     "bridge-keystore-json",
+		Usage:    "bridge keystore JSON",
+		EnvVars:  []string{"MEV_COMMIT_TEST_BRIDGE_KEYSTORE_JSON"},
+		Required: true,
+	}
+
+	optionBridgeKeystoreName = &cli.StringFlag{
+		Name:     "bridge-keystore-name",
+		Usage:    "bridge keystore name",
+		EnvVars:  []string{"MEV_COMMIT_TEST_BRIDGE_KEYSTORE_NAME"},
+		Required: true,
+	}
+
+	optionBridgeKeystorePassword = &cli.StringFlag{
+		Name:     "bridge-keystore-password",
+		Usage:    "bridge keystore password",
+		EnvVars:  []string{"MEV_COMMIT_TEST_BRIDGE_KEYSTORE_PASSWORD"},
+		Required: true,
+	}
+
+	optionL1GatewayContractAddr = &cli.StringFlag{
+		Name:     "l1-gateway-contract-addr",
+		Usage:    "L1 gateway contract address",
+		EnvVars:  []string{"MEV_COMMIT_TEST_L1_GATEWAY_CONTRACT_ADDR"},
+		Required: true,
+	}
+
+	optionSettlementGatewayContractAddr = &cli.StringFlag{
+		Name:     "settlement-gateway-contract-addr",
+		Usage:    "Settlement gateway contract address",
+		EnvVars:  []string{"MEV_COMMIT_TEST_SETTLEMENT_GATEWAY_CONTRACT_ADDR"},
+		Required: true,
+	}
 )
 
 func main() {
@@ -212,6 +249,11 @@ func main() {
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
+			optionBridgeKeystoreJSON,
+			optionBridgeKeystoreName,
+			optionBridgeKeystorePassword,
+			optionL1GatewayContractAddr,
+			optionSettlementGatewayContractAddr,
 		},
 		Action: run,
 	}
@@ -261,7 +303,15 @@ func run(c *cli.Context) error {
 	// Run test cases
 	for _, tc := range tests.TestCases {
 		logger.Info("running test case", "name", tc.Name)
-		if err := tc.Run(c.Context, o, nil); err != nil {
+		var cfg any
+		if tc.Name == "bridge" {
+			cfg, err = createBridgeTestConfig(c)
+			if err != nil {
+				logger.Error("failed to create bridge test config", "error", err)
+				return fmt.Errorf("failed to create bridge test config: %w", err)
+			}
+		}
+		if err := tc.Run(c.Context, o, cfg); err != nil {
 			logger.Error("test case failed", "name", tc.Name, "error", err)
 			return fmt.Errorf("test case %s failed: %w", tc.Name, err)
 		}
@@ -271,4 +321,31 @@ func run(c *cli.Context) error {
 	logger.Info("all test cases passed successfully")
 
 	return nil
+}
+
+func createBridgeTestConfig(c *cli.Context) (bridge.BridgeTestConfig, error) {
+	keystoreJSON := c.String(optionBridgeKeystoreJSON.Name)
+	keystoreName := c.String(optionBridgeKeystoreName.Name)
+	keystorePassword := c.String(optionBridgeKeystorePassword.Name)
+
+	if err := os.MkdirAll("keystore", 0755); err != nil {
+		return bridge.BridgeTestConfig{}, fmt.Errorf("failed to create keystore directory: %w", err)
+	}
+
+	if err := os.WriteFile(fmt.Sprintf("keystore/%s", keystoreName), []byte(keystoreJSON), 0644); err != nil {
+		return bridge.BridgeTestConfig{}, fmt.Errorf("failed to write keystore file: %w", err)
+	}
+
+	signer, err := keysigner.NewKeystoreSigner(fmt.Sprintf("keystore/%s", keystoreName), keystorePassword)
+	if err != nil {
+		return bridge.BridgeTestConfig{}, fmt.Errorf("failed to create keystore signer: %w", err)
+	}
+
+	return bridge.BridgeTestConfig{
+		BridgeAccount:          signer,
+		L1RPCURL:               c.String(optionL1RPCEndpoint.Name),
+		SettlementRPCURL:       c.String(optionSettlementRPCEndpoint.Name),
+		L1ContractAddr:         common.HexToAddress(c.String(optionL1GatewayContractAddr.Name)),
+		SettlementContractAddr: common.HexToAddress(c.String(optionSettlementGatewayContractAddr.Name)),
+	}, nil
 }

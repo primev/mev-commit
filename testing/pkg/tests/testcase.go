@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
+	"github.com/primev/mev-commit/testing/pkg/tests/bridge"
 	"github.com/primev/mev-commit/testing/pkg/tests/connectivity"
 	"github.com/primev/mev-commit/testing/pkg/tests/deposit"
 	"github.com/primev/mev-commit/testing/pkg/tests/preconf"
@@ -18,6 +19,7 @@ type TestEntry struct {
 }
 
 var TestCases = []TestEntry{
+	{"bridge", bridge.RunBridge},
 	{"staking", staking.Run},
 	{"connectivity", connectivity.Run},
 	{"autodeposit", deposit.RunAutoDeposit},
