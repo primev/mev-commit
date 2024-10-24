@@ -51,6 +51,7 @@ contract BidderRegistry is
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
         blocksPerWindow = _blocksPerWindow;
+        __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
     }
@@ -81,6 +82,8 @@ contract BidderRegistry is
      * @param window The window for which the deposit is being made.
      */
     function depositForWindow(uint256 window) external payable whenNotPaused {
+        require(msg.value != 0, DepositAmountIsZero());
+
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -99,6 +102,8 @@ contract BidderRegistry is
      * @param windows The windows for which the deposits are being made.
      */
     function depositForWindows(uint256[] calldata windows) external payable whenNotPaused {
+        require(msg.value != 0, DepositAmountIsZero());
+
         if (!bidderRegistered[msg.sender]) {
             bidderRegistered[msg.sender] = true;
         }
@@ -154,7 +159,7 @@ contract BidderRegistry is
         }
 
         (bool success, ) = msg.sender.call{value: totalAmount}("");
-        require(success, TransferToBidderFailed(msg.sender, totalAmount));
+        require(success, BidderWithdrawalTransferFailed(msg.sender, totalAmount));
     }
 
     /**
@@ -193,7 +198,11 @@ contract BidderRegistry is
         uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
             (bool success, ) = payable(bidState.bidder).call{value: (fundsToReturn)}("");
-            require(success, TransferToBidderFailed(bidState.bidder, fundsToReturn));
+            // edge case, when bidder is rejecting transfer
+            if (!success) {
+                emit TransferToBidderFailed(bidState.bidder, fundsToReturn);
+                lockedFunds[bidState.bidder][windowToSettle] += fundsToReturn;
+            }
         }
 
         bidState.state = State.Withdrawn;
@@ -212,35 +221,38 @@ contract BidderRegistry is
      * @dev Return funds to a bidder's deposit (only callable by the pre-confirmations contract).
      * @dev reenterancy not necessary but still putting here for precaution
      * @param window The window for which the funds are being retrieved.
-     * @param bidID is the Bid ID that allows us to identify the bid, and deposit
+     * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
      */
     function unlockFunds(
         uint256 window,
-        bytes32 bidID
+        bytes32 commitmentDigest
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        BidState storage bidState = bidPayment[bidID];
-        require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(bidID, bidState.state, State.PreConfirmed));
+        BidState storage bidState = bidPayment[commitmentDigest];
+        require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
         
         uint256 amt = bidState.bidAmt;
         bidState.state = State.Withdrawn;
         bidState.bidAmt = 0;
 
         (bool success, ) = payable(bidState.bidder).call{value: amt}("");
-        require(success, TransferToBidderFailed(bidState.bidder, amt));
+        if (!success) {
+            emit TransferToBidderFailed(bidState.bidder, amt);
+            lockedFunds[bidState.bidder][window] += amt;
+        }
 
-        emit FundsRetrieved(bidID, bidState.bidder, window, amt);
+        emit FundsRetrieved(commitmentDigest, bidState.bidder, window, amt);
     }
 
     /**
      * @dev Open a bid and update the used funds for the block (only callable by the pre-confirmations contract).
      * @param commitmentDigest is the Bid ID that allows us to identify the bid, and deposit
-     * @param bid The bid amount.
+     * @param bidAmt The bid amount.
      * @param bidder The address of the bidder.
      * @param blockNumber The block number.
      */
     function openBid(
         bytes32 commitmentDigest,
-        uint256 bid,
+        uint256 bidAmt,
         address bidder,
         uint64 blockNumber
     ) external onlyPreconfManager whenNotPaused {
@@ -262,22 +274,19 @@ contract BidderRegistry is
             : 0;
 
         // Check if bid exceeds the available amount for the block
-        if (availableAmount < bid) {
-            (bool success, ) = payable(bidder).call{value: bid - availableAmount}("");
-            require(success, TransferToBidderFailed(bidder, bid - availableAmount));
-
-            bid = availableAmount;
+        if (availableAmount < bidAmt) {
+            bidAmt = availableAmount;
         }
 
         // Update the used funds for the block and locked funds if bid is greater than 0
-        if (bid > 0) {
-            usedFunds[bidder][blockNumber] += bid;
-            lockedFunds[bidder][currentWindow] -= bid;
+        if (bidAmt > 0) {
+            usedFunds[bidder][blockNumber] += bidAmt;
+            lockedFunds[bidder][currentWindow] -= bidAmt;
         }
 
         bidState.state = State.PreConfirmed;
         bidState.bidder = bidder;
-        bidState.bidAmt = bid;
+        bidState.bidAmt = bidAmt;
     }
 
     /**
@@ -362,7 +371,7 @@ contract BidderRegistry is
         maxBidPerBlock[bidder][window] = 0;
 
         (bool success, ) = bidder.call{value: amount}("");
-        require(success, TransferToBidderFailed(bidder, amount));
+        require(success, BidderWithdrawalTransferFailed(bidder, amount));
 
         emit BidderWithdrawal(bidder, window, amount);
     }

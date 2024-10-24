@@ -253,7 +253,7 @@ contract OracleTest is Test {
         );
         vm.stopPrank();
         assertEq(
-            providerRegistry.getProviderStake(provider) + ((bid * 55) / 100),
+            providerRegistry.getProviderStake(provider) + (bid * feePercent) / 100 + bid,
             250 ether
         );
     }
@@ -626,8 +626,8 @@ contract OracleTest is Test {
                 10,
                 20,
                 bidHash,
-                _bytesToHexString(bidSignature),
-                _bytesToHexString(sharedSecretKey)
+                bidSignature,
+                sharedSecretKey
             );
     }
 
@@ -729,8 +729,8 @@ contract OracleTest is Test {
             decayStartTimestamp,
             decayEndTimestamp,
             bidHash,
-            _bytesToHexString(bidSignature),
-            _bytesToHexString(sharedSecretKey)
+            bidSignature,
+            sharedSecretKey
         );
 
         (v, r, s) = vm.sign(signerPk, commitmentDigest);

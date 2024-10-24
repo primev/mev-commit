@@ -124,7 +124,7 @@ func TestUpdater(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -167,7 +167,7 @@ func TestUpdater(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -388,7 +388,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -431,7 +431,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -659,7 +659,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
 			CommitmentSignature: []byte("signature"),
@@ -702,7 +702,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -926,7 +926,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
@@ -1118,7 +1118,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		commitment := preconf.PreconfmanagerOpenedCommitmentStored{
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
-			Bid:                 big.NewInt(10),
+			BidAmt:              big.NewInt(10),
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			RevertingTxHashes:   "",
 			BlockNumber:         blockNum,
@@ -1477,7 +1477,7 @@ func publishOpenedCommitment(
 	buf, err := event.Inputs.NonIndexed().Pack(
 		c.Bidder,
 		c.Committer,
-		c.Bid,
+		c.BidAmt,
 		c.BlockNumber,
 		c.BidHash,
 		c.DecayStartTimeStamp,

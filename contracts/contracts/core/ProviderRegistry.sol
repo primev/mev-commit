@@ -51,6 +51,7 @@ contract ProviderRegistry is
         minStake = _minStake;
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
+        __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
     }
@@ -95,36 +96,36 @@ contract ProviderRegistry is
      * @param amt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
-     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function slash(
         uint256 amt,
         address provider,
-        address payable bidder,
-        uint256 residualBidPercentAfterDecay
+        address payable bidder
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
-        uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
+        uint256 penaltyFee = (amt * uint256(feePercent) * PRECISION) / PERCENT;
         uint256 providerStake = providerStakes[provider];
 
-        if (providerStake < residualAmt + penaltyFee) {
-            emit InsufficientFundsToSlash(provider, providerStake, residualAmt, penaltyFee);
-            if (providerStake < residualAmt) {
-                residualAmt = providerStake;
+        if (providerStake < amt + penaltyFee) {
+            emit InsufficientFundsToSlash(provider, providerStake, amt, penaltyFee);
+            if (providerStake < amt) {
+                amt = providerStake;
             }
-            penaltyFee = providerStake - residualAmt;
+            penaltyFee = providerStake - amt;
         }
-        providerStakes[provider] -= residualAmt + penaltyFee;
+        providerStakes[provider] -= amt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        (bool success, ) = payable(bidder).call{value: residualAmt}("");
-        require(success, TransferToBidderFailed(bidder, residualAmt));
+        (bool success, ) = payable(bidder).call{value: amt}("");
+        if (!success) {
+            emit TransferToBidderFailed(bidder, amt);
+            bidderSlashedAmount[bidder] += amt;
+        }
 
-        emit FundsSlashed(provider, residualAmt + penaltyFee);
+        emit FundsSlashed(provider, amt + penaltyFee);
     }
 
     /**
@@ -196,6 +197,7 @@ contract ProviderRegistry is
 
         uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
+        providerRegistered[msg.sender] = false;
         withdrawalRequests[msg.sender] = 0;
         require(providerStake != 0, ProviderStakedAmountZero(msg.sender));
         require(preconfManager != address(0), PreconfManagerNotSet());
@@ -210,6 +212,17 @@ contract ProviderRegistry is
         require(success, StakeTransferFailed(msg.sender, providerStake));
 
         emit Withdraw(msg.sender, providerStake);
+    }
+
+    /**
+     * @dev Allows the bidder to withdraw the slashed amount.
+     */
+    function bidderWithdraw() external nonReentrant whenNotPaused() {
+        require(bidderSlashedAmount[msg.sender] != 0, BidderAmountIsZero(msg.sender));
+        uint256 amount = bidderSlashedAmount[msg.sender];
+        bidderSlashedAmount[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, BidderWithdrawalTransferFailed(msg.sender, amount));
     }
 
     /**
@@ -258,15 +271,6 @@ contract ProviderRegistry is
         _registerAndStake(msg.sender, blsPublicKey);
     }
 
-    /**
-     * @dev Register and stake on behalf of a provider.
-     * @param provider Address of the provider.
-     * @param blsPublicKey BLS public key of the provider.
-     */
-    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable whenNotPaused {
-        _registerAndStake(provider, blsPublicKey);
-    }
-
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
     function isProviderValid(address provider) public view {
         uint256 providerStake = providerStakes[provider];
@@ -276,6 +280,7 @@ contract ProviderRegistry is
 
     function _stake(address provider) internal {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
     }

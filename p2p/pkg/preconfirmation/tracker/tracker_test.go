@@ -153,7 +153,7 @@ func TestTracker(t *testing.T) {
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
-		Bid:                 amount,
+		BidAmt:              amount,
 		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
 		BidHash:             common.BytesToHash(commitments[4].PreConfirmation.Bid.Digest),
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
@@ -499,7 +499,7 @@ func publishOpenedCommitment(
 	buf, err := event.Inputs.NonIndexed().Pack(
 		c.Bidder,
 		c.Committer,
-		c.Bid,
+		c.BidAmt,
 		c.BlockNumber,
 		c.BidHash,
 		c.DecayStartTimeStamp,
