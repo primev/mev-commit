@@ -26,6 +26,9 @@ contract VanillaRegistryStorage {
     /// @dev Mapping of BLS pubkeys to stored staked validator structs. 
     mapping(bytes => IVanillaRegistry.StakedValidator) public stakedValidators;
 
+    /// @dev Mapping of withdrawal addresses to claimable ETH that was force withdrawn by the owner.
+    mapping(address withdrawalAddress => uint256 amountToClaim) public forceWithdrawnFunds;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
 }

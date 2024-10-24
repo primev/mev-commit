@@ -148,16 +148,32 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev msg.sender must be the withdrawal address for every provided validator pubkey as enforced in _withdraw.
     function withdraw(bytes[] calldata blsPubKeys) external
         onlyExistentValidatorRecords(blsPubKeys) whenNotPaused() {
-        _withdraw(blsPubKeys, msg.sender);
+        uint256 totalAmount = _withdraw(blsPubKeys, msg.sender);
+        if (totalAmount != 0) {
+            (bool success, ) = msg.sender.call{value: totalAmount}("");
+            require(success, IVanillaRegistry.WithdrawalFailed());
+        }
     }
 
     /// @dev Allows owner to withdraw ETH on behalf of one or multiple validators via their BLS pubkey.
     /// @param blsPubKeys The BLS public keys to withdraw.
     /// @param withdrawalAddress The address to receive the staked ETH.
     /// @dev withdrawalAddress must be the withdrawal address for every provided validator pubkeyas enforced in _withdraw.
-    function withdrawAsOwner(bytes[] calldata blsPubKeys, address withdrawalAddress) external
+    function forceWithdrawalAsOwner(bytes[] calldata blsPubKeys, address withdrawalAddress) external
         onlyExistentValidatorRecords(blsPubKeys) onlyOwner {
-        _withdraw(blsPubKeys, withdrawalAddress);
+        uint256 totalAmount = _withdraw(blsPubKeys, withdrawalAddress);
+        if (totalAmount != 0) {
+            forceWithdrawnFunds[withdrawalAddress] += totalAmount;
+        }
+    }
+
+    /// @dev Allows a withdrawal address to claim any ETH that was force withdrawn by the owner.
+    function claimForceWithdrawnFunds() external {
+        uint256 amountToClaim = forceWithdrawnFunds[msg.sender];
+        require(amountToClaim != 0, IVanillaRegistry.NoFundsToWithdraw());
+        forceWithdrawnFunds[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: amountToClaim}("");
+        require(success, IVanillaRegistry.WithdrawalFailed());
     }
 
     /// @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
@@ -333,8 +349,9 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev This function also deletes the validator record, and therefore serves a purpose even if no withdawable funds exist.
     /// @param blsPubKeys The BLS public keys to withdraw.
     /// @param expectedWithdrawalAddress The expected withdrawal address for every provided validator. 
+    /// @return totalAmount The total amount of ETH withdrawn, to be handled by calling function.
     /// @dev msg.sender must be contract owner, or the withdrawal address for every provided validator.
-    function _withdraw(bytes[] calldata blsPubKeys, address expectedWithdrawalAddress) internal {
+    function _withdraw(bytes[] calldata blsPubKeys, address expectedWithdrawalAddress) internal returns (uint256) {
         uint256 len = blsPubKeys.length;
         uint256 totalAmount = 0;
         for (uint256 i = 0; i < len; ++i) {
@@ -350,11 +367,8 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
             delete stakedValidators[pubKey];
             emit StakeWithdrawn(msg.sender, expectedWithdrawalAddress, pubKey, balance);
         }
-        if (totalAmount != 0) {
-            (bool success, ) = expectedWithdrawalAddress.call{value: totalAmount}("");
-            require(success, IVanillaRegistry.WithdrawalFailed());
-        }
         emit TotalStakeWithdrawn(msg.sender, expectedWithdrawalAddress, totalAmount);
+        return totalAmount;
     }
 
     /// @dev Internal function to slash minStake worth of ETH on behalf of one or multiple validators via their BLS pubkey.

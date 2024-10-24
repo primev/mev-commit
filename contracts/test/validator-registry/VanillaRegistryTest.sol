@@ -901,14 +901,14 @@ contract VanillaRegistryTest is Test {
         assertEq(address(validatorRegistry).balance, 200 wei);
     }
 
-    function testWithdrawAsOwner() public { 
+    function testForceWithdrawalAsOwner() public { 
         bytes[] memory validators = new bytes[](2);
         validators[0] = user1BLSKey;
         validators[1] = user2BLSKey;
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
-        validatorRegistry.withdrawAsOwner(validators, user1);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         testMultiStake();
         vm.prank(user1);
@@ -920,17 +920,17 @@ contract VanillaRegistryTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1));
-        validatorRegistry.withdrawAsOwner(validators, user1);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawingTooSoon.selector));
-        validatorRegistry.withdrawAsOwner(validators, user1);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         vm.roll(200);
 
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.WithdrawalAddressMismatch.selector, user1, user2));
-        validatorRegistry.withdrawAsOwner(validators, user2);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user2);
 
         assertEq(address(validatorRegistry).balance, 6 ether);
         assertEq(user1.balance, 1 ether);
@@ -942,7 +942,17 @@ contract VanillaRegistryTest is Test {
         emit StakeWithdrawn(owner, user1, user1BLSKey, 3 ether);
         vm.expectEmit(true, true, true, true);
         emit StakeWithdrawn(owner, user1, user2BLSKey, 3 ether);
-        validatorRegistry.withdrawAsOwner(validators, user1);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user1);
+
+        assertEq(address(validatorRegistry).balance, 6 ether);
+        assertEq(user1.balance, 1 ether);
+        assertEq(user2.balance, 0);
+
+        assertEq(owner.balance, ownerBefore); 
+        ownerBefore = owner.balance;
+
+        vm.prank(user1);
+        validatorRegistry.claimForceWithdrawnFunds();
 
         assertEq(address(validatorRegistry).balance, 0);
         assertEq(user1.balance, 7 ether);
@@ -951,12 +961,12 @@ contract VanillaRegistryTest is Test {
 
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
-        validatorRegistry.withdrawAsOwner(validators, user1);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user1);
     }
 
     // Owner should be able to force withdrawal after validator is slashed, even if no staked funds are left.
     // This is purely to allow owner to delete the stale staking record.
-    function testWithdrawAsOwnerAfterValidatorIsSlashed() public {
+    function testForceWithdrawalAsOwnerAfterValidatorIsSlashed() public {
         testSlashingStakedValidator();
 
         bytes[] memory validators = new bytes[](1);
@@ -977,7 +987,7 @@ contract VanillaRegistryTest is Test {
         vm.prank(owner);
         vm.expectEmit(true, true, true, true);
         emit StakeWithdrawn(owner, user1, user1BLSKey, 0 ether);
-        validatorRegistry.withdrawAsOwner(validators, user1);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         assertFalse(validatorRegistry.getStakedValidator(user1BLSKey).exists);
         assertFalse(validatorRegistry.isUnstaking(user1BLSKey));
@@ -987,7 +997,7 @@ contract VanillaRegistryTest is Test {
         assertEq(user1.balance, user1Before);
     }
 
-    function testWithdrawAsOwnerFundsAreLeft() public {
+    function testForceWithdrawalAsOwnerFundsAreLeft() public {
         testMultiStake(); // This test over-stakes validators by 2 ether.
 
         uint256 stakedAmount = validatorRegistry.getStakedAmount(user1BLSKey);
@@ -1013,12 +1023,18 @@ contract VanillaRegistryTest is Test {
         vm.prank(owner);
         vm.expectEmit(true, true, true, true);
         emit StakeWithdrawn(owner, user1, user1BLSKey, 2 ether);
-        validatorRegistry.withdrawAsOwner(validators, user1);
+        validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
         stakedValidator = validatorRegistry.getStakedValidator(user1BLSKey);
         assertFalse(stakedValidator.exists);
         assertFalse(validatorRegistry.isUnstaking(user1BLSKey));
         assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
+        assertEq(owner.balance, ownerBefore);
+        ownerBefore = owner.balance;
+
+        vm.prank(user1);
+        validatorRegistry.claimForceWithdrawnFunds();
 
         assertEq(owner.balance, ownerBefore);
         assertEq(user1.balance, user1Before + 2 ether); // Funds still withdrawn to withdrawal address
