@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
+import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
+
 abstract contract BlockTrackerStorage {
     /// @dev Permissioned address of the oracle account.
     address public oracleAccount;
@@ -15,6 +17,9 @@ abstract contract BlockTrackerStorage {
      /// @dev Maps builder names to their respective Ethereum addresses.
     mapping(string => address) public blockBuilderNameToAddress;
 
+    /// @dev Interface for the ProviderRegistry contract
+    IProviderRegistry public _providerRegistry;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 }

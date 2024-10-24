@@ -25,6 +25,62 @@ import (
 	"github.com/primev/mev-commit/x/util"
 )
 
+// func TestMiniRelayQueryEngine(t *testing.T) {
+// 	t.Parallel()
+
+// 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+// 	relayUrls := []string{
+// 		"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://bloxroute.max-profit.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://bloxroute.regulated.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://relay.edennetwork.io/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://mainnet-relay.securerpc.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://relay.ultrasound.money/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://agnostic-relay.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://aestus.live/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 		"https://relay.wenmerge.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+// 	}
+
+// 	engine := l1Listener.NewMiniRelayQueryEngine(relayUrls, logger)
+
+// 	// Initialize L1 client
+// 	client, err := ethclient.Dial("https://eth.llamarpc.com")
+// 	if err != nil {
+// 		t.Fatalf("Failed to connect to the Ethereum client: %v", err)
+// 	}
+
+// 	// Get the latest block number
+// 	latestBlock, err := client.BlockNumber(context.Background())
+// 	if err != nil {
+// 		t.Fatalf("Failed to get latest block number: %v", err)
+// 	}
+
+// 	// Use the latest block number for the test
+// 	blockNumber := int64(latestBlock)
+
+// 	// Get the block hash for the latest block
+// 	block, err := client.BlockByNumber(context.Background(), big.NewInt(blockNumber))
+// 	if err != nil {
+// 		t.Fatalf("Failed to get block: %v", err)
+// 	}
+// 	blockHash := block.Hash().Hex()
+
+// 	builderPubKey, err := engine.Query(blockNumber, blockHash)
+// 	if err != nil {
+// 		t.Fatalf("Failed to query relay: %v", err)
+// 	}
+
+// 	if builderPubKey == "" {
+// 		t.Fatal("No builder public key received")
+// 	}
+// 	// Print the builder public key
+// 	t.Logf("Builder Public Key: %s", builderPubKey)
+
+//		// Additional assertion to ensure the public key is in the expected format
+//		if len(builderPubKey) != 98 || !strings.HasPrefix(builderPubKey, "0x") {
+//			t.Errorf("Unexpected format for builder public key: %s", builderPubKey)
+//		}
+//	}
 func TestL1Listener(t *testing.T) {
 	t.Parallel()
 
@@ -47,12 +103,21 @@ func TestL1Listener(t *testing.T) {
 		updates: make(chan l1Update),
 	}
 
+	testRelayQuerier := &testRelayQuerier{
+		responses: map[int64]string{
+			1: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			2: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			3: "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
+		},
+	}
+
 	l := l1Listener.NewL1Listener(
 		slog.New(slog.NewTextHandler(os.Stdout, nil)),
 		ethClient,
 		reg,
 		eventManager,
 		rec,
+		testRelayQuerier,
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -64,8 +129,9 @@ func TestL1Listener(t *testing.T) {
 	for i := 1; i < 10; i++ {
 		ethClient.AddHeader(uint64(i), &types.Header{
 			Number: big.NewInt(int64(i)),
-			Extra:  []byte(fmt.Sprintf("b%d", i)),
 		})
+
+		testRelayQuerier.SetResponse(int64(i), fmt.Sprintf("b%d", i))
 
 		select {
 		case <-time.After(10 * time.Second):
@@ -91,6 +157,9 @@ func TestL1Listener(t *testing.T) {
 		Number: big.NewInt(11),
 		Extra:  []byte("b11"),
 	})
+
+	time.Sleep(1 * time.Second)
+	testRelayQuerier.SetResponse(11, "b11")
 
 	// ensure no winner is sent for the previous block
 	select {
@@ -141,6 +210,32 @@ func TestL1Listener(t *testing.T) {
 		t.Fatal("timeout waiting for done")
 	case <-done:
 	}
+}
+
+type testRelayQuerier struct {
+	responses map[int64]string
+	mu        sync.Mutex
+}
+
+func newTestRelayQuerier() *testRelayQuerier {
+	return &testRelayQuerier{
+		responses: make(map[int64]string),
+	}
+}
+
+func (t *testRelayQuerier) SetResponse(blockNumber int64, builderPubKey string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.responses[blockNumber] = builderPubKey
+}
+
+func (t *testRelayQuerier) Query(blockNumber int64, blockHash string) (string, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if response, ok := t.responses[blockNumber]; ok {
+		return response, nil
+	}
+	return "", fmt.Errorf("no response set for block number %d", blockNumber)
 }
 
 type winnerObj struct {
@@ -251,7 +346,7 @@ type testRecorder struct {
 	updates chan l1Update
 }
 
-func (t *testRecorder) RecordL1Block(blockNum *big.Int, winner string) (*types.Transaction, error) {
-	t.updates <- l1Update{blockNum: blockNum, winner: winner}
+func (t *testRecorder) RecordL1Block(blockNum *big.Int, winner []byte) (*types.Transaction, error) {
+	t.updates <- l1Update{blockNum: blockNum, winner: string(winner)}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }

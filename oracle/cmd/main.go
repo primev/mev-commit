@@ -242,6 +242,22 @@ var (
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
 		Value:   "2000000000", // 2 gWEI
 	})
+	optionRelayUrls = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:    "relay-urls",
+		Usage:   "URLs for relay",
+		EnvVars: []string{"MEV_ORACLE_RELAY_URLS"},
+		Value: cli.NewStringSlice(
+			"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://bloxroute.max-profit.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://bloxroute.regulated.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.edennetwork.io/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://mainnet-relay.securerpc.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.ultrasound.money/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://agnostic-relay.net/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://aestus.live/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://relay.wenmerge.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+		),
+	})
 )
 
 func main() {
@@ -273,6 +289,7 @@ func main() {
 		optionGasLimit,
 		optionGasTipCap,
 		optionGasFeeCap,
+		optionRelayUrls,
 	}
 	app := &cli.App{
 		Name:  "mev-oracle",
@@ -392,6 +409,7 @@ func launchOracleWithConfig(c *cli.Context) error {
 		DefaultGasLimit:              uint64(c.Int(optionGasLimit.Name)),
 		DefaultGasTipCap:             gasTipCap,
 		DefaultGasFeeCap:             gasFeeCap,
+		RelayUrls:                    c.StringSlice(optionRelayUrls.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
