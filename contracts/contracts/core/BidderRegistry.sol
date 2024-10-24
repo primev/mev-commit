@@ -51,6 +51,7 @@ contract BidderRegistry is
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
         blocksPerWindow = _blocksPerWindow;
+        __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
     }

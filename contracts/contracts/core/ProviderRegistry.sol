@@ -51,6 +51,7 @@ contract ProviderRegistry is
         minStake = _minStake;
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
+        __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
     }
