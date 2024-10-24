@@ -472,7 +472,7 @@ func getRandomBid(
 	if len(filteredTransactions) == 0 {
 		return nil, errNoTxnsInBlock
 	}
-	
+
 	for _, txn := range filteredTransactions {
 		txHash := strings.TrimPrefix(txn.Hash().String(), "0x")
 		txHashes = append(
