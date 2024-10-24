@@ -256,6 +256,9 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 	defer tick.Stop()
 	count := 0
 	lastWinnerBlock := 0
+
+	usedTxHashes := make(map[string]struct{})
+
 DONE:
 	for {
 		select {
@@ -273,7 +276,7 @@ DONE:
 				}
 			} else {
 				for _, b := range bidders {
-					entry, err := getRandomBid(ctx, cluster, store)
+					entry, err := getRandomBid(ctx, cluster, store, usedTxHashes)
 					if err != nil {
 						if errors.Is(err, errNoTxnsInBlock) {
 							logger.Info("No transactions in block")
@@ -415,6 +418,7 @@ func getRandomBid(
 	ctx context.Context,
 	o orchestrator.Orchestrator,
 	store *radix.Tree,
+	usedTxHashes map[string]struct{},
 ) (*BidEntry, error) {
 	blkNum, err := o.L1Client().BlockNumber(ctx)
 	if err != nil {
@@ -452,25 +456,41 @@ func getRandomBid(
 	}
 
 	var (
-		txHashes []string
-		rawTxns  []string
+		txHashes             []string
+		rawTxns              []string
+		filteredTransactions []*types.Transaction
 	)
+
 	for _, txn := range transactions {
+		txHash := strings.TrimPrefix(txn.Hash().String(), "0x")
+		if _, ok := usedTxHashes[txHash]; ok {
+			continue
+		}
+		filteredTransactions = append(filteredTransactions, txn)
+	}
+
+	if len(filteredTransactions) == 0 {
+		return nil, errNoTxnsInBlock
+	}
+	
+	for _, txn := range filteredTransactions {
+		txHash := strings.TrimPrefix(txn.Hash().String(), "0x")
 		txHashes = append(
 			txHashes,
-			strings.TrimPrefix(txn.Hash().String(), "0x"),
+			txHash,
 		)
 		buf, err := txn.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
 		rawTxns = append(rawTxns, hex.EncodeToString(buf))
+		usedTxHashes[txHash] = struct{}{}
 	}
 
 	revertingTxnHashes, err := getRevertingTxns(
 		ctx,
 		o.L1Client(),
-		transactions,
+		filteredTransactions,
 	)
 	if err != nil {
 		return nil, err
