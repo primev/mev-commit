@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	l1gateway "github.com/primev/mev-commit/contracts-abi/clients/L1Gateway"
 	settlementgateway "github.com/primev/mev-commit/contracts-abi/clients/SettlementGateway"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -25,6 +26,7 @@ type Relayer struct {
 	logger            *slog.Logger
 	l1Gateway         L1Gateway
 	settlementGateway SettlementGateway
+	metrics           *metrics
 }
 
 func NewRelayer(
@@ -36,6 +38,18 @@ func NewRelayer(
 		logger:            logger,
 		l1Gateway:         l1Gateway,
 		settlementGateway: settlementGateway,
+		metrics:           newMetrics(),
+	}
+}
+
+func (r *Relayer) Metrics() []prometheus.Collector {
+	return []prometheus.Collector{
+		r.metrics.initiatedTransfers,
+		r.metrics.finalizedTransfers,
+		r.metrics.failedFinalizations,
+		r.metrics.initiatedTransfersValue,
+		r.metrics.finalizedTransfersValue,
+		r.metrics.failedFinalizationsValue,
 	}
 }
 
@@ -55,6 +69,8 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 			case err := <-l1Err:
 				return err
 			case upd := <-l1Transfers:
+				r.metrics.initiatedTransfers.WithLabelValues("l1").Inc()
+				r.metrics.initiatedTransfersValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
 				err := r.settlementGateway.FinalizeTransfer(
 					egCtx,
 					upd.Recipient,
@@ -63,8 +79,12 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 				)
 				if err != nil {
 					r.logger.Error("error in settlement finalization", "error", err)
+					r.metrics.failedFinalizations.WithLabelValues("settlement").Inc()
+					r.metrics.failedFinalizationsValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
 					return err
 				}
+				r.metrics.finalizedTransfers.WithLabelValues("settlement").Inc()
+				r.metrics.finalizedTransfersValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
 			}
 		}
 	})
@@ -78,6 +98,8 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 			case err := <-settlementErr:
 				return err
 			case upd := <-settlementTransfers:
+				r.metrics.initiatedTransfers.WithLabelValues("settlement").Inc()
+				r.metrics.initiatedTransfersValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
 				err := r.l1Gateway.FinalizeTransfer(
 					egCtx,
 					upd.Recipient,
@@ -86,8 +108,12 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 				)
 				if err != nil {
 					r.logger.Error("error in l1 finalization", "error", err)
+					r.metrics.failedFinalizations.WithLabelValues("l1").Inc()
+					r.metrics.failedFinalizationsValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
 					return err
 				}
+				r.metrics.finalizedTransfers.WithLabelValues("l1").Inc()
+				r.metrics.finalizedTransfersValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
 			}
 		}
 	})

@@ -684,15 +684,15 @@ profiles:
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *bridge_emulator_job
-      # - *mev_commit_dashboard_job
-      # - *mev_commit_bootnode1_job
-      # - *mev_commit_provider_node1_job
-      # - *mev_commit_provider_node1_funder_job
+      - *mev_commit_dashboard_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
       - *mev_commit_oracle_job
-      # - *mev_commit_bidder_node1_job
-      # - *mev_commit_bidder_node1_funder_job
-      # - *mev_commit_provider_emulator_node1_job
-      # - *mev_commit_bidder_emulator_node1_job
+      - *mev_commit_bidder_node1_job
+      - *mev_commit_bidder_node1_funder_job
+      - *mev_commit_provider_emulator_node1_job
+      - *mev_commit_bidder_emulator_node1_job
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
 

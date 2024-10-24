@@ -78,8 +78,11 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          export PGHOST="127.0.0.1"
-          export PGPORT="5433"
+          {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
+            {{- if contains "db" .Tags }}
+          export PGPORT="{{ .Port }}"
+            {{- end }}
+          {{- end }}
 
           if [ -d "${POSTGRES_DATA}" ]; then
             echo "Initialized and configured database found."
@@ -194,12 +197,12 @@ job "{{ job.name }}" {
           STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          # {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
-          #   {{- if contains "db" .Tags }}
-          # STANDARD_BRIDGE_RELAYER_PG_HOST="{{ .Address }}"
-          # STANDARD_BRIDGE_RELAYER_PG_PORT="{{ .Port }}"
-          #   {{- end }}
-          # {{- end }}
+          {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
+            {{- if contains "db" .Tags }}
+          STANDARD_BRIDGE_RELAYER_PG_HOST="{{ .Address }}"
+          STANDARD_BRIDGE_RELAYER_PG_PORT="{{ .Port }}"
+            {{- end }}
+          {{- end }}
           {% endraw %}
           STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           L1_CHAIN_ID="{{ job.env['l1_chain_id'] }}"
@@ -247,8 +250,6 @@ job "{{ job.name }}" {
           export STANDARD_BRIDGE_RELAYER_PG_USER="${POSTGRES_USERNAME}"
           export STANDARD_BRIDGE_RELAYER_PG_PASSWORD="${POSTGRES_PASSWORD}"
           export STANDARD_BRIDGE_RELAYER_PG_DBNAME="${POSTGRES_DB}"
-          export STANDARD_BRIDGE_RELAYER_PG_HOST="127.0.0.1"
-          export STANDARD_BRIDGE_RELAYER_PG_PORT="5433"
 
           if ! timeout 5m bash -c 'until pg_isready -h ${STANDARD_BRIDGE_RELAYER_PG_HOST} -p ${STANDARD_BRIDGE_RELAYER_PG_PORT} -U ${STANDARD_BRIDGE_RELAYER_PG_USER} -d ${STANDARD_BRIDGE_RELAYER_PG_DBNAME}; do sleep 2; done'; then
             echo "Waiting for PostgreSQL to start..."

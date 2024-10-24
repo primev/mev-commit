@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -77,6 +78,16 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, fmt.Errorf("failed to init DB: %w", err)
 	}
 
+	l1Store, err := store.NewStore(db, "l1")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create L1 store: %w", err)
+	}
+
+	settlementStore, err := store.NewStore(db, "settlement")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create settlement store: %w", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	err = n.createGatewayContract(
 		ctx,
@@ -85,7 +96,7 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.L1RPCURL,
 		opts.Signer,
 		opts.L1GatewayContractAddr,
-		db,
+		l1Store,
 	)
 	if err != nil {
 		cancel()
@@ -99,7 +110,7 @@ func NewNode(opts *Options) (*Node, error) {
 		opts.SettlementRPCURL,
 		opts.Signer,
 		opts.SettlementContractAddr,
-		db,
+		settlementStore,
 	)
 	if err != nil {
 		cancel()
@@ -111,6 +122,7 @@ func NewNode(opts *Options) (*Node, error) {
 		n.l1Gateway,
 		n.settlementGateway,
 	)
+	n.metrics.MustRegister(r.Metrics()...)
 
 	n.startables = append(n.startables, StartableObjWithDesc{Startable: r, Desc: "relayer"})
 
@@ -128,6 +140,30 @@ func NewNode(opts *Options) (*Node, error) {
 		if err := h.Health(); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			w.Write([]byte(err.Error()))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	mux.Handle("/pending_l1_transfers", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		txns, err := l1Store.PendingTxns()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(txns); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	mux.Handle("/pending_settlement_transfers", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		txns, err := settlementStore.PendingTxns()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if err := json.NewEncoder(w).Encode(txns); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -174,7 +210,7 @@ func (n *Node) createGatewayContract(
 	rpcURL string,
 	signer keysigner.KeySigner,
 	contractAddr common.Address,
-	db *sql.DB,
+	st *store.Store,
 ) error {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
@@ -201,11 +237,6 @@ func (n *Node) createGatewayContract(
 	parsedABI, err := abi.JSON(strings.NewReader(contractABI))
 	if err != nil {
 		return fmt.Errorf("failed to parse contract ABI: %w", err)
-	}
-
-	st, err := store.NewStore(db, component)
-	if err != nil {
-		return fmt.Errorf("failed to create store: %w", err)
 	}
 
 	monitor := txmonitor.New(
