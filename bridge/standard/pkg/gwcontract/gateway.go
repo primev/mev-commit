@@ -94,7 +94,7 @@ func (g *Gateway[EventType]) FinalizeTransfer(
 		counterpartyIdx,
 	)
 	if err != nil {
-		g.logger.Error("failed to send transaction", "error", err)
+		g.logger.Error("failed to send transaction", "sender", opts.From, "receipient", recipient, "amount", amount, "error", err)
 		return err
 	}
 

@@ -78,10 +78,10 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 					upd.TransferIdx,
 				)
 				if err != nil {
-					r.logger.Error("error in settlement finalization", "error", err)
+					r.logger.Error("error in settlement finalization", "recipient", upd.Recipient, "amount", upd.Amount, "transferIdx", upd.TransferIdx, "error", err)
 					r.metrics.failedFinalizations.WithLabelValues("settlement").Inc()
 					r.metrics.failedFinalizationsValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
-					return err
+					continue
 				}
 				r.metrics.finalizedTransfers.WithLabelValues("settlement").Inc()
 				r.metrics.finalizedTransfersValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
@@ -107,10 +107,10 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 					upd.TransferIdx,
 				)
 				if err != nil {
-					r.logger.Error("error in l1 finalization", "error", err)
+					r.logger.Error("error in l1 finalization", "recipient", upd.Recipient, "amount", upd.Amount, "transferIdx", upd.TransferIdx, "error", err)
 					r.metrics.failedFinalizations.WithLabelValues("l1").Inc()
 					r.metrics.failedFinalizationsValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
-					return err
+					continue
 				}
 				r.metrics.finalizedTransfers.WithLabelValues("l1").Inc()
 				r.metrics.finalizedTransfersValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
