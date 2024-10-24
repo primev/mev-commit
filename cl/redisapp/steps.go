@@ -81,23 +81,22 @@ func (s *StepsManager) getPayload(ctx context.Context) error {
 	prevTimestamp := head.BlockTime
 
 	var ts uint64
-	buildDelayMillis := s.buildDelay.Milliseconds()
 
 	if s.lastCallTime.IsZero() {
 		// First block, initialize lastCallTime and set default timestamp
-		ts = uint64(time.Now().UnixMilli()) + uint64(buildDelayMillis)
+		ts = uint64(time.Now().UnixMilli()) + s.buildDelayMs
 		s.lastCallTime = currentCallTime
 	} else {
 		// Compute diff in milliseconds
 		diff := currentCallTime.Sub(s.lastCallTime)
 		diffMillis := diff.Milliseconds()
 
-		if diffMillis <= buildDelayMillis {
-			ts = prevTimestamp + uint64(buildDelayMillis)
+		if uint64(diffMillis) <= s.buildDelayMs {
+			ts = prevTimestamp + s.buildDelayMs
 		} else {
 			// For every multiple of buildDelay that diff exceeds, increment the block time by that multiple.
-			multiples := (diffMillis + buildDelayMillis - 1) / buildDelayMillis // Round up to next multiple of buildDelay
-			ts = prevTimestamp + uint64(multiples*buildDelayMillis)
+			multiples := (uint64(diffMillis) + s.buildDelayMs - 1) / s.buildDelayMs // Round up to next multiple of buildDelay
+			ts = prevTimestamp + multiples*s.buildDelayMs
 		}
 
 		s.lastCallTime = currentCallTime
