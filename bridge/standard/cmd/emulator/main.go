@@ -182,11 +182,15 @@ func main() {
 			sigc := make(chan os.Signal, 1)
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 
+			ticker := time.NewTicker(15 * time.Second)
+			defer ticker.Stop()
+
+		RESTART:
 			for {
 				select {
 				case <-sigc:
 					return server.Shutdown(c.Context)
-				default:
+				case <-ticker.C:
 				}
 
 				rand.Shuffle(len(txtors), func(i, j int) {
@@ -213,7 +217,6 @@ func main() {
 				)
 				if err != nil {
 					logger.Error("failed to create transfer to settlement", "error", err)
-					time.Sleep(time.Minute)
 					continue
 				}
 				startTime := time.Now()
@@ -225,8 +228,7 @@ func main() {
 							txtors[0].GetAddress().String(),
 							"L1->Settlement",
 						).Set(time.Since(startTime).Seconds())
-						time.Sleep(time.Minute)
-						continue
+						continue RESTART
 					}
 					logger.Info("transfer to settlement status", "message", status.Message)
 				}
@@ -260,7 +262,6 @@ func main() {
 				)
 				if err != nil {
 					logger.Error("failed to create transfer to L1", "error", err)
-					time.Sleep(time.Minute)
 					continue
 				}
 				startTime = time.Now()
@@ -272,8 +273,7 @@ func main() {
 							txtors[0].GetAddress().String(),
 							"Settlement->L1",
 						).Set(time.Since(startTime).Seconds())
-						time.Sleep(time.Minute)
-						continue
+						continue RESTART
 					}
 					logger.Info("transfer to L1 status", "message", status.Message)
 				}
@@ -288,8 +288,7 @@ func main() {
 					"Settlement->L1",
 				).Set(completionTimeSec)
 
-				// Sleep for random interval between 0 and 5 seconds
-				time.Sleep(time.Duration(rand.IntN(6)) * time.Second)
+				ticker.Reset(15 * time.Second)
 			}
 		},
 	}
