@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/heyvito/go-leader/leader"
 	"github.com/primev/mev-commit/cl/redisapp/types"
@@ -69,6 +70,7 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 						if err != nil {
 							l.logger.Error("Leader: Failed to stop leader election", "error", err)
 						}
+						l.stepsManager.lastCallTime = time.Time{}
 					}
 
 					continue
@@ -86,6 +88,7 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 						if err != nil {
 							l.logger.Error("Leader: Failed to stop leader election", "error", err)
 						}
+						l.stepsManager.lastCallTime = time.Time{}
 					}
 
 					continue

@@ -15,14 +15,14 @@
 		"londonBlock": 0,
 		"arrowGlacierBlock": 0,
 		"grayGlacierBlock": 0,
-                "mergeNetsplitBlock": 0,
-		"shanghaiTime": 1694203366,
-                "cancunTime": 1694203367,
+        "mergeNetsplitBlock": 0,
+		"shanghaiTime": 0,
+        "cancunTime": 0,
 		"terminalTotalDifficulty": 0,
 		"terminalTotalDifficultyPassed": true
 	},
 	"nonce": "0x0",
-	"timestamp": "0x64fb7de6",
+	"timestamp": "0x0",
 	"gasLimit": "0x1c9c380",
 	"difficulty": "0x1",
 	"mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -51,4 +51,3 @@
 	"excessBlobGas": null,
 	"blobGasUsed": null
 }
-

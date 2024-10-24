@@ -92,7 +92,7 @@ func (s *RedisStateManager) LoadExecutionHead(ctx context.Context) (*types.Execu
 				s.logger.Error("Error decoding genesis block hash", "error", decodeErr)
 				return nil, decodeErr
 			}
-			head := &types.ExecutionHead{BlockHash: hashBytes}
+			head := &types.ExecutionHead{BlockHash: hashBytes, BlockTime: uint64(time.Now().UnixMilli())}
 			if saveErr := s.SaveExecutionHead(ctx, head); saveErr != nil {
 				return nil, saveErr
 			}
