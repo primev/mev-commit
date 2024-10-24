@@ -174,7 +174,7 @@ func (t *Transfer) Do(ctx context.Context) <-chan TransferStatus {
 		opts.Value = t.amount
 
 		statusChan <- TransferStatus{
-			Message: fmt.Sprintf("Initiating transfer of %s to %s...", t.amount, t.destAddress.Hex()),
+			Message: fmt.Sprintf("Initiating transfer of %s to %s", t.amount, t.destAddress.Hex()),
 		}
 
 		tx, err := t.srcTransactor.InitiateTransfer(
