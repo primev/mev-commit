@@ -85,7 +85,7 @@ func (s *StepsManager) getPayload(ctx context.Context) error {
 
 	if s.lastCallTime.IsZero() {
 		// First block, initialize lastCallTime and set default timestamp
-		ts = prevTimestamp + uint64(buildDelayMillis)
+		ts = uint64(time.Now().UnixMilli()) + uint64(buildDelayMillis)
 		s.lastCallTime = currentCallTime
 	} else {
 		// Compute diff in milliseconds
