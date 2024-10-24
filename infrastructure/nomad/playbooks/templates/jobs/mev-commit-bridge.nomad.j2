@@ -193,13 +193,12 @@ job "{{ job.name }}" {
           {{- end }}
           {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
             {{- if contains "db" .Tags }}
-          STANDARD_BRIDGE_RELAYER_PG_HOST="localhost"
+          STANDARD_BRIDGE_RELAYER_PG_HOST="{{ .Address }}"
           STANDARD_BRIDGE_RELAYER_PG_PORT="{{ .Port }}"
             {{- end }}
           {{- end }}
           {% endraw %}
           STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
-          STANDARD_BRIDGE_RELAYER_PRIV_KEY_FILE="secrets/relayer_key"
           L1_CHAIN_ID="{{ job.env['l1_chain_id'] }}"
           CONTRACTS_PATH="local/contracts"
           ARTIFACT_OUT_PATH="local"
