@@ -83,7 +83,7 @@ func main() {
 			Name:    "genesis-block-hash",
 			Usage:   "Genesis block hash",
 			EnvVars: []string{"RAPP_GENESIS_BLOCK_HASH"},
-			Value:   "c9810c36e1e8bb2adaa677338b43870f73c3a39abebdffb582a668ca63e523d2",
+			Value:   "dfc7fa546e1268f5bb65b9ec67759307d2435ad1bf609307c7c306e9bb0edcde",
 			Action: func(_ *cli.Context, s string) error {
 				if len(s) != 64 {
 					return fmt.Errorf("invalid genesis-block-hash: must be 64 hex characters")
@@ -117,7 +117,7 @@ func main() {
 			Name:    "evm-build-delay",
 			Usage:   "EVM build delay",
 			EnvVars: []string{"RAPP_EVM_BUILD_DELAY"},
-			Value:   time.Second,
+			Value:   200 * time.Millisecond,
 		}),
 	}
 

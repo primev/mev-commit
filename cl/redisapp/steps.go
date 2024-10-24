@@ -25,17 +25,18 @@ type StepsManager struct {
 	engineCl     EngineClient
 	logger       Logger
 	buildDelay   time.Duration
+	buildDelayMs uint64
+	lastCallTime time.Time
 	ctx          context.Context
 }
 
-func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Address, timestamp time.Time) (engine.ForkChoiceResponse, error) {
+func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Address, ts uint64) (engine.ForkChoiceResponse, error) {
 	head, err := s.stateManager.LoadExecutionHead(ctx)
 	if err != nil {
 		return engine.ForkChoiceResponse{}, fmt.Errorf("latest execution block: %w", err)
 	}
 
 	// Use provided time as timestamp for the next block.
-	ts := uint64(timestamp.UnixMilli())
 	if ts <= head.BlockTime {
 		ts = head.BlockTime + 1 // Subsequent blocks must have a higher timestamp.
 	}
@@ -48,7 +49,7 @@ func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Addre
 		FinalizedBlockHash: hash,
 	}
 
-	s.logger.Info("Leader: Submit new EVM payload", "timestamp", timestamp)
+	s.logger.Info("Leader: Submit new EVM payload", "timestamp", ts)
 
 	attrs := &engine.PayloadAttributes{
 		Timestamp:             ts,
@@ -69,8 +70,41 @@ func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Addre
 func (s *StepsManager) getPayload(ctx context.Context) error {
 	var payloadID *engine.PayloadID
 
+	currentCallTime := time.Now()
+
+	// Load execution head to get previous block timestamp
+	head, err := s.stateManager.LoadExecutionHead(ctx)
+	if err != nil {
+		return fmt.Errorf("latest execution block: %w", err)
+	}
+
+	prevTimestamp := head.BlockTime
+
+	var ts uint64
+	buildDelayMillis := s.buildDelay.Milliseconds()
+
+	if s.lastCallTime.IsZero() {
+		// First block, initialize lastCallTime and set default timestamp
+		ts = prevTimestamp + uint64(buildDelayMillis)
+		s.lastCallTime = currentCallTime
+	} else {
+		// Compute diff in milliseconds
+		diff := currentCallTime.Sub(s.lastCallTime)
+		diffMillis := diff.Milliseconds()
+
+		if diffMillis <= buildDelayMillis {
+			ts = prevTimestamp + uint64(buildDelayMillis)
+		} else {
+			// For every multiple of buildDelay that diff exceeds, increment the block time by that multiple.
+			multiples := (diffMillis + buildDelayMillis - 1) / buildDelayMillis // Round up to next multiple of buildDelay
+			ts = prevTimestamp + uint64(multiples*buildDelayMillis)
+		}
+
+		s.lastCallTime = currentCallTime
+	}
+
 	success, err := retryWithLimitedAttempts(ctx, func() (bool, error) {
-		response, err := s.startBuild(ctx, common.Address{}, time.Now())
+		response, err := s.startBuild(ctx, common.Address{}, ts)
 		if err != nil {
 			s.logger.Warn("failed to build new evm payload, will retry", "error", err)
 			return false, nil
@@ -336,7 +370,7 @@ func (s *StepsManager) validateExecutionPayload(executionPayload engine.Executab
 		return fmt.Errorf("invalid parent hash: %s, head: %s", executionPayload.ParentHash, head.BlockHash)
 	}
 	minTimestamp := head.BlockTime + 1
-	if executionPayload.Timestamp < minTimestamp {
+	if executionPayload.Timestamp < minTimestamp && executionPayload.Number != 1 {
 		return fmt.Errorf("invalid timestamp: %d, min: %d", executionPayload.Timestamp, minTimestamp)
 	}
 	hash := common.BytesToHash(head.BlockHash)
