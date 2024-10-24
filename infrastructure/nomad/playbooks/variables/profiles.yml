@@ -560,6 +560,7 @@ jobs:
           to: 8080
         db:
           static: 5433
+          to: 5433
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
