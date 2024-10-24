@@ -45,7 +45,7 @@ type L1Listener struct {
 	eventMgr       events.EventManager
 	recorder       L1Recorder
 	metrics        *metrics
-	relayQuerier   *MiniRelayQueryEngine
+	relayQuerier   RelayQuerier
 	builderData    map[int64]string
 	builderDataMu  sync.RWMutex
 }
@@ -65,7 +65,7 @@ func NewL1Listener(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	recorder L1Recorder,
-	relayUrls []string,
+	relayQuerier RelayQuerier,
 ) *L1Listener {
 	return &L1Listener{
 		logger:         logger,
@@ -74,7 +74,7 @@ func NewL1Listener(
 		eventMgr:       evtMgr,
 		recorder:       recorder,
 		metrics:        newMetrics(),
-		relayQuerier:   NewMiniRelayQueryEngine(relayUrls, logger),
+		relayQuerier:   relayQuerier,
 		builderData:    make(map[int64]string),
 	}
 }
@@ -191,17 +191,28 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 					continue
 				}
 
-				winner := string(bytes.ToValidUTF8(header.Extra, []byte("")))
+				winnerExtraData := string(bytes.ToValidUTF8(header.Extra, []byte("")))
 
 				// End of changes needed to be done.
-				builderPubKey, err := l.relayQuerier.Query(int64(b), header.Hash().String())
+				var builderPubKey string
+				startTime := time.Now()
+				for time.Since(startTime) < 2*time.Second {
+					builderPubKey, err = l.relayQuerier.Query(int64(b), header.Hash().String())
+					if err == nil {
+						break
+					}
+					l.logger.Warn("failed to query relay, retrying", "block", b, "error", err)
+					time.Sleep(500 * time.Millisecond)
+				}
+
 				if err != nil {
-					l.logger.Error("failed to query relay", "block", b, "error", err)
+					l.logger.Error("failed to query relay after retries", "block", b, "error", err)
+					builderPubKey = "" // Set a default value in case of failure
 				}
 
 				l.logger.Info(
 					"new L1 winner",
-					"winner", winner,
+					"winner_extra_data", winnerExtraData,
 					"block", header.Number.Int64(),
 					"builder_pubkey", builderPubKey,
 				)
@@ -220,7 +231,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 				l.logger.Info(
 					"registered winner",
-					"winner", winner,
+					"winner_extra_data", winnerExtraData,
 					"block", header.Number.Int64(),
 					"txn", winnerPostingTxn.Hash().String(),
 				)
@@ -231,12 +242,16 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 	}
 }
 
+type RelayQuerier interface {
+	Query(blockNumber int64, blockHash string) (string, error)
+}
+
 type MiniRelayQueryEngine struct {
 	relayUrls []string
 	logger    *slog.Logger
 }
 
-func NewMiniRelayQueryEngine(relayUrls []string, logger *slog.Logger) *MiniRelayQueryEngine {
+func NewMiniRelayQueryEngine(relayUrls []string, logger *slog.Logger) RelayQuerier {
 	return &MiniRelayQueryEngine{
 		relayUrls: relayUrls,
 		logger:    logger,

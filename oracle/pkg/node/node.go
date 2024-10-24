@@ -241,14 +241,17 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
+	relayQuerier := l1Listener.NewMiniRelayQueryEngine(opts.RelayUrls, nd.logger.With("component", "l1_listener_relay_querier"))
+
 	l1Lis := l1Listener.NewL1Listener(
 		nd.logger.With("component", "l1_listener"),
 		l1Client,
 		st,
 		evtMgr,
 		blockTrackerTransactor,
-		opts.RelayUrls,
+		relayQuerier,
 	)
+
 	l1LisClosed := l1Lis.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("l1_listener", l1LisClosed))
 
