@@ -456,28 +456,15 @@ func getRandomBid(
 	}
 
 	var (
-		txHashes             []string
-		rawTxns              []string
-		filteredTransactions []*types.Transaction
+		txHashes []string
+		rawTxns  []string
 	)
-
-	var isFiltered bool
-
 	for _, txn := range transactions {
 		txHash := strings.TrimPrefix(txn.Hash().String(), "0x")
-		if _, ok := usedTxHashes[txHash]; ok {
-			isFiltered = true
-			continue
+		if _, exists := usedTxHashes[txHash]; exists {
+			// Duplicate found, try getting a new bid
+			return getRandomBid(ctx, o, store, usedTxHashes)
 		}
-		filteredTransactions = append(filteredTransactions, txn)
-	}
-
-	if len(filteredTransactions) == 0 {
-		return nil, errNoTxnsInBlock
-	}
-
-	for _, txn := range filteredTransactions {
-		txHash := strings.TrimPrefix(txn.Hash().String(), "0x")
 		txHashes = append(
 			txHashes,
 			txHash,
@@ -486,14 +473,14 @@ func getRandomBid(
 		if err != nil {
 			return nil, err
 		}
-		rawTxns = append(rawTxns, hex.EncodeToString(buf))
 		usedTxHashes[txHash] = struct{}{}
+		rawTxns = append(rawTxns, hex.EncodeToString(buf))
 	}
 
 	revertingTxnHashes, err := getRevertingTxns(
 		ctx,
 		o.L1Client(),
-		filteredTransactions,
+		transactions,
 	)
 	if err != nil {
 		return nil, err
@@ -507,10 +494,6 @@ func getRandomBid(
 	shouldSlash := rand.Intn(100) < 10 && !sendPayload
 	// amount between 5M and 6M
 	amount := 5_000_000 + rand.Intn(1_000_000)
-
-	if isFiltered {
-		shouldSlash = true
-	}
 
 	if shouldSlash {
 		if len(txHashes) > 1 {
