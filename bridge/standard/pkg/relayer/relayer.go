@@ -47,9 +47,6 @@ func (r *Relayer) Metrics() []prometheus.Collector {
 		r.metrics.initiatedTransfers,
 		r.metrics.finalizedTransfers,
 		r.metrics.failedFinalizations,
-		r.metrics.initiatedTransfersValue,
-		r.metrics.finalizedTransfersValue,
-		r.metrics.failedFinalizationsValue,
 	}
 }
 
@@ -70,7 +67,6 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 				return err
 			case upd := <-l1Transfers:
 				r.metrics.initiatedTransfers.WithLabelValues("l1").Inc()
-				r.metrics.initiatedTransfersValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
 				err := r.settlementGateway.FinalizeTransfer(
 					egCtx,
 					upd.Recipient,
@@ -78,13 +74,17 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 					upd.TransferIdx,
 				)
 				if err != nil {
-					r.logger.Error("error in settlement finalization", "recipient", upd.Recipient, "amount", upd.Amount, "transferIdx", upd.TransferIdx, "error", err)
+					r.logger.Error(
+						"error in settlement finalization",
+						"recipient", upd.Recipient,
+						"amount", upd.Amount,
+						"transferIdx", upd.TransferIdx,
+						"error", err,
+					)
 					r.metrics.failedFinalizations.WithLabelValues("settlement").Inc()
-					r.metrics.failedFinalizationsValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
 					continue
 				}
 				r.metrics.finalizedTransfers.WithLabelValues("settlement").Inc()
-				r.metrics.finalizedTransfersValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
 			}
 		}
 	})
@@ -99,7 +99,6 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 				return err
 			case upd := <-settlementTransfers:
 				r.metrics.initiatedTransfers.WithLabelValues("settlement").Inc()
-				r.metrics.initiatedTransfersValue.WithLabelValues("settlement").Add(float64(upd.Amount.Int64()))
 				err := r.l1Gateway.FinalizeTransfer(
 					egCtx,
 					upd.Recipient,
@@ -107,13 +106,17 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 					upd.TransferIdx,
 				)
 				if err != nil {
-					r.logger.Error("error in l1 finalization", "recipient", upd.Recipient, "amount", upd.Amount, "transferIdx", upd.TransferIdx, "error", err)
+					r.logger.Error(
+						"error in l1 finalization",
+						"recipient", upd.Recipient,
+						"amount", upd.Amount,
+						"transferIdx", upd.TransferIdx,
+						"error", err,
+					)
 					r.metrics.failedFinalizations.WithLabelValues("l1").Inc()
-					r.metrics.failedFinalizationsValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
 					continue
 				}
 				r.metrics.finalizedTransfers.WithLabelValues("l1").Inc()
-				r.metrics.finalizedTransfersValue.WithLabelValues("l1").Add(float64(upd.Amount.Int64()))
 			}
 		}
 	})
