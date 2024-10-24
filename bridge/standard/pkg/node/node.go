@@ -139,7 +139,7 @@ func NewNode(opts *Options) (*Node, error) {
 	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := h.Health(); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(err.Error()))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -148,10 +148,12 @@ func NewNode(opts *Options) (*Node, error) {
 		txns, err := l1Store.PendingTxns()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		if err := json.NewEncoder(w).Encode(txns); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -160,10 +162,12 @@ func NewNode(opts *Options) (*Node, error) {
 		txns, err := settlementStore.PendingTxns()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		if err := json.NewEncoder(w).Encode(txns); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -277,6 +281,9 @@ func (n *Node) createGatewayContract(
 		gatewayTxtor, err = settlementgateway.NewSettlementgatewayTransactor(contractAddr, txtor)
 	default:
 		return fmt.Errorf("unknown component: %s", component)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to create gateway transactor: %w", err)
 	}
 
 	evtMgr := events.NewListener(

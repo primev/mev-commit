@@ -177,7 +177,7 @@ func TestGateway(t *testing.T) {
 			select {
 			case tr := <-tChan:
 				if diff := cmp.Diff(transfers[idx], tr, cmp.AllowUnexported(big.Int{})); diff != "" {
-					t.Fatalf("unexpected transfer at index %d (-want +got):\n%s", idx, diff)
+					t.Errorf("unexpected transfer at index %d (-want +got):\n%s", idx, diff)
 				}
 				idx++
 			case <-errChan:
