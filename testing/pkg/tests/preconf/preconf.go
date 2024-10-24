@@ -461,9 +461,12 @@ func getRandomBid(
 		filteredTransactions []*types.Transaction
 	)
 
+	var isFiltered bool
+
 	for _, txn := range transactions {
 		txHash := strings.TrimPrefix(txn.Hash().String(), "0x")
 		if _, ok := usedTxHashes[txHash]; ok {
+			isFiltered = true
 			continue
 		}
 		filteredTransactions = append(filteredTransactions, txn)
@@ -504,6 +507,10 @@ func getRandomBid(
 	shouldSlash := rand.Intn(100) < 10 && !sendPayload
 	// amount between 5M and 6M
 	amount := 5_000_000 + rand.Intn(1_000_000)
+
+	if isFiltered {
+		shouldSlash = true
+	}
 
 	if shouldSlash {
 		if len(txHashes) > 1 {
