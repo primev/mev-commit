@@ -4,7 +4,7 @@ This repository houses a purpose-built lock/mint bridge implementation, includin
 
 ## Standard bridge
 
-The [standard](./standard) directory houses a purpose-built lock/mint bridge implementation between L1 ethereum and the mev-commit chain. Its architecture prioritizes simplicity and understandability. Focusing solely on bridging native ether between the two chains, and disallowing message censorship. For more information see [here](./standard/bridge-v1/README.md). The standard bridge implementation is actively being stress tested and shows promising results. 
+The [standard](./standard) directory houses a purpose-built lock/mint bridge implementation between L1 ethereum and the mev-commit chain. Its architecture prioritizes simplicity and understandability. Focusing solely on bridging native ether between the two chains, and disallowing message censorship. For more information see [here](./standard/README.md). The standard bridge implementation is actively being stress tested and shows promising results. 
 
 ## Hyperlane warp route
 
