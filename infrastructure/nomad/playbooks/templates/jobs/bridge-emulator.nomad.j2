@@ -87,11 +87,6 @@ job "{{ job.name }}" {
           EMULATOR_L1_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          {{- range nomadService "bridge-emulator" }}
-            {{- if contains "metrics" .Tags }}
-          EMULATOR_HTTP_PORT="{{ .Port }}"
-            {{- end }}
-          {{- end }}
           EMULATOR_KEYSTORES_DIR="/local/data/{% endraw %}{{ job.name }}{% raw %}-{{ env "NOMAD_ALLOC_INDEX" }}/keystores"
           {% endraw %}
           {%- set emulator_keystores_dir = '/local/data/' ~ job.name ~ '-' ~ '{{ env "NOMAD_ALLOC_INDEX" }}' ~ '/keystores' %}
@@ -153,6 +148,12 @@ job "{{ job.name }}" {
           export EMULATOR_L1_GATEWAY_CONTRACT_ADDR="$(jq -r '.L1Gateway' ${CONTRACTS_FILE})"
           export EMULATOR_SETTLEMENT_GATEWAY_CONTRACT_ADDR="$(jq -r '.SettlementGateway' ${CONTRACTS_FILE})"
             {{ end }}
+          {{- end }}
+
+          {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
+            {{- if contains "metrics" .Tags }}
+          export EMULATOR_HTTP_PORT="{{ .Port }}"
+            {{- end }}
           {{- end }}
           {% endraw %}
 

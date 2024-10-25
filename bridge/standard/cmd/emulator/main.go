@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -179,8 +180,8 @@ func main() {
 				}
 			}()
 
-			sigc := make(chan os.Signal, 1)
-			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
+			ctx, stop := signal.NotifyContext(c.Context, syscall.SIGINT, syscall.SIGTERM)
+			defer stop()
 
 			ticker := time.NewTicker(15 * time.Second)
 			defer ticker.Stop()
@@ -188,8 +189,8 @@ func main() {
 		RESTART:
 			for {
 				select {
-				case <-sigc:
-					return server.Shutdown(c.Context)
+				case <-ctx.Done():
+					return server.Shutdown(context.Background())
 				case <-ticker.C:
 				}
 
@@ -197,13 +198,12 @@ func main() {
 					txtors[i], txtors[j] = txtors[j], txtors[i]
 				})
 
-				// Generate a random amount of wei in [0.01, 10] ETH
+				// Generate a random amount of wei in [0.01, 1] ETH
 				randWeiValue := big.NewInt(rand.Int64N(int64(params.Ether)))
 				if randWeiValue.Cmp(big.NewInt(params.Ether/1000)) < 0 {
 					// Enforce minimum value of 0.01 ETH
 					randWeiValue = big.NewInt(params.Ether / 1000)
 				}
-				randWeiValue = new(big.Int).Mul(randWeiValue, big.NewInt(10))
 
 				// Create and start the transfer to the settlement chain
 				tSettlement, err := transfer.NewTransferToSettlement(
@@ -220,7 +220,7 @@ func main() {
 					continue
 				}
 				startTime := time.Now()
-				statusC := tSettlement.Do(c.Context)
+				statusC := tSettlement.Do(ctx)
 				for status := range statusC {
 					if status.Error != nil {
 						logger.Error("failed transfer to settlement", "error", status.Error)
@@ -265,7 +265,7 @@ func main() {
 					continue
 				}
 				startTime = time.Now()
-				statusC = tL1.Do(c.Context)
+				statusC = tL1.Do(ctx)
 				for status := range statusC {
 					if status.Error != nil {
 						logger.Error("failed transfer to L1", "error", status.Error)

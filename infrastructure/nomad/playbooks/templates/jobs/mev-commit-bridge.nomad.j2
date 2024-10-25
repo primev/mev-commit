@@ -158,6 +158,18 @@ job "{{ job.name }}" {
     task "relayer" {
       driver = "exec"
 
+      {% if profile == 'testnet' %}
+      resources {
+        cores = 4
+        memory = 8192
+      }
+      {% elif profile == 'stressnet' %}
+      resources {
+        cpu = 4000
+        memory = 4096
+      }
+      {% endif %}
+
       artifact {
         source = "https://foundry.paradigm.xyz"
         destination = "local/foundry.sh"
