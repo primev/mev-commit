@@ -58,7 +58,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint64 vetoSlasherType = 1;
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2);
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2, address(mevCommitMiddleware));
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
@@ -127,7 +127,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint64 vetoSlasherType = 1;
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2);
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2, address(mevCommitMiddleware));
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
@@ -957,6 +957,8 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(slashRecord.numSlashed, 2);
     }
 
+    event ExecuteSlash(uint256 indexed slashIndex, uint256 slashedAmount);
+
     function test_slashValidatorsWithVetoSlasher() public { 
         test_slashValidatorsSuccess();
         address operator1 = vm.addr(0x1117);
@@ -1062,11 +1064,37 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         vm.roll(block.number + 20);
 
-        MockVetoSlasher slasher = MockVetoSlasher(vault2.slasher());
-        uint256 slashIndex = 0;
-        slasher.executeSlash(slashIndex, "");
-        slashIndex = 1;
-        slasher.executeSlash(slashIndex, "");
+        bytes[] memory blsPubkeys = new bytes[](2);
+        blsPubkeys[0] = sampleValPubkey1;
+        blsPubkeys[1] = sampleValPubkey2;
+        uint256[] memory slashIndexes = new uint256[](2);
+        slashIndexes[0] = 3;
+        slashIndexes[1] = 4;
+
+        vm.prank(slashOracle);
+        uint64 instantSlasherType = 0;
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OnlyVetoSlashersRequireExecution.selector, address(vault1), instantSlasherType)
+        );
+        mevCommitMiddleware.executeSlashes(blsPubkeys, slashIndexes);
+
+        blsPubkeys[0] = sampleValPubkey4;
+        blsPubkeys[1] = sampleValPubkey5;
+        slashIndexes[0] = 0;
+        slashIndexes[1] = 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.OnlySlashOracle.selector, slashOracle)
+        );
+        vm.prank(vm.addr(0x1119));
+        mevCommitMiddleware.executeSlashes(blsPubkeys, slashIndexes);
+
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteSlash(0, 20);
+        vm.expectEmit(true, true, true, true);
+        emit ExecuteSlash(1, 20);
+        vm.prank(slashOracle);
+        mevCommitMiddleware.executeSlashes(blsPubkeys, slashIndexes);
 
         allocatedStake = delegator.stake(bytes32("subnet"), operator1);
         assertEq(allocatedStake, 59);

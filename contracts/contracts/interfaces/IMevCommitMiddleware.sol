@@ -172,6 +172,8 @@ interface IMevCommitMiddleware {
 
     error UnknownSlasherType(address vault, uint256 slasherType);
 
+    error OnlyVetoSlashersRequireExecution(address vault, uint256 slasherType);
+
     error VaultNotRegistered(address vault);
 
     error VaultDeregRequestExists(address vault);

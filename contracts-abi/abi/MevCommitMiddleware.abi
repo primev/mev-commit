@@ -86,6 +86,30 @@
   },
   {
     "type": "function",
+    "name": "executeSlashes",
+    "inputs": [
+      {
+        "name": "blsPubkeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "slashIndexes",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "slashedAmounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "getNumSlashableVals",
     "inputs": [
       {
@@ -1542,6 +1566,22 @@
         "name": "slashOracle",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OnlyVetoSlashersRequireExecution",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "slasherType",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

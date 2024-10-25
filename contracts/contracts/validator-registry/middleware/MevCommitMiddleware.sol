@@ -266,6 +266,27 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit ValidatorPositionsSwapped(blsPubkeys, swappedVaults, swappedOperators, newPositions);
     }
 
+    /// @dev Allows the slash oracle to execute slashes for validators secured by vaults with veto slashers.
+    /// @notice See "Slash mechanics" in README.md for more details.
+    /// @param blsPubkeys BLS public keys corresponding to vaults with veto slashers.
+    /// @param slashIndexes Slash indexes obtained from ValidatorSlashRequested event emitted in _slashValidator.
+    /// @return slashedAmounts The actual amount of collateral slashed for each validator.
+    function executeSlashes(bytes[] calldata blsPubkeys,
+        uint256[] calldata slashIndexes) external onlySlashOracle returns (uint256[] memory slashedAmounts) {
+
+        uint256 len = blsPubkeys.length;
+        require(len == slashIndexes.length, InvalidArrayLengths(len, slashIndexes.length));
+        slashedAmounts = new uint256[](len);
+        for (uint256 i = 0; i < len; ++i) {
+            ValidatorRecord storage valRecord = validatorRecords[blsPubkeys[i]];
+            address slasher = IVault(valRecord.vault).slasher();
+            uint64 slasherType = IEntity(slasher).TYPE();
+            require(slasherType == _VETO_SLASHER_TYPE, OnlyVetoSlashersRequireExecution(valRecord.vault, slasherType));
+            slashedAmounts[i] = IVetoSlasher(slasher).executeSlash(slashIndexes[i], new bytes(0));
+        }
+        return slashedAmounts;
+    }
+
     /// @dev Pauses the contract, restricted to contract owner.
     function pause() external onlyOwner { _pause(); }
 
