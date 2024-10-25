@@ -214,7 +214,7 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
 
     /// @dev Allows a validator to deregister from the MevCommitAVS.
     /// @notice For each validator the underlying _deregisterValidator enforces the sender is either
-    /// the podOwner, delegated operator, or the contract owner.
+    /// the podOwner or delegated operator for that validator.
     function deregisterValidators(bytes[] calldata valPubKeys)
         external whenNotPaused() onlyRegisteredValidators(valPubKeys) onlyPodOwnerOrOperatorOfValidators(valPubKeys) {
         uint256 len = valPubKeys.length;
