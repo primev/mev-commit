@@ -163,16 +163,13 @@ func bridgeToSettlement(c *cli.Context) error {
 			return fmt.Errorf("failed to start transfer to settlement: %w", status.Error)
 		}
 		if err := spinner.Stop(); err != nil {
-			spinner.StopFailMessage(fmt.Sprintf("%s: Error: %s", status.Message, err))
 			return fmt.Errorf("failed to stop spinner: %w", err)
 		}
 		spinner, err = createSpinner(status.Message)
 		if err != nil {
-			spinner.StopFailMessage(fmt.Sprintf("%s: Error: %s", status.Message, err))
 			return fmt.Errorf("failed to create spinner: %w", err)
 		}
 		if err := spinner.Start(); err != nil {
-			spinner.StopFailMessage(fmt.Sprintf("%s: Error: %s", status.Message, err))
 			return fmt.Errorf("failed to start spinner: %w", err)
 		}
 	}
@@ -218,16 +215,13 @@ func bridgeToL1(c *cli.Context) error {
 			return fmt.Errorf("failed to start transfer to L1: %w", status.Error)
 		}
 		if err := spinner.Stop(); err != nil {
-			spinner.StopFailMessage(fmt.Sprintf("%s: Error: %s", status.Message, err))
 			return fmt.Errorf("failed to stop spinner: %w", err)
 		}
 		spinner, err = createSpinner(status.Message)
 		if err != nil {
-			spinner.StopFailMessage(fmt.Sprintf("%s: Error: %s", status.Message, err))
 			return fmt.Errorf("failed to create spinner: %w", err)
 		}
 		if err := spinner.Start(); err != nil {
-			spinner.StopFailMessage(fmt.Sprintf("%s: Error: %s", status.Message, err))
 			return fmt.Errorf("failed to start spinner: %w", err)
 		}
 	}
