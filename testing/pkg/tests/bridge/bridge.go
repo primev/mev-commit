@@ -30,11 +30,10 @@ func RunBridge(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) 
 
 	logger := cluster.Logger().With("test", "bridge")
 
-	// Generate a random amount of wei in [0.01, 1] ETH
-	randWeiValue := big.NewInt(rand.Int64N(int64(params.Ether)))
-	if randWeiValue.Cmp(big.NewInt(params.Ether/100)) < 0 {
-		// Enforce minimum value of 0.01 ETH
-		randWeiValue = big.NewInt(params.Ether / 100)
+	minWeiValue := big.NewInt(params.Ether / 100)         // Enforce minimum value of 0.01 ETH.
+	randWeiValue := big.NewInt(rand.Int64N(params.Ether)) // Generate a random amount of wei in [0.01, 1] ETH
+	if randWeiValue.Cmp(minWeiValue) < 0 {
+		randWeiValue = minWeiValue
 	}
 
 	// Create and start the transfer to the settlement chain
