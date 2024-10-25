@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"os"
 	"time"
@@ -67,6 +68,12 @@ var (
 		EnvVars:  []string{"SETTLEMENT_CONTRACT_ADDR"},
 		Required: true,
 	}
+	optionSilent = &cli.BoolFlag{
+		Name:    "silent",
+		Usage:   "disable spinner",
+		EnvVars: []string{"SILENT"},
+		Value:   false,
+	}
 )
 
 func main() {
@@ -87,6 +94,7 @@ func main() {
 					optionSettlementRPCUrl,
 					optionL1ContractAddr,
 					optionSettlementContractAddr,
+					optionSilent,
 				},
 				Action: bridgeToSettlement,
 			},
@@ -103,6 +111,7 @@ func main() {
 					optionSettlementRPCUrl,
 					optionL1ContractAddr,
 					optionSettlementContractAddr,
+					optionSilent,
 				},
 				Action: bridgeToL1,
 			},
@@ -145,7 +154,8 @@ func bridgeToSettlement(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create transfer to settlement: %w", err)
 	}
-	spinner, err := createSpinner("Starting transfer from L1 to Settlement chain")
+	silent := c.Bool(optionSilent.Name)
+	spinner, err := createSpinner("Starting transfer from L1 to Settlement chain", silent)
 	if err != nil {
 		return fmt.Errorf("failed to create spinner: %w", err)
 	}
@@ -165,7 +175,7 @@ func bridgeToSettlement(c *cli.Context) error {
 		if err := spinner.Stop(); err != nil {
 			return fmt.Errorf("failed to stop spinner: %w", err)
 		}
-		spinner, err = createSpinner(status.Message)
+		spinner, err = createSpinner(status.Message, silent)
 		if err != nil {
 			return fmt.Errorf("failed to create spinner: %w", err)
 		}
@@ -197,7 +207,8 @@ func bridgeToL1(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create transfer to L1: %w", err)
 	}
-	spinner, err := createSpinner("Starting transfer from Settlement chain to L1")
+	silent := c.Bool(optionSilent.Name)
+	spinner, err := createSpinner("Starting transfer from Settlement chain to L1", silent)
 	if err != nil {
 		return fmt.Errorf("failed to create spinner: %w", err)
 	}
@@ -217,7 +228,7 @@ func bridgeToL1(c *cli.Context) error {
 		if err := spinner.Stop(); err != nil {
 			return fmt.Errorf("failed to stop spinner: %w", err)
 		}
-		spinner, err = createSpinner(status.Message)
+		spinner, err = createSpinner(status.Message, silent)
 		if err != nil {
 			return fmt.Errorf("failed to create spinner: %w", err)
 		}
@@ -228,7 +239,7 @@ func bridgeToL1(c *cli.Context) error {
 	return spinner.Stop()
 }
 
-func createSpinner(msg string) (*yacspin.Spinner, error) {
+func createSpinner(msg string, silent bool) (*yacspin.Spinner, error) {
 	// build the configuration, each field is documented
 	cfg := yacspin.Config{
 		Frequency:         100 * time.Millisecond,
@@ -244,6 +255,10 @@ func createSpinner(msg string) (*yacspin.Spinner, error) {
 		StopFailCharacter: "✗",
 		StopFailColors:    []string{"fgRed"},
 		StopFailMessage:   "failed",
+	}
+
+	if silent {
+		cfg.Writer = ioutil.Discard
 	}
 
 	s, err := yacspin.New(cfg)
