@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"os"
 	"time"
@@ -258,7 +258,7 @@ func createSpinner(msg string, silent bool) (*yacspin.Spinner, error) {
 	}
 
 	if silent {
-		cfg.Writer = ioutil.Discard
+		cfg.Writer = io.Discard
 	}
 
 	s, err := yacspin.New(cfg)
