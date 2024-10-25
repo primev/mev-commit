@@ -186,6 +186,8 @@ func main() {
 			ticker := time.NewTicker(15 * time.Second)
 			defer ticker.Stop()
 
+			minWeiValue := big.NewInt(params.Ether / 100) // Enforce minimum value of 0.01 ETH.
+
 		RESTART:
 			for {
 				select {
@@ -199,10 +201,9 @@ func main() {
 				})
 
 				// Generate a random amount of wei in [0.01, 1] ETH
-				randWeiValue := big.NewInt(rand.Int64N(int64(params.Ether)))
-				if randWeiValue.Cmp(big.NewInt(params.Ether/1000)) < 0 {
-					// Enforce minimum value of 0.01 ETH
-					randWeiValue = big.NewInt(params.Ether / 1000)
+				randWeiValue := big.NewInt(rand.Int64N(params.Ether))
+				if randWeiValue.Cmp(minWeiValue) < 0 {
+					randWeiValue = minWeiValue
 				}
 
 				// Create and start the transfer to the settlement chain
