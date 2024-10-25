@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/armon/go-radix v1.0.0
 	github.com/ethereum/go-ethereum v1.13.15
+	github.com/primev/mev-commit/bridge/standard v0.0.1
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/primev/mev-commit/x v0.0.1
@@ -64,3 +65,5 @@ replace github.com/primev/mev-commit/p2p => ../p2p
 replace github.com/primev/mev-commit/contracts-abi => ../contracts-abi
 
 replace github.com/primev/mev-commit/x => ../x
+
+replace github.com/primev/mev-commit/bridge/standard => ../bridge/standard
