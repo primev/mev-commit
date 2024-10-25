@@ -224,6 +224,12 @@ jobs:
         working-directory: testing
         run: |
           CONTRACTS_JSON=$(curl -s http://127.0.0.1:1010/contracts.json)
+          SECRETS_JSON=$(curl -s http://127.0.0.1:1111/secrets.json)
+          export MEV_COMMIT_TEST_L1_GATEWAY_CONTRACT_ADDR="$(echo $CONTRACTS_JSON | jq -r '.L1Gateway')"
+          export MEV_COMMIT_TEST_SETTLEMENT_GATEWAY_CONTRACT_ADDR="$(echo $CONTRACTS_JSON | jq -r '.SettlementGateway')"
+          export MEV_COMMIT_TEST_BRIDGE_KEYSTORE_JSON="$(echo $SECRETS_JSON | jq -r ".contract_deployer_keystore")"
+          export MEV_COMMIT_TEST_BRIDGE_KEYSTORE_NAME="$(echo $SECRETS_JSON | jq -r ".contract_deployer_keystore_filename")"
+          export MEV_COMMIT_TEST_BRIDGE_KEYSTORE_PASSWORD="$(echo $SECRETS_JSON | jq -r ".contract_deployer_keystore_password")"
           export MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.ProviderRegistry')
           export MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BidderRegistry')
           export MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BlockTracker')
