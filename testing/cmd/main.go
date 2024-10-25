@@ -336,7 +336,7 @@ func createBridgeTestConfig(c *cli.Context) (bridge.BridgeTestConfig, error) {
 		return bridge.BridgeTestConfig{}, fmt.Errorf("failed to write keystore file: %w", err)
 	}
 
-	signer, err := keysigner.NewKeystoreSigner(fmt.Sprintf("keystore/%s", keystoreName), keystorePassword)
+	signer, err := keysigner.NewKeystoreSigner("keystore", keystorePassword)
 	if err != nil {
 		return bridge.BridgeTestConfig{}, fmt.Errorf("failed to create keystore signer: %w", err)
 	}
