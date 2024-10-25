@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {L1Gateway} from "../../contracts/standard-bridge/L1Gateway.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {IGateway} from "../../contracts/interfaces/IGateway.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract L1GatewayTest is Test {
     L1Gateway l1Gateway;
@@ -36,6 +37,36 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.relayer(), relayer);
         assertEq(l1Gateway.finalizationFee(), finalizationFee);
         assertEq(l1Gateway.counterpartyFee(), counterpartyFee);
+    }
+    event FinalizationFeeSet(uint256 finalizationFee);
+    event CounterpartyFeeSet(uint256 counterpartyFee);
+
+    function test_SetFinalizationFee() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
+        );
+        vm.prank(vm.addr(888));
+        l1Gateway.setFinalizationFee(0.0015 ether);
+
+        assertEq(l1Gateway.finalizationFee(), 0.1 ether);
+        vm.expectEmit(true, true, true, true);
+        emit FinalizationFeeSet(0.0015 ether);
+        l1Gateway.setFinalizationFee(0.0015 ether);
+        assertEq(l1Gateway.finalizationFee(), 0.0015 ether);
+    }
+
+    function test_SetCounterpartyFee() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
+        );
+        vm.prank(vm.addr(888));
+        l1Gateway.setCounterpartyFee(0.0005 ether);
+
+        assertEq(l1Gateway.counterpartyFee(), 0.05 ether);
+        vm.expectEmit(true, true, true, true);
+        emit CounterpartyFeeSet(0.0005 ether);
+        l1Gateway.setCounterpartyFee(0.0005 ether);
+        assertEq(l1Gateway.counterpartyFee(), 0.0005 ether);
     }
 
     // Expected event signature emitted in initiateTransfer()
