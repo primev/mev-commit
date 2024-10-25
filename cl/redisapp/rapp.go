@@ -98,6 +98,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		engineCl:     engineCL,
 		logger:       logger,
 		buildDelay:   buildDelay,
+		buildDelayMs: uint64(buildDelay.Milliseconds()),
 	}
 
 	follower := &Follower{
