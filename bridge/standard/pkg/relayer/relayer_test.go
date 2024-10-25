@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ type Transfer struct {
 type testL1Gateway struct {
 	initiated chan *l1gateway.L1gatewayTransferInitiated
 	err       chan error
+	mu        sync.Mutex // mu guards finalized.
 	finalized []Transfer
 }
 
@@ -32,17 +34,20 @@ func (t *testL1Gateway) Subscribe(ctx context.Context) (<-chan *l1gateway.L1gate
 }
 
 func (t *testL1Gateway) FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int) error {
+	t.mu.Lock()
 	t.finalized = append(t.finalized, Transfer{
 		Recipient:   recipient,
 		Amount:      amount,
 		TransferIdx: transferIdx,
 	})
+	t.mu.Unlock()
 	return nil
 }
 
 type testSettlementGateway struct {
 	initiated chan *settlementgateway.SettlementgatewayTransferInitiated
 	err       chan error
+	mu        sync.Mutex // mu guards finalized.
 	finalized []Transfer
 }
 
@@ -51,11 +56,13 @@ func (t *testSettlementGateway) Subscribe(ctx context.Context) (<-chan *settleme
 }
 
 func (t *testSettlementGateway) FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int) error {
+	t.mu.Lock()
 	t.finalized = append(t.finalized, Transfer{
 		Recipient:   recipient,
 		Amount:      amount,
 		TransferIdx: transferIdx,
 	})
+	t.mu.Unlock()
 	return nil
 }
 
@@ -110,15 +117,21 @@ func TestRelayer(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("timeout waiting for relayer to finish")
 		}
+		settlementGateway.mu.Lock()
 		if len(settlementGateway.finalized) == len(expTransfers) {
+			settlementGateway.mu.Unlock()
 			break
 		}
+		settlementGateway.mu.Unlock()
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	settlementGateway.mu.Lock()
 	if s := cmp.Diff(expTransfers, settlementGateway.finalized, cmp.AllowUnexported(big.Int{})); s != "" {
+		settlementGateway.mu.Unlock()
 		t.Fatalf("unexpected finalized transfers (-want +got):\n%s", s)
 	}
+	settlementGateway.mu.Unlock()
 
 	for _, transfer := range expTransfers {
 		settlementGateway.initiated <- &settlementgateway.SettlementgatewayTransferInitiated{
@@ -133,15 +146,21 @@ func TestRelayer(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("timeout waiting for relayer to finish")
 		}
+		l1Gateway.mu.Lock()
 		if len(l1Gateway.finalized) == len(expTransfers) {
+			l1Gateway.mu.Unlock()
 			break
 		}
+		l1Gateway.mu.Unlock()
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	l1Gateway.mu.Lock()
 	if s := cmp.Diff(expTransfers, l1Gateway.finalized, cmp.AllowUnexported(big.Int{})); s != "" {
+		l1Gateway.mu.Unlock()
 		t.Fatalf("unexpected finalized transfers (-want +got):\n%s", s)
 	}
+	l1Gateway.mu.Unlock()
 
 	cancel()
 
