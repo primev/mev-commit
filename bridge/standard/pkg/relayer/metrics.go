@@ -11,17 +11,17 @@ type metrics struct {
 func newMetrics() *metrics {
 	return &metrics{
 		initiatedTransfers: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "relayer",
+			Namespace: "bridge_relayer",
 			Name:      "initiated_transfers",
 			Help:      "Number of initiated transfers",
 		}, []string{"gateway"}),
 		finalizedTransfers: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "relayer",
+			Namespace: "bridge_relayer",
 			Name:      "finalized_transfers",
 			Help:      "Number of finalized transfers",
 		}, []string{"gateway"}),
 		failedFinalizations: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: "relayer",
+			Namespace: "bridge_relayer",
 			Name:      "failed_finalizations",
 			Help:      "Number of failed finalizations",
 		}, []string{"gateway"}),
