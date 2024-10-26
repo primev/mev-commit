@@ -115,13 +115,15 @@ var (
 
 var (
 	bridgeSuccessDurations = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "bridge_success_duration",
-		Help: "Duration of successful bridge transactions",
+		Namespace: "bridge",
+		Name:      "bridge_success_duration",
+		Help:      "Duration of successful bridge transactions",
 	}, []string{"account", "direction"})
 
 	bridgeFailureDurations = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "bridge_failure_duration",
-		Help: "Duration of failed bridge transactions",
+		Namespace: "bridge",
+		Name:      "bridge_failure_duration",
+		Help:      "Duration of failed bridge transactions",
 	}, []string{"account", "direction"})
 )
 
