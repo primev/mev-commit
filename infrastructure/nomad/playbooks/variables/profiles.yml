@@ -663,6 +663,7 @@ profiles:
       - *mock_l1_job
       - *l1_transactor_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
