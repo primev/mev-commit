@@ -87,7 +87,8 @@ contract PreconfManagerTest is Test {
             )
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
-
+        vm.prank(address(this));
+        blockTracker.setProviderRegistry(address(providerRegistry));
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(
@@ -394,8 +395,7 @@ contract PreconfManagerTest is Test {
         );
 
         // Step 3: Move to the next window
-        blockTracker.addBuilderAddress("test", committer);
-        blockTracker.recordL1Block(2, "test");
+        blockTracker.recordL1Block(2, validBLSPubkey);
 
         // Step 4: Open the commitment
         bytes32 index = openCommitment(
@@ -707,8 +707,7 @@ contract PreconfManagerTest is Test {
             );
             providerRegistry.setPreconfManager(address(preconfManager));
             uint256 blockNumber = 2;
-            blockTracker.addBuilderAddress("test", committer);
-            blockTracker.recordL1Block(blockNumber, "test");
+            blockTracker.recordL1Block(blockNumber, validBLSPubkey);
             bytes32 index = openCommitment(
                 committer,
                 unopenedIndex,
@@ -781,7 +780,6 @@ contract PreconfManagerTest is Test {
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
-
             bytes32 unopenedIndex = storeCommitment(
                 committer,
                 _testCommitmentAliceBob.bidAmt,
@@ -795,10 +793,10 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            blockTracker.addBuilderAddress("test", committer);
+            
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
-                "test"
+                validBLSPubkey
             );
             bytes32 index = openCommitment(
                 committer,
@@ -866,7 +864,6 @@ contract PreconfManagerTest is Test {
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
-
             bytes32 unopenedIndex = storeCommitment(
                 committer,
                 _testCommitmentAliceBob.bidAmt,
@@ -883,7 +880,7 @@ contract PreconfManagerTest is Test {
             blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
-                "test"
+                validBLSPubkey
             );
             bytes32 index = openCommitment(
                 committer,
