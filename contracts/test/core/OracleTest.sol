@@ -95,7 +95,12 @@ contract OracleTest is Test {
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, ownerInstance, ownerInstance))
         );
+        
         blockTracker = BlockTracker(payable(blockTrackerProxy));
+
+        vm.startPrank(ownerInstance);
+        blockTracker.setProviderRegistry(address(providerRegistry));
+        vm.stopPrank();
 
         address proxy3 = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
@@ -499,7 +504,7 @@ contract OracleTest is Test {
 
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
         blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
+        blockTracker.recordL1Block(blockNumber, validBLSPubkey);
         vm.stopPrank();
 
         for (uint256 i = 0; i < commitments.length; ++i) {
@@ -658,8 +663,8 @@ contract OracleTest is Test {
 
     function recordBlockData(address provider, uint64 blockNumber) public {
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
+
+        blockTracker.recordL1Block(blockNumber, validBLSPubkey);
         vm.stopPrank();
     }
 
