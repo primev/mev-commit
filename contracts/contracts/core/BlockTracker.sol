@@ -105,6 +105,12 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         _unpause();
     }
 
+    /// @dev Allows the owner to set the provider registry.
+    function setProviderRegistry(address newProviderRegistry) external onlyOwner {
+        _providerRegistry = IProviderRegistry(newProviderRegistry);
+    }
+    
+
     /**
      * @dev Retrieves the current window number.
      * @return currentWindow The current window number.
@@ -149,11 +155,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         address oldOracleAccount = oracleAccount;
         oracleAccount = newOracleAccount;
         emit OracleAccountSet(oldOracleAccount, newOracleAccount);
-    }
-
-    /// @dev Allows the owner to set the provider registry.
-    function setProviderRegistry(address newProviderRegistry) external onlyOwner {
-        _providerRegistry = IProviderRegistry(newProviderRegistry);
     }
 
     /**
