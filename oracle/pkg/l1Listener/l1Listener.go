@@ -265,7 +265,7 @@ func (m *MiniRelayQueryEngine) Query(blockNumber int64, blockHash string) (strin
 		wg.Add(1)
 		go func(url string) {
 			defer wg.Done()
-			fullUrl := fmt.Sprintf("%s?block_number=%d", url, blockNumber)
+			fullUrl := fmt.Sprintf("%s/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d", url, blockNumber)
 			resp, err := http.Get(fullUrl)
 			if err != nil {
 				m.logger.Error("failed to fetch data from relay", "url", fullUrl, "error", err)
