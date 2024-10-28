@@ -195,6 +195,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				// End of changes needed to be done.
 				var builderPubKey string
 				startTime := time.Now()
+				l.logger.Info("querying relay", "block", b, "hash", header.Hash().String())
 				for time.Since(startTime) < 2*time.Second {
 					builderPubKey, err = l.relayQuerier.Query(int64(b), header.Hash().String())
 					if err == nil {
@@ -266,12 +267,14 @@ func (m *MiniRelayQueryEngine) Query(blockNumber int64, blockHash string) (strin
 		go func(url string) {
 			defer wg.Done()
 			fullUrl := fmt.Sprintf("%s/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d", url, blockNumber)
+			m.logger.Info("querying relay", "url", fullUrl)
 			resp, err := http.Get(fullUrl)
 			if err != nil {
 				m.logger.Error("failed to fetch data from relay", "url", fullUrl, "error", err)
 				return
 			}
 			defer resp.Body.Close()
+			m.logger.Info("received response from relay", "url", fullUrl, "status", resp.Status)
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
