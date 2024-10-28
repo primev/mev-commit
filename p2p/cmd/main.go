@@ -51,6 +51,7 @@ const (
 	categoryDebug     = "Debug options"
 	categoryContracts = "Contracts"
 	categoryBidder    = "Bidder options"
+	categoryProvider  = "Provider options"
 	categoryEthRPC    = "Ethereum RPC options"
 )
 
@@ -421,6 +422,14 @@ var (
 		Value:    30 * time.Second,
 		Category: categoryBidder,
 	})
+
+	optionProviderDecisionTimeout = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:     "provider-decision-timeout",
+		Usage:    "Timeout to use on provider node to allow for preconfirmation decision logic after receiving bids",
+		EnvVars:  []string{"MEV_COMMIT_PROVIDER_DECISION_TIMEOUT"},
+		Value:    30 * time.Second,
+		Category: categoryProvider,
+	})
 )
 
 func main() {
@@ -463,6 +472,7 @@ func main() {
 		optionL1RPCURL,
 		optionOTelCollectorEndpointURL,
 		optionBidderBidTimeout,
+		optionProviderDecisionTimeout,
 	}
 
 	app := &cli.App{
@@ -640,6 +650,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		BeaconAPIURL:             c.String(optionBeaconAPIURL.Name),
 		L1RPCURL:                 c.String(optionL1RPCURL.Name),
 		BidderBidTimeout:         c.Duration(optionBidderBidTimeout.Name),
+		ProviderDecisionTimeout:  c.Duration(optionProviderDecisionTimeout.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

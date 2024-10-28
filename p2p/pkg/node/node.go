@@ -102,6 +102,7 @@ type Options struct {
 	BeaconAPIURL             string
 	L1RPCURL                 string
 	BidderBidTimeout         time.Duration
+	ProviderDecisionTimeout  time.Duration
 }
 
 type Node struct {
@@ -472,6 +473,7 @@ func NewNode(opts *Options) (*Node, error) {
 				commitmentDA,
 				tracker,
 				optsGetter,
+				opts.ProviderDecisionTimeout,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
 
@@ -517,6 +519,7 @@ func NewNode(opts *Options) (*Node, error) {
 				commitmentDA,
 				tracker,
 				optsGetter,
+				opts.ProviderDecisionTimeout,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
 
