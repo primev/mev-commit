@@ -276,8 +276,8 @@ func main() {
 					bundleEnd = len(currentBlock.txns)
 				}
 
-				min := 5000
-				max := 10000
+				min := 25000
+				max := 30000
 				startTimeDiff := rand.Intn(max-min+1) + min
 				endTimeDiff := rand.Intn(max-min+1) + min
 				err = sendBid(
