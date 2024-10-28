@@ -35,6 +35,7 @@ type Service struct {
 	logger               *slog.Logger
 	metrics              *metrics
 	validator            *protovalidate.Validator
+	bidTimeout           time.Duration
 }
 
 func NewService(
@@ -49,6 +50,7 @@ func NewService(
 	autoDepositTracker AutoDepositTracker,
 	store DepositStore,
 	oracleWindowOffset *big.Int,
+	bidderBidTimeout time.Duration,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -65,6 +67,7 @@ func NewService(
 		oracleWindowOffset:   oracleWindowOffset,
 		store:                store,
 		validator:            validator,
+		bidTimeout:           bidderBidTimeout,
 	}
 }
 
@@ -112,7 +115,7 @@ func (s *Service) SendBid(
 	srv bidderapiv1.Bidder_SendBidServer,
 ) error {
 	// timeout to prevent hanging of bidder node if provider node is not responding
-	ctx, cancel := context.WithTimeout(srv.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(srv.Context(), s.bidTimeout)
 	defer cancel()
 
 	s.metrics.ReceivedBidsCount.Inc()
