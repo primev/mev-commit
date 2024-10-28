@@ -211,6 +211,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 					From: client.EthAddress,
 				}, nil
 			},
+			30*time.Second,
 			newTestLogger(t, os.Stdout),
 		)
 
