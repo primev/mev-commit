@@ -173,6 +173,8 @@ func main() {
 		}
 		logger.Info("received new bid", "bid", string(buf))
 
+		time.Sleep(20 * time.Second)
+
 		status := providerapiv1.BidResponse_STATUS_ACCEPTED
 		if *errorProbability > 0 {
 			if rand.Intn(100) < *errorProbability {
