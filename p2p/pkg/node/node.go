@@ -101,6 +101,7 @@ type Options struct {
 	OracleWindowOffset       *big.Int
 	BeaconAPIURL             string
 	L1RPCURL                 string
+	BidderBidTimeout         time.Duration
 }
 
 type Node struct {
@@ -554,6 +555,7 @@ func NewNode(opts *Options) (*Node, error) {
 				autoDeposit,
 				autodepositorStore,
 				opts.OracleWindowOffset,
+				opts.BidderBidTimeout,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)

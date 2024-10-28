@@ -44,6 +44,16 @@ const (
 	defaultOracleWindowOffset = 1
 )
 
+const (
+	categoryGlobal    = "Global options"
+	categoryP2P       = "P2P options"
+	categoryAPI       = "API options"
+	categoryDebug     = "Debug options"
+	categoryContracts = "Contracts"
+	categoryBidder    = "Bidder options"
+	categoryEthRPC    = "Ethereum RPC options"
+)
+
 var (
 	portCheck = func(c *cli.Context, p int) error {
 		if p < 0 || p > 65535 {
@@ -64,123 +74,139 @@ var (
 
 var (
 	optionConfig = &cli.StringFlag{
-		Name:    "config",
-		Usage:   "path to config file",
-		EnvVars: []string{"MEV_COMMIT_CONFIG"},
+		Name:     "config",
+		Usage:    "Path to configuration file",
+		EnvVars:  []string{"MEV_COMMIT_CONFIG"},
+		Category: categoryGlobal,
 	}
 
 	optionDataDir = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "data-dir",
-		Usage:   "path to data directory",
-		EnvVars: []string{"MEV_COMMIT_DATA_DIR"},
-		Value:   filepath.Join(defaultConfigDir, defaultDataDir),
+		Name:     "data-dir",
+		Usage:    "Path to data directory",
+		EnvVars:  []string{"MEV_COMMIT_DATA_DIR"},
+		Value:    filepath.Join(defaultConfigDir, defaultDataDir),
+		Category: categoryGlobal,
 	})
 
 	optionPrivKeyFile = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "priv-key-file",
-		Usage:   "path to private key file",
-		EnvVars: []string{"MEV_COMMIT_PRIVKEY_FILE"},
-		Value:   filepath.Join(defaultConfigDir, defaultKeyFile),
+		Name:     "priv-key-file",
+		Usage:    "Path to private key file",
+		EnvVars:  []string{"MEV_COMMIT_PRIVKEY_FILE"},
+		Value:    filepath.Join(defaultConfigDir, defaultKeyFile),
+		Category: categoryGlobal,
 	})
 
 	optionKeystorePassword = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "keystore-password",
-		Usage:   "use to access keystore",
-		EnvVars: []string{"MEV_COMMIT_KEYSTORE_PASSWORD"},
+		Name:     "keystore-password",
+		Usage:    "Password to use to access keystore",
+		EnvVars:  []string{"MEV_COMMIT_KEYSTORE_PASSWORD"},
+		Category: categoryGlobal,
 	})
 
 	optionKeystorePath = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "keystore-path",
-		Usage:   "path to keystore location",
-		EnvVars: []string{"MEV_COMMIT_KEYSTORE_PATH"},
-		Value:   filepath.Join(defaultConfigDir, defaultKeystore),
+		Name:     "keystore-path",
+		Usage:    "Path to keystore location",
+		EnvVars:  []string{"MEV_COMMIT_KEYSTORE_PATH"},
+		Value:    filepath.Join(defaultConfigDir, defaultKeystore),
+		Category: categoryGlobal,
 	})
 
 	optionPeerType = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "peer-type",
-		Usage:   "peer type to use, options are 'bidder', 'provider' or 'bootnode'",
-		EnvVars: []string{"MEV_COMMIT_PEER_TYPE"},
-		Value:   "bidder",
-		Action:  stringInCheck("peer-type", []string{"bidder", "provider", "bootnode"}),
+		Name:     "peer-type",
+		Usage:    "Peer type to use, options are 'bidder', 'provider' or 'bootnode'",
+		EnvVars:  []string{"MEV_COMMIT_PEER_TYPE"},
+		Value:    "bidder",
+		Action:   stringInCheck("peer-type", []string{"bidder", "provider", "bootnode"}),
+		Category: categoryGlobal,
 	})
 
 	optionP2PPort = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "p2p-port",
-		Usage:   "port to listen for p2p connections",
-		EnvVars: []string{"MEV_COMMIT_P2P_PORT"},
-		Value:   defaultP2PPort,
-		Action:  portCheck,
+		Name:     "p2p-port",
+		Usage:    "Port to listen for p2p connections",
+		EnvVars:  []string{"MEV_COMMIT_P2P_PORT"},
+		Value:    defaultP2PPort,
+		Action:   portCheck,
+		Category: categoryP2P,
 	})
 
 	optionP2PAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "p2p-addr",
-		Usage:   "address to bind for p2p connections",
-		EnvVars: []string{"MEV_COMMIT_P2P_ADDR"},
-		Value:   defaultP2PAddr,
+		Name:     "p2p-addr",
+		Usage:    "Address to bind for p2p connections",
+		EnvVars:  []string{"MEV_COMMIT_P2P_ADDR"},
+		Value:    defaultP2PAddr,
+		Category: categoryP2P,
 	})
 
 	optionHTTPPort = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "http-port",
-		Usage:   "port to listen for http connections",
-		EnvVars: []string{"MEV_COMMIT_HTTP_PORT"},
-		Value:   defaultHTTPPort,
-		Action:  portCheck,
+		Name:     "http-port",
+		Usage:    "Port to listen for http connections",
+		EnvVars:  []string{"MEV_COMMIT_HTTP_PORT"},
+		Value:    defaultHTTPPort,
+		Action:   portCheck,
+		Category: categoryAPI,
 	})
 
 	optionHTTPAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "http-addr",
-		Usage:   "address to bind for http connections",
-		EnvVars: []string{"MEV_COMMIT_HTTP_ADDR"},
-		Value:   "",
+		Name:     "http-addr",
+		Usage:    "Address to bind for http connections",
+		EnvVars:  []string{"MEV_COMMIT_HTTP_ADDR"},
+		Value:    "",
+		Category: categoryAPI,
 	})
 
 	optionRPCPort = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "rpc-port",
-		Usage:   "port to listen for rpc connections",
-		EnvVars: []string{"MEV_COMMIT_RPC_PORT"},
-		Value:   defaultRPCPort,
-		Action:  portCheck,
+		Name:     "rpc-port",
+		Usage:    "Port to listen for rpc connections",
+		EnvVars:  []string{"MEV_COMMIT_RPC_PORT"},
+		Value:    defaultRPCPort,
+		Action:   portCheck,
+		Category: categoryAPI,
 	})
 
 	optionRPCAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "rpc-addr",
-		Usage:   "address to bind for RPC connections",
-		EnvVars: []string{"MEV_COMMIT_RPC_ADDR"},
-		Value:   "",
+		Name:     "rpc-addr",
+		Usage:    "Address to bind for RPC connections",
+		EnvVars:  []string{"MEV_COMMIT_RPC_ADDR"},
+		Value:    "",
+		Category: categoryAPI,
 	})
 
 	optionBootnodes = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
-		Name:    "bootnodes",
-		Usage:   "list of bootnodes to connect to",
-		EnvVars: []string{"MEV_COMMIT_BOOTNODES"},
+		Name:     "bootnodes",
+		Usage:    "List of bootnodes to connect to",
+		EnvVars:  []string{"MEV_COMMIT_BOOTNODES"},
+		Category: categoryP2P,
 	})
 
 	optionSecret = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "secret",
-		Usage:   "secret to use for signing",
-		EnvVars: []string{"MEV_COMMIT_SECRET"},
-		Value:   defaultSecret,
+		Name:     "secret",
+		Usage:    "Secret to use for authenticating node in the p2p network",
+		EnvVars:  []string{"MEV_COMMIT_SECRET"},
+		Value:    defaultSecret,
+		Category: categoryP2P,
 	})
 
 	optionLogFmt = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "log-fmt",
-		Usage:   "log format to use, options are 'text' or 'json'",
-		EnvVars: []string{"MEV_COMMIT_LOG_FMT"},
-		Value:   "text",
-		Action:  stringInCheck("log-fmt", []string{"text", "json"}),
+		Name:     "log-fmt",
+		Usage:    "Log format to use, options are 'text' or 'json'",
+		EnvVars:  []string{"MEV_COMMIT_LOG_FMT"},
+		Value:    "text",
+		Action:   stringInCheck("log-fmt", []string{"text", "json"}),
+		Category: categoryDebug,
 	})
 
 	optionLogLevel = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "log-level",
-		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
-		EnvVars: []string{"MEV_COMMIT_LOG_LEVEL"},
-		Value:   "info",
-		Action:  stringInCheck("log-level", []string{"debug", "info", "warn", "error"}),
+		Name:     "log-level",
+		Usage:    "Log level to use, options are 'debug', 'info', 'warn', 'error'",
+		EnvVars:  []string{"MEV_COMMIT_LOG_LEVEL"},
+		Value:    "info",
+		Action:   stringInCheck("log-level", []string{"debug", "info", "warn", "error"}),
+		Category: categoryDebug,
 	})
 
 	optionLogTags = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "log-tags",
-		Usage:   "log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
+		Usage:   "Log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
 		EnvVars: []string{"MEV_COMMIT_LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
 			for i, p := range strings.Split(s, ",") {
@@ -190,11 +216,12 @@ var (
 			}
 			return nil
 		},
+		Category: categoryDebug,
 	})
 
 	optionBidderRegistryAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "bidder-registry-contract",
-		Usage:   "address of the bidder registry contract",
+		Usage:   "Address of the bidder registry contract",
 		EnvVars: []string{"MEV_COMMIT_BIDDER_REGISTRY_ADDR"},
 		Value:   contracts.TestnetContracts.BidderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
@@ -203,11 +230,12 @@ var (
 			}
 			return nil
 		},
+		Category: categoryContracts,
 	})
 
 	optionProviderRegistryAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "provider-registry-contract",
-		Usage:   "address of the provider registry contract",
+		Usage:   "Address of the provider registry contract",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_REGISTRY_ADDR"},
 		Value:   contracts.TestnetContracts.ProviderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
@@ -216,11 +244,12 @@ var (
 			}
 			return nil
 		},
+		Category: categoryContracts,
 	})
 
 	optionPreconfStoreAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "preconf-contract",
-		Usage:   "address of the preconfirmation commitment store contract",
+		Usage:   "Address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
 		Value:   contracts.TestnetContracts.PreconfManager,
 		Action: func(ctx *cli.Context, s string) error {
@@ -229,11 +258,12 @@ var (
 			}
 			return nil
 		},
+		Category: categoryContracts,
 	})
 
 	optionBlockTrackerAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "block-tracker-contract",
-		Usage:   "address of the block tracker contract",
+		Usage:   "Address of the block tracker contract",
 		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
 		Value:   contracts.TestnetContracts.BlockTracker,
 		Action: func(ctx *cli.Context, s string) error {
@@ -242,11 +272,12 @@ var (
 			}
 			return nil
 		},
+		Category: categoryContracts,
 	})
 
 	optionValidatorRouterAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "validator-router-contract",
-		Usage:   "address of the validator router contract",
+		Usage:   "Address of the validator router contract",
 		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
 		Value:   contracts.HoleskyContracts.ValidatorOptInRouter,
 		Action: func(ctx *cli.Context, s string) error {
@@ -255,62 +286,71 @@ var (
 			}
 			return nil
 		},
+		Category: categoryContracts,
 	})
 
 	optionAutodepositAmount = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "autodeposit-amount",
-		Usage:   "amount to auto deposit",
-		EnvVars: []string{"MEV_COMMIT_AUTODEPOSIT_AMOUNT"},
+		Name:     "autodeposit-amount",
+		Usage:    "Amount to auto deposit in each window in wei",
+		EnvVars:  []string{"MEV_COMMIT_AUTODEPOSIT_AMOUNT"},
+		Category: categoryBidder,
 	})
 
 	optionAutodepositEnabled = altsrc.NewBoolFlag(&cli.BoolFlag{
-		Name:    "autodeposit-enabled",
-		Usage:   "enable auto deposit",
-		EnvVars: []string{"MEV_COMMIT_AUTODEPOSIT_ENABLED"},
-		Value:   false,
+		Name:     "autodeposit-enabled",
+		Usage:    "Enable auto deposit",
+		EnvVars:  []string{"MEV_COMMIT_AUTODEPOSIT_ENABLED"},
+		Value:    false,
+		Category: categoryBidder,
 	})
 
 	optionSettlementRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "settlement-rpc-endpoint",
-		Usage:   "rpc endpoint of the settlement layer",
-		EnvVars: []string{"MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT"},
-		Value:   "http://localhost:8545",
+		Name:     "settlement-rpc-endpoint",
+		Usage:    "RPC endpoint of the settlement layer",
+		EnvVars:  []string{"MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT"},
+		Value:    "http://localhost:8545",
+		Category: categoryEthRPC,
 	})
 
 	optionSettlementWSRPCEndpoint = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "settlement-ws-rpc-endpoint",
-		Usage:   "WebSocket rpc endpoint of the settlement layer",
-		EnvVars: []string{"MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT"},
+		Name:     "settlement-ws-rpc-endpoint",
+		Usage:    "WebSocket RPC endpoint of the settlement layer",
+		EnvVars:  []string{"MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT"},
+		Category: categoryEthRPC,
 	})
 
 	optionNATAddr = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "nat-addr",
-		Usage:   "external address of the node",
-		EnvVars: []string{"MEV_COMMIT_NAT_ADDR"},
+		Name:     "nat-addr",
+		Usage:    "External address of the node to advertise to other peers",
+		EnvVars:  []string{"MEV_COMMIT_NAT_ADDR"},
+		Category: categoryP2P,
 	})
 
 	optionNATPort = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "nat-port",
-		Usage:   "externally mapped port for the node",
-		EnvVars: []string{"MEV_COMMIT_NAT_PORT"},
-		Value:   defaultP2PPort,
+		Name:     "nat-port",
+		Usage:    "Externally mapped port for the node",
+		EnvVars:  []string{"MEV_COMMIT_NAT_PORT"},
+		Value:    defaultP2PPort,
+		Category: categoryP2P,
 	})
 
 	optionServerTLSCert = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "server-tls-certificate",
-		Usage:   "Path to the server TLS certificate",
-		EnvVars: []string{"MEV_COMMIT_SERVER_TLS_CERTIFICATE"},
+		Name:     "server-tls-certificate",
+		Usage:    "Path to the server TLS certificate",
+		EnvVars:  []string{"MEV_COMMIT_SERVER_TLS_CERTIFICATE"},
+		Category: categoryAPI,
 	})
 
 	optionServerTLSPrivateKey = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "server-tls-private-key",
-		Usage:   "Path to the server TLS private key",
-		EnvVars: []string{"MEV_COMMIT_SERVER_TLS_PRIVATE_KEY"},
+		Name:     "server-tls-private-key",
+		Usage:    "Path to the server TLS private key",
+		EnvVars:  []string{"MEV_COMMIT_SERVER_TLS_PRIVATE_KEY"},
+		Category: categoryAPI,
 	})
 
 	optionProviderWhitelist = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
 		Name:    "provider-whitelist",
-		Usage:   "list of provider addresses to whitelist for bids",
+		Usage:   "List of provider addresses to whitelist for bids",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_WHITELIST"},
 		Action: func(ctx *cli.Context, vals []string) error {
 			for i, v := range vals {
@@ -320,41 +360,47 @@ var (
 			}
 			return nil
 		},
+		Category: categoryBidder,
 	})
 
 	optionGasLimit = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "gas-limit",
-		Usage:   "Use predefined gas limit for transactions",
-		EnvVars: []string{"MEV_COMMIT_GAS_LIMIT"},
-		Value:   2000000,
+		Name:     "gas-limit",
+		Usage:    "Use predefined gas limit for transactions",
+		EnvVars:  []string{"MEV_COMMIT_GAS_LIMIT"},
+		Value:    2000000,
+		Category: categoryGlobal,
 	})
 
 	optionGasTipCap = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "gas-tip-cap",
-		Usage:   "Use predefined gas tip cap for transactions",
-		EnvVars: []string{"MEV_COMMIT_GAS_TIP_CAP"},
-		Value:   "1000000000", // 1 gWEI
+		Name:     "gas-tip-cap",
+		Usage:    "Use predefined gas tip cap for transactions",
+		EnvVars:  []string{"MEV_COMMIT_GAS_TIP_CAP"},
+		Value:    "1000000000", // 1 gWEI
+		Category: categoryGlobal,
 	})
 
 	optionGasFeeCap = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "gas-fee-cap",
-		Usage:   "Use predefined gas fee cap for transactions",
-		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
-		Value:   "2000000000", // 2 gWEI
+		Name:     "gas-fee-cap",
+		Usage:    "Use predefined gas fee cap for transactions",
+		EnvVars:  []string{"MEV_COMMIT_GAS_FEE_CAP"},
+		Value:    "2000000000", // 2 gWEI
+		Category: categoryGlobal,
 	})
 
 	optionBeaconAPIURL = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "beacon-api-url",
-		Usage:   "URL of the beacon chain API",
-		Value:   "https://ethereum-holesky-beacon-api.publicnode.com",
-		EnvVars: []string{"MEV_COMMIT_BEACON_API_URL"},
+		Name:     "beacon-api-url",
+		Usage:    "URL of the beacon chain API",
+		Value:    "https://ethereum-holesky-beacon-api.publicnode.com",
+		EnvVars:  []string{"MEV_COMMIT_BEACON_API_URL"},
+		Category: categoryEthRPC,
 	})
 
 	optionL1RPCURL = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "l1-rpc-url",
-		Usage:   "URL for L1 RPC",
-		Value:   "https://ethereum-holesky-rpc.publicnode.com",
-		EnvVars: []string{"MEV_COMMIT_L1_RPC_URL"},
+		Name:     "l1-rpc-url",
+		Usage:    "URL for L1 RPC",
+		Value:    "https://ethereum-holesky-rpc.publicnode.com",
+		EnvVars:  []string{"MEV_COMMIT_L1_RPC_URL"},
+		Category: categoryEthRPC,
 	})
 
 	optionOTelCollectorEndpointURL = altsrc.NewStringFlag(&cli.StringFlag{
@@ -365,6 +411,15 @@ var (
 			_, err := url.Parse(s)
 			return err
 		},
+		Category: categoryDebug,
+	})
+
+	optionBidderBidTimeout = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:     "bidder-bid-timeout",
+		Usage:    "Timeout to use on bidder node to wait for preconfirmations after submitting bids",
+		EnvVars:  []string{"MEV_COMMIT_BIDDER_BID_TIMEOUT"},
+		Value:    30 * time.Second,
+		Category: categoryBidder,
 	})
 )
 
@@ -407,6 +462,7 @@ func main() {
 		optionBeaconAPIURL,
 		optionL1RPCURL,
 		optionOTelCollectorEndpointURL,
+		optionBidderBidTimeout,
 	}
 
 	app := &cli.App{
@@ -583,6 +639,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 		BeaconAPIURL:             c.String(optionBeaconAPIURL.Name),
 		L1RPCURL:                 c.String(optionL1RPCURL.Name),
+		BidderBidTimeout:         c.Duration(optionBidderBidTimeout.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
