@@ -247,15 +247,10 @@ var (
 		Usage:   "URLs for relay",
 		EnvVars: []string{"MEV_ORACLE_RELAY_URLS"},
 		Value: cli.NewStringSlice(
-			"https://boost-relay.flashbots.net/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://bloxroute.max-profit.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://bloxroute.regulated.blxrbdn.com/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://relay.edennetwork.io/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://mainnet-relay.securerpc.com/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://relay.ultrasound.money/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://agnostic-relay.net/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://aestus.live/relay/v1/data/bidtraces/proposer_payload_delivered",
-			"https://relay.wenmerge.com/relay/v1/data/bidtraces/proposer_payload_delivered",
+			"https://holesky.aestus.live",
+			"https://boost-relay-holesky.flashbots.net",
+			"https://bloxroute.holesky.blxrbdn.com",
+			"https://holesky.titanrelay.xyz",
 		),
 	})
 )
