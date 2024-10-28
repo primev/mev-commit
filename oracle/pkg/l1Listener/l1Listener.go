@@ -47,7 +47,6 @@ type L1Listener struct {
 	metrics        *metrics
 	relayQuerier   RelayQuerier
 	builderData    map[int64]string
-	builderDataMu  sync.RWMutex
 }
 
 type RelayData struct {
