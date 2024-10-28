@@ -1,7 +1,6 @@
 package l1Listener
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -184,27 +183,18 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 			}
 
 			for b := uint64(currentBlockNo) + 1; b <= blockNum; b++ {
-				header, err := l.l1Client.HeaderByNumber(ctx, big.NewInt(int64(b)))
+				header, err := l.l1Client.HeaderByNumber(ctx, big.NewInt(int64(b+1)))
 				if err != nil {
 					l.logger.Error("failed to get header", "block", b, "error", err)
 					continue
 				}
-				l.logger.Info(
-					"block header",
-					"hash", header.Hash().Hex(),
-					"number", header.Number.Uint64(),
-					"parent_hash", header.ParentHash.Hex(),
-					"time", header.Time,
-				)
-
-				winnerExtraData := string(bytes.ToValidUTF8(header.Extra, []byte("")))
 
 				// End of changes needed to be done.
 				var builderPubKey string
 				startTime := time.Now()
-				l.logger.Info("querying relay", "block", b, "hash", header.Hash().String())
+				l.logger.Info("querying relay", "block", b, "hash", header.ParentHash.Hex())
 				for time.Since(startTime) < 2*time.Second {
-					builderPubKey, err = l.relayQuerier.Query(int64(b), header.Hash().String())
+					builderPubKey, err = l.relayQuerier.Query(int64(b), header.ParentHash.Hex())
 					if err == nil {
 						break
 					}
@@ -219,8 +209,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 				l.logger.Info(
 					"new L1 winner",
-					"winner_extra_data", winnerExtraData,
-					"block", header.Number.Int64(),
+					"block", header.Number.Int64()-1,
 					"builder_pubkey", builderPubKey,
 				)
 
@@ -238,8 +227,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 				l.logger.Info(
 					"registered winner",
-					"winner_extra_data", winnerExtraData,
-					"block", header.Number.Int64(),
+					"block", header.Number.Int64()-1,
 					"txn", winnerPostingTxn.Hash().String(),
 				)
 			}
