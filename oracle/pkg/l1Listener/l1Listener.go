@@ -189,6 +189,13 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 					l.logger.Error("failed to get header", "block", b, "error", err)
 					continue
 				}
+				l.logger.Info(
+					"block header",
+					"hash", header.Hash().Hex(),
+					"number", header.Number.Uint64(),
+					"parent_hash", header.ParentHash.Hex(),
+					"time", header.Time,
+				)
 
 				winnerExtraData := string(bytes.ToValidUTF8(header.Extra, []byte("")))
 
