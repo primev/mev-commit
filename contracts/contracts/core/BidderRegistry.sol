@@ -150,6 +150,13 @@ contract BidderRegistry is
 
             lockedFunds[msg.sender][window] = 0;
             maxBidPerBlock[msg.sender][window] = 0;
+
+            (uint256 startBlock, uint256 endBlock) = WindowFromBlockNumber.getBlockNumbersFromWindow(window);
+
+            for (uint256 blockNumber = startBlock; blockNumber <= endBlock; ++blockNumber) {
+                usedFunds[msg.sender][uint64(blockNumber)] = 0;
+            }
+
             emit BidderWithdrawal(msg.sender, window, amount);
 
             totalAmount += amount;
@@ -363,6 +370,12 @@ contract BidderRegistry is
 
         lockedFunds[bidder][window] = 0;
         maxBidPerBlock[bidder][window] = 0;
+
+        (uint256 startBlock, uint256 endBlock) = WindowFromBlockNumber.getBlockNumbersFromWindow(window);
+
+        for (uint256 blockNumber = startBlock; blockNumber <= endBlock; ++blockNumber) {
+            usedFunds[bidder][uint64(blockNumber)] = 0;
+        }
 
         (bool success, ) = bidder.call{value: amount}("");
         require(success, BidderWithdrawalTransferFailed(bidder, amount));

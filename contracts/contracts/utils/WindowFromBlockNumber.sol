@@ -18,4 +18,15 @@ library WindowFromBlockNumber {
     function getWindowFromBlockNumber(uint256 blockNumber) internal pure returns (uint256) {
         return (blockNumber - 1) / BLOCKS_PER_WINDOW + 1;
     }
+
+    /**
+     * @dev Retrieves the start and end block numbers for a given window.
+     * @param window The window number.
+     * @return startBlock The starting block number of the window.
+     * @return endBlock The ending block number of the window.
+     */
+    function getBlockNumbersFromWindow(uint256 window) internal pure returns (uint256 startBlock, uint256 endBlock) {
+        startBlock = (window - 1) * BLOCKS_PER_WINDOW + 1;
+        endBlock = window * BLOCKS_PER_WINDOW;
+    }
 }

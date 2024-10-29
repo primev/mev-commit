@@ -371,6 +371,12 @@ contract BidderRegistryTest is Test {
 
             uint256 maxBid = bidderRegistry.maxBidPerBlock(bidder, currentWindow + i);
             assertEq(maxBid, 0);
+
+            (uint256 startBlock, uint256 endBlock) = WindowFromBlockNumber.getBlockNumbersFromWindow(currentWindow + i);
+            for (uint256 blockNum = startBlock; blockNum <= endBlock; ++blockNum) {
+                uint256 usedFunds = bidderRegistry.usedFunds(bidder, uint64(blockNum));
+                assertEq(usedFunds, 0);
+            }
         }
     }
 
