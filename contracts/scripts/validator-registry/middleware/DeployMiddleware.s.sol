@@ -13,6 +13,7 @@ import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
 import {SymbioticHoleskyDevnetConsts} from "./ReleaseAddrConsts.s.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/delegator/IBaseDelegator.sol";
+import {INetworkMiddlewareService} from "symbiotic-core/interfaces/service/INetworkMiddlewareService.sol";
 
 contract BaseDeploy is Script {
     function deployMevCommitMiddleware(
@@ -80,6 +81,11 @@ contract DeployHolesky is BaseDeploy {
             SLASH_ORACLE, 
             OWNER
         );
+
+        INetworkMiddlewareService networkMiddlewareService = INetworkMiddlewareService(address(SymbioticHoleskyDevnetConsts.NETWORK_MIDDLEWARE_SERVICE));
+        if (networkMiddlewareService.middleware(msg.sender) == address(0)) {
+            networkMiddlewareService.setMiddleware(mevCommitMiddlewareProxy);
+        }
 
         IBaseDelegator vault1Delegator = IBaseDelegator(address(SymbioticHoleskyDevnetConsts.VAULT_1_DELEGATOR));
         vault1Delegator.setMaxNetworkLimit(SUBNETWORK_ID, VAULT1_MAX_NETWORK_LIMIT);
