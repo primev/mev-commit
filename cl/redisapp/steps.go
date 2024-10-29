@@ -2,7 +2,6 @@ package redisapp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -11,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vmihailenco/msgpack/v5"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
@@ -161,7 +161,7 @@ func (s *StepsManager) getPayload(ctx context.Context) error {
 		return errors.New("failed to get payload")
 	}
 
-	payloadData, err := json.Marshal(payloadResp.ExecutionPayload)
+	payloadData, err := msgpack.Marshal(payloadResp.ExecutionPayload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
@@ -312,7 +312,7 @@ func (s *StepsManager) finalizeBlock(ctx context.Context, payloadIDStr, executio
 	}
 
 	var executionPayload engine.ExecutableData
-	if err := json.Unmarshal([]byte(executionPayloadStr), &executionPayload); err != nil {
+	if err := msgpack.Unmarshal([]byte(executionPayloadStr), &executionPayload); err != nil {
 		return fmt.Errorf("failed to deserialize ExecutionPayload: %w", err)
 	}
 

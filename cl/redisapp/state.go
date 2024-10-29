@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vmihailenco/msgpack/v5"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/redis/go-redis/v9"
 )
@@ -68,7 +69,7 @@ func NewRedisStateManager(
 }
 
 func (s *RedisStateManager) SaveExecutionHead(ctx context.Context, head *types.ExecutionHead) error {
-	data, err := json.Marshal(head)
+	data, err := msgpack.Marshal(head)
 	if err != nil {
 		return fmt.Errorf("failed to serialize execution head: %w", err)
 	}
@@ -85,7 +86,7 @@ func (s *RedisStateManager) LoadExecutionHead(ctx context.Context) (*types.Execu
 	key := fmt.Sprintf("executionHead:%s", s.InstanceID)
 	data, err := s.redisClient.Get(ctx, key).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			s.logger.Info("executionHead not found in Redis, initializing with default values")
 			hashBytes, decodeErr := hex.DecodeString(s.genesisBlockHash)
 			if decodeErr != nil {
@@ -102,7 +103,7 @@ func (s *RedisStateManager) LoadExecutionHead(ctx context.Context) (*types.Execu
 	}
 
 	var head types.ExecutionHead
-	if err := json.Unmarshal([]byte(data), &head); err != nil {
+	if err := msgpack.Unmarshal([]byte(data), &head); err != nil {
 		return nil, fmt.Errorf("failed to deserialize execution head: %w", err)
 	}
 
@@ -112,7 +113,7 @@ func (s *RedisStateManager) LoadExecutionHead(ctx context.Context) (*types.Execu
 func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) error {
 	data, err := s.redisClient.Get(ctx, s.blockStateKey).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if errors.Is(err, redis.Nil) {
 			s.blockBuildState = &types.BlockBuildState{
 				CurrentStep: types.StepBuildBlock,
 			}
@@ -135,7 +136,7 @@ func (s *RedisStateManager) SaveBlockState(ctx context.Context) error {
 	s.blockStateMutex.Lock()
 	defer s.blockStateMutex.Unlock()
 
-	data, err := json.Marshal(s.blockBuildState)
+	data, err := msgpack.Marshal(s.blockBuildState)
 	if err != nil {
 		return fmt.Errorf("failed to serialize leader block build state: %w", err)
 	}
@@ -162,7 +163,7 @@ func (s *RedisStateManager) ResetBlockState(ctx context.Context) error {
 }
 
 func (s *RedisStateManager) SaveExecutionHeadAndAck(ctx context.Context, head *types.ExecutionHead, messageID string) error {
-	data, err := json.Marshal(head)
+	data, err := msgpack.Marshal(head)
 	if err != nil {
 		return fmt.Errorf("failed to serialize execution head: %w", err)
 	}
@@ -186,7 +187,7 @@ func (s *RedisStateManager) SaveBlockStateAndPublishToStream(ctx context.Context
 	defer s.blockStateMutex.Unlock()
 
 	s.blockBuildState = bsState
-	data, err := json.Marshal(bsState)
+	data, err := msgpack.Marshal(bsState)
 	if err != nil {
 		return fmt.Errorf("failed to serialize leader block build state: %w", err)
 	}

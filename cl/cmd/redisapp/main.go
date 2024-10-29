@@ -3,18 +3,35 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/url"
 	"os"
 	"os/signal"
+	"slices"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/primev/mev-commit/cl/redisapp"
+	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
+)
+
+const (
+	categoryDebug = "Debug"
+)
+
+var (
+	stringInCheck = func(flag string, opts []string) func(c *cli.Context, p string) error {
+		return func(c *cli.Context, p string) error {
+			if !slices.Contains(opts, p) {
+				return fmt.Errorf("invalid %s option %q, expected one of %s", flag, p, strings.Join(opts, ", "))
+			}
+			return nil
+		}
+	}
 )
 
 type Config struct {
@@ -27,12 +44,6 @@ type Config struct {
 }
 
 func main() {
-	// Initialize the logger
-	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	})
-	log := slog.New(handler)
-
 	// Define flags
 	flags := []cli.Flag{
 		&cli.StringFlag{
@@ -113,6 +124,36 @@ func main() {
 				return nil
 			},
 		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:     "log-fmt",
+			Usage:    "Log format to use, options are 'text' or 'json'",
+			EnvVars:  []string{"MEV_COMMIT_LOG_FMT"},
+			Value:    "text",
+			Action:   stringInCheck("log-fmt", []string{"text", "json"}),
+			Category: categoryDebug,
+		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:     "log-level",
+			Usage:    "Log level to use, options are 'debug', 'info', 'warn', 'error'",
+			EnvVars:  []string{"MEV_COMMIT_LOG_LEVEL"},
+			Value:    "info",
+			Action:   stringInCheck("log-level", []string{"debug", "info", "warn", "error"}),
+			Category: categoryDebug,
+		}),
+		altsrc.NewStringFlag(&cli.StringFlag{
+			Name:    "log-tags",
+			Usage:   "Log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
+			EnvVars: []string{"MEV_COMMIT_LOG_TAGS"},
+			Action: func(ctx *cli.Context, s string) error {
+				for i, p := range strings.Split(s, ",") {
+					if len(strings.Split(p, ":")) != 2 {
+						return fmt.Errorf("invalid log-tags at index %d, expecting <name:value>", i)
+					}
+				}
+				return nil
+			},
+			Category: categoryDebug,
+		}),
 		altsrc.NewDurationFlag(&cli.DurationFlag{
 			Name:    "evm-build-delay",
 			Usage:   "EVM build delay",
@@ -139,18 +180,28 @@ func main() {
 						return &altsrc.MapInputSource{}, nil
 					}),
 				Action: func(c *cli.Context) error {
-					return startApplication(c, log)
+					return startApplication(c)
 				},
 			},
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Error("Error running app", "error", err)
+		fmt.Println(app.Writer, "Error running app", "error", err)
 	}
 }
 
-func startApplication(c *cli.Context, log *slog.Logger) error {
+func startApplication(c *cli.Context) error {
+	log, err := util.NewLogger(
+		c.String("log-level"),
+		c.String("log-fmt"),
+		c.String("log-tags"),
+		c.App.Writer,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create logger: %w", err)
+	}
+
 	// Load configuration
 	cfg := Config{
 		InstanceID:       c.String("instance-id"),

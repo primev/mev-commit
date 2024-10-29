@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/vmihailenco/msgpack/v5"
 	redismock "github.com/go-redis/redismock/v9"
 	"github.com/redis/go-redis/v9"
 )
@@ -61,7 +62,7 @@ func TestStepsManager_startBuild(t *testing.T) {
 		BlockTime:   uint64(time.Now().Unix()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
@@ -130,7 +131,7 @@ func TestStepsManager_getPayload(t *testing.T) {
 		BlockTime:   uint64(timestamp.Unix()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 
 	mockRedisClient.EXPECT().
 		Get(gomock.Any(), executionHeadKey).
@@ -218,7 +219,7 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 		BlockTime:   timestamp - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
@@ -283,7 +284,7 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 		BlockHeight: executionPayload.Number,
 		BlockTime:   executionPayload.Timestamp,
 	}
-	executionHeadDataUpdated, _ := json.Marshal(executionHeadUpdate)
+	executionHeadDataUpdated, _ := msgpack.Marshal(executionHeadUpdate)
 	redisMock.ExpectSet(executionHeadKey, executionHeadDataUpdated, 0).SetVal("OK")
 
 	err = stepsManager.finalizeBlock(ctx, payloadIDStr, executionPayloadStr, msgID)
@@ -336,7 +337,7 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 		BlockTime:   uint64(time.Now().Unix()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
@@ -395,7 +396,7 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 		BlockTime:   uint64(time.Now().Unix()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
@@ -486,7 +487,7 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 		BlockTime:   uint64(timestamp.Unix()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
@@ -549,7 +550,7 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 		BlockTime:   uint64(timestamp.Unix()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
@@ -583,7 +584,7 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 		BlobGasUsed:   new(uint64),
 		ExcessBlobGas: new(uint64),
 	}
-	executionPayloadData, _ := json.Marshal(executionPayload)
+	executionPayloadData, _ := msgpack.Marshal(executionPayload)
 
 	err := stepsManager.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
 
@@ -604,7 +605,7 @@ func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 		BlockTime:   timestamp - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
@@ -639,7 +640,7 @@ func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 		ExcessBlobGas: new(uint64),
 	}
 
-	executionPayloadData, _ := json.Marshal(executionPayload)
+	executionPayloadData, _ := msgpack.Marshal(executionPayload)
 
 	payloadStatus := engine.PayloadStatusV1{
 		Status: "INVALID",
@@ -666,7 +667,7 @@ func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 		BlockTime:   timestamp - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
@@ -700,7 +701,7 @@ func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 		BlobGasUsed:   new(uint64),
 		ExcessBlobGas: new(uint64),
 	}
-	executionPayloadData, _ := json.Marshal(executionPayload)
+	executionPayloadData, _ := msgpack.Marshal(executionPayload)
 
 	payloadStatus := engine.PayloadStatusV1{
 		Status: engine.VALID,
@@ -739,7 +740,7 @@ func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 		BlockTime:   timestamp - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := json.Marshal(executionHead)
+	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
@@ -773,7 +774,7 @@ func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 		BlobGasUsed:   new(uint64),
 		ExcessBlobGas: new(uint64),
 	}
-	executionPayloadData, _ := json.Marshal(executionPayload)
+	executionPayloadData, _ := msgpack.Marshal(executionPayload)
 
 	payloadStatus := engine.PayloadStatusV1{
 		Status: engine.VALID,
@@ -793,7 +794,7 @@ func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 		BlockHeight: executionPayload.Number,
 		BlockTime:   executionPayload.Timestamp,
 	}
-	executionHeadDataUpdated, _ := json.Marshal(executionHeadUpdate)
+	executionHeadDataUpdated, _ := msgpack.Marshal(executionHeadUpdate)
 	redisMock.ExpectSet(executionHeadKey, executionHeadDataUpdated, time.Duration(0)).SetErr(errors.New("redis error"))
 
 	err := stepsManager.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
