@@ -1038,7 +1038,8 @@ contract PreconfManagerTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IPreconfManager.TxnHashAlreadyProcessed.selector,
-                testCommitment2.txnHash
+                testCommitment2.txnHash,
+                bidder
             )
         );
         preconfManager.openCommitment(

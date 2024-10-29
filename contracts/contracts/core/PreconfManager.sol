@@ -239,7 +239,7 @@ contract PreconfManager is
 
         require(
             processedTxnHashes[txnHashAndBidder] == false,
-            TxnHashAlreadyProcessed(bidderAddress, txnHash)
+            TxnHashAlreadyProcessed(txnHash, bidderAddress)
         );
 
         bytes32 commitmentDigest = getPreConfHash(

@@ -8,7 +8,7 @@ pragma solidity 0.8.26;
 library WindowFromBlockNumber {
 
     /// @dev The number of blocks per window.
-    uint256 constant BLOCKS_PER_WINDOW = 10;
+    uint256 public constant BLOCKS_PER_WINDOW = 10;
 
     /**
      * @dev Retrieves the window number for a given block number.

@@ -112,6 +112,15 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     }
 
     /**
+     * @dev Function to get the winner of a specific block.
+     * @param blockNumber The number of the block.
+     * @return The address of the block winner.
+     */
+    function getBlockWinner(uint256 blockNumber) external view returns (address) {
+        return blockWinners[blockNumber];
+    }
+
+    /**
      * @dev Returns the builder's address corresponding to the given name.
      * @param builderNameGraffiti The name (or graffiti) of the block builder.
      * @return The Ethereum address of the builder.
@@ -128,15 +137,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      */
     function getBlocksPerWindow() external pure returns (uint256) {
         return WindowFromBlockNumber.BLOCKS_PER_WINDOW;
-    }
-
-    /**
-     * @dev Function to get the winner of a specific block.
-     * @param blockNumber The number of the block.
-     * @return The address of the block winner.
-     */
-    function getBlockWinner(uint256 blockNumber) external view returns (address) {
-        return blockWinners[blockNumber];
     }
 
     /**
