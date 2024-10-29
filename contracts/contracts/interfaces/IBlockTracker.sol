@@ -18,6 +18,9 @@ interface IBlockTracker {
     /// @dev Event emitted when the oracle account is set.
     event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
 
+    /// @dev Event emitted when a builder's address is added.
+    event BuilderAddressAdded(string indexed builderName, address indexed builderAddress);
+
     error NotOracleAccount(address sender, address oracleAccount);
     error BlockNumberIsZero();
 
