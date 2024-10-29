@@ -25,6 +25,7 @@ import (
 	"github.com/primev/mev-commit/oracle/pkg/l1Listener"
 	"github.com/primev/mev-commit/oracle/pkg/store"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
+	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
@@ -197,19 +198,19 @@ func NewNode(opts *Options) (*Node, error) {
 		TransactOpts: *tOpts,
 	}
 
-	l1ClientOpts := []l1ClientOptions{
-		l1ClientWithMaxRetries(30),
+	l1ClientOpts := []ethwrapper.EthClientOptions{
+		ethwrapper.EthClientWithMaxRetries(30),
 	}
 	if opts.LaggerdMode > 0 {
 		l1ClientOpts = append(
 			l1ClientOpts,
-			l1ClientWithBlockNumberDrift(opts.LaggerdMode),
+			ethwrapper.EthClientWithBlockNumberDrift(opts.LaggerdMode),
 		)
 	}
 	if len(opts.OverrideWinners) > 0 {
 		l1ClientOpts = append(
 			l1ClientOpts,
-			l1ClientWithWinnersOverride(opts.OverrideWinners),
+			ethwrapper.EthClientWithWinnersOverride(opts.OverrideWinners),
 		)
 		for _, winner := range opts.OverrideWinners {
 			nd.logger.Info("setting builder mapping", "builderName", winner, "builderAddress", winner)
@@ -228,7 +229,7 @@ func NewNode(opts *Options) (*Node, error) {
 			}
 		}
 	}
-	l1Client, err := newL1Client(
+	l1Client, err := ethwrapper.NewClient(
 		nd.logger,
 		opts.L1RPCUrls,
 		l1ClientOpts...,
@@ -249,13 +250,20 @@ func NewNode(opts *Options) (*Node, error) {
 	l1LisClosed := l1Lis.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("l1_listener", l1LisClosed))
 
+	rawClient := l1Client.RawClient()
+	if rawClient == nil {
+		nd.logger.Error("failed to get raw client")
+		cancel()
+		return nil, errors.New("failed to get ethclient")
+	}
+
 	updtr, err := updater.NewUpdater(
 		nd.logger.With("component", "updater"),
 		l1Client,
 		st,
 		evtMgr,
 		oracleTransactorSession,
-		txmonitor.NewEVMHelperWithLogger(l1Client.clients[0].cli.(*ethclient.Client), nd.logger, contracts),
+		txmonitor.NewEVMHelperWithLogger(rawClient, nd.logger, contracts),
 	)
 	if err != nil {
 		nd.logger.Error("failed to instantiate updater", "error", err)

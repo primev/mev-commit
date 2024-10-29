@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/primev/mev-commit/bridge/standard/pkg/store"
 	l1gateway "github.com/primev/mev-commit/contracts-abi/clients/L1Gateway"
 	settlementgateway "github.com/primev/mev-commit/contracts-abi/clients/SettlementGateway"
+	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
@@ -243,9 +243,18 @@ func (n *Node) createGatewayContract(
 		return fmt.Errorf("failed to parse contract ABI: %w", err)
 	}
 
+	wrappedClient, err := ethwrapper.NewClient(
+		logger.With("component", fmt.Sprintf("%s/ethwrapper", component)),
+		[]string{rpcURL},
+		ethwrapper.EthClientWithBlockNumberDrift(2*32),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create wrapped client: %w", err)
+	}
+
 	monitor := txmonitor.New(
 		signer.GetAddress(),
-		client,
+		wrappedClient,
 		txmonitor.NewEVMHelperWithLogger(
 			client,
 			logger.With("component", fmt.Sprintf("%s/evmhelper", component)),
@@ -292,51 +301,23 @@ func (n *Node) createGatewayContract(
 	)
 	n.metrics.MustRegister(evtMgr.Metrics()...)
 
-	parsedURL, err := url.Parse(rpcURL)
-	if err != nil {
-		return fmt.Errorf("failed to parse URL: %w", err)
-	}
-
-	switch parsedURL.Scheme {
-	case "ws", "wss":
-		p := publisher.NewWSPublisher(
-			st,
-			logger,
-			client,
-			evtMgr,
-		)
-		n.startables = append(
-			n.startables,
-			StartableObjWithDesc{
-				Startable: StartableFunc(
-					func(ctx context.Context) <-chan struct{} {
-						return p.Start(ctx, contractAddr)
-					},
-				),
-				Desc: fmt.Sprintf("%s/publisher", component),
-			},
-		)
-	case "http", "https":
-		p := publisher.NewHTTPPublisher(
-			st,
-			logger,
-			client,
-			evtMgr,
-		)
-		n.startables = append(
-			n.startables,
-			StartableObjWithDesc{
-				Startable: StartableFunc(
-					func(ctx context.Context) <-chan struct{} {
-						return p.Start(ctx, contractAddr)
-					},
-				),
-				Desc: fmt.Sprintf("%s/publisher", component),
-			},
-		)
-	default:
-		return fmt.Errorf("unsupported scheme: %s", parsedURL.Scheme)
-	}
+	p := publisher.NewHTTPPublisher(
+		st,
+		logger,
+		wrappedClient,
+		evtMgr,
+	)
+	n.startables = append(
+		n.startables,
+		StartableObjWithDesc{
+			Startable: StartableFunc(
+				func(ctx context.Context) <-chan struct{} {
+					return p.Start(ctx, contractAddr)
+				},
+			),
+			Desc: fmt.Sprintf("%s/publisher", component),
+		},
+	)
 
 	switch component {
 	case "l1":
