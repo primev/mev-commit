@@ -84,30 +84,3 @@ func retryWithLimitedAttempts(ctx context.Context, operation func() (bool, error
 	log.Println("Max retry attempts reached, stopping retries.")
 	return false, ErrFailedAfterNAttempts
 }
-
-func retryWithInfiniteBackoffWithMutex(ctx context.Context, mtx *sync.Mutex, operation func() (bool, error)) (bool, error) {
-	mtx.Lock()
-	defer mtx.Unlock()
-
-	for attempt := 0; ; attempt++ {
-		select {
-		case <-ctx.Done():
-			log.Println("Context canceled, stopping retries.")
-			return false, ctx.Err()
-		default:
-			success, err := operation()
-			if success {
-				return true, nil
-			}
-
-			if err != nil {
-				log.Printf("Operation failed (attempt %d): %v.", attempt+1, err)
-				return false, err
-			}
-				
-			log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
-			
-			time.Sleep(backoff(attempt))
-		}
-	}
-}

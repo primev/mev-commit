@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -199,9 +198,7 @@ func (s *StepsManager) processLastPayload(ctx context.Context) error {
 	if bbState.ExecutionPayload != "" {
 		s.logger.Info("exec payload not nil")
 
-		var mtx sync.Mutex
-
-		_, err := retryWithInfiniteBackoffWithMutex(ctx, &mtx, func() (bool, error) {
+		_, err := retryWithInfiniteBackoff(ctx, func() (bool, error) {
 			err := s.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
 			if err != nil {
 				re := regexp.MustCompile(`invalid block height: (\d+), expected: (\d+)`)
@@ -238,7 +235,7 @@ func (s *StepsManager) processLastPayload(ctx context.Context) error {
 			return err
 		}
 
-		_, err = retryWithInfiniteBackoffWithMutex(ctx, &mtx, func() (bool, error) {
+		_, err = retryWithInfiniteBackoff(ctx, func() (bool, error) {
 			s.logger.Info("Follower: Resetting state to StepBuildBlock for next block")
 			err = s.stateManager.ResetBlockState(ctx)
 			if err != nil {

@@ -3,7 +3,6 @@ package redisapp
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -123,7 +122,7 @@ func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) erro
 	}
 
 	var state types.BlockBuildState
-	if err := json.Unmarshal([]byte(data), &state); err != nil {
+	if err := msgpack.Unmarshal([]byte(data), &state); err != nil {
 		return fmt.Errorf("failed to deserialize leader block build state: %w", err)
 	}
 

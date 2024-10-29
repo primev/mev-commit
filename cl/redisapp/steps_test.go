@@ -2,7 +2,6 @@ package redisapp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"math/big"
@@ -260,7 +259,7 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 	msgID := ""
 
 	var executionPayload engine.ExecutableData
-	err := json.Unmarshal([]byte(executionPayloadStr), &executionPayload)
+	err := msgpack.Unmarshal([]byte(executionPayloadStr), &executionPayload)
 	require.NoError(t, err)
 
 	payloadStatus := engine.PayloadStatusV1{
