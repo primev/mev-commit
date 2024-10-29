@@ -15,7 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const redisStreamName = "mevcommit_block_stream"
+const blockStreamName = "mevcommit_block_stream"
 
 type RedisClient interface {
 	redis.Cmdable
@@ -172,7 +172,7 @@ func (s *RedisStateManager) SaveExecutionHeadAndAck(ctx context.Context, head *t
 	pipe := s.redisClient.TxPipeline()
 
 	pipe.Set(ctx, key, data, 0)
-	pipe.XAck(ctx, redisStreamName, s.groupName, messageID)
+	pipe.XAck(ctx, blockStreamName, s.groupName, messageID)
 
 	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("transaction failed: %w", err)
@@ -203,7 +203,7 @@ func (s *RedisStateManager) SaveBlockStateAndPublishToStream(ctx context.Context
 	}
 
 	pipe.XAdd(ctx, &redis.XAddArgs{
-		Stream: redisStreamName,
+		Stream: blockStreamName,
 		Values: message,
 	})
 
@@ -223,7 +223,7 @@ func (s *RedisStateManager) GetBlockBuildState(ctx context.Context) types.BlockB
 }
 
 func (s *RedisStateManager) CreateConsumerGroup(ctx context.Context) error {
-	if err := s.redisClient.XGroupCreateMkStream(ctx, redisStreamName, s.groupName, "0").Err(); err != nil {
+	if err := s.redisClient.XGroupCreateMkStream(ctx, blockStreamName, s.groupName, "0").Err(); err != nil {
 		if !strings.Contains(err.Error(), "BUSYGROUP") {
 			return fmt.Errorf("failed to create consumer group '%s': %w", s.groupName, err)
 		}
@@ -255,7 +255,7 @@ func (s *RedisStateManager) ReadMessagesFromStream(ctx context.Context, msgType 
 	args := &redis.XReadGroupArgs{
 		Group:    s.groupName,
 		Consumer: s.consumerName,
-		Streams:  []string{redisStreamName, string(msgType)},
+		Streams:  []string{blockStreamName, string(msgType)},
 		Count:    1,
 		Block:    time.Second,
 	}
@@ -269,7 +269,7 @@ func (s *RedisStateManager) ReadMessagesFromStream(ctx context.Context, msgType 
 }
 
 func (s *RedisStateManager) AckMessage(ctx context.Context, messageID string) error {
-	if err := s.redisClient.XAck(ctx, redisStreamName, s.groupName, messageID).Err(); err != nil {
+	if err := s.redisClient.XAck(ctx, blockStreamName, s.groupName, messageID).Err(); err != nil {
 		return fmt.Errorf("failed to acknowledge message: %w", err)
 	}
 	return nil
