@@ -119,7 +119,7 @@ contract ProviderRegistry is
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        if (!payable(bidder).send{value: amt}("")) {
+        if (!payable(bidder).send(amt)) {
             emit TransferToBidderFailed(bidder, amt);
             bidderSlashedAmount[bidder] += amt;
         }
@@ -268,6 +268,15 @@ contract ProviderRegistry is
      */
     function registerAndStake(bytes calldata blsPublicKey) public payable whenNotPaused {
         _registerAndStake(msg.sender, blsPublicKey);
+    }
+
+    /**
+    * @dev Register and stake on behalf of a provider.
+    * @param provider Address of the provider.
+    * @param blsPublicKey BLS public key of the provider.
+    */
+    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable whenNotPaused onlyOwner {
+        _registerAndStake(provider, blsPublicKey);
     }
 
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal

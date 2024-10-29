@@ -494,4 +494,21 @@ contract ProviderRegistryTest is Test {
         );
         providerRegistry.withdraw();
     }
+
+    function test_DelegateRegisterAndStake() public {
+        address newProvider = vm.addr(7);
+
+        vm.prank(address(this));
+        providerRegistry.delegateRegisterAndStake{value: 2e18 wei}(newProvider, validBLSPubkey);
+        assertEq(
+            providerRegistry.providerStakes(newProvider),
+            2e18 wei,
+            "Staked amount should match"
+        );
+        assertEq(
+            providerRegistry.providerRegistered(newProvider),
+            true,
+            "Provider should be registered"
+        );
+    }
 }
