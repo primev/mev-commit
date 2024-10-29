@@ -72,7 +72,6 @@ type PreconfContract interface {
 		decayStartTimeStamp uint64,
 		decayEndTimeStamp uint64,
 		bidSignature []byte,
-		commitmentSignature []byte,
 		sharedSecretKey []byte,
 	) (*types.Transaction, error)
 }
@@ -401,7 +400,6 @@ func (t *Tracker) openCommitments(
 			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
 			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
 			commitment.PreConfirmation.Bid.Signature,
-			commitment.PreConfirmation.Signature,
 			commitment.PreConfirmation.SharedSecret,
 		)
 		if err != nil {

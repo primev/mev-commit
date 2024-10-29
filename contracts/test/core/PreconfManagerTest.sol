@@ -408,7 +408,6 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.bidSignature,
-            _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.sharedSecretKey
         );
 
@@ -524,7 +523,6 @@ contract PreconfManagerTest is Test {
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         bytes memory bidSignature,
-        bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public returns (bytes32) {
         vm.prank(msgSender);
@@ -537,7 +535,6 @@ contract PreconfManagerTest is Test {
             decayStartTimestamp,
             decayEndTimestamp,
             bidSignature,
-            commitmentSignature,
             sharedSecretKey
         );
 
@@ -722,7 +719,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.sharedSecretKey
             );
             vm.prank(oracleContract);
@@ -814,7 +810,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.sharedSecretKey
             );
             vm.prank(oracleContract);
@@ -900,7 +895,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.sharedSecretKey
             );
             uint256 window = blockTracker.getCurrentWindow();
@@ -1051,7 +1045,6 @@ contract PreconfManagerTest is Test {
             testCommitment2.decayStartTimestamp,
             testCommitment2.decayEndTimestamp,
             testCommitment2.bidSignature,
-            testCommitment2.commitmentSignature,
             testCommitment2.sharedSecretKey
         );
     }
@@ -1113,7 +1106,6 @@ contract PreconfManagerTest is Test {
                 testCommitment.decayStartTimestamp,
                 testCommitment.decayEndTimestamp,
                 testCommitment.bidSignature,
-                testCommitment.commitmentSignature,
                 testCommitment.sharedSecretKey
             );
     }

@@ -185,7 +185,6 @@ interface IPreconfManager {
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
      * @param bidSignature The signature of the bid.
-     * @param commitmentSignature The signature of the commitment.
      * @param sharedSecretKey The shared secret key.
      * @return commitmentIndex The index of the stored commitment.
      */
@@ -198,7 +197,6 @@ interface IPreconfManager {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) external returns (bytes32 commitmentIndex);
 

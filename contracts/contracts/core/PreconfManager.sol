@@ -203,7 +203,6 @@ contract PreconfManager is
      * @param decayStartTimeStamp The start time of the decay
      * @param decayEndTimeStamp The end time of the decay
      * @param bidSignature The signature of the bid
-     * @param commitmentSignature The signature of the commitment
      * @param sharedSecretKey The shared secret key
      * @return commitmentIndex The index of the stored commitment
      */
@@ -216,7 +215,6 @@ contract PreconfManager is
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public whenNotPaused returns (bytes32 commitmentIndex) {
         if (decayStartTimeStamp >= decayEndTimeStamp) {
@@ -270,7 +268,7 @@ contract PreconfManager is
         }
 
         address committerAddress = commitmentDigest.recover(
-            commitmentSignature
+            unopenedCommitment.commitmentSignature
         );
 
         address winner = blockTracker.getBlockWinner(blockNumber);
@@ -299,7 +297,7 @@ contract PreconfManager is
             bHash,
             commitmentDigest,
             bidSignature,
-            commitmentSignature,
+            unopenedCommitment.commitmentSignature,
             sharedSecretKey,
             txnHash,
             revertingTxHashes
@@ -336,7 +334,7 @@ contract PreconfManager is
             revertingTxHashes,
             commitmentDigest,
             bidSignature,
-            commitmentSignature,
+            unopenedCommitment.commitmentSignature,
             unopenedCommitment.dispatchTimestamp,
             sharedSecretKey
         );

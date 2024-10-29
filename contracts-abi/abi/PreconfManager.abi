@@ -675,11 +675,6 @@
         "internalType": "bytes"
       },
       {
-        "name": "commitmentSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
         "name": "sharedSecretKey",
         "type": "bytes",
         "internalType": "bytes"

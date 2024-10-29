@@ -219,13 +219,6 @@ func TestTracker(t *testing.T) {
 				oc.bidSignature,
 			)
 		}
-		if !bytes.Equal(c.PreConfirmation.Signature, oc.commitmentSignature) {
-			t.Fatalf(
-				"expected commitment signature %x, got %x",
-				c.PreConfirmation.Signature,
-				oc.commitmentSignature,
-			)
-		}
 		if !bytes.Equal(c.PreConfirmation.SharedSecret, oc.sharedSecretKey) {
 			t.Fatalf(
 				"expected shared secret key %x, got %x",
@@ -293,13 +286,6 @@ func TestTracker(t *testing.T) {
 				"expected bid signature %x, got %x",
 				c.PreConfirmation.Bid.Signature,
 				oc.bidSignature,
-			)
-		}
-		if !bytes.Equal(c.PreConfirmation.Signature, oc.commitmentSignature) {
-			t.Fatalf(
-				"expected commitment signature %x, got %x",
-				c.PreConfirmation.Signature,
-				oc.commitmentSignature,
 			)
 		}
 		if !bytes.Equal(c.PreConfirmation.SharedSecret, oc.sharedSecretKey) {
@@ -405,7 +391,6 @@ type openedCommitment struct {
 	decayStartTimeStamp      uint64
 	decayEndTimeStamp        uint64
 	bidSignature             []byte
-	commitmentSignature      []byte
 	sharedSecretKey          []byte
 }
 
@@ -423,7 +408,6 @@ func (t *testPreconfContract) OpenCommitment(
 	decayStartTimeStamp uint64,
 	decayEndTimeStamp uint64,
 	bidSignature []byte,
-	commitmentSignature []byte,
 	sharedSecretKey []byte,
 ) (*types.Transaction, error) {
 	t.openedCommitments <- openedCommitment{
@@ -435,7 +419,6 @@ func (t *testPreconfContract) OpenCommitment(
 		decayStartTimeStamp:      decayStartTimeStamp,
 		decayEndTimeStamp:        decayEndTimeStamp,
 		bidSignature:             bidSignature,
-		commitmentSignature:      commitmentSignature,
 		sharedSecretKey:          sharedSecretKey,
 	}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil

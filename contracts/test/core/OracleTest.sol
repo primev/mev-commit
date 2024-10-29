@@ -509,7 +509,6 @@ contract OracleTest is Test {
                 10,
                 20,
                 bidSignatures[i],
-                commitmentSignatures[i],
                 sharedSecretKey
             );
             vm.stopPrank();
@@ -574,8 +573,7 @@ contract OracleTest is Test {
             blockNumber,
             txnHash,
             revertingTxHashes,
-            bidSignature,
-            commitmentSignature
+            bidSignature
         );
         return commitmentIndex;
     }
@@ -666,8 +664,7 @@ contract OracleTest is Test {
         uint64 blockNumber,
         string memory txnHash,
         string memory revertingTxHashes,
-        bytes memory bidSignature,
-        bytes memory commitmentSignature
+        bytes memory bidSignature
     ) public returns (bytes32) {
         vm.startPrank(provider);
         bytes32 commitmentIndex = preconfManager.openCommitment(
@@ -679,7 +676,6 @@ contract OracleTest is Test {
             10,
             20,
             bidSignature,
-            commitmentSignature,
             sharedSecretKey
         );
         vm.stopPrank();
