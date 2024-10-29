@@ -1225,17 +1225,6 @@
   },
   {
     "type": "error",
-    "name": "ProviderStakedAmountZero",
-    "inputs": [
-      {
-        "name": "sender",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
   },

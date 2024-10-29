@@ -52,7 +52,6 @@ interface IProviderRegistry {
     error UnstakeRequestExists(address sender);
     error NoUnstakeRequest(address sender);
     error DelayNotPassed(uint256 withdrawalRequestTimestamp, uint256 withdrawalDelay, uint256 currentBlockTimestamp);
-    error ProviderStakedAmountZero(address sender);
     error PreconfManagerNotSet();
     error ProviderCommitmentsPending(address sender, uint256 numPending);
     error StakeTransferFailed(address sender, uint256 amount);
