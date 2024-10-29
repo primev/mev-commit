@@ -36,7 +36,6 @@ contract BidderRegistry is
      * @param _feePercent The fee percentage for protocol
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _blockTracker The address of the block tracker contract.
-     * @param _blocksPerWindow The number of blocks per window.
      * @param _feePayoutPeriodBlocks The number of blocks for the fee payout period
      */
     function initialize(
@@ -44,13 +43,11 @@ contract BidderRegistry is
         uint16 _feePercent,
         address _owner,
         address _blockTracker,
-        uint256 _blocksPerWindow,
         uint256 _feePayoutPeriodBlocks
     ) external initializer {
         FeePayout.init(protocolFeeTracker, _protocolFeeRecipient, _feePayoutPeriodBlocks);
         feePercent = _feePercent;
         blockTrackerContract = IBlockTracker(_blockTracker);
-        blocksPerWindow = _blocksPerWindow;
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
@@ -92,7 +89,7 @@ contract BidderRegistry is
         lockedFunds[msg.sender][window] = newLockedFunds;
 
         // Calculate the maximum bid per block for the given window
-        maxBidPerBlock[msg.sender][window] = newLockedFunds / blocksPerWindow;
+        maxBidPerBlock[msg.sender][window] = newLockedFunds / WindowFromBlockNumber.BLOCKS_PER_WINDOW;
 
         emit BidderRegistered(msg.sender, newLockedFunds, window);
     }
@@ -125,7 +122,7 @@ contract BidderRegistry is
             lockedFunds[msg.sender][window] = newLockedFunds;
             maxBidPerBlock[msg.sender][window] =
                 newLockedFunds /
-                blocksPerWindow;
+                WindowFromBlockNumber.BLOCKS_PER_WINDOW;
 
             emit BidderRegistered(msg.sender, newLockedFunds, window);
         }
@@ -261,8 +258,7 @@ contract BidderRegistry is
             return;
         }
         uint256 currentWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
-            blockNumber,
-            blocksPerWindow
+            blockNumber
         );
 
         uint256 windowAmount = maxBidPerBlock[bidder][currentWindow];

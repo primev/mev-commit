@@ -37,7 +37,7 @@ interface IBlockTracker {
 
     /// @notice Retrieves the number of blocks per window.
     /// @return The number of blocks per window.
-    function getBlocksPerWindow() external view returns (uint256);
+    function getBlocksPerWindow() external pure returns (uint256);
 
     /// @notice Retrieves the winner of a specific L1 block.
     /// @param _blockNumber The block number of the L1 block.

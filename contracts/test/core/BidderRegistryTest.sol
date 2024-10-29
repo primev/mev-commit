@@ -6,6 +6,7 @@ import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {IBidderRegistry} from "../../contracts/interfaces/IBidderRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
@@ -15,7 +16,6 @@ contract BidderRegistryTest is Test {
     address public bidder;
     address public feeRecipient;
     uint256 public feePayoutPeriodBlocks;
-    uint256 public blocksPerWindow;
     BlockTracker public blockTracker;
 
     /// @dev Event emitted when a bidder is registered with their staked amount
@@ -31,16 +31,15 @@ contract BidderRegistryTest is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         feePayoutPeriodBlocks = 100;
-        blocksPerWindow = 10;
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, address(this), address(this)))
+            abi.encodeCall(BlockTracker.initialize, (address(this), address(this)))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
-            abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, address(this), address(blockTracker), blocksPerWindow, feePayoutPeriodBlocks))
+            abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, address(this), address(blockTracker), feePayoutPeriodBlocks))
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
@@ -175,7 +174,7 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
@@ -199,7 +198,7 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
@@ -227,7 +226,7 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
@@ -286,7 +285,7 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         uint256 balanceBefore = address(provider).balance;
         bytes32 commitmentDigest = keccak256("1234");
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
@@ -329,7 +328,7 @@ contract BidderRegistryTest is Test {
             assertEq(lockedFunds, depositAmount / windows.length);
 
             uint256 maxBidPerBlock = bidderRegistry.maxBidPerBlock(bidder, windows[i]);
-            assertEq(maxBidPerBlock, depositAmount / (windows.length * blocksPerWindow));
+            assertEq(maxBidPerBlock, depositAmount / (windows.length * WindowFromBlockNumber.BLOCKS_PER_WINDOW));
         }
 
         bool isBidderRegistered = bidderRegistry.bidderRegistered(bidder);
@@ -357,10 +356,10 @@ contract BidderRegistryTest is Test {
             assertEq(lockedFunds, depositAmount / windows.length);
 
             uint256 maxBid = bidderRegistry.maxBidPerBlock(bidder, currentWindow + i);
-            assertEq(maxBid, (depositAmount / windows.length) / blocksPerWindow);
+            assertEq(maxBid, (depositAmount / windows.length) / WindowFromBlockNumber.BLOCKS_PER_WINDOW);
         }
         vm.stopPrank();
-        uint64 blockNumber = uint64(blocksPerWindow*3 + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW*3 + 2);
         blockTracker.recordL1Block(blockNumber, "test");
 
         vm.startPrank(bidder);
@@ -379,7 +378,7 @@ contract BidderRegistryTest is Test {
         bytes32 commitmentDigest = keccak256("commitment");
         uint256 bidAmt = 3 ether;
         address testBidder = vm.addr(2);
-        uint64 blockNumber = uint64(blocksPerWindow + 1);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1);
         
         // Deal some ETH to the test bidder
         vm.deal(testBidder, 10 ether);
@@ -426,7 +425,7 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 commitmentDigest = keccak256("1234");
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
@@ -447,7 +446,7 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         uint256 balanceBefore = feeRecipient.balance;
         bytes32 commitmentDigest = keccak256("1234");
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
@@ -460,7 +459,7 @@ contract BidderRegistryTest is Test {
     function test_OpenBidWithExcessExploit() public {
         address aliceBidder = vm.addr(7);
         address bodBidder = vm.addr(8);
-        uint64 blockNumber = uint64(blocksPerWindow + 1);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1);
 
         //1)  Deal some ETH to the Alice and Bob
         vm.deal(aliceBidder, 10 ether);
@@ -517,7 +516,7 @@ contract BidderRegistryTest is Test {
         vm.stopPrank();
 
         //5) Alice withdraw her locked funds (which will be intact minus maxBid as being spent in the first bid)
-        blockNumber = uint64(blocksPerWindow * 2 + 1);
+        blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW * 2 + 1);
         blockTracker.recordL1Block(blockNumber, "test");
 
         uint256[] memory windows = new uint256[](1);

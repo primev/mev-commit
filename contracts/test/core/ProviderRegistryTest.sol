@@ -19,7 +19,6 @@ contract ProviderRegistryTest is Test {
     BidderRegistry public bidderRegistry;
     PreconfManager public preconfManager;
     BlockTracker public blockTracker;
-    uint256 public blocksPerWindow;
     uint256 public withdrawalDelay;
     bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     uint256 public penaltyFeePayoutPeriodBlocks;
@@ -41,7 +40,6 @@ contract ProviderRegistryTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        blocksPerWindow = 10;
         withdrawalDelay = 24 * 3600; // 24 hours
         penaltyFeePayoutPeriodBlocks = 100;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
@@ -60,7 +58,7 @@ contract ProviderRegistryTest is Test {
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, 
-            (blocksPerWindow, address(this), address(this))) 
+            (address(this), address(this))) 
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
@@ -71,7 +69,6 @@ contract ProviderRegistryTest is Test {
             feePercent, 
             address(this), 
             address(blockTracker),
-            blocksPerWindow,
             penaltyFeePayoutPeriodBlocks)) 
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
@@ -84,8 +81,7 @@ contract ProviderRegistryTest is Test {
             address(blockTracker), // Block Tracker
             feeRecipient, // Oracle
             address(this),
-            500,
-            blocksPerWindow))
+            500))
         );
         preconfManager = PreconfManager(payable(preconfStoreProxy));
 

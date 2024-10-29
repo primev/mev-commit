@@ -91,9 +91,6 @@ interface IPreconfManager {
     /// @dev Event to log successful update of the oracle contract
     event OracleContractUpdated(address indexed newOracleContract);
 
-    /// @dev Event to log successful update of the blocks per window
-    event BlocksPerWindowUpdated(uint256 newBlocksPerWindow);
-
     /// @dev Event to log successful update of the provider registry
     event ProviderRegistryUpdated(address indexed newProviderRegistry);
 
@@ -144,7 +141,6 @@ interface IPreconfManager {
      * @param _oracle The address of the oracle.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _commitmentDispatchWindow The dispatch window for commitments.
-     * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
         address _providerRegistry,
@@ -152,8 +148,7 @@ interface IPreconfManager {
         address _oracle,
         address _owner,
         address _blockTracker,
-        uint64 _commitmentDispatchWindow,
-        uint256 _blocksPerWindow
+        uint64 _commitmentDispatchWindow
     ) external;
 
     /**

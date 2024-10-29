@@ -42,9 +42,6 @@ abstract contract BidderRegistryStorage {
     /// @dev Amount assigned to bidders
     mapping(address => uint256) public providerAmount;
 
-    /// @dev Amount assigned to bidders
-    uint256 public blocksPerWindow;
-
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
 }

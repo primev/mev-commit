@@ -35,7 +35,6 @@ contract PreconfManagerTest is Test {
     address public feeRecipient;
     ProviderRegistry public providerRegistry;
     BlockTracker public blockTracker;
-    uint256 public blocksPerWindow;
     BidderRegistry public bidderRegistry;
     bytes public validBLSPubkey =
         hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
@@ -61,7 +60,6 @@ contract PreconfManagerTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        blocksPerWindow = 10;
         withdrawalDelay = 24 * 3600; // 24 hours
         protocolFeePayoutPeriodBlocks = 100;
         oracleContract = address(0x6793);
@@ -85,7 +83,7 @@ contract PreconfManagerTest is Test {
             "BlockTracker.sol",
             abi.encodeCall(
                 BlockTracker.initialize,
-                (blocksPerWindow, address(this), address(this))
+                (address(this), address(this))
             )
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
@@ -99,7 +97,6 @@ contract PreconfManagerTest is Test {
                     feePercent,
                     address(this),
                     address(blockTracker),
-                    blocksPerWindow,
                     protocolFeePayoutPeriodBlocks
                 )
             )
@@ -116,8 +113,7 @@ contract PreconfManagerTest is Test {
                     oracleContract, // Oracle
                     address(this),
                     address(blockTracker), // Block Tracker
-                    500,
-                    blocksPerWindow
+                    500
                 )
             ) // Commitment Dispatch Window
         );
@@ -613,8 +609,7 @@ contract PreconfManagerTest is Test {
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
         uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(
-            _testCommitmentAliceBob.blockNumber,
-            blocksPerWindow
+            _testCommitmentAliceBob.blockNumber
         );
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 2 ether}(window);
@@ -667,8 +662,7 @@ contract PreconfManagerTest is Test {
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber,
-                    blocksPerWindow
+                    _testCommitmentAliceBob.blockNumber
                 );
             bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
@@ -760,8 +754,7 @@ contract PreconfManagerTest is Test {
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber,
-                    blocksPerWindow
+                    _testCommitmentAliceBob.blockNumber
                 );
             bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
@@ -845,8 +838,7 @@ contract PreconfManagerTest is Test {
             (address bidder, ) = makeAddrAndKey("alice");
             uint256 depositWindow = WindowFromBlockNumber
                 .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber,
-                    blocksPerWindow
+                    _testCommitmentAliceBob.blockNumber
                 );
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
@@ -1066,8 +1058,7 @@ contract PreconfManagerTest is Test {
     ) internal returns (uint256) {
         vm.prank(bidder);
         uint256 depositWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
-            blockNumber,
-            blocksPerWindow
+            blockNumber
         );
         bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
         return depositWindow;

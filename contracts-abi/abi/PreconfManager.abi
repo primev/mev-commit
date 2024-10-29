@@ -99,19 +99,6 @@
   },
   {
     "type": "function",
-    "name": "blocksPerWindow",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "commitmentDispatchWindow",
     "inputs": [],
     "outputs": [
@@ -607,11 +594,6 @@
         "name": "_commitmentDispatchWindow",
         "type": "uint64",
         "internalType": "uint64"
-      },
-      {
-        "name": "_blocksPerWindow",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -1235,19 +1217,6 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "BlocksPerWindowUpdated",
-    "inputs": [
-      {
-        "name": "newBlocksPerWindow",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false

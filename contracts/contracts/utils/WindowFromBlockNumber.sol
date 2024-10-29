@@ -6,13 +6,16 @@ pragma solidity 0.8.26;
  * @dev A library that calculates the window number for a given block number.
  */
 library WindowFromBlockNumber {
+
+    /// @dev The number of blocks per window.
+    uint256 constant BLOCKS_PER_WINDOW = 10;
+
     /**
      * @dev Retrieves the window number for a given block number.
      * @param blockNumber The block number.
-     * @param blocksPerWindow The number of blocks per window.
      * @return The window number.
      */
-    function getWindowFromBlockNumber(uint256 blockNumber, uint256 blocksPerWindow) internal pure returns (uint256) {
-        return (blockNumber - 1) / blocksPerWindow + 1;
+    function getWindowFromBlockNumber(uint256 blockNumber) internal pure returns (uint256) {
+        return (blockNumber - 1) / BLOCKS_PER_WINDOW + 1;
     }
 }

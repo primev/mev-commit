@@ -64,7 +64,6 @@ contract PreconfManager is
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _blockTracker The address of the block tracker.
      * @param _commitmentDispatchWindow The dispatch window for commitments.
-     * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
         address _providerRegistry,
@@ -72,8 +71,7 @@ contract PreconfManager is
         address _oracleContract,
         address _owner,
         address _blockTracker,
-        uint64 _commitmentDispatchWindow,
-        uint256 _blocksPerWindow
+        uint64 _commitmentDispatchWindow
     ) external initializer {
         providerRegistry = IProviderRegistry(_providerRegistry);
         bidderRegistry = IBidderRegistry(_bidderRegistry);
@@ -81,7 +79,6 @@ contract PreconfManager is
         __Ownable_init(_owner);
         blockTracker = IBlockTracker(_blockTracker);
         commitmentDispatchWindow = _commitmentDispatchWindow;
-        blocksPerWindow = _blocksPerWindow;
         __Pausable_init();
 
         // Compute the domain separators
@@ -419,8 +416,7 @@ contract PreconfManager is
         --commitmentsCount[commitment.committer];
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber,
-            blocksPerWindow
+            commitment.blockNumber
         );
 
         providerRegistry.slash(
@@ -449,8 +445,7 @@ contract PreconfManager is
         );
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber,
-            blocksPerWindow
+            commitment.blockNumber
         );
 
         commitment.isSettled = true;
