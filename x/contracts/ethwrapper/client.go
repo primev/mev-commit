@@ -98,6 +98,7 @@ type Client struct {
 	maxRetries       int
 }
 
+// RawClient returns the first raw ethclient.
 func (c *Client) RawClient() *ethclient.Client {
 	client, ok := c.clients[0].cli.(*ethclient.Client)
 	if !ok {

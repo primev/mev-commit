@@ -246,7 +246,7 @@ func (n *Node) createGatewayContract(
 	wrappedClient, err := ethwrapper.NewClient(
 		logger.With("component", fmt.Sprintf("%s/ethwrapper", component)),
 		[]string{rpcURL},
-		ethwrapper.EthClientWithBlockNumberDrift(2*32),
+		ethwrapper.EthClientWithBlockNumberDrift(2*32), // 2 epochs
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create wrapped client: %w", err)
