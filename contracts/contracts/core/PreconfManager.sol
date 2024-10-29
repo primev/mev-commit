@@ -223,11 +223,6 @@ contract PreconfManager is
             revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
         }
 
-        require(
-            processedTxnHashes[txnHash] == false,
-            TxnHashAlreadyProcessed(txnHash)
-        );
-
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bidAmt,
             blockNumber,
@@ -236,6 +231,15 @@ contract PreconfManager is
             txnHash,
             revertingTxHashes,
             bidSignature
+        );
+
+        bytes32 txnHashAndBidder = keccak256(
+            abi.encodePacked(txnHash, bidderAddress)
+        );
+
+        require(
+            processedTxnHashes[txnHashAndBidder] == false,
+            TxnHashAlreadyProcessed(bidderAddress, txnHash)
         );
 
         bytes32 commitmentDigest = getPreConfHash(
@@ -317,7 +321,7 @@ contract PreconfManager is
 
         ++commitmentsCount[committerAddress];
 
-        processedTxnHashes[txnHash] = true;
+        processedTxnHashes[txnHashAndBidder] = true;
 
         emit OpenedCommitmentStored(
             commitmentIndex,

@@ -131,7 +131,7 @@ interface IPreconfManager {
     error UnopenedCommitmentAlreadyExists(bytes32 commitmentIndex);
 
     /// @dev Error if txn hash is already processed
-    error TxnHashAlreadyProcessed(string txnHash);
+    error TxnHashAlreadyProcessed(address bidderAddress, string txnHash);
 
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.

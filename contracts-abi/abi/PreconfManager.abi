@@ -848,8 +848,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "string",
-        "internalType": "string"
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [
@@ -1711,6 +1711,11 @@
     "type": "error",
     "name": "TxnHashAlreadyProcessed",
     "inputs": [
+      {
+        "name": "bidderAddress",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "txnHash",
         "type": "string",
