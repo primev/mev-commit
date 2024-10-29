@@ -119,8 +119,7 @@ contract ProviderRegistry is
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        (bool success, ) = payable(bidder).call{value: amt}("");
-        if (!success) {
+        if (!payable(bidder).send{value: amt}("")) {
             emit TransferToBidderFailed(bidder, amt);
             bidderSlashedAmount[bidder] += amt;
         }

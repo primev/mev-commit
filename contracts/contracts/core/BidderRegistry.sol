@@ -194,9 +194,8 @@ contract BidderRegistry is
         // Transfer funds back to the bidder wallet
         uint256 fundsToReturn = bidState.bidAmt - decayedAmt;
         if (fundsToReturn > 0) {
-            (bool success, ) = payable(bidState.bidder).call{value: (fundsToReturn)}("");
-            // edge case, when bidder is rejecting transfer
-            if (!success) {
+            if (!payable(bidState.bidder).send(fundsToReturn)) {
+                // edge case, when bidder is rejecting transfer
                 emit TransferToBidderFailed(bidState.bidder, fundsToReturn);
                 lockedFunds[bidState.bidder][windowToSettle] += fundsToReturn;
             }
@@ -231,8 +230,7 @@ contract BidderRegistry is
         bidState.state = State.Withdrawn;
         bidState.bidAmt = 0;
 
-        (bool success, ) = payable(bidState.bidder).call{value: amt}("");
-        if (!success) {
+        if (!payable(bidState.bidder).send(amt)) {
             emit TransferToBidderFailed(bidState.bidder, amt);
             lockedFunds[bidState.bidder][window] += amt;
         }
