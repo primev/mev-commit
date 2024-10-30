@@ -62,7 +62,6 @@ interface IVanillaRegistry {
     error WithdrawalAddressMismatch(address actualWithdrawalAddress, address expectedWithdrawalAddress);
     error WithdrawalFailed();
     error NoFundsToWithdraw();
-    error NotEnoughBalanceToSlash();
     error SlashingTransferFailed();
     error MinStakeMustBePositive();
     error SlashAmountMustBePositive();

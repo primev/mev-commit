@@ -1155,11 +1155,6 @@
   },
   {
     "type": "error",
-    "name": "NotEnoughBalanceToSlash",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },

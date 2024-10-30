@@ -417,7 +417,7 @@ contract VanillaRegistryTest is Test {
         assertEq(validatorRegistry.getStakedValidator(user1BLSKey).unstakeOccurrence.blockHeight, 0, "User1s unstake block number should be reset after withdrawal");
     }
 
-    function testSlashWithoutEnoughStake() public {
+    function testSlashMinStakeIncreased() public {
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
         bytes[] memory validators = new bytes[](1);
         validators[0] = user1BLSKey;
@@ -430,13 +430,14 @@ contract VanillaRegistryTest is Test {
         validatorRegistry.stake{value: stakeAmount}(validators);
         vm.stopPrank();
 
+        vm.prank(owner);
+        validatorRegistry.setMinStake(MIN_STAKE * 2);
+
+        assertFalse(validatorRegistry.isValidatorOptedIn(user1BLSKey));
+
         vm.prank(SLASH_ORACLE);
         vm.expectEmit(true, true, true, true);
-        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE);
-        validatorRegistry.slash(validators, true);
-
-        vm.expectRevert(IVanillaRegistry.NotEnoughBalanceToSlash.selector);
-        vm.prank(SLASH_ORACLE);
+        emit Slashed(SLASH_ORACLE, SLASH_RECEIVER, user1, user1BLSKey, MIN_STAKE+1);
         validatorRegistry.slash(validators, true);
     }
 

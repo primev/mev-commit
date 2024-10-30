@@ -379,17 +379,20 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
-            require(validator.balance >= minStake, IVanillaRegistry.NotEnoughBalanceToSlash());
             if (!_isUnstaking(pubKey)) { 
                 _unstakeSingle(pubKey);
             }
-            validator.balance -= minStake;
-            slashingFundsTracker.accumulatedAmount += minStake;
+            uint256 toSlash = minStake;
+            if (validator.balance < minStake) {
+                toSlash = validator.balance;
+            }
+            validator.balance -= toSlash;
+            slashingFundsTracker.accumulatedAmount += toSlash;
             bool isLastEntry = i == len - 1;
             if (payoutIfDue && FeePayout.isPayoutDue(slashingFundsTracker) && isLastEntry) {
                 FeePayout.transferToRecipient(slashingFundsTracker);
             }
-            emit Slashed(msg.sender, slashingFundsTracker.recipient, validator.withdrawalAddress, pubKey, minStake);
+            emit Slashed(msg.sender, slashingFundsTracker.recipient, validator.withdrawalAddress, pubKey, toSlash);
         }
     }
 
