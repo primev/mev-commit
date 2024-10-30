@@ -27,16 +27,17 @@ const (
 )
 
 type Preconfirmation struct {
-	encryptor    Encryptor
-	topo         Topology
-	streamer     p2p.Streamer
-	depositMgr   DepositManager
-	processer    BidProcessor
-	commitmentDA PreconfContract
-	tracker      Tracker
-	optsGetter   OptsGetter
-	logger       *slog.Logger
-	metrics      *metrics
+	encryptor       Encryptor
+	topo            Topology
+	streamer        p2p.Streamer
+	depositMgr      DepositManager
+	processer       BidProcessor
+	commitmentDA    PreconfContract
+	tracker         Tracker
+	optsGetter      OptsGetter
+	logger          *slog.Logger
+	metrics         *metrics
+	providerTimeout time.Duration
 }
 
 type OptsGetter func(context.Context) (*bind.TransactOpts, error)
@@ -93,19 +94,21 @@ func New(
 	commitmentDA PreconfContract,
 	tracker Tracker,
 	optsGetter OptsGetter,
+	providerTimeout time.Duration,
 	logger *slog.Logger,
 ) *Preconfirmation {
 	return &Preconfirmation{
-		topo:         topo,
-		streamer:     streamer,
-		encryptor:    encryptor,
-		depositMgr:   depositMgr,
-		processer:    processor,
-		commitmentDA: commitmentDA,
-		tracker:      tracker,
-		optsGetter:   optsGetter,
-		logger:       logger,
-		metrics:      newMetrics(),
+		topo:            topo,
+		streamer:        streamer,
+		encryptor:       encryptor,
+		depositMgr:      depositMgr,
+		processer:       processor,
+		commitmentDA:    commitmentDA,
+		tracker:         tracker,
+		optsGetter:      optsGetter,
+		logger:          logger,
+		metrics:         newMetrics(),
+		providerTimeout: providerTimeout,
 	}
 }
 
@@ -293,7 +296,7 @@ func (p *Preconfirmation) handleBid(
 	}()
 
 	// try to get a decision within 30 seconds
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, p.providerTimeout)
 	defer cancel()
 
 	statusC, err := p.processer.ProcessBid(ctx, bid)

@@ -101,6 +101,8 @@ type Options struct {
 	OracleWindowOffset       *big.Int
 	BeaconAPIURL             string
 	L1RPCURL                 string
+	BidderBidTimeout         time.Duration
+	ProviderDecisionTimeout  time.Duration
 }
 
 type Node struct {
@@ -471,6 +473,7 @@ func NewNode(opts *Options) (*Node, error) {
 				commitmentDA,
 				tracker,
 				optsGetter,
+				opts.ProviderDecisionTimeout,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
 
@@ -516,6 +519,7 @@ func NewNode(opts *Options) (*Node, error) {
 				commitmentDA,
 				tracker,
 				optsGetter,
+				opts.ProviderDecisionTimeout,
 				opts.Logger.With("component", "preconfirmation_protocol"),
 			)
 
@@ -554,6 +558,7 @@ func NewNode(opts *Options) (*Node, error) {
 				autoDeposit,
 				autodepositorStore,
 				opts.OracleWindowOffset,
+				opts.BidderBidTimeout,
 				opts.Logger.With("component", "bidderapi"),
 			)
 			bidderapiv1.RegisterBidderServer(grpcServer, bidderAPI)

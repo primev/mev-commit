@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -232,6 +233,7 @@ func startServer(t *testing.T) bidderapiv1.BidderClient {
 		testAutoDepositTracker,
 		store,
 		oracleWindowOffset,
+		15*time.Second,
 		logger,
 	)
 

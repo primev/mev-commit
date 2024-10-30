@@ -19,6 +19,12 @@ abstract contract Gateway is IGateway, GatewayStorage,
         _;
     }
 
+    /// @dev Initiates a transfer from the source chain gateway to its counterparty gateway on another chain.
+    /// @notice The _recipient is transferred eth on the destination chain via solidity's send function (with built-in gas limit).
+    /// Therefore the _recipient MUST be an EOA on the other chain to gauruntee a successful transfer.
+    /// @notice If _recipient is a contract, manual withdrawal may be required on the counterparty chain.
+    /// @notice The caller of this function takes responsiblity for whatever address is specified as the _recipient.
+    /// That is, if _recipient is a contract with an immutable receiver that reverts, the user would be at fault for loss of funds.
     function initiateTransfer(address _recipient, uint256 _amount) 
         external payable whenNotPaused nonReentrant returns (uint256 returnIdx) {
         require(_amount >= counterpartyFee, AmountTooSmall(_amount, counterpartyFee));
@@ -28,6 +34,8 @@ abstract contract Gateway is IGateway, GatewayStorage,
         return transferInitiatedIdx;
     }
 
+    /// @dev Finalizes a transfer as the destination chain gateway.
+    /// @dev The inheriting contract MUST implement eth transfer failure handling, and the retry capability.
     function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx) 
         external onlyRelayer whenNotPaused nonReentrant {
         require(_amount >= finalizationFee, AmountTooSmall(_amount, finalizationFee));
