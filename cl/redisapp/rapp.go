@@ -106,7 +106,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 	}
 
 	leader := &Leader{
-		ctx:            ctx,
 		InstanceID:     instanceID,
 		wg:             &wg,
 		stateManager:   stateManager,

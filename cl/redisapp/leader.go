@@ -15,7 +15,6 @@ type Leader struct {
 	InstanceID     string
 	stateManager   StateManager
 	stepsManager   *StepsManager
-	ctx            context.Context
 	cancel         context.CancelFunc
 	leaderElection leader.Leader
 	wg             *sync.WaitGroup
@@ -24,7 +23,7 @@ type Leader struct {
 
 func (l *Leader) startLeaderLoop() {
 	l.logger.Info("Starting leader loop")
-	leaderCtx, leaderCancel := context.WithCancel(l.ctx)
+	leaderCtx, leaderCancel := context.WithCancel(context.Background())
 	l.cancel = leaderCancel
 
 	l.wg.Add(1)
