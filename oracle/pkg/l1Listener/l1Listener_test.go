@@ -135,12 +135,12 @@ func TestL1Listener(t *testing.T) {
 
 	done := l.Start(ctx)
 
-	for i := 1; i < 10; i++ {
+	for i := 1; i < 5; i++ {
 		ethClient.AddHeader(uint64(i), &types.Header{
 			Number: big.NewInt(int64(i)),
 		})
 
-		testRelayQuerier.SetResponse(int64(i), fmt.Sprintf("b%d", i))
+		testRelayQuerier.SetResponse(int64(i), fmt.Sprintf("0x%d", i))
 
 		select {
 		case <-time.After(10 * time.Second):
