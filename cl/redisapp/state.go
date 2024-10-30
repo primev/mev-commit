@@ -261,7 +261,7 @@ func (s *RedisStateManager) ReadMessagesFromStream(ctx context.Context, msgType 
 	}
 
 	messages, err := s.redisClient.XReadGroup(ctx, args).Result()
-	if err != nil && err != redis.Nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return nil, fmt.Errorf("error reading messages: %w", err)
 	}
 
