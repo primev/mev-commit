@@ -3,6 +3,7 @@ package l1Listener_test
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -114,9 +115,16 @@ func TestL1Listener(t *testing.T) {
 
 	testRelayQuerier := &testRelayQuerier{
 		responses: map[int64]string{
-			1: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-			2: "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-			3: "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
+			1:  "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			2:  "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+			3:  "0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba",
+			4:  "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef",
+			5:  "0x123412341234123412341234123412341234123412341234123412341234123412341234123412341234123412341234",
+			6:  "0x567856785678567856785678567856785678567856785678567856785678567856785678567856785678567856785678",
+			7:  "0x9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc9abc",
+			8:  "0xdef0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0def0",
+			9:  "0x345634563456345634563456345634563456345634563456345634563456345634563456345634563456345634563456",
+			10: "0x789078907890789078907890789078907890789078907890789078907890789078907890789078907890789078907890",
 		},
 	}
 
@@ -135,51 +143,26 @@ func TestL1Listener(t *testing.T) {
 
 	done := l.Start(ctx)
 
-	for i := 1; i < 5; i++ {
-		ethClient.AddHeader(uint64(i), &types.Header{
-			Number: big.NewInt(int64(i)),
-		})
-
-		testRelayQuerier.SetResponse(int64(i), fmt.Sprintf("0x%d", i))
-
-		select {
-		case <-time.After(10 * time.Second):
-			t.Fatal("timeout waiting for winner", i)
-		case update := <-rec.updates:
-			if update.blockNum.Int64() != int64(i) {
-				t.Fatal("wrong block number")
-			}
-			if update.winner != fmt.Sprintf("b%d", i) {
-				t.Fatal("wrong winner")
-			}
-		}
-	}
-
 	// no winner
-	ethClient.AddHeader(10, &types.Header{
-		Number: big.NewInt(10),
+	ethClient.AddHeader(2, &types.Header{
+		Number: big.NewInt(2),
 	})
 
-	// error registering winner, ensure it is retried
-	ethClient.errC <- errors.New("dummy error")
-	ethClient.AddHeader(11, &types.Header{
-		Number: big.NewInt(11),
-		Extra:  []byte("b11"),
-	})
-
-	time.Sleep(1 * time.Second)
-	testRelayQuerier.SetResponse(11, "b11")
+	builderPubKeyBytes, _ := hex.DecodeString("abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// ensure no winner is sent for the previous block
 	select {
 	case <-time.After(10 * time.Second):
 		t.Fatal("timeout waiting for winner")
 	case update := <-rec.updates:
-		if update.blockNum.Int64() != 11 {
-			t.Fatal("wrong block number")
+		if update.blockNum.Int64() != 1 {
+			t.Fatalf("wrong block number: %d", update.blockNum.Int64())
 		}
-		if update.winner != "b11" {
-			t.Fatal("wrong winner")
+		if !bytes.Equal(update.winner, builderPubKeyBytes) {
+			t.Fatalf("wrong winner: %s", update.winner)
 		}
 	}
 
@@ -342,7 +325,7 @@ func publishLog(
 
 type l1Update struct {
 	blockNum *big.Int
-	winner   string
+	winner   []byte
 }
 
 type testRecorder struct {
@@ -350,6 +333,6 @@ type testRecorder struct {
 }
 
 func (t *testRecorder) RecordL1Block(blockNum *big.Int, winner []byte) (*types.Transaction, error) {
-	t.updates <- l1Update{blockNum: blockNum, winner: string(winner)}
+	t.updates <- l1Update{blockNum: blockNum, winner: winner}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }

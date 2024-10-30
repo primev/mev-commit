@@ -179,6 +179,8 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				l.logger.Error("failed to get block number", "error", err)
 				continue
 			}
+			// We need to get the previous block number because the current block has finalized header
+			blockNum = blockNum - 1
 
 			if blockNum <= uint64(currentBlockNo) {
 				continue
