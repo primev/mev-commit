@@ -1004,7 +1004,7 @@ contract PreconfManagerTest is Test {
         openFirstCommitment(bidder, unopenedIndex1, testCommitment);
 
         bytes32 txnHashAndBidder = keccak256(
-            abi.encodePacked(testCommitment.txnHash, bidder)
+            abi.encode(testCommitment.txnHash, bidder)
         );
         // Verify that the first commitment is processed
         assertTrue(

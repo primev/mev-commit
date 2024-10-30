@@ -232,7 +232,7 @@ contract PreconfManager is
         );
 
         bytes32 txnHashAndBidder = keccak256(
-            abi.encodePacked(txnHash, bidderAddress)
+            abi.encode(txnHash, bidderAddress)
         );
 
         require(
