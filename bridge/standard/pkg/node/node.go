@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -20,6 +20,7 @@ import (
 	"github.com/primev/mev-commit/bridge/standard/pkg/store"
 	l1gateway "github.com/primev/mev-commit/contracts-abi/clients/L1Gateway"
 	settlementgateway "github.com/primev/mev-commit/contracts-abi/clients/SettlementGateway"
+	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
@@ -243,9 +244,29 @@ func (n *Node) createGatewayContract(
 		return fmt.Errorf("failed to parse contract ABI: %w", err)
 	}
 
+	opts := []ethwrapper.EthClientOptions{
+		ethwrapper.EthClientWithMaxRetries(3),
+	}
+
+	if component == "l1" {
+		opts = append(
+			opts,
+			ethwrapper.EthClientWithBlockNumOverride(finalizedBlockNumGetter),
+		)
+	}
+
+	wrappedClient, err := ethwrapper.NewClient(
+		logger.With("component", fmt.Sprintf("%s/ethwrapper", component)),
+		[]string{rpcURL},
+		opts...,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create wrapped client: %w", err)
+	}
+
 	monitor := txmonitor.New(
 		signer.GetAddress(),
-		client,
+		wrappedClient,
 		txmonitor.NewEVMHelperWithLogger(
 			client,
 			logger.With("component", fmt.Sprintf("%s/evmhelper", component)),
@@ -292,51 +313,23 @@ func (n *Node) createGatewayContract(
 	)
 	n.metrics.MustRegister(evtMgr.Metrics()...)
 
-	parsedURL, err := url.Parse(rpcURL)
-	if err != nil {
-		return fmt.Errorf("failed to parse URL: %w", err)
-	}
-
-	switch parsedURL.Scheme {
-	case "ws", "wss":
-		p := publisher.NewWSPublisher(
-			st,
-			logger,
-			client,
-			evtMgr,
-		)
-		n.startables = append(
-			n.startables,
-			StartableObjWithDesc{
-				Startable: StartableFunc(
-					func(ctx context.Context) <-chan struct{} {
-						return p.Start(ctx, contractAddr)
-					},
-				),
-				Desc: fmt.Sprintf("%s/publisher", component),
-			},
-		)
-	case "http", "https":
-		p := publisher.NewHTTPPublisher(
-			st,
-			logger,
-			client,
-			evtMgr,
-		)
-		n.startables = append(
-			n.startables,
-			StartableObjWithDesc{
-				Startable: StartableFunc(
-					func(ctx context.Context) <-chan struct{} {
-						return p.Start(ctx, contractAddr)
-					},
-				),
-				Desc: fmt.Sprintf("%s/publisher", component),
-			},
-		)
-	default:
-		return fmt.Errorf("unsupported scheme: %s", parsedURL.Scheme)
-	}
+	p := publisher.NewHTTPPublisher(
+		st,
+		logger,
+		wrappedClient,
+		evtMgr,
+	)
+	n.startables = append(
+		n.startables,
+		StartableObjWithDesc{
+			Startable: StartableFunc(
+				func(ctx context.Context) <-chan struct{} {
+					return p.Start(ctx, contractAddr)
+				},
+			),
+			Desc: fmt.Sprintf("%s/publisher", component),
+		},
+	)
 
 	switch component {
 	case "l1":
@@ -398,4 +391,30 @@ func setupMetricsNamespace(namespace string) {
 	txmonitor.Namespace = namespace
 	events.Namespace = namespace
 	transactor.Namespace = namespace
+}
+
+// BlockResponse is used to get the block number from the eth_getBlockByNumber RPC response.
+type BlockResponse struct {
+	Number string `json:"number"`
+}
+
+// FinalizedBlockNumGetter gets the finalized block number from the Ethereum client.
+func finalizedBlockNumGetter(ctx context.Context, cli ethwrapper.EthClient) (uint64, error) {
+	client, ok := cli.(*ethclient.Client)
+	if !ok {
+		return cli.BlockNumber(ctx)
+	}
+	var blockResponse BlockResponse
+
+	// Call the eth_getBlockByNumber RPC with "finalized"
+	err := client.Client().CallContext(ctx, &blockResponse, "eth_getBlockByNumber", "finalized", false)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get the finalized block: %w", err)
+	}
+
+	// Convert the hex block number to a big.Int
+	blockNumber := new(big.Int)
+	blockNumber.SetString(blockResponse.Number[2:], 16) // Strip "0x" and convert from hex
+
+	return blockNumber.Uint64(), nil
 }
