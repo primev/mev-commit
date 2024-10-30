@@ -215,7 +215,7 @@ jobs:
             ${CLUSTER_PROFILE_FLAG} \
             ${CLUSTER_LOGS_FLAG} \
             ${CLUSTER_DATADOG_KEY_FLAG} \
-            ${CLUSTER_L1_RPC_URL_FLAG} \
+            --l1-rpc-urls "https://holesky.drpc.org" \
             ${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG} \
             ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
