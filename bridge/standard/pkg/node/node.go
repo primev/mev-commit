@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -252,7 +251,7 @@ func (n *Node) createGatewayContract(
 	if component == "l1" {
 		opts = append(
 			opts,
-			ethwrapper.EthClientWithBlockNumOverride(FinalizedBlockNumGetter),
+			ethwrapper.EthClientWithBlockNumOverride(finalizedBlockNumGetter),
 		)
 	}
 
@@ -400,10 +399,10 @@ type BlockResponse struct {
 }
 
 // FinalizedBlockNumGetter gets the finalized block number from the Ethereum client.
-func FinalizedBlockNumGetter(ctx context.Context, cli ethwrapper.EthClient) (uint64, error) {
+func finalizedBlockNumGetter(ctx context.Context, cli ethwrapper.EthClient) (uint64, error) {
 	client, ok := cli.(*ethclient.Client)
 	if !ok {
-		return 0, errors.New("client is not an ethclient.Client")
+		return cli.BlockNumber(ctx)
 	}
 	var blockResponse BlockResponse
 
