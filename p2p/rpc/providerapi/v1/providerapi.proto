@@ -37,11 +37,11 @@ service Provider {
       body: "*"
     };
   }
-  // RegisterStake
+  // Stake
   //
-  // RegisterStake is called by the provider to register its stake in the provider registry.
+  // Stake is called by the provider to register or add to its stake in the provider registry.
   rpc RegisterStake(StakeRequest) returns (StakeResponse) {
-    option (google.api.http) = {post: "/v1/provider/register_stake/{amount}"};
+    option (google.api.http) = {post: "/v1/provider/stake/{amount}"};
   }
   // GetStake
   //

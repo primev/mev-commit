@@ -26,6 +26,7 @@ import (
 
 type testRegistryContract struct {
 	stake    *big.Int
+	topup    *big.Int
 	minStake *big.Int
 	blsKey   []byte
 }
@@ -36,8 +37,13 @@ func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPubl
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
+func (t *testRegistryContract) Stake(opts *bind.TransactOpts) (*types.Transaction, error) {
+	t.topup = opts.Value
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
 func (t *testRegistryContract) GetProviderStake(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
-	return t.stake, nil
+	return big.NewInt(0).Add(t.stake, t.topup), nil
 }
 
 func (t *testRegistryContract) GetBLSKey(_ *bind.CallOpts, address common.Address) ([]byte, error) {
@@ -52,6 +58,13 @@ func (t *testRegistryContract) ParseProviderRegistered(log types.Log) (*provider
 	return &providerregistry.ProviderregistryProviderRegistered{
 		Provider:     common.Address{},
 		StakedAmount: t.stake,
+	}, nil
+}
+
+func (t *testRegistryContract) ParseFundsDeposited(log types.Log) (*providerregistry.ProviderregistryFundsDeposited, error) {
+	return &providerregistry.ProviderregistryFundsDeposited{
+		Provider: common.Address{},
+		Amount:   t.topup,
 	}, nil
 }
 
