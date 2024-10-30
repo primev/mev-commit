@@ -48,7 +48,7 @@ concurrency:
 
 jobs:
   cluster:
-    name: Setup and Test Nomad Cluster
+    name: Setup and Test Nomad Cluster [TEST]
     runs-on: ubuntu-24.04
     timeout-minutes: 180
 
