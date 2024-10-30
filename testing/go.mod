@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/armon/go-radix v1.0.0
 	github.com/ethereum/go-ethereum v1.13.15
+	github.com/primev/mev-commit/bridge/standard v0.0.1
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/primev/mev-commit/x v0.0.1
@@ -51,7 +52,7 @@ require (
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/tools v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142 // indirect
@@ -64,3 +65,5 @@ replace github.com/primev/mev-commit/p2p => ../p2p
 replace github.com/primev/mev-commit/contracts-abi => ../contracts-abi
 
 replace github.com/primev/mev-commit/x => ../x
+
+replace github.com/primev/mev-commit/bridge/standard => ../bridge/standard

@@ -73,7 +73,6 @@ jobs:
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
           CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
-          CLUSTER_L1_RPC_URL_FLAG="--l1-rpc-urls ${{ secrets.L1_RPC_URL }}"
           CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=$([ "${{ github.event.inputs.tracing }}" == "true" ] && echo "--otel-collector-endpoint-url grpc://${TARGET_MACHINE_IP}:4317" || echo "")
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
 
@@ -84,7 +83,6 @@ jobs:
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DATADOG_KEY_FLAG=${CLUSTER_DATADOG_KEY_FLAG}" >> ${GITHUB_ENV}
-          echo "CLUSTER_L1_RPC_URL_FLAG=${CLUSTER_L1_RPC_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> ${GITHUB_ENV}
 
@@ -215,7 +213,6 @@ jobs:
             ${CLUSTER_PROFILE_FLAG} \
             ${CLUSTER_LOGS_FLAG} \
             ${CLUSTER_DATADOG_KEY_FLAG} \
-            ${CLUSTER_L1_RPC_URL_FLAG} \
             ${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG} \
             ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
@@ -227,14 +224,20 @@ jobs:
         working-directory: testing
         run: |
           CONTRACTS_JSON=$(curl -s http://127.0.0.1:1010/contracts.json)
+          SECRETS_JSON=$(curl -s http://127.0.0.1:1111/secrets.json)
+          export MEV_COMMIT_TEST_L1_GATEWAY_CONTRACT_ADDR="$(echo $CONTRACTS_JSON | jq -r '.L1Gateway')"
+          export MEV_COMMIT_TEST_SETTLEMENT_GATEWAY_CONTRACT_ADDR="$(echo $CONTRACTS_JSON | jq -r '.SettlementGateway')"
+          export MEV_COMMIT_TEST_BRIDGE_KEYSTORE_JSON="$(echo $SECRETS_JSON | jq -r ".contract_deployer_keystore")"
+          export MEV_COMMIT_TEST_BRIDGE_KEYSTORE_NAME="$(echo $SECRETS_JSON | jq -r ".contract_deployer_keystore_filename")"
+          export MEV_COMMIT_TEST_BRIDGE_KEYSTORE_PASSWORD="$(echo $SECRETS_JSON | jq -r ".contract_deployer_keystore_password")"
           export MEV_COMMIT_TEST_PROVIDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.ProviderRegistry')
           export MEV_COMMIT_TEST_BIDDER_REGISTRY_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BidderRegistry')
           export MEV_COMMIT_TEST_BLOCKTRACKER_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.BlockTracker')
           export MEV_COMMIT_TEST_PRECONF_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.PreconfManager')
           export MEV_COMMIT_TEST_ORACLE_CONTRACT_ADDRESS=$(echo $CONTRACTS_JSON | jq -r '.Oracle')
-          export MEV_COMMIT_TEST_L1_RPC_ENDPOINT="${{ secrets.L1_RPC_URL }}"
           go build -ldflags="-s -w" -o mev-commit-test ./cmd/main.go
           ./mev-commit-test \
+          --l1-rpc-endpoint ws://127.0.0.1:9546 \
           --settlement-rpc-endpoint ws://127.0.0.1:8546 \
           --bootnode-rpc-urls 127.0.0.1:13524 \
           --provider-rpc-urls 127.0.0.1:13624 \

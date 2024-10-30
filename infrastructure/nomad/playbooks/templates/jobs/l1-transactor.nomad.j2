@@ -1,0 +1,121 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "{{ job.name }}" {
+  datacenters = ["{{ datacenter }}"]
+
+  group "{{ job.name }}-group" {
+    count = {{ job.count }}
+
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+    }
+
+    task "l1-transactor" {
+      driver = "exec"
+
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/l1-transactor_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/l1-transactor_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          TRANSACTOR_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
+          TRANSACTOR_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          TRANSACTOR_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
+          {%- raw %}
+          TRANSACTOR_KEYSTORES_DIR="/local/data/{% endraw %}{{ job.name }}{% raw %}-{{ env "NOMAD_ALLOC_INDEX" }}/keystores"
+          {% endraw %}
+          {%- set transactor_keystores_dir = '/local/data/' ~ job.name ~ '-' ~ '{{ env "NOMAD_ALLOC_INDEX" }}' ~ '/keystores' %}
+          {%- set ns = namespace(keystore_path_passwd=[]) %}
+          {%- for artifact in job.artifacts %}
+            {%- set keystores = artifact.get('keystores', {}) %}
+            {%- set ns.keystore_path_passwd = ns.keystore_path_passwd + (keystores | list) %}
+          {%- endfor %}
+          {%- set ns.kp_pairs = [] %}
+          {%- macro nomad_interpolate(var_name) -%}
+          {{ '{{ with secret "secret/data/mev-commit" }}{{ .Data.data.' ~ var_name ~ ' }}{{ end }}' }}
+          {%- endmacro %}
+          {%- for keystore_name in ns.keystore_path_passwd %}
+            {%- set filename_var = keystore_name + '_filename' %}
+            {%- set password_var = keystore_name + '_password' %}
+            {%- set pair = transactor_keystores_dir ~ '/' ~ keystore_name ~ '/' ~ nomad_interpolate(filename_var) ~ ':' ~ nomad_interpolate(password_var) %}
+            {%- set ns.kp_pairs = ns.kp_pairs + [pair] %}
+          {%- endfor %}
+          TRANSACTOR_KEYSTORE_PATH_PASSWORD={{ ns.kp_pairs | join(',') | replace('\\n', '') | replace('\\r', '') }}
+          {%- raw %}
+          {{- range nomadService "mock-l1" }}
+            {{- if contains "ws" .Tags }}
+          TRANSACTOR_L1_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          {% raw %}
+          {{- range nomadService "datadog-agent-logs-collector" }}
+            {{ if contains "tcp" .Tags }}
+          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+          {% endraw %}
+
+          {% if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
+          mkdir -p "${TRANSACTOR_KEYSTORES_DIR}" > /dev/null 2>&1
+          {% macro ldelim() %}{{ '{{' }}{% endmacro %}
+          {% macro rdelim() %}{{ '}}' }}{% endmacro %}
+          {% set ns = namespace(keystore_path_passwd=[]) %}
+          {% for artifact in job.artifacts %}
+            {%- set keystores = artifact.get('keystores', {}) %}
+            {%- set ns.keystore_path_passwd = ns.keystore_path_passwd + (keystores | list) %}
+          {% endfor %}
+          {% for keystore_name in ns.keystore_path_passwd %}
+            {{ ldelim() }} with secret "secret/data/mev-commit" {{ rdelim() }}
+            mkdir -p "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}" > /dev/null 2>&1
+            echo '{{ ldelim() }} .Data.data.{{ keystore_name }} {{ rdelim() }}' > "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}/{{ ldelim() }} .Data.data.{{ keystore_name }}_filename {{ rdelim() }}"
+            {{ ldelim() }} end {{ rdelim() }}
+          {% endfor %}
+          {% endif %}
+
+          chmod +x local/l1-transactor
+          exec local/l1-transactor
+        EOH
+        destination = "local/run.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
+      }
+    }
+  }
+}
