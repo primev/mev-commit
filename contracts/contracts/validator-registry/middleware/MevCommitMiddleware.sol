@@ -331,9 +331,17 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @notice Queries if a validator is slashable.
     function isValidatorSlashable(bytes calldata blsPubkey) external view returns (bool) {
         ValidatorRecord storage record = validatorRecords[blsPubkey];
-        require(record.exists, MissingValRecord(blsPubkey));
-        _checkVault(record.vault);
-        _checkOperator(record.operator);
+        if (!record.exists) {
+            return false;
+        }
+        VaultRecord storage vaultRecord = vaultRecords[record.vault];
+        if (!vaultRecord.exists) {
+            return false;
+        }
+        OperatorRecord storage operatorRecord = operatorRecords[record.operator];
+        if (!operatorRecord.exists) {
+            return false;
+        }
         return _isValidatorSlashable(blsPubkey, record.vault, record.operator);
     }
 
