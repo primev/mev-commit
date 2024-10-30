@@ -8,12 +8,9 @@ import {FeePayout} from "../utils/FeePayout.sol";
 /// @notice Storage components of the VanillaRegistry contract.
 contract VanillaRegistryStorage { 
 
-    /// @dev Minimum stake required for validators. 
+    /// @dev Minimum stake required for validators, also used as the slash amount.
     uint256 public minStake;
     
-    /// @dev Amount of ETH to slash per validator pubkey when a slash is invoked.
-    uint256 public slashAmount;
-
     /// @dev Permissioned account that is able to invoke slashes.
     address public slashOracle; 
 
