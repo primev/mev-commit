@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	defaultRPCHTTPTimeout = time.Second * 30
+	defaultRPCHTTPTimeout = 30 * time.Second
 
 	newPayloadV2 = "engine_newPayloadV2"
 	newPayloadV3 = "engine_newPayloadV3"
