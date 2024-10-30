@@ -2,6 +2,7 @@ package l1Listener
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -207,6 +209,13 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 					builderPubKey = "" // Set a default value in case of failure
 				}
 
+				builderPubKey = strings.TrimPrefix(builderPubKey, "0x")
+
+				builderPubKeyBytes, err := hex.DecodeString(builderPubKey)
+				if err != nil {
+					l.logger.Error("failed to decode builder pubkey", "block", b, "builder_pubkey", builderPubKey, "error", err)
+				}
+
 				l.logger.Info(
 					"new L1 winner",
 					"block", header.Number.Int64()-1,
@@ -215,7 +224,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 				winnerPostingTxn, err := l.recorder.RecordL1Block(
 					big.NewInt(0).SetUint64(b),
-					[]byte(builderPubKey),
+					builderPubKeyBytes,
 				)
 				if err != nil {
 					l.logger.Error("failed to register winner for block", "block", b, "error", err)
