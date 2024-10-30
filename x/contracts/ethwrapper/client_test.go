@@ -72,6 +72,9 @@ func TestClient(t *testing.T) {
 				},
 			}},
 			maxRetries: 1,
+			blockNumFn: func(c context.Context, cli EthClient) (uint64, error) {
+				return cli.BlockNumber(c)
+			},
 		}
 
 		haveNumber, err := client.BlockNumber(context.Background())
@@ -111,6 +114,9 @@ func TestClient(t *testing.T) {
 			}},
 			blockNumberDrift: int(wantDrift),
 			maxRetries:       1,
+			blockNumFn: func(c context.Context, cli EthClient) (uint64, error) {
+				return cli.BlockNumber(c)
+			},
 		}
 
 		haveNumber, err := client.BlockNumber(context.Background())
@@ -148,6 +154,9 @@ func TestClient(t *testing.T) {
 				},
 			}},
 			maxRetries: wantCalls,
+			blockNumFn: func(c context.Context, cli EthClient) (uint64, error) {
+				return cli.BlockNumber(c)
+			},
 		}
 
 		_, err := client.BlockNumber(context.Background())
@@ -500,6 +509,40 @@ func TestClient(t *testing.T) {
 		}
 		if haveCalls != wantCalls {
 			t.Errorf("FilterLogs(...):\nhave calls: %d\nwant calls: %d", haveCalls, wantCalls)
+		}
+	})
+
+	t.Run("BlockNumber func", func(t *testing.T) {
+		t.Parallel()
+
+		var (
+			mockErr = errors.New("block number error")
+		)
+		client := Client{
+			logger: logger,
+			clients: []struct {
+				url string
+				cli EthClient
+			}{{
+				url: "mock",
+				cli: &ethClientMock{
+					blockNumberFn: func(context.Context) (uint64, error) {
+						return uint64(42), nil
+					},
+				},
+			}},
+			maxRetries: 1,
+			blockNumFn: func(context.Context, EthClient) (uint64, error) {
+				return 0, mockErr
+			},
+		}
+
+		_, err := client.BlockNumber(context.Background())
+		if haveErr, wantErr := err, errRetry; !errors.Is(haveErr, wantErr) {
+			t.Errorf("BlockNumber(...):\nhave error: %v\nwant error: %v", haveErr, wantErr)
+		}
+		if haveErr, wantErr := err, mockErr; !errors.Is(haveErr, wantErr) {
+			t.Errorf("BlockNumber(...):\nhave error: %v\nwant error: %v", haveErr, wantErr)
 		}
 	})
 }

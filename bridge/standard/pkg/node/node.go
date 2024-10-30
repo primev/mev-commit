@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -243,10 +245,21 @@ func (n *Node) createGatewayContract(
 		return fmt.Errorf("failed to parse contract ABI: %w", err)
 	}
 
+	opts := []ethwrapper.EthClientOptions{
+		ethwrapper.EthClientWithMaxRetries(3),
+	}
+
+	if component == "l1" {
+		opts = append(
+			opts,
+			ethwrapper.EthClientWithBlockNumOverride(FinalizedBlockNumGetter),
+		)
+	}
+
 	wrappedClient, err := ethwrapper.NewClient(
 		logger.With("component", fmt.Sprintf("%s/ethwrapper", component)),
 		[]string{rpcURL},
-		ethwrapper.EthClientWithBlockNumberDrift(2*32), // 2 epochs
+		opts...,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create wrapped client: %w", err)
@@ -379,4 +392,30 @@ func setupMetricsNamespace(namespace string) {
 	txmonitor.Namespace = namespace
 	events.Namespace = namespace
 	transactor.Namespace = namespace
+}
+
+// BlockResponse is used to get the block number from the eth_getBlockByNumber RPC response.
+type BlockResponse struct {
+	Number string `json:"number"`
+}
+
+// FinalizedBlockNumGetter gets the finalized block number from the Ethereum client.
+func FinalizedBlockNumGetter(ctx context.Context, cli ethwrapper.EthClient) (uint64, error) {
+	client, ok := cli.(*ethclient.Client)
+	if !ok {
+		return 0, errors.New("client is not an ethclient.Client")
+	}
+	var blockResponse BlockResponse
+
+	// Call the eth_getBlockByNumber RPC with "finalized"
+	err := client.Client().CallContext(ctx, &blockResponse, "eth_getBlockByNumber", "finalized", false)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get the finalized block: %w", err)
+	}
+
+	// Convert the hex block number to a big.Int
+	blockNumber := new(big.Int)
+	blockNumber.SetString(blockResponse.Number[2:], 16) // Strip "0x" and convert from hex
+
+	return blockNumber.Uint64(), nil
 }

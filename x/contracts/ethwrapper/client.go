@@ -48,6 +48,13 @@ func EthClientWithMaxRetries(retries int) EthClientOptions {
 	return func(c *Client) { c.maxRetries = retries }
 }
 
+// EthClientWithBlockNumOverride overrides the block number function.
+func EthClientWithBlockNumOverride(fn func(context.Context, EthClient) (uint64, error)) EthClientOptions {
+	return func(c *Client) {
+		c.blockNumFn = fn
+	}
+}
+
 // NewClient creates a new ethclient with the given RPC URLs.
 func NewClient(logger *slog.Logger, rpcUrls []string, opts ...EthClientOptions) (*Client, error) {
 	c := &Client{logger: logger}
@@ -79,6 +86,11 @@ func NewClient(logger *slog.Logger, rpcUrls []string, opts ...EthClientOptions) 
 	for _, opt := range opts {
 		opt(c)
 	}
+	if c.blockNumFn == nil {
+		c.blockNumFn = func(ctx context.Context, cli EthClient) (uint64, error) {
+			return cli.BlockNumber(ctx)
+		}
+	}
 	return c, nil
 }
 
@@ -96,6 +108,7 @@ type Client struct {
 	blockNumberDrift int
 	winnersOverride  []string
 	maxRetries       int
+	blockNumFn       func(context.Context, EthClient) (uint64, error)
 }
 
 // RawClient returns the first raw ethclient.
@@ -112,7 +125,7 @@ func (c *Client) BlockNumber(ctx context.Context) (uint64, error) {
 	var errs error
 	for i := range c.maxRetries {
 		for _, client := range c.clients {
-			switch bn, err := client.cli.BlockNumber(ctx); {
+			switch bn, err := c.blockNumFn(ctx, client.cli); {
 			case err == nil:
 				c.logger.Debug("get block number succeeded", "attempt", i, "block", bn)
 				return bn - uint64(c.blockNumberDrift), nil
