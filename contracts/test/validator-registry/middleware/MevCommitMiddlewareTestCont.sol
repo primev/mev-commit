@@ -64,7 +64,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vault2.setSlasher(address(mockSlasher2));
 
         vault1.setEpochDuration(151);
-        vault2.setEpochDuration(151 + 5);
+        vault2.setEpochDuration(151 + 5 + 60 minutes);
 
         vm.prank(address(vault1));
         vaultFactoryMock.register();
@@ -127,13 +127,14 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint64 vetoSlasherType = 1;
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2, address(mevCommitMiddleware));
+        uint256 vetoDuration = 5;
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware));
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
 
         vault1.setEpochDuration(151);
-        vault2.setEpochDuration(151 + 5);
+        vault2.setEpochDuration(uint48(150 + 5 + 60 minutes + 1)); // slashPeriodSeconds + vetoDuration + executeSlashPhaseDuration + 1
 
         vm.prank(owner);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);

@@ -609,6 +609,21 @@ contract MevCommitMiddlewareTest is Test {
 
         mockSlasher1.setType(vetoSlasherType);
 
+        assertEq(10, vault1.epochDuration());
+        assertEq(10, vault2.epochDuration());
+
+        uint256 executeSlashPhaseDuration = 60 minutes; // Constant from MevCommitMiddlewareStorage.
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDurationForVetoSlasher.selector, vault1,
+                10, vetoDuration, executeSlashPhaseDuration)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        MockVault(vault1).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + 1));
+        MockVault(vault2).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + 1));
+
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.VetoSlasherMustHaveZeroResolver.selector, vault1)
@@ -616,28 +631,16 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         mockSlasher1.setResolver(address(0));
-
-        assertEq(10, vault1.epochDuration());
         
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1,
-            10 - vetoDuration, 150)
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDurationConsideringSlashPeriod.selector, vault1,
+                1, 150)
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        MockVault(vault1).setEpochDuration(151);
-        MockVault(vault2).setEpochDuration(151);
-
-        vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1,
-            146, 150)
-        );
-        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
-
-        MockVault(vault2).setEpochDuration(157);
-        MockVault(vault1).setEpochDuration(157);
+        MockVault(vault1).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + slashPeriodSeconds + 1));
+        MockVault(vault2).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + slashPeriodSeconds + 1));
 
         vm.prank(owner);
         vm.expectRevert(

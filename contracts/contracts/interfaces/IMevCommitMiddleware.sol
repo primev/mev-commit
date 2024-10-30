@@ -160,7 +160,10 @@ interface IMevCommitMiddleware {
 
     error SlashAmountMustBeNonZero(address vault);
 
-    error InvalidVaultEpochDuration(address vault, uint256 vaultEpochDurationSec, uint256 slashPeriodSec);
+    error InvalidVaultEpochDurationConsideringSlashPeriod(address vault, uint256 vaultEpochDurationSec, uint256 slashPeriodSec);
+
+    error InvalidVaultEpochDurationForVetoSlasher(address vault, uint256 vaultEpochDurationSec,
+        uint256 vetoDurationSec, uint256 executeSlashPhaseDurationSec);
 
     error FullRestakeDelegatorNotSupported(address vault);
 
