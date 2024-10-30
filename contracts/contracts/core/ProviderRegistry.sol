@@ -215,12 +215,14 @@ contract ProviderRegistry is
     /**
      * @dev Allows the bidder to withdraw the slashed amount.
      */
-    function bidderWithdraw() external nonReentrant whenNotPaused() {
+    function withdrawSlashedAmount() external nonReentrant whenNotPaused() {
         require(bidderSlashedAmount[msg.sender] != 0, BidderAmountIsZero(msg.sender));
         uint256 amount = bidderSlashedAmount[msg.sender];
         bidderSlashedAmount[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success, BidderWithdrawalTransferFailed(msg.sender, amount));
+
+        emit BidderWithdrawal(msg.sender, amount);
     }
 
     /**

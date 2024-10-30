@@ -47,6 +47,10 @@ interface IProviderRegistry {
     /// @dev Event emitted when transfer to bidder fails
     event TransferToBidderFailed(address bidder, uint256 amount);
 
+    /// @dev Event emitted when a bidder withdraws slashed amount
+    /// in case of transfer failure
+    event BidderWithdrawal(address bidder, uint256 amount);
+
     error NotPreconfContract(address sender, address preconfManager);
     error NoStakeToWithdraw(address sender);
     error UnstakeRequestExists(address sender);
