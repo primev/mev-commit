@@ -161,17 +161,17 @@ func (leh *LeaderElectionHandler) handleDemotion() (bool, error) {
 
 	leh.leader.stopLeaderLoop()
 
-	if _, err := retryWithInfiniteBackoff(leh.ctx, func() (bool, error) {
+	if err := retryWithInfiniteBackoff(leh.ctx, leh.logger, func() error {
 		if err := leh.stateManager.LoadOrInitializeBlockState(leh.ctx); err != nil {
 			leh.logger.Warn("Failed to load/init state, retrying...", "error", err)
-			return false, nil
+			return err // will retry
 		}
-		return true, nil
+		return nil
 	}); err != nil {
 		leh.logger.Error("Failed to load/init state with retry, exiting")
 		return false, err
 	}
-
+	
 	if err := leh.stepsManager.processLastPayload(leh.ctx); err != nil {
 		leh.logger.Error("Error processing last payload", "error", err)
 		return false, err

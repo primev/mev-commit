@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
@@ -97,29 +98,29 @@ func (s *StepsManager) getPayload(ctx context.Context) error {
 		ts = head.BlockTime + 1 // Subsequent blocks must have a higher timestamp.
 	}
 	
-	success, err := retryWithLimitedAttempts(ctx, func() (bool, error) {
+	err = retryWithBackoff(ctx, maxAttempts, s.logger, func() error {
 		response, err := s.startBuild(ctx, common.Address{}, head, ts)
 		if err != nil {
-			s.logger.Warn("failed to build new evm payload, will retry", "error", err)
-			return false, nil
+			s.logger.Warn("Failed to build new EVM payload, will retry", "error", err)
+			return err // Will retry
 		} else if response.PayloadStatus.Status != engine.VALID {
-			return false, fmt.Errorf("invalid payload status: %s", response.PayloadStatus.Status)
+			return backoff.Permanent(fmt.Errorf("invalid payload status: %s", response.PayloadStatus.Status))
 		} else if response.PayloadID == nil {
-			return false, errors.New("payloadID is nil")
+			return backoff.Permanent(errors.New("payloadID is nil"))
 		}
 
 		s.logger.Info("Leader: GetPayload completed", "PayloadID", response.PayloadID.String())
 
 		payloadID = response.PayloadID
-		return true, nil
-	}, maxAttempts)
+		return nil // Success
+	})
 
 	if err != nil {
 		return fmt.Errorf("failed to start build: %w", err)
 	}
 
-	if !success {
-		return errors.New("failed to start build")
+	if payloadID == nil {
+		return errors.New("payloadID is nil")
 	}
 
 	waitTo := time.Now().Add(s.buildDelay)
@@ -131,29 +132,22 @@ func (s *StepsManager) getPayload(ctx context.Context) error {
 		s.logger.Info("Leader: Waited for EVM build delay", "delay", s.buildDelay)
 	}
 
-	if payloadID == nil {
-		return errors.New("payloadID is nil")
-	}
-
 	var payloadResp *engine.ExecutionPayloadEnvelope
-	success, err = retryWithLimitedAttempts(ctx, func() (bool, error) {
+	err = retryWithBackoff(ctx, maxAttempts, s.logger, func() error {
 		var err error
 		payloadResp, err = s.engineCl.GetPayloadV3(ctx, *payloadID)
 		if isUnknownPayload(err) {
-			return false, err
+			return backoff.Permanent(err)
 		} else if err != nil {
-			s.logger.Warn("failed to get payload, retrying...", "error", err)
-			return false, nil
+			s.logger.Warn("Failed to get payload, retrying...", "error", err)
+			return err // Will retry
 		}
 
-		return true, nil
-	}, maxAttempts)
+		return nil // Success
+	})
+
 	if err != nil {
 		return fmt.Errorf("failed to get payload: %w", err)
-	}
-
-	if !success {
-		return errors.New("failed to get payload")
 	}
 
 	payloadData, err := msgpack.Marshal(payloadResp.ExecutionPayload)
@@ -191,61 +185,63 @@ func isUnknownPayload(err error) bool {
 func (s *StepsManager) processLastPayload(ctx context.Context) error {
 	bbState := s.stateManager.GetBlockBuildState(ctx)
 	// If execPayload is not empty, the app likely exited after step 1
-	if bbState.ExecutionPayload != "" {
-		s.logger.Info("exec payload not nil")
+	if bbState.ExecutionPayload == "" {
+		return nil
+	}
+	s.logger.Debug("exec payload not nil, processing last payload")
 
-		_, err := retryWithInfiniteBackoff(ctx, func() (bool, error) {
-			err := s.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
-			if err != nil {
-				re := regexp.MustCompile(`invalid block height: (\d+), expected: (\d+)`)
-				matches := re.FindStringSubmatch(err.Error())
-				// handling edge, if leader fails to reset state, but already pushed his block to the EVM
-				if len(matches) == 3 {
-					invalidHeight, err1 := strconv.Atoi(matches[1])
-					expectedHeight, err2 := strconv.Atoi(matches[2])
+	err := retryWithInfiniteBackoff(ctx, s.logger, func() error {
+		err := s.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
+		if err != nil {
+			re := regexp.MustCompile(`invalid block height: (\d+), expected: (\d+)`)
+			matches := re.FindStringSubmatch(err.Error())
+			// handling edge, if leader fails to reset state, but already pushed his block to the EVM
+			if len(matches) == 3 {
+				invalidHeight, err1 := strconv.Atoi(matches[1])
+				expectedHeight, err2 := strconv.Atoi(matches[2])
 
-					if err1 == nil && err2 == nil {
-						if invalidHeight == expectedHeight-1 {
-							s.logger.Warn("Follower: Block already pushed to EVM, resetting state to StepBuildBlock")
-							return true, nil
-						} else {
-							s.logger.Warn("Follower: Invalid block height, exit", "invalid_height", invalidHeight, "expected_height", expectedHeight)
-							return false, err
-						}
+				if err1 == nil && err2 == nil {
+					if invalidHeight == expectedHeight-1 {
+						s.logger.Warn("Follower: Block already pushed to EVM, resetting state to StepBuildBlock")
+						return nil // Success
 					} else {
-						// impossible to reach, unless geth will change the error message response
-						s.logger.Warn("conversion error", "error1", err1, "error2", err2)
-						return false, fmt.Errorf("conversion error1: %w, error2: %w", err1, err2)
+						s.logger.Warn("Follower: Invalid block height, exit", "invalid_height", invalidHeight, "expected_height", expectedHeight)
+						return backoff.Permanent(err)
 					}
 				} else {
-					s.logger.Warn("Follower: Failed to finalize block, retrying...", "error", err)
-					return false, nil
+					// Impossible to reach, unless geth changes the error message response
+					s.logger.Warn("Conversion error", "error1", err1, "error2", err2)
+					return backoff.Permanent(fmt.Errorf("conversion error1: %w, error2: %w", err1, err2))
 				}
+			} else {
+				s.logger.Warn("Follower: Failed to finalize block, retrying...", "error", err)
+				return err // Will retry
 			}
-			return true, nil
-		})
-
-		// could happen, only if program exited and ctx cancelled
-		if err != nil {
-			s.logger.Error("Follower: Failed to finalize block with retry, exiting")
-			return err
 		}
+		return nil // Success
+	})
 
-		_, err = retryWithInfiniteBackoff(ctx, func() (bool, error) {
-			s.logger.Info("Follower: Resetting state to StepBuildBlock for next block")
-			err = s.stateManager.ResetBlockState(ctx)
-			if err != nil {
-				s.logger.Warn("Follower: Failed to reset block state, retrying...", "error", err)
-				return false, nil
-			}
-			return true, nil
-		})
 
-		// could happen, only if program exited and ctx cancelled
+	// could happen, only if program exited and ctx cancelled
+	if err != nil {
+		s.logger.Error("Follower: Failed to finalize block with retry, exiting")
+		return err
+	}
+
+	err = retryWithInfiniteBackoff(ctx, s.logger, func() error {
+		s.logger.Info("Follower: Resetting state to StepBuildBlock for next block")
+		err := s.stateManager.ResetBlockState(ctx)
 		if err != nil {
-			s.logger.Warn("Follower: Failed to reset block state, exiting", "error", err)
-			return err
+			s.logger.Warn("Follower: Failed to reset block state, retrying...", "error", err)
+			return err // Will retry
 		}
+		return nil // Success
+	})
+
+	// could happen, only if program exited and ctx cancelled
+	if err != nil {
+		s.logger.Warn("Follower: Failed to reset block state, exiting", "error", err)
+		return err
 	}
 
 	return nil
@@ -319,14 +315,27 @@ func (s *StepsManager) finalizeBlock(ctx context.Context, payloadIDStr, executio
 	}
 
 	hash := common.BytesToHash(head.BlockHash)
-	retryFunc := s.selectRetryFunction(msgID)
+	retryFunc := s.selectRetryFunction(ctx, msgID)
 
-	if status, err := s.pushNewPayload(ctx, executionPayload, hash, retryFunc); err != nil || !status {
-		if err != nil {
-			return fmt.Errorf("failed to push new payload: %w", err)
+	if err := retryFunc(func() error {
+		emptyVersionHashes := []common.Hash{}
+		status, err := s.engineCl.NewPayloadV3(ctx, executionPayload, emptyVersionHashes, &hash)
+		if err != nil || isUnknown(status) {
+			s.logger.Error("Failed to push new payload", "error", err)
+			return err // Will retry
 		}
-		return errors.New("failed to push new payload")
+		if invalid, err := isInvalid(status); invalid {
+			s.logger.Error("Payload is not valid", "error", err)
+			return backoff.Permanent(fmt.Errorf("payload is not valid: %w", err))
+		}
+		if isSyncing(status) {
+			s.logger.Info("Processing payload, EVM is syncing")
+		}
+		return nil // Success
+	}); err != nil {
+		return fmt.Errorf("failed to push new payload: %w", err)
 	}
+
 
 	fcs := engine.ForkchoiceStateV1{
 		HeadBlockHash:      hash,
@@ -334,11 +343,22 @@ func (s *StepsManager) finalizeBlock(ctx context.Context, payloadIDStr, executio
 		FinalizedBlockHash: hash,
 	}
 
-	if status, err := s.updateForkChoice(ctx, fcs, retryFunc); err != nil || !status {
-		if err != nil {
-			return fmt.Errorf("failed to finalize fork choice update: %w", err)
+	if err := retryFunc(func() error {
+		fcr, err := s.engineCl.ForkchoiceUpdatedV3(ctx, fcs, nil)
+		if err != nil || isUnknown(fcr.PayloadStatus) {
+			s.logger.Error("Failed to finalize fork choice update", "error", err)
+			return err // Will retry
 		}
-		return errors.New("failed to finalize fork choice update")
+		if invalid, err := isInvalid(fcr.PayloadStatus); invalid {
+			s.logger.Error("Payload is not valid", "error", err)
+			return backoff.Permanent(fmt.Errorf("payload is not valid: %w", err))
+		}
+		if isSyncing(fcr.PayloadStatus) {
+			s.logger.Info("Payload is syncing")
+		}
+		return nil // Success
+	}); err != nil {
+		return fmt.Errorf("failed to finalize fork choice update: %w", err)
 	}
 
 	executionHead := &types.ExecutionHead{
@@ -372,14 +392,17 @@ func (s *StepsManager) validateExecutionPayload(executionPayload engine.Executab
 	return nil
 }
 
-func (s *StepsManager) selectRetryFunction(msgID string) func(ctx context.Context, f func() (bool, error)) (bool, error) {
+func (s *StepsManager) selectRetryFunction(ctx context.Context, msgID string) func(operation func() error) error {
 	if msgID == "" {
-		return func(ctx context.Context, f func() (bool, error)) (bool, error) {
-			return retryWithLimitedAttempts(ctx, f, maxAttempts)
+		return func(operation func() error) error {
+			return retryWithBackoff(ctx, maxAttempts, s.logger, operation)
 		}
 	}
-	return retryWithInfiniteBackoff
+	return func(operation func() error) error {
+		return retryWithInfiniteBackoff(ctx, s.logger, operation)
+	}
 }
+
 
 func (s *StepsManager) pushNewPayload(ctx context.Context, executionPayload engine.ExecutableData, hash common.Hash, retryFunc func(ctx context.Context, f func() (bool, error)) (bool, error)) (bool, error) {
 	emptyVersionHashes := []common.Hash{}

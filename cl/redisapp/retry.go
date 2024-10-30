@@ -3,9 +3,11 @@ package redisapp
 import (
 	"context"
 	"errors"
-	"log"
-	"math"
+	"fmt"
+	"log/slog"
 	"time"
+
+	"github.com/cenkalti/backoff/v4"
 )
 
 const (
@@ -17,62 +19,65 @@ var (
 	ErrFailedAfterNAttempts = errors.New("operation failed after N attempts")
 )
 
-// Backoff function implementing an exponential backoff strategy
-func backoff(attempt int) time.Duration {
-	backoff := float64(initialBackoff) * math.Pow(2, float64(attempt))
-	if backoff > float64(maxBackoff) {
-		backoff = float64(maxBackoff)
-	}
-	return time.Duration(backoff)
-}
+// retryWithBackoff retries the operation with exponential backoff and a maximum number of attempts.
+func retryWithBackoff(ctx context.Context, maxAttempts uint64, log *slog.Logger, operation func() error) error {
+	// Create and configure the ExponentialBackOff instance
+	eb := backoff.NewExponentialBackOff()
+	eb.InitialInterval = initialBackoff
+	eb.MaxInterval = maxBackoff
 
-func retryWithInfiniteBackoff(ctx context.Context, operation func() (bool, error)) (bool, error) {
-	for attempt := 0; ; attempt++ {
+	// Now wrap it with WithMaxRetries
+	b := backoff.WithMaxRetries(eb, maxAttempts)
+
+	err := backoff.Retry(func() error {
 		select {
 		case <-ctx.Done():
-			log.Println("Context canceled, stopping retries.")
-			return false, ctx.Err()
+			log.Info("Context canceled, stopping retries.")
+			return backoff.Permanent(ctx.Err())
 		default:
-			success, err := operation()
-			if success {
-				return true, nil
-			}
-
+			err := operation()
 			if err != nil {
-				log.Printf("Operation failed (attempt %d): %v.", attempt+1, err)
-				return false, err
-			} 
-			
-			log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
-			
-			time.Sleep(backoff(attempt))
+				// Log and retry unless it's a permanent error
+				log.Warn("Operation failed, will retry", "error", err)
+				return err
+			}
+			return nil // Success
 		}
+	}, backoff.WithContext(b, ctx))
+
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return err // Context canceled
+		}
+		return fmt.Errorf("operation failed after %d attempts: %w", maxAttempts, err)
 	}
+	return nil
 }
 
-func retryWithLimitedAttempts(ctx context.Context, operation func() (bool, error), maxAttempts int) (bool, error) {
-	for attempt := 0; attempt < maxAttempts; attempt++ {
-		select {
-		case <-ctx.Done():
-			log.Println("Context canceled, stopping retries.")
-			return false, ctx.Err()
-		default:
-			success, err := operation()
-			if success {
-				return true, nil
-			}
+func retryWithInfiniteBackoff(ctx context.Context, log *slog.Logger, operation func() error) error {
+    eb := backoff.NewExponentialBackOff()
+    eb.InitialInterval = initialBackoff
+    eb.MaxInterval = maxBackoff
+    eb.MaxElapsedTime = 0 // Infinite retry
 
-			if err != nil {
-				log.Printf("Operation failed (attempt %d): %v.", attempt+1, err)
-				return false, err
-			}
+    err := backoff.Retry(func() error {
+        select {
+        case <-ctx.Done():
+            log.Info("Context canceled, stopping retries.")
+            return backoff.Permanent(ctx.Err())
+        default:
+            err := operation()
+            if err != nil {
+                // Log and retry unless it's a permanent error
+                log.Warn("Operation failed, will retry", "error", err)
+                return err
+            }
+            return nil // Success
+        }
+    }, backoff.WithContext(eb, ctx))
 
-			log.Printf("Operation not successful (attempt %d). Retrying...", attempt+1)
-
-			time.Sleep(backoff(attempt))
-		}
-	}
-
-	log.Println("Max retry attempts reached, stopping retries.")
-	return false, ErrFailedAfterNAttempts
+    if err != nil {
+        return fmt.Errorf("operation failed: %w", err)
+    }
+    return nil
 }
