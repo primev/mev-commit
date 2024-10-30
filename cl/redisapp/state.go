@@ -5,13 +5,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/redis/go-redis/v9"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 const blockStreamName = "mevcommit_block_stream"
@@ -40,7 +41,7 @@ type StateManager interface {
 type RedisStateManager struct {
 	InstanceID       string
 	redisClient      RedisClient
-	logger           Logger
+	logger           *slog.Logger
 	genesisBlockHash string
 	groupName        string
 	consumerName     string
@@ -53,7 +54,7 @@ type RedisStateManager struct {
 func NewRedisStateManager(
 	instanceID string,
 	redisClient RedisClient,
-	logger Logger,
+	logger *slog.Logger,
 	genesisBlockHash string,
 ) StateManager {
 	return &RedisStateManager{

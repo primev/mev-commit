@@ -2,6 +2,7 @@ package redisapp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"math/big"
@@ -20,9 +21,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/vmihailenco/msgpack/v5"
 	redismock "github.com/go-redis/redismock/v9"
 	"github.com/redis/go-redis/v9"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
@@ -58,11 +59,8 @@ func TestStepsManager_startBuild(t *testing.T) {
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
 		BlockHeight: 100,
-		BlockTime:   uint64(time.Now().Unix()) - 10,
+		BlockTime:   uint64(time.Now().UnixMilli()) - 10,
 	}
-	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := msgpack.Marshal(executionHead)
-	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
 
@@ -80,17 +78,13 @@ func TestStepsManager_startBuild(t *testing.T) {
 	timestamp := time.Now()
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(timestamp.Unix())
-	if ts <= executionHead.BlockTime {
-		ts = executionHead.BlockTime + 1
-	}
 	expectedFCS := engine.ForkchoiceStateV1{
 		HeadBlockHash:      hash,
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
 	}
 	expectedAttrs := &engine.PayloadAttributes{
-		Timestamp:             ts,
+		Timestamp:             uint64(timestamp.UnixMilli()),
 		Random:                hash,
 		SuggestedFeeRecipient: feeRecipient,
 		Withdrawals:           []*etypes.Withdrawal{},
@@ -105,7 +99,7 @@ func TestStepsManager_startBuild(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
 
-	resp, err := stepsManager.startBuild(ctx, feeRecipient, uint64(timestamp.UnixMilli()))
+	resp, err := stepsManager.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
 
 	require.NoError(t, err)
 	assert.Equal(t, forkChoiceResponse, resp)
@@ -127,7 +121,7 @@ func TestStepsManager_getPayload(t *testing.T) {
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
 		BlockHeight: 100,
-		BlockTime:   uint64(timestamp.Unix()) - 10,
+		BlockTime:   uint64(timestamp.UnixMilli()),
 	}
 	executionHeadKey := "executionHead:instanceID123"
 	executionHeadData, _ := msgpack.Marshal(executionHead)
@@ -137,15 +131,12 @@ func TestStepsManager_getPayload(t *testing.T) {
 		Return(redis.NewStringResult(string(executionHeadData), nil)).
 		Times(1)
 
-	mockPipeliner.EXPECT().Set(ctx, "blockBuildState:instanceID123", gomock.Any(), time.Duration(0)).Return(redis.NewStatusCmd(ctx)).Times(1)
-	mockPipeliner.EXPECT().XAdd(ctx, gomock.Any()).Return(redis.NewStringCmd(ctx, "result")).Times(1)
+    mockRedisClient.EXPECT().Pipeline().Return(mockPipeliner)
 
-	mockRedisClient.EXPECT().Pipelined(ctx, gomock.Any()).DoAndReturn(
-		func(ctx context.Context, fn func(redis.Pipeliner) error) (interface{}, error) {
-			err := fn(mockPipeliner)
-			return nil, err
-		},
-	)
+    mockPipeliner.EXPECT().Set(ctx, "blockBuildState:instanceID123", gomock.Any(), time.Duration(0)).Return(redis.NewStatusCmd(ctx))
+    mockPipeliner.EXPECT().XAdd(ctx, gomock.Any()).Return(redis.NewStringCmd(ctx, "result"))
+
+    mockPipeliner.EXPECT().Exec(ctx).Return([]redis.Cmder{}, nil)
 
 	stateManager := NewRedisStateManager("instanceID123", mockRedisClient, nil, "010203")
 
@@ -161,17 +152,14 @@ func TestStepsManager_getPayload(t *testing.T) {
 	}
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(time.Now().Unix())
-	if ts <= executionHead.BlockTime {
-		ts = executionHead.BlockTime + 1
-	}
+	ts := uint64(time.Now().UnixMilli())
 	expectedFCS := engine.ForkchoiceStateV1{
 		HeadBlockHash:      hash,
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
 	}
 	expectedAttrs := &engine.PayloadAttributes{
-		Timestamp:             ts,
+		Timestamp:             ts + uint64(buildDelay.Milliseconds()),
 		Random:                hash,
 		SuggestedFeeRecipient: common.Address{},
 		Withdrawals:           []*etypes.Withdrawal{},
@@ -191,7 +179,7 @@ func TestStepsManager_getPayload(t *testing.T) {
 		ExecutionPayload: &engine.ExecutableData{
 			BlockHash:    hash,
 			Number:       101,
-			Timestamp:    ts + 12,
+			Timestamp:    ts,
 			Random:       hash,
 			ParentHash:   hash,
 			ReceiptsRoot: hash,
@@ -259,7 +247,11 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 	msgID := ""
 
 	var executionPayload engine.ExecutableData
-	err := msgpack.Unmarshal([]byte(executionPayloadStr), &executionPayload)
+	err := json.Unmarshal([]byte(executionPayloadStr), &executionPayload)
+	require.NoError(t, err)
+
+	// Marshal struct to msgpack
+	msgpackData, err := msgpack.Marshal(executionPayload)
 	require.NoError(t, err)
 
 	payloadStatus := engine.PayloadStatusV1{
@@ -286,43 +278,11 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 	executionHeadDataUpdated, _ := msgpack.Marshal(executionHeadUpdate)
 	redisMock.ExpectSet(executionHeadKey, executionHeadDataUpdated, 0).SetVal("OK")
 
-	err = stepsManager.finalizeBlock(ctx, payloadIDStr, executionPayloadStr, msgID)
+	err = stepsManager.finalizeBlock(ctx, payloadIDStr, string(msgpackData), msgID)
 
 	require.NoError(t, err)
 
 	mockEngineClient.AssertExpectations(t)
-	require.NoError(t, redisMock.ExpectationsWereMet())
-}
-
-func TestStepsManager_startBuild_LoadExecutionHeadError(t *testing.T) {
-	ctx := context.Background()
-	redisClient, redisMock := redismock.NewClientMock()
-
-	executionHeadKey := "executionHead:instanceID123"
-	redisMock.ExpectGet(executionHeadKey).SetErr(errors.New("redis error"))
-
-	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
-
-	mockEngineClient := new(MockEngineClient)
-
-	stepsManager := &StepsManager{
-		stateManager: stateManager,
-		engineCl:     mockEngineClient,
-		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
-		logger:       stLog,
-		ctx:          ctx,
-	}
-
-	feeRecipient := common.Address{}
-	timestamp := time.Now()
-
-	resp, err := stepsManager.startBuild(ctx, feeRecipient, uint64(timestamp.UnixMilli()))
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "latest execution block")
-	assert.Equal(t, engine.ForkChoiceResponse{}, resp)
-
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
@@ -333,11 +293,8 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
 		BlockHeight: 100,
-		BlockTime:   uint64(time.Now().Unix()) - 10,
+		BlockTime:   uint64(time.Now().UnixMilli()) - 10,
 	}
-	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := msgpack.Marshal(executionHead)
-	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
 
@@ -356,7 +313,7 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 	timestamp := time.Now()
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(timestamp.Unix())
+	ts := uint64(timestamp.UnixMilli())
 	if ts <= executionHead.BlockTime {
 		ts = executionHead.BlockTime + 1
 	}
@@ -375,7 +332,7 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(engine.ForkChoiceResponse{}, errors.New("engine error"))
 
-	resp, err := stepsManager.startBuild(ctx, feeRecipient, uint64(timestamp.UnixMilli()))
+	resp, err := stepsManager.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forkchoice update")
@@ -392,11 +349,8 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
 		BlockHeight: 100,
-		BlockTime:   uint64(time.Now().Unix()) - 10,
+		BlockTime:   uint64(time.Now().UnixMilli()) - 10,
 	}
-	executionHeadKey := "executionHead:instanceID123"
-	executionHeadData, _ := msgpack.Marshal(executionHead)
-	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
 
@@ -415,7 +369,7 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 	timestamp := time.Now()
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(timestamp.Unix())
+	ts := uint64(timestamp.UnixMilli())
 	if ts <= executionHead.BlockTime {
 		ts = executionHead.BlockTime + 1
 	}
@@ -440,7 +394,7 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
 
-	resp, err := stepsManager.startBuild(ctx, feeRecipient, uint64(timestamp.UnixMilli()))
+	resp, err := stepsManager.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
 
 	require.NoError(t, err)
 	assert.Equal(t, forkChoiceResponse, resp)
@@ -470,7 +424,7 @@ func TestStepsManager_getPayload_startBuildFails(t *testing.T) {
 	err := stepsManager.getPayload(ctx)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to start build")
+	assert.Contains(t, err.Error(), "failed to retrieve")
 
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
@@ -483,7 +437,7 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
 		BlockHeight: 100,
-		BlockTime:   uint64(timestamp.Unix()) - 10,
+		BlockTime:   uint64(timestamp.UnixMilli()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
 	executionHeadData, _ := msgpack.Marshal(executionHead)
@@ -501,10 +455,8 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	}
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(time.Now().Unix())
-	if ts <= executionHead.BlockTime {
-		ts = executionHead.BlockTime + 1
-	}
+	ts := uint64(time.Now().UnixMilli())
+
 	expectedFCS := engine.ForkchoiceStateV1{
 		HeadBlockHash:      hash,
 		SafeBlockHash:      hash,
@@ -546,7 +498,7 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x00, 0x00, 0x00},
 		BlockHeight: 100,
-		BlockTime:   uint64(timestamp.Unix()) - 10,
+		BlockTime:   uint64(timestamp.UnixMilli()) - 10,
 	}
 	executionHeadKey := "executionHead:instanceID123"
 	executionHeadData, _ := msgpack.Marshal(executionHead)

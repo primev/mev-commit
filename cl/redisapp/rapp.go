@@ -3,6 +3,7 @@ package redisapp
 import (
 	"context"
 	"encoding/hex"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -27,7 +28,7 @@ type MevCommitChain struct {
 	InstanceID       string
 	engineCl         EngineClient
 	genesisBlockHash string
-	logger           Logger
+	logger           *slog.Logger
 
 	// Context and WaitGroup
 	ctx    context.Context
@@ -42,13 +43,7 @@ type MevCommitChain struct {
 	leaderElectionHandler *LeaderElectionHandler
 }
 
-type Logger interface {
-	Info(msg string, keyvals ...interface{})
-	Error(msg string, keyvals ...interface{})
-	Warn(msg string, keyvals ...interface{})
-}
-
-func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, logger Logger, redisAddr string, buildDelay time.Duration) (*MevCommitChain, error) {
+func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, logger *slog.Logger, redisAddr string, buildDelay time.Duration) (*MevCommitChain, error) {
 	// Create a context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 

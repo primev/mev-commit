@@ -2,6 +2,7 @@ package redisapp
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -25,7 +26,7 @@ type LeaderElectionHandler struct {
 	wg     *sync.WaitGroup
 
 	// Dependencies
-	logger       Logger
+	logger       *slog.Logger
 	instanceID   string
 	stateManager StateManager
 	stepsManager *StepsManager
@@ -37,7 +38,7 @@ func NewLeaderElectionHandler(
 	ctx context.Context,
 	instanceID string,
 	wg *sync.WaitGroup,
-	logger Logger,
+	logger *slog.Logger,
 	procLeader leader.Leader,
 	promotedCh <-chan time.Time,
 	demotedCh <-chan time.Time,

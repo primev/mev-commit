@@ -3,6 +3,7 @@ package redisapp
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -18,7 +19,7 @@ type Leader struct {
 	cancel         context.CancelFunc
 	leaderElection leader.Leader
 	wg             *sync.WaitGroup
-	logger         Logger
+	logger         *slog.Logger
 }
 
 func (l *Leader) startLeaderLoop() {

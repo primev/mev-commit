@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"math"
-	"sync"
 	"time"
 )
 
@@ -15,7 +14,6 @@ const (
 )
 
 var (
-	retryMutex              sync.Mutex
 	ErrFailedAfterNAttempts = errors.New("operation failed after N attempts")
 )
 
@@ -29,9 +27,6 @@ func backoff(attempt int) time.Duration {
 }
 
 func retryWithInfiniteBackoff(ctx context.Context, operation func() (bool, error)) (bool, error) {
-	retryMutex.Lock()
-	defer retryMutex.Unlock()
-
 	for attempt := 0; ; attempt++ {
 		select {
 		case <-ctx.Done():
@@ -56,9 +51,6 @@ func retryWithInfiniteBackoff(ctx context.Context, operation func() (bool, error
 }
 
 func retryWithLimitedAttempts(ctx context.Context, operation func() (bool, error), maxAttempts int) (bool, error) {
-	retryMutex.Lock()
-	defer retryMutex.Unlock()
-
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		select {
 		case <-ctx.Done():

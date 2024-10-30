@@ -4,16 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/primev/mev-commit/cl/redisapp/types"
+	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/exp/rand"
 )
 
@@ -22,24 +23,14 @@ const maxAttempts = 3
 type StepsManager struct {
 	stateManager StateManager
 	engineCl     EngineClient
-	logger       Logger
+	logger       *slog.Logger
 	buildDelay   time.Duration
 	buildDelayMs uint64
 	lastCallTime time.Time
 	ctx          context.Context
 }
 
-func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Address, ts uint64) (engine.ForkChoiceResponse, error) {
-	head, err := s.stateManager.LoadExecutionHead(ctx)
-	if err != nil {
-		return engine.ForkChoiceResponse{}, fmt.Errorf("latest execution block: %w", err)
-	}
-
-	// Use provided time as timestamp for the next block.
-	if ts <= head.BlockTime {
-		ts = head.BlockTime + 1 // Subsequent blocks must have a higher timestamp.
-	}
-
+func (s *StepsManager) startBuild(ctx context.Context, feeRecipient common.Address, head *types.ExecutionHead, ts uint64) (engine.ForkChoiceResponse, error) {
 	hash := common.BytesToHash(head.BlockHash)
 
 	fcs := engine.ForkchoiceStateV1{
@@ -101,8 +92,13 @@ func (s *StepsManager) getPayload(ctx context.Context) error {
 		s.lastCallTime = currentCallTime
 	}
 
+	// Very low chance to happen, only after restart and time.Now is broken
+	if ts <= head.BlockTime {
+		ts = head.BlockTime + 1 // Subsequent blocks must have a higher timestamp.
+	}
+	
 	success, err := retryWithLimitedAttempts(ctx, func() (bool, error) {
-		response, err := s.startBuild(ctx, common.Address{}, ts)
+		response, err := s.startBuild(ctx, common.Address{}, head, ts)
 		if err != nil {
 			s.logger.Warn("failed to build new evm payload, will retry", "error", err)
 			return false, nil

@@ -2,6 +2,7 @@ package redisapp
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/primev/mev-commit/cl/redisapp/types"
@@ -11,7 +12,7 @@ type Follower struct {
 	InstanceID   string
 	stateManager StateManager
 	stepsManager *StepsManager
-	logger       Logger
+	logger       *slog.Logger
 	ctx          context.Context
 	cancel       context.CancelFunc
 	wg           *sync.WaitGroup
