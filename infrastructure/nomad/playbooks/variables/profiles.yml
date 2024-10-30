@@ -1,4 +1,5 @@
 datacenter: "dc1"
+resolved_l1_rpc_urls: "{{ ('http://' ~ ansible_facts['default_ipv4']['address'] ~ ':9545') if l1_rpc_urls == 'mock' else l1_rpc_urls }}"
 
 artifacts:
   bidder_emulator: &bidder_emulator_artifact
@@ -9,7 +10,7 @@ artifacts:
     path: p2p/integrationtest/provider
   bridge_v1: &bridge_v1_artifact
     type: binary
-    path: bridge/standard/bridge-v1
+    path: bridge/standard
   geth: &geth_artifact
     type: binary
     path: external/geth
@@ -26,6 +27,9 @@ artifacts:
   dashboard: &dashboard_artifact
     type: binary
     path: tools/dashboard
+  l1-transactor: &l1_transactor_artifact
+    type: binary
+    path: tools/l1-transaction-emulator
 
 jobs:
   artifacts: &artifacts_job
@@ -75,9 +79,9 @@ jobs:
       - *geth_artifact
       - nodekey:
           name: geth_signer_node1_nodekey
-      - keystore:
-          name: geth_signer1_keystore
-          allocation: true
+      - keystores:
+          geth_signer1_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -147,9 +151,11 @@ jobs:
     template: contracts-deployer.nomad.j2
     artifacts:
       - *contracts_artifact
-      - keystore:
-          name: contract_deployer_keystore
-          allocation: true
+      - keystores:
+          contract_deployer_keystore:
+            allocation: true
+          bridge_relayer_keystore:
+            allocation: true
     count: 1
     ports:
       - http:
@@ -171,7 +177,6 @@ jobs:
           static: 8081
           to: 8081
     env:
-      log-fmt: "json"
       log-level: "info"
 
   mev_commit_bootnode1: &mev_commit_bootnode1_job
@@ -179,8 +184,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bootnode1_keystore
+      - keystores:
+          bootnode1_keystore:
+            allocation: false
     count: 1
     ports:
       - metrics:
@@ -205,9 +211,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: provider1_keystore
-          allocation: true
+      - keystores:
+          provider1_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -232,9 +238,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: provider2_keystore
-          allocation: true
+      - keystores:
+          provider2_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -258,9 +264,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: provider3_keystore
-          allocation: true
+      - keystores:
+          provider3_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -334,9 +340,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder1_keystore
-          allocation: true
+      - keystores:
+          bidder1_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -360,9 +366,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder2_keystore
-          allocation: true
+      - keystores:
+          bidder2_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -385,9 +391,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder3_keystore
-          allocation: true
+      - keystores:
+          bidder3_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -410,9 +416,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder4_keystore
-          allocation: true
+      - keystores:
+          bidder4_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -435,9 +441,9 @@ jobs:
     template: mev-commit.nomad.j2
     artifacts:
       - *p2p_artifact
-      - keystore:
-          name: bidder5_keystore
-          allocation: true
+      - keystores:
+          bidder5_keystore:
+            allocation: true
     count: 1
     ports:
       - metrics:
@@ -499,7 +505,7 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
 
   mev_commit_bidder_emulator_nodes: &mev_commit_bidder_emulator_nodes_job
@@ -516,7 +522,7 @@ jobs:
       - metrics:
           to: 8080
     env:
-      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_oracle: &mev_commit_oracle_job
     name: mev-commit-oracle
@@ -525,9 +531,9 @@ jobs:
       - *oracle_artifact
       - auth_token:
           name: oracle_register_provider_api_auth_token
-      - keystore:
-          name: oracle_keystore
-          allocation: true
+      - keystores:
+          oracle_keystore:
+            allocation: true
     dependencies:
       contracts_deployer: *contracts_deployer_job
     count: 1
@@ -541,26 +547,31 @@ jobs:
         metrics:
           to: 8080
     env:
-      l1_rpc_urls: "{{ l1_rpc_urls }}"
+      l1_rpc_urls: "{{ resolved_l1_rpc_urls }}"
 
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
     template: mev-commit-bridge.nomad.j2
+    artifacts:
+      - *bridge_v1_artifact
     count: 1
     ports:
       - metrics:
           to: 8080
+        db:
+          static: 5433
+          to: 5433
     env:
-      l1_chain_id: 11155111
-      l1_rpc_url: "{{ l1_rpc_urls.split(',')[0] }}"
+      l1_chain_id: "{{ environments[env].chain_id }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_faucet: &mev_commit_faucet_job
     name: mev-commit-faucet
     template: mev-commit-faucet.nomad.j2
     artifacts:
-      - keystore:
-          name: faucet_keystore
-          allocation: true
+      - keystores:
+          faucet_keystore:
+            allocation: true
     count: 1
     ports:
       - http:
@@ -588,7 +599,7 @@ jobs:
           to: 80
         metrics:
           to: 8888
-  
+
   mock_l1: &mock_l1_job
     name: mock-l1
     template: mock-l1.nomad.j2
@@ -597,10 +608,51 @@ jobs:
       - http:
           static: 9545
           to: 8545
+        ws:
+          static: 9546
+          to: 8546
     env:
       ip: 0.0.0.0
       public_ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
+
+  l1-transactor: &l1_transactor_job
+    name: l1-transactor
+    template: l1-transactor.nomad.j2
+    count: 1
+    artifacts:
+      - *l1_transactor_artifact
+      - keystores:
+          l1_transactor_account1_keystore:
+            allocation: true
+          l1_transactor_account2_keystore:
+            allocation: true
+          l1_transactor_account3_keystore:
+            allocation: true
+    dependencies:
+      mock_l1: *mock_l1_job
+    env:
+      log-level: "info"
+
+  bridge-emulator: &bridge_emulator_job
+    name: bridge-emulator
+    template: bridge-emulator.nomad.j2
+    artifacts:
+      - *bridge_v1_artifact
+      - keystores:
+          bridge_emulator_account1_keystore:
+            allocation: true
+          bridge_emulator_account2_keystore:
+            allocation: true
+          bridge_emulator_account3_keystore:
+            allocation: true
+    dependencies:
+      contracts_deployer: *contracts_deployer_job
+    count: 1
+    ports:
+      - metrics:
+          to: 8080
+    env:
 
 profiles:
   ci:
@@ -609,7 +661,9 @@ profiles:
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
@@ -627,7 +681,10 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
+      - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -667,7 +724,10 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
+      - *bridge_emulator_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
@@ -701,6 +761,7 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
+      - *l1_transactor_job
       - *contracts_deployer_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job

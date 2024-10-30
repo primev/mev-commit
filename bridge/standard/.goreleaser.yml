@@ -1,0 +1,148 @@
+version: 1
+
+project_name: mev-commit-bridge
+dist: /tmp/dist/mev-commit-bridge
+
+builds:
+  - id: relayer
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    dir: ./bridge/standard
+    main: ./cmd/relayer
+    binary: relayer
+  - id: user_cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    dir: ./bridge/standard
+    main: ./cmd/user_cli
+    binary: user-cli
+  - id: emulator
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    dir: ./bridge/standard
+    main: ./cmd/emulator
+    binary: emulator
+
+archives:
+  - id: relayer
+    builds:
+      - relayer
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- .Binary }}_
+      {{- with index .Env "RELEASE_VERSION" -}}
+        {{ . }}
+      {{- else -}}
+        {{- if .IsSnapshot }}{{ .ShortCommit }}
+        {{- else }}{{ .Version }}
+        {{- end }}
+      {{- end -}}
+      {{- with index .Env "DIRTY_SUFFIX" -}}
+      {{ . }}
+      {{- end -}}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}
+      {{- end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: user_cli
+    builds:
+      - user_cli
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- .Binary }}_
+      {{- with index .Env "RELEASE_VERSION" -}}
+        {{ . }}
+      {{- else -}}
+        {{- if .IsSnapshot }}{{ .ShortCommit }}
+        {{- else }}{{ .Version }}
+        {{- end }}
+      {{- end -}}
+      {{- with index .Env "DIRTY_SUFFIX" -}}
+      {{ . }}
+      {{- end -}}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}
+      {{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+  - id: emulator
+    builds:
+      - emulator
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- .Binary }}_
+      {{- with index .Env "RELEASE_VERSION" -}}
+        {{ . }}
+      {{- else -}}
+        {{- if .IsSnapshot }}{{ .ShortCommit }}
+        {{- else }}{{ .Version }}
+        {{- end }}
+      {{- end -}}
+      {{- with index .Env "DIRTY_SUFFIX" -}}
+      {{ . }}
+      {{- end -}}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}
+      {{- end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+checksum:
+  name_template: >-
+    {{ .ProjectName }}_
+    {{- with index .Env "RELEASE_VERSION" -}}
+      {{ . }}
+    {{- else -}}
+      {{- if .IsSnapshot }}{{ .ShortCommit }}
+      {{- else }}{{ .Version }}
+      {{- end }}
+    {{- end -}}
+    {{- with index .Env "DIRTY_SUFFIX" -}}
+    {{ . }}
+    {{- end -}}
+    _checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
