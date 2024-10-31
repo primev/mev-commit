@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/heyvito/go-leader/leader"
 )
 
@@ -20,7 +21,7 @@ type LeaderElectionHandler struct {
 	isLeaderMutex sync.RWMutex
 	isLeader      bool
 
-	// Context and WaitGroup for goroutines
+	// Context and cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -37,16 +38,36 @@ type LeaderElectionHandler struct {
 func NewLeaderElectionHandler(
 	instanceID string,
 	logger *slog.Logger,
-	procLeader leader.Leader,
-	promotedCh <-chan time.Time,
-	demotedCh <-chan time.Time,
-	erroredCh <-chan error,
-	leader *Leader,
-	follower *Follower,
+	redisClient *redis.Client,
 	stateManager StateManager,
 	stepsManager *StepsManager,
 ) *LeaderElectionHandler {
 	leaderCtx, cancel := context.WithCancel(context.Background())
+
+	// Initialize leader election
+	leaderOpts := leader.Opts{
+		Redis: redisClient,
+		TTL:   100 * time.Millisecond,
+		Wait:  200 * time.Millisecond,
+		Key:   "rapp_leader_election",
+	}
+
+	procLeader, promotedCh, demotedCh, erroredCh := leader.NewLeader(leaderOpts)
+
+	follower := &Follower{
+		InstanceID:   instanceID,
+		stateManager: stateManager,
+		stepsManager: stepsManager,
+		logger:       logger,
+	}
+
+	leader := &Leader{
+		InstanceID:     instanceID,
+		stateManager:   stateManager,
+		stepsManager:   stepsManager,
+		leaderElection: procLeader,
+		logger:         logger,
+	}
 
 	return &LeaderElectionHandler{
 		ctx:            leaderCtx,
@@ -167,7 +188,7 @@ func (leh *LeaderElectionHandler) handleDemotion() (bool, error) {
 		leh.logger.Error("Failed to load/init state with retry, exiting")
 		return false, err
 	}
-	
+
 	if err := leh.stepsManager.processLastPayload(leh.ctx); err != nil {
 		leh.logger.Error("Error processing last payload", "error", err)
 		return false, err

@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/heyvito/go-leader/leader"
 	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/redis/go-redis/v9"
 )
@@ -34,8 +33,6 @@ type MevCommitChain struct {
 	// Managers and components
 	stateManager          StateManager
 	stepsManager          *StepsManager
-	leader                *Leader
-	follower              *Follower
 	leaderElectionHandler *LeaderElectionHandler
 }
 
@@ -69,16 +66,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		return nil, err
 	}
 
-	// Initialize leader election
-	leaderOpts := leader.Opts{
-		Redis: redisClient,
-		TTL:   100 * time.Millisecond,
-		Wait:  200 * time.Millisecond,
-		Key:   "rapp_leader_election",
-	}
-
-	procLeader, promotedCh, demotedCh, erroredCh := leader.NewLeader(leaderOpts)
-
 	stateManager := NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
 
 	stepsManager := &StepsManager{
@@ -89,31 +76,11 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 	}
 
-	follower := &Follower{
-		InstanceID:   instanceID,
-		stateManager: stateManager,
-		stepsManager: stepsManager,
-		logger:       logger,
-	}
-
-	leader := &Leader{
-		InstanceID:     instanceID,
-		stateManager:   stateManager,
-		stepsManager:   stepsManager,
-		leaderElection: procLeader,
-		logger:         logger,
-	}
-
 	// Initialize LeaderElectionHandler
 	leaderElectionHandler := NewLeaderElectionHandler(
 		instanceID,
 		logger,
-		procLeader,
-		promotedCh,
-		demotedCh,
-		erroredCh,
-		leader,
-		follower,
+		redisClient,
 		stateManager,
 		stepsManager,
 	)
@@ -126,8 +93,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		genesisBlockHash:      genesisBlockHash,
 		logger:                logger,
 		cancel:                cancel,
-		leader:                leader,
-		follower:              follower,
 		leaderElectionHandler: leaderElectionHandler,
 	}
 
