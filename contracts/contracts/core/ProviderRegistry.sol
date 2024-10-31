@@ -92,7 +92,7 @@ contract ProviderRegistry is
     /**
      * @dev Slash funds from the provider and send the slashed amount to the bidder.
      * @dev reenterancy not necessary but still putting here for precaution.
-     * @dev Note we slash the funds irrespective of decay, this is to prevent timing games.
+     * @dev Note we slash the funds taking into account the residual bid percent after decay.
      * @param amt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
