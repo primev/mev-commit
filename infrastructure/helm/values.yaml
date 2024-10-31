@@ -1,0 +1,99 @@
+bridge:
+  replicas: 1
+  image: "primevprotocol/mev-commit-bridge:latest"
+
+geth:
+  replicas: 1
+  image: "primevprotocol/mev-commit-geth:latest"
+
+oracle:
+  replicas: 1
+  image: "primevprotocol/mev-commit-oracle:latest"
+  
+  # Oracle specific configuration options
+  configPath: "/path/to/config.yaml"
+  privKeyFile: "/path/to/private/key"
+  httpPort: 8080
+  logFmt: "text"
+  logLevel: "info"
+  logTags: "env:production"
+  l1RpcUrls: ["http://l1-rpc-url-1", "http://l1-rpc-url-2"]
+  settlementRpcUrlHttp: "http://localhost:8545"
+  settlementRpcUrlWs: "ws://localhost:8546"
+  oracleContractAddr: "0x0a3ad886AEfd3bA877bcB23E171e0e2a375806a0"
+  preconfContractAddr: "0x9433bCD9e89F923ce587f7FA7E39e120E93eb84D"
+  blocktrackerContractAddr: "0x7538F3AaA07dA1990486De21A0B438F55e9639e4"
+  bidderRegistryContractAddr: "0x401B3287364f95694c43ACA3252831cAc02e5C41"
+  providerRegistryContractAddr: "0xf4F10e18244d836311508917A3B04694D88999Dd"
+  
+  # PostgreSQL configuration
+  pgHost: "postgresql-svc"
+  pgPort: 5432
+  pgUser: "postgres"
+  pgPassword: "postgres"
+  pgDbName: "mev_oracle"
+  
+  laggerdMode: 10
+  overrideWinners: []
+  keystorePath: "/path/to/keystore"
+  keystorePassword: "keystore-password"
+  registerProviderAuthToken: "your-auth-token" # Required flag
+  gasLimit: 2000000
+  gasTipCap: 1000000000
+  gasFeeCap: 2000000000
+
+p2p:
+  image: "primevprotocol/mev-commit:latest"
+  
+  # Common configurations across all peer types
+  common:
+    configPath: "/path/to/config.yaml"
+    dataDir: "/data/mev-commit/db"
+    httpAddr: "0.0.0.0"
+    httpPort: 13523
+    rpcAddr: "0.0.0.0"
+    rpcPort: 13524
+    serverTlsCertificate: "/path/to/tls.crt"
+    serverTlsPrivateKey: "/path/to/tls.key"
+    autodepositAmount: "1000000000"
+    autodepositEnabled: false
+    bidderBidTimeout: "30s"
+    providerWhitelist: []  # Specify addresses here
+    bidderRegistryContract: "0x401B3287364f95694c43ACA3252831cAc02e5C41"
+    blockTrackerContract: "0x7538F3AaA07dA1990486De21A0B438F55e9639e4"
+    preconfContract: "0x9433bCD9e89F923ce587f7FA7E39e120E93eb84D"
+    providerRegistryContract: "0xf4F10e18244d836311508917A3B04694D88999Dd"
+    validatorRouterContract: "0xCae46e1013D33587180Db5933Abd75D977c2d7ab"
+    logFmt: "text"
+    logLevel: "info"
+    logTags: "service:launchmevcommit-<peerType>-<VERSION>-<hostname>"
+    otelCollectorEndpointUrl: "your_otel_collector_url"
+    beaconApiUrl: "https://ethereum-holesky-beacon-api.publicnode.com"
+    l1RpcUrl: "https://ethereum-holesky-rpc.publicnode.com"
+    settlementRpcEndpoint: "http://localhost:8545"
+    settlementWsRpcEndpoint: "wss://chainrpc-wss.testnet.mev-commit.xyz"
+    gasFeeCap: "2000000000"
+    gasLimit: 2000000
+    gasTipCap: "1000000000"
+    keystorePassword: "your_keystore_password"
+    keystorePath: "/path/to/keystore"
+    privKeyFile: "/path/to/private_key"
+    bootnodes: "/dnsaddr/bootnode.testnet.mev-commit.xyz"
+    natAddr: "your_external_ip"
+    natPort: "your_port"
+    p2pAddr: "0.0.0.0"
+    p2pPort: 13522
+    secret: "secret"
+    providerDecisionTimeout: "30s"
+  
+  # Configurations for each peer type
+  provider:
+    replicas: 1
+    peerType: "provider"
+  bidder:
+    replicas: 1
+    peerType: "bidder"
+  bootnode:
+    replicas: 1
+    peerType: "bootnode"
+

@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mev-commit-oracle
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: mev-commit-oracle
+  template:
+    metadata:
+      labels:
+        app: mev-commit-oracle
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox
+          command: ['sh', '-c', 'until nc -z {{ .Values.pgHost }} {{ .Values.pgPort }}; do echo waiting for postgres; sleep 5; done']
+      containers:
+        - name: oracle-container
+          image: {{ .Values.image }}
+          ports:
+            - containerPort: {{ .Values.httpPort }}
+          env:
+            - name: MEV_ORACLE_CONFIG
+              value: {{ .Values.configPath }}
+            - name: MEV_ORACLE_PRIV_KEY_FILE
+              value: {{ .Values.privKeyFile }}
+            - name: MEV_ORACLE_HTTP_PORT
+              value: "{{ .Values.httpPort }}"
+            - name: MEV_ORACLE_LOG_FMT
+              value: {{ .Values.logFmt }}
+            - name: MEV_ORACLE_LOG_LEVEL
+              value: {{ .Values.logLevel }}
+            - name: MEV_ORACLE_LOG_TAGS
+              value: {{ .Values.logTags }}
+            - name: MEV_ORACLE_L1_RPC_URLS
+              value: "{{ join "," .Values.l1RpcUrls }}"
+            - name: MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP
+              value: {{ .Values.settlementRpcUrlHttp }}
+            - name: MEV_ORACLE_SETTLEMENT_RPC_URL_WS
+              value: {{ .Values.settlementRpcUrlWs }}
+            - name: MEV_ORACLE_ORACLE_CONTRACT_ADDR
+              value: {{ .Values.oracleContractAddr }}
+            - name: MEV_ORACLE_PRECONF_CONTRACT_ADDR
+              value: {{ .Values.preconfContractAddr }}
+            - name: MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR
+              value: {{ .Values.blocktrackerContractAddr }}
+            - name: MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR
+              value: {{ .Values.bidderRegistryContractAddr }}
+            - name: MEV_ORACLE_PROVIDERREGISTRY_CONTRACT_ADDR
+              value: {{ .Values.providerRegistryContractAddr }}
+            - name: MEV_ORACLE_PG_HOST
+              value: {{ .Values.pgHost }}
+            - name: MEV_ORACLE_PG_PORT
+              value: "{{ .Values.pgPort }}"
+            - name: MEV_ORACLE_PG_USER
+              value: {{ .Values.pgUser }}
+            - name: MEV_ORACLE_PG_PASSWORD
+              value: {{ .Values.pgPassword }}
+            - name: MEV_ORACLE_PG_DBNAME
+              value: {{ .Values.pgDbName }}
+            - name: MEV_ORACLE_LAGGERD_MODE
+              value: "{{ .Values.laggerdMode }}"
+            - name: MEV_ORACLE_OVERRIDE_WINNERS
+              value: "{{ join "," .Values.overrideWinners }}"
+            - name: MEV_ORACLE_KEYSTORE_PATH
+              value: {{ .Values.keystorePath }}
+            - name: MEV_ORACLE_KEYSTORE_PASSWORD
+              value: {{ .Values.keystorePassword }}
+            - name: MEV_ORACLE_REGISTER_PROVIDER_API_AUTH_TOKEN
+              value: {{ .Values.registerProviderAuthToken }}
+            - name: MEV_COMMIT_GAS_LIMIT
+              value: "{{ .Values.gasLimit }}"
+            - name: MEV_COMMIT_GAS_TIP_CAP
+              value: "{{ .Values.gasTipCap }}"
+            - name: MEV_COMMIT_GAS_FEE_CAP
+              value: "{{ .Values.gasFeeCap }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.httpPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.httpPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3

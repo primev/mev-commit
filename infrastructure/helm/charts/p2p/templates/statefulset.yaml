@@ -1,0 +1,124 @@
+{{- if or (eq .Values.peerType "provider") (eq .Values.peerType "bidder") }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "mev-commit-{{ .Values.peerType }}"
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: mev-commit
+      role: {{ .Values.peerType }}
+  serviceName: "mev-commit-{{ .Values.peerType }}"
+  template:
+    metadata:
+      labels:
+        app: mev-commit
+        role: {{ .Values.peerType }}
+    spec:
+      containers:
+        - name: mev-commit
+          image: {{ .Values.image }}
+          env:
+            # API options
+            - name: MEV_COMMIT_HTTP_ADDR
+              value: {{ .Values.common.httpAddr }}
+            - name: MEV_COMMIT_HTTP_PORT
+              value: "{{ .Values.common.httpPort }}"
+            - name: MEV_COMMIT_RPC_ADDR
+              value: {{ .Values.common.rpcAddr }}
+            - name: MEV_COMMIT_RPC_PORT
+              value: "{{ .Values.common.rpcPort }}"
+            - name: MEV_COMMIT_SERVER_TLS_CERTIFICATE
+              value: {{ .Values.common.serverTlsCertificate }}
+            - name: MEV_COMMIT_SERVER_TLS_PRIVATE_KEY
+              value: {{ .Values.common.serverTlsPrivateKey }}
+
+            # Bidder options
+            - name: MEV_COMMIT_AUTODEPOSIT_AMOUNT
+              value: "{{ .Values.common.autodepositAmount }}"
+            - name: MEV_COMMIT_AUTODEPOSIT_ENABLED
+              value: "{{ .Values.common.autodepositEnabled }}"
+            - name: MEV_COMMIT_BIDDER_BID_TIMEOUT
+              value: "{{ .Values.common.bidderBidTimeout }}"
+            - name: MEV_COMMIT_PROVIDER_WHITELIST
+              value: "{{ join "," .Values.common.providerWhitelist }}"
+
+            # Contracts
+            - name: MEV_COMMIT_BIDDER_REGISTRY_ADDR
+              value: {{ .Values.common.bidderRegistryContract }}
+            - name: MEV_COMMIT_BLOCK_TRACKER_ADDR
+              value: {{ .Values.common.blockTrackerContract }}
+            - name: MEV_COMMIT_PRECONF_ADDR
+              value: {{ .Values.common.preconfContract }}
+            - name: MEV_COMMIT_PROVIDER_REGISTRY_ADDR
+              value: {{ .Values.common.providerRegistryContract }}
+            - name: MEV_COMMIT_VALIDATOR_ROUTER_ADDR
+              value: {{ .Values.common.validatorRouterContract }}
+
+            # Debug options
+            - name: MEV_COMMIT_LOG_FMT
+              value: {{ .Values.common.logFmt }}
+            - name: MEV_COMMIT_LOG_LEVEL
+              value: {{ .Values.common.logLevel }}
+            - name: MEV_COMMIT_LOG_TAGS
+              value: "{{ .Values.common.logTags | replace "<peerType>" .Values.peerType }}"
+            - name: MEV_COMMIT_OTEL_COLLECTOR_ENDPOINT_URL
+              value: {{ .Values.common.otelCollectorEndpointUrl }}
+
+            # Ethereum RPC options
+            - name: MEV_COMMIT_BEACON_API_URL
+              value: {{ .Values.common.beaconApiUrl }}
+            - name: MEV_COMMIT_L1_RPC_URL
+              value: {{ .Values.common.l1RpcUrl }}
+            - name: MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT
+              value: {{ .Values.common.settlementRpcEndpoint }}
+            - name: MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT
+              value: {{ .Values.common.settlementWsRpcEndpoint }}
+
+            # Global options
+            - name: MEV_COMMIT_CONFIG
+              value: {{ .Values.common.configPath }}
+            - name: MEV_COMMIT_DATA_DIR
+              value: {{ .Values.common.dataDir }}
+            - name: MEV_COMMIT_GAS_FEE_CAP
+              value: "{{ .Values.common.gasFeeCap }}"
+            - name: MEV_COMMIT_GAS_LIMIT
+              value: "{{ .Values.common.gasLimit }}"
+            - name: MEV_COMMIT_GAS_TIP_CAP
+              value: "{{ .Values.common.gasTipCap }}"
+            - name: MEV_COMMIT_KEYSTORE_PASSWORD
+              value: {{ .Values.common.keystorePassword }}
+            - name: MEV_COMMIT_KEYSTORE_PATH
+              value: {{ .Values.common.keystorePath }}
+            - name: MEV_COMMIT_PEER_TYPE
+              value: {{ .Values.peerType }}
+            - name: MEV_COMMIT_PRIVKEY_FILE
+              value: {{ .Values.common.privKeyFile }}
+
+            # P2P options
+            - name: MEV_COMMIT_BOOTNODES
+              value: "{{ .Values.common.bootnodes }}"
+            - name: MEV_COMMIT_NAT_ADDR
+              value: {{ .Values.common.natAddr }}
+            - name: MEV_COMMIT_NAT_PORT
+              value: "{{ .Values.common.natPort }}"
+            - name: MEV_COMMIT_P2P_ADDR
+              value: {{ .Values.common.p2pAddr }}
+            - name: MEV_COMMIT_P2P_PORT
+              value: "{{ .Values.common.p2pPort }}"
+            - name: MEV_COMMIT_SECRET
+              value: {{ .Values.common.secret }}
+
+            # Provider options
+            - name: MEV_COMMIT_PROVIDER_DECISION_TIMEOUT
+              value: "{{ .Values.common.providerDecisionTimeout }}"
+            
+          volumeMounts:
+            - name: mev-commit-data
+              mountPath: {{ .Values.common.dataDir }}
+      volumes:
+        - name: mev-commit-data
+          persistentVolumeClaim:
+            claimName: mev-commit-data-{{ .Values.peerType }}
+{{- end }}
