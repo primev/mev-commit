@@ -641,7 +641,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "numInitSlashableRegistered",
+        "name": "numRegistered",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -658,7 +658,7 @@
         "internalType": "bytes[]"
       },
       {
-        "name": "infractionTimestamps",
+        "name": "captureTimestamps",
         "type": "uint256[]",
         "internalType": "uint256[]"
       }
@@ -1350,6 +1350,11 @@
   },
   {
     "type": "error",
+    "name": "CaptureTimestampMustBeNonZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -1389,11 +1394,6 @@
         "internalType": "address"
       }
     ]
-  },
-  {
-    "type": "error",
-    "name": "InfractionTimestampMustBeNonZero",
-    "inputs": []
   },
   {
     "type": "error",
@@ -1513,6 +1513,22 @@
     "inputs": [
       {
         "name": "network",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NoRegisteredValidators",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
         "type": "address",
         "internalType": "address"
       }
