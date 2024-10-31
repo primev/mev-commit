@@ -38,9 +38,9 @@ func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address c
 	return true, nil
 }
 
-func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error) {
+func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error) {
 	t.stake = opts.Value
-	t.blsKey = blsPublicKey
+	t.blsKey = blsPublicKey[0]
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
@@ -53,8 +53,8 @@ func (t *testRegistryContract) GetProviderStake(_ *bind.CallOpts, address common
 	return big.NewInt(0).Add(t.stake, t.topup), nil
 }
 
-func (t *testRegistryContract) GetBLSKey(_ *bind.CallOpts, address common.Address) ([]byte, error) {
-	return t.blsKey, nil
+func (t *testRegistryContract) GetBLSKeys(_ *bind.CallOpts, address common.Address) ([][]byte, error) {
+	return [][]byte{t.blsKey}, nil
 }
 
 func (t *testRegistryContract) MinStake(_ *bind.CallOpts) (*big.Int, error) {
@@ -243,8 +243,9 @@ func TestStakeHandling(t *testing.T) {
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
 				}
-				if stake.BlsPublicKey != tc.blsPublicKey {
-					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKey)
+				tc.blsPublicKey = strings.TrimPrefix(tc.blsPublicKey, "0x")
+				if stake.BlsPublicKeys[0] != tc.blsPublicKey {
+					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKeys[0])
 				}
 			}
 		}
@@ -258,8 +259,8 @@ func TestStakeHandling(t *testing.T) {
 		if stake.Amount != "2000000000000000000" {
 			t.Fatalf("expected amount to be 2000000000000000000, got %v", stake.Amount)
 		}
-		if stake.BlsPublicKey != validBLSKey {
-			t.Fatalf("expected bls public key to be %s, got %v", validBLSKey, stake.BlsPublicKey)
+		if stake.BlsPublicKeys[0] != "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456" {
+			t.Fatalf("expected bls public key to be 123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456, got %v", stake.BlsPublicKeys[0])
 		}
 	})
 
