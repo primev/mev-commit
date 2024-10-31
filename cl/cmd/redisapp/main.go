@@ -109,8 +109,8 @@ var (
             if err != nil {
                 return fmt.Errorf("invalid redis-addr: %v", err)
             }
-            if net.ParseIP(host) == nil {
-                return fmt.Errorf("invalid redis-addr: invalid IP address")
+            if host == "" {
+                return fmt.Errorf("invalid redis-addr: missing host")
             }
             if p, err := strconv.Atoi(port); err != nil || p <= 0 || p > 65535 {
                 return fmt.Errorf("invalid redis-addr: invalid port number")
