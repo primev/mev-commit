@@ -94,7 +94,7 @@ contract DeployHolesky is BaseDeploy {
         MevCommitMiddleware mevCommitMiddleware = MevCommitMiddleware(payable(mevCommitMiddlewareProxy));
         address[] memory vaults = new address[](1);
         vaults[0] = SymbioticHoleskyDevnetConsts.VAULT_1;
-        uint256[] memory slashAmounts = new uint256[](1);
+        uint160[] memory slashAmounts = new uint160[](1);
         slashAmounts[0] = 0.0001 ether; 
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
         console.log("Vault1 (representing wstETH) registered with MevCommitMiddleware with vault addr:",

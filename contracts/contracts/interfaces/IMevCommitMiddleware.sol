@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {TimestampOccurrence} from "../utils/Occurrence.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
+import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 interface IMevCommitMiddleware {
 
@@ -23,7 +24,7 @@ interface IMevCommitMiddleware {
         /// @notice A possible occurrence of a deregistration request.
         TimestampOccurrence.Occurrence deregRequestOccurrence;
         /// @notice The slash amount per validator, relevant to this vault.
-        uint256 slashAmount;
+        Checkpoints.Trace160 slashAmountHistory;
     }
 
     /// @notice Struct representing a registered validator.
@@ -64,10 +65,10 @@ interface IMevCommitMiddleware {
     event OperatorUnblacklisted(address indexed operator);
 
     /// @notice Emmitted when a vault record is added
-    event VaultRegistered(address indexed vault, uint256 slashAmount);
+    event VaultRegistered(address indexed vault, uint160 slashAmount);
 
     /// @notice Emmitted when a vault slash amount is updated
-    event VaultSlashAmountUpdated(address indexed vault, uint256 slashAmount);
+    event VaultSlashAmountUpdated(address indexed vault, uint160 slashAmount);
 
     /// @notice Emmitted when a vault deregistration is requested
     event VaultDeregistrationRequested(address indexed vault);
@@ -185,6 +186,10 @@ interface IMevCommitMiddleware {
 
     error ValidatorNotInValset(bytes blsPubkey, address vault, address operator);
 
+    error NoSlashAmountAtTimestamp(address vault, uint256 timestamp);
+
+    error FutureTimestampDisallowed(address vault, uint256 timestamp);
+
     error VaultDeregNotRequested(address vault);
 
     error ZeroAddressNotAllowed();
@@ -219,10 +224,10 @@ interface IMevCommitMiddleware {
     function unblacklistOperators(address[] calldata operators) external;
 
     /// @notice Registers multiple vaults with corresponding slash amounts.
-    function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external;
+    function registerVaults(address[] calldata vaults, uint160[] calldata slashAmounts) external;
 
     /// @notice Updates slash amounts for multiple vaults.
-    function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external;
+    function updateSlashAmounts(address[] calldata vaults, uint160[] calldata slashAmounts) external;
 
     /// @notice Requests deregistration for multiple vaults.
     function requestVaultDeregistrations(address[] calldata vaults) external;

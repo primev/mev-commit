@@ -19,6 +19,7 @@ import {ISlasher} from "symbiotic-core/interfaces/slasher/ISlasher.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Errors} from "../../utils/Errors.sol";
 import {IVetoSlasher} from "symbiotic-core/interfaces/slasher/IVetoSlasher.sol";
+import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 /// @notice This contracts serve as an entrypoint for L1 validators
 /// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
@@ -27,6 +28,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     using EnumerableSet for EnumerableSet.BytesSet;
+    using Checkpoints for Checkpoints.Trace160;
 
     /// @notice Only the slash oracle account can call functions marked with this modifier.
     modifier onlySlashOracle() {
@@ -140,7 +142,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @notice Registers vaults, restricted to contract owner.
     /// @param vaults Addresses of the vaults to register.
     /// @param slashAmounts Corresponding slash amounts for each vault.
-    function registerVaults(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
+    function registerVaults(address[] calldata vaults, uint160[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
         require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
         for (uint256 i = 0; i < vLen; ++i) {
@@ -151,7 +153,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @notice Updates the slash amounts for vaults, restricted to contract owner.
     /// @param vaults Addresses of the vaults to update.
     /// @param slashAmounts Corresponding slash amounts for each vault.
-    function updateSlashAmounts(address[] calldata vaults, uint256[] calldata slashAmounts) external onlyOwner {
+    function updateSlashAmounts(address[] calldata vaults, uint160[] calldata slashAmounts) external onlyOwner {
         uint256 vLen = vaults.length;
         require(vLen == slashAmounts.length, InvalidArrayLengths(vLen, slashAmounts.length));
         for (uint256 i = 0; i < vLen; ++i) {
@@ -374,6 +376,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return _vaultAndOperatorToValset[vault][operator].length();
     }
 
+    function getLatestSlashAmount(address vault) external view returns (uint160) {
+        return _getLatestSlashAmount(vault);
+    }
+
+    function getSlashAmountAt(address vault, uint256 blockTimestamp) external view returns (uint160) {
+        return _getSlashAmountAt(vault, blockTimestamp);
+    }
+
     function _setOperatorRecord(address operator) internal {
         operatorRecords[operator] = OperatorRecord({
             exists: true,
@@ -429,18 +439,21 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit OperatorUnblacklisted(operator);
     }
 
-    function _setVaultRecord(address vault, uint256 slashAmount) internal {
+    function _setVaultRecord(address vault, uint160 slashAmount) internal {
         vaultRecords[vault] = VaultRecord({
             exists: true,
             deregRequestOccurrence: TimestampOccurrence.Occurrence({
                 exists: false,
                 timestamp: 0
             }),
-            slashAmount: slashAmount
+            slashAmountHistory: Checkpoints.Trace160({
+                _checkpoints: new Checkpoints.Checkpoint160[](0)
+            })
         });
+        vaultRecords[vault].slashAmountHistory.push(SafeCast.toUint96(block.timestamp), slashAmount);
     }
 
-    function _registerVault(address vault, uint256 slashAmount) internal {
+    function _registerVault(address vault, uint160 slashAmount) internal {
         require(!vaultRecords[vault].exists, VaultAlreadyRegistered(vault));
         require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
@@ -482,11 +495,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultRegistered(vault, slashAmount);
     }
 
-    function _updateSlashAmount(address vault, uint256 slashAmount) internal {
+    function _updateSlashAmount(address vault, uint160 slashAmount) internal {
         VaultRecord storage record = vaultRecords[vault];
         require(record.exists, VaultNotRegistered(vault));
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
-        record.slashAmount = slashAmount;
+        record.slashAmountHistory.push(SafeCast.toUint96(block.timestamp), slashAmount);
         emit VaultSlashAmountUpdated(vault, slashAmount);
     }
 
@@ -564,7 +577,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(captureTimestamp != 0, CaptureTimestampMustBeNonZero());
 
         // Slash amount is enforced as non-zero in _registerVault.
-        uint256 amount = vaultRecord.slashAmount;
+        uint160 amount = _getSlashAmountAt(valRecord.vault, captureTimestamp);
 
         address slasher = IVault(valRecord.vault).slasher();
         uint256 slasherType = IEntity(slasher).TYPE();
@@ -685,7 +698,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _getNumSlashableVals(address vault, address operator) internal view returns (uint256) {
         IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
         uint256 allocatedStake = delegator.stake(_getSubnetwork(), operator); // Uses current block.timestamp, contrary to stakeAt().
-        uint256 slashAmount = vaultRecords[vault].slashAmount;
+        uint160 slashAmount = vaultRecords[vault].slashAmountHistory.latest();
         return allocatedStake / slashAmount;
     }
 
@@ -705,7 +718,24 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
         return slashableVals - numRegistered;
     }
-    
+
+    function _getLatestSlashAmount(address vault) internal view returns (uint160 amount) {
+        VaultRecord storage record = vaultRecords[vault];
+        require(record.exists, VaultNotRegistered(vault));
+        amount = record.slashAmountHistory.latest();
+        require(amount != 0, NoSlashAmountAtTimestamp(vault, block.timestamp));
+        return amount;
+    }
+
+    function _getSlashAmountAt(address vault, uint256 timestamp) internal view returns (uint160 amount) {
+        require(timestamp <= block.timestamp, FutureTimestampDisallowed(vault, timestamp));
+        VaultRecord storage record = vaultRecords[vault];
+        require(record.exists, VaultNotRegistered(vault));
+        amount = record.slashAmountHistory.upperLookup(SafeCast.toUint96(timestamp));
+        require(amount != 0, NoSlashAmountAtTimestamp(vault, timestamp));
+        return amount;
+    }
+
     function _isValidatorOptedIn(bytes calldata blsPubkey) internal view returns (bool) {
         ValidatorRecord storage valRecord = validatorRecords[blsPubkey];
         if (!valRecord.exists) {
