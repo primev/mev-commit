@@ -43,9 +43,9 @@ interface IMevCommitMiddleware {
         bool exists;
         /// @notice The number of validators slashed for this vault and operator at the current block.
         uint256 numSlashed;
-        /// @notice The number of validators that are initially slashable and registered for this vault and operator at the current block.
+        /// @notice The number of validators that are registered for this vault and operator at the current block.
         /// @dev This is computed once upon slash record creation to ensure desirable valset ordering.
-        uint256 numInitSlashableRegistered;
+        uint256 numRegistered;
     }
 
     /// @notice Emmitted when an operator is registered
@@ -124,6 +124,8 @@ interface IMevCommitMiddleware {
 
     error ValidatorsNotSlashable(address vault, address operator, uint256 numRequested, uint256 potentialSlashableVals);
 
+    error NoRegisteredValidators(address vault, address operator);
+
     error MissingValRecord(bytes blsPubkey);
 
     error OperatorAlreadyRegistered(address operator);
@@ -190,7 +192,7 @@ interface IMevCommitMiddleware {
 
     error InvalidBLSPubKeyLength(uint256 expectedLength, uint256 actualLength);
 
-    error InfractionTimestampMustBeNonZero();
+    error CaptureTimestampMustBeNonZero();
 
     error ValidatorNotRemovedFromValset(bytes blsPubkey, address vault, address operator);
 

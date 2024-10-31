@@ -62,32 +62,6 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
-  /v1/provider/register_stake/{amount}:
-    post:
-      summary: RegisterStake
-      description: RegisterStake is called by the provider to register its stake in the provider registry.
-      operationId: Provider_RegisterStake
-      responses:
-        "200":
-          description: A successful response.
-          schema:
-            $ref: '#/definitions/v1StakeResponse'
-        default:
-          description: An unexpected error response.
-          schema:
-            $ref: '#/definitions/googlerpcStatus'
-      parameters:
-        - name: amount
-          description: Amount of ETH to stake in the provider registry.
-          in: path
-          required: true
-          type: string
-        - name: blsPublicKey
-          description: BLS public key of the provider.
-          in: query
-          required: true
-          type: string
-          pattern: ^(0x)?[a-fA-F0-9]{96}$
   /v1/provider/send_processed_bids:
     post:
       summary: SendProcessedBids
@@ -111,6 +85,32 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/v1BidResponse'
+  /v1/provider/stake/{amount}:
+    post:
+      summary: Stake
+      description: Stake is called by the provider to register or add to its stake in the provider registry.
+      operationId: Provider_Stake
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1StakeResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: amount
+          description: Amount of ETH to stake in the provider registry.
+          in: path
+          required: true
+          type: string
+        - name: blsPublicKey
+          description: BLS public key of the provider.
+          in: query
+          required: true
+          type: string
+          pattern: ^(0x)?[a-fA-F0-9]{96}$
   /v1/provider/unstake:
     post:
       summary: Unstake

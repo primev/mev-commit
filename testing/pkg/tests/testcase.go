@@ -21,6 +21,7 @@ type TestEntry struct {
 var TestCases = []TestEntry{
 	{"bridge", bridge.RunBridge},
 	{"staking", staking.Run},
+	{"staking_add_deposit", staking.RunAddDeposit},
 	{"connectivity", connectivity.Run},
 	{"autodeposit", deposit.RunAutoDeposit},
 	{"preconf", preconf.RunPreconf},
