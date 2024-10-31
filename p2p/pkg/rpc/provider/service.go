@@ -228,8 +228,8 @@ func (s *Service) Stake(
 	opts.Value = amount
 
 	var (
-		tx             *types.Transaction
-		blsPubkeyBytes []byte
+		tx    *types.Transaction
+		txErr error
 	)
 
 	registered, err := s.registryContract.ProviderRegistered(&bind.CallOpts{Context: ctx, From: s.owner}, s.owner)
@@ -237,16 +237,16 @@ func (s *Service) Stake(
 		return nil, status.Errorf(codes.Internal, "checking registration: %v", err)
 	}
 	if !registered {
-		blsPubkeyBytes, err = hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKey, "0x"))
+		blsPubkeyBytes, err := hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKey, "0x"))
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
 		}
-		tx, err = s.registryContract.RegisterAndStake(opts, blsPubkeyBytes)
+		tx, txErr = s.registryContract.RegisterAndStake(opts, blsPubkeyBytes)
 	} else {
-		tx, err = s.registryContract.Stake(opts)
+		tx, txErr = s.registryContract.Stake(opts)
 	}
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to stake: %v", err)
+	if txErr != nil {
+		return nil, status.Errorf(codes.Internal, "failed to stake: %v", txErr)
 	}
 
 	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
