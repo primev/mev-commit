@@ -13,7 +13,7 @@ import (
 type Leader struct {
 	InstanceID     string
 	stateManager   StateManager
-	stepsManager   *StepsManager
+	blockBuilder   *BlockBuilder
 	cancel         context.CancelFunc
 	leaderElection leader.Leader
 	done           chan struct{}
@@ -54,7 +54,7 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 			switch currentStep {
 			case types.StepBuildBlock:
 				l.logger.Info("Leader: Starting Step 1 - BuildBlock")
-				getPayloadErr := l.stepsManager.getPayload(ctx)
+				getPayloadErr := l.blockBuilder.getPayload(ctx)
 				if getPayloadErr != nil {
 					l.logger.Error("Leader: Failed to execute Step 1 - BuildBlock", "error", getPayloadErr)
 
@@ -69,7 +69,7 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 						if err != nil {
 							l.logger.Error("Leader: Failed to stop leader election", "error", err)
 						}
-						l.stepsManager.lastCallTime = time.Time{}
+						l.blockBuilder.lastCallTime = time.Time{}
 					}
 
 					continue
@@ -77,7 +77,7 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 
 			case types.StepFinalizeBlock:
 				l.logger.Info("Leader: Starting Step 2 - FinalizeBlock")
-				err := l.stepsManager.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
+				err := l.blockBuilder.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
 				if err != nil {
 					l.logger.Error("Leader: Failed to execute Step 2 - FinalizeBlock", "error", err)
 
@@ -87,7 +87,7 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 						if err != nil {
 							l.logger.Error("Leader: Failed to stop leader election", "error", err)
 						}
-						l.stepsManager.lastCallTime = time.Time{}
+						l.blockBuilder.lastCallTime = time.Time{}
 					}
 
 					continue

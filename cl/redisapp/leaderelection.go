@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/heyvito/go-leader/leader"
+	"github.com/redis/go-redis/v9"
 )
 
 type LeaderElectionHandler struct {
@@ -30,7 +30,7 @@ type LeaderElectionHandler struct {
 	logger       *slog.Logger
 	instanceID   string
 	stateManager StateManager
-	stepsManager *StepsManager
+	blockBuilder *BlockBuilder
 	leader       *Leader
 	follower     *Follower
 }
@@ -40,7 +40,7 @@ func NewLeaderElectionHandler(
 	logger *slog.Logger,
 	redisClient *redis.Client,
 	stateManager StateManager,
-	stepsManager *StepsManager,
+	blockBuilder *BlockBuilder,
 ) *LeaderElectionHandler {
 	leaderCtx, cancel := context.WithCancel(context.Background())
 
@@ -57,14 +57,14 @@ func NewLeaderElectionHandler(
 	follower := &Follower{
 		InstanceID:   instanceID,
 		stateManager: stateManager,
-		stepsManager: stepsManager,
+		blockBuilder: blockBuilder,
 		logger:       logger,
 	}
 
 	leader := &Leader{
 		InstanceID:     instanceID,
 		stateManager:   stateManager,
-		stepsManager:   stepsManager,
+		blockBuilder:   blockBuilder,
 		leaderElection: procLeader,
 		logger:         logger,
 	}
@@ -81,7 +81,7 @@ func NewLeaderElectionHandler(
 		leader:         leader,
 		follower:       follower,
 		stateManager:   stateManager,
-		stepsManager:   stepsManager,
+		blockBuilder:   blockBuilder,
 	}
 }
 
@@ -126,7 +126,7 @@ func (leh *LeaderElectionHandler) handleLeadershipEvents() {
 }
 
 func (leh *LeaderElectionHandler) initializeFollower() error {
-	if err := leh.stepsManager.processLastPayload(leh.ctx); err != nil {
+	if err := leh.blockBuilder.processLastPayload(leh.ctx); err != nil {
 		leh.logger.Error("Error processing last payload", "error", err)
 		return err
 	}
@@ -189,7 +189,7 @@ func (leh *LeaderElectionHandler) handleDemotion() (bool, error) {
 		return false, err
 	}
 
-	if err := leh.stepsManager.processLastPayload(leh.ctx); err != nil {
+	if err := leh.blockBuilder.processLastPayload(leh.ctx); err != nil {
 		leh.logger.Error("Error processing last payload", "error", err)
 		return false, err
 	}

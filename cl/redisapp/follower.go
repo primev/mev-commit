@@ -11,7 +11,7 @@ import (
 type Follower struct {
 	InstanceID   string
 	stateManager StateManager
-	stepsManager *StepsManager
+	blockBuilder *BlockBuilder
 	logger       *slog.Logger
 	cancel       context.CancelFunc
 	done         chan struct{}
@@ -111,7 +111,7 @@ func (f *Follower) followerLoop(ctx context.Context) {
 
 					f.logger.Info("Follower: Received message", "PayloadID", payloadIDStr)
 
-					err := f.stepsManager.finalizeBlock(ctx, payloadIDStr, executionPayloadStr, field.ID)
+					err := f.blockBuilder.finalizeBlock(ctx, payloadIDStr, executionPayloadStr, field.ID)
 					if err != nil {
 						f.logger.Error("Failed to finalize block", "error", err)
 						continue

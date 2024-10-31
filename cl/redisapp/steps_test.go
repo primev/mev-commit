@@ -51,7 +51,7 @@ func (m *MockEngineClient) NewPayloadV3(ctx context.Context, executionPayload en
 	return args.Get(0).(engine.PayloadStatusV1), args.Error(1)
 }
 
-func TestStepsManager_startBuild(t *testing.T) {
+func TestBlockBuilder_startBuild(t *testing.T) {
 	ctx := context.Background()
 
 	redisClient, redisMock := redismock.NewClientMock()
@@ -66,7 +66,7 @@ func TestStepsManager_startBuild(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -99,7 +99,7 @@ func TestStepsManager_startBuild(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
 
-	resp, err := stepsManager.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
+	resp, err := blockBuilder.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
 
 	require.NoError(t, err)
 	assert.Equal(t, forkChoiceResponse, resp)
@@ -108,7 +108,7 @@ func TestStepsManager_startBuild(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_getPayload(t *testing.T) {
+func TestBlockBuilder_getPayload(t *testing.T) {
 	ctx := context.Background()
 
 	ctrl := gomock.NewController(t)
@@ -131,18 +131,18 @@ func TestStepsManager_getPayload(t *testing.T) {
 		Return(redis.NewStringResult(string(executionHeadData), nil)).
 		Times(1)
 
-    mockRedisClient.EXPECT().Pipeline().Return(mockPipeliner)
+	mockRedisClient.EXPECT().Pipeline().Return(mockPipeliner)
 
-    mockPipeliner.EXPECT().Set(ctx, "blockBuildState:instanceID123", gomock.Any(), time.Duration(0)).Return(redis.NewStatusCmd(ctx))
-    mockPipeliner.EXPECT().XAdd(ctx, gomock.Any()).Return(redis.NewStringCmd(ctx, "result"))
+	mockPipeliner.EXPECT().Set(ctx, "blockBuildState:instanceID123", gomock.Any(), time.Duration(0)).Return(redis.NewStatusCmd(ctx))
+	mockPipeliner.EXPECT().XAdd(ctx, gomock.Any()).Return(redis.NewStringCmd(ctx, "result"))
 
-    mockPipeliner.EXPECT().Exec(ctx).Return([]redis.Cmder{}, nil)
+	mockPipeliner.EXPECT().Exec(ctx).Return([]redis.Cmder{}, nil)
 
 	stateManager := NewRedisStateManager("instanceID123", mockRedisClient, nil, "010203")
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -187,14 +187,14 @@ func TestStepsManager_getPayload(t *testing.T) {
 	}
 	mockEngineClient.On("GetPayloadV3", mock.Anything, *payloadID).Return(executionPayload, nil)
 
-	err := stepsManager.getPayload(ctx)
+	err := blockBuilder.getPayload(ctx)
 
 	require.NoError(t, err)
 
 	mockEngineClient.AssertExpectations(t)
 }
 
-func TestStepsManager_finalizeBlock(t *testing.T) {
+func TestBlockBuilder_finalizeBlock(t *testing.T) {
 	ctx := context.Background()
 
 	redisClient, redisMock := redismock.NewClientMock()
@@ -213,7 +213,7 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -278,7 +278,7 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 	executionHeadDataUpdated, _ := msgpack.Marshal(executionHeadUpdate)
 	redisMock.ExpectSet(executionHeadKey, executionHeadDataUpdated, 0).SetVal("OK")
 
-	err = stepsManager.finalizeBlock(ctx, payloadIDStr, string(msgpackData), msgID)
+	err = blockBuilder.finalizeBlock(ctx, payloadIDStr, string(msgpackData), msgID)
 
 	require.NoError(t, err)
 
@@ -286,7 +286,7 @@ func TestStepsManager_finalizeBlock(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
+func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 
@@ -300,7 +300,7 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -332,7 +332,7 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(engine.ForkChoiceResponse{}, errors.New("engine error"))
 
-	resp, err := stepsManager.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
+	resp, err := blockBuilder.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forkchoice update")
@@ -342,7 +342,7 @@ func TestStepsManager_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
+func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 
@@ -356,7 +356,7 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 
 	mockEngineClient := new(MockEngineClient)
 
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -394,7 +394,7 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
 
-	resp, err := stepsManager.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
+	resp, err := blockBuilder.startBuild(ctx, feeRecipient, executionHead, uint64(timestamp.UnixMilli()))
 
 	require.NoError(t, err)
 	assert.Equal(t, forkChoiceResponse, resp)
@@ -403,13 +403,13 @@ func TestStepsManager_startBuild_InvalidPayloadStatus(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_getPayload_startBuildFails(t *testing.T) {
+func TestBlockBuilder_getPayload_startBuildFails(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
 
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -421,7 +421,7 @@ func TestStepsManager_getPayload_startBuildFails(t *testing.T) {
 	executionHeadKey := "executionHead:instanceID123"
 	redisMock.ExpectGet(executionHeadKey).SetErr(errors.New("redis error"))
 
-	err := stepsManager.getPayload(ctx)
+	err := blockBuilder.getPayload(ctx)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to retrieve")
@@ -429,7 +429,7 @@ func TestStepsManager_getPayload_startBuildFails(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
+func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 
@@ -446,7 +446,7 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "010203")
 
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   time.Duration(1 * time.Second),
@@ -481,7 +481,7 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 
 	mockEngineClient.On("GetPayloadV3", mock.Anything, *payloadID).Return(&engine.ExecutionPayloadEnvelope{}, errors.New("Unknown payload"))
 
-	err := stepsManager.getPayload(ctx)
+	err := blockBuilder.getPayload(ctx)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get payload")
@@ -490,7 +490,7 @@ func TestStepsManager_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
+func TestBlockBuilder_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 
@@ -506,7 +506,7 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -537,7 +537,7 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 	}
 	executionPayloadData, _ := msgpack.Marshal(executionPayload)
 
-	err := stepsManager.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
+	err := blockBuilder.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid block height")
@@ -545,7 +545,7 @@ func TestStepsManager_finalizeBlock_InvalidBlockHeight(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
+func TestBlockBuilder_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 
@@ -561,7 +561,7 @@ func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -598,7 +598,7 @@ func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	}
 	mockEngineClient.On("NewPayloadV3", mock.Anything, executionPayload, []common.Hash{}, mock.Anything).Return(payloadStatus, nil)
 
-	err := stepsManager.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
+	err := blockBuilder.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to push new payload")
@@ -607,7 +607,7 @@ func TestStepsManager_finalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T) {
+func TestBlockBuilder_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 
@@ -623,7 +623,7 @@ func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -671,7 +671,7 @@ func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 	}
 	mockEngineClient.On("ForkchoiceUpdatedV3", ctx, fcs, (*engine.PayloadAttributes)(nil)).Return(forkChoiceResponse, nil)
 
-	err := stepsManager.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
+	err := blockBuilder.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to finalize fork choice update")
@@ -680,7 +680,7 @@ func TestStepsManager_finalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
-func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
+func TestBlockBuilder_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
 
@@ -696,7 +696,7 @@ func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 
 	stateManager := NewRedisStateManager("instanceID123", redisClient, nil, "000000")
 	mockEngineClient := new(MockEngineClient)
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     mockEngineClient,
 		buildDelay:   buildDelay,
@@ -748,7 +748,7 @@ func TestStepsManager_finalizeBlock_SaveExecutionHeadError(t *testing.T) {
 	executionHeadDataUpdated, _ := msgpack.Marshal(executionHeadUpdate)
 	redisMock.ExpectSet(executionHeadKey, executionHeadDataUpdated, time.Duration(0)).SetErr(errors.New("redis error"))
 
-	err := stepsManager.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
+	err := blockBuilder.finalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to save execution head")

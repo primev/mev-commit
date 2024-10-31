@@ -32,7 +32,7 @@ type MevCommitChain struct {
 
 	// Managers and components
 	stateManager          StateManager
-	stepsManager          *StepsManager
+	blockBuilder          *BlockBuilder
 	leaderElectionHandler *LeaderElectionHandler
 }
 
@@ -68,7 +68,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	stateManager := NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
 
-	stepsManager := &StepsManager{
+	blockBuilder := &BlockBuilder{
 		stateManager: stateManager,
 		engineCl:     engineCL,
 		logger:       logger,
@@ -82,13 +82,13 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		logger,
 		redisClient,
 		stateManager,
-		stepsManager,
+		blockBuilder,
 	)
 
 	app := &MevCommitChain{
 		InstanceID:            instanceID,
 		stateManager:          stateManager,
-		stepsManager:          stepsManager,
+		blockBuilder:          blockBuilder,
 		engineCl:              engineCL,
 		genesisBlockHash:      genesisBlockHash,
 		logger:                logger,
