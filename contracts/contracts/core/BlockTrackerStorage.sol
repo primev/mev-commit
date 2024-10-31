@@ -7,9 +7,6 @@ abstract contract BlockTrackerStorage {
     
     uint256 public currentWindow;
 
-    /// @dev not used anymore, still here bcs of upgradeability
-    uint256 public blocksPerWindow;
-
     // Mapping from block number to the winner's address
     mapping(uint256 => address) public blockWinners;
 

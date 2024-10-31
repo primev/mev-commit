@@ -13,10 +13,6 @@ abstract contract PreconfManagerStorage {
     /// @dev Address of the oracle contract
     address public oracleContract;
 
-    /// @dev The number of blocks per window
-    /// Not used anymore, still here bcs of upgradeability
-    uint256 public blocksPerWindow;
-
     /// @dev Address of provider registry
     IProviderRegistry public providerRegistry;
 
