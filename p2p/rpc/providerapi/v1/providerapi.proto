@@ -86,13 +86,13 @@ message StakeRequest {
       message: "amount must be a valid integer.",
       expression: "this.matches('^[0-9]+$') && uint(this) > 0"
   }];
-  string bls_public_key = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
-    description: "BLS public key of the provider."
+  repeated string bls_public_keys = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "BLS public keys of the provider."
     pattern: "^(0x)?[a-fA-F0-9]{96}$"
   }, (buf.validate.field).cel = {
       id: "bls_public_key",
       message: "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
-      expression: "this.matches('^(0x)?[a-fA-F0-9]{96}$')"
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{96}$'))"
   }];
 };
 
