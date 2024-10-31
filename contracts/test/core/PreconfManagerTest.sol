@@ -38,6 +38,7 @@ contract PreconfManagerTest is Test {
     BidderRegistry public bidderRegistry;
     bytes public validBLSPubkey =
         hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public withdrawalDelay;
     uint256 public protocolFeePayoutPeriodBlocks;
     address public oracleContract;
@@ -204,7 +205,7 @@ contract PreconfManagerTest is Test {
         // Optional: Ensure the committer has enough ETH if needed for the operation
         vm.deal(committer, 1 ether);
         vm.prank(committer);
-        providerRegistry.registerAndStake{value: 1 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 1 ether}(validBLSPubkeys);
 
         // Step 2: Store the commitment
         vm.prank(committer);
@@ -502,7 +503,7 @@ contract PreconfManagerTest is Test {
         );
         vm.deal(committer, 11 ether);
         vm.startPrank(committer);
-        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkeys);
 
         bytes32 commitmentIndex = preconfManager.storeUnopenedCommitment(
             commitmentDigest,
@@ -622,7 +623,7 @@ contract PreconfManagerTest is Test {
         );
         // Step 2: Store the commitment
         (address committer, ) = makeAddrAndKey("bob");
-        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkeys);
         bytes32 commitmentIndex = storeCommitment(
             committer,
             _testCommitmentAliceBob.bidAmt,
@@ -956,7 +957,7 @@ contract PreconfManagerTest is Test {
         // Ensure the committer has enough ETH for the required stake
         vm.deal(committer, 2 ether);
         vm.prank(committer);
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
 
         // Request a withdrawal to create a pending withdrawal request
         vm.prank(committer);
