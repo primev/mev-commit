@@ -50,11 +50,11 @@ Each Operator entity must be registered by the `MevCommitMiddleware` contract ow
 
 Without an implicit, on-chain way to verify the association between L1 validator pubkeys and Operators through Symbiotic, Operators are **trusted by the owner** to register only pubkeys for which they have control over.
 
-Any validator pubkey can only be mapped to a single Operator. So if an Operator registers a pubkey for which they do not own/manage (think “greifing”), the contract owner account reserves the right to *blacklist* Operators. The contract owner also reserves the right to *blacklist* Operators who register non-active or sybiled L1 validator pubkeys.
+Any validator pubkey can only be mapped to a single Operator. So if an Operator registers a pubkey for which they do not own/manage (think “griefing”), the contract owner account reserves the right to *blacklist* Operators. The contract owner also reserves the right to *blacklist* Operators who register non-active or sybiled L1 validator pubkeys.
 
 An on-chain dispute mechanism could eventually replace permissioned blacklisting, but is not worth targeting for v1.
 
-Blacklisting consists of the owner account marking a particular Operator as blacklisted, regardless of that Operator’s previous state within the contract. Once blacklisted, all validator pubkeys registered by the Operator are no longer considered *opted-in.* Further, the contract owner has the ability to delete validator records associated with blacklisted Operators, thus allowing non-malicious Operators to register previously greifed validator pubkeys.
+Blacklisting consists of the owner account marking a particular Operator as blacklisted, regardless of that Operator’s previous state within the contract. Once blacklisted, all validator pubkeys registered by the Operator are no longer considered *opted-in.* Further, the contract owner has the ability to delete validator records associated with blacklisted Operators, thus allowing non-malicious Operators to register previously griefed validator pubkeys.
 
 ### **What defines a validator being "opted-in"?**
 
@@ -78,7 +78,7 @@ Directly following a successful validator registration, all of these criteria wi
 
 ### Indexing within a valSet
 
-When an Operator registers validator pubkeys in a group, (recall a validator set, valSet, corresponds to a single Vault/Operator). The index of the pubkey within the valSet acts as a priority rating representing which validators should be collateralized by the Vault over others. A lower index corresponds to a higher priority. This priority index can be queried for a pubkey with respect to its valSet using `getPositionInValset`.
+When an Operator registers validator pubkeys in a group (recall a validator set, valSet, corresponds to a single Vault/Operator), the index of the pubkey within the valSet acts as a priority rating representing which validators should be collateralized by the Vault over others. A lower index corresponds to a higher priority. This priority index can be queried for a pubkey with respect to its valSet using `getPositionInValset`.
 
 Position within a valSet is **not guaranteed to be preserved**. That is, various actions can change the priority index of a validator within a valSet. Concretely the following events correspond to ordering changes:
 
@@ -104,9 +104,11 @@ For validators who proposed incorrectly as determined by the oracle, slashing mu
 
 `slashPeriodSeconds` also enforces a minimum amount of time that must elapse before validator records, operator records, or vault records can be deleted from the middleware contract’s state, as these records are essential to proper slashing.
 
+`slashPeriodSeconds` is initially configured by the middleware contract owner, and can be mutated by the owner at any time.
+
 ### Instant vs Veto slashers
 
-Further, Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. Vaults with veto slashers must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration` + `executeSlashPhaseDuration`, where `vetoDuration` is specified by the slasher. `executeSlashPhaseDuration` is a constant value of 60 minutes for the `MevCommitMiddleware` contract.
+Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. Vaults with veto slashers must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration` + `executeSlashPhaseDuration`, where `vetoDuration` is specified by the slasher. `executeSlashPhaseDuration` is a constant value of 60 minutes for the `MevCommitMiddleware` contract.
 
 Read more about Symbiotic slashing guarantees [here](https://docs.symbiotic.fi/core-modules/vaults#slashing).
 

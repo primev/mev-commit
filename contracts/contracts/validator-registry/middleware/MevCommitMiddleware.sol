@@ -192,10 +192,10 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             _checkVault(vault);
             uint256 potentialSlashableVals = _potentialSlashableVals(vault, operator);
             bytes[] calldata pubkeyArray = blsPubkeys[i];
-            uint256 keyLen = pubkeyArray.length;
+            uint256 numKeys = pubkeyArray.length;
             // This check exists for UX, in that the vault should have enough collateral staked prior to validator registration.
-            require(keyLen <= potentialSlashableVals, ValidatorsNotSlashable(vault, operator, keyLen, potentialSlashableVals));
-            for (uint256 j = 0; j < keyLen; ++j) {
+            require(numKeys <= potentialSlashableVals, ValidatorsNotSlashable(vault, operator, numKeys, potentialSlashableVals));
+            for (uint256 j = 0; j < numKeys; ++j) {
                 _addValRecord(pubkeyArray[j], vault, operator);
             }
         }
