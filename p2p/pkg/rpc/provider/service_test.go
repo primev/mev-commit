@@ -31,6 +31,13 @@ type testRegistryContract struct {
 	blsKey   []byte
 }
 
+func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error) {
+	if t.stake.Cmp(big.NewInt(0)) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error) {
 	t.stake = opts.Value
 	t.blsKey = blsPublicKey
@@ -43,9 +50,6 @@ func (t *testRegistryContract) Stake(opts *bind.TransactOpts) (*types.Transactio
 }
 
 func (t *testRegistryContract) GetProviderStake(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
-	if t.stake.Cmp(big.NewInt(0)) == 0 {
-		return big.NewInt(0), errors.New("no stake")
-	}
 	return big.NewInt(0).Add(t.stake, t.topup), nil
 }
 

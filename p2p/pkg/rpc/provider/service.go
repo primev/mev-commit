@@ -43,6 +43,7 @@ type Service struct {
 }
 
 type ProviderRegistryContract interface {
+	ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error)
 	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	Stake(opts *bind.TransactOpts) (*types.Transaction, error)
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
@@ -231,14 +232,17 @@ func (s *Service) Stake(
 		blsPubkeyBytes []byte
 	)
 
-	switch _, err = s.registryContract.GetProviderStake(&bind.CallOpts{Context: ctx, From: s.owner}, s.owner); {
-	case err != nil:
+	registered, err := s.registryContract.ProviderRegistered(&bind.CallOpts{Context: ctx, From: s.owner}, s.owner)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "checking registration: %v", err)
+	}
+	if !registered {
 		blsPubkeyBytes, err = hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKey, "0x"))
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
 		}
 		tx, err = s.registryContract.RegisterAndStake(opts, blsPubkeyBytes)
-	case err == nil:
+	} else {
 		tx, err = s.registryContract.Stake(opts)
 	}
 	if err != nil {
