@@ -193,8 +193,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             uint256 potentialSlashableVals = _potentialSlashableVals(vault, operator);
             bytes[] calldata pubkeyArray = blsPubkeys[i];
             uint256 keyLen = pubkeyArray.length;
-            require(keyLen <= potentialSlashableVals,
-                ValidatorsNotSlashable(vault, operator, keyLen, potentialSlashableVals));
+            // This check exists for UX, in that the vault should have enough collateral staked prior to validator registration.
+            require(keyLen <= potentialSlashableVals, ValidatorsNotSlashable(vault, operator, keyLen, potentialSlashableVals));
             for (uint256 j = 0; j < keyLen; ++j) {
                 _addValRecord(pubkeyArray[j], vault, operator);
             }
@@ -224,10 +224,10 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     /// @dev Slashes validators and marks them for deregistration.
     /// @param blsPubkeys The L1 validator BLS public keys to slash.
-    /// @param infractionTimestamps The block.timestamps for blocks during which each infraction occurred.
-    function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata infractionTimestamps) external onlySlashOracle {
+    /// @param captureTimestamps block.timestamps of the latest finalized block that the blsPubkey was queried as "opted-in" by the oracle.
+    function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata captureTimestamps) external onlySlashOracle {
         uint256 len = blsPubkeys.length;
-        require(len == infractionTimestamps.length, InvalidArrayLengths(len, infractionTimestamps.length));
+        require(len == captureTimestamps.length, InvalidArrayLengths(len, captureTimestamps.length));
 
         address[] memory swappedOperators = new address[](len);
         address[] memory swappedVaults = new address[](len);
@@ -235,33 +235,30 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubkey = blsPubkeys[i];
-            // These and other checks in _slashValidator will succeed if current tx executes within
-            // slashPeriodSeconds of validator being marked as "not opted-in",
-            // OR relevant validator/vault/operator has not fully deregistered yet.
+            // These and other checks in _slashValidator are guaranteed to succeed if current tx executes within
+            // slashPeriodSeconds of a validator's captureTimestamp (defined in README.md).
             ValidatorRecord storage valRecord = validatorRecords[pubkey];
             require(valRecord.exists, MissingValidatorRecord(pubkey));
-            // Store slash record if it doesn't already exist. To ensure desirable ordering, _getNumSlashableVals should 
-            // intentionally be computed once for the slash record, as collateral that is slashed later in this function
-            // affects the metric.
+
             SlashRecord storage slashRecord = slashRecords[valRecord.vault][valRecord.operator][block.number];
             if (!slashRecord.exists) {
-                uint256 numSlashableRegistered = _getNumSlashableRegisteredVals(valRecord.vault, valRecord.operator);
-                require(numSlashableRegistered != 0, ValidatorsNotSlashable(valRecord.vault, valRecord.operator, len, numSlashableRegistered));
+                uint256 numRegistered = _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].length();
+                require(numRegistered != 0, NoRegisteredValidators(valRecord.vault, valRecord.operator));
                 slashRecords[valRecord.vault][valRecord.operator][block.number] = SlashRecord({
                     exists: true,
                     numSlashed: 0,
-                    numInitSlashableRegistered: numSlashableRegistered
+                    numRegistered: numRegistered
                 });
             }
-            // Swap about to be slashed pubkey with last slashable pubkey in valset.
-            uint256 newPosition = slashRecord.numInitSlashableRegistered - slashRecord.numSlashed; // 1-indexed
+            // Swap about to be slashed pubkey with last pubkey in registered valset.
+            uint256 newPosition = slashRecord.numRegistered - slashRecord.numSlashed; // 1-indexed
             _vaultAndOperatorToValset[valRecord.vault][valRecord.operator].swapWithPosition(pubkey, newPosition);
             swappedVaults[i] = valRecord.vault;
             swappedOperators[i] = valRecord.operator;
             newPositions[i] = newPosition;
 
             ++slashRecord.numSlashed;
-            _slashValidator(blsPubkeys[i], infractionTimestamps[i], valRecord);
+            _slashValidator(blsPubkeys[i], captureTimestamps[i], valRecord);
         }
         emit ValidatorPositionsSwapped(blsPubkeys, swappedVaults, swappedOperators, newPositions);
     }
@@ -303,6 +300,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     /// @notice Queries if a validator is opted-in to mev-commit through a vault.
+    /// @dev The oracle must continuously call this function for upcoming proposers, in order to maintain 
+    /// the most recent (finalized) block timestamp that a validator was queried as "opted-in", see `captureTimestamp` in README.md.
     function isValidatorOptedIn(bytes calldata blsPubkey) external view returns (bool) {
         return _isValidatorOptedIn(blsPubkey);
     }
@@ -517,19 +516,17 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     /// @dev Slashes a validator and marks it for deregistration.
     /// @param blsPubkey The L1 validator BLS public key to slash.
-    /// @param infractionTimestamp The block.timestamp for the block during which the infraction occurred.
-    /// @dev Operator and vault are not deregistered for the validator's infraction,
-    /// so as to avoid opting-out large groups of validators at once.
-    function _slashValidator(bytes calldata blsPubkey, uint256 infractionTimestamp, ValidatorRecord storage valRecord) internal {
+    /// @param captureTimestamp block.timestamp of the most recent finalized L1 block that the blsPubkey was queried as "opted-in" by the oracle.
+    /// @dev This function is guaranteed to succeed if current tx executes within slashPeriodSeconds 
+    /// of the provided captureTimestamp, AND the captureTimestamp was correctly computed as defined in README.md.
+    /// @dev Operator and vault are not deregistered for the validator's infraction, so as to avoid opting-out large groups of validators at once.
+    function _slashValidator(bytes calldata blsPubkey, uint256 captureTimestamp, ValidatorRecord storage valRecord) internal {
         VaultRecord storage vaultRecord = vaultRecords[valRecord.vault];
         require(vaultRecord.exists, MissingVaultRecord(valRecord.vault));
         OperatorRecord storage operatorRecord = operatorRecords[valRecord.operator];
         require(operatorRecord.exists, MissingOperatorRecord(valRecord.operator));
 
-        require(infractionTimestamp != 0, InfractionTimestampMustBeNonZero());
-
-        require(_isValidatorSlashable(blsPubkey, valRecord.vault, valRecord.operator),
-            ValidatorNotSlashable(blsPubkey, valRecord.vault, valRecord.operator));
+        require(captureTimestamp != 0, CaptureTimestampMustBeNonZero());
 
         // Slash amount is enforced as non-zero in _registerVault.
         uint256 amount = vaultRecord.slashAmount;
@@ -538,11 +535,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == _VETO_SLASHER_TYPE) {
             uint256 slashIndex = IVetoSlasher(slasher).requestSlash(
-                _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
+                _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(captureTimestamp), new bytes(0));
             emit ValidatorSlashRequested(blsPubkey, valRecord.operator, valRecord.vault, slashIndex);
         } else if (slasherType == _INSTANT_SLASHER_TYPE) {
             uint256 slashedAmount = ISlasher(slasher).slash(
-                _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(infractionTimestamp), new bytes(0));
+                _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(captureTimestamp), new bytes(0));
             emit ValidatorSlashed(blsPubkey, valRecord.operator, valRecord.vault, slashedAmount);
         }
 
@@ -649,19 +646,12 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return Subnetwork.subnetwork(network, _SUBNETWORK_ID);
     }
 
-    /// @return Number of validators that could be slashable according to vault stake.
+    /// @return Number of validators that are slashable given stake in the vault at the current block.timestamp.
     function _getNumSlashableVals(address vault, address operator) internal view returns (uint256) {
         IBaseDelegator delegator = IBaseDelegator(IVault(vault).delegator());
-        uint256 allocatedStake = delegator.stake(_getSubnetwork(), operator);
+        uint256 allocatedStake = delegator.stake(_getSubnetwork(), operator); // Uses current block.timestamp, contrary to stakeAt().
         uint256 slashAmount = vaultRecords[vault].slashAmount;
         return allocatedStake / slashAmount;
-    }
-
-    /// @return Number of validators that are both slashable and registered.
-    function _getNumSlashableRegisteredVals(address vault, address operator) internal view returns (uint256) {
-        uint256 slashableVals = _getNumSlashableVals(vault, operator);
-        uint256 numRegistered = _vaultAndOperatorToValset[vault][operator].length();
-        return slashableVals < numRegistered ? slashableVals : numRegistered;
     }
 
     function _isValidatorSlashable(bytes calldata blsPubkey, address vault, address operator) internal view returns (bool) {
@@ -671,7 +661,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         return position <= slashableVals; // position is 1-indexed
     }
 
-    /// @return Number of potential new validators that could be registered and be slashable.
+    /// @return Number of validators that could be slashable, given the current stake in the vault.
     function _potentialSlashableVals(address vault, address operator) internal view returns (uint256) {
         uint256 slashableVals = _getNumSlashableVals(vault, operator);
         uint256 numRegistered = _vaultAndOperatorToValset[vault][operator].length();
