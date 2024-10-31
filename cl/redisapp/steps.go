@@ -184,10 +184,11 @@ func isUnknownPayload(err error) bool {
 
 func (s *StepsManager) processLastPayload(ctx context.Context) error {
 	bbState := s.stateManager.GetBlockBuildState(ctx)
-	// If execPayload is not empty, the app likely exited after step 1
 	if bbState.ExecutionPayload == "" {
 		return nil
 	}
+
+	// If execPayload is not empty, the app likely exited after step 1
 	s.logger.Debug("exec payload not nil, processing last payload")
 
 	err := retryWithInfiniteBackoff(ctx, s.logger, func() error {

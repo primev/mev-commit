@@ -35,7 +35,6 @@ type LeaderElectionHandler struct {
 }
 
 func NewLeaderElectionHandler(
-	ctx context.Context,
 	instanceID string,
 	logger *slog.Logger,
 	procLeader leader.Leader,
@@ -47,8 +46,7 @@ func NewLeaderElectionHandler(
 	stateManager StateManager,
 	stepsManager *StepsManager,
 ) *LeaderElectionHandler {
-	// Create a child context specific for leader election
-	leaderCtx, cancel := context.WithCancel(ctx)
+	leaderCtx, cancel := context.WithCancel(context.Background())
 
 	return &LeaderElectionHandler{
 		ctx:            leaderCtx,

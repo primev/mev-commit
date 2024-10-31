@@ -29,8 +29,6 @@ type MevCommitChain struct {
 	genesisBlockHash string
 	logger           *slog.Logger
 
-	// Context and WaitGroup
-	ctx    context.Context
 	cancel context.CancelFunc
 
 	// Managers and components
@@ -84,7 +82,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 	stateManager := NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
 
 	stepsManager := &StepsManager{
-		ctx:          ctx,
 		stateManager: stateManager,
 		engineCl:     engineCL,
 		logger:       logger,
@@ -109,7 +106,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	// Initialize LeaderElectionHandler
 	leaderElectionHandler := NewLeaderElectionHandler(
-		ctx,
 		instanceID,
 		logger,
 		procLeader,
@@ -129,7 +125,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		engineCl:              engineCL,
 		genesisBlockHash:      genesisBlockHash,
 		logger:                logger,
-		ctx:                   ctx,
 		cancel:                cancel,
 		leader:                leader,
 		follower:              follower,
