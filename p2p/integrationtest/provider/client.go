@@ -112,8 +112,8 @@ func (b *ProviderClient) CheckAndStake() error {
 	}
 
 	_, err = b.client.RegisterStake(context.Background(), &providerapiv1.StakeRequest{
-		Amount:       "10000000000000000000",
-		BlsPublicKey: "abf1ad5ec0512cb1adabe457882fa550b4935f1f7df9658e46af882049ec16da698c323af8c98c3f1f9570ebc4042a83",
+		Amount:        "10000000000000000000",
+		BlsPublicKeys: []string{"abf1ad5ec0512cb1adabe457882fa550b4935f1f7df9658e46af882049ec16da698c323af8c98c3f1f9570ebc4042a83"},
 	})
 	if err != nil {
 		b.logger.Error("failed to register stake", "err", err)

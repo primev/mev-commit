@@ -43,13 +43,9 @@ type Service struct {
 }
 
 type ProviderRegistryContract interface {
-<<<<<<< HEAD
 	ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error)
-	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	Stake(opts *bind.TransactOpts) (*types.Transaction, error)
-=======
 	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error)
->>>>>>> 42dba60 (feat: updates p2p to process keys as an array)
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	GetBLSKeys(*bind.CallOpts, common.Address) ([][]byte, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
@@ -245,8 +241,18 @@ func (s *Service) Stake(
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
 		}
-		tx, err := s.registryContract.RegisterAndStake(opts, [][]byte{blsPubkeyBytes})
-		} else {
+		blsPubkeyBytesArray := make([][]byte, len(stake.BlsPublicKeys))
+		for i, key := range stake.BlsPublicKeys {
+			stake.BlsPublicKeys[i] = strings.TrimPrefix(key, "0x")
+			blsPubkeyBytes, err := hex.DecodeString(stake.BlsPublicKeys[i])
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
+			}
+			blsPubkeyBytesArray[i] = blsPubkeyBytes
+		}
+
+		tx, err := s.registryContract.RegisterAndStake(opts, blsPubkeyBytesArray)
+	} else {
 		tx, txErr = s.registryContract.Stake(opts)
 	}
 	if txErr != nil {
@@ -267,7 +273,7 @@ func (s *Service) Stake(
 			s.logger.Info("stake registered", "amount", registration.StakedAmount)
 			return &providerapiv1.StakeResponse{
 				Amount:        registration.StakedAmount.String(),
-				BlsPublicKeys: []string{stake.BlsPublicKey},
+				BlsPublicKeys: stake.BlsPublicKeys,
 			}, nil
 		}
 		if deposit, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
