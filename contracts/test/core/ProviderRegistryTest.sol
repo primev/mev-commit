@@ -21,8 +21,9 @@ contract ProviderRegistryTest is Test {
     BlockTracker public blockTracker;
     uint256 public withdrawalDelay;
     bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public penaltyFeePayoutPeriodBlocks;
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
+    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes[] blsPublicKey);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
@@ -108,15 +109,16 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert(bytes(""));
-        providerRegistry.registerAndStake{value: 1 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 1 wei}(validBLSPubkeys);
     }
 
     function testFail_ProviderStakeAndRegisterInvalidBLSKey() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert("Invalid BLS public key length");
-        bytes memory blsPublicKey = abi.encodePacked(uint256(134));
-        providerRegistry.registerAndStake{value: 1 wei}(blsPublicKey);
+        bytes[] memory invalidBLSPubkeys = new bytes[](1); // Create a dynamic array
+        invalidBLSPubkeys[0] = abi.encodePacked(uint256(134));
+        providerRegistry.registerAndStake{value: 1 wei}(invalidBLSPubkeys);
     }
 
     function test_ProviderStakeAndRegister() public {
@@ -124,9 +126,9 @@ contract ProviderRegistryTest is Test {
         vm.prank(provider);
         vm.expectEmit(true, false, false, true);
 
-        emit ProviderRegistered(provider, 1e18 wei, validBLSPubkey);
+        emit ProviderRegistered(provider, 1e18 wei, validBLSPubkeys);
 
-        providerRegistry.registerAndStake{value: 1e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 1e18 wei}(validBLSPubkeys);
 
         bool isProviderRegistered = providerRegistry.providerRegistered(
             provider
@@ -140,9 +142,9 @@ contract ProviderRegistryTest is Test {
     function testFail_ProviderStakeAndRegisterAlreadyRegistered() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         vm.expectRevert(bytes(""));
-        providerRegistry.registerAndStake{value: 1 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 1 wei}(validBLSPubkeys);
     }
 
     function testFail_Receive() public {
@@ -224,7 +226,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setPreconfManager(address(this));
         vm.deal(provider, 3 ether);
         vm.prank(provider);
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
 
         vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
@@ -242,7 +244,7 @@ contract ProviderRegistryTest is Test {
 
         vm.deal(provider, 3 ether);
         vm.prank(provider);
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
 
         vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
@@ -255,7 +257,7 @@ contract ProviderRegistryTest is Test {
     function testFail_ShouldRetrieveFundsNotPreConf() public {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
         vm.expectRevert(bytes(""));
         providerRegistry.slash(1 ether, provider, payable(bidder),100);
@@ -266,7 +268,7 @@ contract ProviderRegistryTest is Test {
 
         vm.deal(provider, 3 ether);
         vm.prank(provider);
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
         vm.prank(address(this));
 
@@ -284,7 +286,7 @@ contract ProviderRegistryTest is Test {
 
         vm.deal(provider, 3 ether);
         vm.prank(provider);
-        providerRegistry.registerAndStake{value: 3 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 3 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
         vm.prank(address(this));
 
@@ -302,7 +304,7 @@ contract ProviderRegistryTest is Test {
 
         vm.deal(provider, 3.1 ether);
         vm.prank(provider);
-        providerRegistry.registerAndStake{value: 3.1 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 3.1 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
         vm.prank(address(this));
 
@@ -320,7 +322,7 @@ contract ProviderRegistryTest is Test {
 
         address bidder = vm.addr(4);
 
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         providerRegistry.setPreconfManager(address(this));
         providerRegistry.slash(1e18 wei, provider, payable(bidder), 50);
         assertEq(
@@ -332,7 +334,7 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(11);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
 
         vm.roll(350); // roll past protocol fee payout period
 
@@ -358,7 +360,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         providerRegistry.setPreconfManager(
             address(preconfManager)
         );
@@ -385,7 +387,7 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         vm.expectRevert(bytes(""));
         address wrongNewProvider = vm.addr(12);
         vm.prank(wrongNewProvider);
@@ -396,7 +398,27 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(5);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
+        assertEq(
+            providerRegistry.providerStakes(newProvider),
+            2e18 wei,
+            "Staked amount should match"
+        );
+        assertEq(
+            providerRegistry.providerRegistered(newProvider),
+            true,
+            "Provider should be registered"
+        );
+    }
+
+    function test_DelegateRegisterAndStake() public {
+        address otherAccount = vm.addr(8);
+        vm.deal(otherAccount, 3 ether);
+
+        address newProvider = vm.addr(7);
+
+        vm.prank(otherAccount);
+        providerRegistry.delegateRegisterAndStake{value: 2e18 wei}(newProvider, validBLSPubkeys);
         assertEq(
             providerRegistry.providerStakes(newProvider),
             2e18 wei,
@@ -413,7 +435,7 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         providerRegistry.unstake();
         vm.warp(block.timestamp + 24 hours); // Move forward in time
         vm.expectRevert("Provider Commitments still pending");
@@ -424,7 +446,7 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         vm.prank(newProvider);
         providerRegistry.unstake();
         assertEq(
@@ -439,7 +461,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(9);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         providerRegistry.setPreconfManager(
             address(preconfManager)
         );
@@ -466,7 +488,7 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         vm.prank(newProvider);
         providerRegistry.unstake();
         vm.warp(block.timestamp + 23 hours); // Move forward less than 24 hours
@@ -486,7 +508,7 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
-        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
         vm.prank(newProvider);
         vm.expectRevert(
             abi.encodeWithSelector(IProviderRegistry.NoUnstakeRequest.selector, newProvider)
