@@ -43,11 +43,15 @@ type Service struct {
 }
 
 type ProviderRegistryContract interface {
+<<<<<<< HEAD
 	ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error)
 	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	Stake(opts *bind.TransactOpts) (*types.Transaction, error)
+=======
+	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error)
+>>>>>>> 42dba60 (feat: updates p2p to process keys as an array)
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
-	GetBLSKey(*bind.CallOpts, common.Address) ([]byte, error)
+	GetBLSKeys(*bind.CallOpts, common.Address) ([][]byte, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
 	ParseFundsDeposited(types.Log) (*providerregistry.ProviderregistryFundsDeposited, error)
@@ -241,8 +245,8 @@ func (s *Service) Stake(
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
 		}
-		tx, txErr = s.registryContract.RegisterAndStake(opts, blsPubkeyBytes)
-	} else {
+		tx, err := s.registryContract.RegisterAndStake(opts, [][]byte{blsPubkeyBytes})
+		} else {
 		tx, txErr = s.registryContract.Stake(opts)
 	}
 	if txErr != nil {
@@ -262,8 +266,8 @@ func (s *Service) Stake(
 		if registration, err := s.registryContract.ParseProviderRegistered(*log); err == nil {
 			s.logger.Info("stake registered", "amount", registration.StakedAmount)
 			return &providerapiv1.StakeResponse{
-				Amount:       registration.StakedAmount.String(),
-				BlsPublicKey: stake.BlsPublicKey,
+				Amount:        registration.StakedAmount.String(),
+				BlsPublicKeys: []string{stake.BlsPublicKey},
 			}, nil
 		}
 		if deposit, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
@@ -288,7 +292,7 @@ func (s *Service) GetStake(
 		return nil, status.Errorf(codes.Internal, "getting stake: %v", err)
 	}
 
-	blsPubkey, err := s.registryContract.GetBLSKey(&bind.CallOpts{
+	blsPubkey, err := s.registryContract.GetBLSKeys(&bind.CallOpts{
 		Context: ctx,
 		From:    s.owner,
 	}, s.owner)
@@ -296,7 +300,11 @@ func (s *Service) GetStake(
 		return nil, status.Errorf(codes.Internal, "getting bls public key: %v", err)
 	}
 
-	return &providerapiv1.StakeResponse{Amount: stakeAmount.String(), BlsPublicKey: hex.EncodeToString(blsPubkey)}, nil
+	encodedKeys := make([]string, len(blsPubkey))
+	for i, key := range blsPubkey {
+		encodedKeys[i] = hex.EncodeToString(key)
+	}
+	return &providerapiv1.StakeResponse{Amount: stakeAmount.String(), BlsPublicKeys: encodedKeys}, nil
 }
 
 func (s *Service) GetMinStake(

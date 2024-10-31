@@ -105,8 +105,8 @@
       },
       {
         "name": "blsPublicKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -127,12 +127,17 @@
   },
   {
     "type": "function",
-    "name": "eoaToBlsPubkey",
+    "name": "eoaToBlsPubkeys",
     "inputs": [
       {
         "name": "",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -172,7 +177,7 @@
   },
   {
     "type": "function",
-    "name": "getBLSKey",
+    "name": "getBLSKeys",
     "inputs": [
       {
         "name": "provider",
@@ -183,8 +188,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "bytes",
-        "internalType": "bytes"
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "stateMutability": "view"
@@ -442,8 +447,8 @@
     "inputs": [
       {
         "name": "blsPublicKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -914,9 +919,9 @@
       },
       {
         "name": "blsPublicKey",
-        "type": "bytes",
+        "type": "bytes[]",
         "indexed": false,
-        "internalType": "bytes"
+        "internalType": "bytes[]"
       }
     ],
     "anonymous": false
@@ -1030,6 +1035,7 @@
   },
   {
     "type": "error",
+<<<<<<< HEAD
     "name": "BidderAmountIsZero",
     "inputs": [
       {
@@ -1054,6 +1060,10 @@
         "internalType": "uint256"
       }
     ]
+=======
+    "name": "AtLeastOneBLSKeyRequired",
+    "inputs": []
+>>>>>>> 42dba60 (feat: updates p2p to process keys as an array)
   },
   {
     "type": "error",
