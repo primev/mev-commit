@@ -43,6 +43,9 @@ func (t *testRegistryContract) Stake(opts *bind.TransactOpts) (*types.Transactio
 }
 
 func (t *testRegistryContract) GetProviderStake(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
+	if t.stake.Cmp(big.NewInt(0)) == 0 {
+		return big.NewInt(0), errors.New("no stake")
+	}
 	return big.NewInt(0).Add(t.stake, t.topup), nil
 }
 
@@ -218,8 +221,9 @@ func TestStakeHandling(t *testing.T) {
 				err:          "",
 			},
 			{
-				amount: "1000000000000000000",
-				err:    "",
+				amount:       "1000000000000000000",
+				blsPublicKey: "0x" + validBLSKey,
+				err:          "",
 			},
 		} {
 			stake, err := client.Stake(context.Background(),
@@ -247,8 +251,8 @@ func TestStakeHandling(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error getting stake: %v", err)
 		}
-		if stake.Amount != "1000000000000000000" {
-			t.Fatalf("expected amount to be 1000000000000000000, got %v", stake.Amount)
+		if stake.Amount != "2000000000000000000" {
+			t.Fatalf("expected amount to be 2000000000000000000, got %v", stake.Amount)
 		}
 		if stake.BlsPublicKey != validBLSKey {
 			t.Fatalf("expected bls public key to be %s, got %v", validBLSKey, stake.BlsPublicKey)

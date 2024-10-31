@@ -92,7 +92,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 		}
 
 		// Register a provider
-		resp, err := providerAPI.RegisterStake(ctx, &providerapiv1.StakeRequest{
+		resp, err := providerAPI.Stake(ctx, &providerapiv1.StakeRequest{
 			Amount:       stakeAmount.String(),
 			BlsPublicKey: hex.EncodeToString(blsPubkeyBytes),
 		})
@@ -119,6 +119,113 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 	}
 
 	logger.Info("all providers registered stakes")
+
+	if err := eg.Wait(); err != nil {
+		logger.Error("failed to wait for provider registrations", "error", err)
+		return err
+	}
+
+	logger.Info("test passed")
+
+	return nil
+}
+
+func RunAddDeposit(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
+	// Get all providers
+	providers := cluster.Providers()
+	logger := cluster.Logger().With("test", "staking_add_deposit")
+
+	deposits := make(chan *providerregistry.ProviderregistryFundsDeposited)
+	sub, err := cluster.Events().Subscribe(
+		events.NewEventHandler(
+			"FundsDeposited",
+			func(p *providerregistry.ProviderregistryFundsDeposited) {
+				deposits <- p
+			},
+		),
+	)
+	if err != nil {
+		logger.Error("failed to subscribe to provider registered events", "error", err)
+		return fmt.Errorf("failed to subscribe to provider registered events: %w", err)
+	}
+
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		defer sub.Unsubscribe()
+
+		count := 0
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case err := <-sub.Err():
+				logger.Error("provider registered subscription failed", "error", err)
+				return err
+			case deposit := <-deposits:
+				logger.Info("provider deposited", "provider", deposit.Provider)
+				if !slices.ContainsFunc(providers, func(p orchestrator.Provider) bool {
+					return p.EthAddress() == deposit.Provider.String()
+				}) {
+					logger.Error("provider not found", "provider", deposit.Provider)
+					return fmt.Errorf("provider not found: %s", deposit.Provider)
+				}
+				count++
+			}
+			if count == len(providers) {
+				break
+			}
+		}
+		logger.Info("all providers registered events received")
+		return nil
+	})
+
+	for _, p := range providers {
+		// Get the provider API
+		providerAPI := p.ProviderAPI()
+
+		l := logger.With("provider", p.EthAddress())
+
+		getStakeResp, err := providerAPI.GetStake(ctx, &providerapiv1.EmptyMessage{})
+		if err != nil {
+			l.Error("failed to get stake", "error", err)
+			return fmt.Errorf("failed to get stake: %w", err)
+		}
+
+		amount, set := big.NewInt(0).SetString(getStakeResp.Amount, 10)
+		if !set {
+			l.Error("failed to parse stake", "amount", getStakeResp.Amount)
+			return fmt.Errorf("failed to parse stake: %s", getStakeResp.Amount)
+		}
+
+		// Register a provider
+		resp, err := providerAPI.Stake(ctx, &providerapiv1.StakeRequest{
+			Amount:       amount.String(),
+			BlsPublicKey: getStakeResp.BlsPublicKey,
+		})
+		if err != nil {
+			l.Error("failed to register stake", "error", err)
+			return fmt.Errorf("failed to register stake: %w", err)
+		}
+
+		if resp.Amount != amount.String() {
+			l.Error("invalid stake amount returned", "returned", resp.Amount, "expected", amount.String())
+			return fmt.Errorf("invalid stake amount returned: %s", resp.Amount)
+		}
+
+		getStakeResp, err = providerAPI.GetStake(ctx, &providerapiv1.EmptyMessage{})
+		if err != nil {
+			l.Error("failed to get stake", "error", err)
+			return fmt.Errorf("failed to get stake: %w", err)
+		}
+
+		expStake := big.NewInt(0).Mul(amount, big.NewInt(2))
+		if getStakeResp.Amount != expStake.String() {
+			l.Error("invalid stake amount returned on get", "returned", getStakeResp.Amount, "expected", expStake.String())
+			return fmt.Errorf("invalid stake amount returned: %s", getStakeResp.Amount)
+		}
+	}
+
+	logger.Info("all providers deposited stakes")
 
 	if err := eg.Wait(); err != nil {
 		logger.Error("failed to wait for provider registrations", "error", err)

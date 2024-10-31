@@ -226,11 +226,14 @@ func (s *Service) Stake(
 	}
 	opts.Value = amount
 
-	var tx *types.Transaction
+	var (
+		tx             *types.Transaction
+		blsPubkeyBytes []byte
+	)
 
 	switch _, err = s.registryContract.GetProviderStake(&bind.CallOpts{Context: ctx, From: s.owner}, s.owner); {
 	case err != nil:
-		blsPubkeyBytes, err := hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKey, "0x"))
+		blsPubkeyBytes, err = hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKey, "0x"))
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
 		}
