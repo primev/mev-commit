@@ -104,15 +104,24 @@ No action is required from the oracle during the veto phase, and following the v
 
 ### Configuration of slashPeriodSeconds
 
-`slashPeriodSeconds` must be configured such that mev-commit actors can query the proposer set for the current L1 epoch, query each proposer's opt-in status from the latest finalized L1 block (two L1 epochs ago), act upon said opt-in status during the current epoch, and allow a buffer for the oracle to possibly slash opted-in validators who act incorrectly.
+`slashPeriodSeconds` must be set such that a mev-commit bidder knows all _currently opted-in_ block proposers from the current epoch, and next epoch, must deliver commitments, or are guaranteed slashable.
+
+Note _currently opted-in_ in this context, means the validator is opted-in with respect to the latest finalized L1 block state, in the worst case this is two L1 epochs ago.
+
+Consider the following scenario to exemplify how `slashPeriodSeconds` must be set:
+
+* Current block is start of epoch n.
+* Bidder queries finalized opted-in status (from epoch n-2) for 64 upcoming validators who will propose in epoch n and n+1.
+* Final proposer in epoch n+1 proposes an invalid block.
+* Oracle observes the finalized validator infraction at the end of epoch n+3. 
+* Oracle takes some amount of time to get its slash transaction included.
+* The slash is initiated on-chain (either `slash` or `requestSlash` depending on slasher type).
 
 Concretely, for validators to be slashable by the oracle, `slashPeriodSeconds` must be greater than:
 
-`l1FinalizationPeriod` + `l1EpochPeriod` + `oracleProcessingPeriod`
+`6 L1 epochs` + `oracleProcessingPeriod`
 
-or 
-
-`3 * l1EpochPeriod` + `oracleProcessingPeriod`.
+A recommended value to assume for `oracleProcessingPeriod` is 60 minutes, although depending on vault constraints, assuming a longer period could make the chances of oracle transaction inclusion more likely.
 
 ### Rewards
 
