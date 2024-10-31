@@ -32,7 +32,7 @@ type testRegistryContract struct {
 }
 
 func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error) {
-	if t.stake.Cmp(big.NewInt(0)) == 0 {
+	if t.stake.Sign() == 0 {
 		return false, nil
 	}
 	return true, nil
