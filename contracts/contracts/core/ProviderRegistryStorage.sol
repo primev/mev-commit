@@ -29,7 +29,7 @@ abstract contract ProviderRegistryStorage {
     mapping(address => bool) public providerRegistered;
 
     /// @dev Mapping from a provider's EOA address to their BLS public key
-    mapping(address => bytes) public eoaToBlsPubkey;
+    mapping(address => bytes[]) public eoaToBlsPubkeys;
 
     /// @dev Mapping from provider addresses to their staked amount
     mapping(address => uint256) public providerStakes;
@@ -42,7 +42,7 @@ abstract contract ProviderRegistryStorage {
     
     /// @dev Maps BLS public keys to their corresponding block builder addresses
     mapping(bytes => address) public blockBuilderBLSKeyToAddress;
-    
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[47] private __gap;
 }

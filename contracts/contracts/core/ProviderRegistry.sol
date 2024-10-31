@@ -255,9 +255,9 @@ contract ProviderRegistry is
         return providerStakes[provider];
     }
 
-    /// @dev Returns the BLS public key corresponding to a provider's staked EOA address.
-    function getBLSKey(address provider) external view returns (bytes memory) {
-        return eoaToBlsPubkey[provider];
+    /// @dev Returns the BLS public keys corresponding to a provider's staked EOA address.
+    function getBLSKeys(address provider) external view returns (bytes[] memory) {
+        return eoaToBlsPubkeys[provider];
     }
 
     /// @dev Returns the EOA address corresponding to a provider's BLS public key.
@@ -276,16 +276,16 @@ contract ProviderRegistry is
      * @param blsPublicKey The BLS public key of the provider.
      * The validity of this key must be verified manually off-chain.
      */
-    function registerAndStake(bytes calldata blsPublicKey) public payable whenNotPaused {
+    function registerAndStake(bytes[] calldata blsPublicKey) public payable whenNotPaused {
         _registerAndStake(msg.sender, blsPublicKey);
     }
 
     /**
-    * @dev Register and stake on behalf of a provider.
-    * @param provider Address of the provider.
-    * @param blsPublicKey BLS public key of the provider.
-    */
-    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable whenNotPaused onlyOwner {
+     * @dev Register and stake on behalf of a provider.
+     * @param provider Address of the provider.
+     * @param blsPublicKey BLS public key of the provider.
+     */
+    function delegateRegisterAndStake(address provider, bytes[] calldata blsPublicKey) public payable whenNotPaused onlyOwner {
         _registerAndStake(provider, blsPublicKey);
     }
 
@@ -302,17 +302,21 @@ contract ProviderRegistry is
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
     }
-
-    function _registerAndStake(address provider, bytes calldata blsPublicKey) internal {
+    function _registerAndStake(address provider, bytes[] calldata blsPublicKeys) internal {
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
-        require(blsPublicKey.length == 48, InvalidBLSPublicKeyLength(blsPublicKey.length, 48));
+        require(blsPublicKeys.length > 0, AtLeastOneBLSKeyRequired());
+        for (uint256 i = 0; i < blsPublicKeys.length; i++) {
+            require(blsPublicKeys[i].length == 48, InvalidBLSPublicKeyLength(blsPublicKeys[i].length, 48));
+        }
         
-        eoaToBlsPubkey[provider] = blsPublicKey;
-        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
+        eoaToBlsPubkeys[provider] = blsPublicKeys;
+        for (uint256 i = 0; i < blsPublicKeys.length; i++) {
+            blockBuilderBLSKeyToAddress[blsPublicKeys[i]] = provider;
+        }
         providerStakes[provider] = msg.value;
         providerRegistered[provider] = true;
-        emit ProviderRegistered(provider, msg.value, blsPublicKey);
+        emit ProviderRegistered(provider, msg.value, blsPublicKeys);
     }
 
     // solhint-disable-next-line no-empty-blocks
