@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
@@ -17,7 +16,7 @@ type Leader struct {
 	stepsManager   *StepsManager
 	cancel         context.CancelFunc
 	leaderElection leader.Leader
-	wg             *sync.WaitGroup
+	done           chan struct{}
 	logger         *slog.Logger
 }
 
@@ -25,10 +24,9 @@ func (l *Leader) startLeaderLoop() {
 	l.logger.Info("Starting leader loop")
 	leaderCtx, leaderCancel := context.WithCancel(context.Background())
 	l.cancel = leaderCancel
-
-	l.wg.Add(1)
+	l.done = make(chan struct{})
 	go func() {
-		defer l.wg.Done()
+		defer close(l.done)
 		l.leaderLoop(leaderCtx)
 	}()
 }
@@ -36,6 +34,7 @@ func (l *Leader) startLeaderLoop() {
 func (l *Leader) stopLeaderLoop() {
 	if l.cancel != nil {
 		l.cancel()
+		<-l.done
 		l.cancel = nil
 		l.logger.Info("Leader loop stopped")
 	}

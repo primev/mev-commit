@@ -49,7 +49,8 @@ func retryWithBackoff(ctx context.Context, maxAttempts uint64, log *slog.Logger,
 		if errors.Is(err, context.Canceled) {
 			return err // Context canceled
 		}
-		return fmt.Errorf("operation failed after %d attempts: %w", maxAttempts, err)
+		log.Error("Operation failed after max attempts", "error", err)
+		return ErrFailedAfterNAttempts
 	}
 	return nil
 }

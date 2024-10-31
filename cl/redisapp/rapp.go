@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -33,7 +32,6 @@ type MevCommitChain struct {
 	// Context and WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
-	wg     *sync.WaitGroup
 
 	// Managers and components
 	stateManager          StateManager
@@ -85,8 +83,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	stateManager := NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
 
-	var wg sync.WaitGroup
-
 	stepsManager := &StepsManager{
 		ctx:          ctx,
 		stateManager: stateManager,
@@ -98,16 +94,13 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	follower := &Follower{
 		InstanceID:   instanceID,
-		wg:           &wg,
 		stateManager: stateManager,
 		stepsManager: stepsManager,
 		logger:       logger,
-		ctx:          ctx,
 	}
 
 	leader := &Leader{
 		InstanceID:     instanceID,
-		wg:             &wg,
 		stateManager:   stateManager,
 		stepsManager:   stepsManager,
 		leaderElection: procLeader,
@@ -118,7 +111,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 	leaderElectionHandler := NewLeaderElectionHandler(
 		ctx,
 		instanceID,
-		&wg,
 		logger,
 		procLeader,
 		promotedCh,
@@ -141,7 +133,6 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		cancel:                cancel,
 		leader:                leader,
 		follower:              follower,
-		wg:                    &wg,
 		leaderElectionHandler: leaderElectionHandler,
 	}
 
@@ -166,7 +157,6 @@ func (app *MevCommitChain) Stop() {
 	app.leaderElectionHandler.Stop()
 	// Wait for all goroutines to finish
 	app.logger.Info("Waiting for goroutines to finish")
-	app.wg.Wait()
 	app.stateManager.Stop()
 	app.logger.Info("MevCommitChain stopped gracefully")
 }

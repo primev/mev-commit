@@ -13,9 +13,8 @@ type Follower struct {
 	stateManager StateManager
 	stepsManager *StepsManager
 	logger       *slog.Logger
-	ctx          context.Context
 	cancel       context.CancelFunc
-	wg           *sync.WaitGroup
+	done         chan struct{}
 
 	fMutex          sync.Mutex
 	isSynced        bool
@@ -24,12 +23,12 @@ type Follower struct {
 
 func (f *Follower) startFollowerLoop() {
 	f.logger.Info("Starting follower loop")
-	followerCtx, followerCancel := context.WithCancel(f.ctx)
+	followerCtx, followerCancel := context.WithCancel(context.Background())
 	f.cancel = followerCancel
+	f.done = make(chan struct{})
 
-	f.wg.Add(1)
 	go func() {
-		defer f.wg.Done()
+		defer close(f.done)
 		f.followerLoop(followerCtx)
 	}()
 }
@@ -37,6 +36,7 @@ func (f *Follower) startFollowerLoop() {
 func (f *Follower) stopFollowerLoop() {
 	if f.cancel != nil {
 		f.cancel()
+		<-f.done
 		f.cancel = nil
 		f.logger.Info("Follower loop stopped")
 	}

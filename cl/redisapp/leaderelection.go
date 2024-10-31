@@ -23,7 +23,7 @@ type LeaderElectionHandler struct {
 	// Context and WaitGroup for goroutines
 	ctx    context.Context
 	cancel context.CancelFunc
-	wg     *sync.WaitGroup
+	done   chan struct{}
 
 	// Dependencies
 	logger       *slog.Logger
@@ -37,7 +37,6 @@ type LeaderElectionHandler struct {
 func NewLeaderElectionHandler(
 	ctx context.Context,
 	instanceID string,
-	wg *sync.WaitGroup,
 	logger *slog.Logger,
 	procLeader leader.Leader,
 	promotedCh <-chan time.Time,
@@ -54,7 +53,6 @@ func NewLeaderElectionHandler(
 	return &LeaderElectionHandler{
 		ctx:            leaderCtx,
 		cancel:         cancel,
-		wg:             wg,
 		logger:         logger,
 		instanceID:     instanceID,
 		leaderElection: procLeader,
@@ -72,9 +70,9 @@ func (leh *LeaderElectionHandler) handleLeadershipEvents() {
 	leh.logger.Info("Starting leader election event handler")
 	leh.leaderElection.Start()
 
-	leh.wg.Add(1)
+	leh.done = make(chan struct{})
 	go func() {
-		defer leh.wg.Done()
+		defer close(leh.done)
 		if err := leh.initializeFollower(); err != nil {
 			return
 		}
@@ -203,5 +201,6 @@ func (leh *LeaderElectionHandler) Stop() {
 	if err != nil {
 		leh.logger.Error("Error stopping leader election", "error", err)
 	}
+	<-leh.done
 	leh.logger.Info("Leader election handler stopped")
 }
