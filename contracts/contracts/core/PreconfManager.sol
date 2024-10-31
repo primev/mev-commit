@@ -402,9 +402,11 @@ contract PreconfManager is
     /**
      * @dev Initiate a slash for a commitment.
      * @param commitmentIndex The hash of the commitment to be slashed.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function initiateSlash(
-        bytes32 commitmentIndex
+        bytes32 commitmentIndex,
+        uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract whenNotPaused {
         OpenedCommitment storage commitment = openedCommitments[
             commitmentIndex
@@ -424,7 +426,8 @@ contract PreconfManager is
         providerRegistry.slash(
             commitment.bidAmt,
             commitment.committer,
-            payable(commitment.bidder)
+            payable(commitment.bidder),
+            residualBidPercentAfterDecay
         );
 
         bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentDigest);

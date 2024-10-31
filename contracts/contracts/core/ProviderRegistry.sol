@@ -96,23 +96,26 @@ contract ProviderRegistry is
      * @param amt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function slash(
         uint256 amt,
         address provider,
-        address payable bidder
+        address payable bidder,
+        uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        uint256 penaltyFee = (amt * uint256(feePercent) * PRECISION) / PERCENT;
+        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
+        uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
         uint256 providerStake = providerStakes[provider];
 
-        if (providerStake < amt + penaltyFee) {
-            emit InsufficientFundsToSlash(provider, providerStake, amt, penaltyFee);
-            if (providerStake < amt) {
-                amt = providerStake;
+        if (providerStake < residualAmt + penaltyFee) {
+            emit InsufficientFundsToSlash(provider, providerStake, residualAmt, penaltyFee);
+            if (providerStake < residualAmt) {
+                residualAmt = providerStake;
             }
-            penaltyFee = providerStake - amt;
+            penaltyFee = providerStake - residualAmt;
         }
-        providerStakes[provider] -= amt + penaltyFee;
+        providerStakes[provider] -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
@@ -124,7 +127,7 @@ contract ProviderRegistry is
             bidderSlashedAmount[bidder] += amt;
         }
 
-        emit FundsSlashed(provider, amt + penaltyFee);
+        emit FundsSlashed(provider, residualAmt + penaltyFee);
     }
 
     /**

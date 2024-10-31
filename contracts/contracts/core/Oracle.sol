@@ -164,7 +164,8 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
     ) private {
         if (isSlash) {
             _preconfManager.initiateSlash(
-                commitmentIndex
+                commitmentIndex,
+                residualBidPercentAfterDecay
             );
         } else {
             _preconfManager.initiateReward(

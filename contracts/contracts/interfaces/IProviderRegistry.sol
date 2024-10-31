@@ -74,7 +74,8 @@ interface IProviderRegistry {
     function slash(
         uint256 amt,
         address provider,
-        address payable bidder
+        address payable bidder,
+        uint256 residualBidPercentAfterDecay
     ) external;
     
     function isProviderValid(address committerAddress) external view;
