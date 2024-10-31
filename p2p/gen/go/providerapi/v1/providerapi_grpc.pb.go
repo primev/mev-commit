@@ -21,7 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Provider_ReceiveBids_FullMethodName       = "/providerapi.v1.Provider/ReceiveBids"
 	Provider_SendProcessedBids_FullMethodName = "/providerapi.v1.Provider/SendProcessedBids"
-	Provider_RegisterStake_FullMethodName     = "/providerapi.v1.Provider/RegisterStake"
+	Provider_Stake_FullMethodName             = "/providerapi.v1.Provider/Stake"
 	Provider_GetStake_FullMethodName          = "/providerapi.v1.Provider/GetStake"
 	Provider_GetMinStake_FullMethodName       = "/providerapi.v1.Provider/GetMinStake"
 	Provider_WithdrawStake_FullMethodName     = "/providerapi.v1.Provider/WithdrawStake"
@@ -44,10 +44,10 @@ type ProviderClient interface {
 	// SendProcessedBids is called by the provider to send processed bids to the mev-commit node.
 	// The provider will stream processed bids to the mev-commit node.
 	SendProcessedBids(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[BidResponse, EmptyMessage], error)
-	// RegisterStake
+	// Stake
 	//
-	// RegisterStake is called by the provider to register its stake in the provider registry.
-	RegisterStake(ctx context.Context, in *StakeRequest, opts ...grpc.CallOption) (*StakeResponse, error)
+	// Stake is called by the provider to register or add to its stake in the provider registry.
+	Stake(ctx context.Context, in *StakeRequest, opts ...grpc.CallOption) (*StakeResponse, error)
 	// GetStake
 	//
 	// GetStake is called by the provider to get its stake in the provider registry.
@@ -106,10 +106,10 @@ func (c *providerClient) SendProcessedBids(ctx context.Context, opts ...grpc.Cal
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Provider_SendProcessedBidsClient = grpc.ClientStreamingClient[BidResponse, EmptyMessage]
 
-func (c *providerClient) RegisterStake(ctx context.Context, in *StakeRequest, opts ...grpc.CallOption) (*StakeResponse, error) {
+func (c *providerClient) Stake(ctx context.Context, in *StakeRequest, opts ...grpc.CallOption) (*StakeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StakeResponse)
-	err := c.cc.Invoke(ctx, Provider_RegisterStake_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Provider_Stake_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -172,10 +172,10 @@ type ProviderServer interface {
 	// SendProcessedBids is called by the provider to send processed bids to the mev-commit node.
 	// The provider will stream processed bids to the mev-commit node.
 	SendProcessedBids(grpc.ClientStreamingServer[BidResponse, EmptyMessage]) error
-	// RegisterStake
+	// Stake
 	//
-	// RegisterStake is called by the provider to register its stake in the provider registry.
-	RegisterStake(context.Context, *StakeRequest) (*StakeResponse, error)
+	// Stake is called by the provider to register or add to its stake in the provider registry.
+	Stake(context.Context, *StakeRequest) (*StakeResponse, error)
 	// GetStake
 	//
 	// GetStake is called by the provider to get its stake in the provider registry.
@@ -208,8 +208,8 @@ func (UnimplementedProviderServer) ReceiveBids(*EmptyMessage, grpc.ServerStreami
 func (UnimplementedProviderServer) SendProcessedBids(grpc.ClientStreamingServer[BidResponse, EmptyMessage]) error {
 	return status.Errorf(codes.Unimplemented, "method SendProcessedBids not implemented")
 }
-func (UnimplementedProviderServer) RegisterStake(context.Context, *StakeRequest) (*StakeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RegisterStake not implemented")
+func (UnimplementedProviderServer) Stake(context.Context, *StakeRequest) (*StakeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Stake not implemented")
 }
 func (UnimplementedProviderServer) GetStake(context.Context, *EmptyMessage) (*StakeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStake not implemented")
@@ -262,20 +262,20 @@ func _Provider_SendProcessedBids_Handler(srv interface{}, stream grpc.ServerStre
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Provider_SendProcessedBidsServer = grpc.ClientStreamingServer[BidResponse, EmptyMessage]
 
-func _Provider_RegisterStake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Provider_Stake_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StakeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ProviderServer).RegisterStake(ctx, in)
+		return srv.(ProviderServer).Stake(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Provider_RegisterStake_FullMethodName,
+		FullMethod: Provider_Stake_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ProviderServer).RegisterStake(ctx, req.(*StakeRequest))
+		return srv.(ProviderServer).Stake(ctx, req.(*StakeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -360,8 +360,8 @@ var Provider_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ProviderServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "RegisterStake",
-			Handler:    _Provider_RegisterStake_Handler,
+			MethodName: "Stake",
+			Handler:    _Provider_Stake_Handler,
 		},
 		{
 			MethodName: "GetStake",

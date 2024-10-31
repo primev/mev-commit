@@ -76,21 +76,35 @@ A validator pubkey being opted-in following registration is defined by the follo
 
 Directly following a successful validator registration, all of these criteria will be true as enforced by the function. However, anyone of these criteria becoming false will result in the validator no longer being *opted-in* from the mev-commit protocol's perspective. For example, if slashable funds are withdrawn from a Vault collateralizing a group of validators, some of those validators will no longer be *slashable* and thus no longer *opted-in* (particularly the validators with the highest insertion index).
 
-### What defines a validator being slashable?
+### Indexing within a valSet
 
-When an Operator registers validator pubkeys in a group, insertion order is preserved within the group (recall a single valSet corresponds to a single Vault/Operator). The index of the pubkey acts as a priority rating representing which validators should be collateralized by the Vault over others.
+When an Operator registers validator pubkeys in a group, (recall a validator set, valSet, corresponds to a single Vault/Operator). The index of the pubkey within the valSet acts as a priority rating representing which validators should be collateralized by the Vault over others. A lower index corresponds to a higher priority. This priority index can be queried for a pubkey with respect to its valSet using `getPositionInValset`.
+
+Position within a valSet is **not guaranteed to be preserved**. That is, various actions can change the priority index of a validator within a valSet. Concretely the following events correspond to ordering changes:
+
+1. `ValRecordAdded` corresponds to a new validator being added to a valSet, with the highest priority index.
+2. `ValidatorPositionsSwapped` corresponds to a swap of positions within the valSet. Slashed validators' indexes are swapped with the highest indexes in the valSet.
+3. `ValRecordDeleted` corresponds to a validator being removed from a valSet, using the swap-and-pop removal method.
+
+### What defines a validator being slashable?
 
 The middleware contract must set a `slashAmount` for each ERC20/Vault. This much stake is required to define a single validator as being *slashable*. It must be large enough to disincentivize validators from acting maliciously against mev-commit. For a Vault ↔ valSet pair, `slashAmount * numVals` worth of collateral must be allocated to the registering Operator, to define all validators in the set as *slashable*. 
 
-If less than `slashAmount * numVals` is allocated (restaked) to an Operator, only the first `allocatedStake / slashAmount` number of validators will be considered *slashable,* as determined by the index of each stored validator record. Once additional Vault collateral is deposited and/or allocated to the Operator, relevant registered validators become *slashable* again. Operators are able to deregister pubkeys, or re-register pubkeys to be represented by a new Vault, if slashable collateral becomes too low in an existing Vault.
+If less than `slashAmount * numVals` is allocated (restaked) to an Operator, only the first `allocatedStake / slashAmount` number of validators will be considered *slashable,* as determined by the index of each stored validator record. Once additional Vault collateral is deposited and/or allocated to the Operator, relevant registered validators become *slashable* again. Operators are able to deregister pubkeys if slashable collateral becomes too low in an existing Vault.
+
+It's an operator's responsibility to monitor vault collateral, and make sure all registered validators are also slashable (therefore "opted-in"). This means if vault collateral is reduced to a value that does not define all validators as slashable, the operator must deregister validators of its choice, or implicitly accept that some quasi-random validators will no longer be "opted-in".
 
 ### Slash mechanics
 
 The mev-commit oracle has a permissioned account which is exclusively given rights to slash certain validator pubkeys which act maliciously or incorrectly against mev-commit. On-chain, the mapped validator record is retrieved, and the associated Vault/Operator securing said pubkey will be slashed `slashAmount` as configured by the middleware contract owner.
 
-Oracle slashing must be invoked within `slashPeriodSeconds` of any event causing a validator to transition from *opted-in* to **not** *opted-in* (queryable by actors within the mev-commit pipeline)*.* The oracle attaches an `infractionTimestamp` to each validator pubkey when slashed. This timestamp corresponds to the `block.timestamp` of the block that was incorrectly proposed by the validator. 
+The oracle must continuously monitor opted-in status of upcoming L1 proposers. In doing this, the oracle must keep track of a `captureTimestamp` for each opted-in, upcoming proposer. The `captureTimestamp` is the timestamp of the most recent queried **finalized** L1 block that the validator pubkey was queried as *opted-in* by the oracle.
 
-`slashPeriodSeconds` is configured by the middleware contract and used as the minimum amount of seconds that must elapse before validator records, operator records, or vault records can be deleted from the middleware contract’s state.
+For validators who proposed incorrectly as determined by the oracle, slashing must be executed by the oracle account on L1 within `slashPeriodSeconds` of a validator's relevant `captureTimestamp`. The oracle attaches a `captureTimestamp` to each validator pubkey when calling `slashValidators`. Concretely, `slashValidators` is guaranteed to succeed, if the oracle provides valid `captureTimestamp`s, and `slashValidators` executes on-chain before each `captureTimestamp + slashPeriodSeconds` timestamp.
+
+`slashPeriodSeconds` also enforces a minimum amount of time that must elapse before validator records, operator records, or vault records can be deleted from the middleware contract’s state, as these records are essential to proper slashing.
+
+### Instant vs Veto slashers
 
 Further, Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. Vaults with veto slashers must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration` + `executeSlashPhaseDuration`, where `vetoDuration` is specified by the slasher. `executeSlashPhaseDuration` is a constant value of 60 minutes for the `MevCommitMiddleware` contract.
 

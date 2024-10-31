@@ -889,7 +889,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         vm.prank(slashOracle);
         vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.InfractionTimestampMustBeNonZero.selector)
+            abi.encodeWithSelector(IMevCommitMiddleware.CaptureTimestampMustBeNonZero.selector)
         );
         mevCommitMiddleware.slashValidators(firstTwoBlsPubkeys, timestamps);
 
@@ -919,7 +919,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         IMevCommitMiddleware.SlashRecord memory slashRecord = getSlashRecord(address(vault1), operator1, block.number);
         assertFalse(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashableRegistered, 0);
+        assertEq(slashRecord.numRegistered, 0);
         assertEq(slashRecord.numSlashed, 0);
 
         vm.prank(slashOracle);
@@ -954,7 +954,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         slashRecord = getSlashRecord(address(vault1), operator1, block.number);
         assertTrue(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashableRegistered, 4);
+        assertEq(slashRecord.numRegistered, 4);
         assertEq(slashRecord.numSlashed, 2);
     }
 
@@ -998,7 +998,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         IMevCommitMiddleware.SlashRecord memory slashRecord = getSlashRecord(address(vault2), operator1, block.number);
         assertFalse(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashableRegistered, 0);
+        assertEq(slashRecord.numRegistered, 0);
         assertEq(slashRecord.numSlashed, 0);
 
         vm.prank(slashOracle);
@@ -1047,12 +1047,12 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         slashRecord = getSlashRecord(address(vault1), operator1, block.number-20);
         assertTrue(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashableRegistered, 4);
+        assertEq(slashRecord.numRegistered, 4);
         assertEq(slashRecord.numSlashed, 2);
 
         slashRecord = getSlashRecord(address(vault2), operator1, block.number);
         assertTrue(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashableRegistered, 3);
+        assertEq(slashRecord.numRegistered, 3);
         assertEq(slashRecord.numSlashed, 2);
 
         MockDelegator delegator = MockDelegator(vault2.delegator());
@@ -1126,19 +1126,19 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         expectedOperators = new address[](1);
         expectedOperators[0] = operator1;
         expectedPositions = new uint256[](1);
-        expectedPositions[0] = 2;
+        expectedPositions[0] = 3;
         emit ValidatorPositionsSwapped(pubkeys, expectedVaults, expectedOperators, expectedPositions);
         mevCommitMiddleware.slashValidators(pubkeys, timestamps);
 
         slashRecord = getSlashRecord(address(vault2), operator1, block.number);
         assertTrue(slashRecord.exists);
-        assertEq(slashRecord.numInitSlashableRegistered, 2);
+        assertEq(slashRecord.numRegistered, 3);
         assertEq(slashRecord.numSlashed, 1);
 
         assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey6));
 
-        assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey5, address(vault2), operator1), 1);
-        assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 2);
+        assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey4, address(vault2), operator1), 1);
+        assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 3);
     }
 
     function test_operatorGreifingScenario() public { 
