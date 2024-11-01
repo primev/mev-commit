@@ -79,13 +79,6 @@
   },
   {
     "type": "function",
-    "name": "bidderWithdraw",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "delegateRegisterAndStake",
     "inputs": [
       {
@@ -589,6 +582,13 @@
   },
   {
     "type": "function",
+    "name": "withdrawSlashedAmount",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "withdrawalDelay",
     "inputs": [],
     "outputs": [
@@ -618,6 +618,25 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "BidderWithdrawal",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
