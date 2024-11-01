@@ -225,7 +225,7 @@ contract ProviderRegistry is
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success, BidderWithdrawalTransferFailed(msg.sender, amount));
 
-        emit BidderWithdrawal(msg.sender, amount);
+        emit BidderWithdrawSlashedAmount(msg.sender, amount);
     }
 
     /**

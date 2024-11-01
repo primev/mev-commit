@@ -626,7 +626,7 @@
   },
   {
     "type": "event",
-    "name": "BidderWithdrawal",
+    "name": "BidderWithdrawSlashedAmount",
     "inputs": [
       {
         "name": "bidder",

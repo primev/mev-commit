@@ -49,7 +49,7 @@ interface IProviderRegistry {
 
     /// @dev Event emitted when a bidder withdraws slashed amount
     /// in case of transfer failure
-    event BidderWithdrawal(address bidder, uint256 amount);
+    event BidderWithdrawSlashedAmount(address bidder, uint256 amount);
 
     error NotPreconfContract(address sender, address preconfManager);
     error NoStakeToWithdraw(address sender);
