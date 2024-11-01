@@ -333,7 +333,7 @@ main() {
         --show-error \
         --output /dev/null \
         --write-out "%{http_code}" \
-        --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/1000000000000000000"
+        --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/300000000000"
       )
       if [ "${response}" -ne 200 ]; then
         log_error "Failed to send auto deposit request, status code: ${response}"
