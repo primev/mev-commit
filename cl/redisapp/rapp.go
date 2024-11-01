@@ -14,7 +14,7 @@ import (
 )
 
 type MevCommitChain struct {
-	logger           *slog.Logger
+	logger *slog.Logger
 
 	cancel context.CancelFunc
 
@@ -24,7 +24,9 @@ type MevCommitChain struct {
 	leaderElectionHandler *leaderelection.LeaderElectionHandler
 }
 
-func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, logger *slog.Logger, redisAddr string, buildDelay time.Duration) (*MevCommitChain, error) {
+func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr string,
+	logger *slog.Logger,
+	buildDelay, buildDelayEmptyBlocks time.Duration) (*MevCommitChain, error) {
 	// Create a context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -56,7 +58,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 
 	stateManager := state.NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
 
-	blockBuilder := blockbuilder.NewBlockBuilder(stateManager, engineCL, logger, buildDelay)
+	blockBuilder := blockbuilder.NewBlockBuilder(stateManager, engineCL, logger, buildDelay, buildDelayEmptyBlocks)
 
 	leaderElectionHandler := leaderelection.NewLeaderElectionHandler(
 		instanceID,

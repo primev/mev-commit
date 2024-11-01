@@ -14,10 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/primev/mev-commit/cl/redisapp/types"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/primev/mev-commit/cl/redisapp/state"
+	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
+	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/exp/rand"
 )
 
@@ -34,22 +34,26 @@ type EngineClient interface {
 }
 
 type BlockBuilder struct {
-	stateManager state.StateManager
-	engineCl     EngineClient
-	logger       *slog.Logger
-	buildDelay   time.Duration
-	buildDelayMs uint64
-	LastCallTime time.Time
-	ctx          context.Context
+	stateManager          state.StateManager
+	engineCl              EngineClient
+	logger                *slog.Logger
+	buildDelay            time.Duration
+	buildEmptyBlocksDelay time.Duration
+	buildDelayMs          uint64
+	LastCallTime          time.Time
+	lastBlockTime         time.Time
+	ctx                   context.Context
 }
 
-func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, logger *slog.Logger, buildDelay time.Duration) *BlockBuilder {
+func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, logger *slog.Logger, buildDelay time.Duration, buildDelayEmptyBlocks time.Duration) *BlockBuilder {
 	return &BlockBuilder{
-		stateManager: stateManager,
-		engineCl:     engineCl,
-		logger:       logger,
-		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
+		stateManager:          stateManager,
+		engineCl:              engineCl,
+		logger:                logger,
+		buildDelay:            buildDelay,
+		buildDelayMs:          uint64(buildDelay.Milliseconds()),
+		buildEmptyBlocksDelay: buildDelayEmptyBlocks,
+		lastBlockTime:         time.Now().Add(-buildDelayEmptyBlocks),
 	}
 }
 
@@ -172,6 +176,14 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 		return fmt.Errorf("failed to get payload: %w", err)
 	}
 
+	hasTransactions := len(payloadResp.ExecutionPayload.Transactions) > 0
+	now := time.Now()
+	timeSinceLastBlock := now.Sub(bb.lastBlockTime)
+	if !hasTransactions && timeSinceLastBlock < bb.buildEmptyBlocksDelay {
+		bb.logger.Info("Leader: Skipping empty block", "timeSinceLastBlock", timeSinceLastBlock)
+		return nil
+	}
+
 	payloadData, err := msgpack.Marshal(payloadResp.ExecutionPayload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
@@ -190,6 +202,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 
 	bb.logger.Info("Leader: BuildBlock completed and block is distributed", "PayloadID", payloadIDStr)
 
+	bb.lastBlockTime = now
 	return nil
 }
 
@@ -413,7 +426,6 @@ func (bb *BlockBuilder) pushNewPayload(ctx context.Context, executionPayload eng
 		return nil // Success
 	})
 }
-
 
 func (bb *BlockBuilder) updateForkChoice(ctx context.Context, fcs engine.ForkchoiceStateV1, retryFunc func(f func() error) error) error {
 	return retryFunc(func() error {

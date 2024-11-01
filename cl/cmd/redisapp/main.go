@@ -35,153 +35,162 @@ var (
 )
 
 var (
-    configFlag = &cli.StringFlag{
-        Name:    "config",
-        Usage:   "Path to config file",
-        EnvVars: []string{"RAPP_CONFIG"},
-    }
+	configFlag = &cli.StringFlag{
+		Name:    "config",
+		Usage:   "Path to config file",
+		EnvVars: []string{"RAPP_CONFIG"},
+	}
 
-    instanceIDFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:     "instance-id",
-        Usage:    "Unique instance ID for this node",
-        EnvVars:  []string{"RAPP_INSTANCE_ID"},
-        Required: true,
-        Action: func(_ *cli.Context, s string) error {
-            if s == "" {
-                return fmt.Errorf("instance-id is required")
-            }
-            return nil
-        },
-    })
+	instanceIDFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "instance-id",
+		Usage:    "Unique instance ID for this node",
+		EnvVars:  []string{"RAPP_INSTANCE_ID"},
+		Required: true,
+		Action: func(_ *cli.Context, s string) error {
+			if s == "" {
+				return fmt.Errorf("instance-id is required")
+			}
+			return nil
+		},
+	})
 
-    ethClientURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:    "eth-client-url",
-        Usage:   "Ethereum client URL",
-        EnvVars: []string{"RAPP_ETH_CLIENT_URL"},
-        Value:   "http://localhost:8551",
-        Action: func(_ *cli.Context, s string) error {
-            if _, err := url.Parse(s); err != nil {
-                return fmt.Errorf("invalid eth-client-url: %v", err)
-            }
-            return nil
-        },
-    })
+	ethClientURLFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "eth-client-url",
+		Usage:   "Ethereum client URL",
+		EnvVars: []string{"RAPP_ETH_CLIENT_URL"},
+		Value:   "http://localhost:8551",
+		Action: func(_ *cli.Context, s string) error {
+			if _, err := url.Parse(s); err != nil {
+				return fmt.Errorf("invalid eth-client-url: %v", err)
+			}
+			return nil
+		},
+	})
 
-    jwtSecretFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:    "jwt-secret",
+	jwtSecretFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "jwt-secret",
 		Usage:   "JWT secret for Ethereum client",
-        EnvVars: []string{"RAPP_JWT_SECRET"},
-        Value:   "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c",
-        Action: func(_ *cli.Context, s string) error {
-            if len(s) != 64 {
-                return fmt.Errorf("invalid jwt-secret: must be 64 hex characters")
-            }
-            if _, err := hex.DecodeString(s); err != nil {
-                return fmt.Errorf("invalid jwt-secret: %v", err)
-            }
-            return nil
-        },
-    })
+		EnvVars: []string{"RAPP_JWT_SECRET"},
+		Value:   "13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c",
+		Action: func(_ *cli.Context, s string) error {
+			if len(s) != 64 {
+				return fmt.Errorf("invalid jwt-secret: must be 64 hex characters")
+			}
+			if _, err := hex.DecodeString(s); err != nil {
+				return fmt.Errorf("invalid jwt-secret: %v", err)
+			}
+			return nil
+		},
+	})
 
-    genesisBlockHashFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:    "genesis-block-hash",
-        Usage:   "Genesis block hash",
-        EnvVars: []string{"RAPP_GENESIS_BLOCK_HASH"},
-        Value:   "dfc7fa546e1268f5bb65b9ec67759307d2435ad1bf609307c7c306e9bb0edcde",
-        Action: func(_ *cli.Context, s string) error {
-            if len(s) != 64 {
-                return fmt.Errorf("invalid genesis-block-hash: must be 64 hex characters")
-            }
-            if _, err := hex.DecodeString(s); err != nil {
-                return fmt.Errorf("invalid genesis-block-hash: %v", err)
-            }
-            return nil
-        },
-    })
+	genesisBlockHashFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "genesis-block-hash",
+		Usage:   "Genesis block hash",
+		EnvVars: []string{"RAPP_GENESIS_BLOCK_HASH"},
+		Value:   "dfc7fa546e1268f5bb65b9ec67759307d2435ad1bf609307c7c306e9bb0edcde",
+		Action: func(_ *cli.Context, s string) error {
+			if len(s) != 64 {
+				return fmt.Errorf("invalid genesis-block-hash: must be 64 hex characters")
+			}
+			if _, err := hex.DecodeString(s); err != nil {
+				return fmt.Errorf("invalid genesis-block-hash: %v", err)
+			}
+			return nil
+		},
+	})
 
-    redisAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:    "redis-addr",
-        Usage:   "Redis address",
-        EnvVars: []string{"RAPP_REDIS_ADDR"},
-        Value:   "127.0.0.1:7001",
-        Action: func(_ *cli.Context, s string) error {
-            host, port, err := net.SplitHostPort(s)
-            if err != nil {
-                return fmt.Errorf("invalid redis-addr: %v", err)
-            }
-            if host == "" {
-                return fmt.Errorf("invalid redis-addr: missing host")
-            }
-            if p, err := strconv.Atoi(port); err != nil || p <= 0 || p > 65535 {
-                return fmt.Errorf("invalid redis-addr: invalid port number")
-            }
-            return nil
-        },
-    })
+	redisAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "redis-addr",
+		Usage:   "Redis address",
+		EnvVars: []string{"RAPP_REDIS_ADDR"},
+		Value:   "127.0.0.1:7001",
+		Action: func(_ *cli.Context, s string) error {
+			host, port, err := net.SplitHostPort(s)
+			if err != nil {
+				return fmt.Errorf("invalid redis-addr: %v", err)
+			}
+			if host == "" {
+				return fmt.Errorf("invalid redis-addr: missing host")
+			}
+			if p, err := strconv.Atoi(port); err != nil || p <= 0 || p > 65535 {
+				return fmt.Errorf("invalid redis-addr: invalid port number")
+			}
+			return nil
+		},
+	})
 
-    logFmtFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:     "log-fmt",
-        Usage:    "Log format to use, options are 'text' or 'json'",
-        EnvVars:  []string{"MEV_COMMIT_LOG_FMT"},
-        Value:    "text",
-        Action:   stringInCheck("log-fmt", []string{"text", "json"}),
-        Category: categoryDebug,
-    })
+	logFmtFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "log-fmt",
+		Usage:    "Log format to use, options are 'text' or 'json'",
+		EnvVars:  []string{"MEV_COMMIT_LOG_FMT"},
+		Value:    "text",
+		Action:   stringInCheck("log-fmt", []string{"text", "json"}),
+		Category: categoryDebug,
+	})
 
-    logLevelFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:     "log-level",
-        Usage:    "Log level to use, options are 'debug', 'info', 'warn', 'error'",
-        EnvVars:  []string{"MEV_COMMIT_LOG_LEVEL"},
-        Value:    "info",
-        Action:   stringInCheck("log-level", []string{"debug", "info", "warn", "error"}),
-        Category: categoryDebug,
-    })
+	logLevelFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "log-level",
+		Usage:    "Log level to use, options are 'debug', 'info', 'warn', 'error'",
+		EnvVars:  []string{"MEV_COMMIT_LOG_LEVEL"},
+		Value:    "info",
+		Action:   stringInCheck("log-level", []string{"debug", "info", "warn", "error"}),
+		Category: categoryDebug,
+	})
 
-    logTagsFlag = altsrc.NewStringFlag(&cli.StringFlag{
-        Name:    "log-tags",
-        Usage:   "Log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
-        EnvVars: []string{"MEV_COMMIT_LOG_TAGS"},
-        Action: func(ctx *cli.Context, s string) error {
-            for i, p := range strings.Split(s, ",") {
-                if len(strings.Split(p, ":")) != 2 {
-                    return fmt.Errorf("invalid log-tags at index %d, expecting <name:value>", i)
-                }
-            }
-            return nil
-        },
-        Category: categoryDebug,
-    })
+	logTagsFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "log-tags",
+		Usage:   "Log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
+		EnvVars: []string{"MEV_COMMIT_LOG_TAGS"},
+		Action: func(ctx *cli.Context, s string) error {
+			for i, p := range strings.Split(s, ",") {
+				if len(strings.Split(p, ":")) != 2 {
+					return fmt.Errorf("invalid log-tags at index %d, expecting <name:value>", i)
+				}
+			}
+			return nil
+		},
+		Category: categoryDebug,
+	})
 
-    evmBuildDelayFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
-        Name:    "evm-build-delay",
-        Usage:   "EVM build delay",
-        EnvVars: []string{"RAPP_EVM_BUILD_DELAY"},
-        Value:   200 * time.Millisecond,
-    })
+	evmBuildDelayFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:    "evm-build-delay",
+		Usage:   "EVM build delay",
+		EnvVars: []string{"RAPP_EVM_BUILD_DELAY"},
+		Value:   200 * time.Millisecond,
+	})
+
+	evmBuildDelayEmptyBlockFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:    "evm-build-delay-empty-block",
+		Usage:   "EVM build delay for empty blocks",
+		EnvVars: []string{"RAPP_EVM_BUILD_DELAY_EMPTY_BLOCK"},
+		Value:   2 * time.Second,
+	})
 )
 
 type Config struct {
-	InstanceID       string
-	EthClientURL     string
-	JWTSecret        string
-	GenesisBlockHash string
-	RedisAddr        string
-	EVMBuildDelay    time.Duration
+	InstanceID               string
+	EthClientURL             string
+	JWTSecret                string
+	GenesisBlockHash         string
+	RedisAddr                string
+	EVMBuildDelay            time.Duration
+	EVMBuildDelayEmptyBlocks time.Duration
 }
 
 func main() {
 	flags := []cli.Flag{
-        configFlag,
-        instanceIDFlag,
-        ethClientURLFlag,
-        jwtSecretFlag,
-        genesisBlockHashFlag,
-        redisAddrFlag,
-        logFmtFlag,
-        logLevelFlag,
-        logTagsFlag,
-        evmBuildDelayFlag,
-    }
+		configFlag,
+		instanceIDFlag,
+		ethClientURLFlag,
+		jwtSecretFlag,
+		genesisBlockHashFlag,
+		redisAddrFlag,
+		logFmtFlag,
+		logLevelFlag,
+		logTagsFlag,
+		evmBuildDelayFlag,
+		evmBuildDelayEmptyBlockFlag,
+	}
 
 	// Create the app
 	app := &cli.App{
@@ -225,12 +234,13 @@ func startApplication(c *cli.Context) error {
 
 	// Load configuration
 	cfg := Config{
-		InstanceID:       c.String(instanceIDFlag.Name),
-		EthClientURL:     c.String(ethClientURLFlag.Name),
-		JWTSecret:        c.String(jwtSecretFlag.Name),
-		GenesisBlockHash: c.String(genesisBlockHashFlag.Name),
-		RedisAddr:        c.String(redisAddrFlag.Name),
-		EVMBuildDelay:    c.Duration(evmBuildDelayFlag.Name),
+		InstanceID:               c.String(instanceIDFlag.Name),
+		EthClientURL:             c.String(ethClientURLFlag.Name),
+		JWTSecret:                c.String(jwtSecretFlag.Name),
+		GenesisBlockHash:         c.String(genesisBlockHashFlag.Name),
+		RedisAddr:                c.String(redisAddrFlag.Name),
+		EVMBuildDelay:            c.Duration(evmBuildDelayFlag.Name),
+		EVMBuildDelayEmptyBlocks: c.Duration(evmBuildDelayEmptyBlockFlag.Name),
 	}
 
 	log.Info("Starting application with configuration", "config", cfg)
@@ -241,9 +251,10 @@ func startApplication(c *cli.Context) error {
 		cfg.EthClientURL,
 		cfg.JWTSecret,
 		cfg.GenesisBlockHash,
-		log,
 		cfg.RedisAddr,
+		log,
 		cfg.EVMBuildDelay,
+		cfg.EVMBuildDelayEmptyBlocks,
 	)
 	if err != nil {
 		log.Error("Failed to initialize RappChain", "error", err)
