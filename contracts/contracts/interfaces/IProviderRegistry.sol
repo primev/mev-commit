@@ -45,7 +45,7 @@ interface IProviderRegistry {
     );
 
     /// @dev Event emitted when bidder withdraws slashed funds
-    event BidderWithdrawal(address bidder, uint256 amount);
+    event BidderWithdrawalSlashed(address bidder, uint256 amount);
 
     /// @dev Event emitted when transfer to bidder fails
     event TransferToBidderFailed(address bidder, uint256 amount);
