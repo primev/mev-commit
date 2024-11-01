@@ -16,44 +16,6 @@ import {FeePayout} from "../utils/FeePayout.sol";
 contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
-    /// @dev Modifier to confirm a validator record exists for all provided BLS pubkeys.
-    modifier onlyExistentValidatorRecords(bytes[] calldata blsPubKeys) {
-        uint256 len = blsPubKeys.length;
-        for (uint256 i = 0; i < len; ++i) {
-            require(stakedValidators[blsPubKeys[i]].exists, IVanillaRegistry.ValidatorRecordMustExist(blsPubKeys[i]));
-        }
-        _;
-    }
-
-    /// @dev Modifier to confirm a validator record does not exist for all provided BLS pubkeys.
-    modifier onlyNonExistentValidatorRecords(bytes[] calldata blsPubKeys) {
-        uint256 len = blsPubKeys.length;
-        for (uint256 i = 0; i < len; ++i) {
-            require(!stakedValidators[blsPubKeys[i]].exists, IVanillaRegistry.ValidatorRecordMustNotExist(blsPubKeys[i]));
-        }
-        _;
-    }
-
-    /// @dev Modifier to confirm all provided BLS pubkeys are NOT unstaking.
-    modifier onlyNotUnstaking(bytes[] calldata blsPubKeys) {
-        uint256 len = blsPubKeys.length;
-        for (uint256 i = 0; i < len; ++i) {
-            require(!_isUnstaking(blsPubKeys[i]), IVanillaRegistry.ValidatorCannotBeUnstaking(blsPubKeys[i]));
-        }
-        _;
-    }
-
-    /// @dev Modifier to confirm the sender is the withdrawal address for all provided BLS pubkeys.
-    modifier onlyWithdrawalAddress(bytes[] calldata blsPubKeys) {
-        uint256 len = blsPubKeys.length;
-        for (uint256 i = 0; i < len; ++i) {
-            IVanillaRegistry.StakedValidator storage validator = stakedValidators[blsPubKeys[i]];
-            require(validator.withdrawalAddress == msg.sender,
-                IVanillaRegistry.SenderIsNotWithdrawalAddress(msg.sender, validator.withdrawalAddress));
-        }
-        _;
-    }
-
     /// @dev Modifier to confirm all provided BLS pubkeys are valid length.
     modifier onlyValidBLSPubKeys(bytes[] calldata blsPubKeys) {
         uint256 len = blsPubKeys.length;
@@ -106,7 +68,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @param blsPubKeys The validator BLS public keys to stake.
      */
     function stake(bytes[] calldata blsPubKeys) external payable
-        onlyNonExistentValidatorRecords(blsPubKeys) onlyValidBLSPubKeys(blsPubKeys) whenNotPaused() {
+        onlyValidBLSPubKeys(blsPubKeys) whenNotPaused() {
         _stake(blsPubKeys, msg.sender);
     }
 
@@ -117,7 +79,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @param withdrawalAddress The address to receive the staked ETH.
      */
     function delegateStake(bytes[] calldata blsPubKeys, address withdrawalAddress) external payable
-        onlyNonExistentValidatorRecords(blsPubKeys) onlyValidBLSPubKeys(blsPubKeys) onlyOwner {
+        onlyValidBLSPubKeys(blsPubKeys) onlyOwner {
         require(withdrawalAddress != address(0), IVanillaRegistry.WithdrawalAddressMustBeSet());
         _stake(blsPubKeys, withdrawalAddress);
     }
@@ -127,9 +89,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @dev A staking entry must already exist for each provided BLS pubkey.
      * @param blsPubKeys The BLS public keys to add stake to.
      */
-    function addStake(bytes[] calldata blsPubKeys) external payable 
-        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys)
-            onlyNotUnstaking(blsPubKeys) whenNotPaused() {
+    function addStake(bytes[] calldata blsPubKeys) external payable whenNotPaused() {
         _addStake(blsPubKeys);
     }
 
@@ -137,17 +97,14 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
      * @dev Unstakes ETH on behalf of one or multiple validators via their BLS pubkey.
      * @param blsPubKeys The BLS public keys to unstake.
      */
-    function unstake(bytes[] calldata blsPubKeys) external 
-        onlyExistentValidatorRecords(blsPubKeys) onlyWithdrawalAddress(blsPubKeys)
-            onlyNotUnstaking(blsPubKeys) whenNotPaused() {
+    function unstake(bytes[] calldata blsPubKeys) external whenNotPaused() {
         _unstake(blsPubKeys);
     }
 
     /// @dev Allows owner to withdraw ETH on behalf of one or multiple validators via their BLS pubkey.
     /// @param blsPubKeys The BLS public keys to withdraw.
     /// @dev msg.sender must be the withdrawal address for every provided validator pubkey as enforced in _withdraw.
-    function withdraw(bytes[] calldata blsPubKeys) external
-        onlyExistentValidatorRecords(blsPubKeys) whenNotPaused() {
+    function withdraw(bytes[] calldata blsPubKeys) external whenNotPaused() {
         uint256 totalAmount = _withdraw(blsPubKeys, msg.sender);
         if (totalAmount != 0) {
             (bool success, ) = msg.sender.call{value: totalAmount}("");
@@ -159,8 +116,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @param blsPubKeys The BLS public keys to withdraw.
     /// @param withdrawalAddress The address to receive the staked ETH.
     /// @dev withdrawalAddress must be the withdrawal address for every provided validator pubkeyas enforced in _withdraw.
-    function forceWithdrawalAsOwner(bytes[] calldata blsPubKeys, address withdrawalAddress) external
-        onlyExistentValidatorRecords(blsPubKeys) onlyOwner {
+    function forceWithdrawalAsOwner(bytes[] calldata blsPubKeys, address withdrawalAddress) external onlyOwner {
         uint256 totalAmount = _withdraw(blsPubKeys, withdrawalAddress);
         if (totalAmount != 0) {
             forceWithdrawnFunds[withdrawalAddress] += totalAmount;
@@ -179,8 +135,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev Allows oracle to slash some portion of stake for one or multiple validators via their BLS pubkey.
     /// @param blsPubKeys The BLS public keys to slash.
     /// @param payoutIfDue Whether to payout slashed funds to receiver if the payout period is due.
-    function slash(bytes[] calldata blsPubKeys, bool payoutIfDue) external
-        onlyExistentValidatorRecords(blsPubKeys) onlySlashOracle whenNotPaused() {
+    function slash(bytes[] calldata blsPubKeys, bool payoutIfDue) external onlySlashOracle whenNotPaused() {
         _slash(blsPubKeys, payoutIfDue);
     }
 
@@ -296,6 +251,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
 
     /// @dev Internal function that creates a staked validator record and emits a Staked event.
     function _stakeAction(bytes calldata pubKey, uint256 stakeAmount, address withdrawalAddress) internal {
+        require(!stakedValidators[pubKey].exists, IVanillaRegistry.ValidatorRecordMustNotExist(pubKey));
         stakedValidators[pubKey] = StakedValidator({
             exists: true,
             balance: stakeAmount,
@@ -318,6 +274,10 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     /// @dev Internal function that adds stake to an already existing validator record, emitting a StakeAdded event.
     function _addStakeAction(bytes calldata pubKey, uint256 stakeAmount, address) internal {
         IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+        require(validator.exists, IVanillaRegistry.ValidatorRecordMustExist(pubKey));
+        require(validator.withdrawalAddress == msg.sender, 
+            IVanillaRegistry.SenderIsNotWithdrawalAddress(msg.sender, validator.withdrawalAddress));
+        require(!_isUnstaking(pubKey), IVanillaRegistry.ValidatorCannotBeUnstaking(pubKey));
         validator.balance += stakeAmount;
         emit StakeAdded(msg.sender, validator.withdrawalAddress, pubKey, stakeAmount, validator.balance);
     }
@@ -329,6 +289,11 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
     function _unstake(bytes[] calldata blsPubKeys) internal {
         uint256 len = blsPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
+            IVanillaRegistry.StakedValidator storage validator = stakedValidators[blsPubKeys[i]];
+            require(validator.exists, IVanillaRegistry.ValidatorRecordMustExist(blsPubKeys[i]));
+            require(!_isUnstaking(blsPubKeys[i]), IVanillaRegistry.ValidatorCannotBeUnstaking(blsPubKeys[i]));
+            require(validator.withdrawalAddress == msg.sender, 
+                IVanillaRegistry.SenderIsNotWithdrawalAddress(msg.sender, validator.withdrawalAddress));
             _unstakeSingle(blsPubKeys[i]);
         }
     }
@@ -357,6 +322,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+            require(validator.exists, IVanillaRegistry.ValidatorRecordMustExist(pubKey));
             require(_isUnstaking(pubKey), IVanillaRegistry.MustUnstakeToWithdraw());
             require(block.number > validator.unstakeOccurrence.blockHeight + unstakePeriodBlocks,
                 IVanillaRegistry.WithdrawingTooSoon());
@@ -379,6 +345,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         for (uint256 i = 0; i < len; ++i) {
             bytes calldata pubKey = blsPubKeys[i];
             IVanillaRegistry.StakedValidator storage validator = stakedValidators[pubKey];
+            require(validator.exists, IVanillaRegistry.ValidatorRecordMustExist(pubKey));
             if (!_isUnstaking(pubKey)) { 
                 _unstakeSingle(pubKey);
             }

@@ -907,7 +907,7 @@ contract VanillaRegistryTest is Test {
         validators[0] = user1BLSKey;
         validators[1] = user2BLSKey;
 
-        vm.prank(user1);
+        vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustExist.selector, user1BLSKey));
         validatorRegistry.forceWithdrawalAsOwner(validators, user1);
 
@@ -1039,5 +1039,37 @@ contract VanillaRegistryTest is Test {
 
         assertEq(owner.balance, ownerBefore);
         assertEq(user1.balance, user1Before + 2 ether); // Funds still withdrawn to withdrawal address
+    }
+
+    function testStakeWithDuplicateBlsPubkeys() public {
+        bytes[] memory validators = new bytes[](3);
+        validators[0] = user1BLSKey;
+        validators[1] = user2BLSKey;
+        validators[2] = user1BLSKey;
+
+        vm.deal(user1, 3 * MIN_STAKE);
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
+        validatorRegistry.stake{value: 3 * MIN_STAKE}(validators);
+
+        vm.deal(owner, 3 * MIN_STAKE);
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user1BLSKey));
+        validatorRegistry.delegateStake{value: 3 * MIN_STAKE}(validators, user1);
+
+        validators[2] = user2BLSKey;
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IVanillaRegistry.ValidatorRecordMustNotExist.selector, user2BLSKey));
+        validatorRegistry.stake{value: 3 * MIN_STAKE}(validators);
+
+        validators[2] = user3BLSKey;
+        vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user1, user1BLSKey, MIN_STAKE);
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user1, user2BLSKey, MIN_STAKE);
+        vm.expectEmit(true, true, true, true);
+        emit Staked(user1, user1, user3BLSKey, MIN_STAKE);
+        validatorRegistry.stake{value: 3 * MIN_STAKE}(validators);
     }
 }
