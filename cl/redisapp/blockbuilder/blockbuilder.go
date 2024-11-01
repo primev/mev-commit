@@ -126,7 +126,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 			bb.logger.Warn("Failed to build new EVM payload, will retry", "error", err)
 			return err // Will retry
 		} else if response.PayloadStatus.Status != engine.VALID {
-			return backoff.Permanent(fmt.Errorf("invalid payload status: %bb", response.PayloadStatus.Status))
+			return backoff.Permanent(fmt.Errorf("invalid payload status: %s", response.PayloadStatus.Status))
 		} else if response.PayloadID == nil {
 			return backoff.Permanent(errors.New("payloadID is nil"))
 		}
