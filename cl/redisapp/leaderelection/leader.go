@@ -1,4 +1,4 @@
-package redisapp
+package leaderelection
 
 import (
 	"context"
@@ -7,20 +7,23 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
+	"github.com/primev/mev-commit/cl/redisapp/state"
+	"github.com/primev/mev-commit/cl/redisapp/blockbuilder"
 	"github.com/primev/mev-commit/cl/redisapp/types"
+	"github.com/primev/mev-commit/cl/redisapp/util"
 )
 
-type Leader struct {
-	InstanceID     string
-	stateManager   StateManager
-	blockBuilder   *BlockBuilder
+type leaderManager struct {
+	instanceID     string
+	stateManager   state.StateManager
+	blockBuilder   *blockbuilder.BlockBuilder
 	cancel         context.CancelFunc
 	leaderElection leader.Leader
 	done           chan struct{}
 	logger         *slog.Logger
 }
 
-func (l *Leader) startLeaderLoop() {
+func (l *leaderManager) startLeaderLoop() {
 	l.logger.Info("Starting leader loop")
 	leaderCtx, leaderCancel := context.WithCancel(context.Background())
 	l.cancel = leaderCancel
@@ -31,7 +34,7 @@ func (l *Leader) startLeaderLoop() {
 	}()
 }
 
-func (l *Leader) stopLeaderLoop() {
+func (l *leaderManager) stopLeaderLoop() {
 	if l.cancel != nil {
 		l.cancel()
 		<-l.done
@@ -40,7 +43,7 @@ func (l *Leader) stopLeaderLoop() {
 	}
 }
 
-func (l *Leader) leaderLoop(ctx context.Context) {
+func (l *leaderManager) leaderLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -54,7 +57,7 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 			switch currentStep {
 			case types.StepBuildBlock:
 				l.logger.Info("Leader: Starting Step 1 - BuildBlock")
-				getPayloadErr := l.blockBuilder.getPayload(ctx)
+				getPayloadErr := l.blockBuilder.GetPayload(ctx)
 				if getPayloadErr != nil {
 					l.logger.Error("Leader: Failed to execute Step 1 - BuildBlock", "error", getPayloadErr)
 
@@ -63,13 +66,13 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 						l.logger.Error("Leader: Failed to reset leader state", "error", err)
 					}
 
-					if errors.Is(getPayloadErr, ErrFailedAfterNAttempts) {
+					if errors.Is(getPayloadErr, util.ErrFailedAfterNAttempts) {
 						l.logger.Error("Leader: failed to reach geth node after max attempts, exiting")
 						err := l.leaderElection.Stop()
 						if err != nil {
 							l.logger.Error("Leader: Failed to stop leader election", "error", err)
 						}
-						l.blockBuilder.lastCallTime = time.Time{}
+						l.blockBuilder.LastCallTime = time.Time{}
 					}
 
 					continue
@@ -77,17 +80,17 @@ func (l *Leader) leaderLoop(ctx context.Context) {
 
 			case types.StepFinalizeBlock:
 				l.logger.Info("Leader: Starting Step 2 - FinalizeBlock")
-				err := l.blockBuilder.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
+				err := l.blockBuilder.FinalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
 				if err != nil {
 					l.logger.Error("Leader: Failed to execute Step 2 - FinalizeBlock", "error", err)
 
-					if errors.Is(err, ErrFailedAfterNAttempts) {
+					if errors.Is(err, util.ErrFailedAfterNAttempts) {
 						l.logger.Error("Leader: failed to reach geth node after max attempts, exiting")
 						err := l.leaderElection.Stop()
 						if err != nil {
 							l.logger.Error("Leader: Failed to stop leader election", "error", err)
 						}
-						l.blockBuilder.lastCallTime = time.Time{}
+						l.blockBuilder.LastCallTime = time.Time{}
 					}
 
 					continue

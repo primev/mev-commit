@@ -6,34 +6,22 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ethereum/go-ethereum/beacon/engine"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/primev/mev-commit/cl/ethclient"
+	"github.com/primev/mev-commit/cl/redisapp/blockbuilder"
+	"github.com/primev/mev-commit/cl/redisapp/leaderelection"
+	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/redis/go-redis/v9"
 )
 
-type EngineClient interface {
-	NewPayloadV3(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
-		beaconRoot *common.Hash) (engine.PayloadStatusV1, error)
-
-	ForkchoiceUpdatedV3(ctx context.Context, update engine.ForkchoiceStateV1,
-		payloadAttributes *engine.PayloadAttributes) (engine.ForkChoiceResponse, error)
-
-	GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
-}
-
 type MevCommitChain struct {
-	InstanceID       string
-	engineCl         EngineClient
-	genesisBlockHash string
 	logger           *slog.Logger
 
 	cancel context.CancelFunc
 
 	// Managers and components
-	stateManager          StateManager
-	blockBuilder          *BlockBuilder
-	leaderElectionHandler *LeaderElectionHandler
+	stateManager          state.StateManager
+	blockBuilder          *blockbuilder.BlockBuilder
+	leaderElectionHandler *leaderelection.LeaderElectionHandler
 }
 
 func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, logger *slog.Logger, redisAddr string, buildDelay time.Duration) (*MevCommitChain, error) {
@@ -66,18 +54,11 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 		return nil, err
 	}
 
-	stateManager := NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
+	stateManager := state.NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
 
-	blockBuilder := &BlockBuilder{
-		stateManager: stateManager,
-		engineCl:     engineCL,
-		logger:       logger,
-		buildDelay:   buildDelay,
-		buildDelayMs: uint64(buildDelay.Milliseconds()),
-	}
+	blockBuilder := blockbuilder.NewBlockBuilder(stateManager, engineCL, logger, buildDelay)
 
-	// Initialize LeaderElectionHandler
-	leaderElectionHandler := NewLeaderElectionHandler(
+	leaderElectionHandler := leaderelection.NewLeaderElectionHandler(
 		instanceID,
 		logger,
 		redisClient,
@@ -86,11 +67,8 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 	)
 
 	app := &MevCommitChain{
-		InstanceID:            instanceID,
 		stateManager:          stateManager,
 		blockBuilder:          blockBuilder,
-		engineCl:              engineCL,
-		genesisBlockHash:      genesisBlockHash,
 		logger:                logger,
 		cancel:                cancel,
 		leaderElectionHandler: leaderElectionHandler,
@@ -106,7 +84,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash string, lo
 	}
 
 	// Start leader election handling
-	app.leaderElectionHandler.handleLeadershipEvents()
+	app.leaderElectionHandler.HandleLeadershipEvents()
 
 	return app, nil
 }

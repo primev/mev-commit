@@ -1,4 +1,4 @@
-package redisapp
+package state
 
 import (
 	"context"
@@ -39,7 +39,7 @@ type StateManager interface {
 }
 
 type RedisStateManager struct {
-	InstanceID       string
+	instanceID       string
 	redisClient      RedisClient
 	logger           *slog.Logger
 	genesisBlockHash string
@@ -58,7 +58,7 @@ func NewRedisStateManager(
 	genesisBlockHash string,
 ) StateManager {
 	return &RedisStateManager{
-		InstanceID:       instanceID,
+		instanceID:       instanceID,
 		redisClient:      redisClient,
 		logger:           logger,
 		genesisBlockHash: genesisBlockHash,
@@ -74,7 +74,7 @@ func (s *RedisStateManager) SaveExecutionHead(ctx context.Context, head *types.E
 		return fmt.Errorf("failed to serialize execution head: %w", err)
 	}
 
-	key := fmt.Sprintf("executionHead:%s", s.InstanceID)
+	key := fmt.Sprintf("executionHead:%s", s.instanceID)
 	if err := s.redisClient.Set(ctx, key, data, 0).Err(); err != nil {
 		return fmt.Errorf("failed to save execution head to Redis: %w", err)
 	}
@@ -83,7 +83,7 @@ func (s *RedisStateManager) SaveExecutionHead(ctx context.Context, head *types.E
 }
 
 func (s *RedisStateManager) LoadExecutionHead(ctx context.Context) (*types.ExecutionHead, error) {
-	key := fmt.Sprintf("executionHead:%s", s.InstanceID)
+	key := fmt.Sprintf("executionHead:%s", s.instanceID)
 	data, err := s.redisClient.Get(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
@@ -168,7 +168,7 @@ func (s *RedisStateManager) SaveExecutionHeadAndAck(ctx context.Context, head *t
 		return fmt.Errorf("failed to serialize execution head: %w", err)
 	}
 
-	key := fmt.Sprintf("executionHead:%s", s.InstanceID)
+	key := fmt.Sprintf("executionHead:%s", s.instanceID)
 	pipe := s.redisClient.TxPipeline()
 
 	pipe.Set(ctx, key, data, 0)
@@ -199,7 +199,7 @@ func (s *RedisStateManager) SaveBlockStateAndPublishToStream(ctx context.Context
 		"payload_id":         bsState.PayloadID,
 		"execution_payload":  bsState.ExecutionPayload,
 		"timestamp":          time.Now().UnixNano(),
-		"sender_instance_id": s.InstanceID,
+		"sender_instance_id": s.instanceID,
 	}
 
 	pipe.XAdd(ctx, &redis.XAddArgs{

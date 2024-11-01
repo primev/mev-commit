@@ -1,27 +1,29 @@
-package redisapp
+package leaderelection
 
 import (
 	"context"
 	"log/slog"
 	"sync"
 
+	"github.com/primev/mev-commit/cl/redisapp/blockbuilder"
+	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 )
 
-type Follower struct {
-	InstanceID   string
-	stateManager StateManager
-	blockBuilder *BlockBuilder
+type followerManager struct {
+	instanceID   string
+	stateManager state.StateManager
+	blockBuilder *blockbuilder.BlockBuilder
 	logger       *slog.Logger
 	cancel       context.CancelFunc
 	done         chan struct{}
 
 	fMutex          sync.Mutex
-	isSynced        bool
+	synced          bool
 	syncWaitChannel chan struct{}
 }
 
-func (f *Follower) startFollowerLoop() {
+func (f *followerManager) startFollowerLoop() {
 	f.logger.Info("Starting follower loop")
 	followerCtx, followerCancel := context.WithCancel(context.Background())
 	f.cancel = followerCancel
@@ -33,7 +35,7 @@ func (f *Follower) startFollowerLoop() {
 	}()
 }
 
-func (f *Follower) stopFollowerLoop() {
+func (f *followerManager) stopFollowerLoop() {
 	if f.cancel != nil {
 		f.cancel()
 		<-f.done
@@ -42,7 +44,7 @@ func (f *Follower) stopFollowerLoop() {
 	}
 }
 
-func (f *Follower) followerLoop(ctx context.Context) {
+func (f *followerManager) followerLoop(ctx context.Context) {
 	err := f.stateManager.CreateConsumerGroup(ctx)
 	if err != nil {
 		f.logger.Error("Failed to create consumer group", "error", err)
@@ -75,8 +77,8 @@ func (f *Follower) followerLoop(ctx context.Context) {
 				}
 			}
 
-			f.isSynced = len(messages) == 0 || len(messages[0].Messages) == 0
-			if f.isSynced && f.syncWaitChannel != nil && len(f.syncWaitChannel) != 1 {
+			f.synced = len(messages) == 0 || len(messages[0].Messages) == 0
+			if f.synced && f.syncWaitChannel != nil && len(f.syncWaitChannel) != 1 {
 				select {
 				case f.syncWaitChannel <- struct{}{}:
 					f.logger.Info("follower is synced")
@@ -100,7 +102,7 @@ func (f *Follower) followerLoop(ctx context.Context) {
 						continue
 					}
 
-					if senderInstanceID == f.InstanceID {
+					if senderInstanceID == f.instanceID {
 						f.logger.Info("Follower: Received own message", "PayloadID", payloadIDStr)
 						err = f.stateManager.AckMessage(ctx, field.ID)
 						if err != nil {
@@ -111,7 +113,7 @@ func (f *Follower) followerLoop(ctx context.Context) {
 
 					f.logger.Info("Follower: Received message", "PayloadID", payloadIDStr)
 
-					err := f.blockBuilder.finalizeBlock(ctx, payloadIDStr, executionPayloadStr, field.ID)
+					err := f.blockBuilder.FinalizeBlock(ctx, payloadIDStr, executionPayloadStr, field.ID)
 					if err != nil {
 						f.logger.Error("Failed to finalize block", "error", err)
 						continue
@@ -125,19 +127,19 @@ func (f *Follower) followerLoop(ctx context.Context) {
 	}
 }
 
-func (f *Follower) IsSynced() bool {
+func (f *followerManager) isSynced() bool {
 	f.fMutex.Lock()
 	defer f.fMutex.Unlock()
-	return f.isSynced
+	return f.synced
 }
 
-func (f *Follower) initSyncChannel() chan struct{} {
+func (f *followerManager) initSyncChannel() chan struct{} {
 	if f.syncWaitChannel == nil {
 		f.syncWaitChannel = make(chan struct{})
 	}
 	return f.syncWaitChannel
 }
 
-func (f *Follower) isRunning() bool {
+func (f *followerManager) isRunning() bool {
 	return f.cancel != nil
 }

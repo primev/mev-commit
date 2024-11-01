@@ -1,4 +1,4 @@
-package redisapp
+package util
 
 import (
 	"context"
@@ -19,14 +19,13 @@ var (
 	ErrFailedAfterNAttempts = errors.New("operation failed after N attempts")
 )
 
-// retryWithBackoff retries the operation with exponential backoff and a maximum number of attempts.
-func retryWithBackoff(ctx context.Context, maxAttempts uint64, log *slog.Logger, operation func() error) error {
+// RetryWithBackoff retries the operation with exponential backoff and a maximum number of attempts.
+func RetryWithBackoff(ctx context.Context, maxAttempts uint64, log *slog.Logger, operation func() error) error {
 	// Create and configure the ExponentialBackOff instance
 	eb := backoff.NewExponentialBackOff()
 	eb.InitialInterval = initialBackoff
 	eb.MaxInterval = maxBackoff
 
-	// Now wrap it with WithMaxRetries
 	b := backoff.WithMaxRetries(eb, maxAttempts)
 
 	err := backoff.Retry(func() error {
@@ -47,7 +46,7 @@ func retryWithBackoff(ctx context.Context, maxAttempts uint64, log *slog.Logger,
 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			return err // Context canceled
+			return err
 		}
 		log.Error("Operation failed after max attempts", "error", err)
 		return ErrFailedAfterNAttempts
@@ -55,7 +54,7 @@ func retryWithBackoff(ctx context.Context, maxAttempts uint64, log *slog.Logger,
 	return nil
 }
 
-func retryWithInfiniteBackoff(ctx context.Context, log *slog.Logger, operation func() error) error {
+func RetryWithInfiniteBackoff(ctx context.Context, log *slog.Logger, operation func() error) error {
     eb := backoff.NewExponentialBackOff()
     eb.InitialInterval = initialBackoff
     eb.MaxInterval = maxBackoff

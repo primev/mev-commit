@@ -1,4 +1,4 @@
-package redisapp
+package blockbuilder
 
 import (
 	"context"
@@ -16,19 +16,41 @@ import (
 	etypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/vmihailenco/msgpack/v5"
+	"github.com/primev/mev-commit/cl/redisapp/state"
+	"github.com/primev/mev-commit/cl/redisapp/util"
 	"golang.org/x/exp/rand"
 )
 
 const maxAttempts = 3
 
+type EngineClient interface {
+	NewPayloadV3(ctx context.Context, params engine.ExecutableData, versionedHashes []common.Hash,
+		beaconRoot *common.Hash) (engine.PayloadStatusV1, error)
+
+	ForkchoiceUpdatedV3(ctx context.Context, update engine.ForkchoiceStateV1,
+		payloadAttributes *engine.PayloadAttributes) (engine.ForkChoiceResponse, error)
+
+	GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*engine.ExecutionPayloadEnvelope, error)
+}
+
 type BlockBuilder struct {
-	stateManager StateManager
+	stateManager state.StateManager
 	engineCl     EngineClient
 	logger       *slog.Logger
 	buildDelay   time.Duration
 	buildDelayMs uint64
-	lastCallTime time.Time
+	LastCallTime time.Time
 	ctx          context.Context
+}
+
+func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, logger *slog.Logger, buildDelay time.Duration) *BlockBuilder {
+	return &BlockBuilder{
+		stateManager: stateManager,
+		engineCl:     engineCl,
+		logger:       logger,
+		buildDelay:   buildDelay,
+		buildDelayMs: uint64(buildDelay.Milliseconds()),
+	}
 }
 
 func (bb *BlockBuilder) startBuild(ctx context.Context, feeRecipient common.Address, head *types.ExecutionHead, ts uint64) (engine.ForkChoiceResponse, error) {
@@ -58,7 +80,7 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, feeRecipient common.Addr
 	return resp, nil
 }
 
-func (bb *BlockBuilder) getPayload(ctx context.Context) error {
+func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	var payloadID *engine.PayloadID
 
 	currentCallTime := time.Now()
@@ -73,13 +95,13 @@ func (bb *BlockBuilder) getPayload(ctx context.Context) error {
 
 	var ts uint64
 
-	if bb.lastCallTime.IsZero() {
-		// First block, initialize lastCallTime and set default timestamp
+	if bb.LastCallTime.IsZero() {
+		// First block, initialize LastCallTime and set default timestamp
 		ts = uint64(time.Now().UnixMilli()) + bb.buildDelayMs
-		bb.lastCallTime = currentCallTime
+		bb.LastCallTime = currentCallTime
 	} else {
 		// Compute diff in milliseconds
-		diff := currentCallTime.Sub(bb.lastCallTime)
+		diff := currentCallTime.Sub(bb.LastCallTime)
 		diffMillis := diff.Milliseconds()
 
 		if uint64(diffMillis) <= bb.buildDelayMs {
@@ -90,7 +112,7 @@ func (bb *BlockBuilder) getPayload(ctx context.Context) error {
 			ts = prevTimestamp + multiples*bb.buildDelayMs
 		}
 
-		bb.lastCallTime = currentCallTime
+		bb.LastCallTime = currentCallTime
 	}
 
 	// Very low chance to happen, only after restart and time.Now is broken
@@ -98,7 +120,7 @@ func (bb *BlockBuilder) getPayload(ctx context.Context) error {
 		ts = head.BlockTime + 1 // Subsequent blocks must have a higher timestamp.
 	}
 
-	err = retryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
+	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
 		response, err := bb.startBuild(ctx, common.Address{}, head, ts)
 		if err != nil {
 			bb.logger.Warn("Failed to build new EVM payload, will retry", "error", err)
@@ -133,7 +155,7 @@ func (bb *BlockBuilder) getPayload(ctx context.Context) error {
 	}
 
 	var payloadResp *engine.ExecutionPayloadEnvelope
-	err = retryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
+	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
 		var err error
 		payloadResp, err = bb.engineCl.GetPayloadV3(ctx, *payloadID)
 		if isUnknownPayload(err) {
@@ -182,7 +204,7 @@ func isUnknownPayload(err error) bool {
 	)
 }
 
-func (bb *BlockBuilder) processLastPayload(ctx context.Context) error {
+func (bb *BlockBuilder) ProcessLastPayload(ctx context.Context) error {
 	bbState := bb.stateManager.GetBlockBuildState(ctx)
 	if bbState.ExecutionPayload == "" {
 		return nil
@@ -191,8 +213,8 @@ func (bb *BlockBuilder) processLastPayload(ctx context.Context) error {
 	// If execPayload is not empty, the app likely exited after step 1
 	bb.logger.Debug("exec payload not nil, processing last payload")
 
-	err := retryWithInfiniteBackoff(ctx, bb.logger, func() error {
-		err := bb.finalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
+	err := util.RetryWithInfiniteBackoff(ctx, bb.logger, func() error {
+		err := bb.FinalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, "")
 		if err != nil {
 			re := regexp.MustCompile(`invalid block height: (\d+), expected: (\d+)`)
 			matches := re.FindStringSubmatch(err.Error())
@@ -228,7 +250,7 @@ func (bb *BlockBuilder) processLastPayload(ctx context.Context) error {
 		return err
 	}
 
-	err = retryWithInfiniteBackoff(ctx, bb.logger, func() error {
+	err = util.RetryWithInfiniteBackoff(ctx, bb.logger, func() error {
 		bb.logger.Info("Follower: Resetting state to StepBuildBlock for next block")
 		err := bb.stateManager.ResetBlockState(ctx)
 		if err != nil {
@@ -295,7 +317,7 @@ func sometimesFails() error {
 	return nil
 }
 
-func (bb *BlockBuilder) finalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
+func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {
 	if payloadIDStr == "" || executionPayloadStr == "" {
 		return errors.New("PayloadID or ExecutionPayload is missing in build state")
 	}
@@ -365,11 +387,11 @@ func (bb *BlockBuilder) validateExecutionPayload(executionPayload engine.Executa
 func (bb *BlockBuilder) selectRetryFunction(ctx context.Context, msgID string) func(operation func() error) error {
 	if msgID == "" {
 		return func(operation func() error) error {
-			return retryWithBackoff(ctx, maxAttempts, bb.logger, operation)
+			return util.RetryWithBackoff(ctx, maxAttempts, bb.logger, operation)
 		}
 	}
 	return func(operation func() error) error {
-		return retryWithInfiniteBackoff(ctx, bb.logger, operation)
+		return util.RetryWithInfiniteBackoff(ctx, bb.logger, operation)
 	}
 }
 

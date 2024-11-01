@@ -1,12 +1,14 @@
-package redisapp
+package leaderelection
 
 import (
 	"context"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
+	"github.com/primev/mev-commit/cl/redisapp/blockbuilder"
+	"github.com/primev/mev-commit/cl/redisapp/state"
+	"github.com/primev/mev-commit/cl/redisapp/util"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -17,10 +19,6 @@ type LeaderElectionHandler struct {
 	demotedCh      <-chan time.Time
 	erroredCh      <-chan error
 
-	// Leader state
-	isLeaderMutex sync.RWMutex
-	isLeader      bool
-
 	// Context and cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -29,18 +27,18 @@ type LeaderElectionHandler struct {
 	// Dependencies
 	logger       *slog.Logger
 	instanceID   string
-	stateManager StateManager
-	blockBuilder *BlockBuilder
-	leader       *Leader
-	follower     *Follower
+	stateManager state.StateManager
+	blockBuilder *blockbuilder.BlockBuilder
+	leader       *leaderManager
+	follower     *followerManager
 }
 
 func NewLeaderElectionHandler(
 	instanceID string,
 	logger *slog.Logger,
 	redisClient *redis.Client,
-	stateManager StateManager,
-	blockBuilder *BlockBuilder,
+	stateManager state.StateManager,
+	blockBuilder *blockbuilder.BlockBuilder,
 ) *LeaderElectionHandler {
 	leaderCtx, cancel := context.WithCancel(context.Background())
 
@@ -54,15 +52,15 @@ func NewLeaderElectionHandler(
 
 	procLeader, promotedCh, demotedCh, erroredCh := leader.NewLeader(leaderOpts)
 
-	follower := &Follower{
-		InstanceID:   instanceID,
+	follower := &followerManager{
+		instanceID:   instanceID,
 		stateManager: stateManager,
 		blockBuilder: blockBuilder,
 		logger:       logger,
 	}
 
-	leader := &Leader{
-		InstanceID:     instanceID,
+	leader := &leaderManager{
+		instanceID:     instanceID,
 		stateManager:   stateManager,
 		blockBuilder:   blockBuilder,
 		leaderElection: procLeader,
@@ -85,7 +83,7 @@ func NewLeaderElectionHandler(
 	}
 }
 
-func (leh *LeaderElectionHandler) handleLeadershipEvents() {
+func (leh *LeaderElectionHandler) HandleLeadershipEvents() {
 	leh.logger.Info("Starting leader election event handler")
 	leh.leaderElection.Start()
 
@@ -126,7 +124,7 @@ func (leh *LeaderElectionHandler) handleLeadershipEvents() {
 }
 
 func (leh *LeaderElectionHandler) initializeFollower() error {
-	if err := leh.blockBuilder.processLastPayload(leh.ctx); err != nil {
+	if err := leh.blockBuilder.ProcessLastPayload(leh.ctx); err != nil {
 		leh.logger.Error("Error processing last payload", "error", err)
 		return err
 	}
@@ -141,7 +139,7 @@ func (leh *LeaderElectionHandler) stopLeaderAndFollower() {
 
 func (leh *LeaderElectionHandler) handlePromotion() (bool, error) {
 	leh.logger.Info("Promoting to leader")
-	if !leh.follower.IsSynced() {
+	if !leh.follower.isSynced() {
 		leh.logger.Info("Follower not synced, skipping promotion")
 		leh.leaderElection.Stop()
 		leh.logger.Info("Waiting for follower sync...")
@@ -156,7 +154,6 @@ func (leh *LeaderElectionHandler) handlePromotion() (bool, error) {
 			return false, nil
 		}
 	} else {
-		leh.setIsLeader(true)
 		leh.logger.Info("Promoted to leader")
 		leh.follower.stopFollowerLoop()
 		if err := leh.stateManager.RecoverLeaderState(); err != nil {
@@ -168,7 +165,6 @@ func (leh *LeaderElectionHandler) handlePromotion() (bool, error) {
 }
 
 func (leh *LeaderElectionHandler) handleDemotion() (bool, error) {
-	leh.setIsLeader(false)
 	leh.logger.Info("Demoted from leader")
 
 	if leh.follower.isRunning() {
@@ -178,7 +174,7 @@ func (leh *LeaderElectionHandler) handleDemotion() (bool, error) {
 
 	leh.leader.stopLeaderLoop()
 
-	if err := retryWithInfiniteBackoff(leh.ctx, leh.logger, func() error {
+	if err := util.RetryWithInfiniteBackoff(leh.ctx, leh.logger, func() error {
 		if err := leh.stateManager.LoadOrInitializeBlockState(leh.ctx); err != nil {
 			leh.logger.Warn("Failed to load/init state, retrying...", "error", err)
 			return err // will retry
@@ -189,7 +185,7 @@ func (leh *LeaderElectionHandler) handleDemotion() (bool, error) {
 		return false, err
 	}
 
-	if err := leh.blockBuilder.processLastPayload(leh.ctx); err != nil {
+	if err := leh.blockBuilder.ProcessLastPayload(leh.ctx); err != nil {
 		leh.logger.Error("Error processing last payload", "error", err)
 		return false, err
 	}
@@ -200,18 +196,6 @@ func (leh *LeaderElectionHandler) handleDemotion() (bool, error) {
 	leh.leaderElection.Start()
 
 	return true, nil
-}
-
-func (leh *LeaderElectionHandler) setIsLeader(value bool) {
-	leh.isLeaderMutex.Lock()
-	defer leh.isLeaderMutex.Unlock()
-	leh.isLeader = value
-}
-
-func (leh *LeaderElectionHandler) IsLeader() bool {
-	leh.isLeaderMutex.RLock()
-	defer leh.isLeaderMutex.RUnlock()
-	return leh.isLeader
 }
 
 func (leh *LeaderElectionHandler) Stop() {
