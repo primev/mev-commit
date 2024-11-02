@@ -51,6 +51,7 @@ contract ProviderRegistry is
         minStake = _minStake;
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
+        __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
     }
@@ -91,7 +92,7 @@ contract ProviderRegistry is
     /**
      * @dev Slash funds from the provider and send the slashed amount to the bidder.
      * @dev reenterancy not necessary but still putting here for precaution.
-     * @dev Note we slash the funds irrespective of decay, this is to prevent timing games.
+     * @dev Note we slash the funds taking into account the residual bid percent after decay.
      * @param amt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
@@ -121,8 +122,10 @@ contract ProviderRegistry is
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        (bool success, ) = payable(bidder).call{value: residualAmt}("");
-        require(success, TransferToBidderFailed(bidder, residualAmt));
+        if (!payable(bidder).send(amt)) {
+            emit TransferToBidderFailed(bidder, amt);
+            bidderSlashedAmount[bidder] += amt;
+        }
 
         emit FundsSlashed(provider, residualAmt + penaltyFee);
     }
@@ -196,8 +199,8 @@ contract ProviderRegistry is
 
         uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
+        providerRegistered[msg.sender] = false;
         withdrawalRequests[msg.sender] = 0;
-        require(providerStake != 0, ProviderStakedAmountZero(msg.sender));
         require(preconfManager != address(0), PreconfManagerNotSet());
 
         uint256 providerPendingCommitmentsCount = PreconfManager(
@@ -210,6 +213,19 @@ contract ProviderRegistry is
         require(success, StakeTransferFailed(msg.sender, providerStake));
 
         emit Withdraw(msg.sender, providerStake);
+    }
+
+    /**
+     * @dev Allows the bidder to withdraw the slashed amount.
+     */
+    function withdrawSlashedAmount() external nonReentrant whenNotPaused() {
+        require(bidderSlashedAmount[msg.sender] != 0, BidderAmountIsZero(msg.sender));
+        uint256 amount = bidderSlashedAmount[msg.sender];
+        bidderSlashedAmount[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: amount}("");
+        require(success, BidderWithdrawalTransferFailed(msg.sender, amount));
+
+        emit BidderWithdrawSlashedAmount(msg.sender, amount);
     }
 
     /**
@@ -259,11 +275,11 @@ contract ProviderRegistry is
     }
 
     /**
-     * @dev Register and stake on behalf of a provider.
-     * @param provider Address of the provider.
-     * @param blsPublicKey BLS public key of the provider.
-     */
-    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable whenNotPaused {
+    * @dev Register and stake on behalf of a provider.
+    * @param provider Address of the provider.
+    * @param blsPublicKey BLS public key of the provider.
+    */
+    function delegateRegisterAndStake(address provider, bytes calldata blsPublicKey) public payable whenNotPaused onlyOwner {
         _registerAndStake(provider, blsPublicKey);
     }
 
@@ -276,6 +292,7 @@ contract ProviderRegistry is
 
     function _stake(address provider) internal {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
     }

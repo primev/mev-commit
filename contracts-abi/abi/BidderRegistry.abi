@@ -121,19 +121,6 @@
   },
   {
     "type": "function",
-    "name": "blocksPerWindow",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "depositForWindow",
     "inputs": [
       {
@@ -252,11 +239,6 @@
         "internalType": "address"
       },
       {
-        "name": "_blocksPerWindow",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
         "name": "_feePayoutPeriodBlocks",
         "type": "uint256",
         "internalType": "uint256"
@@ -330,7 +312,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -590,7 +572,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "bidID",
+        "name": "commitmentDigest",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -959,6 +941,25 @@
   },
   {
     "type": "event",
+    "name": "TransferToBidderFailed",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
@@ -999,7 +1000,7 @@
     "name": "BidNotPreConfirmed",
     "inputs": [
       {
-        "name": "bidID",
+        "name": "commitmentDigest",
         "type": "bytes32",
         "internalType": "bytes32"
       },
@@ -1018,6 +1019,27 @@
   {
     "type": "error",
     "name": "BidderAmountIsZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BidderWithdrawalTransferFailed",
+    "inputs": [
+      {
+        "name": "bidder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DepositAmountIsZero",
     "inputs": []
   },
   {
@@ -1138,22 +1160,6 @@
         "name": "preconfManager",
         "type": "address",
         "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "TransferToBidderFailed",
-    "inputs": [
-      {
-        "name": "bidder",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "amount",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ]
   },
