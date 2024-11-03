@@ -268,6 +268,7 @@ func (u *Updater) handleOpenedCommitment(
 	ctx context.Context,
 	update *preconf.PreconfmanagerOpenedCommitmentStored,
 ) error {
+	u.logger.Info("received opened commitment", "commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]))
 	u.metrics.CommitmentsReceivedCount.Inc()
 	alreadySettled, err := u.winnerRegister.IsSettled(ctx, update.CommitmentIndex[:])
 	if err != nil {
