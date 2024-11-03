@@ -183,7 +183,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           MEV_ORACLE_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           MEV_ORACLE_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
-          MEV_ORACLE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
+          MEV_ORACLE_LOG_LEVEL="debug"
           MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '10') }}"
           MEV_ORACLE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           {%- raw %}
