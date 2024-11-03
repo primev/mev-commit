@@ -213,7 +213,7 @@ jobs:
             ${CLUSTER_PROFILE_FLAG} \
             ${CLUSTER_LOGS_FLAG} \
             ${CLUSTER_DATADOG_KEY_FLAG} \
-            --l1-rpc-urls "https://holesky.drpc.org" \
+            --l1-rpc-urls "https://eth-holesky.g.alchemy.com/v2/WqNEQeeexFLQwECjxCPpdep0uvCgn8Yj" \
             ${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG} \
             ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"
