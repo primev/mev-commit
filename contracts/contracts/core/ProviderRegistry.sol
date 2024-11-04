@@ -183,6 +183,14 @@ contract ProviderRegistry is
         emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
+    /// @dev Adds a BLS public key to the provider's list of BLS public keys.
+    /// @param provider The address of the provider.
+    /// @param blsKey The BLS public key to add.
+    function addBLSKey(address provider, bytes calldata blsKey) external onlyOwner {
+        eoaToBlsPubkeys[provider].push(blsKey);
+        blockBuilderBLSKeyToAddress[blsKey] = provider;
+    }
+
     /// @dev Requests unstake of the staked amount.
     function unstake() external whenNotPaused {
         require(providerStakes[msg.sender] != 0, NoStakeToWithdraw(msg.sender));
