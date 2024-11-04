@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 interface IBidderRegistry {
     struct OpenedCommitment {
         string txnHash;
-        uint256 bid;
+        uint256 bidAmt;
         uint64 blockNumber;
         string bidHash;
         string bidSignature;
@@ -70,14 +70,14 @@ interface IBidderRegistry {
     /// @dev Event emitted when the protocol fee recipient is updated
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
 
+    /// @dev Event emitted when transfer to bidder fails
+    event TransferToBidderFailed(address bidder, uint256 amount);
+
     /// @dev Error emitted when the sender is not the preconfManager
     error SenderIsNotPreconfManager(address sender, address preconfManager);
 
     /// @dev Error emitted when the bid is not preconfirmed
-    error BidNotPreConfirmed(bytes32 bidID, State actualState, State expectedState);
-
-    /// @dev Error emitted when the transfer to the bidder fails
-    error TransferToBidderFailed(address bidder, uint256 amount);
+    error BidNotPreConfirmed(bytes32 commitmentDigest, State actualState, State expectedState);
 
     /// @dev Error emitted when the withdraw after window settled
     error WithdrawAfterWindowSettled(uint256 window, uint256 currentWindow);
@@ -91,13 +91,19 @@ interface IBidderRegistry {
     /// @dev Error emitted when the only bidder can withdraw
     error OnlyBidderCanWithdraw(address sender, address bidder);
 
+    /// @dev Error emitted when the bidder tries to deposit 0 amount
+    error DepositAmountIsZero();
+
     /// @dev Error emitted when the window is not settled
     error WindowNotSettled();
     error BidderAmountIsZero();
 
+    /// @dev Error emitted when withdrawal transfer failed
+    error BidderWithdrawalTransferFailed(address bidder, uint256 amount);
+
     function openBid(
         bytes32 commitmentDigest,
-        uint256 bid,
+        uint256 bidAmt,
         address bidder,
         uint64 blockNumber
     ) external;

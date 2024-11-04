@@ -29,34 +29,18 @@ contract PreconfManager is
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bid,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
         );
 
     // EIP-712 domain separator
-    bytes32 public constant DOMAIN_SEPARATOR_PRECONF =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256("OpenedCommitment"),
-                keccak256("1")
-            )
-        );
-
-    // EIP-712 domain separator
-    bytes32 public constant DOMAIN_SEPARATOR_BID =
-        keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version)"),
-                keccak256("PreConfBid"),
-                keccak256("1")
-            )
-        );
+    bytes32 public domainSeparatorPreconf;
+    bytes32 public domainSeparatorBid;
 
     // Hex characters
     bytes public constant HEXCHARS = "0123456789abcdef";
@@ -65,7 +49,10 @@ contract PreconfManager is
      * @dev Makes sure transaction sender is oracle contract
      */
     modifier onlyOracleContract() {
-        require(msg.sender == oracleContract, SenderIsNotOracleContract(msg.sender, oracleContract));
+        require(
+            msg.sender == oracleContract,
+            SenderIsNotOracleContract(msg.sender, oracleContract)
+        );
         _;
     }
 
@@ -77,7 +64,6 @@ contract PreconfManager is
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _blockTracker The address of the block tracker.
      * @param _commitmentDispatchWindow The dispatch window for commitments.
-     * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
         address _providerRegistry,
@@ -85,8 +71,7 @@ contract PreconfManager is
         address _oracleContract,
         address _owner,
         address _blockTracker,
-        uint64 _commitmentDispatchWindow,
-        uint256 _blocksPerWindow
+        uint64 _commitmentDispatchWindow
     ) external initializer {
         providerRegistry = IProviderRegistry(_providerRegistry);
         bidderRegistry = IBidderRegistry(_bidderRegistry);
@@ -94,8 +79,35 @@ contract PreconfManager is
         __Ownable_init(_owner);
         blockTracker = IBlockTracker(_blockTracker);
         commitmentDispatchWindow = _commitmentDispatchWindow;
-        blocksPerWindow = _blocksPerWindow;
         __Pausable_init();
+
+        // Compute the domain separators
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        domainSeparatorPreconf = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                "OpenedCommitment",
+                "1",
+                chainId,
+                address(this)
+            )
+        );
+        domainSeparatorBid = keccak256(
+            abi.encode(
+                keccak256(
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                ),
+                "PreConfBid",
+                "1",
+                chainId,
+                address(this)
+            )
+        );
     }
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
@@ -141,17 +153,6 @@ contract PreconfManager is
     }
 
     /**
-     * @dev Updates the number of blocks per window.
-     * @param newBlocksPerWindow The new number of blocks per window.
-     */
-    function updateBlocksPerWindow(
-        uint256 newBlocksPerWindow
-    ) external onlyOwner {
-        blocksPerWindow = newBlocksPerWindow;
-        emit BlocksPerWindowUpdated(newBlocksPerWindow);
-    }
-
-    /**
      * @dev Updates the address of the provider registry.
      * @param newProviderRegistry The new provider registry address.
      */
@@ -177,9 +178,7 @@ contract PreconfManager is
      * @dev Updates the address of the block tracker.
      * @param newBlockTracker The new block tracker address.
      */
-    function updateBlockTracker(
-        address newBlockTracker
-    ) external onlyOwner {
+    function updateBlockTracker(address newBlockTracker) external onlyOwner {
         blockTracker = IBlockTracker(newBlockTracker);
         emit BlockTrackerUpdated(newBlockTracker);
     }
@@ -197,27 +196,25 @@ contract PreconfManager is
     /**
      * @dev Open a commitment
      * @param unopenedCommitmentIndex The index of the unopened commitment
-     * @param bid The bid amount
+     * @param bidAmt The bid amount
      * @param blockNumber The block number
      * @param txnHash The transaction hash
      * @param revertingTxHashes The reverting transaction hashes
      * @param decayStartTimeStamp The start time of the decay
      * @param decayEndTimeStamp The end time of the decay
      * @param bidSignature The signature of the bid
-     * @param commitmentSignature The signature of the commitment
      * @param sharedSecretKey The shared secret key
      * @return commitmentIndex The index of the stored commitment
      */
     function openCommitment(
         bytes32 unopenedCommitmentIndex,
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         string memory txnHash,
         string memory revertingTxHashes,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) public whenNotPaused returns (bytes32 commitmentIndex) {
         if (decayStartTimeStamp >= decayEndTimeStamp) {
@@ -225,7 +222,7 @@ contract PreconfManager is
         }
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
-            bid,
+            bidAmt,
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
@@ -234,16 +231,25 @@ contract PreconfManager is
             bidSignature
         );
 
+        bytes32 txnHashAndBidder = keccak256(
+            abi.encode(txnHash, bidderAddress)
+        );
+
+        require(
+            processedTxnHashes[txnHashAndBidder] == false,
+            TxnHashAlreadyProcessed(txnHash, bidderAddress)
+        );
+
         bytes32 commitmentDigest = getPreConfHash(
             txnHash,
             revertingTxHashes,
-            bid,
+            bidAmt,
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
             bHash,
-            _bytesToHexString(bidSignature),
-            _bytesToHexString(sharedSecretKey)
+            bidSignature,
+            sharedSecretKey
         );
 
         UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
@@ -262,7 +268,7 @@ contract PreconfManager is
         }
 
         address committerAddress = commitmentDigest.recover(
-            commitmentSignature
+            unopenedCommitment.commitmentSignature
         );
 
         address winner = blockTracker.getBlockWinner(blockNumber);
@@ -272,7 +278,11 @@ contract PreconfManager is
         }
 
         if (msg.sender != winner && msg.sender != bidderAddress) {
-            revert UnauthorizedOpenCommitment(committerAddress, bidderAddress, msg.sender);
+            revert UnauthorizedOpenCommitment(
+                committerAddress,
+                bidderAddress,
+                msg.sender
+            );
         }
 
         OpenedCommitment memory newCommitment = OpenedCommitment(
@@ -283,11 +293,11 @@ contract PreconfManager is
             decayEndTimeStamp,
             unopenedCommitment.dispatchTimestamp,
             committerAddress,
-            bid,
+            bidAmt,
             bHash,
             commitmentDigest,
             bidSignature,
-            commitmentSignature,
+            unopenedCommitment.commitmentSignature,
             sharedSecretKey,
             txnHash,
             revertingTxHashes
@@ -302,18 +312,20 @@ contract PreconfManager is
 
         bidderRegistry.openBid(
             commitmentDigest,
-            bid,
+            bidAmt,
             bidderAddress,
             blockNumber
         );
 
         ++commitmentsCount[committerAddress];
 
+        processedTxnHashes[txnHashAndBidder] = true;
+
         emit OpenedCommitmentStored(
             commitmentIndex,
             bidderAddress,
             committerAddress,
-            bid,
+            bidAmt,
             blockNumber,
             bHash,
             decayStartTimeStamp,
@@ -322,7 +334,7 @@ contract PreconfManager is
             revertingTxHashes,
             commitmentDigest,
             bidSignature,
-            commitmentSignature,
+            unopenedCommitment.commitmentSignature,
             unopenedCommitment.dispatchTimestamp,
             sharedSecretKey
         );
@@ -369,6 +381,11 @@ contract PreconfManager is
 
         commitmentIndex = getUnopenedCommitmentIndex(newCommitment);
 
+        require(
+            unopenedCommitments[commitmentIndex].committer == address(0),
+            UnopenedCommitmentAlreadyExists(commitmentIndex)
+        );
+
         unopenedCommitments[commitmentIndex] = newCommitment;
 
         emit UnopenedCommitmentStored(
@@ -391,19 +408,23 @@ contract PreconfManager is
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract whenNotPaused {
-        OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isSettled, CommitmentAlreadySettled(commitmentIndex));
+        OpenedCommitment storage commitment = openedCommitments[
+            commitmentIndex
+        ];
+        require(
+            !commitment.isSettled,
+            CommitmentAlreadySettled(commitmentIndex)
+        );
 
         commitment.isSettled = true;
         --commitmentsCount[commitment.committer];
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber,
-            blocksPerWindow
+            commitment.blockNumber
         );
 
         providerRegistry.slash(
-            commitment.bid,
+            commitment.bidAmt,
             commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
@@ -420,12 +441,16 @@ contract PreconfManager is
         bytes32 commitmentIndex,
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract whenNotPaused {
-        OpenedCommitment storage commitment = openedCommitments[commitmentIndex];
-        require(!commitment.isSettled, CommitmentAlreadySettled(commitmentIndex));
+        OpenedCommitment storage commitment = openedCommitments[
+            commitmentIndex
+        ];
+        require(
+            !commitment.isSettled,
+            CommitmentAlreadySettled(commitmentIndex)
+        );
 
         uint256 windowToSettle = WindowFromBlockNumber.getWindowFromBlockNumber(
-            commitment.blockNumber,
-            blocksPerWindow
+            commitment.blockNumber
         );
 
         commitment.isSettled = true;
@@ -475,7 +500,7 @@ contract PreconfManager is
     /**
      * @dev Gives digest to be signed for bids
      * @param _txnHash transaction Hash.
-     * @param _bid bid id.
+     * @param _bidAmt bid amount.
      * @param _blockNumber block number
      * @param _revertingTxHashes reverting transaction hashes.
      * @return digest it returns a digest that can be used for signing bids
@@ -483,20 +508,20 @@ contract PreconfManager is
     function getBidHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp
-    ) public pure returns (bytes32) {
+    ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_BID,
+                domainSeparatorBid,
                 keccak256(
                     abi.encode(
                         EIP712_BID_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        keccak256(abi.encodePacked(_revertingTxHashes)),
-                        _bid,
+                        keccak256(bytes(_txnHash)),
+                        keccak256(bytes(_revertingTxHashes)),
+                        _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp
@@ -508,7 +533,7 @@ contract PreconfManager is
     /**
      * @dev Gives digest to be signed for pre confirmation
      * @param _txnHash transaction Hash.
-     * @param _bid bid id.
+     * @param _bidAmt bid amount.
      * @param _blockNumber block number.
      * @param _revertingTxHashes reverting transaction hashes.
      * @param _bidHash hash of the bid.
@@ -519,31 +544,29 @@ contract PreconfManager is
     function getPreConfHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
-        string memory _bidSignature,
-        string memory _sharedSecretKey
-    ) public pure returns (bytes32) {
+        bytes memory _bidSignature,
+        bytes memory _sharedSecretKey
+    ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
-                DOMAIN_SEPARATOR_PRECONF,
+                domainSeparatorPreconf,
                 keccak256(
                     abi.encode(
                         EIP712_COMMITMENT_TYPEHASH,
-                        keccak256(abi.encodePacked(_txnHash)),
-                        keccak256(abi.encodePacked(_revertingTxHashes)),
-                        _bid,
+                        keccak256(bytes(_txnHash)),
+                        keccak256(bytes(_revertingTxHashes)),
+                        _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp,
-                        keccak256(
-                            abi.encodePacked(_bytes32ToHexString(_bidHash))
-                        ),
-                        keccak256(abi.encodePacked(_bidSignature)),
-                        keccak256(abi.encodePacked(_sharedSecretKey))
+                        _bidHash,
+                        keccak256(_bidSignature),
+                        keccak256(_sharedSecretKey)
                     )
                 )
             );
@@ -551,29 +574,29 @@ contract PreconfManager is
 
     /**
      * @dev Internal function to verify a bid
-     * @param bid bid id.
+     * @param bidAmt bid amount.
      * @param blockNumber block number.
      * @param decayStartTimeStamp decay start time.
      * @param decayEndTimeStamp decay end time.
      * @param txnHash transaction Hash.
      * @param revertingTxHashes reverting transaction hashes.
      * @param bidSignature bid signature.
-     * @return messageDigest returns the bid hash for given bid id.
+     * @return messageDigest returns the bid hash for given bid info.
      * @return recoveredAddress the address from the bid hash.
      */
     function verifyBid(
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         string memory txnHash,
         string memory revertingTxHashes,
         bytes calldata bidSignature
-    ) public pure returns (bytes32 messageDigest, address recoveredAddress) {
+    ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
             txnHash,
             revertingTxHashes,
-            bid,
+            bidAmt,
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp
@@ -589,7 +612,7 @@ contract PreconfManager is
      */
     function verifyPreConfCommitment(
         CommitmentParams memory params
-    ) public pure returns (bytes32 preConfHash, address committerAddress) {
+    ) public view returns (bytes32 preConfHash, address committerAddress) {
         preConfHash = _getPreConfHash(params);
         committerAddress = preConfHash.recover(params.commitmentSignature);
     }
@@ -633,51 +656,18 @@ contract PreconfManager is
 
     function _getPreConfHash(
         CommitmentParams memory params
-    ) internal pure returns (bytes32) {
+    ) internal view returns (bytes32) {
         return
             getPreConfHash(
                 params.txnHash,
                 params.revertingTxHashes,
-                params.bid,
+                params.bidAmt,
                 params.blockNumber,
                 params.decayStartTimeStamp,
                 params.decayEndTimeStamp,
                 params.bidHash,
-                _bytesToHexString(params.bidSignature),
-                _bytesToHexString(params.sharedSecretKey)
+                params.bidSignature,
+                params.sharedSecretKey
             );
-    }
-
-    /**
-     * @dev Internal Function to convert bytes32 to hex string without 0x
-     * @param _bytes32 the byte array to convert to string
-     * @return hex string from the byte 32 array
-     */
-    function _bytes32ToHexString(
-        bytes32 _bytes32
-    ) internal pure returns (string memory) {
-        bytes memory _string = new bytes(64);
-        for (uint8 i = 0; i < 32; ++i) {
-            _string[i * 2] = HEXCHARS[uint8(_bytes32[i] >> 4)];
-            _string[1 + i * 2] = HEXCHARS[uint8(_bytes32[i] & 0x0f)];
-        }
-        return string(_string);
-    }
-
-    /**
-     * @dev Internal Function to convert bytes array to hex string without 0x
-     * @param _bytes the byte array to convert to string
-     * @return hex string from the bytes array
-     */
-    function _bytesToHexString(
-        bytes memory _bytes
-    ) internal pure returns (string memory) {
-        bytes memory _string = new bytes(_bytes.length * 2);
-        uint256 len = _bytes.length;
-        for (uint256 i = 0; i < len; ++i) {
-            _string[i * 2] = HEXCHARS[uint8(_bytes[i] >> 4)];
-            _string[1 + i * 2] = HEXCHARS[uint8(_bytes[i] & 0x0f)];
-        }
-        return string(_string);
     }
 }

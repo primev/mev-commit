@@ -8,6 +8,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {Errors} from "../utils/Errors.sol";
+import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 
 /**
  * @title BlockTracker
@@ -24,13 +25,11 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
 
     /**
      * @dev Initializes the BlockTracker contract with the specified owner.
-     * @param blocksPerWindow_ Number of blocks per window.
      * @param oracleAccount_ Address of the permissoined oracle account.
      * @param owner_ Address of the contract owner.
      */
-    function initialize(uint256 blocksPerWindow_, address oracleAccount_, address owner_) external initializer {
+    function initialize(address oracleAccount_, address owner_) external initializer {
         currentWindow = 1;
-        blocksPerWindow = blocksPerWindow_;
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
         __Pausable_init();
@@ -67,6 +66,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         address builderAddress
     ) external onlyOracle whenNotPaused {
         blockBuilderNameToAddress[builderName] = builderAddress;
+        emit BuilderAddressAdded(builderName, builderAddress);
     }
 
     /**
@@ -80,7 +80,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     ) external onlyOracle whenNotPaused {
         address _winner = blockBuilderNameToAddress[_winnerGraffiti];
         _recordBlockWinner(_blockNumber, _winner);
-        uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
+        uint256 newWindow = (_blockNumber - 1) / WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1;
         if (newWindow > currentWindow) {
             // We've entered a new window
             currentWindow = newWindow;
@@ -113,6 +113,15 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     }
 
     /**
+     * @dev Function to get the winner of a specific block.
+     * @param blockNumber The number of the block.
+     * @return The address of the block winner.
+     */
+    function getBlockWinner(uint256 blockNumber) external view returns (address) {
+        return blockWinners[blockNumber];
+    }
+
+    /**
      * @dev Returns the builder's address corresponding to the given name.
      * @param builderNameGraffiti The name (or graffiti) of the block builder.
      * @return The Ethereum address of the builder.
@@ -127,17 +136,8 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      * @dev Returns the number of blocks per window.
      * @return The number of blocks per window.
      */
-    function getBlocksPerWindow() external view returns (uint256) {
-        return blocksPerWindow;
-    }
-
-    /**
-     * @dev Function to get the winner of a specific block.
-     * @param blockNumber The number of the block.
-     * @return The address of the block winner.
-     */
-    function getBlockWinner(uint256 blockNumber) external view returns (address) {
-        return blockWinners[blockNumber];
+    function getBlocksPerWindow() external pure returns (uint256) {
+        return WindowFromBlockNumber.BLOCKS_PER_WINDOW;
     }
 
     /**

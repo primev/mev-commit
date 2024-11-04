@@ -14,32 +14,6 @@
   },
   {
     "type": "function",
-    "name": "DOMAIN_SEPARATOR_BID",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "DOMAIN_SEPARATOR_PRECONF",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "EIP712_BID_TYPEHASH",
     "inputs": [],
     "outputs": [
@@ -125,19 +99,6 @@
   },
   {
     "type": "function",
-    "name": "blocksPerWindow",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "commitmentDispatchWindow",
     "inputs": [],
     "outputs": [
@@ -170,6 +131,32 @@
   },
   {
     "type": "function",
+    "name": "domainSeparatorBid",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "domainSeparatorPreconf",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getBidHash",
     "inputs": [
       {
@@ -183,7 +170,7 @@
         "internalType": "string"
       },
       {
-        "name": "_bid",
+        "name": "_bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -210,7 +197,7 @@
         "internalType": "bytes32"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -264,7 +251,7 @@
             "internalType": "address"
           },
           {
-            "name": "bid",
+            "name": "bidAmt",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -353,7 +340,7 @@
             "internalType": "address"
           },
           {
-            "name": "bid",
+            "name": "bidAmt",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -419,7 +406,7 @@
         "internalType": "string"
       },
       {
-        "name": "_bid",
+        "name": "_bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -445,13 +432,13 @@
       },
       {
         "name": "_bidSignature",
-        "type": "string",
-        "internalType": "string"
+        "type": "bytes",
+        "internalType": "bytes"
       },
       {
         "name": "_sharedSecretKey",
-        "type": "string",
-        "internalType": "string"
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -461,7 +448,7 @@
         "internalType": "bytes32"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -607,11 +594,6 @@
         "name": "_commitmentDispatchWindow",
         "type": "uint64",
         "internalType": "uint64"
-      },
-      {
-        "name": "_blocksPerWindow",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -663,7 +645,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -694,11 +676,6 @@
       },
       {
         "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "commitmentSignature",
         "type": "bytes",
         "internalType": "bytes"
       },
@@ -764,7 +741,7 @@
         "internalType": "address"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -861,6 +838,25 @@
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "processedTxnHashes",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -1014,19 +1010,6 @@
   },
   {
     "type": "function",
-    "name": "updateBlocksPerWindow",
-    "inputs": [
-      {
-        "name": "newBlocksPerWindow",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "updateCommitmentDispatchWindow",
     "inputs": [
       {
@@ -1087,7 +1070,7 @@
     "name": "verifyBid",
     "inputs": [
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "internalType": "uint256"
       },
@@ -1134,7 +1117,7 @@
         "internalType": "address"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1156,7 +1139,7 @@
             "internalType": "string"
           },
           {
-            "name": "bid",
+            "name": "bidAmt",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -1210,7 +1193,7 @@
         "internalType": "address"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -1219,7 +1202,7 @@
       {
         "name": "newBidderRegistry",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1232,21 +1215,8 @@
       {
         "name": "newBlockTracker",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "BlocksPerWindowUpdated",
-    "inputs": [
-      {
-        "name": "newBlocksPerWindow",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1300,7 +1270,7 @@
         "internalType": "address"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1381,7 +1351,7 @@
       {
         "name": "newOracleContract",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1445,7 +1415,7 @@
       {
         "name": "newProviderRegistry",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -1474,7 +1444,7 @@
         "internalType": "string"
       },
       {
-        "name": "bid",
+        "name": "bidAmt",
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
@@ -1739,6 +1709,22 @@
   },
   {
     "type": "error",
+    "name": "TxnHashAlreadyProcessed",
+    "inputs": [
+      {
+        "name": "txnHash",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "bidderAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "UUPSUnauthorizedCallContext",
     "inputs": []
   },
@@ -1771,6 +1757,17 @@
         "name": "sender",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnopenedCommitmentAlreadyExists",
+    "inputs": [
+      {
+        "name": "commitmentIndex",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },

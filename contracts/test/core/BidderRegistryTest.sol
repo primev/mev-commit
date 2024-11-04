@@ -6,6 +6,7 @@ import {BidderRegistry} from "../../contracts/core/BidderRegistry.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {IBidderRegistry} from "../../contracts/interfaces/IBidderRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
+import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
@@ -15,7 +16,6 @@ contract BidderRegistryTest is Test {
     address public bidder;
     address public feeRecipient;
     uint256 public feePayoutPeriodBlocks;
-    uint256 public blocksPerWindow;
     BlockTracker public blockTracker;
 
     /// @dev Event emitted when a bidder is registered with their staked amount
@@ -31,16 +31,15 @@ contract BidderRegistryTest is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         feePayoutPeriodBlocks = 100;
-        blocksPerWindow = 10;
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (blocksPerWindow, address(this), address(this)))
+            abi.encodeCall(BlockTracker.initialize, (address(this), address(this)))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
-            abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, address(this), address(blockTracker), blocksPerWindow, feePayoutPeriodBlocks))
+            abi.encodeCall(BidderRegistry.initialize, (feeRecipient, feePercent, address(this), address(blockTracker), feePayoutPeriodBlocks))
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
@@ -167,7 +166,7 @@ contract BidderRegistryTest is Test {
     }
 
     function test_shouldRetrieveFunds() public {
-        bytes32 bidID = keccak256("1234");
+        bytes32 commitmentDigest = keccak256("1234");
         bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
@@ -175,13 +174,13 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
 
-        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), 100);
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
         uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
@@ -191,7 +190,7 @@ contract BidderRegistryTest is Test {
     }
 
     function test_shouldRetrieveFundsWithDecay() public {
-        bytes32 bidID = keccak256("1234");
+        bytes32 commitmentDigest = keccak256("1234");
         bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
@@ -199,15 +198,15 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
 
         uint256 bidderBalance = bidder.balance;
 
-        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 50);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), 50);
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
         uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
@@ -219,7 +218,7 @@ contract BidderRegistryTest is Test {
     }
 
     function test_shouldReturnFunds() public {
-        bytes32 bidID = keccak256("1234");
+        bytes32 commitmentDigest = keccak256("1234");
         bidderRegistry.setPreconfManager(address(this));
         uint256 currentWindow = blockTracker.getCurrentWindow();
         uint256 nextWindow = currentWindow + 1;
@@ -227,15 +226,15 @@ contract BidderRegistryTest is Test {
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
         uint256 bidderBalance = bidder.balance;
 
-        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
 
-        bidderRegistry.unlockFunds(nextWindow, bidID);
+        bidderRegistry.unlockFunds(nextWindow, commitmentDigest);
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
         uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
@@ -254,9 +253,9 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 2 ether}(nextWindow);
         address provider = vm.addr(4);
         vm.expectRevert(bytes(""));
-        bytes32 bidID = keccak256("1234");
-        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
-        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
+        bytes32 commitmentDigest = keccak256("1234");
+        bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
     }
 
     function testFail_shouldRetrieveFundsGreaterThanStake() public {
@@ -272,9 +271,9 @@ contract BidderRegistryTest is Test {
         address provider = vm.addr(4);
         vm.expectRevert(bytes(""));
         vm.prank(address(this));
-        bytes32 bidID = keccak256("1234");
-        bidderRegistry.openBid(bidID, 3 ether, bidder, blockNumber);
-        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
+        bytes32 commitmentDigest = keccak256("1234");
+        bidderRegistry.openBid(commitmentDigest, 3 ether, bidder, blockNumber);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
     }
 
     function test_withdrawProviderAmount() public {
@@ -285,14 +284,14 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 128 ether}(nextWindow);
         address provider = vm.addr(4);
         uint256 balanceBefore = address(provider).balance;
-        bytes32 bidID = keccak256("1234");
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        bytes32 commitmentDigest = keccak256("1234");
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
 
-        bidderRegistry.openBid(bidID, 2 ether, bidder, blockNumber);
+        bidderRegistry.openBid(commitmentDigest, 2 ether, bidder, blockNumber);
         
-        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider), 100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), 100);
         bidderRegistry.withdrawProviderAmount(payable(provider));
         uint256 balanceAfter = address(provider).balance;
         assertEq(balanceAfter - balanceBefore, 1800000000000000000);
@@ -329,7 +328,7 @@ contract BidderRegistryTest is Test {
             assertEq(lockedFunds, depositAmount / windows.length);
 
             uint256 maxBidPerBlock = bidderRegistry.maxBidPerBlock(bidder, windows[i]);
-            assertEq(maxBidPerBlock, depositAmount / (windows.length * blocksPerWindow));
+            assertEq(maxBidPerBlock, depositAmount / (windows.length * WindowFromBlockNumber.BLOCKS_PER_WINDOW));
         }
 
         bool isBidderRegistered = bidderRegistry.bidderRegistered(bidder);
@@ -357,10 +356,10 @@ contract BidderRegistryTest is Test {
             assertEq(lockedFunds, depositAmount / windows.length);
 
             uint256 maxBid = bidderRegistry.maxBidPerBlock(bidder, currentWindow + i);
-            assertEq(maxBid, (depositAmount / windows.length) / blocksPerWindow);
+            assertEq(maxBid, (depositAmount / windows.length) / WindowFromBlockNumber.BLOCKS_PER_WINDOW);
         }
         vm.stopPrank();
-        uint64 blockNumber = uint64(blocksPerWindow*3 + 2);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW*3 + 2);
         blockTracker.recordL1Block(blockNumber, "test");
 
         vm.startPrank(bidder);
@@ -372,14 +371,20 @@ contract BidderRegistryTest is Test {
 
             uint256 maxBid = bidderRegistry.maxBidPerBlock(bidder, currentWindow + i);
             assertEq(maxBid, 0);
+
+            (uint256 startBlock, uint256 endBlock) = WindowFromBlockNumber.getBlockNumbersFromWindow(currentWindow + i);
+            for (uint256 blockNum = startBlock; blockNum <= endBlock; ++blockNum) {
+                uint256 usedFunds = bidderRegistry.usedFunds(bidder, uint64(blockNum));
+                assertEq(usedFunds, 0);
+            }
         }
     }
 
     function test_OpenBidtransferExcessBid() public {
         bytes32 commitmentDigest = keccak256("commitment");
-        uint256 bid = 3 ether;
+        uint256 bidAmt = 3 ether;
         address testBidder = vm.addr(2);
-        uint64 blockNumber = uint64(blocksPerWindow + 1);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1);
         
         // Deal some ETH to the test bidder
         vm.deal(testBidder, 10 ether);
@@ -394,23 +399,21 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 4 ether}(nextWindow);
         
         // Ensure the used amount is less than the max bid per block
-        uint256 maxBid = bidderRegistry.maxBidPerBlock(testBidder, nextWindow);
+        uint256 maxBidAmt = bidderRegistry.maxBidPerBlock(testBidder, nextWindow);
         uint256 usedAmount = bidderRegistry.usedFunds(testBidder, blockNumber);
-        uint256 availableAmount = maxBid > usedAmount ? maxBid - usedAmount : 0;
+        uint256 availableAmount = maxBidAmt > usedAmount ? maxBidAmt - usedAmount : 0;
         
         // Open a bid that exceeds the available amount
         vm.prank(address(this));
-        bidderRegistry.openBid(commitmentDigest, bid, testBidder, blockNumber);
+        bidderRegistry.openBid(commitmentDigest, bidAmt, testBidder, blockNumber);
         
         // Verify that the excess bid was transferred back to the test bidder
-        uint256 expectedBid = availableAmount;
-        uint256 testBidderBalance = testBidder.balance;
-        assertEq(testBidderBalance, 10 ether - 4 ether + (bid - expectedBid));
+        uint256 expectedBidAmt = availableAmount;
         
         // Verify the bid state
         (address storedBidder, uint256 storedBidAmt, IBidderRegistry.State storedState) = bidderRegistry.bidPayment(commitmentDigest);
         assertEq(storedBidder, testBidder);
-        assertEq(storedBidAmt, expectedBid);
+        assertEq(storedBidAmt, expectedBidAmt);
         assertEq(uint(storedState), uint(IBidderRegistry.State.PreConfirmed));
     }
 
@@ -427,14 +430,14 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
         uint256 balanceBefore = feeRecipient.balance;
-        bytes32 bidID = keccak256("1234");
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        bytes32 commitmentDigest = keccak256("1234");
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
-        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
+        bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
         vm.expectEmit(true, true, true, true);
         emit FeeTransfer(100000000000000000, feeRecipient);
-        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
         uint256 balanceAfter = feeRecipient.balance;
         assertEq(balanceAfter - balanceBefore, 100000000000000000);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
@@ -448,14 +451,103 @@ contract BidderRegistryTest is Test {
         bidderRegistry.depositForWindow{value: 64 ether}(nextWindow);
         address provider = vm.addr(4);
         uint256 balanceBefore = feeRecipient.balance;
-        bytes32 bidID = keccak256("1234");
-        uint64 blockNumber = uint64(blocksPerWindow + 2);
+        bytes32 commitmentDigest = keccak256("1234");
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
-        bidderRegistry.openBid(bidID, 1 ether, bidder, blockNumber);
-        bidderRegistry.retrieveFunds(nextWindow, bidID, payable(provider),100);
+        bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
         uint256 balanceAfter = feeRecipient.balance;
         assertEq(balanceAfter - balanceBefore, 0);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 100000000000000000);
+    }
+
+    function test_OpenBidWithExcessExploit() public {
+        address aliceBidder = vm.addr(7);
+        address bodBidder = vm.addr(8);
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1);
+
+        //1)  Deal some ETH to the Alice and Bob
+        vm.deal(aliceBidder, 10 ether);
+        vm.deal(bodBidder, 10 ether);
+
+        //2) Simulate the pre-confirmations contract
+        bidderRegistry.setPreconfManager(address(this));
+
+        //3) Deposit some funds for the next window
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        vm.prank(aliceBidder);
+        bidderRegistry.depositForWindow{value: 2 ether}(nextWindow);
+        vm.prank(bodBidder);
+        bidderRegistry.depositForWindow{value: 2 ether}(nextWindow);
+
+        // Capture balances before the exploit
+        uint256 aliceBalanceBefore = aliceBidder.balance;
+        uint256 bobBalanceBefore = bodBidder.balance;
+        uint256 registryBalanceBefore = address(bidderRegistry).balance;
+
+        // Expected balances before the exploit
+        assertEq(aliceBalanceBefore, 8 ether, "Alice balance BEFORE");
+        assertEq(bobBalanceBefore, 8 ether, "Bob balance BEFORE");
+        assertEq(registryBalanceBefore, 4 ether, "BidderRegistry balance BEFORE");
+
+        uint256 maxBid = bidderRegistry.maxBidPerBlock(aliceBidder, nextWindow);
+        //4) Alice open bids at maxBid multiple times
+        vm.startPrank(address(this));
+        // First bid works fine. maxBid is depleted from lockedFunds
+        bidderRegistry.openBid(
+            keccak256("commitment1"),
+            maxBid,
+            aliceBidder,
+            blockNumber
+        );
+        // Second bid start the stealing show. maxBid is being refunded (by the excess logic) and lockedFunds is NOT depleted.
+        // This is effectively stealing from poor Bob.
+        bidderRegistry.openBid(
+            keccak256("commitment2"),
+            maxBid,
+            aliceBidder,
+            blockNumber
+        );
+        // Thrid bid continue the stealing show, exactly behaving as the second bid.
+        bidderRegistry.openBid(
+            keccak256("commitment3"),
+            maxBid,
+            aliceBidder,
+            blockNumber
+        );
+
+        // And Alice could do this until she fully drain the bidderRegistry contract, effectively stealing from all the bidders.
+        vm.stopPrank();
+
+        //5) Alice withdraw her locked funds (which will be intact minus maxBid as being spent in the first bid)
+        blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW * 2 + 1);
+        blockTracker.recordL1Block(blockNumber, "test");
+
+        uint256[] memory windows = new uint256[](1);
+        windows[0] = nextWindow;
+        vm.prank(aliceBidder);
+        bidderRegistry.withdrawFromWindows(windows);
+
+        // Capture balances after the exploit
+        uint256 aliceBalanceAfter = aliceBidder.balance;
+        uint256 bobBalanceAfter = bodBidder.balance;
+        uint256 registryBalanceAfter = address(bidderRegistry).balance;
+
+        // Expected balances after the exploit
+        assertEq(aliceBalanceAfter, 9.8 ether, "Alice balance AFTER");
+        assertEq(bobBalanceAfter, 8 ether, "Bob balance AFTER");
+        assertEq(registryBalanceAfter, 2.2 ether, "BidderRegistry balance AFTER");
+    }
+
+    function test_BidderStakeAndRegisteratZero() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+
+        vm.startPrank(bidder);
+
+        vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
+        bidderRegistry.depositForWindow{value: 0 ether}(nextWindow);   
     }
 }

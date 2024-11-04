@@ -44,13 +44,18 @@ interface IProviderRegistry {
         uint256 penaltyFee
     );
 
+    /// @dev Event emitted when transfer to bidder fails
+    event TransferToBidderFailed(address bidder, uint256 amount);
+
+    /// @dev Event emitted when a bidder withdraws slashed amount
+    /// in case of transfer failure
+    event BidderWithdrawSlashedAmount(address bidder, uint256 amount);
+
     error NotPreconfContract(address sender, address preconfManager);
-    error TransferToBidderFailed(address bidder, uint256 amount);
     error NoStakeToWithdraw(address sender);
     error UnstakeRequestExists(address sender);
     error NoUnstakeRequest(address sender);
     error DelayNotPassed(uint256 withdrawalRequestTimestamp, uint256 withdrawalDelay, uint256 currentBlockTimestamp);
-    error ProviderStakedAmountZero(address sender);
     error PreconfManagerNotSet();
     error ProviderCommitmentsPending(address sender, uint256 numPending);
     error StakeTransferFailed(address sender, uint256 amount);
@@ -59,7 +64,9 @@ interface IProviderRegistry {
     error InvalidBLSPublicKeyLength(uint256 length, uint256 expectedLength);
     error ProviderNotRegistered(address sender);
     error PendingWithdrawalRequest(address sender);
-
+    error BidderAmountIsZero(address sender);
+    error BidderWithdrawalTransferFailed(address sender, uint256 amount);
+    
     function registerAndStake(bytes calldata blsPublicKey) external payable;
 
     function stake() external payable;

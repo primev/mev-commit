@@ -449,7 +449,7 @@ func (u *Updater) addSettlement(
 		update.CommitmentIndex[:],
 		update.TxnHash,
 		int64(update.BlockNumber),
-		update.Bid,
+		update.BidAmt,
 		update.Committer.Bytes(),
 		update.CommitmentDigest[:],
 		settlementType,

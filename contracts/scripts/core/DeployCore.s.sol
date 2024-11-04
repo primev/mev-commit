@@ -26,7 +26,6 @@ contract DeployTestnet is Script {
         uint16 feePercent = 2;
         uint16 providerPenaltyPercent = 5;
         uint64 commitmentDispatchWindow = 2000;
-        uint256 blocksPerWindow = 10;
         uint256 withdrawalDelay = 24 * 3600 * 1000; // 24 hours in milliseconds
         uint256 protocolFeePayoutPeriodBlocks = 5 * 3600; // 1 hour with 200ms blocks
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
@@ -35,8 +34,7 @@ contract DeployTestnet is Script {
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize,
-            (blocksPerWindow, // blocksPerWindow_ param 
-            oracleKeystoreAddress, // oracleAccount_ param
+            (oracleKeystoreAddress, // oracleAccount_ param
             msg.sender)) // owner_ param
         );
         BlockTracker blockTracker = BlockTracker(payable(blockTrackerProxy));
@@ -49,7 +47,6 @@ contract DeployTestnet is Script {
             feePercent, // _feePercent param
             msg.sender, // _owner param
             address(blockTracker), // _blockTracker param
-            blocksPerWindow, // _blocksPerWindow param
             protocolFeePayoutPeriodBlocks)) // _protocolFeePayoutPeriodBlocks param
         );
         BidderRegistry bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
@@ -76,8 +73,7 @@ contract DeployTestnet is Script {
             address(0x0), // _oracleContract param, updated later in script. 
             msg.sender, // _owner param
             address(blockTracker), // _blockTracker param
-            commitmentDispatchWindow, // _commitmentDispatchWindow param
-            blocksPerWindow)) // _blocksPerWindow param
+            commitmentDispatchWindow)) // _commitmentDispatchWindow param
         );
         PreconfManager preconfManager = PreconfManager(payable(preconfCommitmentStoreProxy));
         console.log("PreconfManager:", address(preconfManager));

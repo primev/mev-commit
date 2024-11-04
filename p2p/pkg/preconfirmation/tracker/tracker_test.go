@@ -153,7 +153,7 @@ func TestTracker(t *testing.T) {
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
-		Bid:                 amount,
+		BidAmt:              amount,
 		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
 		BidHash:             common.BytesToHash(commitments[4].PreConfirmation.Bid.Digest),
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
@@ -217,13 +217,6 @@ func TestTracker(t *testing.T) {
 				"expected bid signature %x, got %x",
 				c.PreConfirmation.Bid.Signature,
 				oc.bidSignature,
-			)
-		}
-		if !bytes.Equal(c.PreConfirmation.Signature, oc.commitmentSignature) {
-			t.Fatalf(
-				"expected commitment signature %x, got %x",
-				c.PreConfirmation.Signature,
-				oc.commitmentSignature,
 			)
 		}
 		if !bytes.Equal(c.PreConfirmation.SharedSecret, oc.sharedSecretKey) {
@@ -293,13 +286,6 @@ func TestTracker(t *testing.T) {
 				"expected bid signature %x, got %x",
 				c.PreConfirmation.Bid.Signature,
 				oc.bidSignature,
-			)
-		}
-		if !bytes.Equal(c.PreConfirmation.Signature, oc.commitmentSignature) {
-			t.Fatalf(
-				"expected commitment signature %x, got %x",
-				c.PreConfirmation.Signature,
-				oc.commitmentSignature,
 			)
 		}
 		if !bytes.Equal(c.PreConfirmation.SharedSecret, oc.sharedSecretKey) {
@@ -405,7 +391,6 @@ type openedCommitment struct {
 	decayStartTimeStamp      uint64
 	decayEndTimeStamp        uint64
 	bidSignature             []byte
-	commitmentSignature      []byte
 	sharedSecretKey          []byte
 }
 
@@ -423,7 +408,6 @@ func (t *testPreconfContract) OpenCommitment(
 	decayStartTimeStamp uint64,
 	decayEndTimeStamp uint64,
 	bidSignature []byte,
-	commitmentSignature []byte,
 	sharedSecretKey []byte,
 ) (*types.Transaction, error) {
 	t.openedCommitments <- openedCommitment{
@@ -435,7 +419,6 @@ func (t *testPreconfContract) OpenCommitment(
 		decayStartTimeStamp:      decayStartTimeStamp,
 		decayEndTimeStamp:        decayEndTimeStamp,
 		bidSignature:             bidSignature,
-		commitmentSignature:      commitmentSignature,
 		sharedSecretKey:          sharedSecretKey,
 	}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
@@ -499,7 +482,7 @@ func publishOpenedCommitment(
 	buf, err := event.Inputs.NonIndexed().Pack(
 		c.Bidder,
 		c.Committer,
-		c.Bid,
+		c.BidAmt,
 		c.BlockNumber,
 		c.BidHash,
 		c.DecayStartTimeStamp,

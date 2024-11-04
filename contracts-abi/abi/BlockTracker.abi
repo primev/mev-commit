@@ -90,19 +90,6 @@
   },
   {
     "type": "function",
-    "name": "blocksPerWindow",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "currentWindow",
     "inputs": [],
     "outputs": [
@@ -144,7 +131,7 @@
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -182,11 +169,6 @@
     "type": "function",
     "name": "initialize",
     "inputs": [
-      {
-        "name": "blocksPerWindow_",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
       {
         "name": "oracleAccount_",
         "type": "address",
@@ -348,6 +330,25 @@
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "event",
+    "name": "BuilderAddressAdded",
+    "inputs": [
+      {
+        "name": "builderName",
+        "type": "string",
+        "indexed": true,
+        "internalType": "string"
+      },
+      {
+        "name": "builderAddress",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",

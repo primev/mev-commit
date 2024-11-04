@@ -256,6 +256,9 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 	defer tick.Stop()
 	count := 0
 	lastWinnerBlock := 0
+
+	usedTxHashes := make(map[string]struct{})
+
 DONE:
 	for {
 		select {
@@ -273,7 +276,7 @@ DONE:
 				}
 			} else {
 				for _, b := range bidders {
-					entry, err := getRandomBid(ctx, cluster, store)
+					entry, err := getRandomBid(ctx, cluster, store, usedTxHashes)
 					if err != nil {
 						if errors.Is(err, errNoTxnsInBlock) {
 							logger.Info("No transactions in block")
@@ -415,6 +418,7 @@ func getRandomBid(
 	ctx context.Context,
 	o orchestrator.Orchestrator,
 	store *radix.Tree,
+	usedTxHashes map[string]struct{},
 ) (*BidEntry, error) {
 	blkNum, err := o.L1Client().BlockNumber(ctx)
 	if err != nil {
@@ -456,14 +460,20 @@ func getRandomBid(
 		rawTxns  []string
 	)
 	for _, txn := range transactions {
+		txHash := strings.TrimPrefix(txn.Hash().String(), "0x")
+		if _, exists := usedTxHashes[txHash]; exists {
+			// Duplicate found, try getting a new bid
+			return getRandomBid(ctx, o, store, usedTxHashes)
+		}
 		txHashes = append(
 			txHashes,
-			strings.TrimPrefix(txn.Hash().String(), "0x"),
+			txHash,
 		)
 		buf, err := txn.MarshalBinary()
 		if err != nil {
 			return nil, err
 		}
+		usedTxHashes[txHash] = struct{}{}
 		rawTxns = append(rawTxns, hex.EncodeToString(buf))
 	}
 
