@@ -37,8 +37,8 @@ job "{{ job.name }}" {
           {%- raw %}
           XDG_CONFIG_HOME="local/.config"
           KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
-          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
-          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
+          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
+          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
           {% endraw %}
         EOH
         destination = "secrets/.env"
@@ -68,19 +68,21 @@ job "{{ job.name }}" {
           mkdir -p "${KEYSTORE_PATH}" > /dev/null 2>&1
           {{- with secret "secret/data/mev-commit" }}
           KEYSTORE_FILE="${KEYSTORE_PATH}/${KEYSTORE_FILENAME}"
-          echo '{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %} }}' > "${KEYSTORE_FILE}"
+          echo '{{ .Data.data.contract_deployer_keystore }}' > "${KEYSTORE_FILE}"
           {{ end }}
 
           {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
+            {{- if contains "http" .Tags }}
+          ADDRESS=$(curl -sk https://{{ .Address }}:{{ .Port }}/v1/debug/topology | jq -r '.topology.self["Ethereum Address"]')
+            {{- end }}
             {{- range nomadService "mev-commit-geth-bootnode1" }}
               {{- if contains "http" .Tags }}
-          ADDRESS=$(cat "${KEYSTORE_FILE}" | jq -r '.address')
           cast send \
             --keystore "${KEYSTORE_FILE}" \
             --password "${KEYSTORE_PASSWORD}" \
             --priority-gas-price 2000000000 \
             --gas-price 5000000000 \
-            --value 1000ether \
+            --value 10ether \
             --rpc-url http://{{ .Address }}:{{ .Port }} \
             "${ADDRESS}"
 
