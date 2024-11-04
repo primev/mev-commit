@@ -7,6 +7,7 @@ import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {IBidderRegistry} from "../../contracts/interfaces/IBidderRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
+import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
@@ -17,6 +18,7 @@ contract BidderRegistryTest is Test {
     address public feeRecipient;
     uint256 public feePayoutPeriodBlocks;
     BlockTracker public blockTracker;
+    ProviderRegistry public providerRegistry;
 
     /// @dev Event emitted when a bidder is registered with their staked amount
     event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
@@ -43,6 +45,18 @@ contract BidderRegistryTest is Test {
         );
         bidderRegistry = BidderRegistry(payable(bidderRegistryProxy));
 
+        address providerRegistryProxy = Upgrades.deployUUPSProxy(
+            "ProviderRegistry.sol",
+            abi.encodeCall(
+                ProviderRegistry.initialize,
+                (minStake, feeRecipient, feePercent, address(this), 24*3600, 5*3600)
+            )
+        );
+        providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
+
+        vm.startPrank(address(this));
+        blockTracker.setProviderRegistry(address(providerRegistry));
+        vm.stopPrank();
         bidder = vm.addr(1);
         vm.deal(bidder, 1000 ether);
         vm.deal(address(this), 1000 ether);

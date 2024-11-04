@@ -98,6 +98,8 @@ contract DeployTestnet is Script {
         preconfManager.updateOracleContract(address(oracle));
         console.log("_PreconfManagerWithOracle:", address(oracle));
 
+        blockTracker.setProviderRegistry(address(providerRegistry));
+        
         vm.stopBroadcast();
     }
 }

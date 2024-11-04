@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
 import {BlockTrackerStorage} from "./BlockTrackerStorage.sol";
+import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -72,13 +73,13 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     /**
      * @dev Records a new L1 block and its winner.
      * @param _blockNumber The number of the new L1 block.
-     * @param _winnerGraffiti The graffiti of the winner of the new L1 block.
+     * @param _winnerBLSKey The BLS key of the winner of the new L1 block.
      */
     function recordL1Block(
         uint256 _blockNumber,
-        string calldata _winnerGraffiti
+        bytes calldata _winnerBLSKey
     ) external onlyOracle whenNotPaused {
-        address _winner = blockBuilderNameToAddress[_winnerGraffiti];
+        address _winner = _providerRegistry.getEoaFromBLSKey(_winnerBLSKey);
         _recordBlockWinner(_blockNumber, _winner);
         uint256 newWindow = (_blockNumber - 1) / WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1;
         if (newWindow > currentWindow) {
@@ -87,6 +88,11 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
             emit NewWindow(currentWindow);
         }
         emit NewL1Block(_blockNumber, _winner, currentWindow);
+    }
+
+    /// @dev Allows the owner to set the provider registry.
+    function setProviderRegistry(address newProviderRegistry) external onlyOwner {
+        _providerRegistry = IProviderRegistry(newProviderRegistry);
     }
 
     /// @dev Allows the owner to set the oracle account.

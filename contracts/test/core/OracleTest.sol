@@ -28,6 +28,7 @@ contract OracleTest is Test {
     uint64 public dispatchTimestampTesting;
     bytes public sharedSecretKey;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public constant withdrawalDelay = 24 * 3600; // 24 hours
     uint256 public constant protocolFeePayoutPeriodBlocks = 100;
     struct TestCommitment {
@@ -95,6 +96,9 @@ contract OracleTest is Test {
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
+        vm.startPrank(ownerInstance);
+        blockTracker.setProviderRegistry(address(providerRegistry));
+        vm.stopPrank();
         address proxy3 = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(
@@ -174,7 +178,7 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
         vm.stopPrank();
 
         bytes32 index = constructAndStoreCommitment(
@@ -222,7 +226,7 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
         vm.stopPrank();
 
         bytes32 index = constructAndStoreCommitment(
@@ -276,7 +280,7 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
         vm.stopPrank();
 
         bytes32 index1 = constructAndStoreCommitment(
@@ -353,7 +357,7 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
         vm.stopPrank();
 
         bytes32 index1 = constructAndStoreCommitment(
@@ -468,7 +472,7 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkey);
+        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
         vm.stopPrank();
 
         bytes32[] memory commitments = new bytes32[](4);
@@ -495,7 +499,7 @@ contract OracleTest is Test {
 
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
         blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
+        blockTracker.recordL1Block(blockNumber, validBLSPubkey);
         vm.stopPrank();
 
         for (uint256 i = 0; i < commitments.length; ++i) {
@@ -564,7 +568,7 @@ contract OracleTest is Test {
             commitmentSignature,
             dispatchTimestamp
         );
-        recordBlockData(provider, blockNumber);
+        recordBlockData(validBLSPubkey, blockNumber);
 
         commitmentIndex = openCommitment(
             provider,
@@ -650,10 +654,10 @@ contract OracleTest is Test {
         return unopenedCommitmentIndex;
     }
 
-    function recordBlockData(address provider, uint64 blockNumber) public {
+    function recordBlockData(bytes memory blsPubKey, uint64 blockNumber) public {
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
-        blockTracker.addBuilderAddress("test", provider);
-        blockTracker.recordL1Block(blockNumber, "test");
+
+        blockTracker.recordL1Block(blockNumber, blsPubKey);
         vm.stopPrank();
     }
 
