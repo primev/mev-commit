@@ -33,7 +33,7 @@ var (
 type IPreconfManagerCommitmentParams struct {
 	TxnHash             string
 	RevertingTxHashes   string
-	Bid                 *big.Int
+	BidAmt              *big.Int
 	BlockNumber         uint64
 	DecayStartTimeStamp uint64
 	DecayEndTimeStamp   uint64
@@ -52,7 +52,7 @@ type IPreconfManagerOpenedCommitment struct {
 	DecayEndTimeStamp   uint64
 	DispatchTimestamp   uint64
 	Committer           common.Address
-	Bid                 *big.Int
+	BidAmt              *big.Int
 	BidHash             [32]byte
 	CommitmentDigest    [32]byte
 	BidSignature        []byte
@@ -73,7 +73,7 @@ type IPreconfManagerUnopenedCommitment struct {
 
 // PreconfmanagerMetaData contains all meta data concerning the Preconfmanager contract.
 var PreconfmanagerMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"DOMAIN_SEPARATOR_BID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"DOMAIN_SEPARATOR_PRECONF\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"EIP712_BID_TYPEHASH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"EIP712_COMMITMENT_TYPEHASH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"HEXCHARS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bidderRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIBidderRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blockTracker\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIBlockTracker\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blocksPerWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"commitmentDispatchWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"commitmentsCount\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBidHash\",\"inputs\":[{\"name\":\"_txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getCommitment\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.OpenedCommitment\",\"components\":[{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSettled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOpenedCommitmentIndex\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.OpenedCommitment\",\"components\":[{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSettled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getPreConfHash\",\"inputs\":[{\"name\":\"_txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_bidSignature\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_sharedSecretKey\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getTxnHashFromCommitment\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUnopenedCommitment\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.UnopenedCommitment\",\"components\":[{\"name\":\"isOpened\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUnopenedCommitmentIndex\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.UnopenedCommitment\",\"components\":[{\"name\":\"isOpened\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_providerRegistry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_bidderRegistry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_oracleContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_blockTracker\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_commitmentDispatchWindow\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_blocksPerWindow\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initiateReward\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initiateSlash\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"openCommitment\",\"inputs\":[{\"name\":\"unopenedCommitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"openedCommitments\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSettled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"oracleContract\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"providerRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIProviderRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"storeUnopenedCommitment\",\"inputs\":[{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unopenedCommitments\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"isOpened\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateBidderRegistry\",\"inputs\":[{\"name\":\"newBidderRegistry\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateBlockTracker\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateBlocksPerWindow\",\"inputs\":[{\"name\":\"newBlocksPerWindow\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateCommitmentDispatchWindow\",\"inputs\":[{\"name\":\"newDispatchWindow\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateOracleContract\",\"inputs\":[{\"name\":\"newOracleContract\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateProviderRegistry\",\"inputs\":[{\"name\":\"newProviderRegistry\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifyBid\",\"inputs\":[{\"name\":\"bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"messageDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"recoveredAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"verifyPreConfCommitment\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.CommitmentParams\",\"components\":[{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"bid\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[{\"name\":\"preConfHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"committerAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"pure\"},{\"type\":\"event\",\"name\":\"BidderRegistryUpdated\",\"inputs\":[{\"name\":\"newBidderRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockTrackerUpdated\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlocksPerWindowUpdated\",\"inputs\":[{\"name\":\"newBlocksPerWindow\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CommitmentDispatchWindowUpdated\",\"inputs\":[{\"name\":\"newDispatchWindow\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OpenedCommitmentStored\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"bidder\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"committer\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"bid\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"txnHash\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleContractUpdated\",\"inputs\":[{\"name\":\"newOracleContract\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProviderRegistryUpdated\",\"inputs\":[{\"name\":\"newProviderRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignatureVerified\",\"inputs\":[{\"name\":\"signer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"txnHash\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"bid\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UnopenedCommitmentStored\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"committer\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CommitmentAlreadyOpened\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"CommitmentAlreadySettled\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidCommitmentDigest\",\"inputs\":[{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"computedDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"InvalidDecayTime\",\"inputs\":[{\"name\":\"startTime\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"endTime\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]},{\"type\":\"error\",\"name\":\"InvalidDispatchTimestamp\",\"inputs\":[{\"name\":\"minTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SenderIsNotCommitter\",\"inputs\":[{\"name\":\"expected\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actual\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SenderIsNotOracleContract\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleContract\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnauthorizedOpenCommitment\",\"inputs\":[{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"WinnerIsNotCommitter\",\"inputs\":[{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"winner\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"EIP712_BID_TYPEHASH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"EIP712_COMMITMENT_TYPEHASH\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"HEXCHARS\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bidderRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIBidderRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blockTracker\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIBlockTracker\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"commitmentDispatchWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"commitmentsCount\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"domainSeparatorBid\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"domainSeparatorPreconf\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBidHash\",\"inputs\":[{\"name\":\"_txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCommitment\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.OpenedCommitment\",\"components\":[{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSettled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOpenedCommitmentIndex\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.OpenedCommitment\",\"components\":[{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSettled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getPreConfHash\",\"inputs\":[{\"name\":\"_txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"_bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTxnHashFromCommitment\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUnopenedCommitment\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.UnopenedCommitment\",\"components\":[{\"name\":\"isOpened\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getUnopenedCommitmentIndex\",\"inputs\":[{\"name\":\"commitment\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.UnopenedCommitment\",\"components\":[{\"name\":\"isOpened\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_providerRegistry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_bidderRegistry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_oracleContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_blockTracker\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_commitmentDispatchWindow\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initiateReward\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initiateSlash\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"residualBidPercentAfterDecay\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"openCommitment\",\"inputs\":[{\"name\":\"unopenedCommitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"openedCommitments\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"isSettled\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"oracleContract\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"processedTxnHashes\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"providerRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIProviderRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"storeUnopenedCommitment\",\"inputs\":[{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unopenedCommitments\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"isOpened\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateBidderRegistry\",\"inputs\":[{\"name\":\"newBidderRegistry\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateBlockTracker\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateCommitmentDispatchWindow\",\"inputs\":[{\"name\":\"newDispatchWindow\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateOracleContract\",\"inputs\":[{\"name\":\"newOracleContract\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateProviderRegistry\",\"inputs\":[{\"name\":\"newProviderRegistry\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifyBid\",\"inputs\":[{\"name\":\"bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"messageDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"recoveredAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"verifyPreConfCommitment\",\"inputs\":[{\"name\":\"params\",\"type\":\"tuple\",\"internalType\":\"structIPreconfManager.CommitmentParams\",\"components\":[{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"bidAmt\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[{\"name\":\"preConfHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"committerAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"event\",\"name\":\"BidderRegistryUpdated\",\"inputs\":[{\"name\":\"newBidderRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockTrackerUpdated\",\"inputs\":[{\"name\":\"newBlockTracker\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CommitmentDispatchWindowUpdated\",\"inputs\":[{\"name\":\"newDispatchWindow\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OpenedCommitmentStored\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"bidder\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"committer\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"bidAmt\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"bidHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"decayStartTimeStamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"decayEndTimeStamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"txnHash\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"bidSignature\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"},{\"name\":\"sharedSecretKey\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleContractUpdated\",\"inputs\":[{\"name\":\"newOracleContract\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProviderRegistryUpdated\",\"inputs\":[{\"name\":\"newProviderRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"SignatureVerified\",\"inputs\":[{\"name\":\"signer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"txnHash\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"revertingTxHashes\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"bidAmt\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"blockNumber\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"UnopenedCommitmentStored\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"committer\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"commitmentSignature\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"CommitmentAlreadyOpened\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"CommitmentAlreadySettled\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidCommitmentDigest\",\"inputs\":[{\"name\":\"commitmentDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"computedDigest\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"InvalidDecayTime\",\"inputs\":[{\"name\":\"startTime\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"endTime\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]},{\"type\":\"error\",\"name\":\"InvalidDispatchTimestamp\",\"inputs\":[{\"name\":\"minTime\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"dispatchTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SenderIsNotCommitter\",\"inputs\":[{\"name\":\"expected\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actual\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"SenderIsNotOracleContract\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleContract\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"TxnHashAlreadyProcessed\",\"inputs\":[{\"name\":\"txnHash\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"bidderAddress\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"UnauthorizedOpenCommitment\",\"inputs\":[{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"bidder\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UnopenedCommitmentAlreadyExists\",\"inputs\":[{\"name\":\"commitmentIndex\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"WinnerIsNotCommitter\",\"inputs\":[{\"name\":\"committer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"winner\",\"type\":\"address\",\"internalType\":\"address\"}]}]",
 }
 
 // PreconfmanagerABI is the input ABI used to generate the binding from.
@@ -220,68 +220,6 @@ func (_Preconfmanager *PreconfmanagerTransactorRaw) Transfer(opts *bind.Transact
 // Transact invokes the (paid) contract method with params as input values.
 func (_Preconfmanager *PreconfmanagerTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _Preconfmanager.Contract.contract.Transact(opts, method, params...)
-}
-
-// DOMAINSEPARATORBID is a free data retrieval call binding the contract method 0x940b5765.
-//
-// Solidity: function DOMAIN_SEPARATOR_BID() view returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCaller) DOMAINSEPARATORBID(opts *bind.CallOpts) ([32]byte, error) {
-	var out []interface{}
-	err := _Preconfmanager.contract.Call(opts, &out, "DOMAIN_SEPARATOR_BID")
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// DOMAINSEPARATORBID is a free data retrieval call binding the contract method 0x940b5765.
-//
-// Solidity: function DOMAIN_SEPARATOR_BID() view returns(bytes32)
-func (_Preconfmanager *PreconfmanagerSession) DOMAINSEPARATORBID() ([32]byte, error) {
-	return _Preconfmanager.Contract.DOMAINSEPARATORBID(&_Preconfmanager.CallOpts)
-}
-
-// DOMAINSEPARATORBID is a free data retrieval call binding the contract method 0x940b5765.
-//
-// Solidity: function DOMAIN_SEPARATOR_BID() view returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCallerSession) DOMAINSEPARATORBID() ([32]byte, error) {
-	return _Preconfmanager.Contract.DOMAINSEPARATORBID(&_Preconfmanager.CallOpts)
-}
-
-// DOMAINSEPARATORPRECONF is a free data retrieval call binding the contract method 0xe5ae370f.
-//
-// Solidity: function DOMAIN_SEPARATOR_PRECONF() view returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCaller) DOMAINSEPARATORPRECONF(opts *bind.CallOpts) ([32]byte, error) {
-	var out []interface{}
-	err := _Preconfmanager.contract.Call(opts, &out, "DOMAIN_SEPARATOR_PRECONF")
-
-	if err != nil {
-		return *new([32]byte), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
-
-	return out0, err
-
-}
-
-// DOMAINSEPARATORPRECONF is a free data retrieval call binding the contract method 0xe5ae370f.
-//
-// Solidity: function DOMAIN_SEPARATOR_PRECONF() view returns(bytes32)
-func (_Preconfmanager *PreconfmanagerSession) DOMAINSEPARATORPRECONF() ([32]byte, error) {
-	return _Preconfmanager.Contract.DOMAINSEPARATORPRECONF(&_Preconfmanager.CallOpts)
-}
-
-// DOMAINSEPARATORPRECONF is a free data retrieval call binding the contract method 0xe5ae370f.
-//
-// Solidity: function DOMAIN_SEPARATOR_PRECONF() view returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCallerSession) DOMAINSEPARATORPRECONF() ([32]byte, error) {
-	return _Preconfmanager.Contract.DOMAINSEPARATORPRECONF(&_Preconfmanager.CallOpts)
 }
 
 // EIP712BIDTYPEHASH is a free data retrieval call binding the contract method 0x517aa8b7.
@@ -470,37 +408,6 @@ func (_Preconfmanager *PreconfmanagerCallerSession) BlockTracker() (common.Addre
 	return _Preconfmanager.Contract.BlockTracker(&_Preconfmanager.CallOpts)
 }
 
-// BlocksPerWindow is a free data retrieval call binding the contract method 0x6347609e.
-//
-// Solidity: function blocksPerWindow() view returns(uint256)
-func (_Preconfmanager *PreconfmanagerCaller) BlocksPerWindow(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _Preconfmanager.contract.Call(opts, &out, "blocksPerWindow")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// BlocksPerWindow is a free data retrieval call binding the contract method 0x6347609e.
-//
-// Solidity: function blocksPerWindow() view returns(uint256)
-func (_Preconfmanager *PreconfmanagerSession) BlocksPerWindow() (*big.Int, error) {
-	return _Preconfmanager.Contract.BlocksPerWindow(&_Preconfmanager.CallOpts)
-}
-
-// BlocksPerWindow is a free data retrieval call binding the contract method 0x6347609e.
-//
-// Solidity: function blocksPerWindow() view returns(uint256)
-func (_Preconfmanager *PreconfmanagerCallerSession) BlocksPerWindow() (*big.Int, error) {
-	return _Preconfmanager.Contract.BlocksPerWindow(&_Preconfmanager.CallOpts)
-}
-
 // CommitmentDispatchWindow is a free data retrieval call binding the contract method 0xf2357c03.
 //
 // Solidity: function commitmentDispatchWindow() view returns(uint64)
@@ -563,12 +470,74 @@ func (_Preconfmanager *PreconfmanagerCallerSession) CommitmentsCount(arg0 common
 	return _Preconfmanager.Contract.CommitmentsCount(&_Preconfmanager.CallOpts, arg0)
 }
 
+// DomainSeparatorBid is a free data retrieval call binding the contract method 0x3c281734.
+//
+// Solidity: function domainSeparatorBid() view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCaller) DomainSeparatorBid(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _Preconfmanager.contract.Call(opts, &out, "domainSeparatorBid")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// DomainSeparatorBid is a free data retrieval call binding the contract method 0x3c281734.
+//
+// Solidity: function domainSeparatorBid() view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerSession) DomainSeparatorBid() ([32]byte, error) {
+	return _Preconfmanager.Contract.DomainSeparatorBid(&_Preconfmanager.CallOpts)
+}
+
+// DomainSeparatorBid is a free data retrieval call binding the contract method 0x3c281734.
+//
+// Solidity: function domainSeparatorBid() view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCallerSession) DomainSeparatorBid() ([32]byte, error) {
+	return _Preconfmanager.Contract.DomainSeparatorBid(&_Preconfmanager.CallOpts)
+}
+
+// DomainSeparatorPreconf is a free data retrieval call binding the contract method 0x3b8c3072.
+//
+// Solidity: function domainSeparatorPreconf() view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCaller) DomainSeparatorPreconf(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _Preconfmanager.contract.Call(opts, &out, "domainSeparatorPreconf")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// DomainSeparatorPreconf is a free data retrieval call binding the contract method 0x3b8c3072.
+//
+// Solidity: function domainSeparatorPreconf() view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerSession) DomainSeparatorPreconf() ([32]byte, error) {
+	return _Preconfmanager.Contract.DomainSeparatorPreconf(&_Preconfmanager.CallOpts)
+}
+
+// DomainSeparatorPreconf is a free data retrieval call binding the contract method 0x3b8c3072.
+//
+// Solidity: function domainSeparatorPreconf() view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCallerSession) DomainSeparatorPreconf() ([32]byte, error) {
+	return _Preconfmanager.Contract.DomainSeparatorPreconf(&_Preconfmanager.CallOpts)
+}
+
 // GetBidHash is a free data retrieval call binding the contract method 0xdbd007ab.
 //
-// Solidity: function getBidHash(string _txnHash, string _revertingTxHashes, uint256 _bid, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp) pure returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCaller) GetBidHash(opts *bind.CallOpts, _txnHash string, _revertingTxHashes string, _bid *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64) ([32]byte, error) {
+// Solidity: function getBidHash(string _txnHash, string _revertingTxHashes, uint256 _bidAmt, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp) view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCaller) GetBidHash(opts *bind.CallOpts, _txnHash string, _revertingTxHashes string, _bidAmt *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64) ([32]byte, error) {
 	var out []interface{}
-	err := _Preconfmanager.contract.Call(opts, &out, "getBidHash", _txnHash, _revertingTxHashes, _bid, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp)
+	err := _Preconfmanager.contract.Call(opts, &out, "getBidHash", _txnHash, _revertingTxHashes, _bidAmt, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -582,16 +551,16 @@ func (_Preconfmanager *PreconfmanagerCaller) GetBidHash(opts *bind.CallOpts, _tx
 
 // GetBidHash is a free data retrieval call binding the contract method 0xdbd007ab.
 //
-// Solidity: function getBidHash(string _txnHash, string _revertingTxHashes, uint256 _bid, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp) pure returns(bytes32)
-func (_Preconfmanager *PreconfmanagerSession) GetBidHash(_txnHash string, _revertingTxHashes string, _bid *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64) ([32]byte, error) {
-	return _Preconfmanager.Contract.GetBidHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bid, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp)
+// Solidity: function getBidHash(string _txnHash, string _revertingTxHashes, uint256 _bidAmt, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp) view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerSession) GetBidHash(_txnHash string, _revertingTxHashes string, _bidAmt *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64) ([32]byte, error) {
+	return _Preconfmanager.Contract.GetBidHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bidAmt, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp)
 }
 
 // GetBidHash is a free data retrieval call binding the contract method 0xdbd007ab.
 //
-// Solidity: function getBidHash(string _txnHash, string _revertingTxHashes, uint256 _bid, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp) pure returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCallerSession) GetBidHash(_txnHash string, _revertingTxHashes string, _bid *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64) ([32]byte, error) {
-	return _Preconfmanager.Contract.GetBidHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bid, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp)
+// Solidity: function getBidHash(string _txnHash, string _revertingTxHashes, uint256 _bidAmt, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp) view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCallerSession) GetBidHash(_txnHash string, _revertingTxHashes string, _bidAmt *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64) ([32]byte, error) {
+	return _Preconfmanager.Contract.GetBidHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bidAmt, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp)
 }
 
 // GetCommitment is a free data retrieval call binding the contract method 0x7795820c.
@@ -656,12 +625,12 @@ func (_Preconfmanager *PreconfmanagerCallerSession) GetOpenedCommitmentIndex(com
 	return _Preconfmanager.Contract.GetOpenedCommitmentIndex(&_Preconfmanager.CallOpts, commitment)
 }
 
-// GetPreConfHash is a free data retrieval call binding the contract method 0xd3dff2ae.
+// GetPreConfHash is a free data retrieval call binding the contract method 0x600eaef7.
 //
-// Solidity: function getPreConfHash(string _txnHash, string _revertingTxHashes, uint256 _bid, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp, bytes32 _bidHash, string _bidSignature, string _sharedSecretKey) pure returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCaller) GetPreConfHash(opts *bind.CallOpts, _txnHash string, _revertingTxHashes string, _bid *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64, _bidHash [32]byte, _bidSignature string, _sharedSecretKey string) ([32]byte, error) {
+// Solidity: function getPreConfHash(string _txnHash, string _revertingTxHashes, uint256 _bidAmt, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp, bytes32 _bidHash, bytes _bidSignature, bytes _sharedSecretKey) view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCaller) GetPreConfHash(opts *bind.CallOpts, _txnHash string, _revertingTxHashes string, _bidAmt *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64, _bidHash [32]byte, _bidSignature []byte, _sharedSecretKey []byte) ([32]byte, error) {
 	var out []interface{}
-	err := _Preconfmanager.contract.Call(opts, &out, "getPreConfHash", _txnHash, _revertingTxHashes, _bid, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp, _bidHash, _bidSignature, _sharedSecretKey)
+	err := _Preconfmanager.contract.Call(opts, &out, "getPreConfHash", _txnHash, _revertingTxHashes, _bidAmt, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp, _bidHash, _bidSignature, _sharedSecretKey)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -673,18 +642,18 @@ func (_Preconfmanager *PreconfmanagerCaller) GetPreConfHash(opts *bind.CallOpts,
 
 }
 
-// GetPreConfHash is a free data retrieval call binding the contract method 0xd3dff2ae.
+// GetPreConfHash is a free data retrieval call binding the contract method 0x600eaef7.
 //
-// Solidity: function getPreConfHash(string _txnHash, string _revertingTxHashes, uint256 _bid, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp, bytes32 _bidHash, string _bidSignature, string _sharedSecretKey) pure returns(bytes32)
-func (_Preconfmanager *PreconfmanagerSession) GetPreConfHash(_txnHash string, _revertingTxHashes string, _bid *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64, _bidHash [32]byte, _bidSignature string, _sharedSecretKey string) ([32]byte, error) {
-	return _Preconfmanager.Contract.GetPreConfHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bid, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp, _bidHash, _bidSignature, _sharedSecretKey)
+// Solidity: function getPreConfHash(string _txnHash, string _revertingTxHashes, uint256 _bidAmt, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp, bytes32 _bidHash, bytes _bidSignature, bytes _sharedSecretKey) view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerSession) GetPreConfHash(_txnHash string, _revertingTxHashes string, _bidAmt *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64, _bidHash [32]byte, _bidSignature []byte, _sharedSecretKey []byte) ([32]byte, error) {
+	return _Preconfmanager.Contract.GetPreConfHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bidAmt, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp, _bidHash, _bidSignature, _sharedSecretKey)
 }
 
-// GetPreConfHash is a free data retrieval call binding the contract method 0xd3dff2ae.
+// GetPreConfHash is a free data retrieval call binding the contract method 0x600eaef7.
 //
-// Solidity: function getPreConfHash(string _txnHash, string _revertingTxHashes, uint256 _bid, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp, bytes32 _bidHash, string _bidSignature, string _sharedSecretKey) pure returns(bytes32)
-func (_Preconfmanager *PreconfmanagerCallerSession) GetPreConfHash(_txnHash string, _revertingTxHashes string, _bid *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64, _bidHash [32]byte, _bidSignature string, _sharedSecretKey string) ([32]byte, error) {
-	return _Preconfmanager.Contract.GetPreConfHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bid, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp, _bidHash, _bidSignature, _sharedSecretKey)
+// Solidity: function getPreConfHash(string _txnHash, string _revertingTxHashes, uint256 _bidAmt, uint64 _blockNumber, uint64 _decayStartTimeStamp, uint64 _decayEndTimeStamp, bytes32 _bidHash, bytes _bidSignature, bytes _sharedSecretKey) view returns(bytes32)
+func (_Preconfmanager *PreconfmanagerCallerSession) GetPreConfHash(_txnHash string, _revertingTxHashes string, _bidAmt *big.Int, _blockNumber uint64, _decayStartTimeStamp uint64, _decayEndTimeStamp uint64, _bidHash [32]byte, _bidSignature []byte, _sharedSecretKey []byte) ([32]byte, error) {
+	return _Preconfmanager.Contract.GetPreConfHash(&_Preconfmanager.CallOpts, _txnHash, _revertingTxHashes, _bidAmt, _blockNumber, _decayStartTimeStamp, _decayEndTimeStamp, _bidHash, _bidSignature, _sharedSecretKey)
 }
 
 // GetTxnHashFromCommitment is a free data retrieval call binding the contract method 0xfc4fbe32.
@@ -782,7 +751,7 @@ func (_Preconfmanager *PreconfmanagerCallerSession) GetUnopenedCommitmentIndex(c
 
 // OpenedCommitments is a free data retrieval call binding the contract method 0x5e0c7e10.
 //
-// Solidity: function openedCommitments(bytes32 ) view returns(address bidder, bool isSettled, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, uint64 dispatchTimestamp, address committer, uint256 bid, bytes32 bidHash, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey, string txnHash, string revertingTxHashes)
+// Solidity: function openedCommitments(bytes32 ) view returns(address bidder, bool isSettled, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, uint64 dispatchTimestamp, address committer, uint256 bidAmt, bytes32 bidHash, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey, string txnHash, string revertingTxHashes)
 func (_Preconfmanager *PreconfmanagerCaller) OpenedCommitments(opts *bind.CallOpts, arg0 [32]byte) (struct {
 	Bidder              common.Address
 	IsSettled           bool
@@ -791,7 +760,7 @@ func (_Preconfmanager *PreconfmanagerCaller) OpenedCommitments(opts *bind.CallOp
 	DecayEndTimeStamp   uint64
 	DispatchTimestamp   uint64
 	Committer           common.Address
-	Bid                 *big.Int
+	BidAmt              *big.Int
 	BidHash             [32]byte
 	CommitmentDigest    [32]byte
 	BidSignature        []byte
@@ -811,7 +780,7 @@ func (_Preconfmanager *PreconfmanagerCaller) OpenedCommitments(opts *bind.CallOp
 		DecayEndTimeStamp   uint64
 		DispatchTimestamp   uint64
 		Committer           common.Address
-		Bid                 *big.Int
+		BidAmt              *big.Int
 		BidHash             [32]byte
 		CommitmentDigest    [32]byte
 		BidSignature        []byte
@@ -831,7 +800,7 @@ func (_Preconfmanager *PreconfmanagerCaller) OpenedCommitments(opts *bind.CallOp
 	outstruct.DecayEndTimeStamp = *abi.ConvertType(out[4], new(uint64)).(*uint64)
 	outstruct.DispatchTimestamp = *abi.ConvertType(out[5], new(uint64)).(*uint64)
 	outstruct.Committer = *abi.ConvertType(out[6], new(common.Address)).(*common.Address)
-	outstruct.Bid = *abi.ConvertType(out[7], new(*big.Int)).(**big.Int)
+	outstruct.BidAmt = *abi.ConvertType(out[7], new(*big.Int)).(**big.Int)
 	outstruct.BidHash = *abi.ConvertType(out[8], new([32]byte)).(*[32]byte)
 	outstruct.CommitmentDigest = *abi.ConvertType(out[9], new([32]byte)).(*[32]byte)
 	outstruct.BidSignature = *abi.ConvertType(out[10], new([]byte)).(*[]byte)
@@ -846,7 +815,7 @@ func (_Preconfmanager *PreconfmanagerCaller) OpenedCommitments(opts *bind.CallOp
 
 // OpenedCommitments is a free data retrieval call binding the contract method 0x5e0c7e10.
 //
-// Solidity: function openedCommitments(bytes32 ) view returns(address bidder, bool isSettled, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, uint64 dispatchTimestamp, address committer, uint256 bid, bytes32 bidHash, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey, string txnHash, string revertingTxHashes)
+// Solidity: function openedCommitments(bytes32 ) view returns(address bidder, bool isSettled, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, uint64 dispatchTimestamp, address committer, uint256 bidAmt, bytes32 bidHash, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey, string txnHash, string revertingTxHashes)
 func (_Preconfmanager *PreconfmanagerSession) OpenedCommitments(arg0 [32]byte) (struct {
 	Bidder              common.Address
 	IsSettled           bool
@@ -855,7 +824,7 @@ func (_Preconfmanager *PreconfmanagerSession) OpenedCommitments(arg0 [32]byte) (
 	DecayEndTimeStamp   uint64
 	DispatchTimestamp   uint64
 	Committer           common.Address
-	Bid                 *big.Int
+	BidAmt              *big.Int
 	BidHash             [32]byte
 	CommitmentDigest    [32]byte
 	BidSignature        []byte
@@ -869,7 +838,7 @@ func (_Preconfmanager *PreconfmanagerSession) OpenedCommitments(arg0 [32]byte) (
 
 // OpenedCommitments is a free data retrieval call binding the contract method 0x5e0c7e10.
 //
-// Solidity: function openedCommitments(bytes32 ) view returns(address bidder, bool isSettled, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, uint64 dispatchTimestamp, address committer, uint256 bid, bytes32 bidHash, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey, string txnHash, string revertingTxHashes)
+// Solidity: function openedCommitments(bytes32 ) view returns(address bidder, bool isSettled, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, uint64 dispatchTimestamp, address committer, uint256 bidAmt, bytes32 bidHash, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey, string txnHash, string revertingTxHashes)
 func (_Preconfmanager *PreconfmanagerCallerSession) OpenedCommitments(arg0 [32]byte) (struct {
 	Bidder              common.Address
 	IsSettled           bool
@@ -878,7 +847,7 @@ func (_Preconfmanager *PreconfmanagerCallerSession) OpenedCommitments(arg0 [32]b
 	DecayEndTimeStamp   uint64
 	DispatchTimestamp   uint64
 	Committer           common.Address
-	Bid                 *big.Int
+	BidAmt              *big.Int
 	BidHash             [32]byte
 	CommitmentDigest    [32]byte
 	BidSignature        []byte
@@ -1014,6 +983,37 @@ func (_Preconfmanager *PreconfmanagerCallerSession) PendingOwner() (common.Addre
 	return _Preconfmanager.Contract.PendingOwner(&_Preconfmanager.CallOpts)
 }
 
+// ProcessedTxnHashes is a free data retrieval call binding the contract method 0x58160b50.
+//
+// Solidity: function processedTxnHashes(bytes32 ) view returns(bool)
+func (_Preconfmanager *PreconfmanagerCaller) ProcessedTxnHashes(opts *bind.CallOpts, arg0 [32]byte) (bool, error) {
+	var out []interface{}
+	err := _Preconfmanager.contract.Call(opts, &out, "processedTxnHashes", arg0)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// ProcessedTxnHashes is a free data retrieval call binding the contract method 0x58160b50.
+//
+// Solidity: function processedTxnHashes(bytes32 ) view returns(bool)
+func (_Preconfmanager *PreconfmanagerSession) ProcessedTxnHashes(arg0 [32]byte) (bool, error) {
+	return _Preconfmanager.Contract.ProcessedTxnHashes(&_Preconfmanager.CallOpts, arg0)
+}
+
+// ProcessedTxnHashes is a free data retrieval call binding the contract method 0x58160b50.
+//
+// Solidity: function processedTxnHashes(bytes32 ) view returns(bool)
+func (_Preconfmanager *PreconfmanagerCallerSession) ProcessedTxnHashes(arg0 [32]byte) (bool, error) {
+	return _Preconfmanager.Contract.ProcessedTxnHashes(&_Preconfmanager.CallOpts, arg0)
+}
+
 // ProviderRegistry is a free data retrieval call binding the contract method 0x545921d9.
 //
 // Solidity: function providerRegistry() view returns(address)
@@ -1138,13 +1138,13 @@ func (_Preconfmanager *PreconfmanagerCallerSession) UnopenedCommitments(arg0 [32
 
 // VerifyBid is a free data retrieval call binding the contract method 0x20ee734c.
 //
-// Solidity: function verifyBid(uint256 bid, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes bidSignature) pure returns(bytes32 messageDigest, address recoveredAddress)
-func (_Preconfmanager *PreconfmanagerCaller) VerifyBid(opts *bind.CallOpts, bid *big.Int, blockNumber uint64, decayStartTimeStamp uint64, decayEndTimeStamp uint64, txnHash string, revertingTxHashes string, bidSignature []byte) (struct {
+// Solidity: function verifyBid(uint256 bidAmt, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes bidSignature) view returns(bytes32 messageDigest, address recoveredAddress)
+func (_Preconfmanager *PreconfmanagerCaller) VerifyBid(opts *bind.CallOpts, bidAmt *big.Int, blockNumber uint64, decayStartTimeStamp uint64, decayEndTimeStamp uint64, txnHash string, revertingTxHashes string, bidSignature []byte) (struct {
 	MessageDigest    [32]byte
 	RecoveredAddress common.Address
 }, error) {
 	var out []interface{}
-	err := _Preconfmanager.contract.Call(opts, &out, "verifyBid", bid, blockNumber, decayStartTimeStamp, decayEndTimeStamp, txnHash, revertingTxHashes, bidSignature)
+	err := _Preconfmanager.contract.Call(opts, &out, "verifyBid", bidAmt, blockNumber, decayStartTimeStamp, decayEndTimeStamp, txnHash, revertingTxHashes, bidSignature)
 
 	outstruct := new(struct {
 		MessageDigest    [32]byte
@@ -1163,27 +1163,27 @@ func (_Preconfmanager *PreconfmanagerCaller) VerifyBid(opts *bind.CallOpts, bid 
 
 // VerifyBid is a free data retrieval call binding the contract method 0x20ee734c.
 //
-// Solidity: function verifyBid(uint256 bid, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes bidSignature) pure returns(bytes32 messageDigest, address recoveredAddress)
-func (_Preconfmanager *PreconfmanagerSession) VerifyBid(bid *big.Int, blockNumber uint64, decayStartTimeStamp uint64, decayEndTimeStamp uint64, txnHash string, revertingTxHashes string, bidSignature []byte) (struct {
+// Solidity: function verifyBid(uint256 bidAmt, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes bidSignature) view returns(bytes32 messageDigest, address recoveredAddress)
+func (_Preconfmanager *PreconfmanagerSession) VerifyBid(bidAmt *big.Int, blockNumber uint64, decayStartTimeStamp uint64, decayEndTimeStamp uint64, txnHash string, revertingTxHashes string, bidSignature []byte) (struct {
 	MessageDigest    [32]byte
 	RecoveredAddress common.Address
 }, error) {
-	return _Preconfmanager.Contract.VerifyBid(&_Preconfmanager.CallOpts, bid, blockNumber, decayStartTimeStamp, decayEndTimeStamp, txnHash, revertingTxHashes, bidSignature)
+	return _Preconfmanager.Contract.VerifyBid(&_Preconfmanager.CallOpts, bidAmt, blockNumber, decayStartTimeStamp, decayEndTimeStamp, txnHash, revertingTxHashes, bidSignature)
 }
 
 // VerifyBid is a free data retrieval call binding the contract method 0x20ee734c.
 //
-// Solidity: function verifyBid(uint256 bid, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes bidSignature) pure returns(bytes32 messageDigest, address recoveredAddress)
-func (_Preconfmanager *PreconfmanagerCallerSession) VerifyBid(bid *big.Int, blockNumber uint64, decayStartTimeStamp uint64, decayEndTimeStamp uint64, txnHash string, revertingTxHashes string, bidSignature []byte) (struct {
+// Solidity: function verifyBid(uint256 bidAmt, uint64 blockNumber, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes bidSignature) view returns(bytes32 messageDigest, address recoveredAddress)
+func (_Preconfmanager *PreconfmanagerCallerSession) VerifyBid(bidAmt *big.Int, blockNumber uint64, decayStartTimeStamp uint64, decayEndTimeStamp uint64, txnHash string, revertingTxHashes string, bidSignature []byte) (struct {
 	MessageDigest    [32]byte
 	RecoveredAddress common.Address
 }, error) {
-	return _Preconfmanager.Contract.VerifyBid(&_Preconfmanager.CallOpts, bid, blockNumber, decayStartTimeStamp, decayEndTimeStamp, txnHash, revertingTxHashes, bidSignature)
+	return _Preconfmanager.Contract.VerifyBid(&_Preconfmanager.CallOpts, bidAmt, blockNumber, decayStartTimeStamp, decayEndTimeStamp, txnHash, revertingTxHashes, bidSignature)
 }
 
 // VerifyPreConfCommitment is a free data retrieval call binding the contract method 0xe93bbf26.
 //
-// Solidity: function verifyPreConfCommitment((string,string,uint256,uint64,uint64,uint64,bytes32,bytes,bytes,bytes) params) pure returns(bytes32 preConfHash, address committerAddress)
+// Solidity: function verifyPreConfCommitment((string,string,uint256,uint64,uint64,uint64,bytes32,bytes,bytes,bytes) params) view returns(bytes32 preConfHash, address committerAddress)
 func (_Preconfmanager *PreconfmanagerCaller) VerifyPreConfCommitment(opts *bind.CallOpts, params IPreconfManagerCommitmentParams) (struct {
 	PreConfHash      [32]byte
 	CommitterAddress common.Address
@@ -1208,7 +1208,7 @@ func (_Preconfmanager *PreconfmanagerCaller) VerifyPreConfCommitment(opts *bind.
 
 // VerifyPreConfCommitment is a free data retrieval call binding the contract method 0xe93bbf26.
 //
-// Solidity: function verifyPreConfCommitment((string,string,uint256,uint64,uint64,uint64,bytes32,bytes,bytes,bytes) params) pure returns(bytes32 preConfHash, address committerAddress)
+// Solidity: function verifyPreConfCommitment((string,string,uint256,uint64,uint64,uint64,bytes32,bytes,bytes,bytes) params) view returns(bytes32 preConfHash, address committerAddress)
 func (_Preconfmanager *PreconfmanagerSession) VerifyPreConfCommitment(params IPreconfManagerCommitmentParams) (struct {
 	PreConfHash      [32]byte
 	CommitterAddress common.Address
@@ -1218,7 +1218,7 @@ func (_Preconfmanager *PreconfmanagerSession) VerifyPreConfCommitment(params IPr
 
 // VerifyPreConfCommitment is a free data retrieval call binding the contract method 0xe93bbf26.
 //
-// Solidity: function verifyPreConfCommitment((string,string,uint256,uint64,uint64,uint64,bytes32,bytes,bytes,bytes) params) pure returns(bytes32 preConfHash, address committerAddress)
+// Solidity: function verifyPreConfCommitment((string,string,uint256,uint64,uint64,uint64,bytes32,bytes,bytes,bytes) params) view returns(bytes32 preConfHash, address committerAddress)
 func (_Preconfmanager *PreconfmanagerCallerSession) VerifyPreConfCommitment(params IPreconfManagerCommitmentParams) (struct {
 	PreConfHash      [32]byte
 	CommitterAddress common.Address
@@ -1247,25 +1247,25 @@ func (_Preconfmanager *PreconfmanagerTransactorSession) AcceptOwnership() (*type
 	return _Preconfmanager.Contract.AcceptOwnership(&_Preconfmanager.TransactOpts)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xd8d0cbc1.
+// Initialize is a paid mutator transaction binding the contract method 0x5a606b41.
 //
-// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
-func (_Preconfmanager *PreconfmanagerTransactor) Initialize(opts *bind.TransactOpts, _providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfmanager.contract.Transact(opts, "initialize", _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
+// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow) returns()
+func (_Preconfmanager *PreconfmanagerTransactor) Initialize(opts *bind.TransactOpts, _providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64) (*types.Transaction, error) {
+	return _Preconfmanager.contract.Transact(opts, "initialize", _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xd8d0cbc1.
+// Initialize is a paid mutator transaction binding the contract method 0x5a606b41.
 //
-// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
-func (_Preconfmanager *PreconfmanagerSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfmanager.Contract.Initialize(&_Preconfmanager.TransactOpts, _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
+// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow) returns()
+func (_Preconfmanager *PreconfmanagerSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64) (*types.Transaction, error) {
+	return _Preconfmanager.Contract.Initialize(&_Preconfmanager.TransactOpts, _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xd8d0cbc1.
+// Initialize is a paid mutator transaction binding the contract method 0x5a606b41.
 //
-// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow, uint256 _blocksPerWindow) returns()
-func (_Preconfmanager *PreconfmanagerTransactorSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64, _blocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfmanager.Contract.Initialize(&_Preconfmanager.TransactOpts, _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow, _blocksPerWindow)
+// Solidity: function initialize(address _providerRegistry, address _bidderRegistry, address _oracleContract, address _owner, address _blockTracker, uint64 _commitmentDispatchWindow) returns()
+func (_Preconfmanager *PreconfmanagerTransactorSession) Initialize(_providerRegistry common.Address, _bidderRegistry common.Address, _oracleContract common.Address, _owner common.Address, _blockTracker common.Address, _commitmentDispatchWindow uint64) (*types.Transaction, error) {
+	return _Preconfmanager.Contract.Initialize(&_Preconfmanager.TransactOpts, _providerRegistry, _bidderRegistry, _oracleContract, _owner, _blockTracker, _commitmentDispatchWindow)
 }
 
 // InitiateReward is a paid mutator transaction binding the contract method 0x03faf979.
@@ -1310,25 +1310,25 @@ func (_Preconfmanager *PreconfmanagerTransactorSession) InitiateSlash(commitment
 	return _Preconfmanager.Contract.InitiateSlash(&_Preconfmanager.TransactOpts, commitmentIndex, residualBidPercentAfterDecay)
 }
 
-// OpenCommitment is a paid mutator transaction binding the contract method 0x05880c6a.
+// OpenCommitment is a paid mutator transaction binding the contract method 0x8460304f.
 //
-// Solidity: function openCommitment(bytes32 unopenedCommitmentIndex, uint256 bid, uint64 blockNumber, string txnHash, string revertingTxHashes, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey) returns(bytes32 commitmentIndex)
-func (_Preconfmanager *PreconfmanagerTransactor) OpenCommitment(opts *bind.TransactOpts, unopenedCommitmentIndex [32]byte, bid *big.Int, blockNumber uint64, txnHash string, revertingTxHashes string, decayStartTimeStamp uint64, decayEndTimeStamp uint64, bidSignature []byte, commitmentSignature []byte, sharedSecretKey []byte) (*types.Transaction, error) {
-	return _Preconfmanager.contract.Transact(opts, "openCommitment", unopenedCommitmentIndex, bid, blockNumber, txnHash, revertingTxHashes, decayStartTimeStamp, decayEndTimeStamp, bidSignature, commitmentSignature, sharedSecretKey)
+// Solidity: function openCommitment(bytes32 unopenedCommitmentIndex, uint256 bidAmt, uint64 blockNumber, string txnHash, string revertingTxHashes, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, bytes bidSignature, bytes sharedSecretKey) returns(bytes32 commitmentIndex)
+func (_Preconfmanager *PreconfmanagerTransactor) OpenCommitment(opts *bind.TransactOpts, unopenedCommitmentIndex [32]byte, bidAmt *big.Int, blockNumber uint64, txnHash string, revertingTxHashes string, decayStartTimeStamp uint64, decayEndTimeStamp uint64, bidSignature []byte, sharedSecretKey []byte) (*types.Transaction, error) {
+	return _Preconfmanager.contract.Transact(opts, "openCommitment", unopenedCommitmentIndex, bidAmt, blockNumber, txnHash, revertingTxHashes, decayStartTimeStamp, decayEndTimeStamp, bidSignature, sharedSecretKey)
 }
 
-// OpenCommitment is a paid mutator transaction binding the contract method 0x05880c6a.
+// OpenCommitment is a paid mutator transaction binding the contract method 0x8460304f.
 //
-// Solidity: function openCommitment(bytes32 unopenedCommitmentIndex, uint256 bid, uint64 blockNumber, string txnHash, string revertingTxHashes, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey) returns(bytes32 commitmentIndex)
-func (_Preconfmanager *PreconfmanagerSession) OpenCommitment(unopenedCommitmentIndex [32]byte, bid *big.Int, blockNumber uint64, txnHash string, revertingTxHashes string, decayStartTimeStamp uint64, decayEndTimeStamp uint64, bidSignature []byte, commitmentSignature []byte, sharedSecretKey []byte) (*types.Transaction, error) {
-	return _Preconfmanager.Contract.OpenCommitment(&_Preconfmanager.TransactOpts, unopenedCommitmentIndex, bid, blockNumber, txnHash, revertingTxHashes, decayStartTimeStamp, decayEndTimeStamp, bidSignature, commitmentSignature, sharedSecretKey)
+// Solidity: function openCommitment(bytes32 unopenedCommitmentIndex, uint256 bidAmt, uint64 blockNumber, string txnHash, string revertingTxHashes, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, bytes bidSignature, bytes sharedSecretKey) returns(bytes32 commitmentIndex)
+func (_Preconfmanager *PreconfmanagerSession) OpenCommitment(unopenedCommitmentIndex [32]byte, bidAmt *big.Int, blockNumber uint64, txnHash string, revertingTxHashes string, decayStartTimeStamp uint64, decayEndTimeStamp uint64, bidSignature []byte, sharedSecretKey []byte) (*types.Transaction, error) {
+	return _Preconfmanager.Contract.OpenCommitment(&_Preconfmanager.TransactOpts, unopenedCommitmentIndex, bidAmt, blockNumber, txnHash, revertingTxHashes, decayStartTimeStamp, decayEndTimeStamp, bidSignature, sharedSecretKey)
 }
 
-// OpenCommitment is a paid mutator transaction binding the contract method 0x05880c6a.
+// OpenCommitment is a paid mutator transaction binding the contract method 0x8460304f.
 //
-// Solidity: function openCommitment(bytes32 unopenedCommitmentIndex, uint256 bid, uint64 blockNumber, string txnHash, string revertingTxHashes, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, bytes bidSignature, bytes commitmentSignature, bytes sharedSecretKey) returns(bytes32 commitmentIndex)
-func (_Preconfmanager *PreconfmanagerTransactorSession) OpenCommitment(unopenedCommitmentIndex [32]byte, bid *big.Int, blockNumber uint64, txnHash string, revertingTxHashes string, decayStartTimeStamp uint64, decayEndTimeStamp uint64, bidSignature []byte, commitmentSignature []byte, sharedSecretKey []byte) (*types.Transaction, error) {
-	return _Preconfmanager.Contract.OpenCommitment(&_Preconfmanager.TransactOpts, unopenedCommitmentIndex, bid, blockNumber, txnHash, revertingTxHashes, decayStartTimeStamp, decayEndTimeStamp, bidSignature, commitmentSignature, sharedSecretKey)
+// Solidity: function openCommitment(bytes32 unopenedCommitmentIndex, uint256 bidAmt, uint64 blockNumber, string txnHash, string revertingTxHashes, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, bytes bidSignature, bytes sharedSecretKey) returns(bytes32 commitmentIndex)
+func (_Preconfmanager *PreconfmanagerTransactorSession) OpenCommitment(unopenedCommitmentIndex [32]byte, bidAmt *big.Int, blockNumber uint64, txnHash string, revertingTxHashes string, decayStartTimeStamp uint64, decayEndTimeStamp uint64, bidSignature []byte, sharedSecretKey []byte) (*types.Transaction, error) {
+	return _Preconfmanager.Contract.OpenCommitment(&_Preconfmanager.TransactOpts, unopenedCommitmentIndex, bidAmt, blockNumber, txnHash, revertingTxHashes, decayStartTimeStamp, decayEndTimeStamp, bidSignature, sharedSecretKey)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -1476,27 +1476,6 @@ func (_Preconfmanager *PreconfmanagerSession) UpdateBlockTracker(newBlockTracker
 // Solidity: function updateBlockTracker(address newBlockTracker) returns()
 func (_Preconfmanager *PreconfmanagerTransactorSession) UpdateBlockTracker(newBlockTracker common.Address) (*types.Transaction, error) {
 	return _Preconfmanager.Contract.UpdateBlockTracker(&_Preconfmanager.TransactOpts, newBlockTracker)
-}
-
-// UpdateBlocksPerWindow is a paid mutator transaction binding the contract method 0xdb8ecac3.
-//
-// Solidity: function updateBlocksPerWindow(uint256 newBlocksPerWindow) returns()
-func (_Preconfmanager *PreconfmanagerTransactor) UpdateBlocksPerWindow(opts *bind.TransactOpts, newBlocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfmanager.contract.Transact(opts, "updateBlocksPerWindow", newBlocksPerWindow)
-}
-
-// UpdateBlocksPerWindow is a paid mutator transaction binding the contract method 0xdb8ecac3.
-//
-// Solidity: function updateBlocksPerWindow(uint256 newBlocksPerWindow) returns()
-func (_Preconfmanager *PreconfmanagerSession) UpdateBlocksPerWindow(newBlocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfmanager.Contract.UpdateBlocksPerWindow(&_Preconfmanager.TransactOpts, newBlocksPerWindow)
-}
-
-// UpdateBlocksPerWindow is a paid mutator transaction binding the contract method 0xdb8ecac3.
-//
-// Solidity: function updateBlocksPerWindow(uint256 newBlocksPerWindow) returns()
-func (_Preconfmanager *PreconfmanagerTransactorSession) UpdateBlocksPerWindow(newBlocksPerWindow *big.Int) (*types.Transaction, error) {
-	return _Preconfmanager.Contract.UpdateBlocksPerWindow(&_Preconfmanager.TransactOpts, newBlocksPerWindow)
 }
 
 // UpdateCommitmentDispatchWindow is a paid mutator transaction binding the contract method 0x03800560.
@@ -1700,10 +1679,15 @@ type PreconfmanagerBidderRegistryUpdated struct {
 
 // FilterBidderRegistryUpdated is a free log retrieval operation binding the contract event 0xa1e7ee70f66ed8d94bde04c89c39cad2377817914a330274e559ba8e6d5cdca5.
 //
-// Solidity: event BidderRegistryUpdated(address newBidderRegistry)
-func (_Preconfmanager *PreconfmanagerFilterer) FilterBidderRegistryUpdated(opts *bind.FilterOpts) (*PreconfmanagerBidderRegistryUpdatedIterator, error) {
+// Solidity: event BidderRegistryUpdated(address indexed newBidderRegistry)
+func (_Preconfmanager *PreconfmanagerFilterer) FilterBidderRegistryUpdated(opts *bind.FilterOpts, newBidderRegistry []common.Address) (*PreconfmanagerBidderRegistryUpdatedIterator, error) {
 
-	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "BidderRegistryUpdated")
+	var newBidderRegistryRule []interface{}
+	for _, newBidderRegistryItem := range newBidderRegistry {
+		newBidderRegistryRule = append(newBidderRegistryRule, newBidderRegistryItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "BidderRegistryUpdated", newBidderRegistryRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1712,10 +1696,15 @@ func (_Preconfmanager *PreconfmanagerFilterer) FilterBidderRegistryUpdated(opts 
 
 // WatchBidderRegistryUpdated is a free log subscription operation binding the contract event 0xa1e7ee70f66ed8d94bde04c89c39cad2377817914a330274e559ba8e6d5cdca5.
 //
-// Solidity: event BidderRegistryUpdated(address newBidderRegistry)
-func (_Preconfmanager *PreconfmanagerFilterer) WatchBidderRegistryUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerBidderRegistryUpdated) (event.Subscription, error) {
+// Solidity: event BidderRegistryUpdated(address indexed newBidderRegistry)
+func (_Preconfmanager *PreconfmanagerFilterer) WatchBidderRegistryUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerBidderRegistryUpdated, newBidderRegistry []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "BidderRegistryUpdated")
+	var newBidderRegistryRule []interface{}
+	for _, newBidderRegistryItem := range newBidderRegistry {
+		newBidderRegistryRule = append(newBidderRegistryRule, newBidderRegistryItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "BidderRegistryUpdated", newBidderRegistryRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1749,7 +1738,7 @@ func (_Preconfmanager *PreconfmanagerFilterer) WatchBidderRegistryUpdated(opts *
 
 // ParseBidderRegistryUpdated is a log parse operation binding the contract event 0xa1e7ee70f66ed8d94bde04c89c39cad2377817914a330274e559ba8e6d5cdca5.
 //
-// Solidity: event BidderRegistryUpdated(address newBidderRegistry)
+// Solidity: event BidderRegistryUpdated(address indexed newBidderRegistry)
 func (_Preconfmanager *PreconfmanagerFilterer) ParseBidderRegistryUpdated(log types.Log) (*PreconfmanagerBidderRegistryUpdated, error) {
 	event := new(PreconfmanagerBidderRegistryUpdated)
 	if err := _Preconfmanager.contract.UnpackLog(event, "BidderRegistryUpdated", log); err != nil {
@@ -1834,10 +1823,15 @@ type PreconfmanagerBlockTrackerUpdated struct {
 
 // FilterBlockTrackerUpdated is a free log retrieval operation binding the contract event 0x3a013345829f05d7c43406984b75f593c7bf0f77fc18042ff8de7f70314935f0.
 //
-// Solidity: event BlockTrackerUpdated(address newBlockTracker)
-func (_Preconfmanager *PreconfmanagerFilterer) FilterBlockTrackerUpdated(opts *bind.FilterOpts) (*PreconfmanagerBlockTrackerUpdatedIterator, error) {
+// Solidity: event BlockTrackerUpdated(address indexed newBlockTracker)
+func (_Preconfmanager *PreconfmanagerFilterer) FilterBlockTrackerUpdated(opts *bind.FilterOpts, newBlockTracker []common.Address) (*PreconfmanagerBlockTrackerUpdatedIterator, error) {
 
-	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "BlockTrackerUpdated")
+	var newBlockTrackerRule []interface{}
+	for _, newBlockTrackerItem := range newBlockTracker {
+		newBlockTrackerRule = append(newBlockTrackerRule, newBlockTrackerItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "BlockTrackerUpdated", newBlockTrackerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1846,10 +1840,15 @@ func (_Preconfmanager *PreconfmanagerFilterer) FilterBlockTrackerUpdated(opts *b
 
 // WatchBlockTrackerUpdated is a free log subscription operation binding the contract event 0x3a013345829f05d7c43406984b75f593c7bf0f77fc18042ff8de7f70314935f0.
 //
-// Solidity: event BlockTrackerUpdated(address newBlockTracker)
-func (_Preconfmanager *PreconfmanagerFilterer) WatchBlockTrackerUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerBlockTrackerUpdated) (event.Subscription, error) {
+// Solidity: event BlockTrackerUpdated(address indexed newBlockTracker)
+func (_Preconfmanager *PreconfmanagerFilterer) WatchBlockTrackerUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerBlockTrackerUpdated, newBlockTracker []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "BlockTrackerUpdated")
+	var newBlockTrackerRule []interface{}
+	for _, newBlockTrackerItem := range newBlockTracker {
+		newBlockTrackerRule = append(newBlockTrackerRule, newBlockTrackerItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "BlockTrackerUpdated", newBlockTrackerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1883,144 +1882,10 @@ func (_Preconfmanager *PreconfmanagerFilterer) WatchBlockTrackerUpdated(opts *bi
 
 // ParseBlockTrackerUpdated is a log parse operation binding the contract event 0x3a013345829f05d7c43406984b75f593c7bf0f77fc18042ff8de7f70314935f0.
 //
-// Solidity: event BlockTrackerUpdated(address newBlockTracker)
+// Solidity: event BlockTrackerUpdated(address indexed newBlockTracker)
 func (_Preconfmanager *PreconfmanagerFilterer) ParseBlockTrackerUpdated(log types.Log) (*PreconfmanagerBlockTrackerUpdated, error) {
 	event := new(PreconfmanagerBlockTrackerUpdated)
 	if err := _Preconfmanager.contract.UnpackLog(event, "BlockTrackerUpdated", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// PreconfmanagerBlocksPerWindowUpdatedIterator is returned from FilterBlocksPerWindowUpdated and is used to iterate over the raw logs and unpacked data for BlocksPerWindowUpdated events raised by the Preconfmanager contract.
-type PreconfmanagerBlocksPerWindowUpdatedIterator struct {
-	Event *PreconfmanagerBlocksPerWindowUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *PreconfmanagerBlocksPerWindowUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(PreconfmanagerBlocksPerWindowUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(PreconfmanagerBlocksPerWindowUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *PreconfmanagerBlocksPerWindowUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *PreconfmanagerBlocksPerWindowUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// PreconfmanagerBlocksPerWindowUpdated represents a BlocksPerWindowUpdated event raised by the Preconfmanager contract.
-type PreconfmanagerBlocksPerWindowUpdated struct {
-	NewBlocksPerWindow *big.Int
-	Raw                types.Log // Blockchain specific contextual infos
-}
-
-// FilterBlocksPerWindowUpdated is a free log retrieval operation binding the contract event 0x842c65c40e3c72ca4825ff78e49829dcd1a32550cd9af69b1dfb7e34a760327a.
-//
-// Solidity: event BlocksPerWindowUpdated(uint256 newBlocksPerWindow)
-func (_Preconfmanager *PreconfmanagerFilterer) FilterBlocksPerWindowUpdated(opts *bind.FilterOpts) (*PreconfmanagerBlocksPerWindowUpdatedIterator, error) {
-
-	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "BlocksPerWindowUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return &PreconfmanagerBlocksPerWindowUpdatedIterator{contract: _Preconfmanager.contract, event: "BlocksPerWindowUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchBlocksPerWindowUpdated is a free log subscription operation binding the contract event 0x842c65c40e3c72ca4825ff78e49829dcd1a32550cd9af69b1dfb7e34a760327a.
-//
-// Solidity: event BlocksPerWindowUpdated(uint256 newBlocksPerWindow)
-func (_Preconfmanager *PreconfmanagerFilterer) WatchBlocksPerWindowUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerBlocksPerWindowUpdated) (event.Subscription, error) {
-
-	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "BlocksPerWindowUpdated")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(PreconfmanagerBlocksPerWindowUpdated)
-				if err := _Preconfmanager.contract.UnpackLog(event, "BlocksPerWindowUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseBlocksPerWindowUpdated is a log parse operation binding the contract event 0x842c65c40e3c72ca4825ff78e49829dcd1a32550cd9af69b1dfb7e34a760327a.
-//
-// Solidity: event BlocksPerWindowUpdated(uint256 newBlocksPerWindow)
-func (_Preconfmanager *PreconfmanagerFilterer) ParseBlocksPerWindowUpdated(log types.Log) (*PreconfmanagerBlocksPerWindowUpdated, error) {
-	event := new(PreconfmanagerBlocksPerWindowUpdated)
-	if err := _Preconfmanager.contract.UnpackLog(event, "BlocksPerWindowUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2367,7 +2232,7 @@ type PreconfmanagerOpenedCommitmentStored struct {
 	CommitmentIndex     [32]byte
 	Bidder              common.Address
 	Committer           common.Address
-	Bid                 *big.Int
+	BidAmt              *big.Int
 	BlockNumber         uint64
 	BidHash             [32]byte
 	DecayStartTimeStamp uint64
@@ -2384,7 +2249,7 @@ type PreconfmanagerOpenedCommitmentStored struct {
 
 // FilterOpenedCommitmentStored is a free log retrieval operation binding the contract event 0x917c84f50cb270289bbf7b88e8c9af08c45e8f4c34105bc9f564bc5e199ad03a.
 //
-// Solidity: event OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address committer, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)
+// Solidity: event OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address committer, uint256 bidAmt, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)
 func (_Preconfmanager *PreconfmanagerFilterer) FilterOpenedCommitmentStored(opts *bind.FilterOpts, commitmentIndex [][32]byte) (*PreconfmanagerOpenedCommitmentStoredIterator, error) {
 
 	var commitmentIndexRule []interface{}
@@ -2401,7 +2266,7 @@ func (_Preconfmanager *PreconfmanagerFilterer) FilterOpenedCommitmentStored(opts
 
 // WatchOpenedCommitmentStored is a free log subscription operation binding the contract event 0x917c84f50cb270289bbf7b88e8c9af08c45e8f4c34105bc9f564bc5e199ad03a.
 //
-// Solidity: event OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address committer, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)
+// Solidity: event OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address committer, uint256 bidAmt, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)
 func (_Preconfmanager *PreconfmanagerFilterer) WatchOpenedCommitmentStored(opts *bind.WatchOpts, sink chan<- *PreconfmanagerOpenedCommitmentStored, commitmentIndex [][32]byte) (event.Subscription, error) {
 
 	var commitmentIndexRule []interface{}
@@ -2443,7 +2308,7 @@ func (_Preconfmanager *PreconfmanagerFilterer) WatchOpenedCommitmentStored(opts 
 
 // ParseOpenedCommitmentStored is a log parse operation binding the contract event 0x917c84f50cb270289bbf7b88e8c9af08c45e8f4c34105bc9f564bc5e199ad03a.
 //
-// Solidity: event OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address committer, uint256 bid, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)
+// Solidity: event OpenedCommitmentStored(bytes32 indexed commitmentIndex, address bidder, address committer, uint256 bidAmt, uint64 blockNumber, bytes32 bidHash, uint64 decayStartTimeStamp, uint64 decayEndTimeStamp, string txnHash, string revertingTxHashes, bytes32 commitmentDigest, bytes bidSignature, bytes commitmentSignature, uint64 dispatchTimestamp, bytes sharedSecretKey)
 func (_Preconfmanager *PreconfmanagerFilterer) ParseOpenedCommitmentStored(log types.Log) (*PreconfmanagerOpenedCommitmentStored, error) {
 	event := new(PreconfmanagerOpenedCommitmentStored)
 	if err := _Preconfmanager.contract.UnpackLog(event, "OpenedCommitmentStored", log); err != nil {
@@ -2528,10 +2393,15 @@ type PreconfmanagerOracleContractUpdated struct {
 
 // FilterOracleContractUpdated is a free log retrieval operation binding the contract event 0x9f17f88b8f07aebd1a366b1589656e38eddd6fbd5a1fa121158b240d4795a0cb.
 //
-// Solidity: event OracleContractUpdated(address newOracleContract)
-func (_Preconfmanager *PreconfmanagerFilterer) FilterOracleContractUpdated(opts *bind.FilterOpts) (*PreconfmanagerOracleContractUpdatedIterator, error) {
+// Solidity: event OracleContractUpdated(address indexed newOracleContract)
+func (_Preconfmanager *PreconfmanagerFilterer) FilterOracleContractUpdated(opts *bind.FilterOpts, newOracleContract []common.Address) (*PreconfmanagerOracleContractUpdatedIterator, error) {
 
-	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "OracleContractUpdated")
+	var newOracleContractRule []interface{}
+	for _, newOracleContractItem := range newOracleContract {
+		newOracleContractRule = append(newOracleContractRule, newOracleContractItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "OracleContractUpdated", newOracleContractRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2540,10 +2410,15 @@ func (_Preconfmanager *PreconfmanagerFilterer) FilterOracleContractUpdated(opts 
 
 // WatchOracleContractUpdated is a free log subscription operation binding the contract event 0x9f17f88b8f07aebd1a366b1589656e38eddd6fbd5a1fa121158b240d4795a0cb.
 //
-// Solidity: event OracleContractUpdated(address newOracleContract)
-func (_Preconfmanager *PreconfmanagerFilterer) WatchOracleContractUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerOracleContractUpdated) (event.Subscription, error) {
+// Solidity: event OracleContractUpdated(address indexed newOracleContract)
+func (_Preconfmanager *PreconfmanagerFilterer) WatchOracleContractUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerOracleContractUpdated, newOracleContract []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "OracleContractUpdated")
+	var newOracleContractRule []interface{}
+	for _, newOracleContractItem := range newOracleContract {
+		newOracleContractRule = append(newOracleContractRule, newOracleContractItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "OracleContractUpdated", newOracleContractRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2577,7 +2452,7 @@ func (_Preconfmanager *PreconfmanagerFilterer) WatchOracleContractUpdated(opts *
 
 // ParseOracleContractUpdated is a log parse operation binding the contract event 0x9f17f88b8f07aebd1a366b1589656e38eddd6fbd5a1fa121158b240d4795a0cb.
 //
-// Solidity: event OracleContractUpdated(address newOracleContract)
+// Solidity: event OracleContractUpdated(address indexed newOracleContract)
 func (_Preconfmanager *PreconfmanagerFilterer) ParseOracleContractUpdated(log types.Log) (*PreconfmanagerOracleContractUpdated, error) {
 	event := new(PreconfmanagerOracleContractUpdated)
 	if err := _Preconfmanager.contract.UnpackLog(event, "OracleContractUpdated", log); err != nil {
@@ -3102,10 +2977,15 @@ type PreconfmanagerProviderRegistryUpdated struct {
 
 // FilterProviderRegistryUpdated is a free log retrieval operation binding the contract event 0xb8f8a6768be726978fef2f5342ee7b1d0eead3b5cbb0c5d55c68f56271ca0eeb.
 //
-// Solidity: event ProviderRegistryUpdated(address newProviderRegistry)
-func (_Preconfmanager *PreconfmanagerFilterer) FilterProviderRegistryUpdated(opts *bind.FilterOpts) (*PreconfmanagerProviderRegistryUpdatedIterator, error) {
+// Solidity: event ProviderRegistryUpdated(address indexed newProviderRegistry)
+func (_Preconfmanager *PreconfmanagerFilterer) FilterProviderRegistryUpdated(opts *bind.FilterOpts, newProviderRegistry []common.Address) (*PreconfmanagerProviderRegistryUpdatedIterator, error) {
 
-	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "ProviderRegistryUpdated")
+	var newProviderRegistryRule []interface{}
+	for _, newProviderRegistryItem := range newProviderRegistry {
+		newProviderRegistryRule = append(newProviderRegistryRule, newProviderRegistryItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "ProviderRegistryUpdated", newProviderRegistryRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3114,10 +2994,15 @@ func (_Preconfmanager *PreconfmanagerFilterer) FilterProviderRegistryUpdated(opt
 
 // WatchProviderRegistryUpdated is a free log subscription operation binding the contract event 0xb8f8a6768be726978fef2f5342ee7b1d0eead3b5cbb0c5d55c68f56271ca0eeb.
 //
-// Solidity: event ProviderRegistryUpdated(address newProviderRegistry)
-func (_Preconfmanager *PreconfmanagerFilterer) WatchProviderRegistryUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerProviderRegistryUpdated) (event.Subscription, error) {
+// Solidity: event ProviderRegistryUpdated(address indexed newProviderRegistry)
+func (_Preconfmanager *PreconfmanagerFilterer) WatchProviderRegistryUpdated(opts *bind.WatchOpts, sink chan<- *PreconfmanagerProviderRegistryUpdated, newProviderRegistry []common.Address) (event.Subscription, error) {
 
-	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "ProviderRegistryUpdated")
+	var newProviderRegistryRule []interface{}
+	for _, newProviderRegistryItem := range newProviderRegistry {
+		newProviderRegistryRule = append(newProviderRegistryRule, newProviderRegistryItem)
+	}
+
+	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "ProviderRegistryUpdated", newProviderRegistryRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3151,7 +3036,7 @@ func (_Preconfmanager *PreconfmanagerFilterer) WatchProviderRegistryUpdated(opts
 
 // ParseProviderRegistryUpdated is a log parse operation binding the contract event 0xb8f8a6768be726978fef2f5342ee7b1d0eead3b5cbb0c5d55c68f56271ca0eeb.
 //
-// Solidity: event ProviderRegistryUpdated(address newProviderRegistry)
+// Solidity: event ProviderRegistryUpdated(address indexed newProviderRegistry)
 func (_Preconfmanager *PreconfmanagerFilterer) ParseProviderRegistryUpdated(log types.Log) (*PreconfmanagerProviderRegistryUpdated, error) {
 	event := new(PreconfmanagerProviderRegistryUpdated)
 	if err := _Preconfmanager.contract.UnpackLog(event, "ProviderRegistryUpdated", log); err != nil {
@@ -3233,27 +3118,27 @@ type PreconfmanagerSignatureVerified struct {
 	Signer            common.Address
 	TxnHash           string
 	RevertingTxHashes string
-	Bid               *big.Int
+	BidAmt            *big.Int
 	BlockNumber       uint64
 	Raw               types.Log // Blockchain specific contextual infos
 }
 
 // FilterSignatureVerified is a free log retrieval operation binding the contract event 0xf5fa3f7902916f0e4e2af218fa9a77809c54e64b77ec4061a205ec3b7ce5c35e.
 //
-// Solidity: event SignatureVerified(address indexed signer, string txnHash, string revertingTxHashes, uint256 indexed bid, uint64 blockNumber)
-func (_Preconfmanager *PreconfmanagerFilterer) FilterSignatureVerified(opts *bind.FilterOpts, signer []common.Address, bid []*big.Int) (*PreconfmanagerSignatureVerifiedIterator, error) {
+// Solidity: event SignatureVerified(address indexed signer, string txnHash, string revertingTxHashes, uint256 indexed bidAmt, uint64 blockNumber)
+func (_Preconfmanager *PreconfmanagerFilterer) FilterSignatureVerified(opts *bind.FilterOpts, signer []common.Address, bidAmt []*big.Int) (*PreconfmanagerSignatureVerifiedIterator, error) {
 
 	var signerRule []interface{}
 	for _, signerItem := range signer {
 		signerRule = append(signerRule, signerItem)
 	}
 
-	var bidRule []interface{}
-	for _, bidItem := range bid {
-		bidRule = append(bidRule, bidItem)
+	var bidAmtRule []interface{}
+	for _, bidAmtItem := range bidAmt {
+		bidAmtRule = append(bidAmtRule, bidAmtItem)
 	}
 
-	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "SignatureVerified", signerRule, bidRule)
+	logs, sub, err := _Preconfmanager.contract.FilterLogs(opts, "SignatureVerified", signerRule, bidAmtRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3262,20 +3147,20 @@ func (_Preconfmanager *PreconfmanagerFilterer) FilterSignatureVerified(opts *bin
 
 // WatchSignatureVerified is a free log subscription operation binding the contract event 0xf5fa3f7902916f0e4e2af218fa9a77809c54e64b77ec4061a205ec3b7ce5c35e.
 //
-// Solidity: event SignatureVerified(address indexed signer, string txnHash, string revertingTxHashes, uint256 indexed bid, uint64 blockNumber)
-func (_Preconfmanager *PreconfmanagerFilterer) WatchSignatureVerified(opts *bind.WatchOpts, sink chan<- *PreconfmanagerSignatureVerified, signer []common.Address, bid []*big.Int) (event.Subscription, error) {
+// Solidity: event SignatureVerified(address indexed signer, string txnHash, string revertingTxHashes, uint256 indexed bidAmt, uint64 blockNumber)
+func (_Preconfmanager *PreconfmanagerFilterer) WatchSignatureVerified(opts *bind.WatchOpts, sink chan<- *PreconfmanagerSignatureVerified, signer []common.Address, bidAmt []*big.Int) (event.Subscription, error) {
 
 	var signerRule []interface{}
 	for _, signerItem := range signer {
 		signerRule = append(signerRule, signerItem)
 	}
 
-	var bidRule []interface{}
-	for _, bidItem := range bid {
-		bidRule = append(bidRule, bidItem)
+	var bidAmtRule []interface{}
+	for _, bidAmtItem := range bidAmt {
+		bidAmtRule = append(bidAmtRule, bidAmtItem)
 	}
 
-	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "SignatureVerified", signerRule, bidRule)
+	logs, sub, err := _Preconfmanager.contract.WatchLogs(opts, "SignatureVerified", signerRule, bidAmtRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3309,7 +3194,7 @@ func (_Preconfmanager *PreconfmanagerFilterer) WatchSignatureVerified(opts *bind
 
 // ParseSignatureVerified is a log parse operation binding the contract event 0xf5fa3f7902916f0e4e2af218fa9a77809c54e64b77ec4061a205ec3b7ce5c35e.
 //
-// Solidity: event SignatureVerified(address indexed signer, string txnHash, string revertingTxHashes, uint256 indexed bid, uint64 blockNumber)
+// Solidity: event SignatureVerified(address indexed signer, string txnHash, string revertingTxHashes, uint256 indexed bidAmt, uint64 blockNumber)
 func (_Preconfmanager *PreconfmanagerFilterer) ParseSignatureVerified(log types.Log) (*PreconfmanagerSignatureVerified, error) {
 	event := new(PreconfmanagerSignatureVerified)
 	if err := _Preconfmanager.contract.UnpackLog(event, "SignatureVerified", log); err != nil {

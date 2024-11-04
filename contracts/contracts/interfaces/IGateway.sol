@@ -32,6 +32,9 @@ interface IGateway {
         uint256 indexed counterpartyIdx
     );
 
+    event FinalizationFeeSet(uint256 finalizationFee);
+    event CounterpartyFeeSet(uint256 counterpartyFee);
+
     error SenderNotRelayer(address sender, address relayer);
     error AmountTooSmall(uint256 amount, uint256 counterpartyFee);
     error InvalidCounterpartyIndex(uint256 counterpartyIdx, uint256 transferFinalizedIdx);

@@ -13,9 +13,6 @@ abstract contract PreconfManagerStorage {
     /// @dev Address of the oracle contract
     address public oracleContract;
 
-    /// @dev The number of blocks per window
-    uint256 public blocksPerWindow;
-
     /// @dev Address of provider registry
     IProviderRegistry public providerRegistry;
 
@@ -35,6 +32,10 @@ abstract contract PreconfManagerStorage {
     /// @dev Unopened Commitment Hash -> Unopened Commitment
     /// @dev Only stores valid unopened commitments
     mapping(bytes32 => IPreconfManager.UnopenedCommitment) public unopenedCommitments;
+
+    /// @dev Mapping from txn hash plus bidder address to if it has been processed
+    /// @dev Used to prevent rewarding/slashing multiple times
+    mapping(bytes32 => bool) public processedTxnHashes;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;

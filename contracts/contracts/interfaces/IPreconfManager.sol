@@ -15,7 +15,7 @@ interface IPreconfManager {
         uint64 decayEndTimeStamp;
         uint64 dispatchTimestamp;
         address committer;
-        uint256 bid;
+        uint256 bidAmt;
         bytes32 bidHash;
         bytes32 commitmentDigest;
         bytes bidSignature;
@@ -29,7 +29,7 @@ interface IPreconfManager {
     struct CommitmentParams {
         string txnHash;
         string revertingTxHashes;
-        uint256 bid;
+        uint256 bidAmt;
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
@@ -53,7 +53,7 @@ interface IPreconfManager {
         bytes32 indexed commitmentIndex,
         address bidder,
         address committer,
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         bytes32 bidHash,
         uint64 decayStartTimeStamp,
@@ -81,7 +81,7 @@ interface IPreconfManager {
         address indexed signer,
         string txnHash,
         string revertingTxHashes,
-        uint256 indexed bid,
+        uint256 indexed bidAmt,
         uint64 blockNumber
     );
 
@@ -89,19 +89,16 @@ interface IPreconfManager {
     event CommitmentDispatchWindowUpdated(uint64 newDispatchWindow);
 
     /// @dev Event to log successful update of the oracle contract
-    event OracleContractUpdated(address newOracleContract);
-
-    /// @dev Event to log successful update of the blocks per window
-    event BlocksPerWindowUpdated(uint256 newBlocksPerWindow);
+    event OracleContractUpdated(address indexed newOracleContract);
 
     /// @dev Event to log successful update of the provider registry
-    event ProviderRegistryUpdated(address newProviderRegistry);
+    event ProviderRegistryUpdated(address indexed newProviderRegistry);
 
     /// @dev Event to log successful update of the bidder registry
-    event BidderRegistryUpdated(address newBidderRegistry);
+    event BidderRegistryUpdated(address indexed newBidderRegistry);
 
     /// @dev Event to log successful update of the block tracker
-    event BlockTrackerUpdated(address newBlockTracker);
+    event BlockTrackerUpdated(address indexed newBlockTracker);
 
     /// @dev Error if sender is not oracle contract
     error SenderIsNotOracleContract(address sender, address oracleContract);
@@ -130,6 +127,12 @@ interface IPreconfManager {
     /// @dev Error if commitment is already settled
     error CommitmentAlreadySettled(bytes32 commitmentIndex);
 
+    /// @dev Error if unopened commitment already exist
+    error UnopenedCommitmentAlreadyExists(bytes32 commitmentIndex);
+
+    /// @dev Error if txn hash is already processed
+    error TxnHashAlreadyProcessed(string txnHash, address bidderAddress);
+
     /**
      * @dev Initializes the contract with the specified registry addresses, oracle, name, and version.
      * @param _providerRegistry The address of the provider registry.
@@ -138,7 +141,6 @@ interface IPreconfManager {
      * @param _oracle The address of the oracle.
      * @param _owner Owner of the contract, explicitly needed since contract is deployed w/ create2 factory.
      * @param _commitmentDispatchWindow The dispatch window for commitments.
-     * @param _blocksPerWindow The number of blocks per window.
      */
     function initialize(
         address _providerRegistry,
@@ -146,8 +148,7 @@ interface IPreconfManager {
         address _oracle,
         address _owner,
         address _blockTracker,
-        uint64 _commitmentDispatchWindow,
-        uint256 _blocksPerWindow
+        uint64 _commitmentDispatchWindow
     ) external;
 
     /**
@@ -177,27 +178,25 @@ interface IPreconfManager {
     /**
      * @dev Opens a commitment.
      * @param unopenedCommitmentIndex The index of the unopened commitment.
-     * @param bid The bid amount.
+     * @param bidAmt The bid amount.
      * @param blockNumber The block number.
      * @param txnHash The transaction hash.
      * @param revertingTxHashes The reverting transaction hashes.
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
      * @param bidSignature The signature of the bid.
-     * @param commitmentSignature The signature of the commitment.
      * @param sharedSecretKey The shared secret key.
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
         bytes32 unopenedCommitmentIndex,
-        uint256 bid,
+        uint256 bidAmt,
         uint64 blockNumber,
         string memory txnHash,
         string memory revertingTxHashes,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory commitmentSignature,
         bytes memory sharedSecretKey
     ) external returns (bytes32 commitmentIndex);
 
@@ -265,7 +264,7 @@ interface IPreconfManager {
      * @dev Computes the bid hash for a given set of parameters.
      * @param _txnHash The transaction hash.
      * @param _revertingTxHashes The reverting transaction hashes.
-     * @param _bid The bid amount.
+     * @param _bidAmt The bid amount.
      * @param _blockNumber The block number.
      * @param _decayStartTimeStamp The start time of the decay.
      * @param _decayEndTimeStamp The end time of the decay.
@@ -274,17 +273,17 @@ interface IPreconfManager {
     function getBidHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp
-    ) external pure returns (bytes32);
+    ) external view returns (bytes32);
 
     /**
      * @dev Computes the pre-confirmation hash for a given set of parameters.
      * @param _txnHash The transaction hash.
      * @param _revertingTxHashes The reverting transaction hashes.
-     * @param _bid The bid amount.
+     * @param _bidAmt The bid amount.
      * @param _blockNumber The block number.
      * @param _decayStartTimeStamp The start time of the decay.
      * @param _decayEndTimeStamp The end time of the decay.
@@ -296,14 +295,14 @@ interface IPreconfManager {
     function getPreConfHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
-        uint256 _bid,
+        uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
-        string memory _bidSignature,
-        string memory _sharedSecretKey
-    ) external pure returns (bytes32);
+        bytes memory _bidSignature,
+        bytes memory _sharedSecretKey
+    ) external view returns (bytes32);
 
     /**
      * @dev Verifies a bid by computing the hash and recovering the signer's address.
@@ -325,7 +324,7 @@ interface IPreconfManager {
         string memory txnHash,
         string memory revertingTxHashes,
         bytes calldata bidSignature
-    ) external pure returns (bytes32 messageDigest, address recoveredAddress);
+    ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
     /**
      * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
@@ -335,7 +334,7 @@ interface IPreconfManager {
      */
     function verifyPreConfCommitment(
         CommitmentParams memory params
-    ) external pure returns (bytes32 preConfHash, address committerAddress);
+    ) external view returns (bytes32 preConfHash, address committerAddress);
 
     /**
      * @dev Computes the index of an opened commitment.

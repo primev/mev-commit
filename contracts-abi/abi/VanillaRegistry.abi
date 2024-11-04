@@ -47,6 +47,13 @@
   },
   {
     "type": "function",
+    "name": "claimForceWithdrawnFunds",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "delegateStake",
     "inputs": [
       {
@@ -62,6 +69,43 @@
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "forceWithdrawalAsOwner",
+    "inputs": [
+      {
+        "name": "blsPubKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "forceWithdrawnFunds",
+    "inputs": [
+      {
+        "name": "withdrawalAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amountToClaim",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -427,19 +471,6 @@
   },
   {
     "type": "function",
-    "name": "slashAmount",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "slashOracle",
     "inputs": [],
     "outputs": [
@@ -610,24 +641,6 @@
         "name": "blsPubKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "withdrawAsOwner",
-    "inputs": [
-      {
-        "name": "blsPubKeys",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
-      },
-      {
-        "name": "withdrawalAddress",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -1124,7 +1137,7 @@
   },
   {
     "type": "error",
-    "name": "NotEnoughBalanceToSlash",
+    "name": "NoFundsToWithdraw",
     "inputs": []
   },
   {

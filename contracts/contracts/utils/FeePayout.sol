@@ -35,10 +35,10 @@ library FeePayout {
     /// @param tracker The FeePayout.Tracker struct
     function transferToRecipient(Tracker storage tracker) internal {
         uint256 amountToPay = tracker.accumulatedAmount;
-        (bool success, ) = payable(tracker.recipient).call{value: amountToPay}("");
-        require(success, TransferToRecipientFailed());
         tracker.accumulatedAmount = 0;
         tracker.lastPayoutBlock = block.number;
+        (bool success, ) = payable(tracker.recipient).call{value: amountToPay}("");
+        require(success, TransferToRecipientFailed());
         emit FeeTransfer(amountToPay, tracker.recipient);
     }
 

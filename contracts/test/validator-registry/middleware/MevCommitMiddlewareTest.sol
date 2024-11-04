@@ -15,6 +15,7 @@ import {MockVault} from "./MockVault.sol";
 import {MockVetoSlasher} from "./MockVetoSlasher.sol";
 import {MockInstantSlasher} from "./MockInstantSlasher.sol";
 import {MockDelegator} from "./MockDelegator.sol";
+import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 contract MevCommitMiddlewareTest is Test {
 
@@ -52,8 +53,8 @@ contract MevCommitMiddlewareTest is Test {
     event ValRecordAdded(bytes blsPubkey, address indexed operator, address indexed vault, uint256 indexed position);
     event ValidatorDeregistrationRequested(bytes blsPubkey, address indexed msgSender, uint256 indexed position);
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
-    event VaultRegistered(address indexed vault, uint256 slashAmount);
-    event VaultSlashAmountUpdated(address indexed vault, uint256 slashAmount);
+    event VaultRegistered(address indexed vault, uint160 slashAmount);
+    event VaultSlashAmountUpdated(address indexed vault, uint160 slashAmount);
     event VaultDeregistrationRequested(address indexed vault);
     event VaultDeregistered(address indexed vault);
     event ValidatorSlashRequested(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashIndex);
@@ -526,13 +527,13 @@ contract MevCommitMiddlewareTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(0x1121))
         );
-        mevCommitMiddleware.registerVaults(new address[](0), new uint256[](0));
+        mevCommitMiddleware.registerVaults(new address[](0), new uint160[](0));
 
         address[] memory vaults = new address[](2);
         vaults[0] = address(vault1);
         vaults[1] = address(vault2);
 
-        uint256[] memory slashAmounts = new uint256[](1);
+        uint160[] memory slashAmounts = new uint160[](1);
         slashAmounts[0] = 20;
 
         vm.prank(owner);
@@ -541,7 +542,7 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        slashAmounts = new uint256[](2);
+        slashAmounts = new uint160[](2);
         slashAmounts[0] = 0;
         slashAmounts[1] = 20;
 
@@ -593,7 +594,7 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         uint256 vetoDuration = 5;
-        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration, mockDelegator1);
+        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration, mockDelegator1, address(mevCommitMiddleware));
         MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88, mockDelegator2);
 
         vault1.setSlasher(address(mockSlasher1));
@@ -609,6 +610,21 @@ contract MevCommitMiddlewareTest is Test {
 
         mockSlasher1.setType(vetoSlasherType);
 
+        assertEq(10, vault1.epochDuration());
+        assertEq(10, vault2.epochDuration());
+
+        uint256 executeSlashPhaseDuration = 60 minutes; // Constant from MevCommitMiddlewareStorage.
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDurationForVetoSlasher.selector, vault1,
+                10, vetoDuration, executeSlashPhaseDuration)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        MockVault(vault1).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + 1));
+        MockVault(vault2).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + 1));
+
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.VetoSlasherMustHaveZeroResolver.selector, vault1)
@@ -616,28 +632,16 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         mockSlasher1.setResolver(address(0));
-
-        assertEq(10, vault1.epochDuration());
         
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1,
-            10 - vetoDuration, 150)
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDurationConsideringSlashPeriod.selector, vault1,
+                1, 150)
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        MockVault(vault1).setEpochDuration(151);
-        MockVault(vault2).setEpochDuration(151);
-
-        vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1,
-            146, 150)
-        );
-        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
-
-        MockVault(vault2).setEpochDuration(157);
-        MockVault(vault1).setEpochDuration(157);
+        MockVault(vault1).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + slashPeriodSeconds + 1));
+        MockVault(vault2).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + slashPeriodSeconds + 1));
 
         vm.prank(owner);
         vm.expectRevert(
@@ -662,8 +666,12 @@ contract MevCommitMiddlewareTest is Test {
         assertTrue(vaultRecord2.exists);
         assertFalse(vaultRecord1.deregRequestOccurrence.exists);
         assertFalse(vaultRecord2.deregRequestOccurrence.exists);
-        assertEq(vaultRecord1.slashAmount, 15);
-        assertEq(vaultRecord2.slashAmount, 20);
+        uint160 latestSlashAmount1 = mevCommitMiddleware.getLatestSlashAmount(address(vault1));
+        uint160 latestSlashAmount2 = mevCommitMiddleware.getLatestSlashAmount(address(vault2));
+        assertEq(latestSlashAmount1, 15);
+        assertEq(latestSlashAmount2, 20);
+        assertEq(latestSlashAmount1, mevCommitMiddleware.getSlashAmountAt(address(vault1), block.timestamp));
+        assertEq(latestSlashAmount2, mevCommitMiddleware.getSlashAmountAt(address(vault2), block.timestamp));
 
         vm.prank(owner);
         vm.expectRevert(
@@ -673,7 +681,7 @@ contract MevCommitMiddlewareTest is Test {
 
         vaults = new address[](1);
         vaults[0] = address(vault2);
-        slashAmounts = new uint256[](1);
+        slashAmounts = new uint160[](1);
         slashAmounts[0] = 88;
 
         vm.prank(owner);
@@ -688,13 +696,13 @@ contract MevCommitMiddlewareTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(0x1121))
         );
-        mevCommitMiddleware.updateSlashAmounts(new address[](0), new uint256[](0));
+        mevCommitMiddleware.updateSlashAmounts(new address[](0), new uint160[](0));
 
         address[] memory vaults = new address[](2);
         vaults[0] = address(vault1);
         vaults[1] = address(vault2);
 
-        uint256[] memory slashAmounts = new uint256[](1);
+        uint160[] memory slashAmounts = new uint160[](1);
         slashAmounts[0] = 777;
 
         vm.prank(owner);
@@ -703,7 +711,7 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.updateSlashAmounts(vaults, slashAmounts);
 
-        slashAmounts = new uint256[](2);
+        slashAmounts = new uint160[](2);
         slashAmounts[0] = 0;
         slashAmounts[1] = 999;
 
@@ -739,10 +747,10 @@ contract MevCommitMiddlewareTest is Test {
         emit VaultSlashAmountUpdated(address(vault2), 999);
         mevCommitMiddleware.updateSlashAmounts(vaults, slashAmounts);
 
-        IMevCommitMiddleware.VaultRecord memory vaultRecord1 = getVaultRecord(address(vault1));
-        assertEq(vaultRecord1.slashAmount, 888);
-        IMevCommitMiddleware.VaultRecord memory vaultRecord2 = getVaultRecord(address(vault2));
-        assertEq(vaultRecord2.slashAmount, 999);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault1)), 888);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault2)), 999);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault1), block.timestamp), 888);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault2), block.timestamp), 999);
 
         slashAmounts[0] = 3333;
         slashAmounts[1] = 4444;
@@ -758,10 +766,10 @@ contract MevCommitMiddlewareTest is Test {
         emit VaultSlashAmountUpdated(address(vault1), 4444);
         mevCommitMiddleware.updateSlashAmounts(vaults, slashAmounts);
 
-        vaultRecord1 = getVaultRecord(address(vault1));
-        assertEq(vaultRecord1.slashAmount, 4444);
-        vaultRecord2 = getVaultRecord(address(vault2));
-        assertEq(vaultRecord2.slashAmount, 3333);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault1)), 4444);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault2)), 3333);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault1), block.timestamp), 4444);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault2), block.timestamp), 3333);
     }
 
     function test_requestVaultDeregistrations() public {
@@ -801,8 +809,10 @@ contract MevCommitMiddlewareTest is Test {
         assertFalse(vaultRecord2.deregRequestOccurrence.exists);
         assertEq(vaultRecord1.deregRequestOccurrence.timestamp, 0);
         assertEq(vaultRecord2.deregRequestOccurrence.timestamp, 0);
-        assertEq(vaultRecord1.slashAmount, 15);
-        assertEq(vaultRecord2.slashAmount, 20);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault1)), 15);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault2)), 20);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault1), block.timestamp), 15);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault2), block.timestamp), 20);
 
         vaults = new address[](2);
         vaults[0] = address(vault1);
@@ -825,8 +835,10 @@ contract MevCommitMiddlewareTest is Test {
         assertTrue(vaultRecord2.deregRequestOccurrence.exists);
         assertEq(vaultRecord1.deregRequestOccurrence.timestamp, 999);
         assertEq(vaultRecord2.deregRequestOccurrence.timestamp, 999);
-        assertEq(vaultRecord1.slashAmount, 15);
-        assertEq(vaultRecord2.slashAmount, 20);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault1)), 15);
+        assertEq(mevCommitMiddleware.getLatestSlashAmount(address(vault2)), 20);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault1), 999), 15);
+        assertEq(mevCommitMiddleware.getSlashAmountAt(address(vault2), 999), 20);
 
         vaults = new address[](1);
         vaults[0] = address(vault2);
@@ -929,7 +941,7 @@ contract MevCommitMiddlewareTest is Test {
         vaults[0] = address(vault1);
         vaults[1] = address(vault2);
 
-        uint256[] memory slashAmounts = new uint256[](2);
+        uint160[] memory slashAmounts = new uint160[](2);
         slashAmounts[0] = 88888;
         slashAmounts[1] = 99999;
 
@@ -1023,9 +1035,9 @@ contract MevCommitMiddlewareTest is Test {
 
     function getVaultRecord(address vault) public view
         returns (IMevCommitMiddleware.VaultRecord memory) {
-        (bool exists, TimestampOccurrence.Occurrence memory occurrence, uint256 slashAmount) =
+        (bool exists, TimestampOccurrence.Occurrence memory occurrence, Checkpoints.Trace160 memory slashAmountHistory) =
             mevCommitMiddleware.vaultRecords(vault);
-        return IMevCommitMiddleware.VaultRecord(exists, occurrence, slashAmount);
+        return IMevCommitMiddleware.VaultRecord(exists, occurrence, slashAmountHistory);
     }
 
     function getValidatorRecord(bytes memory blsPubkey) public view

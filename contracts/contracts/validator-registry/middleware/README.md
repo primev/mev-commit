@@ -50,11 +50,11 @@ Each Operator entity must be registered by the `MevCommitMiddleware` contract ow
 
 Without an implicit, on-chain way to verify the association between L1 validator pubkeys and Operators through Symbiotic, Operators are **trusted by the owner** to register only pubkeys for which they have control over.
 
-Any validator pubkey can only be mapped to a single Operator. So if an Operator registers a pubkey for which they do not own/manage (think “greifing”), the contract owner account reserves the right to *blacklist* Operators. The contract owner also reserves the right to *blacklist* Operators who register non-active or sybiled L1 validator pubkeys.
+Any validator pubkey can only be mapped to a single Operator. So if an Operator registers a pubkey for which they do not own/manage (think “griefing”), the contract owner account reserves the right to *blacklist* Operators. The contract owner also reserves the right to *blacklist* Operators who register non-active or sybiled L1 validator pubkeys.
 
 An on-chain dispute mechanism could eventually replace permissioned blacklisting, but is not worth targeting for v1.
 
-Blacklisting consists of the owner account marking a particular Operator as blacklisted, regardless of that Operator’s previous state within the contract. Once blacklisted, all validator pubkeys registered by the Operator are no longer considered *opted-in.* Further, the contract owner has the ability to delete validator records associated with blacklisted Operators, thus allowing non-malicious Operators to register previously greifed validator pubkeys.
+Blacklisting consists of the owner account marking a particular Operator as blacklisted, regardless of that Operator’s previous state within the contract. Once blacklisted, all validator pubkeys registered by the Operator are no longer considered *opted-in.* Further, the contract owner has the ability to delete validator records associated with blacklisted Operators, thus allowing non-malicious Operators to register previously griefed validator pubkeys.
 
 ### **What defines a validator being "opted-in"?**
 
@@ -78,7 +78,7 @@ Directly following a successful validator registration, all of these criteria wi
 
 ### Indexing within a valSet
 
-When an Operator registers validator pubkeys in a group, (recall a validator set, valSet, corresponds to a single Vault/Operator). The index of the pubkey within the valSet acts as a priority rating representing which validators should be collateralized by the Vault over others. A lower index corresponds to a higher priority. This priority index can be queried for a pubkey with respect to its valSet using `getPositionInValset`.
+When an Operator registers validator pubkeys in a group (recall a validator set, valSet, corresponds to a single Vault/Operator), the index of the pubkey within the valSet acts as a priority rating representing which validators should be collateralized by the Vault over others. A lower index corresponds to a higher priority. This priority index can be queried for a pubkey with respect to its valSet using `getPositionInValset`.
 
 Position within a valSet is **not guaranteed to be preserved**. That is, various actions can change the priority index of a validator within a valSet. Concretely the following events correspond to ordering changes:
 
@@ -104,25 +104,40 @@ For validators who proposed incorrectly as determined by the oracle, slashing mu
 
 `slashPeriodSeconds` also enforces a minimum amount of time that must elapse before validator records, operator records, or vault records can be deleted from the middleware contract’s state, as these records are essential to proper slashing.
 
+`slashPeriodSeconds` is initially configured by the middleware contract owner, and can be mutated by the owner at any time.
+
 ### Instant vs Veto slashers
 
-Further, Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. Vaults with veto slashers must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration`. Read more about Symbiotic slashing guarantees [here](https://docs.symbiotic.fi/core-modules/vaults#slashing). 
+Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. Vaults with veto slashers must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration` + `executeSlashPhaseDuration`, where `vetoDuration` is specified by the slasher. `executeSlashPhaseDuration` is a constant value of 60 minutes for the `MevCommitMiddleware` contract.
+
+Read more about Symbiotic slashing guarantees [here](https://docs.symbiotic.fi/core-modules/vaults#slashing).
 
 Since a permissioned oracle account invokes slashing, the mev-commit middleware contract only requires the most basic slashing interface. Hence for Vaults that use a `VetoSlasher`, the resolver is required to be disabled via `address(0)`.
 
-Upon the oracle successfully calling `slashValidators`, the middleware contract emits one of two events for each slashed validator. `ValidatorSlashed` will be emitted for slashers with `INSTANT_SLASHER_TYPE`. `ValidatorSlashRequested` will be emitted for slashers with `VETO_SLASHER_TYPE`. If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `IVetoSlasher.executeSlash` during the execute phase, AND this call must execute on L1 prior to the oracle calling `slashValidators` again. This ensures the oracle's subsequent calls to `slashValidators` will incorporate a properly decremented slashable stake from relevant Vaults. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
+Upon the oracle successfully calling `slashValidators`, the middleware contract emits one of two events for each slashed validator. `ValidatorSlashed` will be emitted for slashers with `INSTANT_SLASHER_TYPE`. `ValidatorSlashRequested` will be emitted for slashers with `VETO_SLASHER_TYPE`. If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `MevCommitMiddleware.executeSlashes` during the execute phase, AND this call must execute on L1 prior to the oracle calling `slashValidators` again. This ensures the oracle's subsequent calls to `slashValidators` will incorporate a properly decremented slashable stake from relevant Vaults.
+
+No action is required from the oracle during the veto phase, and following the veto phase, the oracle has a static 60 minute window, during which `executeSlashes` must be called. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
 
 ### Configuration of slashPeriodSeconds
 
-`slashPeriodSeconds` must be configured such that mev-commit actors can query the proposer set for the current L1 epoch, query each proposer's opt-in status from the latest finalized L1 block (two L1 epochs ago), act upon said opt-in status during the current epoch, and allow a buffer for the oracle to possibly slash opted-in validators who act incorrectly.
+`slashPeriodSeconds` must be set such that a mev-commit bidder knows all _currently opted-in_ block proposers from the current epoch, and next epoch, must deliver commitments, or are guaranteed slashable.
+
+Note _currently opted-in_ in this context, means the validator is opted-in with respect to the latest finalized L1 block state, in the worst case this is two L1 epochs ago.
+
+Consider the following scenario to exemplify how `slashPeriodSeconds` must be set:
+
+* Current block is start of epoch n.
+* Bidder queries finalized opted-in status (from epoch n-2) for 64 upcoming validators who will propose in epoch n and n+1.
+* Final proposer in epoch n+1 proposes an invalid block.
+* Oracle observes the finalized validator infraction at the end of epoch n+3. 
+* Oracle takes some amount of time to get its slash transaction included.
+* The slash is initiated on-chain (either `slash` or `requestSlash` depending on slasher type).
 
 Concretely, for validators to be slashable by the oracle, `slashPeriodSeconds` must be greater than:
 
-`l1FinalizationPeriod` + `l1EpochPeriod` + `oracleProcessingPeriod`
+`6 L1 epochs` + `oracleProcessingPeriod`
 
-or 
-
-`3 * l1EpochPeriod` + `oracleProcessingPeriod`.
+A recommended value to assume for `oracleProcessingPeriod` is 60 minutes, although depending on vault constraints, assuming a longer period could make the chances of oracle transaction inclusion more likely.
 
 ### Rewards
 

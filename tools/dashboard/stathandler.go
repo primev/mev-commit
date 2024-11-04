@@ -226,7 +226,7 @@ func (s *statHandler) configureDashboard() error {
 				if !ok {
 					currentAmount = big.NewInt(0)
 				}
-				currentAmount = big.NewInt(0).Add(currentAmount, cmt.Bid)
+				currentAmount = big.NewInt(0).Add(currentAmount, cmt.BidAmt)
 				existing.TotalAmount = currentAmount.String()
 				_ = s.blockStats.Add(cmt.BlockNumber, existing)
 			},
