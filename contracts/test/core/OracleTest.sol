@@ -570,7 +570,7 @@ contract OracleTest is Test {
             commitmentSignature,
             dispatchTimestamp
         );
-        recordBlockData(provider, blockNumber);
+        recordBlockData(validBLSPubkey, blockNumber);
 
         commitmentIndex = openCommitment(
             provider,
@@ -656,10 +656,10 @@ contract OracleTest is Test {
         return unopenedCommitmentIndex;
     }
 
-    function recordBlockData(address provider, uint64 blockNumber) public {
+    function recordBlockData(bytes memory blsPubKey, uint64 blockNumber) public {
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
 
-        blockTracker.recordL1Block(blockNumber, validBLSPubkey);
+        blockTracker.recordL1Block(blockNumber, blsPubKey);
         vm.stopPrank();
     }
 
