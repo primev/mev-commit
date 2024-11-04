@@ -137,6 +137,16 @@ contract ProviderRegistryTest is Test {
 
         uint256 providerStakeStored = providerRegistry.getProviderStake(provider);
         assertEq(providerStakeStored, 1e18 wei);
+
+        // Check if BLS keys were correctly registered
+        bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(provider);
+        assertEq(storedBLSKeys.length, validBLSPubkeys.length, "BLS keys array length mismatch");
+        
+        for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
+            assertEq(storedBLSKeys[i], validBLSPubkeys[i], "BLS key mismatch");
+            address storedProvider = providerRegistry.getEoaFromBLSKey(validBLSPubkeys[i]);
+            assertEq(storedProvider, provider, "Provider address mismatch for BLS key");
+        }
     }
 
     function testFail_ProviderStakeAndRegisterAlreadyRegistered() public {
