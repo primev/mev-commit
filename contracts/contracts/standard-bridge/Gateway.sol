@@ -11,6 +11,9 @@ import {GatewayStorage} from "./GatewayStorage.sol";
 abstract contract Gateway is IGateway, GatewayStorage,
     Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {   
 
+    error FinalizationFeeTooSmall(uint256 _finalizationFee);
+    error CounterpartyFeeTooSmall(uint256 _counterpartyFee);
+
     modifier onlyRelayer() {
         require(msg.sender == relayer, SenderNotRelayer(msg.sender, relayer));
         _;
@@ -49,6 +52,22 @@ abstract contract Gateway is IGateway, GatewayStorage,
 
     /// @dev Allows owner to unpause the contract.
     function unpause() external onlyOwner { _unpause(); }
+
+    /// @dev Allows owner to set a new finalization fee.
+    /// @notice If using this function, ensure the same value is set as the `counterpartyFee` in the counterparty contract.
+    function setFinalizationFee(uint256 _finalizationFee) external onlyOwner {
+        require(_finalizationFee > 0, FinalizationFeeTooSmall(_finalizationFee));
+        finalizationFee = _finalizationFee;
+        emit FinalizationFeeSet(_finalizationFee);
+    }
+
+    /// @dev Allows owner to set a new counterparty fee.
+    /// @notice If using this function, ensure the same value is set as the `finalizationFee` in the counterparty contract.
+    function setCounterpartyFee(uint256 _counterpartyFee) external onlyOwner {
+        require(_counterpartyFee > 0, CounterpartyFeeTooSmall(_counterpartyFee));
+        counterpartyFee = _counterpartyFee;
+        emit CounterpartyFeeSet(_counterpartyFee);
+    }
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}

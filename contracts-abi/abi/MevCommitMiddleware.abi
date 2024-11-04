@@ -14,6 +14,19 @@
   },
   {
     "type": "function",
+    "name": "EXECUTE_SLASH_PHASE_DURATION_SECONDS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -86,6 +99,49 @@
   },
   {
     "type": "function",
+    "name": "executeSlashes",
+    "inputs": [
+      {
+        "name": "blsPubkeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      },
+      {
+        "name": "slashIndexes",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "slashedAmounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getLatestSlashAmount",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint160",
+        "internalType": "uint160"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getNumSlashableVals",
     "inputs": [
       {
@@ -133,6 +189,30 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSlashAmountAt",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blockTimestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint160",
+        "internalType": "uint160"
       }
     ],
     "stateMutability": "view"
@@ -452,8 +532,8 @@
       },
       {
         "name": "slashAmounts",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "type": "uint160[]",
+        "internalType": "uint160[]"
       }
     ],
     "outputs": [],
@@ -710,8 +790,8 @@
       },
       {
         "name": "slashAmounts",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "type": "uint160[]",
+        "internalType": "uint160[]"
       }
     ],
     "outputs": [],
@@ -852,9 +932,28 @@
         ]
       },
       {
-        "name": "slashAmount",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "slashAmountHistory",
+        "type": "tuple",
+        "internalType": "struct Checkpoints.Trace160",
+        "components": [
+          {
+            "name": "_checkpoints",
+            "type": "tuple[]",
+            "internalType": "struct Checkpoints.Checkpoint160[]",
+            "components": [
+              {
+                "name": "_key",
+                "type": "uint96",
+                "internalType": "uint96"
+              },
+              {
+                "name": "_value",
+                "type": "uint160",
+                "internalType": "uint160"
+              }
+            ]
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -1311,9 +1410,9 @@
       },
       {
         "name": "slashAmount",
-        "type": "uint256",
+        "type": "uint160",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint160"
       }
     ],
     "anonymous": false
@@ -1330,9 +1429,9 @@
       },
       {
         "name": "slashAmount",
-        "type": "uint256",
+        "type": "uint160",
         "indexed": false,
-        "internalType": "uint256"
+        "internalType": "uint160"
       }
     ],
     "anonymous": false
@@ -1351,6 +1450,11 @@
   {
     "type": "error",
     "name": "CaptureTimestampMustBeNonZero",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CheckpointUnorderedInsertion",
     "inputs": []
   },
   {
@@ -1392,6 +1496,22 @@
         "name": "vault",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FutureTimestampDisallowed",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -1444,7 +1564,7 @@
   },
   {
     "type": "error",
-    "name": "InvalidVaultEpochDuration",
+    "name": "InvalidVaultEpochDurationConsideringSlashPeriod",
     "inputs": [
       {
         "name": "vault",
@@ -1458,6 +1578,32 @@
       },
       {
         "name": "slashPeriodSec",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVaultEpochDurationForVetoSlasher",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "vaultEpochDurationSec",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "vetoDurationSec",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "executeSlashPhaseDurationSec",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1536,6 +1682,22 @@
   },
   {
     "type": "error",
+    "name": "NoSlashAmountAtTimestamp",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotInitializing",
     "inputs": []
   },
@@ -1558,6 +1720,22 @@
         "name": "slashOracle",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OnlyVetoSlashersRequireExecution",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "slasherType",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

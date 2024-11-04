@@ -214,6 +214,32 @@
   },
   {
     "type": "function",
+    "name": "setCounterpartyFee",
+    "inputs": [
+      {
+        "name": "_counterpartyFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setFinalizationFee",
+    "inputs": [
+      {
+        "name": "_finalizationFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferFinalizedIdx",
     "inputs": [],
     "outputs": [
@@ -307,6 +333,32 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CounterpartyFeeSet",
+    "inputs": [
+      {
+        "name": "counterpartyFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FinalizationFeeSet",
+    "inputs": [
+      {
+        "name": "finalizationFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -521,6 +573,17 @@
   },
   {
     "type": "error",
+    "name": "CounterpartyFeeTooSmall",
+    "inputs": [
+      {
+        "name": "_counterpartyFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ERC1967InvalidImplementation",
     "inputs": [
       {
@@ -549,6 +612,17 @@
     "type": "error",
     "name": "FailedInnerCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FinalizationFeeTooSmall",
+    "inputs": [
+      {
+        "name": "_finalizationFee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

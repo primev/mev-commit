@@ -8,12 +8,9 @@ import {FeePayout} from "../utils/FeePayout.sol";
 /// @notice Storage components of the VanillaRegistry contract.
 contract VanillaRegistryStorage { 
 
-    /// @dev Minimum stake required for validators. 
+    /// @dev Minimum stake required for validators, also used as the slash amount.
     uint256 public minStake;
     
-    /// @dev Amount of ETH to slash per validator pubkey when a slash is invoked.
-    uint256 public slashAmount;
-
     /// @dev Permissioned account that is able to invoke slashes.
     address public slashOracle; 
 
@@ -25,6 +22,9 @@ contract VanillaRegistryStorage {
 
     /// @dev Mapping of BLS pubkeys to stored staked validator structs. 
     mapping(bytes => IVanillaRegistry.StakedValidator) public stakedValidators;
+
+    /// @dev Mapping of withdrawal addresses to claimable ETH that was force withdrawn by the owner.
+    mapping(address withdrawalAddress => uint256 amountToClaim) public forceWithdrawnFunds;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
