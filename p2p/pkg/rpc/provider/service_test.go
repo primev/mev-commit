@@ -230,7 +230,7 @@ func TestStakeHandling(t *testing.T) {
 				err:          "",
 			},
 		} {
-			stake, err := client.RegisterStake(context.Background(),
+			stake, err := client.Stake(context.Background(),
 				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKeys: []string{tc.blsPublicKey}})
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
@@ -481,7 +481,7 @@ func TestWithdrawStakedAmount(t *testing.T) {
 	client, _ := startServer(t)
 
 	t.Run("withdraw stake", func(t *testing.T) {
-		_, err := client.RegisterStake(context.Background(), &providerapiv1.StakeRequest{
+		_, err := client.Stake(context.Background(), &providerapiv1.StakeRequest{
 			Amount:        "1000000000000000000",
 			BlsPublicKeys: []string{"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456"},
 		})
