@@ -28,6 +28,11 @@ job "{{ job.name }}" {
     task "l1-transactor" {
       driver = "exec"
 
+      artifact {
+        source = "https://foundry.paradigm.xyz"
+        destination = "local/foundry.sh"
+      }
+
       {% if env != 'devenv' %}
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/l1-transactor_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
@@ -69,6 +74,10 @@ job "{{ job.name }}" {
           TRANSACTOR_L1_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          XDG_CONFIG_HOME="local/.config"
+          CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
+          CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
           {% endraw %}
         EOH
         destination = "secrets/.env"
@@ -85,7 +94,22 @@ job "{{ job.name }}" {
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
             {{ end }}
           {{- end }}
+
+          mkdir -p "${CONTRACT_DEPLOYER_KEYSTORE_PATH}" > /dev/null 2>&1
+          {{- with secret "secret/data/mev-commit" }}
+          CONTRACT_DEPLOYER_KEYSTORE_FILE="${CONTRACT_DEPLOYER_KEYSTORE_PATH}/${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}"
+          echo '{{ .Data.data.contract_deployer_keystore }}' > "${CONTRACT_DEPLOYER_KEYSTORE_FILE}"
+          {{ end }}
           {% endraw %}
+
+          chmod +x local/foundry.sh && local/foundry.sh
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          ${XDG_CONFIG_HOME}/.foundry/bin/foundryup 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to install foundry tools"
+            exit 1
+          fi
+          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
 
           {% if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
           mkdir -p "${TRANSACTOR_KEYSTORES_DIR}" > /dev/null 2>&1
@@ -99,8 +123,25 @@ job "{{ job.name }}" {
           {% for keystore_name in ns.keystore_path_passwd %}
             {{ ldelim() }} with secret "secret/data/mev-commit" {{ rdelim() }}
             mkdir -p "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}" > /dev/null 2>&1
-            echo '{{ ldelim() }} .Data.data.{{ keystore_name }} {{ rdelim() }}' > "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}/{{ ldelim() }} .Data.data.{{ keystore_name }}_filename {{ rdelim() }}"
+            TRANSACTON_KEYSTORE_FILE="${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}/{{ ldelim() }} .Data.data.{{ keystore_name }}_filename {{ rdelim() }}"
+            echo '{{ ldelim() }} .Data.data.{{ keystore_name }} {{ rdelim() }}' > "${TRANSACTON_KEYSTORE_FILE}"
             {{ ldelim() }} end {{ rdelim() }}
+
+            ADDRESS="$(cat "${TRANSACTON_KEYSTORE_FILE}" | jq -r '.address')"
+            cast send \
+              --keystore "${CONTRACT_DEPLOYER_KEYSTORE_FILE}" \
+              --password "${CONTRACT_DEPLOYER_KEYSTORE_PASSWORD}" \
+              --priority-gas-price 2000000000 \
+              --gas-price 5000000000 \
+              --value 100ether \
+              --rpc-url "${TRANSACTOR_L1_RPC_URL}" \
+              "${ADDRESS}"
+
+            if [ $? -eq 0 ]; then
+              echo "Funds successfully sent to: ${ADDRESS}"
+            else
+              echo "Failed to send funds to: ${ADDRESS}"
+            fi
           {% endfor %}
           {% endif %}
 
