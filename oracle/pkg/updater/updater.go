@@ -322,7 +322,7 @@ func (u *Updater) handleOpenedCommitment(
 		"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 		"committer", update.Committer.Hex(),
 		"blockNumber", update.BlockNumber,
-		"bid", update.Bid.String())
+		"bid", update.BidAmt.String())
 	u.metrics.CommitmentsReceivedCount.Inc()
 
 	alreadySettled, err := u.winnerRegister.IsSettled(ctx, update.CommitmentIndex[:])
@@ -581,7 +581,7 @@ func (u *Updater) addSettlement(
 		"commitmentIdx", common.Bytes2Hex(update.CommitmentIndex[:]),
 		"type", settlementType,
 		"decayPercentage", decayPercentage,
-		"bid", update.Bid.String(),
+		"bid", update.BidAmt.String(),
 		"blockNumber", update.BlockNumber,
 	)
 
