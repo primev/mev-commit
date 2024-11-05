@@ -73,7 +73,7 @@ contract MevCommitMiddlewareTest is Test {
         vaultFactoryMock = new RegistryMock();
 
         network = vm.addr(0x1);
-        slashPeriodSeconds = 150;
+        slashPeriodSeconds = 150 hours;
         slashOracle = vm.addr(0x2);
         owner = vm.addr(0x3);
 
@@ -97,8 +97,9 @@ contract MevCommitMiddlewareTest is Test {
 
         mockDelegator1 = new MockDelegator(15);
         mockDelegator2 = new MockDelegator(16);
-        vault1 = new MockVault(address(mockDelegator1), address(0), 10);
-        vault2 = new MockVault(address(mockDelegator2), address(0), 10);
+        uint48 epochDuration = 10 hours;
+        vault1 = new MockVault(address(mockDelegator1), address(0), epochDuration);
+        vault2 = new MockVault(address(mockDelegator2), address(0), epochDuration);
     }
 
     function test_setters() public {
@@ -593,7 +594,7 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        uint256 vetoDuration = 5;
+        uint256 vetoDuration = 5 hours;
         MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration, mockDelegator1, address(mevCommitMiddleware));
         MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88, mockDelegator2);
 
@@ -610,21 +611,6 @@ contract MevCommitMiddlewareTest is Test {
 
         mockSlasher1.setType(vetoSlasherType);
 
-        assertEq(10, vault1.epochDuration());
-        assertEq(10, vault2.epochDuration());
-
-        uint256 executeSlashPhaseDuration = 60 minutes; // Constant from MevCommitMiddlewareStorage.
-
-        vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDurationForVetoSlasher.selector, vault1,
-                10, vetoDuration, executeSlashPhaseDuration)
-        );
-        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
-
-        MockVault(vault1).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + 1));
-        MockVault(vault2).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + 1));
-
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.VetoSlasherMustHaveZeroResolver.selector, vault1)
@@ -632,16 +618,28 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         mockSlasher1.setResolver(address(0));
+
+        assertEq(10 hours, vault1.epochDuration());
         
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDurationConsideringSlashPeriod.selector, vault1,
-                1, 150)
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1,
+            10 hours - vetoDuration, 150 hours)
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
-        MockVault(vault1).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + slashPeriodSeconds + 1));
-        MockVault(vault2).setEpochDuration(uint48(vetoDuration + executeSlashPhaseDuration + slashPeriodSeconds + 1));
+        MockVault(vault1).setEpochDuration(151 hours);
+        MockVault(vault2).setEpochDuration(151 hours);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1,
+            146 hours, 150 hours)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        MockVault(vault2).setEpochDuration(157 hours);
+        MockVault(vault1).setEpochDuration(157 hours);
 
         vm.prank(owner);
         vm.expectRevert(
@@ -800,7 +798,7 @@ contract MevCommitMiddlewareTest is Test {
         vm.warp(888);
 
         test_registerVaults();
-        
+
         IMevCommitMiddleware.VaultRecord memory vaultRecord1 = getVaultRecord(address(vault1));
         IMevCommitMiddleware.VaultRecord memory vaultRecord2 = getVaultRecord(address(vault2));
         assertTrue(vaultRecord1.exists);

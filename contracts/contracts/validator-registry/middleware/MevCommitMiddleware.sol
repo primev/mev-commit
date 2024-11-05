@@ -473,15 +473,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == _VETO_SLASHER_TYPE) {
             IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
-            // Explicit check preventing underflow revert.
-            require(vaultEpochDurationSeconds >= vetoSlasher.vetoDuration() + EXECUTE_SLASH_PHASE_DURATION_SECONDS,
-                InvalidVaultEpochDurationForVetoSlasher(vault, vaultEpochDurationSeconds, 
-                    vetoSlasher.vetoDuration(), EXECUTE_SLASH_PHASE_DURATION_SECONDS));
-            // For veto slashers, incorporate that veto duration will eat into vault's epoch duration.
-            vaultEpochDurationSeconds -= vetoSlasher.vetoDuration();
-            // Also incorporate that the oracle would need EXECUTE_SLASH_PHASE_DURATION_SECONDS to call executeSlashes,
-            // and this will eat into the vault's epoch duration.
-            vaultEpochDurationSeconds -= EXECUTE_SLASH_PHASE_DURATION_SECONDS;
+            uint256 vetoDuration = vetoSlasher.vetoDuration();
+            // For veto slashers, veto duration is repurposed as the phase in which the oracle can feasibly call `executeSlash`.
+            require(vetoDuration >= _MIN_VETO_DURATION, VetoDurationTooShort(vault, vetoDuration));
+            // Incorporate that veto duration will eat into portion of the epoch that oracle can feasibly request slashes.
+            vaultEpochDurationSeconds -= vetoDuration; /// @dev No underflow possible, vetoDuration must be less than epochDuration as enforced by VetoSlasher.sol.
             require(vetoSlasher.resolver(_getSubnetwork(), new bytes(0)) == address(0),
                 VetoSlasherMustHaveZeroResolver(vault));
         } else if (slasherType != _INSTANT_SLASHER_TYPE) {
@@ -489,7 +485,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         }
 
         require(vaultEpochDurationSeconds > slashPeriodSeconds,
-            InvalidVaultEpochDurationConsideringSlashPeriod(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
+            InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
 
         _setVaultRecord(vault, slashAmount);
         emit VaultRegistered(vault, slashAmount);

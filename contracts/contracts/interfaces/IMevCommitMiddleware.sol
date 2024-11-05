@@ -163,10 +163,7 @@ interface IMevCommitMiddleware {
 
     error SlashAmountMustBeNonZero(address vault);
 
-    error InvalidVaultEpochDurationConsideringSlashPeriod(address vault, uint256 vaultEpochDurationSec, uint256 slashPeriodSec);
-
-    error InvalidVaultEpochDurationForVetoSlasher(address vault, uint256 vaultEpochDurationSec,
-        uint256 vetoDurationSec, uint256 executeSlashPhaseDurationSec);
+    error InvalidVaultEpochDuration(address vault, uint256 vaultEpochDurationSec, uint256 slashPeriodSec);
 
     error FullRestakeDelegatorNotSupported(address vault);
 
@@ -175,6 +172,8 @@ interface IMevCommitMiddleware {
     error SlasherNotSetForVault(address vault);
 
     error VetoSlasherMustHaveZeroResolver(address vault);
+
+    error VetoDurationTooShort(address vault, uint256 vetoDuration);
 
     error UnknownSlasherType(address vault, uint256 slasherType);
 

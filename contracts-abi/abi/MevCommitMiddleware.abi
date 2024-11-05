@@ -14,19 +14,6 @@
   },
   {
     "type": "function",
-    "name": "EXECUTE_SLASH_PHASE_DURATION_SECONDS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -1564,7 +1551,7 @@
   },
   {
     "type": "error",
-    "name": "InvalidVaultEpochDurationConsideringSlashPeriod",
+    "name": "InvalidVaultEpochDuration",
     "inputs": [
       {
         "name": "vault",
@@ -1578,32 +1565,6 @@
       },
       {
         "name": "slashPeriodSec",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidVaultEpochDurationForVetoSlasher",
-    "inputs": [
-      {
-        "name": "vault",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "vaultEpochDurationSec",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "vetoDurationSec",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "executeSlashPhaseDurationSec",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -2150,6 +2111,22 @@
         "name": "vault",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "VetoDurationTooShort",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "vetoDuration",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

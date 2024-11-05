@@ -58,13 +58,14 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint64 vetoSlasherType = 1;
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), 5, mockDelegator2, address(mevCommitMiddleware));
+        uint256 vetoDuration = 5 hours;
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware));
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
 
-        vault1.setEpochDuration(151);
-        vault2.setEpochDuration(151 + 5 + 60 minutes);
+        vault1.setEpochDuration(151 hours);
+        vault2.setEpochDuration(151 hours + 5 hours);
 
         vm.prank(address(vault1));
         vaultFactoryMock.register();
@@ -127,14 +128,14 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint64 vetoSlasherType = 1;
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
-        uint256 vetoDuration = 5;
+        uint256 vetoDuration = 5 hours;
         MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware));
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
 
-        vault1.setEpochDuration(151);
-        vault2.setEpochDuration(uint48(150 + 5 + 60 minutes + 1)); // slashPeriodSeconds + vetoDuration + executeSlashPhaseDuration + 1
+        vault1.setEpochDuration(151 hours);
+        vault2.setEpochDuration(151 hours + 5 hours);
 
         vm.prank(owner);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
@@ -798,7 +799,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         emit ValidatorSlashed(sampleValPubkey1, operator1, address(vault1), 10);
         mevCommitMiddleware.slashValidators(blsPubkeys, timestamps); // slash successful with req dereg
 
-        vm.warp(block.timestamp + 1000);
+        vm.warp(block.timestamp + slashPeriodSeconds + 1);
         vm.prank(owner);
         mevCommitMiddleware.deregisterValidators(blsPubkeys);
 
@@ -835,7 +836,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         emit ValidatorSlashed(sampleValPubkey1, operator1, address(vault1), 10);
         mevCommitMiddleware.slashValidators(blsPubkeys, timestamps); // slash successful with req dereg
 
-        vm.warp(block.timestamp + 1000);
+        vm.warp(block.timestamp + slashPeriodSeconds + 1);
         vm.prank(owner);
         mevCommitMiddleware.deregisterVaults(vaults);
 
@@ -870,7 +871,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         emit ValidatorSlashed(sampleValPubkey1, operators[0], address(vault1), 10);
         mevCommitMiddleware.slashValidators(blsPubkeys, timestamps); // slash successful with req dereg
 
-        vm.warp(block.timestamp + 1000);
+        vm.warp(block.timestamp + slashPeriodSeconds + 1);
         vm.prank(owner);
         mevCommitMiddleware.deregisterOperators(operators);
 
@@ -1185,7 +1186,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vm.prank(owner);
         mevCommitMiddleware.requestValDeregistrations(allPubkeys);
 
-        vm.warp(block.timestamp + 1000);
+        vm.warp(block.timestamp + slashPeriodSeconds + 1);
 
         vm.prank(owner);
         mevCommitMiddleware.deregisterValidators(allPubkeys);
