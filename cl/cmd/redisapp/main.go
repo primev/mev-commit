@@ -165,6 +165,12 @@ var (
 		EnvVars: []string{"RAPP_EVM_BUILD_DELAY_EMPTY_BLOCK"},
 		Value:   2 * time.Second,
 	})
+
+	priorityFeeReceiptFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "priority-fee-receipt",
+		Usage:   "Priority fee receipt",
+		EnvVars: []string{"RAPP_PRIORITY_FEE_RECEIPT"},
+	})
 )
 
 type Config struct {
@@ -175,6 +181,7 @@ type Config struct {
 	RedisAddr                string
 	EVMBuildDelay            time.Duration
 	EVMBuildDelayEmptyBlocks time.Duration
+	PriorityFeeReceipt       string
 }
 
 func main() {
@@ -190,6 +197,7 @@ func main() {
 		logTagsFlag,
 		evmBuildDelayFlag,
 		evmBuildDelayEmptyBlockFlag,
+		priorityFeeReceiptFlag,
 	}
 
 	// Create the app
@@ -241,6 +249,7 @@ func startApplication(c *cli.Context) error {
 		RedisAddr:                c.String(redisAddrFlag.Name),
 		EVMBuildDelay:            c.Duration(evmBuildDelayFlag.Name),
 		EVMBuildDelayEmptyBlocks: c.Duration(evmBuildDelayEmptyBlockFlag.Name),
+		PriorityFeeReceipt:       c.String(priorityFeeReceiptFlag.Name),
 	}
 
 	log.Info("Starting application with configuration", "config", cfg)
@@ -252,6 +261,7 @@ func startApplication(c *cli.Context) error {
 		cfg.JWTSecret,
 		cfg.GenesisBlockHash,
 		cfg.RedisAddr,
+		cfg.PriorityFeeReceipt,
 		log,
 		cfg.EVMBuildDelay,
 		cfg.EVMBuildDelayEmptyBlocks,

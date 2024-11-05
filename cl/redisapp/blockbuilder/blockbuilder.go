@@ -42,10 +42,11 @@ type BlockBuilder struct {
 	buildDelayMs          uint64
 	LastCallTime          time.Time
 	lastBlockTime         time.Time
+	feeRecipient          common.Address
 	ctx                   context.Context
 }
 
-func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, logger *slog.Logger, buildDelay time.Duration, buildDelayEmptyBlocks time.Duration) *BlockBuilder {
+func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, logger *slog.Logger, buildDelay, buildDelayEmptyBlocks time.Duration, feeReceipt string) *BlockBuilder {
 	return &BlockBuilder{
 		stateManager:          stateManager,
 		engineCl:              engineCl,
@@ -53,11 +54,12 @@ func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, log
 		buildDelay:            buildDelay,
 		buildDelayMs:          uint64(buildDelay.Milliseconds()),
 		buildEmptyBlocksDelay: buildDelayEmptyBlocks,
+		feeRecipient:          common.HexToAddress(feeReceipt),
 		lastBlockTime:         time.Now().Add(-buildDelayEmptyBlocks),
 	}
 }
 
-func (bb *BlockBuilder) startBuild(ctx context.Context, feeRecipient common.Address, head *types.ExecutionHead, ts uint64) (engine.ForkChoiceResponse, error) {
+func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHead, ts uint64) (engine.ForkChoiceResponse, error) {
 	hash := common.BytesToHash(head.BlockHash)
 
 	fcs := engine.ForkchoiceStateV1{
@@ -70,8 +72,8 @@ func (bb *BlockBuilder) startBuild(ctx context.Context, feeRecipient common.Addr
 
 	attrs := &engine.PayloadAttributes{
 		Timestamp:             ts,
-		Random:                hash, // We use head block hash as randao.
-		SuggestedFeeRecipient: feeRecipient,
+		Random:                hash,            // We use head block hash as randao.
+		SuggestedFeeRecipient: bb.feeRecipient, // Recipient of the priority fee (not base fee)
 		Withdrawals:           []*etypes.Withdrawal{},
 		BeaconRoot:            &hash,
 	}
@@ -125,7 +127,7 @@ func (bb *BlockBuilder) GetPayload(ctx context.Context) error {
 	}
 
 	err = util.RetryWithBackoff(ctx, maxAttempts, bb.logger, func() error {
-		response, err := bb.startBuild(ctx, common.Address{}, head, ts)
+		response, err := bb.startBuild(ctx, head, ts)
 		if err != nil {
 			bb.logger.Warn("Failed to build new EVM payload, will retry", "error", err)
 			return err // Will retry
