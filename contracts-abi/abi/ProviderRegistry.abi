@@ -60,12 +60,25 @@
   },
   {
     "type": "function",
-<<<<<<< HEAD
     "name": "bidderSlashedAmount",
     "inputs": [
       {
         "name": "",
-=======
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "blockBuilderBLSKeyToAddress",
     "inputs": [
       {
@@ -77,21 +90,10 @@
     "outputs": [
       {
         "name": "",
->>>>>>> 387f91e (chore: updates abi)
         "type": "address",
         "internalType": "address"
       }
     ],
-<<<<<<< HEAD
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-=======
->>>>>>> 387f91e (chore: updates abi)
     "stateMutability": "view"
   },
   {
@@ -104,7 +106,7 @@
         "internalType": "address"
       },
       {
-        "name": "blsPublicKey",
+        "name": "blsPublicKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
       }
@@ -446,7 +448,7 @@
     "name": "registerAndStake",
     "inputs": [
       {
-        "name": "blsPublicKey",
+        "name": "blsPublicKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
       }
@@ -918,7 +920,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "blsPublicKey",
+        "name": "blsPublicKeys",
         "type": "bytes[]",
         "indexed": false,
         "internalType": "bytes[]"
@@ -1035,7 +1037,11 @@
   },
   {
     "type": "error",
-<<<<<<< HEAD
+    "name": "AtLeastOneBLSKeyRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BidderAmountIsZero",
     "inputs": [
       {
@@ -1060,10 +1066,6 @@
         "internalType": "uint256"
       }
     ]
-=======
-    "name": "AtLeastOneBLSKeyRequired",
-    "inputs": []
->>>>>>> 42dba60 (feat: updates p2p to process keys as an array)
   },
   {
     "type": "error",
