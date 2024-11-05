@@ -237,10 +237,6 @@ func (s *Service) Stake(
 		return nil, status.Errorf(codes.Internal, "checking registration: %v", err)
 	}
 	if !registered {
-		blsPubkeyBytes, err := hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKey, "0x"))
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
-		}
 		blsPubkeyBytesArray := make([][]byte, len(stake.BlsPublicKeys))
 		for i, key := range stake.BlsPublicKeys {
 			stake.BlsPublicKeys[i] = strings.TrimPrefix(key, "0x")
@@ -251,7 +247,8 @@ func (s *Service) Stake(
 			blsPubkeyBytesArray[i] = blsPubkeyBytes
 		}
 
-		tx, err := s.registryContract.RegisterAndStake(opts, blsPubkeyBytesArray)
+		tx, txErr = s.registryContract.RegisterAndStake(opts, blsPubkeyBytesArray)
+
 	} else {
 		tx, txErr = s.registryContract.Stake(opts)
 	}
