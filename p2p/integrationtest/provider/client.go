@@ -111,7 +111,7 @@ func (b *ProviderClient) CheckAndStake() error {
 		return nil
 	}
 
-	_, err = b.client.RegisterStake(context.Background(), &providerapiv1.StakeRequest{
+	_, err = b.client.Stake(context.Background(), &providerapiv1.StakeRequest{
 		Amount:        "10000000000000000000",
 		BlsPublicKeys: []string{"abf1ad5ec0512cb1adabe457882fa550b4935f1f7df9658e46af882049ec16da698c323af8c98c3f1f9570ebc4042a83"},
 	})
