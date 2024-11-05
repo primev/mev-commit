@@ -110,7 +110,7 @@ For validators who proposed incorrectly as determined by the oracle, slashing mu
 
 Read more about Symbiotic slashing [here](https://docs.symbiotic.fi/core-modules/vaults#slashing).
 
-Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. 
+Vaults with instant slashers must have an `epochDuration` greater than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. 
 
 Vaults with veto slashers:
 
