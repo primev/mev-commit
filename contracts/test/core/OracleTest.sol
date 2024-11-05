@@ -28,7 +28,7 @@ contract OracleTest is Test {
     uint64 public dispatchTimestampTesting;
     bytes public sharedSecretKey;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
-    bytes[] public  validBLSPubkeys = [validBLSPubkey];
+    bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public constant withdrawalDelay = 24 * 3600; // 24 hours
     uint256 public constant protocolFeePayoutPeriodBlocks = 100;
     struct TestCommitment {
@@ -94,13 +94,11 @@ contract OracleTest is Test {
             "BlockTracker.sol",
             abi.encodeCall(BlockTracker.initialize, (ownerInstance, ownerInstance))
         );
-        
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
         vm.startPrank(ownerInstance);
         blockTracker.setProviderRegistry(address(providerRegistry));
         vm.stopPrank();
-
         address proxy3 = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
             abi.encodeCall(

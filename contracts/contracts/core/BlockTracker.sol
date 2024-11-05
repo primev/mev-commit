@@ -2,8 +2,8 @@
 pragma solidity 0.8.26;
 
 import {IBlockTracker} from "../interfaces/IBlockTracker.sol";
-import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {BlockTrackerStorage} from "./BlockTrackerStorage.sol";
+import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
@@ -81,13 +81,18 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     ) external onlyOracle whenNotPaused {
         address _winner = _providerRegistry.getEoaFromBLSKey(_winnerBLSKey);
         _recordBlockWinner(_blockNumber, _winner);
-        uint256 newWindow = (_blockNumber - 1) / blocksPerWindow + 1;
+        uint256 newWindow = (_blockNumber - 1) / WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1;
         if (newWindow > currentWindow) {
             // We've entered a new window
             currentWindow = newWindow;
             emit NewWindow(currentWindow);
         }
         emit NewL1Block(_blockNumber, _winner, currentWindow);
+    }
+
+    /// @dev Allows the owner to set the provider registry.
+    function setProviderRegistry(address newProviderRegistry) external onlyOwner {
+        _providerRegistry = IProviderRegistry(newProviderRegistry);
     }
 
     /// @dev Allows the owner to set the oracle account.
@@ -104,12 +109,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     function unpause() external onlyOwner {
         _unpause();
     }
-
-    /// @dev Allows the owner to set the provider registry.
-    function setProviderRegistry(address newProviderRegistry) external onlyOwner {
-        _providerRegistry = IProviderRegistry(newProviderRegistry);
-    }
-    
 
     /**
      * @dev Retrieves the current window number.
