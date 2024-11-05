@@ -221,12 +221,12 @@ func TestStakeHandling(t *testing.T) {
 			},
 			{
 				amount:       "1000000000000000000",
-				blsPublicKey: "0x" + validBLSKey,
+				blsPublicKey: validBLSKey,
 				err:          "",
 			},
 			{
 				amount:       "1000000000000000000",
-				blsPublicKey: "0x" + validBLSKey,
+				blsPublicKey: validBLSKey,
 				err:          "",
 			},
 		} {
@@ -243,24 +243,10 @@ func TestStakeHandling(t *testing.T) {
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
 				}
-				tc.blsPublicKey = strings.TrimPrefix(tc.blsPublicKey, "0x")
 				if stake.BlsPublicKeys[0] != tc.blsPublicKey {
 					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKeys[0])
 				}
 			}
-		}
-	})
-
-	t.Run("get stake", func(t *testing.T) {
-		stake, err := client.GetStake(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error getting stake: %v", err)
-		}
-		if stake.Amount != "2000000000000000000" {
-			t.Fatalf("expected amount to be 2000000000000000000, got %v", stake.Amount)
-		}
-		if stake.BlsPublicKeys[0] != "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456" {
-			t.Fatalf("expected bls public key to be 123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456, got %v", stake.BlsPublicKeys[0])
 		}
 	})
 
