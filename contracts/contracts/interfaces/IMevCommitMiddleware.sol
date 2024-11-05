@@ -173,6 +173,8 @@ interface IMevCommitMiddleware {
 
     error VetoSlasherMustHaveZeroResolver(address vault);
 
+    error VetoDurationTooShort(address vault, uint256 vetoDuration);
+
     error UnknownSlasherType(address vault, uint256 slasherType);
 
     error OnlyVetoSlashersRequireExecution(address vault, uint256 slasherType);

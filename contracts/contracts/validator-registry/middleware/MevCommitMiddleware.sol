@@ -473,9 +473,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == _VETO_SLASHER_TYPE) {
             IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
-            // For veto slashers, incorporate that veto duration will eat into vault's epoch duration.
-            /// @dev vetoDuration must be less than epochDuration as enforced by VetoSlasher.sol.
-            vaultEpochDurationSeconds -= vetoSlasher.vetoDuration();
+            uint256 vetoDuration = vetoSlasher.vetoDuration();
+            // For veto slashers, veto duration is repurposed as the phase in which the oracle can feasibly call `executeSlash`.
+            require(vetoDuration >= _MIN_VETO_DURATION, VetoDurationTooShort(vault, vetoDuration));
+            // Incorporate that veto duration will eat into portion of the epoch that oracle can feasibly request slashes.
+            vaultEpochDurationSeconds -= vetoDuration; /// @dev No underflow possible, vetoDuration must be less than epochDuration as enforced by VetoSlasher.sol.
             require(vetoSlasher.resolver(_getSubnetwork(), new bytes(0)) == address(0),
                 VetoSlasherMustHaveZeroResolver(vault));
         } else if (slasherType != _INSTANT_SLASHER_TYPE) {

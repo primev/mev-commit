@@ -22,6 +22,11 @@ abstract contract MevCommitMiddlewareStorage {
     /// @notice Enum TYPE for Symbiotic core VetoSlasher.
     uint64 internal constant _VETO_SLASHER_TYPE = 1;
 
+    /// @notice Minimum veto duration of 60 minutes for any vault.
+    /// @dev This is enforced because veto duration is repurposed as the phase in which the oracle can feasibly call `executeSlash`,
+    /// after initially requesting a slash.
+    uint256 internal constant _MIN_VETO_DURATION = 60 minutes;
+
     /// @notice Symbiotic core network registry.
     IRegistry public networkRegistry;
 
