@@ -183,14 +183,6 @@ contract ProviderRegistry is
         emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
-    /// @dev Adds a BLS public key to the provider's list of BLS public keys.
-    /// @param provider The address of the provider.
-    /// @param blsKey The BLS public key to add.
-    function addBLSKey(address provider, bytes calldata blsKey) external onlyOwner {
-        eoaToBlsPubkeys[provider].push(blsKey);
-        blockBuilderBLSKeyToAddress[blsKey] = provider;
-    }
-
     /// @dev Requests unstake of the staked amount.
     function unstake() external whenNotPaused {
         require(providerStakes[msg.sender] != 0, NoStakeToWithdraw(msg.sender));
@@ -263,7 +255,7 @@ contract ProviderRegistry is
         return providerStakes[provider];
     }
 
-    /// @dev Returns the BLS public keys corresponding to a provider's staked EOA address.
+        /// @dev Returns the BLS public keys corresponding to a provider's staked EOA address.
     function getBLSKeys(address provider) external view returns (bytes[] memory) {
         return eoaToBlsPubkeys[provider];
     }
@@ -273,7 +265,6 @@ contract ProviderRegistry is
         return blockBuilderBLSKeyToAddress[blsKey];
     }
 
-    
     /// @return penaltyFee amount not yet transferred to recipient
     function getAccumulatedPenaltyFee() external view returns (uint256) {
         return penaltyFeeTracker.accumulatedAmount;
@@ -281,20 +272,20 @@ contract ProviderRegistry is
 
     /**
      * @dev Register and stake function for providers.
-     * @param blsPublicKey The BLS public key of the provider.
+     * @param blsPublicKeys The BLS public key of the provider.
      * The validity of this key must be verified manually off-chain.
      */
-    function registerAndStake(bytes[] calldata blsPublicKey) public payable whenNotPaused {
-        _registerAndStake(msg.sender, blsPublicKey);
+    function registerAndStake(bytes[] calldata blsPublicKeys) public payable whenNotPaused {
+        _registerAndStake(msg.sender, blsPublicKeys);
     }
 
     /**
-     * @dev Register and stake on behalf of a provider.
-     * @param provider Address of the provider.
-     * @param blsPublicKey BLS public key of the provider.
-     */
-    function delegateRegisterAndStake(address provider, bytes[] calldata blsPublicKey) public payable whenNotPaused onlyOwner {
-        _registerAndStake(provider, blsPublicKey);
+    * @dev Register and stake on behalf of a provider.
+    * @param provider Address of the provider.
+    * @param blsPublicKeys BLS public key of the provider.
+    */
+    function delegateRegisterAndStake(address provider, bytes[] calldata blsPublicKeys) public payable whenNotPaused onlyOwner {
+        _registerAndStake(provider, blsPublicKeys);
     }
 
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
@@ -310,6 +301,7 @@ contract ProviderRegistry is
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
     }
+
     function _registerAndStake(address provider, bytes[] calldata blsPublicKeys) internal {
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
@@ -317,7 +309,6 @@ contract ProviderRegistry is
         for (uint256 i = 0; i < blsPublicKeys.length; i++) {
             require(blsPublicKeys[i].length == 48, InvalidBLSPublicKeyLength(blsPublicKeys[i].length, 48));
         }
-        
         eoaToBlsPubkeys[provider] = blsPublicKeys;
         for (uint256 i = 0; i < blsPublicKeys.length; i++) {
             blockBuilderBLSKeyToAddress[blsPublicKeys[i]] = provider;

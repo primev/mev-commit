@@ -88,7 +88,7 @@ contract PreconfManagerTest is Test {
             )
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
-        vm.prank(address(this));
+vm.prank(address(this));
         blockTracker.setProviderRegistry(address(providerRegistry));
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
@@ -781,6 +781,7 @@ contract PreconfManagerTest is Test {
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
+
             bytes32 unopenedIndex = storeCommitment(
                 committer,
                 _testCommitmentAliceBob.bidAmt,
@@ -794,7 +795,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 validBLSPubkey
@@ -865,6 +865,7 @@ contract PreconfManagerTest is Test {
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
+
             bytes32 unopenedIndex = storeCommitment(
                 committer,
                 _testCommitmentAliceBob.bidAmt,
@@ -878,7 +879,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.dispatchTimestamp,
                 _testCommitmentAliceBob.sharedSecretKey
             );
-            blockTracker.addBuilderAddress("test", committer);
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 validBLSPubkey
@@ -996,8 +996,8 @@ contract PreconfManagerTest is Test {
             committer,
             testCommitment
         );
-        blockTracker.addBuilderAddress("test", committer);
-        blockTracker.recordL1Block(testCommitment.blockNumber, "test");
+
+        blockTracker.recordL1Block(testCommitment.blockNumber, validBLSPubkey);
 
         openFirstCommitment(bidder, unopenedIndex1, testCommitment);
 
@@ -1022,8 +1022,7 @@ contract PreconfManagerTest is Test {
             testCommitment2
         );
 
-        blockTracker.addBuilderAddress("test2", committer);
-        blockTracker.recordL1Block(testCommitment2.blockNumber, "test2");
+        blockTracker.recordL1Block(testCommitment2.blockNumber, validBLSPubkey);
 
         // Attempt to open the second commitment with the same txnHash
         vm.prank(bidder);
@@ -1057,15 +1056,6 @@ contract PreconfManagerTest is Test {
         );
         bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
         return depositWindow;
-    }
-
-    function registerProvider(
-        address committer,
-        bytes memory blsPubkey
-    ) internal {
-        vm.startPrank(committer);
-        providerRegistry.registerAndStake{value: 10 ether}(blsPubkey);
-        vm.stopPrank();
     }
 
     function storeFirstCommitment(

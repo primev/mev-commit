@@ -23,7 +23,7 @@ contract ProviderRegistryTest is Test {
     bytes public validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
     uint256 public penaltyFeePayoutPeriodBlocks;
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes[] blsPublicKey);
+    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes []blsPublicKeys);
     event WithdrawalRequested(address indexed provider, uint256 timestamp);
     event WithdrawalCompleted(address indexed provider, uint256 amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
@@ -116,7 +116,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         vm.expectRevert("Invalid BLS public key length");
-        bytes[] memory invalidBLSPubkeys = new bytes[](1); // Create a dynamic array
+        bytes[] memory invalidBLSPubkeys = new bytes[](1);
         invalidBLSPubkeys[0] = abi.encodePacked(uint256(134));
         providerRegistry.registerAndStake{value: 1 wei}(invalidBLSPubkeys);
     }
@@ -141,7 +141,7 @@ contract ProviderRegistryTest is Test {
         // Check if BLS keys were correctly registered
         bytes[] memory storedBLSKeys = providerRegistry.getBLSKeys(provider);
         assertEq(storedBLSKeys.length, validBLSPubkeys.length, "BLS keys array length mismatch");
-        
+
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
             assertEq(storedBLSKeys[i], validBLSPubkeys[i], "BLS key mismatch");
             address storedProvider = providerRegistry.getEoaFromBLSKey(validBLSPubkeys[i]);
@@ -421,26 +421,6 @@ contract ProviderRegistryTest is Test {
         );
     }
 
-    function test_DelegateRegisterAndStake() public {
-        address otherAccount = vm.addr(8);
-        vm.deal(otherAccount, 3 ether);
-
-        address newProvider = vm.addr(7);
-
-        vm.prank(otherAccount);
-        providerRegistry.delegateRegisterAndStake{value: 2e18 wei}(newProvider, validBLSPubkeys);
-        assertEq(
-            providerRegistry.providerStakes(newProvider),
-            2e18 wei,
-            "Staked amount should match"
-        );
-        assertEq(
-            providerRegistry.providerRegistered(newProvider),
-            true,
-            "Provider should be registered"
-        );
-    }
-
     function testFail_WithdrawStakedAmountWithoutCommitments() public {
         address newProvider = vm.addr(8);
         vm.deal(newProvider, 3 ether);
@@ -530,7 +510,7 @@ contract ProviderRegistryTest is Test {
         address newProvider = vm.addr(7);
 
         vm.prank(address(this));
-        providerRegistry.delegateRegisterAndStake{value: 2e18 wei}(newProvider, validBLSPubkey);
+        providerRegistry.delegateRegisterAndStake{value: 2e18 wei}(newProvider, validBLSPubkeys);
         assertEq(
             providerRegistry.providerStakes(newProvider),
             2e18 wei,
