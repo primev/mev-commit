@@ -108,15 +108,13 @@ For validators who proposed incorrectly as determined by the oracle, slashing mu
 
 ### Instant vs Veto slashers
 
-Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. Vaults with veto slashers must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration` + `executeSlashPhaseDuration`, where `vetoDuration` is specified by the slasher. `executeSlashPhaseDuration` is a constant value of 60 minutes for the `MevCommitMiddleware` contract.
+Vaults with instant slashers must have an `epochDuration` greater than than `slashPeriodSeconds` to register with our middleware contract, ensuring collateral is slashable during the full slashing period. Vaults with veto slashers must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration`, where `vetoDuration` is specified by the slasher. 
 
 Read more about Symbiotic slashing guarantees [here](https://docs.symbiotic.fi/core-modules/vaults#slashing).
 
 Since a permissioned oracle account invokes slashing, the mev-commit middleware contract only requires the most basic slashing interface. Hence for Vaults that use a `VetoSlasher`, the resolver is required to be disabled via `address(0)`.
 
-Upon the oracle successfully calling `slashValidators`, the middleware contract emits one of two events for each slashed validator. `ValidatorSlashed` will be emitted for slashers with `INSTANT_SLASHER_TYPE`. `ValidatorSlashRequested` will be emitted for slashers with `VETO_SLASHER_TYPE`. If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `MevCommitMiddleware.executeSlashes` during the execute phase, AND this call must execute on L1 prior to the oracle calling `slashValidators` again. This ensures the oracle's subsequent calls to `slashValidators` will incorporate a properly decremented slashable stake from relevant Vaults.
-
-No action is required from the oracle during the veto phase, and following the veto phase, the oracle has a static 60 minute window, during which `executeSlashes` must be called. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
+Upon the oracle successfully calling `slashValidators`, the middleware contract emits one of two events for each slashed validator. `ValidatorSlashed` will be emitted for slashers with `INSTANT_SLASHER_TYPE`. `ValidatorSlashRequested` will be emitted for slashers with `VETO_SLASHER_TYPE`. If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `IVetoSlasher.executeSlash` during the execute phase, AND this call must execute on L1 prior to the oracle calling `slashValidators` again. This ensures the oracle's subsequent calls to `slashValidators` will incorporate a properly decremented slashable stake from relevant Vaults. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
 
 ### Configuration of slashPeriodSeconds
 
