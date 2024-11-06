@@ -83,6 +83,8 @@ contract PreconfManager is
 
         // Compute the domain separators
         uint256 chainId;
+        
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             chainId := chainid()
         }

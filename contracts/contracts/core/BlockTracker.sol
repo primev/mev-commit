@@ -79,7 +79,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         uint256 _blockNumber,
         bytes calldata _winnerBLSKey
     ) external onlyOracle whenNotPaused {
-        address _winner = _providerRegistry.getEoaFromBLSKey(_winnerBLSKey);
+        address _winner = providerRegistry.getEoaFromBLSKey(_winnerBLSKey);
         _recordBlockWinner(_blockNumber, _winner);
         uint256 newWindow = (_blockNumber - 1) / WindowFromBlockNumber.BLOCKS_PER_WINDOW + 1;
         if (newWindow > currentWindow) {
@@ -92,7 +92,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
 
     /// @dev Allows the owner to set the provider registry.
     function setProviderRegistry(address newProviderRegistry) external onlyOwner {
-        _providerRegistry = IProviderRegistry(newProviderRegistry);
+        providerRegistry = IProviderRegistry(newProviderRegistry);
     }
 
     /// @dev Allows the owner to set the oracle account.
