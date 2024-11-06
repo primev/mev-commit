@@ -527,7 +527,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             vault: vault,
             operator: operator
         });
-        _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
+        bool success = _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
+        require(success, FailedToAddValidatorToValset(blsPubkey, vault, operator)); // This error would indicate state corruption.
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         emit ValRecordAdded(blsPubkey, operator, vault, position);
     }

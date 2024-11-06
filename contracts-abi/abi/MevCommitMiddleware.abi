@@ -1477,6 +1477,27 @@
   },
   {
     "type": "error",
+    "name": "FailedToAddValidatorToValset",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "FullRestakeDelegatorNotSupported",
     "inputs": [
       {

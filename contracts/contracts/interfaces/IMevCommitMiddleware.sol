@@ -161,6 +161,8 @@ interface IMevCommitMiddleware {
 
     error VaultNotReadyToDeregister(address vault, uint256 currentTimestamp, uint256 deregRequestTimestamp);
 
+    error FailedToAddValidatorToValset(bytes blsPubkey, address vault, address operator);
+
     error SlashAmountMustBeNonZero(address vault);
 
     error InvalidVaultEpochDuration(address vault, uint256 vaultEpochDurationSec, uint256 slashPeriodSec);
