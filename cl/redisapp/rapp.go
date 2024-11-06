@@ -8,7 +8,7 @@ import (
 
 	"github.com/primev/mev-commit/cl/ethclient"
 	"github.com/primev/mev-commit/cl/redisapp/blockbuilder"
-	"github.com/primev/mev-commit/cl/redisapp/leaderelection"
+	"github.com/primev/mev-commit/cl/redisapp/leaderfollower"
 	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/redis/go-redis/v9"
 )
@@ -19,9 +19,9 @@ type MevCommitChain struct {
 	cancel context.CancelFunc
 
 	// Managers and components
-	stateManager          state.StateManager
-	blockBuilder          *blockbuilder.BlockBuilder
-	leaderElectionHandler *leaderelection.LeaderElectionHandler
+	stateManager state.StateManager
+	blockBuilder *blockbuilder.BlockBuilder
+	lfm          *leaderfollower.LeaderFollowerManager
 }
 
 func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr, feeReceipt string,
@@ -60,33 +60,30 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr
 
 	blockBuilder := blockbuilder.NewBlockBuilder(stateManager, engineCL, logger, buildDelay, buildDelayEmptyBlocks, feeReceipt)
 
-	leaderElectionHandler := leaderelection.NewLeaderElectionHandler(
+	lfm, err := leaderfollower.NewLeaderFollowerManager(
 		instanceID,
 		logger,
 		redisClient,
 		stateManager,
 		blockBuilder,
 	)
-
+	if err != nil {
+		cancel()
+		logger.Error("Error creating lfm", "error", err)
+		return nil, err
+	}
 	app := &MevCommitChain{
-		stateManager:          stateManager,
-		blockBuilder:          blockBuilder,
-		logger:                logger,
-		cancel:                cancel,
-		leaderElectionHandler: leaderElectionHandler,
+		stateManager: stateManager,
+		blockBuilder: blockBuilder,
+		logger:       logger,
+		cancel:       cancel,
+		lfm:          lfm,
 	}
 
 	logger.Info("MevCommitChain initialized")
 
-	err = app.stateManager.LoadOrInitializeBlockState(ctx)
-	if err != nil {
-		cancel()
-		logger.Error("Failed to load or initialize build state", "error", err)
-		return nil, err
-	}
-
 	// Start leader election handling
-	app.leaderElectionHandler.HandleLeadershipEvents()
+	app.lfm.Start(ctx)
 
 	return app, nil
 }
@@ -94,9 +91,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr
 func (app *MevCommitChain) Stop() {
 	// Cancel the context to signal all goroutines to stop
 	app.cancel()
-	app.leaderElectionHandler.Stop()
-	// Wait for all goroutines to finish
-	app.logger.Info("Waiting for goroutines to finish")
 	app.stateManager.Stop()
+	app.lfm.Stop()
 	app.logger.Info("MevCommitChain stopped gracefully")
 }

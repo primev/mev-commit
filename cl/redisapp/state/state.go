@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/primev/mev-commit/cl/redisapp/types"
@@ -48,7 +47,6 @@ type RedisStateManager struct {
 
 	blockStateKey   string
 	blockBuildState *types.BlockBuildState
-	blockStateMutex sync.Mutex
 }
 
 func NewRedisStateManager(
@@ -117,6 +115,7 @@ func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) erro
 			s.blockBuildState = &types.BlockBuildState{
 				CurrentStep: types.StepBuildBlock,
 			}
+			s.logger.Info("Leader block build state not found in Redis, initializing with default values")
 			return s.SaveBlockState(ctx)
 		}
 		return fmt.Errorf("failed to retrieve leader block build state: %w", err)
@@ -133,9 +132,6 @@ func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) erro
 }
 
 func (s *RedisStateManager) SaveBlockState(ctx context.Context) error {
-	s.blockStateMutex.Lock()
-	defer s.blockStateMutex.Unlock()
-
 	data, err := msgpack.Marshal(s.blockBuildState)
 	if err != nil {
 		return fmt.Errorf("failed to serialize leader block build state: %w", err)
@@ -149,11 +145,9 @@ func (s *RedisStateManager) SaveBlockState(ctx context.Context) error {
 }
 
 func (s *RedisStateManager) ResetBlockState(ctx context.Context) error {
-	s.blockStateMutex.Lock()
 	s.blockBuildState = &types.BlockBuildState{
 		CurrentStep: types.StepBuildBlock,
 	}
-	s.blockStateMutex.Unlock()
 
 	if err := s.SaveBlockState(ctx); err != nil {
 		return fmt.Errorf("failed to reset leader state: %w", err)
@@ -183,9 +177,6 @@ func (s *RedisStateManager) SaveExecutionHeadAndAck(ctx context.Context, head *t
 }
 
 func (s *RedisStateManager) SaveBlockStateAndPublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
-	s.blockStateMutex.Lock()
-	defer s.blockStateMutex.Unlock()
-
 	s.blockBuildState = bsState
 	data, err := msgpack.Marshal(bsState)
 	if err != nil {
@@ -215,9 +206,20 @@ func (s *RedisStateManager) SaveBlockStateAndPublishToStream(ctx context.Context
 }
 
 func (s *RedisStateManager) GetBlockBuildState(ctx context.Context) types.BlockBuildState {
-	s.blockStateMutex.Lock()
-	defer s.blockStateMutex.Unlock()
+	if s.blockBuildState == nil {
+		s.logger.Error("Leader blockBuildState is not initialized")
+		if err := s.LoadOrInitializeBlockState(ctx); err != nil {
+			s.logger.Warn("Failed to load/init state", "error", err)
+			return types.BlockBuildState{}
+		}
+	}
 
+	if s.blockBuildState == nil {
+		s.logger.Error("Leader blockBuildState is still not initialized")
+		return types.BlockBuildState{}
+	}
+
+	s.logger.Info("Leader blockBuildState retrieved", "CurrentStep", s.blockBuildState.CurrentStep.String())
 	// Return a copy of the state to prevent external modification
 	return *s.blockBuildState
 }
@@ -232,9 +234,6 @@ func (s *RedisStateManager) CreateConsumerGroup(ctx context.Context) error {
 }
 
 func (s *RedisStateManager) RecoverLeaderState() error {
-	s.blockStateMutex.Lock()
-	defer s.blockStateMutex.Unlock()
-
 	if s.blockBuildState == nil {
 		return errors.New("leader blockBuildState is not initialized")
 	}
