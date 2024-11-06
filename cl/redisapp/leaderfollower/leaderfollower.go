@@ -152,10 +152,10 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 	lfm.logger.Info("Leader: Performing leader tasks")
 
 	// Ensure state is synchronized before starting leader tasks
-	isSync := lfm.HaveMessagesToProcess(ctx)
+	isHaveMessagesToProcess := lfm.HaveMessagesToProcess(ctx)
 
-	// if not sync, return to wait for the signal to be a leader
-	if !isSync {
+	// if has messages to process, return to wait for the signal to be a leader
+	if isHaveMessagesToProcess {
 		lfm.logger.Info("Leader: State is not synchronized, waiting for follower to catch up")
 		lfm.leaderProc.Stop()
 		return nil
