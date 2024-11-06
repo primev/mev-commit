@@ -178,7 +178,7 @@ func main() {
 	ctx := context.Background()
 	err := run(ctx)
 	if err != nil {
-		log.Fatalf("❌ Fatal error: %w", err)
+		log.Fatalf("❌ Fatal error: %v", err)
 	}
 }
 

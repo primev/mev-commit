@@ -59,6 +59,10 @@ func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, log
 	}
 }
 
+func (bb *BlockBuilder) SetLastCallTimeToZero() {
+	bb.LastCallTime = time.Time{}
+}
+
 func (bb *BlockBuilder) startBuild(ctx context.Context, head *types.ExecutionHead, ts uint64) (engine.ForkChoiceResponse, error) {
 	hash := common.BytesToHash(head.BlockHash)
 

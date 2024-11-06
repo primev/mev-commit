@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit/cl/redisapp/blockbuilder"
 	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
@@ -20,7 +19,7 @@ type LeaderFollowerManager struct {
 	isLeader              atomic.Bool
 	isFollowerInitialized atomic.Bool
 	stateManager          state.StateManager
-	blockBuilder          *blockbuilder.BlockBuilder
+	blockBuilder          BlockBuilder
 	leaderProc            leader.Leader
 	logger                *slog.Logger
 	instanceID            string
@@ -31,12 +30,26 @@ type LeaderFollowerManager struct {
 	erroredCh  <-chan error
 }
 
+type BlockBuilder interface {
+	// Retrieves the latest payload and ensures it meets necessary conditions
+	GetPayload(ctx context.Context) error
+
+	// Finalizes a block, pushing it to the EVM and updating the execution state
+	FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error
+
+	// Processes any unfinished payload from a previous session
+	ProcessLastPayload(ctx context.Context) error
+
+	// Sets the last call time to zero
+	SetLastCallTimeToZero()
+}
+
 func NewLeaderFollowerManager(
 	instanceID string,
 	logger *slog.Logger,
 	redisClient *redis.Client,
 	stateManager state.StateManager,
-	blockBuilder *blockbuilder.BlockBuilder,
+	blockBuilder BlockBuilder,
 ) (*LeaderFollowerManager, error) {
 	// Initialize leader election
 	leaderOpts := leader.Opts{
@@ -170,7 +183,7 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 						if resetErr := lfm.stateManager.ResetBlockState(ctx); resetErr != nil {
 							lfm.logger.Error("Leader: Failed to reset block state", "error", resetErr)
 						}
-	
+
 						return err
 					}
 				case types.StepFinalizeBlock:
@@ -197,7 +210,8 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 				if errors.Is(err, util.ErrFailedAfterNAttempts) {
 					lfm.logger.Error("Leader: failed to reach geth node after max attempts, exiting")
 					stopElecErr := lfm.leaderProc.Stop()
-					lfm.blockBuilder.LastCallTime = time.Time{}
+					// todo: refactor to generate timestamp outside blockbuilder
+					lfm.blockBuilder.SetLastCallTimeToZero()
 					if stopElecErr != nil {
 						lfm.logger.Error("Leader: Failed to stop leader election", "error", stopElecErr)
 						return stopElecErr
@@ -259,6 +273,7 @@ func (lfm *LeaderFollowerManager) followerWork(ctx context.Context) error {
 					lfm.logger.Info("Follower: Processing message", "PayloadID", payloadIDStr)
 
 					// Finalize block
+					// msg will be acknowledged inside of state manager with execution head saved
 					if err := lfm.blockBuilder.FinalizeBlock(ctx, payloadIDStr, executionPayloadStr, field.ID); err != nil {
 						lfm.logger.Error("Follower: Failed to finalize block", "error", err)
 						continue
