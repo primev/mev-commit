@@ -56,8 +56,12 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr
 		return nil, err
 	}
 
-	stateManager := state.NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
-
+	stateManager, err := state.NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
+	if err != nil {
+		cancel()
+		logger.Error("Error creating state manager", "error", err)
+		return nil, err
+	}
 	blockBuilder := blockbuilder.NewBlockBuilder(stateManager, engineCL, logger, buildDelay, buildDelayEmptyBlocks, feeReceipt)
 
 	lfm, err := leaderfollower.NewLeaderFollowerManager(
@@ -92,6 +96,6 @@ func (app *MevCommitChain) Stop() {
 	// Cancel the context to signal all goroutines to stop
 	app.cancel()
 	app.stateManager.Stop()
-	app.lfm.Stop()
+	app.lfm.WaitForGoroutinesToStop()
 	app.logger.Info("MevCommitChain stopped gracefully")
 }

@@ -31,7 +31,6 @@ type StateManager interface {
 	SaveBlockStateAndPublishToStream(ctx context.Context, bsState *types.BlockBuildState) error
 	GetBlockBuildState(ctx context.Context) types.BlockBuildState
 	CreateConsumerGroup(ctx context.Context) error
-	RecoverLeaderState() error
 	ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error)
 	AckMessage(ctx context.Context, messageID string) error
 	Stop()
@@ -54,8 +53,8 @@ func NewRedisStateManager(
 	redisClient RedisClient,
 	logger *slog.Logger,
 	genesisBlockHash string,
-) StateManager {
-	return &RedisStateManager{
+) (StateManager, error) {
+	rsm := &RedisStateManager{
 		instanceID:       instanceID,
 		redisClient:      redisClient,
 		logger:           logger,
@@ -64,6 +63,10 @@ func NewRedisStateManager(
 		groupName:        fmt.Sprintf("mevcommit_consumer_group:%s", instanceID),
 		consumerName:     fmt.Sprintf("follower:%s", instanceID),
 	}
+	if err := rsm.CreateConsumerGroup(context.Background()); err != nil {
+		return nil, err
+	}
+	return rsm, nil
 }
 
 func (s *RedisStateManager) SaveExecutionHead(ctx context.Context, head *types.ExecutionHead) error {
@@ -230,23 +233,6 @@ func (s *RedisStateManager) CreateConsumerGroup(ctx context.Context) error {
 			return fmt.Errorf("failed to create consumer group '%s': %w", s.groupName, err)
 		}
 	}
-	return nil
-}
-
-func (s *RedisStateManager) RecoverLeaderState() error {
-	if s.blockBuildState == nil {
-		return errors.New("leader blockBuildState is not initialized")
-	}
-
-	switch s.blockBuildState.CurrentStep {
-	case types.StepBuildBlock:
-		s.logger.Info("Leader: Starting block build process")
-	case types.StepFinalizeBlock:
-		s.logger.Info("Leader: Resuming from FinalizeBlock", "PayloadID", s.blockBuildState.PayloadID)
-	default:
-		return fmt.Errorf("leader: unknown build step: %d", s.blockBuildState.CurrentStep)
-	}
-
 	return nil
 }
 

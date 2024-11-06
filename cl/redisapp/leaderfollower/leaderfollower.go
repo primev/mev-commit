@@ -38,10 +38,6 @@ func NewLeaderFollowerManager(
 	stateManager state.StateManager,
 	blockBuilder *blockbuilder.BlockBuilder,
 ) (*LeaderFollowerManager, error) {
-	if err := stateManager.CreateConsumerGroup(context.Background()); err != nil {
-		return nil, err
-	}
-
 	// Initialize leader election
 	leaderOpts := leader.Opts{
 		Redis: redisClient,
@@ -156,14 +152,12 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 	lfm.logger.Info("Leader: Performing leader tasks")
 
 	// Ensure state is synchronized before starting leader tasks
-	isSync, err := lfm.ensureStateSynchronized(ctx)
-	if err != nil {
-		lfm.logger.Error("Leader: Failed to synchronize state", "error", err)
-		return err
-	}
+	isSync := lfm.HaveMessagesToProcess(ctx)
 
-	// if not sync, return for the signal to be a leader
+	// if not sync, return to wait for the signal to be a leader
 	if !isSync {
+		lfm.logger.Info("Leader: State is not synchronized, waiting for follower to catch up")
+		lfm.leaderProc.Stop()
 		return nil
 	}
 
@@ -209,18 +203,6 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-func (lfm *LeaderFollowerManager) ensureStateSynchronized(ctx context.Context) (bool, error) {
-	if !lfm.AreThereMessagesToProcess(ctx) {
-		lfm.logger.Info("Leader: State is synchronized")
-		return true, nil
-	}
-
-	lfm.logger.Info("Leader: State is not synchronized, waiting for follower to catch up")
-	// stop being a leader, to allow synchronized followers to become a leader
-	lfm.leaderProc.Stop()
-	return false, nil
 }
 
 func (lfm *LeaderFollowerManager) followerWork(ctx context.Context) error {
@@ -303,14 +285,23 @@ func (lfm *LeaderFollowerManager) readMessages(ctx context.Context) ([]redis.XSt
 	return messages, nil
 }
 
-func (lfm *LeaderFollowerManager) Stop() error {
-	lfm.logger.Info("Waiting for worker goroutines to finish")
-	lfm.wg.Wait()
+func (lfm *LeaderFollowerManager) WaitForGoroutinesToStop() error {
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		lfm.wg.Wait()
+	}()
 
-	return nil
+	select {
+	case <-time.After(5 * time.Second):
+		lfm.logger.Error("Workers still running")
+		return errors.New("workers still running")
+	case <-closed:
+		return nil
+	}
 }
 
-func (lfm *LeaderFollowerManager) AreThereMessagesToProcess(ctx context.Context) bool {
+func (lfm *LeaderFollowerManager) HaveMessagesToProcess(ctx context.Context) bool {
 	messages, err := lfm.readMessages(ctx)
 	if err != nil {
 		lfm.logger.Error("Error reading messages", "error", err)

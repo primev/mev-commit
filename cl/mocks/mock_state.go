@@ -122,20 +122,6 @@ func (mr *MockStateManagerMockRecorder) ReadMessagesFromStream(arg0, arg1 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadMessagesFromStream", reflect.TypeOf((*MockStateManager)(nil).ReadMessagesFromStream), arg0, arg1)
 }
 
-// RecoverLeaderState mocks base method.
-func (m *MockStateManager) RecoverLeaderState() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecoverLeaderState")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RecoverLeaderState indicates an expected call of RecoverLeaderState.
-func (mr *MockStateManagerMockRecorder) RecoverLeaderState() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverLeaderState", reflect.TypeOf((*MockStateManager)(nil).RecoverLeaderState))
-}
-
 // ResetBlockState mocks base method.
 func (m *MockStateManager) ResetBlockState(arg0 context.Context) error {
 	m.ctrl.T.Helper()
