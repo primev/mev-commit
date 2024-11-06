@@ -16,8 +16,8 @@ abstract contract BlockTrackerStorage {
     mapping(string => address) public blockBuilderNameToAddress;
 
     /// @dev Interface for the ProviderRegistry contract
-    IProviderRegistry public _providerRegistry;
+    IProviderRegistry public providerRegistry;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
-    uint256[47] private __gap;
+    uint256[48] private __gap;
 }

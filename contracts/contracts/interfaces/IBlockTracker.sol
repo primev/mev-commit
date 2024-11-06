@@ -29,6 +29,10 @@ interface IBlockTracker {
     /// @param _winnerBLSKey The BLS public key of the winner of the new L1 block.
     function recordL1Block(uint256 _blockNumber, bytes calldata _winnerBLSKey) external;
 
+      /// @notice Sets the provider registry.
+    /// @param newProviderRegistry The address of the new provider registry.
+    function setProviderRegistry(address newProviderRegistry) external;
+
     /// @notice Retrieves the builder's address corresponding to the given name.
     /// @param builderNameGrafiti The name of the block builder.
     /// @return The Ethereum address of the builder.
@@ -46,7 +50,4 @@ interface IBlockTracker {
     /// @notice Retrieves the number of blocks per window.
     /// @return The number of blocks per window.
     function getBlocksPerWindow() external pure returns (uint256);
-    /// @notice Sets the provider registry.
-    /// @param newProviderRegistry The address of the new provider registry.
-    function setProviderRegistry(address newProviderRegistry) external;
 }
