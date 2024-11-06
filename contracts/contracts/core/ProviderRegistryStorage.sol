@@ -2,7 +2,7 @@
 pragma solidity 0.8.26;
 
 import {FeePayout} from "../utils/FeePayout.sol";
-import {IProviderRegistry} from "../interfaces/IProviderRegistry.sol";
+
 abstract contract ProviderRegistryStorage {
     using FeePayout for FeePayout.Tracker;
 
@@ -37,11 +37,12 @@ abstract contract ProviderRegistryStorage {
     /// @dev Mapping from bidder to provider slashed amount
     mapping(address => uint256) public bidderSlashedAmount;
 
-   /// @dev Maps BLS public keys to their corresponding block builder addresses
+   /// @dev Maps BLS public key to their corresponding block builder address
     mapping(bytes => address) public blockBuilderBLSKeyToAddress;
 
     /// @dev Mapping from a provider's EOA address to their BLS public keys
     mapping(address => bytes[]) public eoaToBlsPubkeys;
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
 }

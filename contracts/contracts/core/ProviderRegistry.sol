@@ -306,13 +306,12 @@ contract ProviderRegistry is
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
         require(blsPublicKeys.length > 0, AtLeastOneBLSKeyRequired());
-        for (uint256 i = 0; i < blsPublicKeys.length; i++) {
+        uint256 numKeys = blsPublicKeys.length;
+        for (uint256 i = 0; i < numKeys; ++i) {
             require(blsPublicKeys[i].length == 48, InvalidBLSPublicKeyLength(blsPublicKeys[i].length, 48));
-        }
-        eoaToBlsPubkeys[provider] = blsPublicKeys;
-        for (uint256 i = 0; i < blsPublicKeys.length; i++) {
             blockBuilderBLSKeyToAddress[blsPublicKeys[i]] = provider;
         }
+        eoaToBlsPubkeys[provider] = blsPublicKeys;
         providerStakes[provider] = msg.value;
         providerRegistered[provider] = true;
         emit ProviderRegistered(provider, msg.value, blsPublicKeys);
