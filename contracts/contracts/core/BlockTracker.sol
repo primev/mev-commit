@@ -93,6 +93,7 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
     /// @dev Allows the owner to set the provider registry.
     function setProviderRegistry(address newProviderRegistry) external onlyOwner {
         providerRegistry = IProviderRegistry(newProviderRegistry);
+        emit ProviderRegistrySet(address(providerRegistry), newProviderRegistry);
     }
 
     /// @dev Allows the owner to set the oracle account.
