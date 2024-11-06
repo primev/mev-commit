@@ -99,7 +99,6 @@ job "{{ job.name }}" {
           {% for keystore_name in ns.keystore_path_passwd %}
             {{ ldelim() }} with secret "secret/data/mev-commit" {{ rdelim() }}
             mkdir -p "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}" > /dev/null 2>&1
-            echo '{{ ldelim() }} .Data.data.{{ keystore_name }} {{ rdelim() }}' > "${TRANSACTOR_KEYSTORES_DIR}/{{ keystore_name }}/{{ ldelim() }} .Data.data.{{ keystore_name }}_filename {{ rdelim() }}"
             {{ ldelim() }} end {{ rdelim() }}
           {% endfor %}
           {% endif %}
