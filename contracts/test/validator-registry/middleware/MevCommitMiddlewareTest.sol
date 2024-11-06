@@ -647,9 +647,17 @@ contract MevCommitMiddlewareTest is Test {
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.UnknownSlasherType.selector, vault2, 88)
+        );
+        mevCommitMiddleware.wouldVaultBeValidWith(address(vault2), 150 hours);
+
         uint64 instantSlasherType = 0;
 
         mockSlasher2.setType(instantSlasherType);
+
+        assertTrue(mevCommitMiddleware.wouldVaultBeValidWith(address(vault1), 150 hours));
+        assertTrue(mevCommitMiddleware.wouldVaultBeValidWith(address(vault2), 150 hours));
 
         vm.prank(owner);
         vm.expectEmit(true, true, true, true);
@@ -687,6 +695,11 @@ contract MevCommitMiddlewareTest is Test {
             abi.encodeWithSelector(IMevCommitMiddleware.VaultAlreadyRegistered.selector, vault2)
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultEpochDuration.selector, vault1, 152 hours, 24 days)
+        );
+        mevCommitMiddleware.wouldVaultBeValidWith(address(vault1), 24 days);
     }
 
     function test_updateSlashAmount() public {

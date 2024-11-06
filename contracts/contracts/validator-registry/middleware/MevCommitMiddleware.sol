@@ -313,8 +313,22 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     /// @dev Sets the slash period in seconds, restricted to contract owner.
+    ///
+    /// @dev WARNING: Before the owner calls this function, ALL registered vaults must be validated
+    /// or deregistered, to conform to the new slashPeriodSeconds.
+    ///
+    /// @dev The owner will need to use VaultRegistered, VaultDeregistrationRequested, and VaultDeregistered events
+    /// to determine the registered vault set, call wouldVaultBeValidWith for each vault, and deregister any
+    /// vaults that are not valid. Only then can this function be called.
     function setSlashPeriodSeconds(uint256 slashPeriodSeconds_) external onlyOwner {
         _setSlashPeriodSeconds(slashPeriodSeconds_);
+    }
+
+    /// @dev Checks if a vault would be valid with a given slashPeriodSeconds.
+    /// @return True if the vault would be valid, reverts otherwise.
+    function wouldVaultBeValidWith(address vault, uint256 potentialSLashPeriodSeconds) external view returns (bool) {
+        _validateVaultParams(vault, potentialSLashPeriodSeconds);
+        return true;
     }
 
     /// @dev Sets the slash oracle, restricted to contract owner.
@@ -457,14 +471,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(!vaultRecords[vault].exists, VaultAlreadyRegistered(vault));
         require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
+        _validateVaultParams(vault, slashPeriodSeconds);
+        _setVaultRecord(vault, slashAmount);
+        emit VaultRegistered(vault, slashAmount);
+    }
 
+    function _validateVaultParams(address vault, uint256 slashPeriodSeconds) internal view {
         IEntity delegator = IEntity(IVault(vault).delegator());
         if (delegator.TYPE() == _FULL_RESTAKE_DELEGATOR_TYPE) {
             revert FullRestakeDelegatorNotSupported(vault);
         } else if (delegator.TYPE() != _NETWORK_RESTAKE_DELEGATOR_TYPE) {
             revert UnknownDelegatorType(vault, delegator.TYPE());
         }
-
         IVaultStorage vaultContract = IVaultStorage(vault);
         uint256 vaultEpochDurationSeconds = vaultContract.epochDuration();
 
@@ -483,12 +501,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         } else if (slasherType != _INSTANT_SLASHER_TYPE) {
             revert UnknownSlasherType(vault, slasherType);
         }
-
         require(vaultEpochDurationSeconds > slashPeriodSeconds,
             InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
-
-        _setVaultRecord(vault, slashAmount);
-        emit VaultRegistered(vault, slashAmount);
     }
 
     function _updateSlashAmount(address vault, uint160 slashAmount) internal {

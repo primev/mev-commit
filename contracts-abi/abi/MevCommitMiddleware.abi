@@ -946,6 +946,30 @@
     "stateMutability": "view"
   },
   {
+    "type": "function",
+    "name": "wouldVaultBeValidWith",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "potentialSLashPeriodSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
     "type": "event",
     "name": "Initialized",
     "inputs": [
