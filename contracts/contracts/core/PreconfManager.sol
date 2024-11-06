@@ -82,10 +82,7 @@ contract PreconfManager is
         __Pausable_init();
 
         // Compute the domain separators
-        uint256 chainId;
-        assembly {
-            chainId := chainid()
-        }
+        uint256 chainId = block.chainid;
         domainSeparatorPreconf = keccak256(
             abi.encode(
                 keccak256(
