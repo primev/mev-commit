@@ -119,14 +119,6 @@ func (lfm *LeaderFollowerManager) run(ctx context.Context) {
 				lfm.logger.Info("Leader: Starting leader work")
 				if err := lfm.leaderWork(ctx); err != nil {
 					lfm.logger.Error("Error in leader work", "error", err)
-					if errors.Is(err, util.ErrFailedAfterNAttempts) {
-						lfm.logger.Error("Leader: failed to reach geth node after max attempts, exiting")
-						err := lfm.leaderProc.Stop()
-						if err != nil {
-							lfm.logger.Error("Leader: Failed to stop leader election", "error", err)
-						}
-						lfm.blockBuilder.LastCallTime = time.Time{}
-					}
 				}
 			} else {
 				if !lfm.isFollowerInitialized.Load() {
@@ -169,37 +161,51 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 		default:
 			bbState := lfm.stateManager.GetBlockBuildState(ctx)
 			currentStep := bbState.CurrentStep
-
-			switch currentStep {
-			case types.StepBuildBlock:
-				lfm.logger.Info("Leader: StepBuildBlock")
-				if err := lfm.blockBuilder.GetPayload(ctx); err != nil {
-					lfm.logger.Error("Leader: GetPayload failed", "error", err)
-					if resetErr := lfm.stateManager.ResetBlockState(ctx); resetErr != nil {
-						lfm.logger.Error("Leader: Failed to reset block state", "error", resetErr)
+			err := func() error {
+				switch currentStep {
+				case types.StepBuildBlock:
+					lfm.logger.Info("Leader: StepBuildBlock")
+					if err := lfm.blockBuilder.GetPayload(ctx); err != nil {
+						lfm.logger.Error("Leader: GetPayload failed", "error", err)
+						if resetErr := lfm.stateManager.ResetBlockState(ctx); resetErr != nil {
+							lfm.logger.Error("Leader: Failed to reset block state", "error", resetErr)
+						}
+	
+						return err
 					}
-
-					return err
+				case types.StepFinalizeBlock:
+					lfm.logger.Info("Leader: StepFinalizeBlock")
+					if err := lfm.blockBuilder.FinalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, ""); err != nil {
+						lfm.logger.Error("Leader: FinalizeBlock failed", "error", err)
+						return err
+					}
+					if err := lfm.stateManager.ResetBlockState(ctx); err != nil {
+						lfm.logger.Error("Leader: Failed to reset block state", "error", err)
+						return err
+					}
+				default:
+					lfm.logger.Warn("Leader: Unknown current step", "current_step", currentStep.String())
+					if err := lfm.stateManager.ResetBlockState(ctx); err != nil {
+						lfm.logger.Error("Leader: Failed to reset block state", "error", err)
+						return err
+					}
 				}
-			case types.StepFinalizeBlock:
-				lfm.logger.Info("Leader: StepFinalizeBlock")
-				if err := lfm.blockBuilder.FinalizeBlock(ctx, bbState.PayloadID, bbState.ExecutionPayload, ""); err != nil {
-					lfm.logger.Error("Leader: FinalizeBlock failed", "error", err)
-					if resetErr := lfm.stateManager.ResetBlockState(ctx); resetErr != nil {
-						lfm.logger.Error("Leader: Failed to reset block state", "error", resetErr)
+				return nil
+			}()
+			if err != nil {
+				// in that case app will stop being a leader so we need to return
+				if errors.Is(err, util.ErrFailedAfterNAttempts) {
+					lfm.logger.Error("Leader: failed to reach geth node after max attempts, exiting")
+					stopElecErr := lfm.leaderProc.Stop()
+					lfm.blockBuilder.LastCallTime = time.Time{}
+					if stopElecErr != nil {
+						lfm.logger.Error("Leader: Failed to stop leader election", "error", stopElecErr)
+						return stopElecErr
 					}
 					return err
 				}
-				if err := lfm.stateManager.ResetBlockState(ctx); err != nil {
-					lfm.logger.Error("Leader: Failed to reset block state", "error", err)
-					return err
-				}
-			default:
-				lfm.logger.Warn("Leader: Unknown current step", "current_step", currentStep.String())
-				if err := lfm.stateManager.ResetBlockState(ctx); err != nil {
-					lfm.logger.Error("Leader: Failed to reset block state", "error", err)
-					return err
-				}
+				// otherwise there is a problem with redis/payload, so we just log it and continue
+				lfm.logger.Error("Leader: Error in leader work", "error", err)
 			}
 		}
 	}
