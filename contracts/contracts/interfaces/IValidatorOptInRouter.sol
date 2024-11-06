@@ -7,6 +7,12 @@ import {IMevCommitMiddleware} from "./IMevCommitMiddleware.sol";
 
 interface IValidatorOptInRouter {
 
+    struct OptInStatus {
+        bool isVanillaOptedIn;
+        bool isAvsOptedIn;
+        bool isMiddlewareOptedIn;
+    }
+
     /// @notice Emitted when the vanilla registry contract is set.
     event VanillaRegistrySet(address oldContract, address newContract);
 
@@ -33,6 +39,6 @@ interface IValidatorOptInRouter {
     /// @notice Allows the owner to set the mev-commit middleware contract.
     function setMevCommitMiddleware(IMevCommitMiddleware _mevCommitMiddleware) external;
 
-    /// @notice Returns an array of bools indicating whether each validator pubkey is opted in to mev-commit.
-    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory);
+    /// @notice Returns an array of OptInStatus structs indicating whether each validator pubkey is opted in to mev-commit.
+    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (OptInStatus[] memory);
 }
