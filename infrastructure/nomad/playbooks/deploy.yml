@@ -269,7 +269,7 @@
 
               RESULT=$(
                 {{ keystore_generator.stdout }} generate \
-                  --keystore-dir="${DESTINATION_DIR}->{{ keystore_name }}" \
+                  --keystore-dir="${DESTINATION_DIR}--{{ keystore_name }}" \
                   --passphrase="${PASSPHRASE}" \
                   --log-fmt="json"
               )
