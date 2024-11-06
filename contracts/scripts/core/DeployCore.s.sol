@@ -16,7 +16,7 @@ import {console} from "forge-std/console.sol";
 
 contract DeployTestnet is Script {
 
-    // Amount of ETH required to fund the Oracle contract.
+    // Amount of ETH required to fund the Oracle address.
     uint256 public constant ORACLE_FUNDING = 1000 ether;
 
     error FailedToSendETHToOracle(address addr);
