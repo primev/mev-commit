@@ -7,7 +7,6 @@ import {IEigenPodManager} from "eigenlayer-contracts/src/contracts/interfaces/IE
 import {IEigenPod} from "eigenlayer-contracts/src/contracts/interfaces/IEigenPod.sol";
 import {IStrategy} from "eigenlayer-contracts/src/contracts/interfaces/IStrategy.sol";
 import "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
-import {IBeaconChainOracle} from "eigenlayer-contracts/src/contracts/interfaces/IBeaconChainOracle.sol";
 import {IETHPOSDeposit} from "eigenlayer-contracts/src/contracts/interfaces/IETHPOSDeposit.sol";
 import {ISlasher} from "eigenlayer-contracts/src/contracts/interfaces/ISlasher.sol";
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
@@ -42,15 +41,9 @@ contract EigenPodManagerMock is IEigenPodManager, Test {
 
     function recordBeaconChainETHBalanceUpdate(address /*podOwner*/, int256 /*sharesDelta*/) external pure {}
     
-    function updateBeaconChainOracle(IBeaconChainOracle /*newBeaconChainOracle*/) external pure {}
-
     function ownerToPod(address /*podOwner*/) external pure returns(IEigenPod) {
         return IEigenPod(address(0));
     }
-
-    function beaconChainOracle() external pure returns(IBeaconChainOracle) {
-        return IBeaconChainOracle(address(0));
-    }   
 
     function getBlockRootAtTimestamp(uint64 /*timestamp*/) external pure returns(bytes32) {
         return bytes32(0);

@@ -282,7 +282,7 @@ contract MevCommitAVSTest is Test {
         mockPod.setMockValidatorInfo(valPubkeys[0], IEigenPod.ValidatorInfo({
             validatorIndex: 1,
             restakedBalanceGwei: 1,
-            mostRecentBalanceUpdateTimestamp: 1,
+            lastCheckpointedAt: 1,
             status: IEigenPod.VALIDATOR_STATUS.INACTIVE
         }));
         eigenPodManagerMock.setMockPod(podOwner, mockPod);
@@ -294,14 +294,14 @@ contract MevCommitAVSTest is Test {
         mockPod.setMockValidatorInfo(valPubkeys[0], IEigenPod.ValidatorInfo({
             validatorIndex: 1,
             restakedBalanceGwei: 1,
-            mostRecentBalanceUpdateTimestamp: 1,
+            lastCheckpointedAt: 1,
             status: IEigenPod.VALIDATOR_STATUS.ACTIVE
         }));
 
         mockPod.setMockValidatorInfo(valPubkeys[1], IEigenPod.ValidatorInfo({
             validatorIndex: 2,
             restakedBalanceGwei: 1,
-            mostRecentBalanceUpdateTimestamp: 1,
+            lastCheckpointedAt: 1,
             status: IEigenPod.VALIDATOR_STATUS.ACTIVE
         }));
 
