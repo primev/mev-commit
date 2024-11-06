@@ -499,6 +499,25 @@
   },
   {
     "type": "event",
+    "name": "ProviderRegistrySet",
+    "inputs": [
+      {
+        "name": "oldProviderRegistry",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newProviderRegistry",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Unpaused",
     "inputs": [
       {
