@@ -16,8 +16,8 @@ import {console} from "forge-std/console.sol";
 
 contract DeployTestnet is Script {
 
-    // Amount of ETH required to fund the Oracle address.
-    uint256 public constant ORACLE_FUNDING = 1000 ether;
+    // Amount of ETH to initially fund the oracle account on L1 chain.
+    uint256 public constant ORACLE_INITIAL_FUNDING = 1 ether;
 
     error FailedToSendETHToOracle(address addr);
 
@@ -104,7 +104,7 @@ contract DeployTestnet is Script {
         preconfManager.updateOracleContract(address(oracle));
         console.log("_PreconfManagerWithOracle:", address(oracle));
 
-        (bool success, ) = payable(oracleKeystoreAddress).call{value: ORACLE_FUNDING}("");
+        (bool success, ) = payable(oracleKeystoreAddress).call{value: ORACLE_INITIAL_FUNDING}("");
         require(success, FailedToSendETHToOracle(oracleKeystoreAddress));
 
         vm.stopBroadcast();
