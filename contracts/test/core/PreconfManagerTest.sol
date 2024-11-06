@@ -39,6 +39,9 @@ contract PreconfManagerTest is Test {
     bytes public validBLSPubkey =
         hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
+    bytes public validBLSPubkey2 = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82c";
+    bytes public validBLSPubkey3 = hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82d";
+    bytes[] public validMultiBLSPubkeys = [validBLSPubkey, validBLSPubkey2, validBLSPubkey3];
     uint256 public withdrawalDelay;
     uint256 public protocolFeePayoutPeriodBlocks;
     address public oracleContract;
@@ -396,7 +399,7 @@ vm.prank(address(this));
         );
 
         // Step 3: Move to the next window
-        blockTracker.recordL1Block(2, validBLSPubkey);
+        blockTracker.recordL1Block(2, validBLSPubkey2);
 
         // Step 4: Open the commitment
         bytes32 index = openCommitment(
@@ -503,7 +506,7 @@ vm.prank(address(this));
         );
         vm.deal(committer, 11 ether);
         vm.startPrank(committer);
-        providerRegistry.registerAndStake{value: 10 ether}(validBLSPubkeys);
+        providerRegistry.registerAndStake{value: 10 ether}(validMultiBLSPubkeys);
 
         bytes32 commitmentIndex = preconfManager.storeUnopenedCommitment(
             commitmentDigest,
