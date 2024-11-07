@@ -64,7 +64,7 @@ contract PreconfManagerTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        withdrawalDelay = 24  hours ; // 24 hours
+        withdrawalDelay = 24 hours ; // 24 hours
         protocolFeePayoutPeriodBlocks = 100;
         oracleContract = address(0x6793);
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
