@@ -792,6 +792,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         timestamps[1] = 101;
         timestamps[2] = 102;
         timestamps[3] = 103;
+
         timestamps[4] = 104;
         timestamps[5] = 105;
         vm.prank(slashOracle);
