@@ -168,13 +168,14 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function requestValidatorsDeregistration(bytes[] calldata valPubKeys) external whenNotPaused() {
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            IMevCommitAVS.ValidatorRegistrationInfo storage regInfo = validatorRegistrations[valPubKeys[i]];
-            require(regInfo.exists, IMevCommitAVS.ValidatorNotRegistered(valPubKeys[i]));
+            bytes calldata valPubKey = valPubKeys[i];
+            IMevCommitAVS.ValidatorRegistrationInfo storage regInfo = validatorRegistrations[valPubKey];
+            require(regInfo.exists, IMevCommitAVS.ValidatorNotRegistered(valPubKey));
             // Ensure the sender is either the pod owner or operator of all the given validators
             require(msg.sender == regInfo.podOwner
                 || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
-                IMevCommitAVS.SenderNotPodOwnerOrOperatorOfValidator(valPubKeys[i]));
-            _requestValidatorDeregistration(valPubKeys[i]);
+                IMevCommitAVS.SenderNotPodOwnerOrOperatorOfValidator(valPubKey));
+            _requestValidatorDeregistration(valPubKey);
         }
     }
 
@@ -184,13 +185,14 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function deregisterValidators(bytes[] calldata valPubKeys) external whenNotPaused() {
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            IMevCommitAVS.ValidatorRegistrationInfo storage regInfo = validatorRegistrations[valPubKeys[i]];
-            require(regInfo.exists, IMevCommitAVS.ValidatorNotRegistered(valPubKeys[i]));
+            bytes calldata valPubKey = valPubKeys[i];
+            IMevCommitAVS.ValidatorRegistrationInfo storage regInfo = validatorRegistrations[valPubKey];
+            require(regInfo.exists, IMevCommitAVS.ValidatorNotRegistered(valPubKey));
             // Ensure the sender is either the pod owner or operator of all the given validators
             require(msg.sender == regInfo.podOwner
                 || msg.sender == _delegationManager.delegatedTo(regInfo.podOwner),
-                IMevCommitAVS.SenderNotPodOwnerOrOperatorOfValidator(valPubKeys[i]));
-            _deregisterValidator(valPubKeys[i]);
+                IMevCommitAVS.SenderNotPodOwnerOrOperatorOfValidator(valPubKey));
+            _deregisterValidator(valPubKey);
         }
     }
 
@@ -214,8 +216,9 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
     function freeze(bytes[] calldata valPubKeys) external whenNotPaused() onlyFreezeOracle() {
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(validatorRegistrations[valPubKeys[i]].exists, IMevCommitAVS.ValidatorNotRegistered(valPubKeys[i]));
-            _freeze(valPubKeys[i]);
+            bytes calldata valPubKey = valPubKeys[i];
+            require(validatorRegistrations[valPubKey].exists, IMevCommitAVS.ValidatorNotRegistered(valPubKey));
+            _freeze(valPubKey);
         }
     }
 
@@ -225,10 +228,11 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         require(msg.value >= requiredFee, IMevCommitAVS.UnfreezeFeeRequired(requiredFee));
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            IMevCommitAVS.ValidatorRegistrationInfo storage regInfo = validatorRegistrations[valPubKeys[i]];
-            require(regInfo.exists, IMevCommitAVS.ValidatorNotRegistered(valPubKeys[i]));
-            require(regInfo.freezeOccurrence.exists, IMevCommitAVS.ValidatorNotFrozen(valPubKeys[i])); 
-            _unfreeze(valPubKeys[i]);
+            bytes calldata valPubKey = valPubKeys[i];
+            IMevCommitAVS.ValidatorRegistrationInfo storage regInfo = validatorRegistrations[valPubKey];
+            require(regInfo.exists, IMevCommitAVS.ValidatorNotRegistered(valPubKey));
+            require(regInfo.freezeOccurrence.exists, IMevCommitAVS.ValidatorNotFrozen(valPubKey)); 
+            _unfreeze(valPubKey);
         }
         (bool success, ) = unfreezeReceiver.call{value: requiredFee}("");
         require(success, IMevCommitAVS.UnfreezeTransferFailed());
@@ -405,9 +409,10 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         IEigenPod pod = _eigenPodManager.getPod(podOwner);
         uint256 len = valPubKeys.length;
         for (uint256 i = 0; i < len; ++i) {
-            require(!validatorRegistrations[valPubKeys[i]].exists, IMevCommitAVS.ValidatorIsRegistered(valPubKeys[i]));
-            require(pod.validatorPubkeyToInfo(valPubKeys[i]).status == IEigenPod.VALIDATOR_STATUS.ACTIVE, IMevCommitAVS.ValidatorNotActiveWithEigenCore(valPubKeys[i]));
-            _registerValidator(valPubKeys[i], podOwner);
+            bytes calldata valPubKey = valPubKeys[i];
+            require(!validatorRegistrations[valPubKey].exists, IMevCommitAVS.ValidatorIsRegistered(valPubKey));
+            require(pod.validatorPubkeyToInfo(valPubKey).status == IEigenPod.VALIDATOR_STATUS.ACTIVE, IMevCommitAVS.ValidatorNotActiveWithEigenCore(valPubKey));
+            _registerValidator(valPubKey, podOwner);
         }
     }
 
