@@ -81,7 +81,6 @@ jobs:
           name: geth_signer_node1_nodekey
       - keystores:
           geth_signer1_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -155,7 +154,6 @@ jobs:
           contract_deployer_keystore:
             allocation: true
           bridge_relayer_keystore:
-            allocation: true
     count: 1
     ports:
       - http:
@@ -186,7 +184,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           bootnode1_keystore:
-            allocation: false
     count: 1
     ports:
       - metrics:
@@ -213,7 +210,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider1_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -240,7 +236,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider2_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -266,7 +261,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider3_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -342,7 +336,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder1_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -368,7 +361,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder2_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -393,7 +385,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder3_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -418,7 +409,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder4_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -443,7 +433,6 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder5_keystore:
-            allocation: true
     count: 1
     ports:
       - metrics:
@@ -533,7 +522,6 @@ jobs:
           name: oracle_register_provider_api_auth_token
       - keystores:
           oracle_keystore:
-            allocation: true
     dependencies:
       contracts_deployer: *contracts_deployer_job
     count: 1
@@ -571,7 +559,6 @@ jobs:
     artifacts:
       - keystores:
           faucet_keystore:
-            allocation: true
     count: 1
     ports:
       - http:
@@ -624,11 +611,8 @@ jobs:
       - *l1_transactor_artifact
       - keystores:
           l1_transactor_account1_keystore:
-            allocation: true
           l1_transactor_account2_keystore:
-            allocation: true
           l1_transactor_account3_keystore:
-            allocation: true
     dependencies:
       mock_l1: *mock_l1_job
     env:
@@ -641,11 +625,8 @@ jobs:
       - *bridge_v1_artifact
       - keystores:
           bridge_emulator_account1_keystore:
-            allocation: true
           bridge_emulator_account2_keystore:
-            allocation: true
           bridge_emulator_account3_keystore:
-            allocation: true
     dependencies:
       contracts_deployer: *contracts_deployer_job
     count: 1
