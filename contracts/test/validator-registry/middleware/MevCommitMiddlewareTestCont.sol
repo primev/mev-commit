@@ -1083,7 +1083,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(slashRecord.numRegistered, 3);
         assertEq(slashRecord.numSlashed, 2);
 
-        assertEq(mevCommitMiddleware.getNumSlashableVals(address(vault2), operator1), 2); // TODO: revisit
+        assertEq(mevCommitMiddleware.getNumSlashableVals(address(vault2), operator1), 2);
         assertEq(mevCommitMiddleware.valsetLength(address(vault2), operator1), 3);
 
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 1);
