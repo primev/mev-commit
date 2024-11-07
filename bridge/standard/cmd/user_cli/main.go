@@ -78,7 +78,7 @@ var (
 
 func main() {
 	app := &cli.App{
-		Name:  "bridge-cli",
+		Name:  "mev-commit-bridge-user-cli",
 		Usage: "CLI for interacting with a custom bridge between L1 and the mev-commit (settlement) chain",
 		Commands: []*cli.Command{
 			{
