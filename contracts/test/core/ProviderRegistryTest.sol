@@ -41,7 +41,7 @@ contract ProviderRegistryTest is Test {
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        withdrawalDelay = 24 * hours; // 24 hours
+        withdrawalDelay = 24 * 3600; // 24 hours
         penaltyFeePayoutPeriodBlocks = 100;
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
             "ProviderRegistry.sol",
