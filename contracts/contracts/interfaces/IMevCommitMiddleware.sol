@@ -86,9 +86,6 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when a validator record is deleted by the contract owner
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
 
-    /// @notice Emmitted when a validator slash is requested from a veto slasher
-    event ValidatorSlashRequested(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashIndex);
-
     /// @notice Emmitted when a validator is slashed from an instant slasher
     event ValidatorSlashed(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashedAmount);
 

@@ -999,6 +999,11 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey4));
         assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey5));
 
+        // get stake amount before slashing
+        MockDelegator delegator = MockDelegator(vault2.delegator());
+        uint256 allocatedStake = delegator.stake(bytes32("subnet"), operator1);
+        assertEq(allocatedStake, 99);
+
         assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey4));
         assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey5));
 
@@ -1016,11 +1021,15 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(slashRecord.numRegistered, 0);
         assertEq(slashRecord.numSlashed, 0);
 
+        assertEq(mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1), 1); 
+
+        uint256 slashAmount = mevCommitMiddleware.getLatestSlashAmount(address(vault2));
+
         vm.prank(slashOracle);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorSlashRequested(sampleValPubkey4, operator1, address(vault2), 0);
+        emit ValidatorSlashed(sampleValPubkey4, operator1, address(vault2), slashAmount);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorSlashRequested(sampleValPubkey5, operator1, address(vault2), 1);
+        emit ValidatorSlashed(sampleValPubkey5, operator1, address(vault2), slashAmount);
         vm.expectEmit(true, true, true, true);
         address[] memory expectedVaults = new address[](2);
         expectedVaults[0] = address(vault2);
@@ -1044,11 +1053,15 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey4));
         assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey5));
 
-        // Validators should still be slashable, since veto slasher doesn't decrement stake immediately.
-        assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey4));
+        // total stake should be 59
+        allocatedStake = delegator.stake(bytes32("subnet"), operator1);
+        assertEq(allocatedStake, 59);
+
+        // validator 4 should not be slashable, validator 5 should be since it's lower index
+        assertFalse(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey4));
         assertTrue(mevCommitMiddleware.isValidatorSlashable(sampleValPubkey5));
 
-        assertEq(mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1), 1);
+        assertEq(mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1), 0); 
 
         pos1 = mevCommitMiddleware.getPositionInValset(sampleValPubkey4, address(vault2), operator1);
         assertEq(pos1, 3); // final position of second set
@@ -1070,52 +1083,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertEq(slashRecord.numRegistered, 3);
         assertEq(slashRecord.numSlashed, 2);
 
-        MockDelegator delegator = MockDelegator(vault2.delegator());
-        uint256 allocatedStake = delegator.stake(bytes32("subnet"), operator1);
-        assertEq(allocatedStake, 99);
-
-        // Before slash execution, vault is colateralized in excess.
-        assertEq(mevCommitMiddleware.getNumSlashableVals(address(vault2), operator1), 4);
-        assertEq(mevCommitMiddleware.valsetLength(address(vault2), operator1), 3);
-
-        vm.roll(block.number + 20);
-
-        bytes[] memory blsPubkeys = new bytes[](2);
-        blsPubkeys[0] = sampleValPubkey1;
-        blsPubkeys[1] = sampleValPubkey2;
-        uint256[] memory slashIndexes = new uint256[](2);
-        slashIndexes[0] = 3;
-        slashIndexes[1] = 4;
-
-        vm.prank(slashOracle);
-        uint64 instantSlasherType = 0;
-        vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.OnlyVetoSlashersRequireExecution.selector, address(vault1), instantSlasherType)
-        );
-        mevCommitMiddleware.executeSlashes(blsPubkeys, slashIndexes);
-
-        blsPubkeys[0] = sampleValPubkey4;
-        blsPubkeys[1] = sampleValPubkey5;
-        slashIndexes[0] = 0;
-        slashIndexes[1] = 1;
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IMevCommitMiddleware.OnlySlashOracle.selector, slashOracle)
-        );
-        vm.prank(vm.addr(0x1119));
-        mevCommitMiddleware.executeSlashes(blsPubkeys, slashIndexes);
-
-        vm.expectEmit(true, true, true, true);
-        emit ExecuteSlash(0, 20);
-        vm.expectEmit(true, true, true, true);
-        emit ExecuteSlash(1, 20);
-        vm.prank(slashOracle);
-        mevCommitMiddleware.executeSlashes(blsPubkeys, slashIndexes);
-
-        allocatedStake = delegator.stake(bytes32("subnet"), operator1);
-        assertEq(allocatedStake, 59);
-
-        assertEq(mevCommitMiddleware.getNumSlashableVals(address(vault2), operator1), 2);
+        assertEq(mevCommitMiddleware.getNumSlashableVals(address(vault2), operator1), 2); // TODO: revisit
         assertEq(mevCommitMiddleware.valsetLength(address(vault2), operator1), 3);
 
         assertEq(mevCommitMiddleware.getPositionInValset(sampleValPubkey6, address(vault2), operator1), 1);
@@ -1134,7 +1102,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         timestamps[0] = 203;
         vm.prank(slashOracle);
         vm.expectEmit(true, true, true, true);
-        emit ValidatorSlashRequested(sampleValPubkey6, operator1, address(vault2), 2);
+        emit ValidatorSlashed(sampleValPubkey6, operator1, address(vault2), slashAmount);
         vm.expectEmit(true, true, true, true);
         expectedVaults = new address[](1);
         expectedVaults[0] = address(vault2);
