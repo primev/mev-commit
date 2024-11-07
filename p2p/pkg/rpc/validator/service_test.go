@@ -112,8 +112,16 @@ func TestGetValidators_EpochZero(t *testing.T) {
 
 	mockValidatorRouter := &MockValidatorRouterContract{
 		ExpectedCalls: map[string]interface{}{
-			string(hexutil.MustDecode("0x1234567890abcdef")): true,
-			string(hexutil.MustDecode("0xfedcba0987654321")): false,
+			string(hexutil.MustDecode("0x1234567890abcdef")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn:    true,
+				IsAvsOptedIn:        false,
+				IsMiddlewareOptedIn: false,
+			},
+			string(hexutil.MustDecode("0xfedcba0987654321")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn:    false,
+				IsAvsOptedIn:        false,
+				IsMiddlewareOptedIn: false,
+			},
 		},
 	}
 
