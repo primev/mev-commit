@@ -234,7 +234,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				t.logger.Debug("no winners to open commitments")
 				continue
 			}
-			t.logger.Info("stored block winners", "count", len(winners))
+			t.logger.Debug("stored block winners", "count", len(winners))
 			oldBlockNos := make([]int64, 0)
 			winners = slices.DeleteFunc(winners, func(item *store.BlockWinner) bool {
 				// the last block is the latest, so if any of the previous blocks are
@@ -330,7 +330,7 @@ func (t *Tracker) handleNewL1Block(
 	ctx context.Context,
 	newL1Block *blocktracker.BlocktrackerNewL1Block,
 ) error {
-	t.logger.Info(
+	t.logger.Debug(
 		"new L1 Block event received",
 		"blockNumber", newL1Block.BlockNumber,
 		"winner", newL1Block.Winner,
