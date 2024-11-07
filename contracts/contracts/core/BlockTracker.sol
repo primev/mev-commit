@@ -66,8 +66,8 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         string calldata builderName,
         address builderAddress
     ) external onlyOracle whenNotPaused {
-        blockBuilderNameToAddress[builderName] = builderAddress;
         emit BuilderAddressAdded(builderName, builderAddress);
+        blockBuilderNameToAddress[builderName] = builderAddress;
     }
 
     /**
