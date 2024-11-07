@@ -29,7 +29,7 @@ contract OracleTest is Test {
     bytes public sharedSecretKey;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
-    uint256 public constant withdrawalDelay = 24 * hours; // 24 hours
+    uint256 public constant withdrawalDelay = 24 * 3600; // 24 hours
     uint256 public constant protocolFeePayoutPeriodBlocks = 100;
     struct TestCommitment {
         uint64 bid;
