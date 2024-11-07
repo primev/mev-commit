@@ -49,7 +49,7 @@ contract BidderRegistryTest is Test {
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this), 24*3600, 5*3600)
+                (minStake, feeRecipient, feePercent, address(this), 24*hours, 5*hours)
             )
         );
         providerRegistry = ProviderRegistry(payable(providerRegistryProxy));
