@@ -761,25 +761,6 @@ contract MevCommitAVSTest is Test {
         vm.prank(owner);
         mevCommitAVS.unpause();
 
-        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorNotRegistered.selector, valPubkeys[0]));
-        vm.prank(newAccount);
-        mevCommitAVS.unfreeze(valPubkeys);
-
-        testRegisterValidatorsByPodOwners();
-
-        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorNotFrozen.selector, valPubkeys[0]));
-        vm.prank(newAccount);
-        mevCommitAVS.unfreeze(valPubkeys);
-
-        vm.prank(freezeOracle);
-        mevCommitAVS.freeze(valPubkeys);
-
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
-
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
-        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
-
         vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.UnfreezeFeeRequired.selector, 2 * unfreezeFee));
         vm.prank(newAccount);
         mevCommitAVS.unfreeze(valPubkeys);
@@ -792,6 +773,26 @@ contract MevCommitAVSTest is Test {
         mevCommitAVS.unfreeze{value: singleUnfreezeFee}(valPubkeys);
 
         uint256 doubleUnfreezeFee = unfreezeFee * 2;
+
+        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorNotRegistered.selector, valPubkeys[0]));
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze{value: doubleUnfreezeFee}(valPubkeys);
+
+        testRegisterValidatorsByPodOwners();
+
+        vm.expectRevert(abi.encodeWithSelector(IMevCommitAVS.ValidatorNotFrozen.selector, valPubkeys[0]));
+        vm.prank(newAccount);
+        mevCommitAVS.unfreeze{value: doubleUnfreezeFee}(valPubkeys);
+
+        vm.prank(freezeOracle);
+        mevCommitAVS.freeze(valPubkeys);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[0]).freezeOccurrence.exists);
+
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).exists);
+        assertTrue(mevCommitAVS.getValidatorRegInfo(valPubkeys[1]).freezeOccurrence.exists);
+
         vm.expectRevert(IMevCommitAVS.UnfreezeTooSoon.selector);
         vm.prank(newAccount);
         mevCommitAVS.unfreeze{value: doubleUnfreezeFee}(valPubkeys);
