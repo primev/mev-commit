@@ -489,13 +489,18 @@
           exit 1
         fi
 
-        ALLOC=$(jq -n --arg address "0x${ALLOCATIONS}" '
-          {
-            ($address): {
-              "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
-            }
-          }
-        ')
+        ALLOC=$(echo '{}' | jq '.')
+        for ADDRESS in ${ALLOCATIONS}; do
+          ALLOC=$(
+            echo "${ALLOC}" | jq --arg address "0x${ADDRESS}" '
+              . + {
+                ($address): {
+                    "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+                }
+              }
+            '
+         )
+        done
 
         ADDRESS_COUNT=0
         EXTRADATA="0x$(printf '0%.0s' {1..64})"
