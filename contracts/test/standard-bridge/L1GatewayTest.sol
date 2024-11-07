@@ -71,6 +71,24 @@ contract L1GatewayTest is Test {
         assertEq(l1Gateway.counterpartyFee(), 0.0005 ether);
     }
 
+    event RelayerSet(address indexed relayer);
+
+    function test_SetRelayer() public {
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
+        );
+        vm.prank(vm.addr(888));
+        l1Gateway.setRelayer(address(0x123));
+
+        assertEq(l1Gateway.relayer(), address(0x78));
+
+        vm.expectEmit(true, true, true, true);
+        emit RelayerSet(address(0x12345));
+        l1Gateway.setRelayer(address(0x12345));
+        assertEq(l1Gateway.relayer(), address(0x12345));
+    }
+
     // Expected event signature emitted in initiateTransfer()
     event TransferInitiated(
         address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx);

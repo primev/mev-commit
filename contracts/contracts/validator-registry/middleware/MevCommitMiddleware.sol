@@ -265,27 +265,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit ValidatorPositionsSwapped(blsPubkeys, swappedVaults, swappedOperators, newPositions);
     }
 
-    /// @dev Allows the slash oracle to execute slashes for validators secured by vaults with veto slashers.
-    /// @notice See "Slash mechanics" in README.md for more details.
-    /// @param blsPubkeys BLS public keys corresponding to vaults with veto slashers.
-    /// @param slashIndexes Slash indexes obtained from ValidatorSlashRequested event emitted in _slashValidator.
-    /// @return slashedAmounts The actual amount of collateral slashed for each validator.
-    function executeSlashes(bytes[] calldata blsPubkeys,
-        uint256[] calldata slashIndexes) external onlySlashOracle returns (uint256[] memory slashedAmounts) {
-
-        uint256 len = blsPubkeys.length;
-        require(len == slashIndexes.length, InvalidArrayLengths(len, slashIndexes.length));
-        slashedAmounts = new uint256[](len);
-        for (uint256 i = 0; i < len; ++i) {
-            ValidatorRecord storage valRecord = validatorRecords[blsPubkeys[i]];
-            address slasher = IVault(valRecord.vault).slasher();
-            uint64 slasherType = IEntity(slasher).TYPE();
-            require(slasherType == _VETO_SLASHER_TYPE, OnlyVetoSlashersRequireExecution(valRecord.vault, slasherType));
-            slashedAmounts[i] = IVetoSlasher(slasher).executeSlash(slashIndexes[i], new bytes(0));
-        }
-        return slashedAmounts;
-    }
-
     /// @dev Pauses the contract, restricted to contract owner.
     function pause() external onlyOwner { _pause(); }
 
@@ -313,6 +292,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     }
 
     /// @dev Sets the slash period in seconds, restricted to contract owner.
+    ///
+    /// @dev WARNING: Before the owner calls this function, ALL registered vaults must be validated
+    /// or deregistered, to conform to the new slashPeriodSeconds.
+    ///
+    /// @dev The owner will need to use VaultRegistered, VaultDeregistrationRequested, and VaultDeregistered events
+    /// to determine the registered vault set, call wouldVaultBeValidWith for each vault, and deregister any
+    /// vaults that are not valid. Only then can this function be called.
     function setSlashPeriodSeconds(uint256 slashPeriodSeconds_) external onlyOwner {
         _setSlashPeriodSeconds(slashPeriodSeconds_);
     }
@@ -320,6 +306,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Sets the slash oracle, restricted to contract owner.
     function setSlashOracle(address slashOracle_) external onlyOwner {
         _setSlashOracle(slashOracle_);
+    }
+
+    /// @dev Checks if a vault would be valid with a given slashPeriodSeconds.
+    /// @return True if the vault would be valid, reverts otherwise.
+    function wouldVaultBeValidWith(address vault, uint256 potentialSLashPeriodSeconds) external view returns (bool) {
+        _validateVaultParams(vault, potentialSLashPeriodSeconds);
+        return true;
     }
 
     /// @notice Queries if a validator is opted-in to mev-commit through a vault.
@@ -457,36 +450,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(!vaultRecords[vault].exists, VaultAlreadyRegistered(vault));
         require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
-
-        IEntity delegator = IEntity(IVault(vault).delegator());
-        if (delegator.TYPE() == _FULL_RESTAKE_DELEGATOR_TYPE) {
-            revert FullRestakeDelegatorNotSupported(vault);
-        } else if (delegator.TYPE() != _NETWORK_RESTAKE_DELEGATOR_TYPE) {
-            revert UnknownDelegatorType(vault, delegator.TYPE());
-        }
-
-        IVaultStorage vaultContract = IVaultStorage(vault);
-        uint256 vaultEpochDurationSeconds = vaultContract.epochDuration();
-
-        address slasher = IVault(vault).slasher();
-        require(slasher != address(0), SlasherNotSetForVault(vault));
-        uint256 slasherType = IEntity(slasher).TYPE();
-        if (slasherType == _VETO_SLASHER_TYPE) {
-            IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
-            uint256 vetoDuration = vetoSlasher.vetoDuration();
-            // For veto slashers, veto duration is repurposed as the phase in which the oracle can feasibly call `executeSlash`.
-            require(vetoDuration >= _MIN_VETO_DURATION, VetoDurationTooShort(vault, vetoDuration));
-            // Incorporate that veto duration will eat into portion of the epoch that oracle can feasibly request slashes.
-            vaultEpochDurationSeconds -= vetoDuration; /// @dev No underflow possible, vetoDuration must be less than epochDuration as enforced by VetoSlasher.sol.
-            require(vetoSlasher.resolver(_getSubnetwork(), new bytes(0)) == address(0),
-                VetoSlasherMustHaveZeroResolver(vault));
-        } else if (slasherType != _INSTANT_SLASHER_TYPE) {
-            revert UnknownSlasherType(vault, slasherType);
-        }
-
-        require(vaultEpochDurationSeconds > slashPeriodSeconds,
-            InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
-
+        _validateVaultParams(vault, slashPeriodSeconds);
         _setVaultRecord(vault, slashAmount);
         emit VaultRegistered(vault, slashAmount);
     }
@@ -527,7 +491,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             vault: vault,
             operator: operator
         });
-        _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
+        bool success = _vaultAndOperatorToValset[vault][operator].add(blsPubkey);
+        require(success, FailedToAddValidatorToValset(blsPubkey, vault, operator)); // This error would indicate state corruption.
         uint256 position = _getPositionInValset(blsPubkey, vault, operator);
         emit ValRecordAdded(blsPubkey, operator, vault, position);
     }
@@ -577,15 +542,18 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         address slasher = IVault(valRecord.vault).slasher();
         uint256 slasherType = IEntity(slasher).TYPE();
+        uint256 slashedAmount;
         if (slasherType == _VETO_SLASHER_TYPE) {
-            uint256 slashIndex = IVetoSlasher(slasher).requestSlash(
+            IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
+            uint256 slashIndex = vetoSlasher.requestSlash(
                 _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(captureTimestamp), new bytes(0));
-            emit ValidatorSlashRequested(blsPubkey, valRecord.operator, valRecord.vault, slashIndex);
+            // Since resolver = address(0), slash can be executed immediately.
+            slashedAmount = vetoSlasher.executeSlash(slashIndex, new bytes(0));
         } else if (slasherType == _INSTANT_SLASHER_TYPE) {
-            uint256 slashedAmount = ISlasher(slasher).slash(
+            slashedAmount = ISlasher(slasher).slash(
                 _getSubnetwork(), valRecord.operator, amount, SafeCast.toUint48(captureTimestamp), new bytes(0));
-            emit ValidatorSlashed(blsPubkey, valRecord.operator, valRecord.vault, slashedAmount);
         }
+        emit ValidatorSlashed(blsPubkey, valRecord.operator, valRecord.vault, slashedAmount);
 
         // If validator has not already requested deregistration,
         // do so to mark them as no longer opted-in.
@@ -640,6 +608,35 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Authorizes contract upgrades, restricted to contract owner.
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function _validateVaultParams(address vault, uint256 slashPeriodSeconds) internal view {
+        IEntity delegator = IEntity(IVault(vault).delegator());
+        if (delegator.TYPE() == _FULL_RESTAKE_DELEGATOR_TYPE) {
+            revert FullRestakeDelegatorNotSupported(vault);
+        } else if (delegator.TYPE() != _NETWORK_RESTAKE_DELEGATOR_TYPE) {
+            revert UnknownDelegatorType(vault, delegator.TYPE());
+        }
+
+        IVaultStorage vaultContract = IVaultStorage(vault);
+        uint256 vaultEpochDurationSeconds = vaultContract.epochDuration();
+
+        address slasher = IVault(vault).slasher();
+        require(slasher != address(0), SlasherNotSetForVault(vault));
+        uint256 slasherType = IEntity(slasher).TYPE();
+        if (slasherType == _VETO_SLASHER_TYPE) {
+            IVetoSlasher vetoSlasher = IVetoSlasher(slasher);
+            uint256 vetoDuration = vetoSlasher.vetoDuration();
+            // Incorporate that veto duration will eat into portion of the epoch that oracle can feasibly request slashes.
+            vaultEpochDurationSeconds -= vetoDuration; /// @dev No underflow possible, vetoDuration must be less than epochDuration as enforced by VetoSlasher.sol.
+            // Veto slasher must have a zero resolver s.t. slash can be executed immediately.
+            require(vetoSlasher.resolver(_getSubnetwork(), new bytes(0)) == address(0), VetoSlasherMustHaveZeroResolver(vault));
+        } else if (slasherType != _INSTANT_SLASHER_TYPE) {
+            revert UnknownSlasherType(vault, slasherType);
+        }
+
+        require(vaultEpochDurationSeconds > slashPeriodSeconds,
+            InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
+    }
 
     function _checkOperator(address operator) internal view {
         require(operatorRegistry.isEntity(operator), OperatorNotEntity(operator));

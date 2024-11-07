@@ -103,6 +103,10 @@ The points/rewards for LST restakers will consider freeze related events. Howeve
 
 Freezing is the mechanism that punishes a validator prior to eigenlayer core contracts having slashing. For now freezing corresponds to a public, reputational slash for the validator (and relevant LST restakers), and a lack of potential points accrual.
 
+## Note Frozen Validators
+
+Frozen validators (those who haven't yet paid the unfreeze fee) are **able, but not allowed** to register with the vanilla registry or middleware registry. In these scenarios, the frozen validator will be immediately slashed by the oracle via the relevant contract, directly after registration. The off-chain oracle logic **must** monitor registrations from the vanilla registry and middleware registry, along with freeze status from the MevCommitAVS. The oracle will slash relevant frozen validator(s) if any of them attempt to maliciously register outside the MevCommitAVS, without paying the unfreeze fee.
+
 ## Design Intentions
 
 When looking through this design doc one may ask, _why do validators and LST restakers have to delegate to an Operator through the eigenlayer core contracts, AND separately register with the AVS contract?_

@@ -258,6 +258,19 @@
   },
   {
     "type": "function",
+    "name": "setRelayer",
+    "inputs": [
+      {
+        "name": "_relayer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferFinalizedIdx",
     "inputs": [],
     "outputs": [
@@ -405,6 +418,19 @@
         "name": "account",
         "type": "address",
         "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RelayerSet",
+    "inputs": [
+      {
+        "name": "relayer",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -649,6 +675,11 @@
   {
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RelayerCannotBeZeroAddress",
     "inputs": []
   },
   {

@@ -86,30 +86,6 @@
   },
   {
     "type": "function",
-    "name": "executeSlashes",
-    "inputs": [
-      {
-        "name": "blsPubkeys",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
-      },
-      {
-        "name": "slashIndexes",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "slashedAmounts",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "getLatestSlashAmount",
     "inputs": [
       {
@@ -946,6 +922,30 @@
     "stateMutability": "view"
   },
   {
+    "type": "function",
+    "name": "wouldVaultBeValidWith",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "potentialSLashPeriodSeconds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
     "type": "event",
     "name": "Initialized",
     "inputs": [
@@ -1286,37 +1286,6 @@
   },
   {
     "type": "event",
-    "name": "ValidatorSlashRequested",
-    "inputs": [
-      {
-        "name": "blsPubkey",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
-        "name": "operator",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "vault",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "slashIndex",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "ValidatorSlashed",
     "inputs": [
       {
@@ -1474,6 +1443,27 @@
     "type": "error",
     "name": "FailedInnerCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FailedToAddValidatorToValset",
+    "inputs": [
+      {
+        "name": "blsPubkey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
