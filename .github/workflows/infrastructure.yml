@@ -179,7 +179,7 @@ jobs:
             echo "Unable to connect to target machine: ${STDOUT}"
             exit 1
           fi
-          
+
           if [ "${IS_MANUAL_DEPLOYMENT}" == "false" ] || [ "${{ github.event.inputs.all_targets }}" == "false" ]; then
             STDOUT="$(echo "${STDOUT}" | awk -F 'stdout\\) ' '{print $2}')"
             OS="$(echo "${STDOUT}" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
