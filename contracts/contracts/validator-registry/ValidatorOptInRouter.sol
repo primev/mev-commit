@@ -67,14 +67,14 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
         emit MevCommitMiddlewareSet(oldContract, address(mevCommitMiddleware));
     }
 
-    /// @notice Returns an array of bools indicating whether each validator pubkey is opted in to mev-commit.
-    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (bool[] memory) {
+    /// @notice Returns an array of OptInStatus structs indicating whether each validator pubkey is opted in to mev-commit.
+    function areValidatorsOptedIn(bytes[] calldata valBLSPubKeys) external view returns (OptInStatus[] memory) {
         uint256 len = valBLSPubKeys.length;
-        bool[] memory optedIn = new bool[](len);
+        OptInStatus[] memory optInStatuses = new OptInStatus[](len);
         for (uint256 i = 0; i < len; ++i) {
-            optedIn[i] = _isValidatorOptedIn(valBLSPubKeys[i]);
+            optInStatuses[i] = _isValidatorOptedIn(valBLSPubKeys[i]);
         }
-        return optedIn;
+        return optInStatuses;
     }
 
     /*
@@ -85,13 +85,13 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// @notice Internal function to check if a validator is opted in to mev-commit with either simple staking or restaking.
-    function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (bool) {
-        if (vanillaRegistry.isValidatorOptedIn(valBLSPubKey)) {
-            return true;
-        }
-        if (mevCommitAVS.isValidatorOptedIn(valBLSPubKey)) {
-            return true;
-        }
-        return mevCommitMiddleware.isValidatorOptedIn(valBLSPubKey);
+    /// @return OptInStatus struct indicating whether the validator is opted in to vanilla registry, 
+    /// eigen avs registry, and/or symbiotic middleware registry.
+    function _isValidatorOptedIn(bytes calldata valBLSPubKey) internal view returns (OptInStatus memory) {
+        OptInStatus memory optInStatus;
+        optInStatus.isVanillaOptedIn = vanillaRegistry.isValidatorOptedIn(valBLSPubKey);
+        optInStatus.isAvsOptedIn = mevCommitAVS.isValidatorOptedIn(valBLSPubKey);
+        optInStatus.isMiddlewareOptedIn = mevCommitMiddleware.isValidatorOptedIn(valBLSPubKey);
+        return optInStatus;
     }
 }

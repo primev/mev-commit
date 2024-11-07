@@ -9,6 +9,7 @@ import {IGateway} from "../../contracts/interfaces/IGateway.sol";
 import {IAllocator} from "../../contracts/interfaces/IAllocator.sol";
 import {RevertingReceiver} from "./RevertingReceiver.sol";
 import {EventReceiver} from "./EventReceiver.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract SettlementGatewayTest is Test {
 
@@ -64,6 +65,55 @@ contract SettlementGatewayTest is Test {
 
     event TransferNeedsWithdrawal(address indexed recipient, uint256 amount);
     event TransferSuccess(address indexed recipient, uint256 amount);
+
+    event FinalizationFeeSet(uint256 finalizationFee);
+    event CounterpartyFeeSet(uint256 counterpartyFee);
+
+    function test_SetFinalizationFee() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
+        );
+        vm.prank(vm.addr(888));
+        settlementGateway.setFinalizationFee(0.0015 ether);
+
+        assertEq(settlementGateway.finalizationFee(), 0.05 ether);
+        vm.expectEmit(true, true, true, true);
+        emit FinalizationFeeSet(0.0015 ether);
+        settlementGateway.setFinalizationFee(0.0015 ether);
+        assertEq(settlementGateway.finalizationFee(), 0.0015 ether);
+    }
+
+    function test_SetCounterpartyFee() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
+        );
+        vm.prank(vm.addr(888));
+        settlementGateway.setCounterpartyFee(0.0005 ether);
+
+        assertEq(settlementGateway.counterpartyFee(), 0.1 ether);
+        vm.expectEmit(true, true, true, true);
+        emit CounterpartyFeeSet(0.0005 ether);
+        settlementGateway.setCounterpartyFee(0.0005 ether);
+        assertEq(settlementGateway.counterpartyFee(), 0.0005 ether);
+    }
+
+    event RelayerSet(address indexed relayer);
+
+    function test_SetRelayer() public {
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
+        );
+        vm.prank(vm.addr(888));
+        settlementGateway.setRelayer(address(0x123));
+
+        assertEq(settlementGateway.relayer(), address(0x78));
+
+        vm.expectEmit(true, true, true, true);
+        emit RelayerSet(address(0x12345));
+        settlementGateway.setRelayer(address(0x12345));
+        assertEq(settlementGateway.relayer(), address(0x12345));
+    }
 
     function test_InitiateTransferSuccess() public {
         vm.deal(bridgeUser, 100 ether);

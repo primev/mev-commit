@@ -117,13 +117,11 @@ Vaults with veto slashers:
 * must have an `epochDuration` greater than `slashPeriodSeconds` + `vetoDuration`, where `vetoDuration` is specified by the slasher. 
 * require the resolver to be disabled via `address(0)`, since a permissioned oracle account invokes slashing, requiring only the most basic slashing interface.
 
-Note in the context of the mev-commit network, `vetoDuration` is repurposed as the minimum (worst case) amount of time that the oracle has to call `executeSlash` after requesting a slash. `vetoDuration` for each vault must be greater than 60 minutes as enforced by the middleware contract. This means the oracle has at most `slashPeriodSeconds` to request a slash via `slashValidators`, and at least `vetoDuration` to call `executeSlash`. Note slash execution can happen anytime after a slash is requested, so long as less than `epochDuration` has passed since `captureTimestamp`.
+The oracle has at most `slashPeriodSeconds` to request a slash via `slashValidators`. Both `VetoSlasher.requestSlash` and `VetoSlasher.executeSlash` get called during `slashValidators`. Upon the oracle successfully calling `slashValidators`, the middleware contract emits a `ValidatorSlashed` event.
 
-Upon the oracle successfully calling `slashValidators`, the middleware contract emits one of two events for each slashed validator. `ValidatorSlashed` will be emitted for slashers with `INSTANT_SLASHER_TYPE`. `ValidatorSlashRequested` will be emitted for slashers with `VETO_SLASHER_TYPE`.
+Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
 
-If the slasher type is `VETO_SLASHER_TYPE`, the oracle is responsible for calling `executeSlashes`, AND this call must execute on L1 prior to the oracle calling `slashValidators` again. This ensures the oracle's subsequent calls to `slashValidators` will incorporate a properly decremented slashable stake from relevant Vaults. Read more about Symbiotic veto slashing [here](https://docs.symbiotic.fi/core-modules/vaults#veto-slashing).
-
-The described process considers Symbiotic's current design, where:
+The described process considers Symbiotic's current design, where it's possible to execute a slash right after requesting one, if the resolver is disabled. See source below:
 
 1. `requestSlash` must be called before `epochDuration` - `vetoDuration` (equal to `slashPeriodSeconds` for our network) has passed since `captureTimestamp`, [source](https://github.com/symbioticfi/core/blob/629b9faac2377a9eb9cfdc6362b30d1dc1ef48f2/src/contracts/slasher/VetoSlasher.sol#L93).
 2. `executeSlash` must be called before `epochDuration` has passed since `captureTimestamp`, [source](https://github.com/symbioticfi/core/blob/629b9faac2377a9eb9cfdc6362b30d1dc1ef48f2/src/contracts/slasher/VetoSlasher.sol#L152).

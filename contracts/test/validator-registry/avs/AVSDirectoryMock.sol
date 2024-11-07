@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 // Eigenlayer core does not define their own mock for AVSDirectory.sol, hence we define our own.
 contract AVSDirectoryMock is IAVSDirectory, Test {
     mapping(address => bool) public isOperatorRegistered;
-    address public avs_;
 
     bytes32 public constant OPERATOR_AVS_REGISTRATION_TYPEHASH =
         keccak256("OperatorAVSRegistration(address operator,address avs,bytes32 salt,uint256 expiry)");
@@ -85,7 +84,9 @@ contract AVSDirectoryMock is IAVSDirectory, Test {
         return digestHash;
     }
 
-    function domainSeparator() public view returns (bytes32) {
+    function cancelSalt(bytes32 salt) external override { }
+
+    function domainSeparator() public view override returns (bytes32) {
         return keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes("EigenLayer")), block.chainid, address(this)));
     }
 }

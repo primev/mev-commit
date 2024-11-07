@@ -81,13 +81,8 @@ contract PreconfManager is
         commitmentDispatchWindow = _commitmentDispatchWindow;
         __Pausable_init();
 
-        // Compute the domain separators
-        uint256 chainId;
+        uint256 chainId = block.chainid;
         
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            chainId := chainid()
-        }
         domainSeparatorPreconf = keccak256(
             abi.encode(
                 keccak256(

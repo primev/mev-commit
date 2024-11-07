@@ -45,8 +45,25 @@
     "outputs": [
       {
         "name": "",
-        "type": "bool[]",
-        "internalType": "bool[]"
+        "type": "tuple[]",
+        "internalType": "struct IValidatorOptInRouter.OptInStatus[]",
+        "components": [
+          {
+            "name": "isVanillaOptedIn",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "isAvsOptedIn",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "isMiddlewareOptedIn",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
       }
     ],
     "stateMutability": "view"

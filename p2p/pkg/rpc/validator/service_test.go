@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
 	"github.com/primev/mev-commit/x/util"
@@ -21,13 +22,13 @@ type MockValidatorRouterContract struct {
 	ExpectedCalls map[string]interface{}
 }
 
-func (m *MockValidatorRouterContract) AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]bool, error) {
-	results := make([]bool, len(valBLSPubKeys))
+func (m *MockValidatorRouterContract) AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, error) {
+	results := make([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, len(valBLSPubKeys))
 	for i, key := range valBLSPubKeys {
 		if m.ExpectedCalls[string(key)] == nil {
 			return nil, errors.New("unexpected call")
 		}
-		results[i] = m.ExpectedCalls[string(key)].(bool)
+		results[i] = m.ExpectedCalls[string(key)].(validatoroptinrouter.IValidatorOptInRouterOptInStatus)
 	}
 	return results, nil
 }
@@ -42,8 +43,16 @@ func TestGetValidators(t *testing.T) {
 
 	mockValidatorRouter := &MockValidatorRouterContract{
 		ExpectedCalls: map[string]interface{}{
-			string(hexutil.MustDecode("0x1234567890abcdef")): true,
-			string(hexutil.MustDecode("0xfedcba0987654321")): false,
+			string(hexutil.MustDecode("0x1234567890abcdef")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn:    true,
+				IsAvsOptedIn:        false,
+				IsMiddlewareOptedIn: false,
+			},
+			string(hexutil.MustDecode("0xfedcba0987654321")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn:    false,
+				IsAvsOptedIn:        false,
+				IsMiddlewareOptedIn: false,
+			},
 		},
 	}
 
@@ -103,8 +112,16 @@ func TestGetValidators_EpochZero(t *testing.T) {
 
 	mockValidatorRouter := &MockValidatorRouterContract{
 		ExpectedCalls: map[string]interface{}{
-			string(hexutil.MustDecode("0x1234567890abcdef")): true,
-			string(hexutil.MustDecode("0xfedcba0987654321")): false,
+			string(hexutil.MustDecode("0x1234567890abcdef")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn:    true,
+				IsAvsOptedIn:        false,
+				IsMiddlewareOptedIn: false,
+			},
+			string(hexutil.MustDecode("0xfedcba0987654321")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn:    false,
+				IsAvsOptedIn:        false,
+				IsMiddlewareOptedIn: false,
+			},
 		},
 	}
 

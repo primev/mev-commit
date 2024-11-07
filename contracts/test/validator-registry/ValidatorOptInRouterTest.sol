@@ -8,6 +8,7 @@ import {MevCommitAVS} from "../../contracts/validator-registry/avs/MevCommitAVS.
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {VanillaRegistryTest} from "./VanillaRegistryTest.sol";
 import {MevCommitAVSTest} from "./avs/MevCommitAVSTest.sol";
+import {IValidatorOptInRouter} from "../../contracts/interfaces/IValidatorOptInRouter.sol";
 import {IVanillaRegistry} from "../../contracts/interfaces/IVanillaRegistry.sol";
 import {IMevCommitAVS} from "../../contracts/interfaces/IMevCommitAVS.sol";
 import {IMevCommitMiddleware} from "../../contracts/interfaces/IMevCommitMiddleware.sol";
@@ -98,10 +99,12 @@ contract ValidatorOptInRouterTest is Test {
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[0]));
         assertTrue(mevCommitAVS.isValidatorOptedIn(valPubkeys[1]));
         
-        bool[] memory areOptedIn = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
-        assertEq(areOptedIn.length, 2);
-        for (uint256 i = 0; i < areOptedIn.length; ++i) {
-            assertTrue(areOptedIn[i]);
+        IValidatorOptInRouter.OptInStatus[] memory optInStatuses = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
+        assertEq(optInStatuses.length, 2);
+        for (uint256 i = 0; i < optInStatuses.length; ++i) {
+            assertFalse(optInStatuses[i].isVanillaOptedIn);
+            assertTrue(optInStatuses[i].isAvsOptedIn);
+            assertFalse(optInStatuses[i].isMiddlewareOptedIn);
         }
     }
 
@@ -115,10 +118,12 @@ contract ValidatorOptInRouterTest is Test {
         assertTrue(vanillaRegistry.isValidatorOptedIn(valPubkeys[0]));
         assertTrue(vanillaRegistry.isValidatorOptedIn(valPubkeys[1]));
 
-        bool[] memory areOptedIn = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
-        assertEq(areOptedIn.length, 2);
-        for (uint256 i = 0; i < areOptedIn.length; ++i) {
-            assertTrue(areOptedIn[i]);
+        IValidatorOptInRouter.OptInStatus[] memory optInStatuses = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
+        assertEq(optInStatuses.length, 2);
+        for (uint256 i = 0; i < optInStatuses.length; ++i) {
+            assertTrue(optInStatuses[i].isVanillaOptedIn);
+            assertFalse(optInStatuses[i].isAvsOptedIn);
+            assertFalse(optInStatuses[i].isMiddlewareOptedIn);
         }
     }
 
@@ -129,10 +134,12 @@ contract ValidatorOptInRouterTest is Test {
         valPubkeys[0] = mevCommitMiddlewareTest.sampleValPubkey1();
         valPubkeys[1] = mevCommitMiddlewareTest.sampleValPubkey2();
 
-        bool[] memory areOptedIn = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
-        assertEq(areOptedIn.length, 2);
-        for (uint256 i = 0; i < areOptedIn.length; ++i) {
-            assertTrue(areOptedIn[i]);
+        IValidatorOptInRouter.OptInStatus[] memory optInStatuses = validatorOptInRouter.areValidatorsOptedIn(valPubkeys);
+        assertEq(optInStatuses.length, 2);
+        for (uint256 i = 0; i < optInStatuses.length; ++i) {
+            assertFalse(optInStatuses[i].isVanillaOptedIn);
+            assertFalse(optInStatuses[i].isAvsOptedIn);
+            assertTrue(optInStatuses[i].isMiddlewareOptedIn);
         }
     }
 }
