@@ -11,13 +11,14 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type ValidatorRouterContract interface {
-	AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]bool, error)
+	AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, error)
 }
 
 type Service struct {
@@ -188,9 +189,10 @@ func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uin
 			s.logger.Error("parsing slot number", "error", err)
 			continue
 		}
+		isOptedIn := areValidatorsOptedIn[i].IsVanillaOptedIn || areValidatorsOptedIn[i].IsAvsOptedIn || areValidatorsOptedIn[i].IsMiddlewareOptedIn
 		validators[slot] = &validatorapiv1.SlotInfo{
 			BLSKey:    duty.Pubkey,
-			IsOptedIn: areValidatorsOptedIn[i],
+			IsOptedIn: isOptedIn,
 		}
 	}
 
