@@ -15,6 +15,12 @@ import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {console} from "forge-std/console.sol";
 
 contract DeployTestnet is Script {
+
+    // Amount of ETH to initially fund the oracle account on L1 chain.
+    uint256 public constant ORACLE_INITIAL_FUNDING = 1 ether;
+
+    error FailedToSendETHToOracle(address addr);
+
     function run() external {
         require(block.chainid == 17864, "chainID not 17864 (testnet env)");
         vm.startBroadcast();
@@ -99,6 +105,8 @@ contract DeployTestnet is Script {
         console.log("_PreconfManagerWithOracle:", address(oracle));
 
         blockTracker.setProviderRegistry(address(providerRegistry));
+        (bool success, ) = payable(oracleKeystoreAddress).call{value: ORACLE_INITIAL_FUNDING}("");
+        require(success, FailedToSendETHToOracle(oracleKeystoreAddress));
 
         vm.stopBroadcast();
     }
