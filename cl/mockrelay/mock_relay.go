@@ -46,7 +46,6 @@ func (m *MockRelay) GetBlockHashForNumber(ctx context.Context, blockNumber uint6
 // UpdateBLSKey updates the BLS key used by the relay
 func (m *MockRelay) UpdateBLSKey(newKey string) error {
 	// Validate BLS key format (48 bytes hex)
-	newKey = common.TrimHexPrefix(newKey)
 	keyBytes, err := hex.DecodeString(newKey)
 	if err != nil {
 		return fmt.Errorf("invalid BLS key format: %w", err)
@@ -110,7 +109,7 @@ func (m *MockRelay) HandleBidTraceRequest(w http.ResponseWriter, r *http.Request
 		{
 			"block_number":   blockNumberStr,
 			"block_hash":     blockHash.Hex(),
-			"builder_pubkey": "0x" + m.GetBLSKey(),
+			"builder_pubkey": m.GetBLSKey(),
 		},
 	}
 
