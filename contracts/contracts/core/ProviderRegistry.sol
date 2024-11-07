@@ -272,7 +272,7 @@ contract ProviderRegistry is
 
     /**
      * @dev Register and stake function for providers.
-     * @param blsPublicKeys The BLS public key of the provider.
+     * @param blsPublicKeys The BLS public keys of the provider.
      * The validity of this key must be verified manually off-chain.
      */
     function registerAndStake(bytes[] calldata blsPublicKeys) public payable whenNotPaused {
@@ -282,7 +282,7 @@ contract ProviderRegistry is
     /**
     * @dev Register and stake on behalf of a provider.
     * @param provider Address of the provider.
-    * @param blsPublicKeys BLS public key of the provider.
+    * @param blsPublicKeys BLS public keys of the provider.
     */
     function delegateRegisterAndStake(address provider, bytes[] calldata blsPublicKeys) public payable whenNotPaused onlyOwner {
         _registerAndStake(provider, blsPublicKeys);
@@ -305,11 +305,12 @@ contract ProviderRegistry is
     function _registerAndStake(address provider, bytes[] calldata blsPublicKeys) internal {
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
-        require(blsPublicKeys.length > 0, AtLeastOneBLSKeyRequired());
+        require(blsPublicKeys.length != 0, AtLeastOneBLSKeyRequired());
         uint256 numKeys = blsPublicKeys.length;
         for (uint256 i = 0; i < numKeys; ++i) {
-            require(blsPublicKeys[i].length == 48, InvalidBLSPublicKeyLength(blsPublicKeys[i].length, 48));
-            blockBuilderBLSKeyToAddress[blsPublicKeys[i]] = provider;
+            bytes memory key = blsPublicKeys[i];
+            require(key.length == 48, InvalidBLSPublicKeyLength(key.length, 48));
+            blockBuilderBLSKeyToAddress[key] = provider;
         }
         eoaToBlsPubkeys[provider] = blsPublicKeys;
         providerStakes[provider] = msg.value;

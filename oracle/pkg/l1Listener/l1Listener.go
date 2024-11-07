@@ -187,7 +187,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 			}
 
 			for b := uint64(currentBlockNo) + 1; b <= blockNum; b++ {
-				header, err := l.l1Client.HeaderByNumber(ctx, big.NewInt(int64(b+1)))
+				header, err := l.l1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(b+1))
 				if err != nil {
 					l.logger.Error("failed to get header", "block", b, "error", err)
 					continue
@@ -195,19 +195,18 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 				// End of changes needed to be done.
 				var builderPubKey string
-				startTime := time.Now()
 				l.logger.Info("querying relay", "block", b, "hash", header.ParentHash.Hex())
-				for time.Since(startTime) < 2*time.Second {
+				for i := 0; i < 4; i++ {
 					builderPubKey, err = l.relayQuerier.Query(int64(b), header.ParentHash.Hex())
 					if err == nil {
 						break
 					}
-					l.logger.Warn("failed to query relay, retrying", "block", b, "error", err)
+					l.logger.Info("block not found in relay, retrying", "block", b, "error", err, "attempt", i+1)
 					time.Sleep(500 * time.Millisecond)
 				}
 
 				if err != nil {
-					l.logger.Error("failed to query relay after retries", "block", b, "error", err)
+					l.logger.Info("block not found in relay", "block", b, "error", err)
 					builderPubKey = "" // Set a default value in case of failure
 				}
 
