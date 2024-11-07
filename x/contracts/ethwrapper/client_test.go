@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/trie"
 )
 
 var (
@@ -189,7 +190,8 @@ func TestClient(t *testing.T) {
 				cli: &ethClientMock{
 					blockByNumberFn: func(context.Context, *big.Int) (*types.Block, error) {
 						haveCalls++
-						return types.NewBlock(&types.Header{Number: wantNumber}, nil, nil, nil, nil), nil
+						body := &types.Body{Transactions: nil, Uncles: nil}
+						return types.NewBlock(&types.Header{Number: wantNumber}, body, nil, trie.NewStackTrie(nil)), nil
 					},
 				},
 			}},
