@@ -56,7 +56,7 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 	ctx := context.Background()
 
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
@@ -144,7 +144,7 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 	mockPipeliner.EXPECT().Exec(ctx).Return([]redis.Cmder{}, nil)
 
 	stateManager, err := state.NewRedisStateManager("instanceID123", mockRedisClient, nil, "010203")
-	require.NoError(t, err)	
+	require.NoError(t, err)
 
 	mockEngineClient := new(MockEngineClient)
 
@@ -204,7 +204,7 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 	ctx := context.Background()
 
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	timestamp := uint64(1728051707) // 0x66fff9fb
 	executionHead := &types.ExecutionHead{
@@ -296,7 +296,7 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
@@ -353,7 +353,7 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	executionHead := &types.ExecutionHead{
 		BlockHash:   []byte{0x01, 0x02, 0x03},
@@ -443,7 +443,7 @@ func TestBlockBuilder_getPayload_startBuildFails(t *testing.T) {
 func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	timestamp := time.Now()
 	executionHead := &types.ExecutionHead{
@@ -494,7 +494,7 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	mockEngineClient.On("GetPayloadV3", mock.Anything, *payloadID).Return(&engine.ExecutionPayloadEnvelope{}, errors.New("Unknown payload"))
 
 	err = blockBuilder.GetPayload(ctx)
-	
+
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get payload")
 
@@ -505,7 +505,7 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	timestamp := time.Now()
 	executionHead := &types.ExecutionHead{
@@ -552,7 +552,7 @@ func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 	executionPayloadData, _ := msgpack.Marshal(executionPayload)
 
 	err = blockBuilder.FinalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
-	
+
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid block height")
 
@@ -562,7 +562,7 @@ func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	timestamp := uint64(1728051707) // 0x66fff9fb
 	executionHead := &types.ExecutionHead{
@@ -626,7 +626,7 @@ func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T) {
 	ctx := context.Background()
 	redisClient, redisMock := redismock.NewClientMock()
-    redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
 	timestamp := uint64(1728051707) // 0x66fff9fb
 	executionHead := &types.ExecutionHead{
