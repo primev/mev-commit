@@ -32,8 +32,8 @@ contract DeployTestnet is Script {
         uint16 feePercent = 2;
         uint16 providerPenaltyPercent = 5;
         uint64 commitmentDispatchWindow = 2000;
-        uint256 withdrawalDelay = 24  hours  * 1000; // 24 hours in milliseconds
-        uint256 protocolFeePayoutPeriodBlocks = 5  hours ; // 1 hour with 200ms blocks
+        uint256 withdrawalDelay = 24 hours  * 1000; // 24 hours in milliseconds
+        uint256 protocolFeePayoutPeriodBlocks = 5 hours ; // 1 hour with 200ms blocks
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
         require(oracleKeystoreAddress != address(0), "missing Oracle keystore address");
 
