@@ -86,9 +86,6 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when a validator record is deleted by the contract owner
     event ValRecordDeleted(bytes blsPubkey, address indexed msgSender);
 
-    /// @notice Emmitted when a validator slash is requested from a veto slasher
-    event ValidatorSlashRequested(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashIndex);
-
     /// @notice Emmitted when a validator is slashed from an instant slasher
     event ValidatorSlashed(bytes blsPubkey, address indexed operator, address indexed vault, uint256 slashedAmount);
 
@@ -160,6 +157,8 @@ interface IMevCommitMiddleware {
     error VaultNotEntity(address vault);
 
     error VaultNotReadyToDeregister(address vault, uint256 currentTimestamp, uint256 deregRequestTimestamp);
+
+    error FailedToAddValidatorToValset(bytes blsPubkey, address vault, address operator);
 
     error SlashAmountMustBeNonZero(address vault);
 

@@ -11,9 +11,6 @@ import {GatewayStorage} from "./GatewayStorage.sol";
 abstract contract Gateway is IGateway, GatewayStorage,
     Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {   
 
-    error FinalizationFeeTooSmall(uint256 _finalizationFee);
-    error CounterpartyFeeTooSmall(uint256 _counterpartyFee);
-
     modifier onlyRelayer() {
         require(msg.sender == relayer, SenderNotRelayer(msg.sender, relayer));
         _;
@@ -52,6 +49,13 @@ abstract contract Gateway is IGateway, GatewayStorage,
 
     /// @dev Allows owner to unpause the contract.
     function unpause() external onlyOwner { _unpause(); }
+
+    /// @dev Allows owner to set a new relayer account.
+    function setRelayer(address _relayer) external onlyOwner {
+        require(_relayer != address(0), RelayerCannotBeZeroAddress());
+        relayer = _relayer;
+        emit RelayerSet(_relayer);
+    }
 
     /// @dev Allows owner to set a new finalization fee.
     /// @notice If using this function, ensure the same value is set as the `counterpartyFee` in the counterparty contract.

@@ -850,7 +850,7 @@
     "name": "unfreeze",
     "inputs": [
       {
-        "name": "valPubKey",
+        "name": "valPubKeys",
         "type": "bytes[]",
         "internalType": "bytes[]"
       }

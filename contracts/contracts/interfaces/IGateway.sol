@@ -34,10 +34,14 @@ interface IGateway {
 
     event FinalizationFeeSet(uint256 finalizationFee);
     event CounterpartyFeeSet(uint256 counterpartyFee);
+    event RelayerSet(address indexed relayer);
 
     error SenderNotRelayer(address sender, address relayer);
     error AmountTooSmall(uint256 amount, uint256 counterpartyFee);
     error InvalidCounterpartyIndex(uint256 counterpartyIdx, uint256 transferFinalizedIdx);
+    error FinalizationFeeTooSmall(uint256 _finalizationFee);
+    error CounterpartyFeeTooSmall(uint256 _counterpartyFee);
+    error RelayerCannotBeZeroAddress();
 
     /**
      * @notice Initiates a cross-chain transfer.

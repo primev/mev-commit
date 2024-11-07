@@ -231,6 +231,10 @@ func (t *Transfer) Do(ctx context.Context) <-chan TransferStatus {
 			Message: fmt.Sprintf("Transaction mined in block %d with index %s", receipt.BlockNumber, transferIdx),
 		}
 
+		statusChan <- TransferStatus{
+			Message: "Waiting for transfer to be finalized...",
+		}
+
 		switch err := t.destFilterer.WaitForTransferFinalized(ctx, t.destInitialBlock, transferIdx); {
 		case err == nil:
 			statusChan <- TransferStatus{Message: "Transfer finalized. Bridging complete."}
