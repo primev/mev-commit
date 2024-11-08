@@ -6,7 +6,7 @@
 pragma solidity 0.8.26;
 
 /// @notice Constants from https://github.com/Layr-Labs/eigenlayer-contracts?tab=readme-ov-file#deployments,
-/// @notice Last updated 07-26-2024
+/// @notice Last updated 11-07-2024
 library EigenMainnetReleaseConsts {
 
     address internal constant DELEGATION_MANAGER = 0x39053D51B77DC0d36036Fc1fCc8Cb819df8Ef37A;

@@ -9,6 +9,7 @@ import {Script} from "forge-std/Script.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {VanillaRegistry} from "../../contracts/validator-registry/VanillaRegistry.sol";
 import {console} from "forge-std/console.sol";
+import {MainnetConstants} from "../MainnetConstants.sol";
 
 contract BaseDeploy is Script {
     function deployVanillaRegistry(
@@ -31,6 +32,23 @@ contract BaseDeploy is Script {
         VanillaRegistry vanillaRegistry = VanillaRegistry(payable(proxy));
         console.log("VanillaRegistry owner:", vanillaRegistry.owner());
         return proxy;
+    }
+}
+
+contract DeployMainnet is BaseDeploy {
+    address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+
+    uint256 constant public MIN_STAKE = 3 ether;
+    address constant public SLASH_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    address constant public SLASH_RECEIVER = MainnetConstants.PRECONF_ETH_ADDR;
+    uint256 constant public UNSTAKE_PERIOD_BLOCKS = 12000; // ~ 1 day
+    uint256 constant public PAYOUT_PERIOD_BLOCKS = 12000; // ~ 1 day
+
+    function run() external {
+        require(block.chainid == 1, "must deploy on mainnet");
+        vm.startBroadcast();
+        deployVanillaRegistry(MIN_STAKE, SLASH_ORACLE, SLASH_RECEIVER, UNSTAKE_PERIOD_BLOCKS, PAYOUT_PERIOD_BLOCKS, OWNER);
+        vm.stopBroadcast();
     }
 }
 

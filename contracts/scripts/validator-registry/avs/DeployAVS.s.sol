@@ -14,6 +14,8 @@ import {IEigenPodManager} from "eigenlayer-contracts/src/contracts/interfaces/IE
 import {IStrategyManager} from "eigenlayer-contracts/src/contracts/interfaces/IStrategyManager.sol";
 import {IAVSDirectory} from "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import {EigenHoleskyReleaseConsts} from "./ReleaseAddrConsts.sol";
+import {EigenMainnetReleaseConsts} from "./ReleaseAddrConsts.sol";
+import {MainnetConstants} from "../../MainnetConstants.sol";
 
 contract BaseDeploy is Script {
     function deployMevCommitAVS(
@@ -59,6 +61,58 @@ contract BaseDeploy is Script {
         MevCommitAVS mevCommitAVS = MevCommitAVS(payable(proxy));
         console.log("MevCommitAVS owner:", mevCommitAVS.owner());
         return proxy;
+    }
+}
+
+contract DeployMainnet is BaseDeploy {
+    address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+
+    IDelegationManager constant public DELEGATION_MANAGER = IDelegationManager(EigenMainnetReleaseConsts.DELEGATION_MANAGER);
+    IEigenPodManager constant public EIGENPOD_MANAGER = IEigenPodManager(EigenMainnetReleaseConsts.EIGENPOD_MANAGER);
+    IStrategyManager constant public STRATEGY_MANAGER = IStrategyManager(EigenMainnetReleaseConsts.STRATEGY_MANAGER);
+    IAVSDirectory constant public AVS_DIRECTORY = IAVSDirectory(EigenMainnetReleaseConsts.AVS_DIRECTORY);
+    address constant public FREEZE_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    uint256 constant public UNFREEZE_FEE = 3 ether;
+    address constant public UNFREEZE_RECEIVER = MainnetConstants.PRECONF_ETH_ADDR;
+    uint256 constant public UNFREEZE_PERIOD_BLOCKS = 12000; // ~ 1 day
+    uint256 constant public OPERATOR_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
+    uint256 constant public VALIDATOR_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
+    uint256 constant public LST_RESTARKER_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
+
+    function run() external {
+        require(block.chainid == 1, "must deploy on mainnet");
+        vm.startBroadcast();
+        address[] memory restakeableStrategies = new address[](11);
+        restakeableStrategies[0] = EigenMainnetReleaseConsts.STRATEGY_BASE_CBETH;
+        restakeableStrategies[1] = EigenMainnetReleaseConsts.STRATEGY_BASE_STETH;
+        restakeableStrategies[2] = EigenMainnetReleaseConsts.STRATEGY_BASE_RETH;
+        restakeableStrategies[3] = EigenMainnetReleaseConsts.STRATEGY_BASE_ETHX;
+        restakeableStrategies[4] = EigenMainnetReleaseConsts.STRATEGY_BASE_ANKRETH;
+        restakeableStrategies[5] = EigenMainnetReleaseConsts.STRATEGY_BASE_OETH;
+        restakeableStrategies[6] = EigenMainnetReleaseConsts.STRATEGY_BASE_OSETH;
+        restakeableStrategies[7] = EigenMainnetReleaseConsts.STRATEGY_BASE_SWETH;
+        restakeableStrategies[8] = EigenMainnetReleaseConsts.STRATEGY_BASE_WBETH;
+        restakeableStrategies[9] = EigenMainnetReleaseConsts.STRATEGY_BASE_SFRXETH;
+        restakeableStrategies[10] = EigenMainnetReleaseConsts.STRATEGY_BASE_LSETH;
+        restakeableStrategies[11] = EigenMainnetReleaseConsts.STRATEGY_BASE_METH;
+        restakeableStrategies[12] = EigenMainnetReleaseConsts.BEACON_CHAIN_ETH;
+
+        deployMevCommitAVS(
+            OWNER,
+            DELEGATION_MANAGER,
+            EIGENPOD_MANAGER,
+            STRATEGY_MANAGER,
+            AVS_DIRECTORY,
+            restakeableStrategies,
+            FREEZE_ORACLE,
+            UNFREEZE_FEE,
+            UNFREEZE_RECEIVER,
+            UNFREEZE_PERIOD_BLOCKS,
+            OPERATOR_DEREG_PERIOD_BLOCKS,
+            VALIDATOR_DEREG_PERIOD_BLOCKS,
+            LST_RESTARKER_DEREG_PERIOD_BLOCKS
+        );
+        vm.stopBroadcast();
     }
 }
 
