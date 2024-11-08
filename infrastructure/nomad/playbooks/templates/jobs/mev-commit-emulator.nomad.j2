@@ -73,8 +73,8 @@ job "{{ job.name }}" {
           EMULATOR_IP_HTTP_PORT="{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          {{ - range nomadService "relay-emulator" }}
-            {{ if contains "http" .Tags }}
+          {{- range nomadService "relay-emulator" }}
+            {{- if contains "http" .Tags }}
           EMULATOR_RELAY_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
