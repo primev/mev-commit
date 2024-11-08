@@ -36,3 +36,13 @@ The owner account is also able to call `withdraw` for any validator pubkey who's
 Note the permissioned oracle account for this contract can slash any validator that proposes a block which does not deliver preconfs from the mev-commit network. This corresponds to some configurable portion of the validator's stake being slashed (immediately sent to the contracts' `slashReceiver`).
 
 Further, slashing automatically unstakes the relevant validator pubkey. If the relevant validator was already unstaking, the `unstakePeriodBlocks` timer is reset, and this period must be fully elapsed again before non-slashed funds are withdrawable.
+
+### Configuration of `unstakePeriodBlocks`
+
+`unstakePeriodBlocks` must be set such that a mev-commit bidder knows all _currently opted-in_ block proposers from the current epoch, and next epoch, must deliver commitments, or are guaranteed slashable.
+
+For similar reasoning to the `slashPeriodSeconds` configuration in the [middleware README](middleware/README.md#configuration-of-slashperiodseconds), the minimum value for `unstakePeriodBlocks` is:
+
+`6 L1 epochs` + `oracleProcessingPeriod`
+
+A recommended value to assume for `oracleProcessingPeriod` is 60 minutes, although longer is always beneficial as a buffer for oracle transaction inclusion.
