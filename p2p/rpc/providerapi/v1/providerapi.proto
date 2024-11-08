@@ -92,7 +92,7 @@ message StakeRequest {
   }, (buf.validate.field).cel = {
       id: "bls_public_key",
       message: "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
-      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{96}$'))"
+      expression: "size(this) > 0 && this.all(r, r.matches('^(0x)?[a-fA-F0-9]{96}$'))"
   }];
 };
 
