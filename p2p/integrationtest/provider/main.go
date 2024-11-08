@@ -164,11 +164,9 @@ func main() {
 		return
 	}
 	defer providerClient.Close()
-
-	blsPubkeyBytes := make([]byte, 48)
-	_, err = rand.Read(blsPubkeyBytes)
+	blsPubkeyBytes, err := hex.DecodeString("abf1ad5ec0512cb1adabe457882fa550b4935f1f7df9658e46af882049ec16da698c323af8c98c3f1f9570ebc4042a83")
 	if err != nil {
-		logger.Error("failed to generate mock BLS public key", "error", err)
+		logger.Error("failed to decode BLS public key", "error", err)
 		return
 	}
 
