@@ -30,6 +30,9 @@ artifacts:
   l1-transactor: &l1_transactor_artifact
     type: binary
     path: tools/l1-transaction-emulator
+  relay-emulator: &relay_emulator_artifact
+    type: binary
+    path: tools/relay-emulator
 
 jobs:
   artifacts: &artifacts_job
@@ -177,6 +180,20 @@ jobs:
     env:
       log-level: "info"
 
+  relay-emulator: &relay_emulator_job
+    name: relay-emulator
+    template: relay-emulator.nomad.j2
+    artifacts:
+      - *relay_emulator_artifact
+    dependencies:
+      mock_l1: *mock_l1_job
+    count: 1
+    ports:
+      - http:
+          to: 8080
+    env:
+      log-level: "info"
+
   mev_commit_bootnode1: &mev_commit_bootnode1_job
     name: mev-commit-bootnode1
     template: mev-commit.nomad.j2
@@ -210,6 +227,8 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider1_keystore:
+    dependencies:
+      relay-emulator: *relay_emulator_job
     count: 1
     ports:
       - metrics:
@@ -236,6 +255,8 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider2_keystore:
+    dependencies:
+      relay-emulator: *relay_emulator_job
     count: 1
     ports:
       - metrics:
@@ -261,6 +282,8 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider3_keystore:
+    dependencies:
+      relay-emulator: *relay_emulator_job
     count: 1
     ports:
       - metrics:
@@ -644,6 +667,7 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *mev_commit_bootnode1_job
@@ -664,6 +688,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *bridge_emulator_job
@@ -707,6 +732,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *bridge_emulator_job
@@ -744,7 +770,9 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job

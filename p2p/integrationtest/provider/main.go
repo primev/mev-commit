@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -68,6 +70,11 @@ var (
 		20,
 		"The probability of returning an error when sending a bid response",
 	)
+	relay = flag.String(
+		"relay",
+		"",
+		"Relay address",
+	)
 )
 
 var (
@@ -130,6 +137,11 @@ func main() {
 		return
 	}
 
+	if *relay == "" {
+		fmt.Printf("please provide a valid relay address with the -relay flag\n")
+		return
+	}
+
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(receivedBids, sentBids)
 
@@ -153,9 +165,27 @@ func main() {
 	}
 	defer providerClient.Close()
 
-	err = providerClient.CheckAndStake()
+	blsPubkeyBytes := make([]byte, 48)
+	_, err = rand.Read(blsPubkeyBytes)
+	if err != nil {
+		logger.Error("failed to generate mock BLS public key", "err", err)
+		return
+	}
+
+	err = providerClient.CheckAndStake([]string{hex.EncodeToString(blsPubkeyBytes)})
 	if err != nil {
 		logger.Error("failed to check and stake", "error", err)
+		return
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/register", *relay), "application/json", bytes.NewReader(blsPubkeyBytes))
+	if err != nil {
+		logger.Error("failed to post to relay", "error", err)
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("failed to post to relay", "status", resp.Status)
 		return
 	}
 
