@@ -243,6 +243,7 @@ var (
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
 		Value:   "2000000000", // 2 gWEI
 	})
+
 	optionRelayUrls = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
 		Name:    "relay-urls",
 		Usage:   "URLs for relay",
