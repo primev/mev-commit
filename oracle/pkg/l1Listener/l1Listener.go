@@ -195,7 +195,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				// End of changes needed to be done.
 				var builderPubKey string
 				l.logger.Info("querying relay", "block", b, "hash", header.ParentHash.Hex())
-				builderPubKey, err = l.relayQuerier.Query(int64(b), header.ParentHash.Hex())
+				builderPubKey, err = l.relayQuerier.Query(ctx, int64(b), header.ParentHash.Hex())
 				if err != nil {
 					l.logger.Info("block not found in relay, assuming out of PBS block", "block", b, "error", err)
 					builderPubKey = "" // Set a default value in case of failure
@@ -239,7 +239,7 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 }
 
 type RelayQuerier interface {
-	Query(blockNumber int64, blockHash string) (string, error)
+	Query(ctx context.Context, blockNumber int64, blockHash string) (string, error)
 }
 
 type RelayQueryEngine struct {
@@ -253,8 +253,7 @@ func NewRelayQueryEngine(relayUrls []string, logger *slog.Logger) RelayQuerier {
 		logger:    logger,
 	}
 }
-
-func (m *RelayQueryEngine) Query(blockNumber int64, blockHash string) (string, error) {
+func (m *RelayQueryEngine) Query(ctx context.Context, blockNumber int64, blockHash string) (string, error) {
 	var wg sync.WaitGroup
 	resultChan := make(chan string, len(m.relayUrls))
 
@@ -263,8 +262,15 @@ func (m *RelayQueryEngine) Query(blockNumber int64, blockHash string) (string, e
 		go func(url string) {
 			defer wg.Done()
 			fullUrl := fmt.Sprintf("%s/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d", url, blockNumber)
-			m.logger.Info("querying relay", "url", fullUrl)
-			resp, err := http.Get(fullUrl)
+			m.logger.Debug("querying relay", "url", fullUrl)
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullUrl, nil)
+			if err != nil {
+				m.logger.Error("failed to create request", "url", fullUrl, "error", err)
+				return
+			}
+
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				m.logger.Error("failed to fetch data from relay", "url", fullUrl, "error", err)
 				return
@@ -304,9 +310,13 @@ func (m *RelayQueryEngine) Query(blockNumber int64, blockHash string) (string, e
 		close(resultChan)
 	}()
 
-	for result := range resultChan {
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case result, ok := <-resultChan:
+		if !ok {
+			return "", errors.New("no matching block found")
+		}
 		return result, nil
 	}
-
-	return "", errors.New("no matching block found")
 }

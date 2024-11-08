@@ -150,7 +150,7 @@ func (t *testRelayQuerier) SetResponse(blockNumber int64, builderPubKey string) 
 	t.responses[blockNumber] = builderPubKey
 }
 
-func (t *testRelayQuerier) Query(blockNumber int64, blockHash string) (string, error) {
+func (t *testRelayQuerier) Query(ctx context.Context, blockNumber int64, blockHash string) (string, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if response, ok := t.responses[blockNumber]; ok {
