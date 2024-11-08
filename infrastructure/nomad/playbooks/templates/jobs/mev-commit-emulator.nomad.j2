@@ -76,7 +76,7 @@ job "{{ job.name }}" {
           {{ - range nomadService "relay-emulator" }}
             {{ if contains "http" .Tags }}
           EMULATOR_RELAY_URL="http://{{ .Address }}:{{ .Port }}"
-            {{ end }}
+            {{- end }}
           {{- end }}
           {% endraw %}
           {% if job.target_type == 'bidder' %}
