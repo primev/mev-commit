@@ -66,14 +66,13 @@ contract BaseDeploy is Script {
 
 contract DeployMainnet is BaseDeploy {
     address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
-
     IDelegationManager constant public DELEGATION_MANAGER = IDelegationManager(EigenMainnetReleaseConsts.DELEGATION_MANAGER);
     IEigenPodManager constant public EIGENPOD_MANAGER = IEigenPodManager(EigenMainnetReleaseConsts.EIGENPOD_MANAGER);
     IStrategyManager constant public STRATEGY_MANAGER = IStrategyManager(EigenMainnetReleaseConsts.STRATEGY_MANAGER);
     IAVSDirectory constant public AVS_DIRECTORY = IAVSDirectory(EigenMainnetReleaseConsts.AVS_DIRECTORY);
     address constant public FREEZE_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
     uint256 constant public UNFREEZE_FEE = 3 ether;
-    address constant public UNFREEZE_RECEIVER = MainnetConstants.PRECONF_ETH_ADDR;
+    address constant public UNFREEZE_RECEIVER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
     uint256 constant public UNFREEZE_PERIOD_BLOCKS = 12000; // ~ 1 day
     uint256 constant public OPERATOR_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
     uint256 constant public VALIDATOR_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
