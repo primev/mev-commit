@@ -217,7 +217,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// or the (still registered and non-blacklisted) operator of the validator pubkey.
     /// @notice This function allows the contract owner to combat a greifing scenario where an operator
     /// registers a validator pubkey that it does not control, own, or otherwise manage.
-    function deregisterValidators(bytes[] calldata blsPubkeys) external {
+    function deregisterValidators(bytes[] calldata blsPubkeys) external whenNotPaused {
         uint256 len = blsPubkeys.length;
         for (uint256 i = 0; i < len; ++i) {
             _deregisterValidator(blsPubkeys[i]);
@@ -227,7 +227,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Slashes validators and marks them for deregistration.
     /// @param blsPubkeys The L1 validator BLS public keys to slash.
     /// @param captureTimestamps block.timestamps of the latest finalized block that the blsPubkey was queried as "opted-in" by the oracle.
-    function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata captureTimestamps) external onlySlashOracle {
+    function slashValidators(bytes[] calldata blsPubkeys, uint256[] calldata captureTimestamps) external onlySlashOracle whenNotPaused {
         uint256 len = blsPubkeys.length;
         require(len == captureTimestamps.length, InvalidArrayLengths(len, captureTimestamps.length));
 
