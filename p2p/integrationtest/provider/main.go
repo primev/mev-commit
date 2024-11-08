@@ -138,7 +138,7 @@ func main() {
 	}
 
 	if *relay == "" {
-		fmt.Printf("please provide a valid relay address with the -relay flag\n")
+		fmt.Println("please provide a valid relay address with the -relay flag")
 		return
 	}
 
@@ -168,7 +168,7 @@ func main() {
 	blsPubkeyBytes := make([]byte, 48)
 	_, err = rand.Read(blsPubkeyBytes)
 	if err != nil {
-		logger.Error("failed to generate mock BLS public key", "err", err)
+		logger.Error("failed to generate mock BLS public key", "error", err)
 		return
 	}
 

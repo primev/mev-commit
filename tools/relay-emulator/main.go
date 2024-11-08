@@ -1,16 +1,19 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
 	"os"
+	"os/signal"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/primev/mev-commit/x/util"
@@ -187,8 +190,18 @@ func main() {
 				Handler: mux,
 			}
 
-			logger.Info("Starting server", "port", c.Int(optionHTTPPort.Name))
-			return server.ListenAndServe()
+			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+			defer cancel()
+
+			go func() {
+				logger.Info("Starting server", "port", c.Int(optionHTTPPort.Name))
+				if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					logger.Error("Failed to start server", "error", err)
+				}
+			}()
+
+			<-ctx.Done()
+			return server.Shutdown(context.Background())
 		},
 	}
 
