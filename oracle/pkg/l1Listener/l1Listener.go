@@ -192,21 +192,12 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 					l.logger.Error("failed to get header", "block", b, "error", err)
 					continue
 				}
-
 				// End of changes needed to be done.
 				var builderPubKey string
 				l.logger.Info("querying relay", "block", b, "hash", header.ParentHash.Hex())
-				for i := 0; i < 4; i++ {
-					builderPubKey, err = l.relayQuerier.Query(int64(b), header.ParentHash.Hex())
-					if err == nil {
-						break
-					}
-					l.logger.Info("block not found in relay, retrying", "block", b, "error", err, "attempt", i+1)
-					time.Sleep(500 * time.Millisecond)
-				}
-
+				builderPubKey, err = l.relayQuerier.Query(int64(b), header.ParentHash.Hex())
 				if err != nil {
-					l.logger.Info("block not found in relay", "block", b, "error", err)
+					l.logger.Info("block not found in relay, assuming out of PBS block", "block", b, "error", err)
 					builderPubKey = "" // Set a default value in case of failure
 				}
 
@@ -251,19 +242,19 @@ type RelayQuerier interface {
 	Query(blockNumber int64, blockHash string) (string, error)
 }
 
-type MiniRelayQueryEngine struct {
+type RelayQueryEngine struct {
 	relayUrls []string
 	logger    *slog.Logger
 }
 
-func NewMiniRelayQueryEngine(relayUrls []string, logger *slog.Logger) RelayQuerier {
-	return &MiniRelayQueryEngine{
+func NewRelayQueryEngine(relayUrls []string, logger *slog.Logger) RelayQuerier {
+	return &RelayQueryEngine{
 		relayUrls: relayUrls,
 		logger:    logger,
 	}
 }
 
-func (m *MiniRelayQueryEngine) Query(blockNumber int64, blockHash string) (string, error) {
+func (m *RelayQueryEngine) Query(blockNumber int64, blockHash string) (string, error) {
 	var wg sync.WaitGroup
 	resultChan := make(chan string, len(m.relayUrls))
 
