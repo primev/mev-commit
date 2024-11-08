@@ -1,25 +1,25 @@
 package crypto
 
 import (
-	"crypto/elliptic"
-	"errors"
+	"crypto/ecdsa"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
 
 func SerializeEciesPublicKey(pub *ecies.PublicKey) []byte {
-	return elliptic.MarshalCompressed(elliptic.P256(), pub.X, pub.Y)
+	ecdsaPub := &ecdsa.PublicKey{
+		Curve: pub.Curve,
+		X:     pub.X,
+		Y:     pub.Y,
+	}
+	return crypto.CompressPubkey(ecdsaPub)
 }
 
 func DeserializeEciesPublicKey(data []byte) (*ecies.PublicKey, error) {
-	x, y := elliptic.UnmarshalCompressed(elliptic.P256(), data)
-	if x == nil {
-		return nil, errors.New("invalid public key")
+	ecdsaPub, err := crypto.DecompressPubkey(data)
+	if err != nil {
+		return nil, err
 	}
-	return &ecies.PublicKey{
-		X:      x,
-		Y:      y,
-		Curve:  elliptic.P256(),
-		Params: ecies.ECIES_AES128_SHA256,
-	}, nil
+	return ecies.ImportECDSAPublic(ecdsaPub), nil
 }

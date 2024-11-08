@@ -2,13 +2,13 @@ package keysstore
 
 import (
 	"crypto/ecdh"
-	"crypto/elliptic"
 	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
 )
@@ -62,7 +62,7 @@ func eciesPrivateKeyToBytes(priv *ecies.PrivateKey) []byte {
 }
 
 func eciesPrivateKeyFromBytes(data []byte) *ecies.PrivateKey {
-	curve := elliptic.P256()
+	curve := crypto.S256()
 	priv := new(ecies.PrivateKey)
 	priv.PublicKey.Curve = curve
 	priv.D = new(big.Int).SetBytes(data)

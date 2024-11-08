@@ -2,11 +2,11 @@ package keysstore_test
 
 import (
 	"crypto/ecdh"
-	"crypto/elliptic"
 	"crypto/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	inmem "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
@@ -44,7 +44,7 @@ func TestECIESPrivateKey(t *testing.T) {
 	assert.Nil(t, retrievedKey)
 
 	// Generate ECIES private key
-	privateKeyECIES, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+	privateKeyECIES, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 	assert.NoError(t, err)
 
 	// Set and get ECIES private key

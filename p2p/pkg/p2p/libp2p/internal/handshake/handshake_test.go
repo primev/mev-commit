@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/ecdh"
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/libp2p/go-libp2p/core"
 	"github.com/primev/mev-commit/p2p/pkg/keysstore"
@@ -44,13 +44,13 @@ func TestHandshake(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ok", func(t *testing.T) {
-		privKey1, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		privKey1, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 		if err != nil {
 			t.Fatal(err)
 		}
 		address1 := common.HexToAddress("0x1")
 		ks1 := mockkeysigner.NewMockKeySigner(privKey1, address1)
-		privKey2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		privKey2, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +66,7 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		prvKey1, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		prvKey1, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -101,7 +101,7 @@ func TestHandshake(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		prvKey2, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		prvKey2, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
