@@ -71,7 +71,7 @@ contract DeployMainnet is BaseDeploy {
     IStrategyManager constant public STRATEGY_MANAGER = IStrategyManager(EigenMainnetReleaseConsts.STRATEGY_MANAGER);
     IAVSDirectory constant public AVS_DIRECTORY = IAVSDirectory(EigenMainnetReleaseConsts.AVS_DIRECTORY);
     address constant public FREEZE_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
-    uint256 constant public UNFREEZE_FEE = 3 ether;
+    uint256 constant public UNFREEZE_FEE = 1 ether;
     address constant public UNFREEZE_RECEIVER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
     uint256 constant public UNFREEZE_PERIOD_BLOCKS = 12000; // ~ 1 day
     uint256 constant public OPERATOR_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
