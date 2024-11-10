@@ -74,9 +74,9 @@ contract DeployMainnet is BaseDeploy {
     uint256 constant public UNFREEZE_FEE = 1 ether;
     address constant public UNFREEZE_RECEIVER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
     uint256 constant public UNFREEZE_PERIOD_BLOCKS = 12000; // ~ 1 day
-    uint256 constant public OPERATOR_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
-    uint256 constant public VALIDATOR_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
-    uint256 constant public LST_RESTARKER_DEREG_PERIOD_BLOCKS = 12000; // ~ 1 day
+    uint256 constant public OPERATOR_DEREG_PERIOD_BLOCKS = 50000; // 50k * 12s ~= 1 week, which suffices for short-term manual slashing.
+    uint256 constant public VALIDATOR_DEREG_PERIOD_BLOCKS = 50000; // 50k * 12s ~= 1 week, which suffices for short-term manual slashing.
+    uint256 constant public LST_RESTARKER_DEREG_PERIOD_BLOCKS = 50000; // 50k * 12s ~= 1 week, which suffices for short-term manual slashing.
 
     function run() external {
         require(block.chainid == 1, "must deploy on mainnet");
