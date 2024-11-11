@@ -59,7 +59,7 @@ func NewProviderClient(
 			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
-			logger.Error("failed to dial grpc server", "error", err)
+			logger.Warn("failed to dial grpc server", "error", err)
 			cancel()
 			continue
 		}
