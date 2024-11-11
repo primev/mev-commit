@@ -2,9 +2,9 @@ package libp2p
 
 import (
 	"crypto/ecdh"
-	"crypto/elliptic"
 	"crypto/rand"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 )
@@ -38,7 +38,7 @@ func getOrSetECIESPublicKey(store Store) (*ecies.PublicKey, error) {
 		return nil, err
 	}
 	if prvKey == nil {
-		prvKey, err = ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		prvKey, err = ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 		if err != nil {
 			return nil, err
 		}

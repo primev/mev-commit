@@ -162,7 +162,11 @@ func (lfm *LeaderFollowerManager) leaderWork(ctx context.Context) error {
 	// if has messages to process, return to wait for the signal to be a leader
 	if isHaveMessagesToProcess {
 		lfm.logger.Info("Leader: State is not synchronized, waiting for follower to catch up")
-		lfm.leaderProc.Stop()
+		err := lfm.leaderProc.Stop()
+		if err != nil {
+			lfm.logger.Error("Leader: Failed to stop leader election", "error", err)
+			return err
+		}
 		return nil
 	}
 

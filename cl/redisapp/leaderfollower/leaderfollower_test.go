@@ -149,7 +149,6 @@ func TestLeaderWork_StepBuildBlock(t *testing.T) {
 		Return([]redis.XStream{}, nil).
 		AnyTimes()
 
-
 	mockSM.EXPECT().GetBlockBuildState(ctx).Return(types.BlockBuildState{CurrentStep: types.StepBuildBlock}).AnyTimes()
 	mockBB.EXPECT().GetPayload(ctx).Return(nil).AnyTimes()
 	mockSM.EXPECT().ResetBlockState(ctx).Return(nil).AnyTimes()

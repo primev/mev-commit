@@ -96,6 +96,9 @@ func (app *MevCommitChain) Stop() {
 	// Cancel the context to signal all goroutines to stop
 	app.cancel()
 	app.stateManager.Stop()
-	app.lfm.WaitForGoroutinesToStop()
+	err := app.lfm.WaitForGoroutinesToStop()
+	if err != nil {
+		app.logger.Error("Error waiting for goroutines to stop", "error", err)
+	}
 	app.logger.Info("MevCommitChain stopped gracefully")
 }

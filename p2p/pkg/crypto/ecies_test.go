@@ -1,15 +1,15 @@
 package crypto
 
 import (
-	"crypto/elliptic"
 	"crypto/rand"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
 
 func TestSerializeEciesPublicKey(t *testing.T) {
-	privKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+	privKey, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		t.Fatalf("Failed to generate ECIES key: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestSerializeEciesPublicKey(t *testing.T) {
 }
 
 func TestDeserializeEciesPublicKey(t *testing.T) {
-	privKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+	privKey, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		t.Fatalf("Failed to generate ECIES key: %v", err)
 	}

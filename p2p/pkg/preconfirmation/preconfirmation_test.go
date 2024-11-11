@@ -3,7 +3,6 @@ package preconfirmation_test
 import (
 	"context"
 	"crypto/ecdh"
-	"crypto/elliptic"
 	"crypto/rand"
 	"io"
 	"log/slog"
@@ -14,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
@@ -133,7 +133,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 			Type:       p2p.PeerTypeBidder,
 		}
 
-		encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+		encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
