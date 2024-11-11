@@ -211,7 +211,7 @@
       register: keystore_generator
       when: build_artifacts
 
-    - name: Build Artifacts Async
+    - name: Build Artifacts
       ansible.builtin.shell: |
         SECRETS="{{ dist_dir }}/{{ item.name }}_secrets.json"
         SIGNERS="{{ dist_dir }}/signers.txt"
@@ -413,25 +413,9 @@
       loop: "{{ jobs }}"
       loop_control:
         label: "{{ item.name }}"
-      async: 600
-      poll: 0
       delegate_to: localhost
       run_once: true
       register: build_artifacts_async
-      when: build_artifacts
-
-    - name: Wait for Build Artifacts Async to Complete
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      register: build_artifacts_async_result
-      until: build_artifacts_async_result.finished
-      retries: 200
-      delay: 3
-      loop: "{{ build_artifacts_async.results }}"
-      loop_control:
-        label: "{{ item.item.name }}"
-      delegate_to: localhost
-      run_once: true
       when: build_artifacts
 
     - name: Assemble config.toml for Geth Static Nodes

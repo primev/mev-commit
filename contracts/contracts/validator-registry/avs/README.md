@@ -107,6 +107,16 @@ Freezing is the mechanism that punishes a validator prior to eigenlayer core con
 
 Frozen validators (those who haven't yet paid the unfreeze fee) are **able, but not allowed** to register with the vanilla registry or middleware registry. In these scenarios, the frozen validator will be immediately slashed by the oracle via the relevant contract, directly after registration. The off-chain oracle logic **must** monitor registrations from the vanilla registry and middleware registry, along with freeze status from the MevCommitAVS. The oracle will slash relevant frozen validator(s) if any of them attempt to maliciously register outside the MevCommitAVS, without paying the unfreeze fee.
 
+## Configuration of Deregistration Periods
+
+`operatorDeregPeriodBlocks`, `validatorDeregPeriodBlocks`, and `lstRestakerDeregPeriodBlocks` must be set such that a mev-commit bidder knows all _currently opted-in_ block proposers from the current epoch, and next epoch, must deliver commitments, or are guaranteed freezable.
+
+For similar reasoning to the `slashPeriodSeconds` configuration in the [middleware README](../middleware/README.md#configuration-of-slashperiodseconds), the minimum value for these deregistration periods is:
+
+`6 L1 epochs` + `oracleProcessingPeriod`
+
+A recommended value to assume for `oracleProcessingPeriod` is 60 minutes, although longer is always beneficial as a buffer for oracle freeze transaction inclusion.
+
 ## Design Intentions
 
 When looking through this design doc one may ask, _why do validators and LST restakers have to delegate to an Operator through the eigenlayer core contracts, AND separately register with the AVS contract?_
