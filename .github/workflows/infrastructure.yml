@@ -243,7 +243,7 @@ jobs:
           --bootnode-rpc-urls 127.0.0.1:13524 \
           --provider-rpc-urls 127.0.0.1:13624 \
           --bidder-rpc-urls 127.0.0.1:13724 \
-          --relay-endpoint 127.0.0.1:8082
+          --relay-endpoint http://127.0.0.1:8082
 
       - name: Notify - Deployment Successful
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' && success() }}
