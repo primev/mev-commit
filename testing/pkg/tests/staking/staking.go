@@ -1,11 +1,14 @@
 package staking
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
 	"slices"
 
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
@@ -15,10 +18,19 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
+type StakingConfig struct {
+	RelayURL string
+}
+
+func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error {
 	// Get all providers
 	providers := cluster.Providers()
 	logger := cluster.Logger().With("test", "staking")
+
+	stakingCfg, ok := cfg.(StakingConfig)
+	if !ok {
+		return fmt.Errorf("invalid staking config type")
+	}
 
 	registrations := make(chan *providerregistry.ProviderregistryProviderRegistered)
 	sub, err := cluster.Events().Subscribe(
@@ -106,6 +118,26 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 			return fmt.Errorf("invalid stake amount returned: %s", resp.Amount)
 		}
 
+		reqBytes, err := json.Marshal([]string{hex.EncodeToString(blsPubkeyBytes)})
+		if err != nil {
+			l.Error("failed to create bls key upload req", "error", err)
+			return fmt.Errorf("failed to marshal bls keys: %w", err)
+		}
+		relayResp, err := http.Post(
+			fmt.Sprintf("%s/register", stakingCfg.RelayURL),
+			"application/json",
+			bytes.NewReader(reqBytes),
+		)
+		if err != nil {
+			l.Error("failed to post to relay", "error", err)
+			return fmt.Errorf("failed to post to relay: %w", err)
+		}
+
+		if relayResp.StatusCode != http.StatusOK {
+			l.Error("failed to post to relay", "status", relayResp.Status)
+			return fmt.Errorf("invalid status code from relay: %d", relayResp.StatusCode)
+		}
+
 		getStakeResp, err := providerAPI.GetStake(ctx, &providerapiv1.EmptyMessage{})
 		if err != nil {
 			l.Error("failed to get stake", "error", err)
@@ -113,7 +145,11 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 		}
 
 		if getStakeResp.Amount != stakeAmount.String() {
-			l.Error("invalid stake amount returned on get", "returned", getStakeResp.Amount, "expected", stakeAmount.String())
+			l.Error(
+				"invalid stake amount returned on get",
+				"returned", getStakeResp.Amount,
+				"expected", stakeAmount.String(),
+			)
 			return fmt.Errorf("invalid stake amount returned: %s", getStakeResp.Amount)
 		}
 	}

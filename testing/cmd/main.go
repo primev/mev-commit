@@ -12,6 +12,7 @@ import (
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
 	"github.com/primev/mev-commit/testing/pkg/tests"
 	"github.com/primev/mev-commit/testing/pkg/tests/bridge"
+	"github.com/primev/mev-commit/testing/pkg/tests/staking"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
@@ -39,6 +40,19 @@ var (
 		Action: func(_ *cli.Context, s string) error {
 			if _, err := url.Parse(s); err != nil {
 				return fmt.Errorf("invalid L1 RPC endpoint: %w", err)
+			}
+			return nil
+		},
+	}
+
+	optionRelayEndpoint = &cli.StringFlag{
+		Name:     "relay-endpoint",
+		Usage:    "Mock relay endpoint",
+		Required: true,
+		EnvVars:  []string{"MEV_COMMIT_TEST_RELAY_ENDPOINT"},
+		Action: func(_ *cli.Context, s string) error {
+			if _, err := url.Parse(s); err != nil {
+				return fmt.Errorf("invalid relay endpoint: %w", err)
 			}
 			return nil
 		},
@@ -238,6 +252,7 @@ func main() {
 		Flags: []cli.Flag{
 			optionSettlementRPCEndpoint,
 			optionL1RPCEndpoint,
+			optionRelayEndpoint,
 			optionProviderRegistryAddress,
 			optionBidderRegistryAddress,
 			optionPreconfContractAddress,
@@ -304,12 +319,16 @@ func run(c *cli.Context) error {
 	for _, tc := range tests.TestCases {
 		logger.Info("running test case", "name", tc.Name)
 		var cfg any
-		if tc.Name == "bridge" {
+		switch tc.Name {
+		case "bridge":
 			cfg, err = createBridgeTestConfig(c)
 			if err != nil {
 				logger.Error("failed to create bridge test config", "error", err)
 				return fmt.Errorf("failed to create bridge test config: %w", err)
 			}
+		case "staking":
+			cfg = createStakingTestConfig(c)
+		default:
 		}
 		if err := tc.Run(c.Context, o, cfg); err != nil {
 			logger.Error("test case failed", "name", tc.Name, "error", err)
@@ -348,4 +367,10 @@ func createBridgeTestConfig(c *cli.Context) (bridge.BridgeTestConfig, error) {
 		L1ContractAddr:         common.HexToAddress(c.String(optionL1GatewayContractAddr.Name)),
 		SettlementContractAddr: common.HexToAddress(c.String(optionSettlementGatewayContractAddr.Name)),
 	}, nil
+}
+
+func createStakingTestConfig(c *cli.Context) staking.StakingConfig {
+	return staking.StakingConfig{
+		RelayURL: c.String(optionRelayEndpoint.Name),
+	}
 }
