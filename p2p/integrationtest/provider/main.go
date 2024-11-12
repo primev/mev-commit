@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -164,26 +166,46 @@ func main() {
 		return
 	}
 	defer providerClient.Close()
-	blsPubkeyBytes, err := hex.DecodeString("abf1ad5ec0512cb1adabe457882fa550b4935f1f7df9658e46af882049ec16da698c323af8c98c3f1f9570ebc4042a83")
-	if err != nil {
-		logger.Error("failed to decode BLS public key", "error", err)
+
+	blsPubKey := make([]byte, 48)
+	if _, err = crand.Read(blsPubKey); err != nil {
+		logger.Error("failed to generate BLS public key", "error", err)
 		return
 	}
 
-	err = providerClient.CheckAndStake([]string{hex.EncodeToString(blsPubkeyBytes)})
-	if err != nil {
+	payload := hex.EncodeToString(blsPubKey)
+	if err = providerClient.CheckAndStake([]string{payload}); err != nil {
 		logger.Error("failed to check and stake", "error", err)
 		return
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/register", *relay), "application/json", bytes.NewReader(blsPubkeyBytes))
+	body, err := json.Marshal([]string{payload})
+	if err != nil {
+		logger.Error("failed to marshal body", "error", err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/%s", *relay, url.PathEscape("register")),
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		logger.Error("failed to create request", "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		logger.Error("failed to post to relay", "error", err)
 		return
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		logger.Error("failed to post to relay", "status", resp.Status)
+	if res.StatusCode != http.StatusOK {
+		logger.Error("failed to post to relay", "status", res.Status)
 		return
 	}
 
