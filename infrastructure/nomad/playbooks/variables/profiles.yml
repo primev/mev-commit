@@ -208,6 +208,7 @@ jobs:
     count: 1
     ports:
       - http:
+          static: 8082
           to: 8080
     env:
       log-level: "info"
