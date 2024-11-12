@@ -638,7 +638,7 @@ func NewNode(opts *Options) (*Node, error) {
 			grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		)
 		if err != nil {
-			opts.Logger.Error("failed to dial grpc server", "error", err)
+			opts.Logger.Warn("failed to dial grpc server", "error", err)
 			cancel()
 			continue
 		}
