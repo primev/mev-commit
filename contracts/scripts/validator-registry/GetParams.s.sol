@@ -42,7 +42,9 @@ contract GetMevCommitAVSParams is Script {
         bool isPaused = MevCommitAVS(payable(avsAddr)).paused();
         console.log("MevCommitAVS isPaused:", isPaused);
         address[] memory restakeableStrategies = MevCommitAVS(payable(avsAddr)).getRestakeableStrategies();
-        for (uint256 i = 0; i < restakeableStrategies.length; i++) {
+        uint256 len = restakeableStrategies.length;
+        console.log("MevCommitAVS restakeableStrategies length:", len);
+        for (uint256 i = 0; i < len; ++i) {
             console.log("MevCommitAVS restakeableStrategy:", restakeableStrategies[i]);
         }
         address freezeOracle = MevCommitAVSStorage(payable(avsAddr)).freezeOracle();
