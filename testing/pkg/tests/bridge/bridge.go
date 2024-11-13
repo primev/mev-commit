@@ -50,7 +50,9 @@ func RunBridge(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) 
 		logger.Error("failed to create transfer to settlement", "error", err)
 		return err
 	}
-	statusC := tSettlement.Do(ctx)
+	cctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
+	statusC := tSettlement.Do(cctx)
 	for status := range statusC {
 		if status.Error != nil {
 			logger.Error("failed transfer to settlement", "error", status.Error)
@@ -84,6 +86,8 @@ func RunBridge(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) 
 		logger.Error("failed to create transfer to L1", "error", err)
 		return err
 	}
+	cctx, cancel = context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
 	statusC = tL1.Do(ctx)
 	for status := range statusC {
 		if status.Error != nil {
