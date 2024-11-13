@@ -14,7 +14,7 @@ import {console} from "forge-std/console.sol";
 
 contract BridgeBase is Script {
     // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
-    uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether;
+    uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 50000 ether;
 
     // Amount of ETH to initially fund the relayer account on both chains.
     uint256 public constant RELAYER_INITIAL_FUNDING = 1 ether;
@@ -26,7 +26,7 @@ contract BridgeBase is Script {
     // AND initially fund the relayer, all on mev-commit chain.
     // This amount of ETH must be initially locked in the L1 gateway contract to ensure a 1:1 peg
     // between mev-commit chain ETH and L1 ETH.
-    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING + ORACLE_INITIAL_FUNDING;
+    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 10000 ether + RELAYER_INITIAL_FUNDING + ORACLE_INITIAL_FUNDING;
 
     // Amount of ETH required on L1 to initialize the L1 gateway, make transfer calls, and initially fund the relayer on L1.
     uint256 public constant L1_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING;

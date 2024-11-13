@@ -82,7 +82,7 @@ job "{{ job.name }}" {
             --password "${KEYSTORE_PASSWORD}" \
             --priority-gas-price 2000000000 \
             --gas-price 5000000000 \
-            --value 10ether \
+            --value 1000ether \
             --rpc-url http://{{ .Address }}:{{ .Port }} \
             "${ADDRESS}"
 
