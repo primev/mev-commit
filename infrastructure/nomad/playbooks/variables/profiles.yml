@@ -564,6 +564,7 @@ jobs:
           name: oracle_register_provider_api_auth_token
       - keystores:
           oracle_keystore:
+            allocation: true
     dependencies:
       contracts_deployer: *contracts_deployer_job
     count: 1
