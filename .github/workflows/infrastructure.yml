@@ -215,7 +215,6 @@ jobs:
             ${CLUSTER_DATADOG_KEY_FLAG} \
             ${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG} \
             ${CLUSTER_DEBUG_FLAG} \
-            --l1-rpc-urls https://eth-holesky.g.alchemy.com/v2/WqNEQeeexFLQwECjxCPpdep0uvCgn8Yj
           END_TIME="$(date +%s)"
           echo "DEPLOY_DURATION=$(date -ud "@$((END_TIME - START_TIME))" +'%H:%M:%S')" >> ${GITHUB_ENV}
         working-directory: infrastructure/nomad
