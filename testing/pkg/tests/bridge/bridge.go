@@ -88,7 +88,7 @@ func RunBridge(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) 
 	}
 	cctx, cancel = context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
-	statusC = tL1.Do(ctx)
+	statusC = tL1.Do(cctx)
 	for status := range statusC {
 		if status.Error != nil {
 			logger.Error("failed transfer to L1", "error", status.Error)
