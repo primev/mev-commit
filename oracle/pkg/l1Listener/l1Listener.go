@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -253,15 +255,17 @@ func NewRelayQueryEngine(relayUrls []string, logger *slog.Logger) RelayQuerier {
 		logger:    logger,
 	}
 }
+
 func (m *RelayQueryEngine) Query(ctx context.Context, blockNumber int64, blockHash string) (string, error) {
 	var wg sync.WaitGroup
 	resultChan := make(chan string, len(m.relayUrls))
 
-	for _, url := range m.relayUrls {
+	for _, u := range m.relayUrls {
 		wg.Add(1)
-		go func(url string) {
+		go func(u string) {
 			defer wg.Done()
-			fullUrl := fmt.Sprintf("%s/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d", url, blockNumber)
+			path := url.PathEscape(fmt.Sprintf("/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d", blockNumber))
+			fullUrl := fmt.Sprintf("%s%s", u, path)
 			m.logger.Debug("querying relay", "url", fullUrl)
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullUrl, nil)
@@ -296,13 +300,17 @@ func (m *RelayQueryEngine) Query(ctx context.Context, blockNumber int64, blockHa
 					m.logger.Error("block_number is not a string", "block_number", item["block_number"])
 					continue
 				}
-
-				if blockNum == fmt.Sprintf("%d", blockNumber) && item["block_hash"] == blockHash {
+				blockNumInt, err := strconv.Atoi(blockNum)
+				if err != nil {
+					m.logger.Error("failed to convert block_number to int", "block_number", blockNum, "error", err)
+					continue
+				}
+				if blockNumInt == int(blockNumber) && item["block_hash"] == blockHash {
 					resultChan <- fmt.Sprintf("%v", item["builder_pubkey"])
 					return
 				}
 			}
-		}(url)
+		}(u)
 	}
 
 	go func() {
