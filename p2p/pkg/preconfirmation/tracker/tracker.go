@@ -191,7 +191,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				return fmt.Errorf("event subscription error: %w", err)
 			case newL1Block := <-t.newL1Blocks:
 				if err := t.handleNewL1Block(egCtx, newL1Block); err != nil {
-					return err
+					t.logger.Error("failed handling new block", "error", err)
 				}
 				t.triggerOpenCommitments()
 			}
@@ -208,7 +208,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				return fmt.Errorf("event subscription error: %w", err)
 			case ec := <-t.unopenedCmts:
 				if err := t.handleUnopenedCommitmentStored(egCtx, ec); err != nil {
-					return err
+					t.logger.Error("failed handling unopened commitment", "error", err)
 				}
 			}
 		}
@@ -270,7 +270,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			for _, winner := range winners {
 				if err := t.openCommitments(egCtx, winner); err != nil {
 					t.logger.Error("failed to open commitments", "error", err)
-					return err
+					continue
 				}
 			}
 		}
@@ -291,7 +291,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 					return fmt.Errorf("event subscription error: %w", err)
 				case cs := <-t.commitments:
 					if err := t.handleOpenedCommitmentStored(egCtx, cs); err != nil {
-						return err
+						t.logger.Error("failed to handle opened commitment", "error", err)
 					}
 				}
 			}
@@ -464,7 +464,8 @@ func (t *Tracker) clearCommitments(ctx context.Context) error {
 		}
 		winners, err := t.store.BlockWinners()
 		if err != nil {
-			return err
+			t.logger.Error("failed to get block winners", "error", err)
+			continue
 		}
 
 		if len(winners) == 0 {
@@ -474,6 +475,11 @@ func (t *Tracker) clearCommitments(ctx context.Context) error {
 		// clear commitment indexes for all the blocks before the oldest winner
 		err = t.store.ClearCommitmentIndexes(winners[0].BlockNumber)
 		if err != nil {
+			t.logger.Error(
+				"failed to clear older commitments",
+				"block", winners[0].BlockNumber,
+				"error", err,
+			)
 			return err
 		}
 

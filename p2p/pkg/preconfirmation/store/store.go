@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -142,7 +143,7 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 	blkNumBuf, err := s.st.Get(cmtIndexKey(cDigest[:]))
 	s.mu.RUnlock()
 	switch {
-	case err == storage.ErrKeyNotFound:
+	case errors.Is(err, storage.ErrKeyNotFound):
 		// this would happen for most of the commitments as the node only
 		// stores the commitments it is involved in.
 		return nil
