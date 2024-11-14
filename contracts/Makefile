@@ -20,3 +20,9 @@ run-withdraw-example:
 
 run-slash-example:
 	forge script scripts/validator-registry/ValidatorExampleScript.s.sol:SlashExample --rpc-url http://localhost:8545 --private-key 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d --via-ir --broadcast
+
+get-vanilla-registry-params:
+	forge script scripts/validator-registry/GetParams.s.sol:GetVanillaRegistryParams --via-ir --rpc-url https://eth.llamarpc.com
+
+get-mev-commit-avs-params:
+	forge script scripts/validator-registry/GetParams.s.sol:GetMevCommitAVSParams --via-ir --rpc-url https://eth.llamarpc.com
