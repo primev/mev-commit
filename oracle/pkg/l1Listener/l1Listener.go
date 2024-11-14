@@ -264,37 +264,43 @@ func (m *RelayQueryEngine) Query(ctx context.Context, blockNumber int64, blockHa
 		wg.Add(1)
 		go func(u string) {
 			defer wg.Done()
-			queryPath := fmt.Sprintf(
-				"%s/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d",
-				u,
-				blockNumber,
-			)
-			parsedURL := url.PathEscape(queryPath)
-			m.logger.Debug("querying relay", "url", parsedURL)
-
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL, nil)
+			apiPath := "/relay/v1/data/bidtraces/proposer_payload_delivered"
+			baseURL, err := url.Parse(u)
 			if err != nil {
-				m.logger.Error("failed to create request", "url", parsedURL, "error", err)
+				m.logger.Error("failed to parse relay URL", "url", u, "error", err)
+				return
+			}
+			baseURL.Path = baseURL.Path + apiPath
+
+			query := url.Values{}
+			query.Add("block_number", strconv.Itoa(int(blockNumber)))
+
+			baseURL.RawQuery = query.Encode()
+			m.logger.Debug("querying relay", "url", baseURL.String())
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+			if err != nil {
+				m.logger.Error("failed to create request", "url", baseURL.String(), "error", err)
 				return
 			}
 
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				m.logger.Error("failed to fetch data from relay", "url", parsedURL, "error", err)
+				m.logger.Error("failed to fetch data from relay", "url", baseURL.String(), "error", err)
 				return
 			}
 			defer resp.Body.Close()
-			m.logger.Info("received response from relay", "url", parsedURL, "status", resp.Status)
+			m.logger.Info("received response from relay", "url", baseURL.String(), "status", resp.Status)
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				m.logger.Error("failed to read response body", "url", parsedURL, "error", err)
+				m.logger.Error("failed to read response body", "url", baseURL.String(), "error", err)
 				return
 			}
 
 			var data []map[string]interface{}
 			if err := json.Unmarshal(body, &data); err != nil {
-				m.logger.Error("failed to unmarshal response", "url", parsedURL, "error", err)
+				m.logger.Error("failed to unmarshal response", "url", baseURL.String(), "error", err)
 				return
 			}
 
