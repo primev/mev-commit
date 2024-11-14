@@ -264,33 +264,37 @@ func (m *RelayQueryEngine) Query(ctx context.Context, blockNumber int64, blockHa
 		wg.Add(1)
 		go func(u string) {
 			defer wg.Done()
-			path := url.PathEscape(fmt.Sprintf("/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d", blockNumber))
-			fullUrl := fmt.Sprintf("%s%s", u, path)
-			m.logger.Debug("querying relay", "url", fullUrl)
+			queryPath := fmt.Sprintf(
+				"%s/relay/v1/data/bidtraces/proposer_payload_delivered?block_number=%d",
+				u,
+				blockNumber,
+			)
+			parsedURL := url.PathEscape(queryPath)
+			m.logger.Debug("querying relay", "url", parsedURL)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullUrl, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsedURL, nil)
 			if err != nil {
-				m.logger.Error("failed to create request", "url", fullUrl, "error", err)
+				m.logger.Error("failed to create request", "url", parsedURL, "error", err)
 				return
 			}
 
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
-				m.logger.Error("failed to fetch data from relay", "url", fullUrl, "error", err)
+				m.logger.Error("failed to fetch data from relay", "url", parsedURL, "error", err)
 				return
 			}
 			defer resp.Body.Close()
-			m.logger.Info("received response from relay", "url", fullUrl, "status", resp.Status)
+			m.logger.Info("received response from relay", "url", parsedURL, "status", resp.Status)
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				m.logger.Error("failed to read response body", "url", fullUrl, "error", err)
+				m.logger.Error("failed to read response body", "url", parsedURL, "error", err)
 				return
 			}
 
 			var data []map[string]interface{}
 			if err := json.Unmarshal(body, &data); err != nil {
-				m.logger.Error("failed to unmarshal response", "url", fullUrl, "error", err)
+				m.logger.Error("failed to unmarshal response", "url", parsedURL, "error", err)
 				return
 			}
 
