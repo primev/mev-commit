@@ -81,7 +81,7 @@ contract DeployMainnet is BaseDeploy {
     function run() external {
         require(block.chainid == 1, "must deploy on mainnet");
         vm.startBroadcast();
-        address[] memory restakeableStrategies = new address[](11);
+        address[] memory restakeableStrategies = new address[](13);
         restakeableStrategies[0] = EigenMainnetReleaseConsts.STRATEGY_BASE_CBETH;
         restakeableStrategies[1] = EigenMainnetReleaseConsts.STRATEGY_BASE_STETH;
         restakeableStrategies[2] = EigenMainnetReleaseConsts.STRATEGY_BASE_RETH;
