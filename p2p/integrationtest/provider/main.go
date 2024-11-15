@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	crand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -9,6 +12,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -67,6 +71,11 @@ var (
 		errorProbabilityFlagName,
 		20,
 		"The probability of returning an error when sending a bid response",
+	)
+	relay = flag.String(
+		"relay",
+		"",
+		"Relay address",
 	)
 )
 
@@ -130,6 +139,11 @@ func main() {
 		return
 	}
 
+	if *relay == "" {
+		fmt.Println("please provide a valid relay address with the -relay flag")
+		return
+	}
+
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(receivedBids, sentBids)
 
@@ -153,9 +167,45 @@ func main() {
 	}
 	defer providerClient.Close()
 
-	err = providerClient.CheckAndStake()
-	if err != nil {
+	blsPubKey := make([]byte, 48)
+	if _, err = crand.Read(blsPubKey); err != nil {
+		logger.Error("failed to generate BLS public key", "error", err)
+		return
+	}
+
+	payload := hex.EncodeToString(blsPubKey)
+	if err = providerClient.CheckAndStake([]string{payload}); err != nil {
 		logger.Error("failed to check and stake", "error", err)
+		return
+	}
+
+	body, err := json.Marshal([]string{payload})
+	if err != nil {
+		logger.Error("failed to marshal body", "error", err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s/%s", *relay, url.PathEscape("register")),
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		logger.Error("failed to create request", "error", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		logger.Error("failed to post to relay", "error", err)
+		return
+	}
+
+	if res.StatusCode != http.StatusOK {
+		logger.Error("failed to post to relay", "status", res.Status)
 		return
 	}
 

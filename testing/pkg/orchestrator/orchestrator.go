@@ -131,7 +131,7 @@ func newNode(rpcAddr string, logger *slog.Logger) (any, error) {
 			grpc.WithTransportCredentials(e.credential),
 		)
 		if err != nil {
-			logger.Error("failed to dial grpc server", "error", err)
+			logger.Warn("failed to dial grpc server", "error", err)
 			continue
 		}
 

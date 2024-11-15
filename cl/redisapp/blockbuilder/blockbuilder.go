@@ -18,7 +18,6 @@ import (
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
 	"github.com/vmihailenco/msgpack/v5"
-	"golang.org/x/exp/rand"
 )
 
 const maxAttempts = 3
@@ -319,21 +318,6 @@ func isInvalid(status engine.PayloadStatusV1) (bool, error) {
 
 func isSyncing(status engine.PayloadStatusV1) bool {
 	return status.Status == engine.SYNCING || status.Status == engine.ACCEPTED
-}
-
-// temp function for testing
-func sometimesFails() error {
-	rand.Seed(uint64(time.Now().UnixNano()))
-
-	chance := rand.Intn(5) // 0, 1, 2, 3, 4
-
-	if chance == 0 {
-		// Fail 1 out of 5 times (when chance == 0)
-		return errors.New("failed: 1 in 5 chance")
-	}
-
-	// Otherwise succeed
-	return nil
 }
 
 func (bb *BlockBuilder) FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error {

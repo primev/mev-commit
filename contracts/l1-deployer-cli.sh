@@ -6,10 +6,13 @@ deploy_avs_flag=false
 deploy_middleware_flag=false
 deploy_router_flag=false
 skip_release_verification_flag=false
+resume_flag=false
 wallet_type=""
 chain=""
 chain_id=0
 deploy_contract=""
+priority_gas_price=""
+with_gas_price=""
 
 help() {
     echo "Usage:"
@@ -32,6 +35,9 @@ help() {
     echo
     echo "Optional Options:"
     echo "  --skip-release-verification        Skip the GitHub release verification step."
+    echo "  --resume                           Resume the deployment process if previously interrupted."
+    echo "  --priority-gas-price <price>       Sets the priority gas price for EIP1559 transactions. Useful for when gas prices are volatile and you want to get your transaction included."
+    echo "  --with-gas-price <price>           Sets the gas price for broadcasted legacy transactions, or the max fee for broadcasted EIP1559 transactions."
     echo "  --help                             Display this help message."
     echo
     echo "Notes:"
@@ -53,10 +59,10 @@ help() {
     echo "    RPC_URL            RPC URL for the deployment chain."
     echo
     echo "Examples:"
-    echo "  $0 deploy-all --chain mainnet --keystore"
-    echo "  $0 --ledger deploy-avs --chain holesky"
-    echo "  $0 --chain holesky deploy-middleware --trezor"
-    echo
+    echo "  $0 deploy-all --chain mainnet --keystore --priority-gas-price 2000000000 --with-gas-price 5000000000"
+    echo "  $0 --ledger deploy-avs --chain holesky --priority-gas-price 2000000000 --with-gas-price 5000000000"
+    echo "  $0 --chain holesky deploy-middleware --trezor --priority-gas-price 2000000000 --with-gas-price 5000000000"
+    echo "  $0 --chain mainnet --keystore --resume --priority-gas-price 2000000000 --with-gas-price 5000000000"
     exit 1
 }
 
@@ -132,6 +138,10 @@ parse_args() {
                 skip_release_verification_flag=true
                 shift
                 ;;
+            --resume)
+                resume_flag=true
+                shift
+                ;;
             --keystore)
                 if [[ -n "$wallet_type" ]]; then
                     echo "Error: Multiple wallet types specified. Please specify only one of --keystore, --ledger, or --trezor."
@@ -155,6 +165,22 @@ parse_args() {
                 fi
                 wallet_type="trezor"
                 shift
+                ;;
+            --priority-gas-price)
+                if [[ -z "$2" ]]; then
+                    echo "Error: --priority-gas-price requires an argument."
+                    exit 1
+                fi
+                priority_gas_price="$2"
+                shift 2
+                ;;
+            --with-gas-price)
+                if [[ -z "$2" ]]; then
+                    echo "Error: --with-gas-price requires an argument."
+                    exit 1
+                fi
+                with_gas_price="$2"
+                shift 2
                 ;;
             --help)
                 help
@@ -308,6 +334,18 @@ deploy_contract_generic() {
     forge_args+=("--use" "0.8.26")
     forge_args+=("--broadcast")
     forge_args+=("--verify")
+    
+    if [[ -n "$priority_gas_price" ]]; then
+        forge_args+=("--priority-gas-price" "${priority_gas_price}")
+    fi
+
+    if [[ -n "$with_gas_price" ]]; then
+        forge_args+=("--with-gas-price" "${with_gas_price}")
+    fi
+
+    if [[ "$resume_flag" == true ]]; then
+        forge_args+=("--resume")
+    fi
 
     if [[ "$wallet_type" == "keystore" ]]; then
         forge_args+=("--keystores" "${KEYSTORES}")

@@ -55,29 +55,29 @@ func RetryWithBackoff(ctx context.Context, maxAttempts uint64, log *slog.Logger,
 }
 
 func RetryWithInfiniteBackoff(ctx context.Context, log *slog.Logger, operation func() error) error {
-    eb := backoff.NewExponentialBackOff()
-    eb.InitialInterval = initialBackoff
-    eb.MaxInterval = maxBackoff
-    eb.MaxElapsedTime = 0 // Infinite retry
+	eb := backoff.NewExponentialBackOff()
+	eb.InitialInterval = initialBackoff
+	eb.MaxInterval = maxBackoff
+	eb.MaxElapsedTime = 0 // Infinite retry
 
-    err := backoff.Retry(func() error {
-        select {
-        case <-ctx.Done():
-            log.Info("Context canceled, stopping retries.")
-            return backoff.Permanent(ctx.Err())
-        default:
-            err := operation()
-            if err != nil {
-                // Log and retry unless it's a permanent error
-                log.Warn("Operation failed, will retry", "error", err)
-                return err
-            }
-            return nil // Success
-        }
-    }, backoff.WithContext(eb, ctx))
+	err := backoff.Retry(func() error {
+		select {
+		case <-ctx.Done():
+			log.Info("Context canceled, stopping retries.")
+			return backoff.Permanent(ctx.Err())
+		default:
+			err := operation()
+			if err != nil {
+				// Log and retry unless it's a permanent error
+				log.Warn("Operation failed, will retry", "error", err)
+				return err
+			}
+			return nil // Success
+		}
+	}, backoff.WithContext(eb, ctx))
 
-    if err != nil {
-        return fmt.Errorf("operation failed: %w", err)
-    }
-    return nil
+	if err != nil {
+		return fmt.Errorf("operation failed: %w", err)
+	}
+	return nil
 }

@@ -3,7 +3,6 @@ package keyexchange_test
 import (
 	"bytes"
 	"crypto/ecdh"
-	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
 	"io"
@@ -62,7 +61,7 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 	bidderStore := keysstore.New(inmemstorage.New())
 	providerStore := keysstore.New(inmemstorage.New())
 
-	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +162,7 @@ func TestKeyExchange_Whitelist(t *testing.T) {
 	bidderStore := keysstore.New(inmemstorage.New())
 	providerStore := keysstore.New(inmemstorage.New())
 
-	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, elliptic.P256(), nil)
+	encryptionPrivateKey, err := ecies.GenerateKey(rand.Reader, crypto.S256(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/trie"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	"github.com/primev/mev-commit/oracle/pkg/updater"
@@ -196,9 +197,11 @@ func TestUpdater(t *testing.T) {
 		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
+	body := &types.Body{Transactions: txns, Uncles: nil}
+
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, body, []*types.Receipt{}, trie.NewStackTrie(nil)),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -460,9 +463,11 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
+	body := &types.Body{Transactions: txns, Uncles: nil}
+
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, body, []*types.Receipt{}, trie.NewStackTrie(nil)),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -731,9 +736,11 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
+	body := &types.Body{Transactions: txns, Uncles: nil}
+
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, body, []*types.Receipt{}, trie.NewStackTrie(nil)),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -954,9 +961,11 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 		settlements: make(chan testSettlement, 1),
 	}
 
+	body := &types.Body{Transactions: txns, Uncles: nil}
+
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5: types.NewBlock(&types.Header{}, body, []*types.Receipt{}, trie.NewStackTrie(nil)),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}
@@ -1158,11 +1167,13 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 		unopenedCommit: make(chan testEncryptedCommitment, 1),
 	}
 
+	body := &types.Body{Transactions: txns, Uncles: nil}
+
 	l1Client := &testEVMClient{
 		blocks: map[int64]*types.Block{
-			5:  types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
-			8:  types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
-			10: types.NewBlock(&types.Header{}, txns, nil, nil, NewHasher()),
+			5:  types.NewBlock(&types.Header{}, body, []*types.Receipt{}, trie.NewStackTrie(nil)),
+			8:  types.NewBlock(&types.Header{}, body, []*types.Receipt{}, trie.NewStackTrie(nil)),
+			10: types.NewBlock(&types.Header{}, body, []*types.Receipt{}, trie.NewStackTrie(nil)),
 		},
 		receipts: make(map[string]*types.Receipt),
 	}

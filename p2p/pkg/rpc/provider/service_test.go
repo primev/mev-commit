@@ -38,9 +38,9 @@ func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address c
 	return true, nil
 }
 
-func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error) {
+func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error) {
 	t.stake = opts.Value
-	t.blsKey = blsPublicKey
+	t.blsKey = blsPublicKey[0]
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
@@ -53,8 +53,8 @@ func (t *testRegistryContract) GetProviderStake(_ *bind.CallOpts, address common
 	return big.NewInt(0).Add(t.stake, t.topup), nil
 }
 
-func (t *testRegistryContract) GetBLSKey(_ *bind.CallOpts, address common.Address) ([]byte, error) {
-	return t.blsKey, nil
+func (t *testRegistryContract) GetBLSKeys(_ *bind.CallOpts, address common.Address) ([][]byte, error) {
+	return [][]byte{t.blsKey}, nil
 }
 
 func (t *testRegistryContract) MinStake(_ *bind.CallOpts) (*big.Int, error) {
@@ -221,17 +221,17 @@ func TestStakeHandling(t *testing.T) {
 			},
 			{
 				amount:       "1000000000000000000",
-				blsPublicKey: "0x" + validBLSKey,
+				blsPublicKey: validBLSKey,
 				err:          "",
 			},
 			{
 				amount:       "1000000000000000000",
-				blsPublicKey: "0x" + validBLSKey,
+				blsPublicKey: validBLSKey,
 				err:          "",
 			},
 		} {
 			stake, err := client.Stake(context.Background(),
-				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKey: tc.blsPublicKey})
+				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKeys: []string{tc.blsPublicKey}})
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("expected error staking: %s got %v", tc.err, err)
@@ -243,23 +243,10 @@ func TestStakeHandling(t *testing.T) {
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
 				}
-				if stake.BlsPublicKey != tc.blsPublicKey {
-					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKey)
+				if stake.BlsPublicKeys[0] != tc.blsPublicKey {
+					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKeys[0])
 				}
 			}
-		}
-	})
-
-	t.Run("get stake", func(t *testing.T) {
-		stake, err := client.GetStake(context.Background(), &providerapiv1.EmptyMessage{})
-		if err != nil {
-			t.Fatalf("error getting stake: %v", err)
-		}
-		if stake.Amount != "2000000000000000000" {
-			t.Fatalf("expected amount to be 2000000000000000000, got %v", stake.Amount)
-		}
-		if stake.BlsPublicKey != validBLSKey {
-			t.Fatalf("expected bls public key to be %s, got %v", validBLSKey, stake.BlsPublicKey)
 		}
 	})
 
@@ -481,8 +468,8 @@ func TestWithdrawStakedAmount(t *testing.T) {
 
 	t.Run("withdraw stake", func(t *testing.T) {
 		_, err := client.Stake(context.Background(), &providerapiv1.StakeRequest{
-			Amount:       "1000000000000000000",
-			BlsPublicKey: "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456",
+			Amount:        "1000000000000000000",
+			BlsPublicKeys: []string{"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456"},
 		})
 		if err != nil {
 			t.Fatalf("error depositing stake: %v", err)

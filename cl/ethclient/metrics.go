@@ -35,7 +35,3 @@ func latency(chain string, endpoint string) func() {
 func incError(chain, endpoint string) {
 	errorCount.WithLabelValues(chain, endpoint).Inc()
 }
-
-func spanName(endpoint string) string {
-	return "ethclient/" + endpoint
-}

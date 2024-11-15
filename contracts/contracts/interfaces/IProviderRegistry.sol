@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 interface IProviderRegistry {
 
     /// @dev Event emitted when a provider is registered
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes blsPublicKey);
+    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes[] blsPublicKeys);
 
     /// @dev Event emitted when funds are deposited
     event FundsDeposited(address indexed provider, uint256 amount);
@@ -63,11 +63,12 @@ interface IProviderRegistry {
     error InsufficientStake(uint256 stake, uint256 minStake);
     error InvalidBLSPublicKeyLength(uint256 length, uint256 expectedLength);
     error ProviderNotRegistered(address sender);
+    error AtLeastOneBLSKeyRequired();
     error PendingWithdrawalRequest(address sender);
     error BidderAmountIsZero(address sender);
     error BidderWithdrawalTransferFailed(address sender, uint256 amount);
     
-    function registerAndStake(bytes calldata blsPublicKey) external payable;
+    function registerAndStake(bytes[] calldata blsPublicKeys) external payable;
 
     function stake() external payable;
 
@@ -79,4 +80,6 @@ interface IProviderRegistry {
     ) external;
     
     function isProviderValid(address committerAddress) external view;
+
+    function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address);
 }

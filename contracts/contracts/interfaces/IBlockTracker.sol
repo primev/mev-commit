@@ -17,17 +17,25 @@ interface IBlockTracker {
 
     /// @dev Event emitted when the oracle account is set.
     event OracleAccountSet(address indexed oldOracleAccount, address indexed newOracleAccount);
-
+    
+    /// @dev Event emitted when the provider registry is updated.
+    event ProviderRegistrySet(address indexed oldProviderRegistry, address indexed newProviderRegistry);
+    
     /// @dev Event emitted when a builder's address is added.
     event BuilderAddressAdded(string indexed builderName, address indexed builderAddress);
 
     error NotOracleAccount(address sender, address oracleAccount);
-    error BlockNumberIsZero();
 
+    error BlockNumberIsZero();
+    
     /// @notice Records a new L1 block with its winner.
     /// @param _blockNumber The block number of the new L1 block.
-    /// @param _winnerGrafitti The graffiti of the winner of the new L1 block.
-    function recordL1Block(uint256 _blockNumber, string calldata _winnerGrafitti) external;
+    /// @param _winnerBLSKey The BLS public key of the winner of the new L1 block.
+    function recordL1Block(uint256 _blockNumber, bytes calldata _winnerBLSKey) external;
+
+      /// @notice Sets the provider registry.
+    /// @param newProviderRegistry The address of the new provider registry.
+    function setProviderRegistry(address newProviderRegistry) external;
 
     /// @notice Retrieves the builder's address corresponding to the given name.
     /// @param builderNameGrafiti The name of the block builder.
