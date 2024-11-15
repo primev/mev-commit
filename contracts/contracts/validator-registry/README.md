@@ -1,15 +1,20 @@
 # Validator Registry Design doc
 
-Validators are able to _opt-in to mev-commit_ in one of two ways:
+Validators are able to _opt-in to mev-commit_ in one of three ways:
 
 1. Restaking with the `MevCommitAVS` contract.
-2. Simple staking with the `VanillaRegistry` contract.
+2. Restaking with the `MevCommitMiddleware` contract.
+3. Simple staking with the `VanillaRegistry` contract.
 
-The `ValidatorOptInRouter` contract acts as a query router between both solutions, allowing any actor to query whether a group of validator pubkeys is opted-in to mev-commit.
+The `ValidatorOptInRouter` contract acts as a query router between all three solutions, allowing any actor to query whether a group of validator pubkeys is opted-in to mev-commit.
 
-## Mev-commit AVS - Restaking Solution
+## Mev-commit AVS - Eigenlayer Restaking Solution
 
-For more details on the Mev-commit AVS, please refer to the [Mev-commit AVS README](avs/README.md).
+For more details on the `MevCommitAVS` contract, please refer to the [MevCommitAVS README](avs/README.md).
+
+## Mev-commit Middleware - Symbiotic Restaking Solution
+
+For more details on the `MevCommitMiddleware` contract, please refer to the [MevCommitMiddleware README](middleware/README.md).
 
 ## Vanilla Registry - Simple Staking Solution
 

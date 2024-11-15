@@ -83,9 +83,10 @@ contract DeployHolesky is BaseDeploy {
         );
 
         INetworkMiddlewareService networkMiddlewareService = INetworkMiddlewareService(address(SymbioticHoleskyDevnetConsts.NETWORK_MIDDLEWARE_SERVICE));
-        if (networkMiddlewareService.middleware(msg.sender) == address(0)) {
-            networkMiddlewareService.setMiddleware(mevCommitMiddlewareProxy);
+        if (networkMiddlewareService.middleware(msg.sender) != address(0)) {
+            console.log("WARNING: overwriting existing middleware registration for network:", msg.sender);
         }
+        networkMiddlewareService.setMiddleware(mevCommitMiddlewareProxy);
 
         IBaseDelegator vault1Delegator = IBaseDelegator(address(SymbioticHoleskyDevnetConsts.VAULT_1_DELEGATOR));
         vault1Delegator.setMaxNetworkLimit(SUBNETWORK_ID, VAULT1_MAX_NETWORK_LIMIT);
