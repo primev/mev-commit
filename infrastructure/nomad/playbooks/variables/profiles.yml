@@ -30,6 +30,9 @@ artifacts:
   l1-transactor: &l1_transactor_artifact
     type: binary
     path: tools/l1-transaction-emulator
+  relay-emulator: &relay_emulator_artifact
+    type: binary
+    path: tools/relay-emulator
 
 jobs:
   artifacts: &artifacts_job
@@ -145,6 +148,24 @@ jobs:
       type: archive
       sync_mode: full
 
+  
+  mock_l1: &mock_l1_job
+    name: mock-l1
+    template: mock-l1.nomad.j2
+    count: 1
+    ports:
+      - http:
+          static: 9545
+          to: 8545
+        ws:
+          static: 9546
+          to: 8546
+    env:
+      ip: 0.0.0.0
+      public_ip: 0.0.0.0
+      net_restrict: 0.0.0.0/0
+
+
   contracts_deployer: &contracts_deployer_job
     name: contracts-deployer
     template: contracts-deployer.nomad.j2
@@ -174,6 +195,21 @@ jobs:
       - http:
           static: 8081
           to: 8081
+    env:
+      log-level: "info"
+
+  relay-emulator: &relay_emulator_job
+    name: relay-emulator
+    template: relay-emulator.nomad.j2
+    artifacts:
+      - *relay_emulator_artifact
+    dependencies:
+      mock_l1: *mock_l1_job
+    count: 1
+    ports:
+      - http:
+          static: 8082
+          to: 8080
     env:
       log-level: "info"
 
@@ -210,6 +246,8 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider1_keystore:
+    dependencies:
+      relay-emulator: *relay_emulator_job
     count: 1
     ports:
       - metrics:
@@ -236,6 +274,8 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider2_keystore:
+    dependencies:
+      relay-emulator: *relay_emulator_job
     count: 1
     ports:
       - metrics:
@@ -261,6 +301,8 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider3_keystore:
+    dependencies:
+      relay-emulator: *relay_emulator_job
     count: 1
     ports:
       - metrics:
@@ -588,22 +630,6 @@ jobs:
         metrics:
           to: 8888
 
-  mock_l1: &mock_l1_job
-    name: mock-l1
-    template: mock-l1.nomad.j2
-    count: 1
-    ports:
-      - http:
-          static: 9545
-          to: 8545
-        ws:
-          static: 9546
-          to: 8546
-    env:
-      ip: 0.0.0.0
-      public_ip: 0.0.0.0
-      net_restrict: 0.0.0.0/0
-
   l1-transactor: &l1_transactor_job
     name: l1-transactor
     template: l1-transactor.nomad.j2
@@ -644,6 +670,7 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *mev_commit_bootnode1_job
@@ -664,6 +691,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *bridge_emulator_job
@@ -707,6 +735,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *bridge_emulator_job
@@ -744,7 +773,9 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *mock_l1_job
       - *l1_transactor_job
+      - *relay_emulator_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job

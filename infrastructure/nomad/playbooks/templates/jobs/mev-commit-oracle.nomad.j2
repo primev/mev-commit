@@ -183,7 +183,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           MEV_ORACLE_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           MEV_ORACLE_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
-          MEV_ORACLE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
+          MEV_ORACLE_LOG_LEVEL="debug"
           MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '10') }}"
           MEV_ORACLE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           {%- raw %}
@@ -233,58 +233,6 @@ job "{{ job.name }}" {
             {{ end }}
 
           {% endraw %}
-          {% if env == 'devenv' %}
-          {% raw %}
-          MEV_ORACLE_OVERRIDE_WINNERS=""
-
-          {{- range nomadService "mev-commit-provider-node1" }}
-            {{- if contains "http" .Tags }}
-          URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
-          ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
-          if [ -n "${ETH_ADDRESS}" ]; then
-            if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
-              MEV_ORACLE_OVERRIDE_WINNERS="${ETH_ADDRESS}"
-            else
-              MEV_ORACLE_OVERRIDE_WINNERS="${MEV_ORACLE_OVERRIDE_WINNERS},${ETH_ADDRESS}"
-            fi
-          fi
-            {{ end }}
-          {{- end }}
-
-          {{- range nomadService "mev-commit-provider-node2" }}
-            {{- if contains "http" .Tags }}
-          URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
-          ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
-          if [ -n "${ETH_ADDRESS}" ]; then
-            if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
-              MEV_ORACLE_OVERRIDE_WINNERS="${ETH_ADDRESS}"
-            else
-              MEV_ORACLE_OVERRIDE_WINNERS="${MEV_ORACLE_OVERRIDE_WINNERS},${ETH_ADDRESS}"
-            fi
-          fi
-            {{ end }}
-          {{- end }}
-
-          {{- range nomadService "mev-commit-provider-node3" }}
-            {{- if contains "http" .Tags }}
-          URL="https://{{ .Address }}:{{ .Port }}/v1/debug/topology"
-          ETH_ADDRESS="$(curl -sk ${URL} | jq -r '.topology.self["Ethereum Address"]')"
-          if [ -n "${ETH_ADDRESS}" ]; then
-            if [ -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
-              MEV_ORACLE_OVERRIDE_WINNERS="${ETH_ADDRESS}"
-            else
-              MEV_ORACLE_OVERRIDE_WINNERS="${MEV_ORACLE_OVERRIDE_WINNERS},${ETH_ADDRESS}"
-            fi
-          fi
-            {{ end }}
-          {{- end }}
-
-          if [ ! -z "${MEV_ORACLE_OVERRIDE_WINNERS}" ]; then
-            echo "Overriding winners: ${MEV_ORACLE_OVERRIDE_WINNERS}"
-           export MEV_ORACLE_OVERRIDE_WINNERS
-          fi
-          {% endraw %}
-          {% endif %}
           {% raw %}
 
           {{- range nomadService "contracts-deployer" }}
@@ -297,6 +245,12 @@ job "{{ job.name }}" {
           export MEV_ORACLE_ORACLE_CONTRACT_ADDR="$(jq -r '.Oracle' ${CONTRACTS_FILE})"
           export MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR="$(jq -r '.BlockTracker' ${CONTRACTS_FILE})"
           export MEV_ORACLE_PRECONF_CONTRACT_ADDR="$(jq -r '.PreconfManager' ${CONTRACTS_FILE})"
+            {{ end }}
+          {{- end }}
+
+          {{- range nomadService "relay-emulator" }}
+            {{ if contains "http" .Tags }}
+          export MEV_ORACLE_RELAY_URLS="http://{{ .Address }}:{{ .Port }}"
             {{ end }}
           {{- end }}
 

@@ -31,7 +31,7 @@ var (
 
 // BlocktrackerMetaData contains all meta data concerning the Blocktracker contract.
 var BlocktrackerMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addBuilderAddress\",\"inputs\":[{\"name\":\"builderName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"builderAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blockWinners\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"currentWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlockWinner\",\"inputs\":[{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlocksPerWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getBuilder\",\"inputs\":[{\"name\":\"builderNameGraffiti\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"oracleAccount_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"oracleAccount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recordL1Block\",\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_winnerGraffiti\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleAccount\",\"inputs\":[{\"name\":\"newOracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"BuilderAddressAdded\",\"inputs\":[{\"name\":\"builderName\",\"type\":\"string\",\"indexed\":true,\"internalType\":\"string\"},{\"name\":\"builderAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NewL1Block\",\"inputs\":[{\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"winner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"window\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NewWindow\",\"inputs\":[{\"name\":\"window\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleAccountSet\",\"inputs\":[{\"name\":\"oldOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"BlockNumberIsZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotOracleAccount\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addBuilderAddress\",\"inputs\":[{\"name\":\"builderName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"builderAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"blockBuilderNameToAddress\",\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"blockWinners\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"currentWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlockWinner\",\"inputs\":[{\"name\":\"blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getBlocksPerWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getBuilder\",\"inputs\":[{\"name\":\"builderNameGraffiti\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getCurrentWindow\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"oracleAccount_\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"owner_\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"oracleAccount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"providerRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"contractIProviderRegistry\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"recordL1Block\",\"inputs\":[{\"name\":\"_blockNumber\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_winnerBLSKey\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setOracleAccount\",\"inputs\":[{\"name\":\"newOracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setProviderRegistry\",\"inputs\":[{\"name\":\"newProviderRegistry\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"BuilderAddressAdded\",\"inputs\":[{\"name\":\"builderName\",\"type\":\"string\",\"indexed\":true,\"internalType\":\"string\"},{\"name\":\"builderAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NewL1Block\",\"inputs\":[{\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"winner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"window\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"NewWindow\",\"inputs\":[{\"name\":\"window\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OracleAccountSet\",\"inputs\":[{\"name\":\"oldOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOracleAccount\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProviderRegistrySet\",\"inputs\":[{\"name\":\"oldProviderRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newProviderRegistry\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"BlockNumberIsZero\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidReceive\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NotOracleAccount\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"oracleAccount\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
 }
 
 // BlocktrackerABI is the input ABI used to generate the binding from.
@@ -552,6 +552,37 @@ func (_Blocktracker *BlocktrackerCallerSession) PendingOwner() (common.Address, 
 	return _Blocktracker.Contract.PendingOwner(&_Blocktracker.CallOpts)
 }
 
+// ProviderRegistry is a free data retrieval call binding the contract method 0x545921d9.
+//
+// Solidity: function providerRegistry() view returns(address)
+func (_Blocktracker *BlocktrackerCaller) ProviderRegistry(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _Blocktracker.contract.Call(opts, &out, "providerRegistry")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// ProviderRegistry is a free data retrieval call binding the contract method 0x545921d9.
+//
+// Solidity: function providerRegistry() view returns(address)
+func (_Blocktracker *BlocktrackerSession) ProviderRegistry() (common.Address, error) {
+	return _Blocktracker.Contract.ProviderRegistry(&_Blocktracker.CallOpts)
+}
+
+// ProviderRegistry is a free data retrieval call binding the contract method 0x545921d9.
+//
+// Solidity: function providerRegistry() view returns(address)
+func (_Blocktracker *BlocktrackerCallerSession) ProviderRegistry() (common.Address, error) {
+	return _Blocktracker.Contract.ProviderRegistry(&_Blocktracker.CallOpts)
+}
+
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
 //
 // Solidity: function proxiableUUID() view returns(bytes32)
@@ -667,25 +698,25 @@ func (_Blocktracker *BlocktrackerTransactorSession) Pause() (*types.Transaction,
 	return _Blocktracker.Contract.Pause(&_Blocktracker.TransactOpts)
 }
 
-// RecordL1Block is a paid mutator transaction binding the contract method 0x1d63f108.
+// RecordL1Block is a paid mutator transaction binding the contract method 0x710cf5c6.
 //
-// Solidity: function recordL1Block(uint256 _blockNumber, string _winnerGraffiti) returns()
-func (_Blocktracker *BlocktrackerTransactor) RecordL1Block(opts *bind.TransactOpts, _blockNumber *big.Int, _winnerGraffiti string) (*types.Transaction, error) {
-	return _Blocktracker.contract.Transact(opts, "recordL1Block", _blockNumber, _winnerGraffiti)
+// Solidity: function recordL1Block(uint256 _blockNumber, bytes _winnerBLSKey) returns()
+func (_Blocktracker *BlocktrackerTransactor) RecordL1Block(opts *bind.TransactOpts, _blockNumber *big.Int, _winnerBLSKey []byte) (*types.Transaction, error) {
+	return _Blocktracker.contract.Transact(opts, "recordL1Block", _blockNumber, _winnerBLSKey)
 }
 
-// RecordL1Block is a paid mutator transaction binding the contract method 0x1d63f108.
+// RecordL1Block is a paid mutator transaction binding the contract method 0x710cf5c6.
 //
-// Solidity: function recordL1Block(uint256 _blockNumber, string _winnerGraffiti) returns()
-func (_Blocktracker *BlocktrackerSession) RecordL1Block(_blockNumber *big.Int, _winnerGraffiti string) (*types.Transaction, error) {
-	return _Blocktracker.Contract.RecordL1Block(&_Blocktracker.TransactOpts, _blockNumber, _winnerGraffiti)
+// Solidity: function recordL1Block(uint256 _blockNumber, bytes _winnerBLSKey) returns()
+func (_Blocktracker *BlocktrackerSession) RecordL1Block(_blockNumber *big.Int, _winnerBLSKey []byte) (*types.Transaction, error) {
+	return _Blocktracker.Contract.RecordL1Block(&_Blocktracker.TransactOpts, _blockNumber, _winnerBLSKey)
 }
 
-// RecordL1Block is a paid mutator transaction binding the contract method 0x1d63f108.
+// RecordL1Block is a paid mutator transaction binding the contract method 0x710cf5c6.
 //
-// Solidity: function recordL1Block(uint256 _blockNumber, string _winnerGraffiti) returns()
-func (_Blocktracker *BlocktrackerTransactorSession) RecordL1Block(_blockNumber *big.Int, _winnerGraffiti string) (*types.Transaction, error) {
-	return _Blocktracker.Contract.RecordL1Block(&_Blocktracker.TransactOpts, _blockNumber, _winnerGraffiti)
+// Solidity: function recordL1Block(uint256 _blockNumber, bytes _winnerBLSKey) returns()
+func (_Blocktracker *BlocktrackerTransactorSession) RecordL1Block(_blockNumber *big.Int, _winnerBLSKey []byte) (*types.Transaction, error) {
+	return _Blocktracker.Contract.RecordL1Block(&_Blocktracker.TransactOpts, _blockNumber, _winnerBLSKey)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
@@ -728,6 +759,27 @@ func (_Blocktracker *BlocktrackerSession) SetOracleAccount(newOracleAccount comm
 // Solidity: function setOracleAccount(address newOracleAccount) returns()
 func (_Blocktracker *BlocktrackerTransactorSession) SetOracleAccount(newOracleAccount common.Address) (*types.Transaction, error) {
 	return _Blocktracker.Contract.SetOracleAccount(&_Blocktracker.TransactOpts, newOracleAccount)
+}
+
+// SetProviderRegistry is a paid mutator transaction binding the contract method 0xf760660e.
+//
+// Solidity: function setProviderRegistry(address newProviderRegistry) returns()
+func (_Blocktracker *BlocktrackerTransactor) SetProviderRegistry(opts *bind.TransactOpts, newProviderRegistry common.Address) (*types.Transaction, error) {
+	return _Blocktracker.contract.Transact(opts, "setProviderRegistry", newProviderRegistry)
+}
+
+// SetProviderRegistry is a paid mutator transaction binding the contract method 0xf760660e.
+//
+// Solidity: function setProviderRegistry(address newProviderRegistry) returns()
+func (_Blocktracker *BlocktrackerSession) SetProviderRegistry(newProviderRegistry common.Address) (*types.Transaction, error) {
+	return _Blocktracker.Contract.SetProviderRegistry(&_Blocktracker.TransactOpts, newProviderRegistry)
+}
+
+// SetProviderRegistry is a paid mutator transaction binding the contract method 0xf760660e.
+//
+// Solidity: function setProviderRegistry(address newProviderRegistry) returns()
+func (_Blocktracker *BlocktrackerTransactorSession) SetProviderRegistry(newProviderRegistry common.Address) (*types.Transaction, error) {
+	return _Blocktracker.Contract.SetProviderRegistry(&_Blocktracker.TransactOpts, newProviderRegistry)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -2015,6 +2067,159 @@ func (_Blocktracker *BlocktrackerFilterer) WatchPaused(opts *bind.WatchOpts, sin
 func (_Blocktracker *BlocktrackerFilterer) ParsePaused(log types.Log) (*BlocktrackerPaused, error) {
 	event := new(BlocktrackerPaused)
 	if err := _Blocktracker.contract.UnpackLog(event, "Paused", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// BlocktrackerProviderRegistrySetIterator is returned from FilterProviderRegistrySet and is used to iterate over the raw logs and unpacked data for ProviderRegistrySet events raised by the Blocktracker contract.
+type BlocktrackerProviderRegistrySetIterator struct {
+	Event *BlocktrackerProviderRegistrySet // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *BlocktrackerProviderRegistrySetIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(BlocktrackerProviderRegistrySet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(BlocktrackerProviderRegistrySet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *BlocktrackerProviderRegistrySetIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *BlocktrackerProviderRegistrySetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// BlocktrackerProviderRegistrySet represents a ProviderRegistrySet event raised by the Blocktracker contract.
+type BlocktrackerProviderRegistrySet struct {
+	OldProviderRegistry common.Address
+	NewProviderRegistry common.Address
+	Raw                 types.Log // Blockchain specific contextual infos
+}
+
+// FilterProviderRegistrySet is a free log retrieval operation binding the contract event 0x40dcebfaa5919cfdf9eaf8b88a0199d0b1404782c7fc8c2f0343050d331b9459.
+//
+// Solidity: event ProviderRegistrySet(address indexed oldProviderRegistry, address indexed newProviderRegistry)
+func (_Blocktracker *BlocktrackerFilterer) FilterProviderRegistrySet(opts *bind.FilterOpts, oldProviderRegistry []common.Address, newProviderRegistry []common.Address) (*BlocktrackerProviderRegistrySetIterator, error) {
+
+	var oldProviderRegistryRule []interface{}
+	for _, oldProviderRegistryItem := range oldProviderRegistry {
+		oldProviderRegistryRule = append(oldProviderRegistryRule, oldProviderRegistryItem)
+	}
+	var newProviderRegistryRule []interface{}
+	for _, newProviderRegistryItem := range newProviderRegistry {
+		newProviderRegistryRule = append(newProviderRegistryRule, newProviderRegistryItem)
+	}
+
+	logs, sub, err := _Blocktracker.contract.FilterLogs(opts, "ProviderRegistrySet", oldProviderRegistryRule, newProviderRegistryRule)
+	if err != nil {
+		return nil, err
+	}
+	return &BlocktrackerProviderRegistrySetIterator{contract: _Blocktracker.contract, event: "ProviderRegistrySet", logs: logs, sub: sub}, nil
+}
+
+// WatchProviderRegistrySet is a free log subscription operation binding the contract event 0x40dcebfaa5919cfdf9eaf8b88a0199d0b1404782c7fc8c2f0343050d331b9459.
+//
+// Solidity: event ProviderRegistrySet(address indexed oldProviderRegistry, address indexed newProviderRegistry)
+func (_Blocktracker *BlocktrackerFilterer) WatchProviderRegistrySet(opts *bind.WatchOpts, sink chan<- *BlocktrackerProviderRegistrySet, oldProviderRegistry []common.Address, newProviderRegistry []common.Address) (event.Subscription, error) {
+
+	var oldProviderRegistryRule []interface{}
+	for _, oldProviderRegistryItem := range oldProviderRegistry {
+		oldProviderRegistryRule = append(oldProviderRegistryRule, oldProviderRegistryItem)
+	}
+	var newProviderRegistryRule []interface{}
+	for _, newProviderRegistryItem := range newProviderRegistry {
+		newProviderRegistryRule = append(newProviderRegistryRule, newProviderRegistryItem)
+	}
+
+	logs, sub, err := _Blocktracker.contract.WatchLogs(opts, "ProviderRegistrySet", oldProviderRegistryRule, newProviderRegistryRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(BlocktrackerProviderRegistrySet)
+				if err := _Blocktracker.contract.UnpackLog(event, "ProviderRegistrySet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseProviderRegistrySet is a log parse operation binding the contract event 0x40dcebfaa5919cfdf9eaf8b88a0199d0b1404782c7fc8c2f0343050d331b9459.
+//
+// Solidity: event ProviderRegistrySet(address indexed oldProviderRegistry, address indexed newProviderRegistry)
+func (_Blocktracker *BlocktrackerFilterer) ParseProviderRegistrySet(log types.Log) (*BlocktrackerProviderRegistrySet, error) {
+	event := new(BlocktrackerProviderRegistrySet)
+	if err := _Blocktracker.contract.UnpackLog(event, "ProviderRegistrySet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

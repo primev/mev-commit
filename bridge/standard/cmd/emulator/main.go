@@ -223,7 +223,8 @@ func main() {
 					continue
 				}
 				startTime := time.Now()
-				statusC := tSettlement.Do(ctx)
+				cctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+				statusC := tSettlement.Do(cctx)
 				for status := range statusC {
 					if status.Error != nil {
 						logger.Error("failed transfer to settlement", "error", status.Error)
@@ -231,10 +232,12 @@ func main() {
 							txtors[0].GetAddress().String(),
 							"L1->Settlement",
 						).Set(time.Since(startTime).Seconds())
+						cancel()
 						continue RESTART
 					}
 					logger.Info("transfer to settlement status", "message", status.Message)
 				}
+				cancel()
 				completionTimeSec := time.Since(startTime).Seconds()
 				logger.Info("completed settlement transfer",
 					"time", completionTimeSec,
@@ -268,7 +271,8 @@ func main() {
 					continue
 				}
 				startTime = time.Now()
-				statusC = tL1.Do(ctx)
+				cctx, cancel = context.WithTimeout(ctx, 15*time.Minute)
+				statusC = tL1.Do(cctx)
 				for status := range statusC {
 					if status.Error != nil {
 						logger.Error("failed transfer to L1", "error", status.Error)
@@ -276,10 +280,12 @@ func main() {
 							txtors[0].GetAddress().String(),
 							"Settlement->L1",
 						).Set(time.Since(startTime).Seconds())
+						cancel()
 						continue RESTART
 					}
 					logger.Info("transfer to L1 status", "message", status.Message)
 				}
+				cancel()
 				completionTimeSec = time.Since(startTime).Seconds()
 				logger.Info("completed L1 transfer",
 					"time", completionTimeSec,

@@ -105,12 +105,15 @@ paths:
           in: path
           required: true
           type: string
-        - name: blsPublicKey
-          description: BLS public key of the provider.
+        - name: blsPublicKeys
+          description: BLS public keys of the provider.
           in: query
-          required: true
-          type: string
-          pattern: ^(0x)?[a-fA-F0-9]{96}$
+          required: false
+          type: array
+          items:
+            type: string
+            pattern: ^(0x)?[a-fA-F0-9]{96}$
+          collectionFormat: multi
   /v1/provider/unstake:
     post:
       summary: Unstake
@@ -250,13 +253,17 @@ definitions:
   v1StakeResponse:
     type: object
     example:
-      amount: "1000000000000000000"
-      bls_public_key: 80000cddeec66a80e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d4497ba8b756e1e82b
+      amount: "2000000000000000000"
+      bls_public_keys:
+        - 90000cddeec66a80e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d4497ba8b756e1e82b
+        - 80000cddeec66a80e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d4497ba8b756e1e82b
     properties:
       amount:
         type: string
-      blsPublicKey:
-        type: string
+      blsPublicKeys:
+        type: array
+        items:
+          type: string
     description: Get staked amount for provider in the provider registry.
     title: Stake response
   v1WithdrawalResponse:

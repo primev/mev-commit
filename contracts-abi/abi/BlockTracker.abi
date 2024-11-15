@@ -244,6 +244,19 @@
   },
   {
     "type": "function",
+    "name": "providerRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IProviderRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "proxiableUUID",
     "inputs": [],
     "outputs": [
@@ -265,9 +278,9 @@
         "internalType": "uint256"
       },
       {
-        "name": "_winnerGraffiti",
-        "type": "string",
-        "internalType": "string"
+        "name": "_winnerBLSKey",
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [],
@@ -286,6 +299,19 @@
     "inputs": [
       {
         "name": "newOracleAccount",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setProviderRegistry",
+    "inputs": [
+      {
+        "name": "newProviderRegistry",
         "type": "address",
         "internalType": "address"
       }
@@ -466,6 +492,25 @@
         "name": "account",
         "type": "address",
         "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProviderRegistrySet",
+    "inputs": [
+      {
+        "name": "oldProviderRegistry",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newProviderRegistry",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],

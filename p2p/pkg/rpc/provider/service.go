@@ -44,10 +44,10 @@ type Service struct {
 
 type ProviderRegistryContract interface {
 	ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error)
-	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey []byte) (*types.Transaction, error)
 	Stake(opts *bind.TransactOpts) (*types.Transaction, error)
+	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error)
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
-	GetBLSKey(*bind.CallOpts, common.Address) ([]byte, error)
+	GetBLSKeys(*bind.CallOpts, common.Address) ([][]byte, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
 	ParseProviderRegistered(types.Log) (*providerregistry.ProviderregistryProviderRegistered, error)
 	ParseFundsDeposited(types.Log) (*providerregistry.ProviderregistryFundsDeposited, error)
@@ -237,11 +237,18 @@ func (s *Service) Stake(
 		return nil, status.Errorf(codes.Internal, "checking registration: %v", err)
 	}
 	if !registered {
-		blsPubkeyBytes, err := hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKey, "0x"))
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
+		blsPubkeyBytesArray := make([][]byte, len(stake.BlsPublicKeys))
+		for i, key := range stake.BlsPublicKeys {
+			stake.BlsPublicKeys[i] = strings.TrimPrefix(key, "0x")
+			blsPubkeyBytes, err := hex.DecodeString(stake.BlsPublicKeys[i])
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
+			}
+			blsPubkeyBytesArray[i] = blsPubkeyBytes
 		}
-		tx, txErr = s.registryContract.RegisterAndStake(opts, blsPubkeyBytes)
+
+		tx, txErr = s.registryContract.RegisterAndStake(opts, blsPubkeyBytesArray)
+
 	} else {
 		tx, txErr = s.registryContract.Stake(opts)
 	}
@@ -262,8 +269,8 @@ func (s *Service) Stake(
 		if registration, err := s.registryContract.ParseProviderRegistered(*log); err == nil {
 			s.logger.Info("stake registered", "amount", registration.StakedAmount)
 			return &providerapiv1.StakeResponse{
-				Amount:       registration.StakedAmount.String(),
-				BlsPublicKey: stake.BlsPublicKey,
+				Amount:        registration.StakedAmount.String(),
+				BlsPublicKeys: stake.BlsPublicKeys,
 			}, nil
 		}
 		if deposit, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
@@ -288,7 +295,7 @@ func (s *Service) GetStake(
 		return nil, status.Errorf(codes.Internal, "getting stake: %v", err)
 	}
 
-	blsPubkey, err := s.registryContract.GetBLSKey(&bind.CallOpts{
+	blsPubkey, err := s.registryContract.GetBLSKeys(&bind.CallOpts{
 		Context: ctx,
 		From:    s.owner,
 	}, s.owner)
@@ -296,7 +303,11 @@ func (s *Service) GetStake(
 		return nil, status.Errorf(codes.Internal, "getting bls public key: %v", err)
 	}
 
-	return &providerapiv1.StakeResponse{Amount: stakeAmount.String(), BlsPublicKey: hex.EncodeToString(blsPubkey)}, nil
+	encodedKeys := make([]string, len(blsPubkey))
+	for i, key := range blsPubkey {
+		encodedKeys[i] = hex.EncodeToString(key)
+	}
+	return &providerapiv1.StakeResponse{Amount: stakeAmount.String(), BlsPublicKeys: encodedKeys}, nil
 }
 
 func (s *Service) GetMinStake(

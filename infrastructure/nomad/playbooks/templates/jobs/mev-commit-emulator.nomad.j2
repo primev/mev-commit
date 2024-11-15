@@ -73,6 +73,11 @@ job "{{ job.name }}" {
           EMULATOR_IP_HTTP_PORT="{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "relay-emulator" }}
+            {{- if contains "http" .Tags }}
+          EMULATOR_RELAY_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
           {% endraw %}
           {% if job.target_type == 'bidder' %}
           EMULATOR_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
@@ -115,6 +120,9 @@ job "{{ job.name }}" {
             -log-tags "${EMULATOR_LOG_TAGS}" \
             -log-fmt "${EMULATOR_LOG_FMT}" \
             -otel-collector-endpoint-url "${EMULATOR_OTEL_COLLECTOR_ENDPOINT_URL}" \
+            {% if job.target_type == 'provider' %}
+            -relay "${EMULATOR_RELAY_URL}" \
+            {% endif %}
         EOH
         destination = "local/run.sh"
         change_mode = "noop"

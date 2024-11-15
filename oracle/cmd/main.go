@@ -103,6 +103,7 @@ var (
 		Name:    "l1-rpc-urls",
 		Usage:   "URLs for L1 RPC",
 		EnvVars: []string{"MEV_ORACLE_L1_RPC_URLS"},
+		Value:   cli.NewStringSlice("https://ethereum-holesky-rpc.publicnode.com"),
 	})
 
 	optionSettlementRPCUrlHTTP = altsrc.NewStringFlag(&cli.StringFlag{
@@ -242,6 +243,18 @@ var (
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
 		Value:   "2000000000", // 2 gWEI
 	})
+
+	optionRelayUrls = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:    "relay-urls",
+		Usage:   "URLs for relay",
+		EnvVars: []string{"MEV_ORACLE_RELAY_URLS"},
+		Value: cli.NewStringSlice(
+			"https://holesky.aestus.live",
+			"https://boost-relay-holesky.flashbots.net",
+			"https://bloxroute.holesky.blxrbdn.com",
+			"https://holesky.titanrelay.xyz",
+		),
+	})
 )
 
 func main() {
@@ -273,6 +286,7 @@ func main() {
 		optionGasLimit,
 		optionGasTipCap,
 		optionGasFeeCap,
+		optionRelayUrls,
 	}
 	app := &cli.App{
 		Name:  "mev-oracle",
@@ -392,6 +406,7 @@ func launchOracleWithConfig(c *cli.Context) error {
 		DefaultGasLimit:              uint64(c.Int(optionGasLimit.Name)),
 		DefaultGasTipCap:             gasTipCap,
 		DefaultGasFeeCap:             gasFeeCap,
+		RelayUrls:                    c.StringSlice(optionRelayUrls.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

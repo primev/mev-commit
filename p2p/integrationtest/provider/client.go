@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/tls"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"math/big"
@@ -93,7 +91,7 @@ func (b *ProviderClient) Close() error {
 	return b.conn.Close()
 }
 
-func (b *ProviderClient) CheckAndStake() error {
+func (b *ProviderClient) CheckAndStake(keys []string) error {
 	stakeAmt, err := b.client.GetStake(context.Background(), &providerapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get stake amount", "err", err)
@@ -113,16 +111,9 @@ func (b *ProviderClient) CheckAndStake() error {
 		return nil
 	}
 
-	blsPubkeyBytes := make([]byte, 48)
-	_, err = rand.Read(blsPubkeyBytes)
-	if err != nil {
-		b.logger.Error("failed to generate mock BLS public key", "err", err)
-		return err
-	}
-
 	_, err = b.client.Stake(context.Background(), &providerapiv1.StakeRequest{
-		Amount:       "10000000000000000000",
-		BlsPublicKey: hex.EncodeToString(blsPubkeyBytes),
+		Amount:        "10000000000000000000",
+		BlsPublicKeys: keys,
 	})
 	if err != nil {
 		b.logger.Error("failed to register stake", "err", err)

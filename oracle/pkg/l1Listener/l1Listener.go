@@ -1,11 +1,19 @@
 package l1Listener
 
 import (
-	"bytes"
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -19,7 +27,7 @@ import (
 var checkInterval = 2 * time.Second
 
 type L1Recorder interface {
-	RecordL1Block(blockNum *big.Int, winner string) (*types.Transaction, error)
+	RecordL1Block(blockNum *big.Int, winner []byte) (*types.Transaction, error)
 }
 
 type WinnerRegister interface {
@@ -40,6 +48,17 @@ type L1Listener struct {
 	eventMgr       events.EventManager
 	recorder       L1Recorder
 	metrics        *metrics
+	relayQuerier   RelayQuerier
+	builderData    map[int64]string
+}
+
+type RelayData struct {
+	RelayName     string
+	BuilderPubkey string
+	BlockNumber   int64
+	BlockHash     string
+	Slot          string
+	Timestamp     string
 }
 
 func NewL1Listener(
@@ -48,6 +67,7 @@ func NewL1Listener(
 	winnerRegister WinnerRegister,
 	evtMgr events.EventManager,
 	recorder L1Recorder,
+	relayQuerier RelayQuerier,
 ) *L1Listener {
 	return &L1Listener{
 		logger:         logger,
@@ -56,6 +76,8 @@ func NewL1Listener(
 		eventMgr:       evtMgr,
 		recorder:       recorder,
 		metrics:        newMetrics(),
+		relayQuerier:   relayQuerier,
+		builderData:    make(map[int64]string),
 	}
 }
 
@@ -159,29 +181,44 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 				l.logger.Error("failed to get block number", "error", err)
 				continue
 			}
+			// We need to get the previous block number because the current block has finalized header
+			blockNum = blockNum - 1
 
 			if blockNum <= uint64(currentBlockNo) {
 				continue
 			}
 
 			for b := uint64(currentBlockNo) + 1; b <= blockNum; b++ {
-				header, err := l.l1Client.HeaderByNumber(ctx, big.NewInt(int64(b)))
+				header, err := l.l1Client.HeaderByNumber(ctx, new(big.Int).SetUint64(b+1))
 				if err != nil {
 					l.logger.Error("failed to get header", "block", b, "error", err)
 					continue
 				}
+				// End of changes needed to be done.
+				var builderPubKey string
+				l.logger.Info("querying relay", "block", b, "hash", header.ParentHash.Hex())
+				builderPubKey, err = l.relayQuerier.Query(ctx, int64(b), header.ParentHash.Hex())
+				if err != nil {
+					l.logger.Info("block not found in relay, assuming out of PBS block", "block", b, "error", err)
+					builderPubKey = "" // Set a default value in case of failure
+				}
 
-				winner := string(bytes.ToValidUTF8(header.Extra, []byte("�")))
+				builderPubKey = strings.TrimPrefix(builderPubKey, "0x")
+
+				builderPubKeyBytes, err := hex.DecodeString(builderPubKey)
+				if err != nil {
+					l.logger.Error("failed to decode builder pubkey", "block", b, "builder_pubkey", builderPubKey, "error", err)
+				}
 
 				l.logger.Info(
 					"new L1 winner",
-					"winner", winner,
-					"block", header.Number.Int64(),
+					"block", header.Number.Int64()-1,
+					"builder_pubkey", builderPubKey,
 				)
 
 				winnerPostingTxn, err := l.recorder.RecordL1Block(
 					big.NewInt(0).SetUint64(b),
-					winner,
+					builderPubKeyBytes,
 				)
 				if err != nil {
 					l.logger.Error("failed to register winner for block", "block", b, "error", err)
@@ -193,13 +230,111 @@ func (l *L1Listener) watchL1Block(ctx context.Context) error {
 
 				l.logger.Info(
 					"registered winner",
-					"winner", winner,
-					"block", header.Number.Int64(),
+					"block", header.Number.Int64()-1,
 					"txn", winnerPostingTxn.Hash().String(),
 				)
 			}
 
 			currentBlockNo = int64(blockNum)
 		}
+	}
+}
+
+type RelayQuerier interface {
+	Query(ctx context.Context, blockNumber int64, blockHash string) (string, error)
+}
+
+type RelayQueryEngine struct {
+	relayUrls []string
+	logger    *slog.Logger
+}
+
+func NewRelayQueryEngine(relayUrls []string, logger *slog.Logger) RelayQuerier {
+	return &RelayQueryEngine{
+		relayUrls: relayUrls,
+		logger:    logger,
+	}
+}
+
+func (m *RelayQueryEngine) Query(ctx context.Context, blockNumber int64, blockHash string) (string, error) {
+	var wg sync.WaitGroup
+	resultChan := make(chan string, len(m.relayUrls))
+
+	for _, u := range m.relayUrls {
+		wg.Add(1)
+		go func(u string) {
+			defer wg.Done()
+			apiPath := "/relay/v1/data/bidtraces/proposer_payload_delivered"
+			baseURL, err := url.Parse(u)
+			if err != nil {
+				m.logger.Error("failed to parse relay URL", "url", u, "error", err)
+				return
+			}
+			baseURL.Path = baseURL.Path + apiPath
+
+			query := url.Values{}
+			query.Add("block_number", strconv.Itoa(int(blockNumber)))
+
+			baseURL.RawQuery = query.Encode()
+			m.logger.Debug("querying relay", "url", baseURL.String())
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL.String(), nil)
+			if err != nil {
+				m.logger.Error("failed to create request", "url", baseURL.String(), "error", err)
+				return
+			}
+
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				m.logger.Error("failed to fetch data from relay", "url", baseURL.String(), "error", err)
+				return
+			}
+			defer resp.Body.Close()
+			m.logger.Info("received response from relay", "url", baseURL.String(), "status", resp.Status)
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				m.logger.Error("failed to read response body", "url", baseURL.String(), "error", err)
+				return
+			}
+
+			var data []map[string]interface{}
+			if err := json.Unmarshal(body, &data); err != nil {
+				m.logger.Error("failed to unmarshal response", "url", baseURL.String(), "error", err)
+				return
+			}
+
+			for _, item := range data {
+				blockNum, ok := item["block_number"].(string)
+				if !ok {
+					m.logger.Error("block_number is not a string", "block_number", item["block_number"])
+					continue
+				}
+				blockNumInt, err := strconv.Atoi(blockNum)
+				if err != nil {
+					m.logger.Error("failed to convert block_number to int", "block_number", blockNum, "error", err)
+					continue
+				}
+				if blockNumInt == int(blockNumber) && item["block_hash"] == blockHash {
+					resultChan <- fmt.Sprintf("%v", item["builder_pubkey"])
+					return
+				}
+			}
+		}(u)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case result, ok := <-resultChan:
+		if !ok {
+			return "", errors.New("no matching block found")
+		}
+		return result, nil
 	}
 }

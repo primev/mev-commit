@@ -79,6 +79,25 @@
   },
   {
     "type": "function",
+    "name": "blockBuilderBLSKeyToAddress",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "delegateRegisterAndStake",
     "inputs": [
       {
@@ -87,9 +106,9 @@
         "internalType": "address"
       },
       {
-        "name": "blsPublicKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "blsPublicKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -110,12 +129,17 @@
   },
   {
     "type": "function",
-    "name": "eoaToBlsPubkey",
+    "name": "eoaToBlsPubkeys",
     "inputs": [
       {
         "name": "",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -155,7 +179,7 @@
   },
   {
     "type": "function",
-    "name": "getBLSKey",
+    "name": "getBLSKeys",
     "inputs": [
       {
         "name": "provider",
@@ -166,8 +190,27 @@
     "outputs": [
       {
         "name": "",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getEoaFromBLSKey",
+    "inputs": [
+      {
+        "name": "blsKey",
         "type": "bytes",
         "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -405,9 +448,9 @@
     "name": "registerAndStake",
     "inputs": [
       {
-        "name": "blsPublicKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "blsPublicKeys",
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -877,10 +920,10 @@
         "internalType": "uint256"
       },
       {
-        "name": "blsPublicKey",
-        "type": "bytes",
+        "name": "blsPublicKeys",
+        "type": "bytes[]",
         "indexed": false,
-        "internalType": "bytes"
+        "internalType": "bytes[]"
       }
     ],
     "anonymous": false
@@ -991,6 +1034,11 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "AtLeastOneBLSKeyRequired",
+    "inputs": []
   },
   {
     "type": "error",
