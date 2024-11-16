@@ -28,8 +28,8 @@ func (s *pebbleStorage) Close() error {
 func (s *pebbleStorage) Get(key string) ([]byte, error) {
 	buf, closer, err := s.db.Get([]byte(key))
 	if err != nil {
-		if err == pebble.ErrNotFound {
-			return nil, storage.ErrKeyNotFound
+		if errors.Is(err, pebble.ErrNotFound) {
+			return nil, errors.Join(storage.ErrKeyNotFound, err)
 		}
 		return nil, err
 	}
