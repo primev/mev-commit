@@ -39,6 +39,13 @@ job "{{ job.name }}" {
     task "geth" {
       driver = "exec"
 
+      {% if profile == 'stressnet' %}
+      resources {
+        cpu = 2000
+        memory = 16384
+      }
+      {% endif %}
+
       {% for port_name in job.ports[0] %}
       service {
         name = "{{ job.name }}"

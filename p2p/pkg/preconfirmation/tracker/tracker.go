@@ -191,7 +191,8 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				return fmt.Errorf("event subscription error: %w", err)
 			case newL1Block := <-t.newL1Blocks:
 				if err := t.handleNewL1Block(egCtx, newL1Block); err != nil {
-					return err
+					t.logger.Error("failed to handle new L1 block", "error", err)
+					continue
 				}
 				t.triggerOpenCommitments()
 			}
@@ -208,7 +209,8 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 				return fmt.Errorf("event subscription error: %w", err)
 			case ec := <-t.unopenedCmts:
 				if err := t.handleUnopenedCommitmentStored(egCtx, ec); err != nil {
-					return err
+					t.logger.Error("failed to handle unopened commitment stored", "error", err)
+					continue
 				}
 			}
 		}
@@ -270,7 +272,7 @@ func (t *Tracker) Start(ctx context.Context) <-chan struct{} {
 			for _, winner := range winners {
 				if err := t.openCommitments(egCtx, winner); err != nil {
 					t.logger.Error("failed to open commitments", "error", err)
-					return err
+					continue
 				}
 			}
 		}
@@ -474,7 +476,11 @@ func (t *Tracker) clearCommitments(ctx context.Context) error {
 		// clear commitment indexes for all the blocks before the oldest winner
 		err = t.store.ClearCommitmentIndexes(winners[0].BlockNumber)
 		if err != nil {
-			return err
+			t.logger.Error(
+				"failed to clear commitment indexes",
+				"block", winners[0].BlockNumber,
+				"error", err)
+			continue
 		}
 
 		t.logger.Info("commitment indexes cleared", "blockNumber", winners[0].BlockNumber)
