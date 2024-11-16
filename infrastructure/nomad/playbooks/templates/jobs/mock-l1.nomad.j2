@@ -40,7 +40,7 @@ job "{{ job.name }}" {
       driver = "exec"
 
       resources {
-        memory = 16384
+        memory = 4096
       }
 
       {% for port_name in job.ports[0] %}
