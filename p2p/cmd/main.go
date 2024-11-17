@@ -368,7 +368,7 @@ var (
 		Name:     "gas-limit",
 		Usage:    "Use predefined gas limit for transactions",
 		EnvVars:  []string{"MEV_COMMIT_GAS_LIMIT"},
-		Value:    2000000,
+		Value:    5000000,
 		Category: categoryGlobal,
 	})
 
