@@ -141,7 +141,7 @@ func main() {
 				to := txtors[1]
 
 				// random amount between 0 and 1_000_000_000_000
-				amount := big.NewInt(rand.Int64N(1_000_000_000) + 1)
+				amount := big.NewInt(rand.Int64N(1_000_000) + 1)
 
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 				if err := from.SendTransaction(ctx, to.Address(), amount); err != nil {
