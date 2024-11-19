@@ -246,6 +246,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider1_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
     count: 1
@@ -274,6 +275,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider2_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
     count: 1
@@ -301,6 +303,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider3_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
     count: 1
@@ -378,6 +381,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder1_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     count: 1
     ports:
       - metrics:
@@ -403,6 +407,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder2_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     count: 1
     ports:
       - metrics:
@@ -427,6 +432,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder3_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     count: 1
     ports:
       - metrics:
@@ -451,6 +457,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder4_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     count: 1
     ports:
       - metrics:
@@ -475,6 +482,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder5_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     count: 1
     ports:
       - metrics:
@@ -564,6 +572,7 @@ jobs:
           name: oracle_register_provider_api_auth_token
       - keystores:
           oracle_keystore:
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       contracts_deployer: *contracts_deployer_job
     count: 1
@@ -739,6 +748,40 @@ profiles:
       - *contracts_deployer_job
       - *mev_commit_bridge_job
       - *bridge_emulator_job
+      - *mev_commit_dashboard_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_provider_node2_job
+      - *mev_commit_provider_node2_funder_job
+      - *mev_commit_provider_node3_job
+      - *mev_commit_provider_node3_funder_job
+      - *mev_commit_provider_emulator_nodes_job
+      - *mev_commit_oracle_job
+      - *mev_commit_bidder_node1_job
+      - *mev_commit_bidder_node1_funder_job
+      - *mev_commit_bidder_node2_job
+      - *mev_commit_bidder_node2_funder_job
+      - *mev_commit_bidder_node3_job
+      - *mev_commit_bidder_node3_funder_job
+      - *mev_commit_bidder_node4_job
+      - *mev_commit_bidder_node4_funder_job
+      - *mev_commit_bidder_node5_job
+      - *mev_commit_bidder_node5_funder_job
+      - *mev_commit_bidder_emulator_nodes_job
+      - *mev_commit_faucet_job
+      - *datadog_agent_metrics_collector_job
+
+  stressnet-wl1:
+    jobs:
+      - *artifacts_job
+      - *datadog_agent_logs_collector_job
+      - *otel_collector_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *relay_emulator_job
+      - *contracts_deployer_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job

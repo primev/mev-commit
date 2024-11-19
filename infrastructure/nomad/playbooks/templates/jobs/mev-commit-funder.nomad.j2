@@ -34,12 +34,21 @@ job "{{ job.name }}" {
 
       template {
         data = <<-EOH
-          {%- raw %}
+            {%- raw %}
           XDG_CONFIG_HOME="local/.config"
           KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+            {% endraw %}
+            {% if profile == 'stressnet-wl1' %}
+            {% raw %}
+          KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
+          KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
+            {% endraw %}
+            {% else %}
+            {% raw %}
           KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
-          {% endraw %}
+            {% endraw %}
+            {% endif %}
         EOH
         destination = "secrets/.env"
         env = true
@@ -68,7 +77,17 @@ job "{{ job.name }}" {
           mkdir -p "${KEYSTORE_PATH}" > /dev/null 2>&1
           {{- with secret "secret/data/mev-commit" }}
           KEYSTORE_FILE="${KEYSTORE_PATH}/${KEYSTORE_FILENAME}"
+            {% endraw %}
+            {% if profile == 'stressnet-wl1' %}
+            {% raw %}
+          echo '{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %} }}' > "${KEYSTORE_FILE}"
+            {% endraw %}
+            {% else %}
+            {% raw %}
           echo '{{ .Data.data.contract_deployer_keystore }}' > "${KEYSTORE_FILE}"
+            {% endraw %}
+            {% endif %}
+            {% raw %}
           {{ end }}
 
           {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
@@ -82,7 +101,17 @@ job "{{ job.name }}" {
             --password "${KEYSTORE_PASSWORD}" \
             --priority-gas-price 2000000000 \
             --gas-price 5000000000 \
+              {%- endraw %}
+              {% if profile == 'stressnet-wl1' %}
+              {%- raw %}
+            --value 1000ether \
+              {%- endraw %}
+              {% else %}
+              {%- raw %}
             --value 10ether \
+              {%- endraw %}
+              {% endif %}
+              {%- raw %}
             --rpc-url http://{{ .Address }}:{{ .Port }} \
             "${ADDRESS}"
 

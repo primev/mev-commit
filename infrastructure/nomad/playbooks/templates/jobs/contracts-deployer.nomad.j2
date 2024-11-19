@@ -167,6 +167,7 @@ job "{{ job.name }}" {
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
             echo "Failed to deploy contracts!"
+            echo "${LOGS}"
             exit 1
           fi
           end_time=$(date +%s)
@@ -178,6 +179,8 @@ job "{{ job.name }}" {
           > local/${DEPLOY_TYPE}_addresses.json
 
           forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
+
+            {%- if profile != 'stressnet-wl1' %}
 
           start_time=$(date +%s)
           export DEPLOY_TYPE="settlement-gateway"
@@ -191,6 +194,7 @@ job "{{ job.name }}" {
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
             echo "Failed to deploy contracts!"
+            echo "${LOGS}"
             exit 1
           fi
           end_time=$(date +%s)
@@ -223,6 +227,7 @@ job "{{ job.name }}" {
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
             echo "Failed to deploy contracts!"
+            echo "${LOGS}"
             exit 1
           fi
           end_time=$(date +%s)
@@ -232,6 +237,8 @@ job "{{ job.name }}" {
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/${DEPLOY_TYPE}_addresses.json
+
+            {%- endif %}
 
           mkdir -p /local/www > /dev/null 2>&1
           jq -s 'add' local/*_addresses.json > local/www/contracts.json
