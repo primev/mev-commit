@@ -212,6 +212,7 @@ jobs:
           to: 8080
     env:
       log-level: "info"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bootnode1: &mev_commit_bootnode1_job
     name: mev-commit-bootnode1
