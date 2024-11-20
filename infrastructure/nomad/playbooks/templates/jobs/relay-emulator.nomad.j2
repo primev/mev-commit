@@ -72,7 +72,7 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
           {% else %}
-          MOCK_RELAY_L1_RPC_URL="{{ job.env['l1_rpc_urls'] | split(',') | first }}"
+          MOCK_RELAY_L1_RPC_URL="{{ job.env['resolved_l1_rpc_urls'] | split(',') | first }}"
           {% endif %}
         EOH
         destination = "secrets/.env"
