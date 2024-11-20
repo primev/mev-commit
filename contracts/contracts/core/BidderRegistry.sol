@@ -40,7 +40,7 @@ contract BidderRegistry is
      */
     function initialize(
         address _protocolFeeRecipient,
-        uint16 _feePercent,
+        uint256 _feePercent,
         address _owner,
         address _blockTracker,
         uint256 _feePayoutPeriodBlocks
@@ -184,10 +184,9 @@ contract BidderRegistry is
         require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
         
         uint256 decayedAmt = (bidState.bidAmt *
-            residualBidPercentAfterDecay *
-            PRECISION) / PERCENT;
+            residualBidPercentAfterDecay) / PERCENT;
 
-        uint256 feeAmt = (decayedAmt * uint256(feePercent) * PRECISION) /
+        uint256 feeAmt = (decayedAmt * feePercent) /
             PERCENT;
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
@@ -306,7 +305,7 @@ contract BidderRegistry is
      * @dev onlyOwner restriction
      * @param newFeePercent this is the new fee percent
      */
-    function setNewFeePercent(uint16 newFeePercent) external onlyOwner {
+    function setNewFeePercent(uint256 newFeePercent) external onlyOwner {
         feePercent = newFeePercent;
         emit FeePercentUpdated(newFeePercent);
     }

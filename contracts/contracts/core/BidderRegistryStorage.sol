@@ -9,14 +9,13 @@ abstract contract BidderRegistryStorage {
     using FeePayout for FeePayout.Tracker;
 
     /// @dev For improved precision
-    uint256 constant public PRECISION = 1e25;
-    uint256 constant public PERCENT = 100 * PRECISION;
+    uint256 constant public PERCENT = 1e18;
 
     /// @dev Address of the preconfManager contract
     address public preconfManager;
 
     /// @dev Fee percent that would be taken by protocol when provider is slashed
-    uint16 public feePercent;
+    uint256 public feePercent;
 
     /// @dev Block tracker contract
     IBlockTracker public blockTrackerContract;

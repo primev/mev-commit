@@ -7,8 +7,7 @@ abstract contract ProviderRegistryStorage {
     using FeePayout for FeePayout.Tracker;
 
     /// @dev For improved precision
-    uint256 public constant PRECISION = 1e25;
-    uint256 public constant PERCENT = 100 * PRECISION;
+    uint256 public constant PERCENT = 1e18;
 
     /// @dev Minimum stake required for registration
     uint256 public minStake;
@@ -17,7 +16,7 @@ abstract contract ProviderRegistryStorage {
     address public preconfManager;
 
     /// @dev Fee percent that would be taken by protocol when provider is slashed
-    uint16 public feePercent;
+    uint256 public feePercent;
 
     /// @dev Configurable withdrawal delay in milliseconds
     uint256 public withdrawalDelay;

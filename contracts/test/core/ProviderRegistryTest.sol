@@ -12,7 +12,7 @@ import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.so
 contract ProviderRegistryTest is Test {
     uint256 public testNumber;
     ProviderRegistry public providerRegistry;
-    uint16 public feePercent;
+    uint256 public feePercent;
     uint256 public minStake;
     address public provider;
     address public feeRecipient;
@@ -38,7 +38,7 @@ contract ProviderRegistryTest is Test {
 
     function setUp() public {
         testNumber = 42;
-        feePercent = 10;
+        feePercent = 10 * 1e16;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         withdrawalDelay = 24 hours ; // 24 hours
@@ -240,7 +240,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
 
         vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
-        providerRegistry.slash(1 ether, provider, payable(bidder), 100);
+        providerRegistry.slash(1 ether, provider, payable(bidder), 1e18);
 
         assertEq(bidder.balance, 1000000000000000000 wei);
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 100000000000000000 wei);
@@ -258,7 +258,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
 
         vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
-        providerRegistry.slash(1 ether, provider, payable(bidder), 100);
+        providerRegistry.slash(1 ether, provider, payable(bidder), 1e18);
 
         assertEq(bidder.balance, 1000000000000000000 wei);
         assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
@@ -270,7 +270,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
         vm.expectRevert(bytes(""));
-        providerRegistry.slash(1 ether, provider, payable(bidder),100);
+        providerRegistry.slash(1 ether, provider, payable(bidder), 1e18);
     }
     function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStake() public {
         vm.prank(address(this));
@@ -284,7 +284,7 @@ contract ProviderRegistryTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(provider, 2 ether, 3 ether, 0.3 ether);
-        providerRegistry.slash(3 ether, provider, payable(bidder), 100);
+        providerRegistry.slash(3 ether, provider, payable(bidder), 1e18);
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
@@ -302,7 +302,7 @@ contract ProviderRegistryTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(provider, 3 ether, 3 ether, 0.3 ether);
-        providerRegistry.slash(3 ether, provider, payable(bidder), 100);
+        providerRegistry.slash(3 ether, provider, payable(bidder), 1e18);
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
@@ -320,7 +320,7 @@ contract ProviderRegistryTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(provider, 3.1 ether, 3 ether, 0.3 ether);
-        providerRegistry.slash(3 ether, provider, payable(bidder), 100);
+        providerRegistry.slash(3 ether, provider, payable(bidder), 1e18);
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0.1 ether);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
@@ -334,7 +334,7 @@ contract ProviderRegistryTest is Test {
 
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         providerRegistry.setPreconfManager(address(this));
-        providerRegistry.slash(1e18 wei, provider, payable(bidder), 50);
+        providerRegistry.slash(1e18 wei, provider, payable(bidder), 5e17);
         assertEq(
             providerRegistry.getAccumulatedPenaltyFee(),
             5e16 wei,
@@ -350,7 +350,7 @@ contract ProviderRegistryTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit FeeTransfer(1e17 wei, vm.addr(6));
-        providerRegistry.slash(1e18 wei, newProvider, payable(bidder), 50);
+        providerRegistry.slash(1e18 wei, newProvider, payable(bidder), 5e17);
 
         assertEq(
             providerRegistry.getAccumulatedPenaltyFee(),
@@ -375,7 +375,7 @@ contract ProviderRegistryTest is Test {
             address(preconfManager)
         );
         vm.prank(address(preconfManager));
-        providerRegistry.slash(1e18 wei, newProvider, payable(bidder),100);
+        providerRegistry.slash(1e18 wei, newProvider, payable(bidder),1e18);
         vm.prank(newProvider);
         providerRegistry.unstake();
         vm.warp(block.timestamp + 24 hours); // Move forward in time
@@ -456,7 +456,7 @@ contract ProviderRegistryTest is Test {
             address(preconfManager)
         );
         vm.prank(address(preconfManager));
-        providerRegistry.slash(1e18 wei, newProvider, payable(bidder),100);
+        providerRegistry.slash(1e18 wei, newProvider, payable(bidder),1e18);
         vm.prank(newProvider);
         providerRegistry.unstake();
         vm.warp(block.timestamp + 24 hours); // Move forward in time

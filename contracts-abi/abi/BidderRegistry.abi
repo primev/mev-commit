@@ -27,19 +27,6 @@
   },
   {
     "type": "function",
-    "name": "PRECISION",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "UPGRADE_INTERFACE_VERSION",
     "inputs": [],
     "outputs": [
@@ -152,8 +139,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -225,8 +212,8 @@
       },
       {
         "name": "_feePercent",
-        "type": "uint16",
-        "internalType": "uint16"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "_owner",
@@ -516,8 +503,8 @@
     "inputs": [
       {
         "name": "newFeePercent",
-        "type": "uint16",
-        "internalType": "uint16"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -755,9 +742,9 @@
     "inputs": [
       {
         "name": "newFeePercent",
-        "type": "uint16",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "uint16"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

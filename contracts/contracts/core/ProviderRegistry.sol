@@ -42,7 +42,7 @@ contract ProviderRegistry is
     function initialize(
         uint256 _minStake,
         address _penaltyFeeRecipient,
-        uint16 _feePercent,
+        uint256 _feePercent,
         address _owner,
         uint256 _withdrawalDelay,
         uint256 _penaltyFeePayoutPeriodBlocks
@@ -104,8 +104,8 @@ contract ProviderRegistry is
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay * PRECISION) / PERCENT;
-        uint256 penaltyFee = (residualAmt * uint256(feePercent) * PRECISION) / PERCENT;
+        uint256 residualAmt = (amt * residualBidPercentAfterDecay) / PERCENT;
+        uint256 penaltyFee = (residualAmt * feePercent) / PERCENT;
         uint256 providerStake = providerStakes[provider];
 
         if (providerStake < residualAmt + penaltyFee) {
@@ -153,7 +153,7 @@ contract ProviderRegistry is
      * @dev onlyOwner restriction
      * @param newFeePercent this is the new fee percent
      */
-    function setNewFeePercent(uint16 newFeePercent) external onlyOwner {
+    function setNewFeePercent(uint256 newFeePercent) external onlyOwner {
         feePercent = newFeePercent;
         emit FeePercentUpdated(newFeePercent);
     }
