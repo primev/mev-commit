@@ -63,6 +63,7 @@ job "{{ job.name }}" {
           MOCK_RELAY_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           MOCK_RELAY_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           MOCK_RELAY_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
+          {% if profile != 'stressnet-wl1' %}
           {%- raw %}
           {{- range nomadService "mock-l1" }}
             {{- if contains "ws" .Tags }}
@@ -70,6 +71,9 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
+          {% else %}
+          MOCK_RELAY_L1_RPC_URL="{{ job.env['l1_rpc_urls'] | split(',')[0] }}"
+          {% endif %}
         EOH
         destination = "secrets/.env"
         env = true
