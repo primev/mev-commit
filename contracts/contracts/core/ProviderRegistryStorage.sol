@@ -7,7 +7,8 @@ abstract contract ProviderRegistryStorage {
     using FeePayout for FeePayout.Tracker;
 
     /// @dev For improved precision
-    uint256 public constant PERCENT = 1e18;
+    uint256 public constant PRECISION = 1e16;
+    uint256 public constant PERCENT = 100 * PRECISION;
 
     /// @dev Minimum stake required for registration
     uint256 public minStake;

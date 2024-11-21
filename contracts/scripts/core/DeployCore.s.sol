@@ -18,7 +18,8 @@ contract DeployTestnet is Script {
 
     // Amount of ETH to initially fund the oracle account on L1 chain.
     uint256 public constant ORACLE_INITIAL_FUNDING = 1 ether;
-
+    uint256 public constant PERCENT_MULTIPLIER = 1e16;
+    
     error FailedToSendETHToOracle(address addr);
 
     function run() external {
@@ -29,8 +30,8 @@ contract DeployTestnet is Script {
         address protocolFeeRecipient = address(
             0xfA0B0f5d298d28EFE4d35641724141ef19C05684 // Placeholder for now, L1 preconf.eth address
         );
-        uint256 feePercent = 2 * 1e16; // 2%
-        uint256 providerPenaltyPercent = 5 * 1e16; // 5%
+        uint256 feePercent = 2 * PERCENT_MULTIPLIER; // 2%
+        uint256 providerPenaltyPercent = 5 * PERCENT_MULTIPLIER; // 5%
         uint64 commitmentDispatchWindow = 2000;
         uint256 withdrawalDelay = 24 hours  * 1000; // 24 hours in milliseconds
         uint256 protocolFeePayoutPeriodBlocks = 5 hours ; // 1 hour with 200ms blocks

@@ -9,7 +9,8 @@ abstract contract BidderRegistryStorage {
     using FeePayout for FeePayout.Tracker;
 
     /// @dev For improved precision
-    uint256 constant public PERCENT = 1e18;
+    uint256 constant public PRECISION = 1e16;
+    uint256 constant public PERCENT = 100 * PRECISION;
 
     /// @dev Address of the preconfManager contract
     address public preconfManager;
