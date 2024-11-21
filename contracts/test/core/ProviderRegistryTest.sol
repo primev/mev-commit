@@ -258,7 +258,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
 
         vm.expectCall(bidder, 1000000000000000000 wei, new bytes(0));
-        providerRegistry.slash(1 ether, provider, payable(bidder), providerRegistry.PERCENT());
+        providerRegistry.slash(1 ether, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
 
         assertEq(bidder.balance, 1000000000000000000 wei);
         assertEq(providerRegistry.providerStakes(provider), 0.9 ether);
@@ -270,7 +270,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.registerAndStake{value: 2 ether}(validBLSPubkeys);
         address bidder = vm.addr(4);
         vm.expectRevert(bytes(""));
-        providerRegistry.slash(1 ether, provider, payable(bidder), providerRegistry.PERCENT());
+        providerRegistry.slash(1 ether, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
     }
     function test_ShouldRetrieveFundsWhenSlashIsGreaterThanStake() public {
         vm.prank(address(this));
@@ -284,7 +284,7 @@ contract ProviderRegistryTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(provider, 2 ether, 3 ether, 0.3 ether);
-        providerRegistry.slash(3 ether, provider, payable(bidder), providerRegistry.PERCENT());
+        providerRegistry.slash(3 ether, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
@@ -302,7 +302,7 @@ contract ProviderRegistryTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(provider, 3 ether, 3 ether, 0.3 ether);
-        providerRegistry.slash(3 ether, provider, payable(bidder), providerRegistry.PERCENT());
+        providerRegistry.slash(3 ether, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
@@ -320,7 +320,7 @@ contract ProviderRegistryTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit InsufficientFundsToSlash(provider, 3.1 ether, 3 ether, 0.3 ether);
-        providerRegistry.slash(3 ether, provider, payable(bidder), providerRegistry.PERCENT());
+        providerRegistry.slash(3 ether, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0.1 ether);
         assertEq(providerRegistry.providerStakes(provider), 0 ether);
@@ -368,7 +368,7 @@ contract ProviderRegistryTest is Test {
         providerRegistry.setNewPenaltyFeeRecipient(address(0));
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
-        uint256 percent = providerRegistry.PERCENT();
+        uint256 percent = providerRegistry.ONE_HUNDRED_PERCENT();
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);
@@ -450,7 +450,7 @@ contract ProviderRegistryTest is Test {
     function test_WithdrawStakedAmount() public {
         address newProvider = vm.addr(8);
         address bidder = vm.addr(9);
-        uint256 percent = providerRegistry.PERCENT();
+        uint256 percent = providerRegistry.ONE_HUNDRED_PERCENT();
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}(validBLSPubkeys);

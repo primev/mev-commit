@@ -14,7 +14,7 @@
   },
   {
     "type": "function",
-    "name": "PERCENT",
+    "name": "ONE_HUNDRED_PERCENT",
     "inputs": [],
     "outputs": [
       {

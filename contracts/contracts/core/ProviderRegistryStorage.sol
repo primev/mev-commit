@@ -8,7 +8,7 @@ abstract contract ProviderRegistryStorage {
 
     /// @dev For improved precision
     uint256 public constant PRECISION = 1e16;
-    uint256 public constant PERCENT = 100 * PRECISION;
+    uint256 public constant ONE_HUNDRED_PERCENT = 100 * PRECISION;
 
     /// @dev Minimum stake required for registration
     uint256 public minStake;

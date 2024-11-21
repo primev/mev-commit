@@ -10,7 +10,7 @@ abstract contract BidderRegistryStorage {
 
     /// @dev For improved precision
     uint256 constant public PRECISION = 1e16;
-    uint256 constant public PERCENT = 100 * PRECISION;
+    uint256 constant public ONE_HUNDRED_PERCENT = 100 * PRECISION;
 
     /// @dev Address of the preconfManager contract
     address public preconfManager;

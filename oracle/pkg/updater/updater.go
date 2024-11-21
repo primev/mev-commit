@@ -39,7 +39,8 @@ const (
 )
 
 const (
-	PERCENT = 1e18
+	PRECISION           = 1e16
+	ONE_HUNDRED_PERCENT = 100 * PRECISION
 )
 
 type Winner struct {
@@ -594,9 +595,9 @@ func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTim
 	// Calculate the decay percentage
 	decayPercentage := float64(timePassed) / float64(totalTime)
 
-	decayPercentageRound := int64(math.Round(decayPercentage * PERCENT))
-	if decayPercentageRound > PERCENT {
-		decayPercentageRound = PERCENT
+	decayPercentageRound := int64(math.Round(decayPercentage * ONE_HUNDRED_PERCENT))
+	if decayPercentageRound > ONE_HUNDRED_PERCENT {
+		decayPercentageRound = ONE_HUNDRED_PERCENT
 	}
 	u.logger.Debug("decay information",
 		"startTimestamp", startTimestamp,

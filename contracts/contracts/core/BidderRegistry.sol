@@ -184,10 +184,10 @@ contract BidderRegistry is
         require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
         
         uint256 decayedAmt = (bidState.bidAmt *
-            residualBidPercentAfterDecay) / PERCENT;
+            residualBidPercentAfterDecay) / ONE_HUNDRED_PERCENT;
 
         uint256 feeAmt = (decayedAmt * feePercent) /
-            PERCENT;
+            ONE_HUNDRED_PERCENT;
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
         protocolFeeTracker.accumulatedAmount += feeAmt;

@@ -104,8 +104,8 @@ contract ProviderRegistry is
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay) / PERCENT;
-        uint256 penaltyFee = (residualAmt * feePercent) / PERCENT;
+        uint256 residualAmt = (amt * residualBidPercentAfterDecay) / ONE_HUNDRED_PERCENT;
+        uint256 penaltyFee = (residualAmt * feePercent) / ONE_HUNDRED_PERCENT;
         uint256 providerStake = providerStakes[provider];
 
         if (providerStake < residualAmt + penaltyFee) {

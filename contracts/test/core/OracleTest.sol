@@ -313,7 +313,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            providerRegistry.PERCENT()
+            providerRegistry.ONE_HUNDRED_PERCENT()
         );
 
         vm.expectEmit(true, false, false, true);
@@ -329,7 +329,7 @@ contract OracleTest is Test {
         assertEq(providerRegistry.getProviderStake(provider), 250 ether - ((bid*110)/100));
         assertEq(
             bidderRegistry.getProviderAmount(provider),
-            (((bid * (providerRegistry.PERCENT() - feePercent)) / providerRegistry.PERCENT()) * residualAfterDecay) / 100
+            (((bid * (providerRegistry.ONE_HUNDRED_PERCENT() - feePercent)) / providerRegistry.ONE_HUNDRED_PERCENT()) * residualAfterDecay) / 100
         );
     }
 
@@ -410,7 +410,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            bidderRegistry.PERCENT()
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
         emit CommitmentProcessed(index2, true);
@@ -419,7 +419,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            bidderRegistry.PERCENT()
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
         emit CommitmentProcessed(index3, true);
@@ -428,7 +428,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            bidderRegistry.PERCENT()
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
         emit CommitmentProcessed(index4, true);
@@ -437,7 +437,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            bidderRegistry.PERCENT()
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.stopPrank();
         assertEq(providerRegistry.getProviderStake(provider), 250 ether - bid * 4);
@@ -526,7 +526,7 @@ contract OracleTest is Test {
                 blockNumber,
                 provider,
                 false,
-                bidderRegistry.PERCENT()
+                bidderRegistry.ONE_HUNDRED_PERCENT()
             );
         }
         vm.stopPrank();

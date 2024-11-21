@@ -305,7 +305,7 @@ func TestUpdater(t *testing.T) {
 			if commitment.isSlash {
 				t.Fatal("wrong isSlash")
 			}
-			if commitment.residualDecay.Cmp(big.NewInt(5*1e17)) != 0 {
+			if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
 				t.Fatal("wrong residual decay")
 			}
 		}
@@ -332,7 +332,7 @@ func TestUpdater(t *testing.T) {
 			if settlement.settlementType != updater.SettlementTypeReward {
 				t.Fatal("wrong settlement type")
 			}
-			if settlement.decayPercentage != 5*1e17 {
+			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
 			if settlement.window != 1 {
@@ -577,7 +577,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			if !commitment.isSlash {
 				t.Fatal("wrong isSlash")
 			}
-			if commitment.residualDecay.Cmp(big.NewInt(5*1e17)) != 0 {
+			if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
 				t.Fatal("wrong residual decay")
 			}
 		}
@@ -604,7 +604,7 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			if settlement.settlementType != updater.SettlementTypeSlash {
 				t.Fatal("wrong settlement type")
 			}
-			if settlement.decayPercentage != 5*1e17 {
+			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
 			if settlement.window != 1 {
@@ -850,7 +850,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			if commitment.isSlash {
 				t.Fatal("wrong isSlash")
 			}
-			if commitment.residualDecay.Cmp(big.NewInt(5*1e17)) != 0 {
+			if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
 				t.Fatal("wrong residual decay")
 			}
 		}
@@ -877,7 +877,7 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			if settlement.settlementType != updater.SettlementTypeReward {
 				t.Fatal("wrong settlement type")
 			}
-			if settlement.decayPercentage != 5*1e17 {
+			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
 			if settlement.window != 1 {
@@ -1038,7 +1038,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			if !commitment.isSlash {
 				t.Fatal("wrong isSlash")
 			}
-			if commitment.residualDecay.Cmp(big.NewInt(5*1e17)) != 0 {
+			if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
 				t.Fatal("wrong residual decay")
 			}
 		}
@@ -1065,7 +1065,7 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			if settlement.settlementType != updater.SettlementTypeSlash {
 				t.Fatal("wrong settlement type")
 			}
-			if settlement.decayPercentage != 5*1e17 {
+			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
 			if settlement.window != 1 {
@@ -1255,7 +1255,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if commitment.isSlash {
 				t.Fatal("wrong isSlash")
 			}
-			if commitment.residualDecay.Cmp(big.NewInt(5*1e17)) != 0 {
+			if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
 				t.Fatal("wrong residual decay")
 			}
 		}
@@ -1282,7 +1282,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if settlement.settlementType != updater.SettlementTypeReward {
 				t.Fatal("wrong settlement type")
 			}
-			if settlement.decayPercentage != 5*1e17 {
+			if settlement.decayPercentage != 50*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
 			if settlement.window != 5 {
