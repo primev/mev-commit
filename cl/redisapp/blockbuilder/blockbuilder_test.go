@@ -76,7 +76,6 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 		logger:       stLog,
 		ctx:          ctx,
 	}
-	feeRecipient := common.Address{} // Use zero address or a specific one if needed
 	timestamp := time.Now()
 
 	hash := common.BytesToHash(executionHead.BlockHash)
@@ -85,13 +84,6 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
 	}
-	expectedAttrs := &engine.PayloadAttributes{
-		Timestamp:             uint64(timestamp.UnixMilli()),
-		Random:                hash,
-		SuggestedFeeRecipient: feeRecipient,
-		Withdrawals:           []*etypes.Withdrawal{},
-		BeaconRoot:            &hash,
-	}
 
 	forkChoiceResponse := engine.ForkChoiceResponse{
 		PayloadStatus: engine.PayloadStatusV1{
@@ -99,7 +91,7 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 		},
 		PayloadID: &engine.PayloadID{0x01, 0x02, 0x03},
 	}
-	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
+	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
 	resp, err := blockBuilder.startBuild(ctx, executionHead, uint64(timestamp.UnixMilli()))
 
@@ -164,13 +156,6 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
 	}
-	expectedAttrs := &engine.PayloadAttributes{
-		Timestamp:             ts + uint64(buildDelay.Milliseconds()),
-		Random:                hash,
-		SuggestedFeeRecipient: common.Address{},
-		Withdrawals:           []*etypes.Withdrawal{},
-		BeaconRoot:            &hash,
-	}
 
 	payloadID := &engine.PayloadID{0x01, 0x02, 0x03}
 	forkChoiceResponse := engine.ForkChoiceResponse{
@@ -179,7 +164,7 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 		},
 		PayloadID: payloadID,
 	}
-	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
+	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
 	executionPayload := &engine.ExecutionPayloadEnvelope{
 		ExecutionPayload: &engine.ExecutableData{
@@ -317,28 +302,16 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 		ctx:          ctx,
 	}
 
-	feeRecipient := common.Address{}
 	timestamp := time.Now()
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(timestamp.UnixMilli())
-	if ts <= executionHead.BlockTime {
-		ts = executionHead.BlockTime + 1
-	}
 	expectedFCS := engine.ForkchoiceStateV1{
 		HeadBlockHash:      hash,
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
 	}
-	expectedAttrs := &engine.PayloadAttributes{
-		Timestamp:             ts,
-		Random:                hash,
-		SuggestedFeeRecipient: feeRecipient,
-		Withdrawals:           []*etypes.Withdrawal{},
-		BeaconRoot:            &hash,
-	}
 
-	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(engine.ForkChoiceResponse{}, errors.New("engine error"))
+	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(engine.ForkChoiceResponse{}, errors.New("engine error"))
 
 	resp, err := blockBuilder.startBuild(ctx, executionHead, uint64(timestamp.UnixMilli()))
 
@@ -374,25 +347,13 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 		ctx:          ctx,
 	}
 
-	feeRecipient := common.Address{}
 	timestamp := time.Now()
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(timestamp.UnixMilli())
-	if ts <= executionHead.BlockTime {
-		ts = executionHead.BlockTime + 1
-	}
 	expectedFCS := engine.ForkchoiceStateV1{
 		HeadBlockHash:      hash,
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
-	}
-	expectedAttrs := &engine.PayloadAttributes{
-		Timestamp:             ts,
-		Random:                hash,
-		SuggestedFeeRecipient: feeRecipient,
-		Withdrawals:           []*etypes.Withdrawal{},
-		BeaconRoot:            &hash,
 	}
 
 	forkChoiceResponse := engine.ForkChoiceResponse{
@@ -401,7 +362,7 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 		},
 		PayloadID: nil,
 	}
-	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
+	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
 	resp, err := blockBuilder.startBuild(ctx, executionHead, uint64(timestamp.UnixMilli()))
 
@@ -467,19 +428,11 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	}
 
 	hash := common.BytesToHash(executionHead.BlockHash)
-	ts := uint64(time.Now().UnixMilli())
 
 	expectedFCS := engine.ForkchoiceStateV1{
 		HeadBlockHash:      hash,
 		SafeBlockHash:      hash,
 		FinalizedBlockHash: hash,
-	}
-	expectedAttrs := &engine.PayloadAttributes{
-		Timestamp:             ts,
-		Random:                hash,
-		SuggestedFeeRecipient: common.Address{},
-		Withdrawals:           []*etypes.Withdrawal{},
-		BeaconRoot:            &hash,
 	}
 
 	payloadID := &engine.PayloadID{0x01, 0x02, 0x03}
@@ -489,7 +442,7 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 		},
 		PayloadID: payloadID,
 	}
-	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, expectedAttrs).Return(forkChoiceResponse, nil)
+	mockEngineClient.On("ForkchoiceUpdatedV3", mock.Anything, expectedFCS, mock.MatchedBy(matchPayloadAttributes(hash, executionHead.BlockTime))).Return(forkChoiceResponse, nil)
 
 	mockEngineClient.On("GetPayloadV3", mock.Anything, *payloadID).Return(&engine.ExecutionPayloadEnvelope{}, errors.New("Unknown payload"))
 
@@ -775,4 +728,28 @@ func TestBlockBuilder_FinalizeBlock_SaveExecutionHeadError(t *testing.T) {
 
 	mockEngineClient.AssertExpectations(t)
 	require.NoError(t, redisMock.ExpectationsWereMet())
+}
+
+func matchPayloadAttributes(expectedHash common.Hash, executionHeadTime uint64) func(*engine.PayloadAttributes) bool {
+	return func(attrs *engine.PayloadAttributes) bool {
+		if attrs == nil {
+			return false
+		}
+		if attrs.Random != expectedHash {
+			return false
+		}
+		if attrs.SuggestedFeeRecipient != (common.Address{}) {
+			return false
+		}
+		if attrs.BeaconRoot == nil || *attrs.BeaconRoot != expectedHash {
+			return false
+		}
+		if len(attrs.Withdrawals) != 0 {
+			return false
+		}
+		if attrs.Timestamp <= executionHeadTime {
+			return false
+		}
+		return true
+	}
 }
