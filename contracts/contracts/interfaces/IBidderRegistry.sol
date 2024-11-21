@@ -59,7 +59,7 @@ interface IBidderRegistry {
     event PreconfManagerUpdated(address indexed newPreconfManager);
 
     /// @dev Event emitted when the fee percent is updated
-    event FeePercentUpdated(uint16 indexed newFeePercent);
+    event FeePercentUpdated(uint256 indexed newFeePercent);
 
     /// @dev Event emitted when the block tracker is updated
     event BlockTrackerUpdated(address indexed newBlockTracker);

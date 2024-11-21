@@ -24,8 +24,8 @@ interface IOracle {
     /// @dev Error emitted when the builder is not the block winner
     error BuilderNotBlockWinner(address blockWinner, address builder);
 
-    /// @dev Error emitted when the residual bid percent after decay exceeds 100
-    error ResidualBidPercentAfterDecayExceeds100(uint256 residualBidPercentAfterDecay);
+    /// @dev Error emitted when the residual bid percent after decay exceeds max amount
+    error ResidualBidPercentAfterDecayExceedsMax(uint256 residualBidPercentAfterDecay);
 
     receive() external payable;
 

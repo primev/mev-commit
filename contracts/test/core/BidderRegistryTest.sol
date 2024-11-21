@@ -12,7 +12,7 @@ import {ProviderRegistry} from "../../contracts/core/ProviderRegistry.sol";
 contract BidderRegistryTest is Test {
     uint256 public testNumber;
     BidderRegistry public bidderRegistry;
-    uint16 public feePercent;
+    uint256 public feePercent;
     uint256 public minStake;
     address public bidder;
     address public feeRecipient;
@@ -29,7 +29,7 @@ contract BidderRegistryTest is Test {
 
     function setUp() public {
         testNumber = 42;
-        feePercent = 10;
+        feePercent = 10 * 1e16;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         feePayoutPeriodBlocks = 100;
@@ -194,7 +194,7 @@ contract BidderRegistryTest is Test {
 
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
 
-        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), 100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
         uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
@@ -220,7 +220,7 @@ contract BidderRegistryTest is Test {
 
         uint256 bidderBalance = bidder.balance;
 
-        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), 50);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), 50 * bidderRegistry.PRECISION());
         uint256 providerAmount = bidderRegistry.providerAmount(provider);
         uint256 feeRecipientAmount = bidderRegistry.getAccumulatedProtocolFee();
 
@@ -269,7 +269,7 @@ contract BidderRegistryTest is Test {
         vm.expectRevert(bytes(""));
         bytes32 commitmentDigest = keccak256("1234");
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
-        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
     }
 
     function testFail_shouldRetrieveFundsGreaterThanStake() public {
@@ -287,7 +287,7 @@ contract BidderRegistryTest is Test {
         vm.prank(address(this));
         bytes32 commitmentDigest = keccak256("1234");
         bidderRegistry.openBid(commitmentDigest, 3 ether, bidder, blockNumber);
-        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
     }
 
     function test_withdrawProviderAmount() public {
@@ -305,7 +305,7 @@ contract BidderRegistryTest is Test {
 
         bidderRegistry.openBid(commitmentDigest, 2 ether, bidder, blockNumber);
         
-        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), 100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
         bidderRegistry.withdrawProviderAmount(payable(provider));
         uint256 balanceAfter = address(provider).balance;
         assertEq(balanceAfter - balanceBefore, 1800000000000000000);
@@ -451,7 +451,7 @@ contract BidderRegistryTest is Test {
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
         vm.expectEmit(true, true, true, true);
         emit FeeTransfer(100000000000000000, feeRecipient);
-        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
         uint256 balanceAfter = feeRecipient.balance;
         assertEq(balanceAfter - balanceBefore, 100000000000000000);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 0);
@@ -470,7 +470,7 @@ contract BidderRegistryTest is Test {
         blockTracker.addBuilderAddress("test", provider);
         blockTracker.recordL1Block(blockNumber, "test");
         bidderRegistry.openBid(commitmentDigest, 1 ether, bidder, blockNumber);
-        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider),100);
+        bidderRegistry.retrieveFunds(nextWindow, commitmentDigest, payable(provider), bidderRegistry.ONE_HUNDRED_PERCENT());
         uint256 balanceAfter = feeRecipient.balance;
         assertEq(balanceAfter - balanceBefore, 0);
         assertEq(bidderRegistry.getAccumulatedProtocolFee(), 100000000000000000);
