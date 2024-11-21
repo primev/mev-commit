@@ -368,7 +368,7 @@ vm.prank(address(this));
         (address bidder, ) = makeAddrAndKey("alice");
         vm.deal(bidder, 5 ether);
         vm.prank(bidder);
-        bidderRegistry.depositForWindow{value: 2 ether}(2);
+        bidderRegistry.depositForWindow{value: 2 ether}(1);
 
         // Step 1: Verify that the commitment has not been used before
         verifyCommitmentNotUsed(

@@ -257,10 +257,10 @@ contract BidderRegistry is
         uint256 bidAmt,
         address bidder,
         uint64 blockNumber
-    ) external onlyPreconfManager whenNotPaused {
+    ) external onlyPreconfManager whenNotPaused returns (uint256) {
         BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
-            return;
+            return bidAmt;
         }
         uint256 currentWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
             blockNumber
@@ -288,6 +288,8 @@ contract BidderRegistry is
         bidState.state = State.PreConfirmed;
         bidState.bidder = bidder;
         bidState.bidAmt = bidAmt;
+
+        return bidAmt;
     }
 
     /**
