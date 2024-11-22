@@ -60,7 +60,7 @@ job "{{ job.name }}" {
       resources {
         memory = 4096
       }
-      {% elif profile == 'stressnet' %}
+      {% elif profile == 'stressnet' or profile == 'stressnet-wl1' %}
       resources {
         memory = 4096
       }
