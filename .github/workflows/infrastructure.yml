@@ -11,6 +11,7 @@ on:
           - devnet
           - testnet
           - stressnet
+          - stressnet-wl1
           - manual-test
         default: 'devnet'
       all_targets:
@@ -73,6 +74,7 @@ jobs:
           CLUSTER_PROFILE_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--profile ${{ github.event.inputs.profile }}" || echo "--profile ci")
           CLUSTER_LOGS_FLAG=$([ "${{ github.event.inputs.logs }}" == "false" ] && echo "--no-logs-collection" || echo "")
           CLUSTER_DATADOG_KEY_FLAG=$([ "${IS_MANUAL_DEPLOYMENT}" == "true" ] && echo "--datadog-key ${{ secrets.DATADOG_API_KEY }}" || echo "")
+          CLUSTER_L1_RPC_URL_FLAG=$([ "${{ github.event.inputs.profile }}" == "stressnet-wl1" ] && echo "--l1-rpc-urls ${{ secrets.L1_RPC_URL }}" || echo "")
           CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=$([ "${{ github.event.inputs.tracing }}" == "true" ] && echo "--otel-collector-endpoint-url grpc://${TARGET_MACHINE_IP}:4317" || echo "")
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
 
@@ -83,6 +85,7 @@ jobs:
           echo "CLUSTER_PROFILE_FLAG=${CLUSTER_PROFILE_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_LOGS_FLAG=${CLUSTER_LOGS_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DATADOG_KEY_FLAG=${CLUSTER_DATADOG_KEY_FLAG}" >> ${GITHUB_ENV}
+          echo "CLUSTER_L1_RPC_URL_FLAG=${CLUSTER_L1_RPC_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> ${GITHUB_ENV}
 
@@ -213,6 +216,7 @@ jobs:
             ${CLUSTER_PROFILE_FLAG} \
             ${CLUSTER_LOGS_FLAG} \
             ${CLUSTER_DATADOG_KEY_FLAG} \
+            ${CLUSTER_L1_RPC_URL_FLAG} \
             ${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG} \
             ${CLUSTER_DEBUG_FLAG}
           END_TIME="$(date +%s)"

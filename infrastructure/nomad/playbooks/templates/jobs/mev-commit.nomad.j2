@@ -62,7 +62,7 @@ job "{{ job.name }}" {
         cores = 4
         memory = 8192
       }
-      {% elif profile == 'stressnet' %}
+      {% elif profile == 'stressnet' or profile == 'stressnet-wl1' %}
       resources {
         cpu = 4000
         memory = 4096
