@@ -2,7 +2,10 @@ module github.com/primev/mev-commit/scripts
 
 go 1.22.3
 
-require github.com/ethereum/go-ethereum v1.14.8
+require (
+	github.com/ethereum/go-ethereum v1.14.8
+	github.com/primev/mev-commit/contracts-abi v0.0.0-20240812215342-b576754bd6f6
+)
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -21,7 +24,7 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/holiman/uint256 v1.3.1 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
-	github.com/primev/mev-commit/contracts-abi v0.0.0-20240812215342-b576754bd6f6 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/tklauser/go-sysconf v0.3.13 // indirect

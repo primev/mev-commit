@@ -2,139 +2,171 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
+	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-
-	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 )
 
-// ContractABI is the ABI of the ProviderRegistry contract
-var ContractABI = providerregistry.ProviderregistryABI
+const (
+	infuraURL       = "https://chainrpc.testnet.mev-commit.xyz/"
+	contractAddress = "0xf4F10e18244d836311508917A3B04694D88999Dd"
+)
 
-type Provider struct {
-	Address      common.Address `json:"address"`
-	BlsPublicKey []byte         `json:"bls_public_key"`
+// Updated struct to include current balance
+type ProviderRegisteredEvent struct {
+	Provider       common.Address `json:"provider"`
+	StakedAmount   *big.Int       `json:"stakedAmount"`
+	BLSPublicKey   string         `json:"blsPublicKey"`
+	CurrentBalance *big.Int       `json:"currentBalance"`
 }
 
-// Custom UnmarshalJSON method for Provider struct
-func (p *Provider) UnmarshalJSON(data []byte) error {
-	var temp struct {
-		Address      string `json:"address"`
-		BlsPublicKey string `json:"bls_public_key"`
-	}
-
-	// Unmarshal into the temporary struct
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-
-	// Convert address from string to common.Address
-	p.Address = common.HexToAddress(temp.Address)
-
-	// Convert BLS public key from string to []byte
-	p.BlsPublicKey = []byte(temp.BlsPublicKey)
-
-	return nil
-}
-
-// DelegateRegisterAndStake delegates registration and staking for a list of providers
-func DelegateRegisterAndStake(providers []Provider) error {
-	// ProviderRegistryAddress is the address of the deployed ProviderRegistry contract
-	providerRegistryAddr := os.Getenv("PROVIDER_REGISTRY_ADDRESS")
-	if providerRegistryAddr == "" {
-		return fmt.Errorf("PROVIDER_REGISTRTY_ADDRESS environment variable is not set")
-	}
-	providerRegistryAddress := common.HexToAddress(providerRegistryAddr)
-
-	settlementURL := os.Getenv("SETTLEMENT_URL")
-	if settlementURL == "" {
-		return fmt.Errorf("SETTLEMENT_URL environment variable is not set")
-	}
-
-	client, err := ethclient.Dial(settlementURL)
+func getProviders() {
+	client, err := ethclient.Dial(infuraURL)
 	if err != nil {
-		return fmt.Errorf("failed to connect to Ethereum client: %w", err)
-	}
-	defer client.Close()
-
-	prvKey := os.Getenv("PRIVATE_KEY")
-	if prvKey == "" {
-		return fmt.Errorf("PRIVATE_KEY environment variable is not set")
+		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
 	}
 
-	privateKey, err := crypto.HexToECDSA(prvKey)
-	if err != nil {
-		return fmt.Errorf("failed to parse private key: %w", err)
-	}
+	address := common.HexToAddress(contractAddress)
 
-	chainID, err := client.ChainID(context.Background())
-	if err != nil {
-		return fmt.Errorf("failed getting chain ID: %w", err)
-	}
-
-	auth, err := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
-	if err != nil {
-		return fmt.Errorf("failed to create transactor: %w", err)
-	}
-	var ok bool
-	auth.Value, ok = new(big.Int).SetString("10000000000000000000", 10) // 10 ETH
-	if !ok {
-		return fmt.Errorf("failed to set value")
-	}
-	providerRegistry, err := providerregistry.NewProviderregistryTransactor(
-		providerRegistryAddress,
-		client,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate ProviderRegistry contract: %w", err)
-	}
-
-	for _, provider := range providers {
-		// Delegate registration and staking
-		tx, err := providerRegistry.DelegateRegisterAndStake(auth, provider.Address, provider.BlsPublicKey)
-		if err != nil {
-			log.Printf("failed to delegate register and stake for provider %s: %v", provider.Address.Hex(), err)
-			continue
+	// Load the contract ABI
+	contractABI, err := abi.JSON(strings.NewReader(`[
+		{
+			"anonymous": false,
+			"inputs": [
+				{"indexed": true, "internalType": "address", "name": "provider", "type": "address"},
+				{"indexed": false, "internalType": "uint256", "name": "stakedAmount", "type": "uint256"},
+				{"indexed": false, "internalType": "bytes", "name": "blsPublicKey", "type": "bytes"}
+			],
+			"name": "ProviderRegistered",
+			"type": "event"
+		},
+		{
+			"inputs": [{"internalType": "address", "name": "", "type": "address"}],
+			"name": "providerStakes",
+			"outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+			"stateMutability": "view",
+			"type": "function"
 		}
-		log.Printf("transaction submitted for provider %s: %s", provider.Address.Hex(), tx.Hash().Hex())
+	]`))
+	if err != nil {
+		log.Fatalf("Failed to parse ABI: %v", err)
 	}
 
-	return nil
+	// Get the event ID (topic hash)
+	eventID := contractABI.Events["ProviderRegistered"].ID
+
+	// Build the query with the event topic
+	query := ethereum.FilterQuery{
+		Addresses: []common.Address{address},
+		Topics:    [][]common.Hash{{eventID}},
+	}
+
+	logs, err := client.FilterLogs(context.Background(), query)
+	if err != nil {
+		log.Fatalf("Failed to filter logs: %v", err)
+	}
+
+	var events []ProviderRegisteredEvent
+	for _, vLog := range logs {
+		// Initialize the map to hold the unpacked data
+		eventData := make(map[string]interface{})
+
+		// Unpack the non-indexed event data
+		err := contractABI.UnpackIntoMap(eventData, "ProviderRegistered", vLog.Data)
+		if err != nil {
+			log.Fatalf("Failed to unpack log data: %v", err)
+		}
+
+		// Extract the indexed field (Provider)
+		event := ProviderRegisteredEvent{}
+		if len(vLog.Topics) > 1 {
+			event.Provider = common.HexToAddress(vLog.Topics[1].Hex())
+		}
+
+		// Assign the non-indexed fields from eventData
+		if stakedAmount, ok := eventData["stakedAmount"].(*big.Int); ok {
+			event.StakedAmount = stakedAmount
+		} else {
+			log.Fatalf("Failed to get stakedAmount from event data")
+		}
+
+		if blsPublicKey, ok := eventData["blsPublicKey"].([]byte); ok {
+			event.BLSPublicKey = hex.EncodeToString(blsPublicKey)
+		} else {
+			log.Fatalf("Failed to get blsPublicKey from event data")
+		}
+
+		// Now, get the current balance from the providerStakes mapping
+		currentBalance, err := getProviderStake(client, contractABI, address, event.Provider)
+		if err != nil {
+			log.Fatalf("Failed to get current balance for provider %s: %v", event.Provider.Hex(), err)
+		}
+		event.CurrentBalance = currentBalance
+
+		events = append(events, event)
+	}
+
+	file, err := json.MarshalIndent(events, "", "  ")
+	if err != nil {
+		log.Fatalf("Failed to marshal events to JSON: %v", err)
+	}
+
+	err = os.WriteFile("provider_registered_events.json", file, 0644)
+	if err != nil {
+		log.Fatalf("Failed to write events to file: %v", err)
+	}
+
+	fmt.Println("Events successfully written to provider_registered_events.json")
+}
+
+// Function to get the current stake of a provider
+func getProviderStake(client *ethclient.Client, contractABI abi.ABI, contractAddress common.Address, providerAddress common.Address) (*big.Int, error) {
+	// Prepare the data for the call
+	data, err := contractABI.Pack("providerStakes", providerAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack parameters: %v", err)
+	}
+
+	// Call the contract function
+	callMsg := ethereum.CallMsg{
+		To:   &contractAddress,
+		Data: data,
+	}
+
+	// Use nil for block number to get the latest state
+	result, err := client.CallContract(context.Background(), callMsg, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call contract: %v", err)
+	}
+
+	// Unpack the result
+	outputs, err := contractABI.Unpack("providerStakes", result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unpack result: %v", err)
+	}
+
+	// The output should be a slice with one element: the staked amount
+	if len(outputs) != 1 {
+		return nil, fmt.Errorf("unexpected output length: %d", len(outputs))
+	}
+
+	currentBalance, ok := outputs[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type in output")
+	}
+
+	return currentBalance, nil
 }
 
 func main() {
-	// Open the JSON file
-	file, err := os.Open("providers.json")
-	if err != nil {
-		log.Fatalf("failed to open providers file: %v", err)
-	}
-	defer file.Close()
-
-	// Read the file's contents
-	byteValue, err := ioutil.ReadAll(file)
-	if err != nil {
-		log.Fatalf("failed to read providers file: %v", err)
-	}
-
-	// Unmarshal the JSON data into a slice of Provider structs
-	var providers []Provider
-	err = json.Unmarshal(byteValue, &providers)
-	if err != nil {
-		log.Fatalf("failed to unmarshal providers: %v", err)
-	}
-
-	// Proceed with your logic
-	err = DelegateRegisterAndStake(providers)
-	if err != nil {
-		log.Fatalf("failed to delegate register and stake: %v", err)
-	}
+	getProviders()
 }
