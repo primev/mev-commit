@@ -81,10 +81,6 @@ contract BidderRegistry is
     function depositForWindow(uint256 window) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
 
-        if (!bidderRegistered[msg.sender]) {
-            bidderRegistered[msg.sender] = true;
-        }
-
         uint256 newLockedFunds = lockedFunds[msg.sender][window] + msg.value;
         lockedFunds[msg.sender][window] = newLockedFunds;
 
@@ -100,10 +96,6 @@ contract BidderRegistry is
      */
     function depositForWindows(uint256[] calldata windows) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
-
-        if (!bidderRegistered[msg.sender]) {
-            bidderRegistered[msg.sender] = true;
-        }
 
         uint256 amountToDeposit = msg.value / windows.length;
         uint256 remainingAmount = msg.value % windows.length; // to handle rounding issues
