@@ -106,7 +106,7 @@ interface IBidderRegistry {
         uint256 bidAmt,
         address bidder,
         uint64 blockNumber
-    ) external;
+    ) external returns (uint256);
 
     function depositForWindow(uint256 window) external payable;
 
