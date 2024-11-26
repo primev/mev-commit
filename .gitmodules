@@ -4,6 +4,7 @@
 [submodule "external/geth"]
 	path = external/geth
 	url = git@github.com:primev/mev-commit-geth.git
+	branch = debug-zero-address
 [submodule "contracts/lib/openzeppelin-contracts-upgradeable"]
 	path = contracts/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
