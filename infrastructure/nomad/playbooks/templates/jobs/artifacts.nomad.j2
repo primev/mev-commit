@@ -9,7 +9,7 @@ job "artifacts-{{ environments[env].version }}" {
   # The cron corresponds to January 1st, 2100 and
   # it prevents the job from being run and cleaned up.
   periodic {
-    cron = "0 0 1 1 6"
+    crons = ["0 0 1 1 6"]
   }
   {% endif %}
 

@@ -106,7 +106,7 @@
         fail_msg: "The environment name is not set correctly."
         success_msg: "The environment name is set to: {{ env }}."
 
-    - name: Ensure "{{ ansible_user_home }}/{{ env }}" Directory Exists
+    - name: Ensure "{{ ansible_user_home }}/{{ env }}/artifacts" Directory Exists
       ansible.builtin.file:
         path: "{{ ansible_user_home }}/{{ env }}/artifacts"
         state: directory
@@ -114,6 +114,16 @@
         recurse: yes
       become: true
       become_user: "{{ ansible_user }}"
+
+    - name: Ensure "{{ ansible_user_home }}/{{ env }}/backups" Directory Exists
+      ansible.builtin.file:
+        path: "{{ ansible_user_home }}/{{ env }}/backups"
+        state: directory
+        mode: "0744"
+        recurse: yes
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: env == "testenv" or env == "mainenv"
 
     - name: Ensure "/var/lib/mev-commit/{{ env }}" Directory Exists
       ansible.builtin.file:
