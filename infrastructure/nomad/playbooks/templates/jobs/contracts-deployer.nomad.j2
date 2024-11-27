@@ -51,10 +51,17 @@ job "{{ job.name }}" {
     task "contracts" {
       driver = "exec"
 
+      {% if profile == 'testnet' %}
       resources {
         cpu = 4000
         memory = 2048
       }
+      {% elif profile == 'stressnet' or profile == 'stressnet-wl1' %}
+      resources {
+        cpu = 2000
+        memory = 1024
+      }
+      {% endif %}
 
       {% for port_name in job.ports[0] %}
       service {
