@@ -120,7 +120,7 @@ job "{{ job.name }}" {
             -log-tags "${EMULATOR_LOG_TAGS}" \
             -log-fmt "${EMULATOR_LOG_FMT}" \
             -otel-collector-endpoint-url "${EMULATOR_OTEL_COLLECTOR_ENDPOINT_URL}" \
-            {% if job.target_type == 'provider' %}
+            {% if profile != 'testnet' and job.target_type == 'provider' %}
             -relay "${EMULATOR_RELAY_URL}" \
             {% endif %}
         EOH
