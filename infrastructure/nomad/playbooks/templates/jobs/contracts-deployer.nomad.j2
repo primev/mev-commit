@@ -216,6 +216,7 @@ job "{{ job.name }}" {
 
           {%- if profile == 'testnet' %}
           export RPC_URL="{{ job.env['l1_rpc_url'] }}"
+          export CHAIN_ID="17000"
           {%- endif %}
 
           {%- raw %}
