@@ -583,9 +583,10 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         uint64 networkRestakeDelegatorType = 0;
+        uint64 operatorSpecificDelegatorType = 2;
 
         mockDelegator1.setType(networkRestakeDelegatorType);
-        mockDelegator2.setType(networkRestakeDelegatorType);
+        mockDelegator2.setType(operatorSpecificDelegatorType);
 
         vm.prank(owner);
         vm.expectRevert(

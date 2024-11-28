@@ -613,7 +613,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         IEntity delegator = IEntity(IVault(vault).delegator());
         if (delegator.TYPE() == _FULL_RESTAKE_DELEGATOR_TYPE) {
             revert FullRestakeDelegatorNotSupported(vault);
-        } else if (delegator.TYPE() != _NETWORK_RESTAKE_DELEGATOR_TYPE) {
+        // Only two delegator types are supported, network-restake and operator-specific.
+        } else if (delegator.TYPE() != _NETWORK_RESTAKE_DELEGATOR_TYPE && delegator.TYPE() != _OPERATOR_SPECIFIC_DELEGATOR_TYPE) {
             revert UnknownDelegatorType(vault, delegator.TYPE());
         }
 

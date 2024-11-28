@@ -16,6 +16,9 @@ abstract contract MevCommitMiddlewareStorage {
     /// @notice Enum TYPE for Symbiotic core FullRestakeDelegator.
     uint64 internal constant _FULL_RESTAKE_DELEGATOR_TYPE = 1;
 
+    /// @notice Enum TYPE for Symbiotic core OperatorSpecificDelegator.
+    uint64 internal constant _OPERATOR_SPECIFIC_DELEGATOR_TYPE = 2;
+
     /// @notice Enum TYPE for Symbiotic core InstantSlasher.
     uint64 internal constant _INSTANT_SLASHER_TYPE = 0;
 
