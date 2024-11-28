@@ -64,7 +64,7 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 		BlockTime:   uint64(time.Now().UnixMilli()) - 10,
 	}
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "010203")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "010203")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 
@@ -128,14 +128,14 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 		Return(redis.NewStringResult(string(executionHeadData), nil)).
 		Times(1)
 
-	mockRedisClient.EXPECT().Pipeline().Return(mockPipeliner)
+	mockRedisClient.EXPECT().TxPipeline().Return(mockPipeliner)
 
 	mockPipeliner.EXPECT().Set(ctx, "blockBuildState:instanceID123", gomock.Any(), time.Duration(0)).Return(redis.NewStatusCmd(ctx))
 	mockPipeliner.EXPECT().XAdd(ctx, gomock.Any()).Return(redis.NewStringCmd(ctx, "result"))
 
 	mockPipeliner.EXPECT().Exec(ctx).Return([]redis.Cmder{}, nil)
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", mockRedisClient, nil, "010203")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", mockRedisClient, nil, "010203")
 	require.NoError(t, err)
 
 	mockEngineClient := new(MockEngineClient)
@@ -188,8 +188,13 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 	ctx := context.Background()
 
-	redisClient, redisMock := redismock.NewClientMock()
-	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRedisClient := mocks.NewMockRedisClient(ctrl)
+	mockPipeliner := mocks.NewMockPipeliner(ctrl)
+
+	mockRedisClient.EXPECT().XGroupCreateMkStream(ctx, "mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").Return(redis.NewStatusCmd(ctx))
 
 	timestamp := uint64(1728051707) // 0x66fff9fb
 	executionHead := &types.ExecutionHead{
@@ -199,9 +204,9 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 	}
 	executionHeadKey := "executionHead:instanceID123"
 	executionHeadData, _ := msgpack.Marshal(executionHead)
-	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
+	mockRedisClient.EXPECT().Get(ctx, executionHeadKey).Return(redis.NewStringResult(string(executionHeadData), nil))
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "010203")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", mockRedisClient, nil, "010203")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 
@@ -268,14 +273,16 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 		BlockTime:   executionPayload.Timestamp,
 	}
 	executionHeadDataUpdated, _ := msgpack.Marshal(executionHeadUpdate)
-	redisMock.ExpectSet(executionHeadKey, executionHeadDataUpdated, 0).SetVal("OK")
+
+	mockRedisClient.EXPECT().TxPipeline().Return(mockPipeliner)
+	mockPipeliner.EXPECT().Set(ctx, executionHeadKey, executionHeadDataUpdated, time.Duration(0)).Return(redis.NewStatusCmd(ctx))
+	mockPipeliner.EXPECT().Exec(ctx).Return([]redis.Cmder{}, nil)
 
 	err = blockBuilder.FinalizeBlock(ctx, payloadIDStr, string(msgpackData), msgID)
 
 	require.NoError(t, err)
 
 	mockEngineClient.AssertExpectations(t)
-	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
 func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
@@ -289,7 +296,7 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 		BlockTime:   uint64(time.Now().UnixMilli()) - 10,
 	}
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "010203")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "010203")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 
@@ -334,7 +341,7 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 		BlockTime:   uint64(time.Now().UnixMilli()) - 10,
 	}
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "010203")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "010203")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 
@@ -378,7 +385,7 @@ func TestBlockBuilder_getPayload_startBuildFails(t *testing.T) {
 	redisClient, redisMock := redismock.NewClientMock()
 	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "010203")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "010203")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 	blockBuilder := &BlockBuilder{
@@ -416,7 +423,7 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "010203")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "010203")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 	blockBuilder := &BlockBuilder{
@@ -470,7 +477,7 @@ func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "000000")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "000000")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 	blockBuilder := &BlockBuilder{
@@ -527,7 +534,7 @@ func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "000000")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "000000")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 	blockBuilder := &BlockBuilder{
@@ -591,7 +598,7 @@ func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 	executionHeadData, _ := msgpack.Marshal(executionHead)
 	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "000000")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", redisClient, nil, "000000")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 	blockBuilder := &BlockBuilder{
@@ -653,8 +660,13 @@ func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 
 func TestBlockBuilder_FinalizeBlock_SaveExecutionHeadError(t *testing.T) {
 	ctx := context.Background()
-	redisClient, redisMock := redismock.NewClientMock()
-	redisMock.ExpectXGroupCreateMkStream("mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").SetVal("OK")
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockRedisClient := mocks.NewMockRedisClient(ctrl)
+	mockPipeliner := mocks.NewMockPipeliner(ctrl)
+
+	mockRedisClient.EXPECT().XGroupCreateMkStream(ctx, "mevcommit_block_stream", "mevcommit_consumer_group:instanceID123", "0").Return(redis.NewStatusCmd(ctx))
 
 	timestamp := uint64(1728051707) // 0x66fff9fb
 	executionHead := &types.ExecutionHead{
@@ -664,9 +676,9 @@ func TestBlockBuilder_FinalizeBlock_SaveExecutionHeadError(t *testing.T) {
 	}
 	executionHeadKey := "executionHead:instanceID123"
 	executionHeadData, _ := msgpack.Marshal(executionHead)
-	redisMock.ExpectGet(executionHeadKey).SetVal(string(executionHeadData))
+	mockRedisClient.EXPECT().Get(ctx, executionHeadKey).Return(redis.NewStringResult(string(executionHeadData), nil))
 
-	stateManager, err := state.NewRedisStateManager("instanceID123", redisClient, nil, "000000")
+	stateManager, err := state.NewRedisCoordinator("instanceID123", mockRedisClient, nil, "000000")
 	require.NoError(t, err)
 	mockEngineClient := new(MockEngineClient)
 	blockBuilder := &BlockBuilder{
@@ -719,7 +731,9 @@ func TestBlockBuilder_FinalizeBlock_SaveExecutionHeadError(t *testing.T) {
 		BlockTime:   executionPayload.Timestamp,
 	}
 	executionHeadDataUpdated, _ := msgpack.Marshal(executionHeadUpdate)
-	redisMock.ExpectSet(executionHeadKey, executionHeadDataUpdated, time.Duration(0)).SetErr(errors.New("redis error"))
+	mockRedisClient.EXPECT().TxPipeline().Return(mockPipeliner)
+	mockPipeliner.EXPECT().Set(ctx, executionHeadKey, executionHeadDataUpdated, time.Duration(0)).Return(redis.NewStatusCmd(ctx))
+	mockPipeliner.EXPECT().Exec(ctx).Return([]redis.Cmder{}, errors.New("redis error"))
 
 	err = blockBuilder.FinalizeBlock(ctx, payloadIDStr, string(executionPayloadData), "")
 
@@ -727,7 +741,6 @@ func TestBlockBuilder_FinalizeBlock_SaveExecutionHeadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to save execution head")
 
 	mockEngineClient.AssertExpectations(t)
-	require.NoError(t, redisMock.ExpectationsWereMet())
 }
 
 func matchPayloadAttributes(expectedHash common.Hash, executionHeadTime uint64) func(*engine.PayloadAttributes) bool {

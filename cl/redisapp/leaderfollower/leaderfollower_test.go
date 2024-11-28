@@ -42,7 +42,7 @@ func TestNewLeaderFollowerManager(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	stateManager := mocks.NewMockStateManager(ctrl)
+	stateManager := mocks.NewMockCoordinator(ctrl)
 	blockBuilder := mocks.NewMockBlockBuilder(ctrl)
 
 	// Execute
@@ -62,7 +62,7 @@ func TestHaveMessagesToProcess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 
 	// Prepare mock state manager to return some messages
 	messages := []redis.XStream{
@@ -104,7 +104,7 @@ func TestHaveMessagesToProcess_NoMessages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 
 	// Set up expectations
 	gomock.InOrder(
@@ -130,7 +130,7 @@ func TestLeaderWork_StepBuildBlock(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 	mockBB := mocks.NewMockBlockBuilder(ctrl)
 
 	lfm := &LeaderFollowerManager{
@@ -176,7 +176,7 @@ func TestFollowerWork_NoMessages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 	mockBB := mocks.NewMockBlockBuilder(ctrl)
 
 	lfm := &LeaderFollowerManager{
@@ -212,7 +212,7 @@ func TestFollowerWork_WithMessages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockSM := mocks.NewMockStateManager(ctrl)
+	mockSM := mocks.NewMockCoordinator(ctrl)
 	mockBB := mocks.NewMockBlockBuilder(ctrl)
 
 	lfm := &LeaderFollowerManager{

@@ -10,6 +10,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
+	state "github.com/primev/mev-commit/cl/redisapp/state"
 	types "github.com/primev/mev-commit/cl/redisapp/types"
 	redis "github.com/redis/go-redis/v9"
 )
@@ -7345,32 +7346,23 @@ func (m *MockStateManager) EXPECT() *MockStateManagerMockRecorder {
 	return m.recorder
 }
 
-// AckMessage mocks base method.
-func (m *MockStateManager) AckMessage(ctx context.Context, messageID string) error {
+// ExecuteTransaction mocks base method.
+func (m *MockStateManager) ExecuteTransaction(ctx context.Context, ops ...state.PipelineOperation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AckMessage", ctx, messageID)
+	varargs := []interface{}{ctx}
+	for _, a := range ops {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ExecuteTransaction", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AckMessage indicates an expected call of AckMessage.
-func (mr *MockStateManagerMockRecorder) AckMessage(ctx, messageID interface{}) *gomock.Call {
+// ExecuteTransaction indicates an expected call of ExecuteTransaction.
+func (mr *MockStateManagerMockRecorder) ExecuteTransaction(ctx interface{}, ops ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AckMessage", reflect.TypeOf((*MockStateManager)(nil).AckMessage), ctx, messageID)
-}
-
-// CreateConsumerGroup mocks base method.
-func (m *MockStateManager) CreateConsumerGroup(ctx context.Context) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateConsumerGroup", ctx)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateConsumerGroup indicates an expected call of CreateConsumerGroup.
-func (mr *MockStateManagerMockRecorder) CreateConsumerGroup(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateConsumerGroup", reflect.TypeOf((*MockStateManager)(nil).CreateConsumerGroup), ctx)
+	varargs := append([]interface{}{ctx}, ops...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteTransaction", reflect.TypeOf((*MockStateManager)(nil).ExecuteTransaction), varargs...)
 }
 
 // GetBlockBuildState mocks base method.
@@ -7416,21 +7408,6 @@ func (mr *MockStateManagerMockRecorder) LoadOrInitializeBlockState(ctx interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadOrInitializeBlockState", reflect.TypeOf((*MockStateManager)(nil).LoadOrInitializeBlockState), ctx)
 }
 
-// ReadMessagesFromStream mocks base method.
-func (m *MockStateManager) ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadMessagesFromStream", ctx, msgType)
-	ret0, _ := ret[0].([]redis.XStream)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadMessagesFromStream indicates an expected call of ReadMessagesFromStream.
-func (mr *MockStateManagerMockRecorder) ReadMessagesFromStream(ctx, msgType interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadMessagesFromStream", reflect.TypeOf((*MockStateManager)(nil).ReadMessagesFromStream), ctx, msgType)
-}
-
 // ResetBlockState mocks base method.
 func (m *MockStateManager) ResetBlockState(ctx context.Context) error {
 	m.ctrl.T.Helper()
@@ -7459,20 +7436,6 @@ func (mr *MockStateManagerMockRecorder) SaveBlockState(ctx interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBlockState", reflect.TypeOf((*MockStateManager)(nil).SaveBlockState), ctx)
 }
 
-// SaveBlockStateAndPublishToStream mocks base method.
-func (m *MockStateManager) SaveBlockStateAndPublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveBlockStateAndPublishToStream", ctx, bsState)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SaveBlockStateAndPublishToStream indicates an expected call of SaveBlockStateAndPublishToStream.
-func (mr *MockStateManagerMockRecorder) SaveBlockStateAndPublishToStream(ctx, bsState interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBlockStateAndPublishToStream", reflect.TypeOf((*MockStateManager)(nil).SaveBlockStateAndPublishToStream), ctx, bsState)
-}
-
 // SaveExecutionHead mocks base method.
 func (m *MockStateManager) SaveExecutionHead(ctx context.Context, head *types.ExecutionHead) error {
 	m.ctrl.T.Helper()
@@ -7487,20 +7450,6 @@ func (mr *MockStateManagerMockRecorder) SaveExecutionHead(ctx, head interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveExecutionHead", reflect.TypeOf((*MockStateManager)(nil).SaveExecutionHead), ctx, head)
 }
 
-// SaveExecutionHeadAndAck mocks base method.
-func (m *MockStateManager) SaveExecutionHeadAndAck(ctx context.Context, head *types.ExecutionHead, messageID string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveExecutionHeadAndAck", ctx, head, messageID)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SaveExecutionHeadAndAck indicates an expected call of SaveExecutionHeadAndAck.
-func (mr *MockStateManagerMockRecorder) SaveExecutionHeadAndAck(ctx, head, messageID interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveExecutionHeadAndAck", reflect.TypeOf((*MockStateManager)(nil).SaveExecutionHeadAndAck), ctx, head, messageID)
-}
-
 // Stop mocks base method.
 func (m *MockStateManager) Stop() {
 	m.ctrl.T.Helper()
@@ -7511,4 +7460,339 @@ func (m *MockStateManager) Stop() {
 func (mr *MockStateManagerMockRecorder) Stop() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockStateManager)(nil).Stop))
+}
+
+// MockStreamManager is a mock of StreamManager interface.
+type MockStreamManager struct {
+	ctrl     *gomock.Controller
+	recorder *MockStreamManagerMockRecorder
+}
+
+// MockStreamManagerMockRecorder is the mock recorder for MockStreamManager.
+type MockStreamManagerMockRecorder struct {
+	mock *MockStreamManager
+}
+
+// NewMockStreamManager creates a new mock instance.
+func NewMockStreamManager(ctrl *gomock.Controller) *MockStreamManager {
+	mock := &MockStreamManager{ctrl: ctrl}
+	mock.recorder = &MockStreamManagerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStreamManager) EXPECT() *MockStreamManagerMockRecorder {
+	return m.recorder
+}
+
+// AckMessage mocks base method.
+func (m *MockStreamManager) AckMessage(ctx context.Context, messageID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AckMessage", ctx, messageID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AckMessage indicates an expected call of AckMessage.
+func (mr *MockStreamManagerMockRecorder) AckMessage(ctx, messageID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AckMessage", reflect.TypeOf((*MockStreamManager)(nil).AckMessage), ctx, messageID)
+}
+
+// CreateConsumerGroup mocks base method.
+func (m *MockStreamManager) CreateConsumerGroup(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateConsumerGroup", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateConsumerGroup indicates an expected call of CreateConsumerGroup.
+func (mr *MockStreamManagerMockRecorder) CreateConsumerGroup(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateConsumerGroup", reflect.TypeOf((*MockStreamManager)(nil).CreateConsumerGroup), ctx)
+}
+
+// ExecuteTransaction mocks base method.
+func (m *MockStreamManager) ExecuteTransaction(ctx context.Context, ops ...state.PipelineOperation) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx}
+	for _, a := range ops {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ExecuteTransaction", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExecuteTransaction indicates an expected call of ExecuteTransaction.
+func (mr *MockStreamManagerMockRecorder) ExecuteTransaction(ctx interface{}, ops ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx}, ops...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteTransaction", reflect.TypeOf((*MockStreamManager)(nil).ExecuteTransaction), varargs...)
+}
+
+// PublishToStream mocks base method.
+func (m *MockStreamManager) PublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishToStream", ctx, bsState)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PublishToStream indicates an expected call of PublishToStream.
+func (mr *MockStreamManagerMockRecorder) PublishToStream(ctx, bsState interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishToStream", reflect.TypeOf((*MockStreamManager)(nil).PublishToStream), ctx, bsState)
+}
+
+// ReadMessagesFromStream mocks base method.
+func (m *MockStreamManager) ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadMessagesFromStream", ctx, msgType)
+	ret0, _ := ret[0].([]redis.XStream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadMessagesFromStream indicates an expected call of ReadMessagesFromStream.
+func (mr *MockStreamManagerMockRecorder) ReadMessagesFromStream(ctx, msgType interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadMessagesFromStream", reflect.TypeOf((*MockStreamManager)(nil).ReadMessagesFromStream), ctx, msgType)
+}
+
+// Stop mocks base method.
+func (m *MockStreamManager) Stop() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Stop")
+}
+
+// Stop indicates an expected call of Stop.
+func (mr *MockStreamManagerMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockStreamManager)(nil).Stop))
+}
+
+// MockCoordinator is a mock of Coordinator interface.
+type MockCoordinator struct {
+	ctrl     *gomock.Controller
+	recorder *MockCoordinatorMockRecorder
+}
+
+// MockCoordinatorMockRecorder is the mock recorder for MockCoordinator.
+type MockCoordinatorMockRecorder struct {
+	mock *MockCoordinator
+}
+
+// NewMockCoordinator creates a new mock instance.
+func NewMockCoordinator(ctrl *gomock.Controller) *MockCoordinator {
+	mock := &MockCoordinator{ctrl: ctrl}
+	mock.recorder = &MockCoordinatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCoordinator) EXPECT() *MockCoordinatorMockRecorder {
+	return m.recorder
+}
+
+// AckMessage mocks base method.
+func (m *MockCoordinator) AckMessage(ctx context.Context, messageID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AckMessage", ctx, messageID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AckMessage indicates an expected call of AckMessage.
+func (mr *MockCoordinatorMockRecorder) AckMessage(ctx, messageID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AckMessage", reflect.TypeOf((*MockCoordinator)(nil).AckMessage), ctx, messageID)
+}
+
+// CreateConsumerGroup mocks base method.
+func (m *MockCoordinator) CreateConsumerGroup(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateConsumerGroup", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateConsumerGroup indicates an expected call of CreateConsumerGroup.
+func (mr *MockCoordinatorMockRecorder) CreateConsumerGroup(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateConsumerGroup", reflect.TypeOf((*MockCoordinator)(nil).CreateConsumerGroup), ctx)
+}
+
+// ExecuteTransaction mocks base method.
+func (m *MockCoordinator) ExecuteTransaction(ctx context.Context, ops ...state.PipelineOperation) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx}
+	for _, a := range ops {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ExecuteTransaction", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ExecuteTransaction indicates an expected call of ExecuteTransaction.
+func (mr *MockCoordinatorMockRecorder) ExecuteTransaction(ctx interface{}, ops ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx}, ops...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteTransaction", reflect.TypeOf((*MockCoordinator)(nil).ExecuteTransaction), varargs...)
+}
+
+// GetBlockBuildState mocks base method.
+func (m *MockCoordinator) GetBlockBuildState(ctx context.Context) types.BlockBuildState {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockBuildState", ctx)
+	ret0, _ := ret[0].(types.BlockBuildState)
+	return ret0
+}
+
+// GetBlockBuildState indicates an expected call of GetBlockBuildState.
+func (mr *MockCoordinatorMockRecorder) GetBlockBuildState(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockBuildState", reflect.TypeOf((*MockCoordinator)(nil).GetBlockBuildState), ctx)
+}
+
+// LoadExecutionHead mocks base method.
+func (m *MockCoordinator) LoadExecutionHead(ctx context.Context) (*types.ExecutionHead, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadExecutionHead", ctx)
+	ret0, _ := ret[0].(*types.ExecutionHead)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadExecutionHead indicates an expected call of LoadExecutionHead.
+func (mr *MockCoordinatorMockRecorder) LoadExecutionHead(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadExecutionHead", reflect.TypeOf((*MockCoordinator)(nil).LoadExecutionHead), ctx)
+}
+
+// LoadOrInitializeBlockState mocks base method.
+func (m *MockCoordinator) LoadOrInitializeBlockState(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadOrInitializeBlockState", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LoadOrInitializeBlockState indicates an expected call of LoadOrInitializeBlockState.
+func (mr *MockCoordinatorMockRecorder) LoadOrInitializeBlockState(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadOrInitializeBlockState", reflect.TypeOf((*MockCoordinator)(nil).LoadOrInitializeBlockState), ctx)
+}
+
+// PublishToStream mocks base method.
+func (m *MockCoordinator) PublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishToStream", ctx, bsState)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PublishToStream indicates an expected call of PublishToStream.
+func (mr *MockCoordinatorMockRecorder) PublishToStream(ctx, bsState interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishToStream", reflect.TypeOf((*MockCoordinator)(nil).PublishToStream), ctx, bsState)
+}
+
+// ReadMessagesFromStream mocks base method.
+func (m *MockCoordinator) ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadMessagesFromStream", ctx, msgType)
+	ret0, _ := ret[0].([]redis.XStream)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadMessagesFromStream indicates an expected call of ReadMessagesFromStream.
+func (mr *MockCoordinatorMockRecorder) ReadMessagesFromStream(ctx, msgType interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadMessagesFromStream", reflect.TypeOf((*MockCoordinator)(nil).ReadMessagesFromStream), ctx, msgType)
+}
+
+// ResetBlockState mocks base method.
+func (m *MockCoordinator) ResetBlockState(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResetBlockState", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ResetBlockState indicates an expected call of ResetBlockState.
+func (mr *MockCoordinatorMockRecorder) ResetBlockState(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetBlockState", reflect.TypeOf((*MockCoordinator)(nil).ResetBlockState), ctx)
+}
+
+// SaveBlockState mocks base method.
+func (m *MockCoordinator) SaveBlockState(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveBlockState", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveBlockState indicates an expected call of SaveBlockState.
+func (mr *MockCoordinatorMockRecorder) SaveBlockState(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBlockState", reflect.TypeOf((*MockCoordinator)(nil).SaveBlockState), ctx)
+}
+
+// SaveBlockStateAndPublishToStream mocks base method.
+func (m *MockCoordinator) SaveBlockStateAndPublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveBlockStateAndPublishToStream", ctx, bsState)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveBlockStateAndPublishToStream indicates an expected call of SaveBlockStateAndPublishToStream.
+func (mr *MockCoordinatorMockRecorder) SaveBlockStateAndPublishToStream(ctx, bsState interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveBlockStateAndPublishToStream", reflect.TypeOf((*MockCoordinator)(nil).SaveBlockStateAndPublishToStream), ctx, bsState)
+}
+
+// SaveExecutionHead mocks base method.
+func (m *MockCoordinator) SaveExecutionHead(ctx context.Context, head *types.ExecutionHead) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveExecutionHead", ctx, head)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveExecutionHead indicates an expected call of SaveExecutionHead.
+func (mr *MockCoordinatorMockRecorder) SaveExecutionHead(ctx, head interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveExecutionHead", reflect.TypeOf((*MockCoordinator)(nil).SaveExecutionHead), ctx, head)
+}
+
+// SaveExecutionHeadAndAck mocks base method.
+func (m *MockCoordinator) SaveExecutionHeadAndAck(ctx context.Context, head *types.ExecutionHead, messageID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveExecutionHeadAndAck", ctx, head, messageID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveExecutionHeadAndAck indicates an expected call of SaveExecutionHeadAndAck.
+func (mr *MockCoordinatorMockRecorder) SaveExecutionHeadAndAck(ctx, head, messageID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveExecutionHeadAndAck", reflect.TypeOf((*MockCoordinator)(nil).SaveExecutionHeadAndAck), ctx, head, messageID)
+}
+
+// Stop mocks base method.
+func (m *MockCoordinator) Stop() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Stop")
+}
+
+// Stop indicates an expected call of Stop.
+func (mr *MockCoordinatorMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockCoordinator)(nil).Stop))
 }

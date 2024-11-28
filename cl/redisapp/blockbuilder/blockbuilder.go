@@ -33,7 +33,7 @@ type EngineClient interface {
 }
 
 type BlockBuilder struct {
-	stateManager          state.StateManager
+	stateManager          state.Coordinator
 	engineCl              EngineClient
 	logger                *slog.Logger
 	buildDelay            time.Duration
@@ -45,7 +45,7 @@ type BlockBuilder struct {
 	ctx                   context.Context
 }
 
-func NewBlockBuilder(stateManager state.StateManager, engineCl EngineClient, logger *slog.Logger, buildDelay, buildDelayEmptyBlocks time.Duration, feeReceipt string) *BlockBuilder {
+func NewBlockBuilder(stateManager state.Coordinator, engineCl EngineClient, logger *slog.Logger, buildDelay, buildDelayEmptyBlocks time.Duration, feeReceipt string) *BlockBuilder {
 	return &BlockBuilder{
 		stateManager:          stateManager,
 		engineCl:              engineCl,

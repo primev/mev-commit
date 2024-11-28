@@ -18,7 +18,7 @@ import (
 type LeaderFollowerManager struct {
 	isLeader              atomic.Bool
 	isFollowerInitialized atomic.Bool
-	stateManager          state.StateManager
+	stateManager          state.Coordinator
 	blockBuilder          BlockBuilder
 	leaderProc            leader.Leader
 	logger                *slog.Logger
@@ -48,7 +48,7 @@ func NewLeaderFollowerManager(
 	instanceID string,
 	logger *slog.Logger,
 	redisClient *redis.Client,
-	stateManager state.StateManager,
+	stateManager state.Coordinator,
 	blockBuilder BlockBuilder,
 ) (*LeaderFollowerManager, error) {
 	// Initialize leader election
