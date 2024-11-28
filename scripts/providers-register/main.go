@@ -23,7 +23,7 @@ import (
 
 const (
 	rpcURL             = "https://chainrpc.testnet.mev-commit.xyz/"
-	newContractAddress = "0xYourNewContractAddress"
+	newContractAddress = "0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67"
 	providersJSONFile  = "provider_registered_events.json"
 )
 
