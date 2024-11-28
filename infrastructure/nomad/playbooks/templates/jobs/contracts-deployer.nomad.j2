@@ -235,7 +235,7 @@ job "{{ job.name }}" {
           echo '{{ .Data.data.bridge_relayer_keystore }}' > local/bridge_relayer_keystore
             {{ end }}
           {% endraw %}
-          export L1_OWNER_ADDRESS=${SENDER} // TODO: this should be a multisig address on mainnet.
+          export L1_OWNER_ADDRESS=${SENDER} #TODO: this should be a multisig address on mainnet.
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
             echo "Failed to deploy contracts!"
