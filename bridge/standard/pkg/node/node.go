@@ -97,11 +97,14 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	if existingBlockNum == 0 {
-		client, err := ethclient.Dial(opts.L1RPCURL)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		client, err := ethclient.DialContext(ctx, opts.L1RPCURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to the Ethereum node: %w", err)
 		}
-		blkNum, err := client.BlockNumber(context.Background())
+		blkNum, err := client.BlockNumber(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get block number: %w", err)
 		}
