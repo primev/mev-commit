@@ -214,10 +214,10 @@ job "{{ job.name }}" {
 
           forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
 
-          {%- if profile == 'testnet' %}
+          {% if profile == 'testnet' %}
           export RPC_URL="{{ job.env['l1_rpc_url'] }}"
           export CHAIN_ID="17000"
-          {%- endif %}
+          {% endif %}
 
           {%- raw %}
           {{- range nomadService "mock-l1" }}
