@@ -31,6 +31,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+const blockDrift uint64 = 10_000
+
 type Options struct {
 	Logger                 *slog.Logger
 	HTTPPort               int
@@ -87,6 +89,32 @@ func NewNode(opts *Options) (*Node, error) {
 	settlementStore, err := store.NewStore(db, "settlement")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create settlement store: %w", err)
+	}
+
+	existingBlockNum, err := l1Store.LastBlock()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last block number: %w", err)
+	}
+
+	if existingBlockNum == 0 {
+		client, err := ethclient.Dial(opts.L1RPCURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to the Ethereum node: %w", err)
+		}
+		blkNum, err := client.BlockNumber(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to get block number: %w", err)
+		}
+
+		if blkNum > blockDrift {
+			// Set the last block number to 10000 blocks behind the current block number
+			// to avoid reprocessing all the blocks from the beginning. This will be updated
+			// in the database as the blocks are processed.
+			err = l1Store.SetLastBlock(blkNum - blockDrift)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set last block number: %w", err)
+			}
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
