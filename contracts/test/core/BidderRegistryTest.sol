@@ -70,7 +70,6 @@ contract BidderRegistryTest is Test {
         assertEq(accumulatedAmount, 0);
         assertEq(bidderRegistry.feePercent(), feePercent);
         assertEq(bidderRegistry.preconfManager(), address(0));
-        assertEq(bidderRegistry.bidderRegistered(bidder), false);
     }
 
     function test_BidderStakeAndRegister() public {
@@ -83,9 +82,6 @@ contract BidderRegistryTest is Test {
         emit BidderRegistered(bidder, 1 ether, nextWindow);
 
         bidderRegistry.depositForWindow{value: 1 ether}(nextWindow);
-
-        bool isBidderRegistered = bidderRegistry.bidderRegistered(bidder);
-        assertEq(isBidderRegistered, true);
 
         uint256 bidderStakeStored = bidderRegistry.getDeposit(bidder, nextWindow);
         assertEq(bidderStakeStored, 1 ether);
@@ -344,9 +340,6 @@ contract BidderRegistryTest is Test {
             uint256 maxBidPerBlock = bidderRegistry.maxBidPerBlock(bidder, windows[i]);
             assertEq(maxBidPerBlock, depositAmount / (windows.length * WindowFromBlockNumber.BLOCKS_PER_WINDOW));
         }
-
-        bool isBidderRegistered = bidderRegistry.bidderRegistered(bidder);
-        assertEq(isBidderRegistered, true);
     }
 
     function test_WithdrawFromWindows() public {

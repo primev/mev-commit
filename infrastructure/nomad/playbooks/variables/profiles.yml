@@ -182,6 +182,7 @@ jobs:
           to: 8080
     env:
       chain-id: "{{ environments[env].chain_id }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_dashboard: &mev_commit_dashboard_job
     name: mev-commit-dashboard
@@ -726,13 +727,13 @@ profiles:
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
       - *mev_commit_provider_node1_funder_job
       - *mev_commit_oracle_job
       - *mev_commit_provider_emulator_node1_job
-      - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
 
   stressnet:
