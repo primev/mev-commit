@@ -1,9 +1,9 @@
 package store
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,8 +22,19 @@ const (
 )
 
 var (
-	commitmentKey = func(blockNum int64, index []byte) string {
-		return fmt.Sprintf("%s%d/%s", commitmentNS, blockNum, string(index))
+	MAX_BID_AMOUNT, _ = new(big.Int).SetString("1000000000000000000000000000", 10) // 1e24
+)
+
+var (
+	commitmentKey = func(blockNum int64, bidAmt string, index []byte) string {
+		bidAmtInt, ok := new(big.Int).SetString(bidAmt, 10)
+		if !ok {
+			return ""
+		}
+		invertedBidAmount := new(big.Int).Sub(MAX_BID_AMOUNT, bidAmtInt)
+		paddedBidAmountHex := fmt.Sprintf("%064x", invertedBidAmount)
+
+		return fmt.Sprintf("%s%d/%s/%s", commitmentNS, blockNum, paddedBidAmountHex, string(index))
 	}
 	blockCommitmentPrefix = func(blockNum int64) string {
 		return fmt.Sprintf("%s%d", commitmentNS, blockNum)
@@ -52,6 +63,11 @@ type BlockWinner struct {
 	Winner      common.Address
 }
 
+type CommitmentIndexValue struct {
+	BlockNumber int64
+	BidAmount   string
+}
+
 func New(st storage.Storage) *Store {
 	return &Store{
 		st: st,
@@ -74,12 +90,11 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 				err = batch.Write()
 			}
 		}()
-
 	} else {
 		writer = s.st
 	}
 
-	key := commitmentKey(commitment.Bid.BlockNumber, commitment.EncryptedPreConfirmation.Commitment)
+	key := commitmentKey(commitment.Bid.BlockNumber, commitment.Bid.BidAmount, commitment.EncryptedPreConfirmation.Commitment)
 
 	buf, err := msgpack.Marshal(commitment)
 	if err != nil {
@@ -91,10 +106,17 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 	}
 
 	cIndexKey := cmtIndexKey(commitment.EncryptedPreConfirmation.Commitment)
-	blkNumBuf := make([]byte, 8)
-	binary.LittleEndian.PutUint64(blkNumBuf, uint64(commitment.Bid.BlockNumber))
+	cIndexValue := CommitmentIndexValue{
+		BlockNumber: commitment.Bid.BlockNumber,
+		BidAmount:   commitment.Bid.BidAmount,
+	}
 
-	return writer.Put(cIndexKey, blkNumBuf)
+	cIndexValueBuf, err := msgpack.Marshal(cIndexValue)
+	if err != nil {
+		return err
+	}
+
+	return writer.Put(cIndexKey, cIndexValueBuf)
 }
 
 func (s *Store) GetCommitments(blockNum int64) ([]*EncryptedPreConfirmationWithDecrypted, error) {
@@ -131,16 +153,16 @@ func (s *Store) ClearBlockNumber(blockNum int64) error {
 	return s.st.Delete(blockWinnerKey(blockNum))
 }
 
-func (s *Store) DeleteCommitmentByDigest(blockNum int64, digest [32]byte) error {
+func (s *Store) DeleteCommitmentByDigest(blockNum int64, bidAmt string, digest [32]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.st.Delete(commitmentKey(blockNum, digest[:]))
+	return s.st.Delete(commitmentKey(blockNum, bidAmt, digest[:]))
 }
 
 func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 	s.mu.RLock()
-	blkNumBuf, err := s.st.Get(cmtIndexKey(cDigest[:]))
+	cIndexValueBuf, err := s.st.Get(cmtIndexKey(cDigest[:]))
 	s.mu.RUnlock()
 	switch {
 	case errors.Is(err, storage.ErrKeyNotFound):
@@ -154,8 +176,13 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	blkNum := binary.LittleEndian.Uint64(blkNumBuf)
-	commitmentKey := commitmentKey(int64(blkNum), cDigest[:])
+	var cIndexValue CommitmentIndexValue
+	err = msgpack.Unmarshal(cIndexValueBuf, &cIndexValue)
+	if err != nil {
+		return err
+	}
+
+	commitmentKey := commitmentKey(cIndexValue.BlockNumber, cIndexValue.BidAmount, cDigest[:])
 	cmtBuf, err := s.st.Get(commitmentKey)
 	if err != nil {
 		return err
@@ -180,8 +207,13 @@ func (s *Store) ClearCommitmentIndexes(uptoBlock int64) error {
 	keys := make([]string, 0)
 	s.mu.RLock()
 	err := s.st.WalkPrefix(cmtIndexNS, func(key string, val []byte) bool {
-		blkNum := binary.LittleEndian.Uint64([]byte(val))
-		if blkNum < uint64(uptoBlock) {
+		var cIndexValue CommitmentIndexValue
+		err := msgpack.Unmarshal(val, &cIndexValue)
+		if err != nil {
+			// If unmarshaling fails, we might have corrupted data; skip this key
+			return false
+		}
+		if cIndexValue.BlockNumber < uptoBlock {
 			keys = append(keys, key)
 		}
 		return false

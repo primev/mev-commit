@@ -19,6 +19,7 @@ func TestStore_AddCommitment(t *testing.T) {
 		PreConfirmation: &preconfpb.PreConfirmation{
 			Bid: &preconfpb.Bid{
 				BlockNumber: 1,
+				BidAmount:   "100",
 			},
 		},
 	}
@@ -83,6 +84,7 @@ func TestStore_ClearCommitmentIndex(t *testing.T) {
 		PreConfirmation: &preconfpb.PreConfirmation{
 			Bid: &preconfpb.Bid{
 				BlockNumber: 1,
+				BidAmount:   "100",
 			},
 		},
 	}
@@ -122,6 +124,7 @@ func TestStore_DeleteCommitmentByDigest(t *testing.T) {
 		PreConfirmation: &preconfpb.PreConfirmation{
 			Bid: &preconfpb.Bid{
 				BlockNumber: 1,
+				BidAmount:   "100",
 			},
 		},
 	}
@@ -130,7 +133,7 @@ func TestStore_DeleteCommitmentByDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = st.DeleteCommitmentByDigest(1, digest)
+	err = st.DeleteCommitmentByDigest(1, commitment.Bid.BidAmount, digest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,6 +162,7 @@ func TestStore_SetCommitmentIndexByDigest(t *testing.T) {
 		PreConfirmation: &preconfpb.PreConfirmation{
 			Bid: &preconfpb.Bid{
 				BlockNumber: 1,
+				BidAmount:   "100",
 			},
 		},
 	}
@@ -212,5 +216,73 @@ func TestStore_AddWinner(t *testing.T) {
 
 	if winners[0].Winner != common.HexToAddress("0x123") {
 		t.Fatalf("expected winner 0x123, got %s", winners[0].Winner.Hex())
+	}
+}
+
+func TestStore_GetCommitments_Order(t *testing.T) {
+	st := store.New(inmem.New())
+
+	commitment1 := &store.EncryptedPreConfirmationWithDecrypted{
+		EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+			Commitment: []byte("commitment1"),
+		},
+		PreConfirmation: &preconfpb.PreConfirmation{
+			Bid: &preconfpb.Bid{
+				BlockNumber: 1,
+				BidAmount:   "300",
+			},
+		},
+	}
+	commitment2 := &store.EncryptedPreConfirmationWithDecrypted{
+		EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+			Commitment: []byte("commitment2"),
+		},
+		PreConfirmation: &preconfpb.PreConfirmation{
+			Bid: &preconfpb.Bid{
+				BlockNumber: 1,
+				BidAmount:   "200",
+			},
+		},
+	}
+	commitment3 := &store.EncryptedPreConfirmationWithDecrypted{
+		EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
+			Commitment: []byte("commitment3"),
+		},
+		PreConfirmation: &preconfpb.PreConfirmation{
+			Bid: &preconfpb.Bid{
+				BlockNumber: 1,
+				BidAmount:   "100",
+			},
+		},
+	}
+
+	err := st.AddCommitment(commitment1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = st.AddCommitment(commitment3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = st.AddCommitment(commitment2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	commitments, err := st.GetCommitments(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(commitments) != 3 {
+		t.Fatalf("expected 3 commitments, got %d", len(commitments))
+	}
+
+	expectedOrder := []string{"commitment1", "commitment2", "commitment3"}
+	for i, commitment := range commitments {
+		expectedCommitment := expectedOrder[i]
+		if !bytes.Equal(commitment.EncryptedPreConfirmation.Commitment, []byte(expectedCommitment)) {
+			t.Fatalf("expected commitment %s at position %d, got %s", expectedCommitment, i, commitment.EncryptedPreConfirmation.Commitment)
+		}
 	}
 }
