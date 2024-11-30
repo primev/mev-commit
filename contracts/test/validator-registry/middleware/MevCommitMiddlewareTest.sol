@@ -15,6 +15,7 @@ import {MockVault} from "./MockVault.sol";
 import {MockVetoSlasher} from "./MockVetoSlasher.sol";
 import {MockInstantSlasher} from "./MockInstantSlasher.sol";
 import {MockDelegator} from "./MockDelegator.sol";
+import {MockBurnerRouter} from "./MockBurnerRouter.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 
 contract MevCommitMiddlewareTest is Test {
@@ -36,6 +37,8 @@ contract MevCommitMiddlewareTest is Test {
     MockDelegator public mockDelegator2;
     MockVault public vault1;
     MockVault public vault2;
+    MockBurnerRouter public mockBurnerRouter;
+    MockBurnerRouter public mockBurnerRouter2;
 
     bytes public sampleValPubkey1 = hex"b61a6e5f09217278efc7ddad4dc4b0553b2c076d4a5fef6509c233a6531c99146347193467e84eb5ca921af1b8254b3f";
     bytes public sampleValPubkey2 = hex"aca4b5c5daf5b39514b8aa6e5f303d29f6f1bd891e5f6b6b2ae6e2ae5d95dee31cd78630c1115b6e90f3da1a66cf8edb";
@@ -106,8 +109,9 @@ contract MevCommitMiddlewareTest is Test {
         mockDelegator1 = new MockDelegator(15);
         mockDelegator2 = new MockDelegator(16);
         uint48 epochDuration = 10 hours;
-        vault1 = new MockVault(address(mockDelegator1), address(0), epochDuration);
-        vault2 = new MockVault(address(mockDelegator2), address(0), epochDuration);
+        address emptyBurner = address(0);
+        vault1 = new MockVault(address(mockDelegator1), address(0), emptyBurner, epochDuration);
+        vault2 = new MockVault(address(mockDelegator2), address(0), emptyBurner, epochDuration);
     }
 
     function test_setters() public {
@@ -649,6 +653,52 @@ contract MevCommitMiddlewareTest is Test {
 
         MockVault(vault2).setEpochDuration(157 hours);
         MockVault(vault1).setEpochDuration(157 hours);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurner.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockBurnerRouter = new MockBurnerRouter(15 minutes);
+        mockBurnerRouter2 = new MockBurnerRouter(15 minutes);
+
+        vm.prank(address(mockBurnerRouter));
+        burnerRouterFactoryMock.register();
+        vm.prank(address(mockBurnerRouter2));
+        burnerRouterFactoryMock.register();
+
+        vault1.setBurner(address(mockBurnerRouter));
+        vault2.setBurner(address(mockBurnerRouter2));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurner.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockBurnerRouter.setNetworkReceiver(network, vm.addr(0x1143242));
+        mockBurnerRouter2.setNetworkReceiver(network, vm.addr(0x1143243));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurner.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        mockBurnerRouter2.setNetworkReceiver(network, slashReceiver);
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurner.selector, vault1)
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockBurnerRouter.setDelay(3 days);
+        mockBurnerRouter2.setDelay(3 days);
+
+        // No more errors relevant to vault 1
 
         vm.prank(owner);
         vm.expectRevert(

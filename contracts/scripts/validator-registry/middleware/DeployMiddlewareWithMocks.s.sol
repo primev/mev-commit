@@ -12,6 +12,7 @@ import {MockDelegator} from "../../../test/validator-registry/middleware/MockDel
 import {MockVault} from "../../../test/validator-registry/middleware/MockVault.sol";
 import {RegistryMock} from "../../../test/validator-registry/middleware/RegistryMock.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
+import {MockBurnerRouter} from "../../../test/validator-registry/middleware/MockBurnerRouter.sol";
 
 contract DeployMiddlewareWithMocks is Script {
     function run() external {
@@ -52,8 +53,10 @@ contract DeployMiddlewareWithMocks is Script {
 
         MockDelegator mockDelegator1 = new MockDelegator(15);
         MockDelegator mockDelegator2 = new MockDelegator(16);
-        MockVault vault1 = new MockVault(address(mockDelegator1), address(0), 10);
-        MockVault vault2 = new MockVault(address(mockDelegator2), address(0), 10);
+        MockBurnerRouter mockBurnerRouter = new MockBurnerRouter(15 minutes);
+        MockBurnerRouter mockBurnerRouter2 = new MockBurnerRouter(15 minutes);
+        MockVault vault1 = new MockVault(address(mockDelegator1), address(0), address(mockBurnerRouter), 10);
+        MockVault vault2 = new MockVault(address(mockDelegator2), address(0), address(mockBurnerRouter2), 10);
 
         console.log("MockDelegator 1 deployed to:", address(mockDelegator1));
         console.log("MockDelegator 2 deployed to:", address(mockDelegator2));

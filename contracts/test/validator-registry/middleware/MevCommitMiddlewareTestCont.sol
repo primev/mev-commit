@@ -8,6 +8,7 @@ import {MevCommitMiddlewareTest} from "./MevCommitMiddlewareTest.sol";
 import {MockVetoSlasher} from "./MockVetoSlasher.sol";
 import {MockInstantSlasher} from "./MockInstantSlasher.sol";
 import {MockDelegator} from "./MockDelegator.sol";
+import {MockBurnerRouter} from "./MockBurnerRouter.sol";
 
 contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
@@ -71,6 +72,17 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vaultFactoryMock.register();
         vm.prank(address(vault2));
         vaultFactoryMock.register();
+
+        mockBurnerRouter = new MockBurnerRouter(2 days);
+        mockBurnerRouter2 = new MockBurnerRouter(2 days);
+        vm.prank(address(mockBurnerRouter));
+        burnerRouterFactoryMock.register();
+        vm.prank(address(mockBurnerRouter2));
+        burnerRouterFactoryMock.register();
+        vault1.setBurner(address(mockBurnerRouter));
+        vault2.setBurner(address(mockBurnerRouter2));
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        mockBurnerRouter2.setNetworkReceiver(network, slashReceiver);
 
         vm.prank(owner);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
@@ -136,6 +148,17 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         vault1.setEpochDuration(151 hours);
         vault2.setEpochDuration(151 hours + 5 hours);
+
+        mockBurnerRouter = new MockBurnerRouter(3 days);
+        mockBurnerRouter2 = new MockBurnerRouter(3 days);
+        vm.prank(address(mockBurnerRouter));
+        burnerRouterFactoryMock.register();
+        vm.prank(address(mockBurnerRouter2));
+        burnerRouterFactoryMock.register();
+        vault1.setBurner(address(mockBurnerRouter));
+        vault2.setBurner(address(mockBurnerRouter2));
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        mockBurnerRouter2.setNetworkReceiver(network, slashReceiver);
 
         vm.prank(owner);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
