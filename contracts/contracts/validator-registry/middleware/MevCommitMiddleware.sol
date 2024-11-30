@@ -20,8 +20,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Errors} from "../../utils/Errors.sol";
 import {IVetoSlasher} from "symbiotic-core/interfaces/slasher/IVetoSlasher.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
-// TODO: Remove this and use symbiotic burner repo
-import {IBurnerRouter} from "../../interfaces/IBurner.sol";
+import {IBurnerRouter} from "symbiotic-burners/interfaces/router/IBurnerRouter.sol";
 
 /// @notice This contracts serve as an entrypoint for L1 validators
 /// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
