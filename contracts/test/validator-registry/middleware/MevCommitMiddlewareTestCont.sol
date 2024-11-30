@@ -1285,6 +1285,32 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mevCommitMiddleware.getSlashAmountAt(address(vault1), 0);
     }
 
+    function test_ValidatorOptedOutIfBurnerBecomesInvalid() public {
+        test_registerValidators();
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        mockBurnerRouter.setDelay(60 minutes);
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setDelay(6 days);
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        address operator1 = vm.addr(0x1117);
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, address(0x23423));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, address(0));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, slashReceiver);
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        mockBurnerRouter.setNetworkReceiver(network, address(0));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setNetworkReceiver(network, vm.addr(0x23423));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+    }
+
     function test_isValidatorOptedInBadKey() public view {
         bytes memory badKey = bytes("0x1234");
         assertFalse(mevCommitMiddleware.isValidatorOptedIn(badKey));
