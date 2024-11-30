@@ -163,6 +163,40 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vm.prank(owner);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
+        bytes[][] memory blsPubkeys = new bytes[][](2);
+        blsPubkeys[0] = new bytes[](3);
+        blsPubkeys[0][0] = sampleValPubkey1;
+        blsPubkeys[0][1] = sampleValPubkey2;
+        blsPubkeys[0][2] = sampleValPubkey3;
+        blsPubkeys[1] = new bytes[](3);
+        blsPubkeys[1][0] = sampleValPubkey4;
+        blsPubkeys[1][1] = sampleValPubkey5;
+        blsPubkeys[1][2] = sampleValPubkey6;
+
+        uint256 invalidDelay = 15 minutes;
+        mockBurnerRouter.setDelay(invalidDelay);
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurnerConsideringOperator.selector,
+                address(vault1), operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        uint256 validDelay = 5 days;
+        mockBurnerRouter.setDelay(validDelay);
+        address invalidReceiver = vm.addr(0x1117778);
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, invalidReceiver);
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurnerConsideringOperator.selector,
+                address(vault1), operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        address validReceiver = slashReceiver;
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, validReceiver);
+
         // delegator 1 (associated with vault 1) allocates 29 stake to operator 1
         mockDelegator1.setStake(operator1, 29);
 
@@ -174,16 +208,6 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1);
         assertEq(potentialSlashableVals, 2);
-
-        bytes[][] memory blsPubkeys = new bytes[][](2);
-        blsPubkeys[0] = new bytes[](3);
-        blsPubkeys[0][0] = sampleValPubkey1;
-        blsPubkeys[0][1] = sampleValPubkey2;
-        blsPubkeys[0][2] = sampleValPubkey3;
-        blsPubkeys[1] = new bytes[](3);
-        blsPubkeys[1][0] = sampleValPubkey4;
-        blsPubkeys[1][1] = sampleValPubkey5;
-        blsPubkeys[1][2] = sampleValPubkey6;
 
         vm.prank(operator1);
         vm.expectRevert(
