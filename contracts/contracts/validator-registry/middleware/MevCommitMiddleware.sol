@@ -20,6 +20,8 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {Errors} from "../../utils/Errors.sol";
 import {IVetoSlasher} from "symbiotic-core/interfaces/slasher/IVetoSlasher.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
+// TODO: Remove this and use symbiotic burner repo
+import {IBurnerRouter} from "../../interfaces/IBurner.sol";
 
 /// @notice This contracts serve as an entrypoint for L1 validators
 /// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
@@ -60,25 +62,34 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @param _networkRegistry Symbiotic core network registry contract.
     /// @param _operatorRegistry Symbiotic core operator registry contract.
     /// @param _vaultFactory Symbiotic core vault factory contract.
+    /// @param _burnerRouterFactory Symbiotic core burner router factory contract.
     /// @param _network Address of the mev-commit network EOA.
     /// @param _slashPeriodSeconds Oracle slashing must be invoked within `slashPeriodSeconds` of any event causing a validator to transition from *opted-in* to **not** *opted-in*.
     /// @param _slashOracle Address of the mev-commit oracle.
+    /// @param _slashReceiver Address of the mev-commit slash receiver.
+    /// @param _minBurnerRouterDelay Minimum burner router delay.
     /// @param _owner Contract owner address.
     function initialize(
         IRegistry _networkRegistry,
         IRegistry _operatorRegistry,
         IRegistry _vaultFactory,
+        IRegistry _burnerRouterFactory,
         address _network,
         uint256 _slashPeriodSeconds,
         address _slashOracle,
+        address _slashReceiver,
+        uint256 _minBurnerRouterDelay,
         address _owner
     ) public initializer {
         _setNetworkRegistry(_networkRegistry);
         _setOperatorRegistry(_operatorRegistry);
         _setVaultFactory(_vaultFactory);
+        _setBurnerRouterFactory(_burnerRouterFactory);
         _setNetwork(_network);
         _setSlashPeriodSeconds(_slashPeriodSeconds);
         _setSlashOracle(_slashOracle);
+        _setSlashReceiver(_slashReceiver);
+        _setMinBurnerRouterDelay(_minBurnerRouterDelay);
         __Pausable_init();
         __UUPSUpgradeable_init();
         __Ownable_init(_owner);
@@ -192,6 +203,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         for (uint256 i = 0; i < vaultLen; ++i) {
             address vault = vaults[i];
             _checkVault(vault);
+            require(_validateVaultBurnerAgainstOperator(vault, operator), InvalidVaultBurnerConsideringOperator(vault, operator));
             uint256 potentialSlashableVals = _potentialSlashableVals(vault, operator);
             bytes[] calldata pubkeyArray = blsPubkeys[i];
             uint256 numKeys = pubkeyArray.length;
@@ -286,6 +298,11 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setVaultFactory(_vaultFactory);
     }
 
+    /// @dev Sets the burner router factory, restricted to contract owner.
+    function setBurnerRouterFactory(IRegistry _burnerRouterFactory) external onlyOwner {
+        _setBurnerRouterFactory(_burnerRouterFactory);
+    }
+
     /// @dev Sets the network address, restricted to contract owner.
     function setNetwork(address _network) external onlyOwner {
         _setNetwork(_network);
@@ -306,6 +323,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Sets the slash oracle, restricted to contract owner.
     function setSlashOracle(address slashOracle_) external onlyOwner {
         _setSlashOracle(slashOracle_);
+    }
+
+    /// @dev Sets the slash receiver, restricted to contract owner.
+    /// @dev In practice, this function should never be called.
+    /// @dev It exists for emergency scenarios only, with the assumption that changing the slash receiver
+    /// would invalidate all existing vaults, and they would need to update their burnerRouters.
+    function setSlashReceiver(address slashReceiver_) external onlyOwner {
+        _setSlashReceiver(slashReceiver_);
+    }
+
+    /// @dev Sets the minimum burner router delay, restricted to contract owner.
+    /// @dev Calling this function may invalidate existing registered vaults. This exists for emergency scenarios only.
+    function setMinBurnerRouterDelay(uint256 minBurnerRouterDelay_) external onlyOwner {
+        _setMinBurnerRouterDelay(minBurnerRouterDelay_);
     }
 
     /// @dev Checks if a vault would be valid with a given slashPeriodSeconds.
@@ -375,6 +406,14 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function getSlashAmountAt(address vault, uint256 blockTimestamp) external view returns (uint160) {
         return _getSlashAmountAt(vault, blockTimestamp);
+    }
+
+    function isVaultBurnerValid(address vault) external view returns (bool) {
+        return _validateVaultBurner(vault);
+    }
+
+    function isVaultBurnerValidAgainstOperator(address vault, address operator) external view returns (bool) {
+        return _validateVaultBurnerAgainstOperator(vault, operator);
     }
 
     function _setOperatorRecord(address operator) internal {
@@ -451,6 +490,7 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(vaultFactory.isEntity(vault), VaultNotEntity(vault));
         require(slashAmount != 0, SlashAmountMustBeNonZero(vault));
         _validateVaultParams(vault, slashPeriodSeconds);
+        require(_validateVaultBurner(vault), InvalidVaultBurner(vault));
         _setVaultRecord(vault, slashAmount);
         emit VaultRegistered(vault, slashAmount);
     }
@@ -583,6 +623,13 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultFactorySet(address(_vaultFactory));
     }
 
+    /// @dev Internal function to set the burner router factory.
+    function _setBurnerRouterFactory(IRegistry _burnerRouterFactory) internal {
+        require(_burnerRouterFactory != IRegistry(address(0)), ZeroAddressNotAllowed());
+        burnerRouterFactory = _burnerRouterFactory;
+        emit BurnerRouterFactorySet(address(_burnerRouterFactory));
+    }
+
     /// @dev Internal function to set the network address, which must have registered with the NETWORK_REGISTRY.
     function _setNetwork(address _network) internal {
         require(_network != address(0), ZeroAddressNotAllowed());
@@ -603,6 +650,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         require(slashOracle_ != address(0), ZeroAddressNotAllowed());
         slashOracle = slashOracle_;
         emit SlashOracleSet(slashOracle_);
+    }
+
+    /// @dev Internal function to set the slash receiver.
+    function _setSlashReceiver(address slashReceiver_) internal {
+        require(slashReceiver_ != address(0), ZeroAddressNotAllowed());
+        slashReceiver = slashReceiver_;
+        emit SlashReceiverSet(slashReceiver_);
+    }
+
+    /// @dev Internal function to set the minimum burner router delay.
+    function _setMinBurnerRouterDelay(uint256 minBurnerRouterDelay_) internal {
+        require(minBurnerRouterDelay_ != 0, ZeroUintNotAllowed());
+        minBurnerRouterDelay = minBurnerRouterDelay_;
+        emit MinBurnerRouterDelaySet(minBurnerRouterDelay_);
     }
 
     /// @dev Authorizes contract upgrades, restricted to contract owner.
@@ -657,6 +718,30 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         VaultRecord storage record = vaultRecords[vault];
         require(record.exists, VaultNotRegistered(vault));
         require(!record.deregRequestOccurrence.exists, VaultDeregRequestExists(vault));
+    }
+
+    function _validateVaultBurner(address vault) internal view returns (bool) {
+        address burner = IVault(vault).burner();
+        if (!burnerRouterFactory.isEntity(burner)) {
+            return false;
+        }
+        IBurnerRouter burnerRouter = IBurnerRouter(burner);
+        if (burnerRouter.networkReceiver(network) != slashReceiver) {
+            return false;
+        }
+        return burnerRouter.delay() >= minBurnerRouterDelay;
+    }
+
+    function _validateVaultBurnerAgainstOperator(address vault, address operator) internal view returns (bool) {
+        bool isValidBurner = _validateVaultBurner(vault);
+        if (!isValidBurner) {
+            return false;
+        }
+        address burner = IVault(vault).burner();
+        IBurnerRouter burnerRouter = IBurnerRouter(burner);
+        address operatorNetworkReceiver = burnerRouter.operatorNetworkReceiver(network, operator);
+        // Operator network receiver must be slashReceiver or null, but it cannot override a correct network receiver.
+        return operatorNetworkReceiver == address(0) || operatorNetworkReceiver == slashReceiver;
     }
 
     /// @dev Returns the one-indexed position of the blsPubkey in the set.
@@ -762,6 +847,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
             return false;
         }
         if (!_isValidatorSlashable(blsPubkey, valRecord.vault, valRecord.operator)) {
+            return false;
+        }
+        if (!_validateVaultBurnerAgainstOperator(valRecord.vault, valRecord.operator)) {
             return false;
         }
         return true;
