@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-/// @notice Constants from https://docs.symbiotic.fi/deployments/
-/// @notice Last updated 10-28-2024
+/// @notice Constants from https://docs.symbiotic.fi/deployments/current
+/// @notice Last updated 11-30-2024
 library SymbioticHoleskyDevnetConsts {
     address internal constant VAULT_FACTORY = 0x407A039D94948484D356eFB765b3c74382A050B4;
     address internal constant DELEGATOR_FACTORY = 0x890CA3f95E0f40a79885B7400926544B2214B03f;
@@ -21,4 +21,6 @@ library SymbioticHoleskyDevnetConsts {
     address internal constant VAULT_1 = 0xd88dDf98fE4d161a66FB836bee4Ca469eb0E4a75;
     address internal constant VAULT_1_DELEGATOR = 0x85CF967A8DDFAf8C0DFB9c75d9E92a3C785A6532;
     address internal constant VAULT_1_SLASHER = 0x57e5Fb61981fa1b43a074B2aeb47CCF157b19223;
+
+    address internal constant BURNER_ROUTER_FACTORY = 0x32e2AfbdAffB1e675898ABA75868d92eE1E68f3b;
 }

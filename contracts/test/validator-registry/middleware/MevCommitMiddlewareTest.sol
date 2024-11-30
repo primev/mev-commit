@@ -22,9 +22,12 @@ contract MevCommitMiddlewareTest is Test {
     RegistryMock public networkRegistryMock;
     RegistryMock public operatorRegistryMock;
     RegistryMock public vaultFactoryMock;
+    RegistryMock public burnerRouterFactoryMock;
     address public network;
     uint256 public slashPeriodSeconds;
     address public slashOracle;
+    address public slashReceiver;
+    uint256 public minBurnerRouterDelay;
     address public owner;
 
     MevCommitMiddleware public mevCommitMiddleware;
@@ -70,11 +73,14 @@ contract MevCommitMiddlewareTest is Test {
         networkRegistryMock = new RegistryMock();
         operatorRegistryMock = new RegistryMock();
         vaultFactoryMock = new RegistryMock();
+        burnerRouterFactoryMock = new RegistryMock();
 
         network = vm.addr(0x1);
         slashPeriodSeconds = 150 hours;
         slashOracle = vm.addr(0x2);
-        owner = vm.addr(0x3);
+        slashReceiver = vm.addr(0x3);
+        minBurnerRouterDelay = 2 days;
+        owner = vm.addr(0x4);
 
         // Network addr must be registered with the network registry
         vm.prank(network);
@@ -86,9 +92,12 @@ contract MevCommitMiddlewareTest is Test {
                 IRegistry(networkRegistryMock), 
                 IRegistry(operatorRegistryMock), 
                 IRegistry(vaultFactoryMock), 
+                IRegistry(burnerRouterFactoryMock),
                 network, 
                 slashPeriodSeconds,
                 slashOracle,
+                slashReceiver,
+                minBurnerRouterDelay,
                 owner
             ))
         );

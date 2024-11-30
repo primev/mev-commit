@@ -21,11 +21,14 @@ contract DeployMiddlewareWithMocks is Script {
         RegistryMock networkRegistryMock = new RegistryMock();
         RegistryMock operatorRegistryMock = new RegistryMock();
         RegistryMock vaultFactoryMock = new RegistryMock();
+        RegistryMock burnerRouterFactoryMock = new RegistryMock();
 
         uint256 slashPeriodSeconds = 150;
         address network = msg.sender;
         address slashOracle = msg.sender;
+        address slashReceiver = msg.sender;
         address owner = msg.sender;
+        uint256 minBurnerRouterDelay = 15 minutes;
 
         networkRegistryMock.register();
 
@@ -35,9 +38,12 @@ contract DeployMiddlewareWithMocks is Script {
                 IRegistry(networkRegistryMock), 
                 IRegistry(operatorRegistryMock), 
                 IRegistry(vaultFactoryMock), 
+                IRegistry(burnerRouterFactoryMock),
                 network, 
                 slashPeriodSeconds,
                 slashOracle,
+                slashReceiver,
+                minBurnerRouterDelay,
                 owner
             ))
         );
