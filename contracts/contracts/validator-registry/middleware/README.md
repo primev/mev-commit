@@ -16,7 +16,7 @@ For L1 validators to be *opted-in to mev-commit*, some collateral stake must be 
 
 Operators for the mev-commit network are responsible for bulk registering groups of L1 validator pubkeys to an associated vault. Every registered validator is represented by restaked collateral from a single Vault and Operator. Each Vault’s total collateral can be split up to secure/represent many validators in groups**.**
 
-Our network middleware contract requires any Vault registering with the contract to have a delegator of the `NetworkRestakeDelegator` type. `FullRestakeDelegator` is disallowed due to its ability for vaults to reuse stake within the same network to multiple Operators. In other words, a single instance of `slashAmount` vault collateral can only be used to secure a single validator.
+Our network middleware contract requires any Vault registering with the contract to have a delegator of the `NetworkRestakeDelegator` type or `OperatorSpecificDelegator` type. `FullRestakeDelegator` is disallowed due to its ability for vaults to reuse stake within the same network to multiple Operators. In other words, a single instance of `slashAmount` vault collateral can only be used to secure a single validator, through a single Operator. Vaults are still able to split their slashable collateral across multiple Operators.
 
 # Steps for validator opt-in via symbiotic
 
