@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	MAX_BID_AMOUNT, _ = new(big.Int).SetString("1000000000000000000000000000", 10) // 1e24
+	MaxBidAmount, _ = new(big.Int).SetString("1000000000000000000000000000", 10) // 1e24
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 		if !ok {
 			return ""
 		}
-		invertedBidAmount := new(big.Int).Sub(MAX_BID_AMOUNT, bidAmtInt)
+		invertedBidAmount := new(big.Int).Sub(MaxBidAmount, bidAmtInt)
 		paddedBidAmountHex := fmt.Sprintf("%064x", invertedBidAmount)
 
 		return fmt.Sprintf("%s%d/%s/%s", commitmentNS, blockNum, paddedBidAmountHex, string(index))
