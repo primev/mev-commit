@@ -34,6 +34,9 @@ abstract contract MevCommitMiddlewareStorage {
     /// @notice Symbiotic core vault factory.
     IRegistry public vaultFactory;
 
+    /// @notice Symbiotic core burner router factory.
+    IRegistry public burnerRouterFactory;
+
     /// @notice The network address, which must have registered with the NETWORK_REGISTRY.
     address public network;
 
@@ -44,6 +47,14 @@ abstract contract MevCommitMiddlewareStorage {
 
     /// @notice Address of the mev-commit slash oracle.
     address public slashOracle;
+
+    /// @notice Address of the mev-commit slash receiver.
+    /// @dev This address should be immutable in practice, as it is used to validate every vault.
+    /// @dev If this address is ever changed by the owner, all vaults would then need to update their burnerRouter. This is by-design.
+    address public slashReceiver;
+
+    /// @notice Minimum burner router delay.
+    uint256 public minBurnerRouterDelay;
 
     /// @notice Mapping of a validator's BLS public key to its validator record.
     mapping(bytes blsPubkey => IMevCommitMiddleware.ValidatorRecord) public validatorRecords;

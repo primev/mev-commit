@@ -6,3 +6,4 @@ forge-std/=lib/forge-std/src/
 @openzeppelin-contracts/=lib/openzeppelin-contracts/
 eigenlayer-contracts/=lib/eigenlayer-contracts/
 symbiotic-core/=lib/core/src/
+symbiotic-burners/=lib/burners/src/
