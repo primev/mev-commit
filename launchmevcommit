@@ -22,6 +22,7 @@ VERSION="__VERSION__"
 if [ "${VERSION}" == "__VERSION__" ]; then
   TAG="$(curl -sIL -o /dev/null -w %{url_effective} https://github.com/primev/mev-commit/releases/latest | sed 's:.*/::')"
   VERSION="${TAG:1}"
+  FAUCET_URL=""
 fi
 
 # Rewrites the default values if the target machine IP is provided.
@@ -318,7 +319,11 @@ main() {
       log_info "Account ${address} has been funded"
       break
     fi
-    log_info "Waiting for account ${address} to be funded, visit ${FAUCET_URL}"
+    if [ -n "${FAUCET_URL}" ]; then
+      log_info "Waiting for account ${address} to be funded, visit ${FAUCET_URL}"
+    else
+      log_info "Waiting for account ${address} to be funded..."
+    fi
     sleep 5
   done
 
