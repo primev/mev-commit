@@ -220,50 +220,60 @@ func (s *Service) Deposit(
 ) (*bidderapiv1.DepositResponse, error) {
 	err := s.validator.Validate(r)
 	if err != nil {
+		s.logger.Error("deposit validation", "error", err)
 		return nil, status.Errorf(codes.InvalidArgument, "validating deposit request: %v", err)
 	}
 
 	if s.autoDepositTracker.IsWorking() {
+		s.logger.Error("auto deposit is already running")
 		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running, stop and then deposit")
 	}
 
 	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
 	if err != nil {
+		s.logger.Error("getting current window", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 	}
 
 	windowToDeposit, err := s.calculateWindowToDeposit(ctx, r, currentWindow.Uint64())
 	if err != nil {
+		s.logger.Error("calculating window to deposit", "error", err)
 		return nil, status.Errorf(codes.InvalidArgument, "calculating window to deposit: %v", err)
 	}
 
 	amount, success := big.NewInt(0).SetString(r.Amount, 10)
 	if !success {
+		s.logger.Error("parsing amount", "amount", r.Amount)
 		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", r.Amount)
 	}
 
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 	opts.Value = amount
 
 	tx, err := s.registryContract.DepositForWindow(opts, windowToDeposit)
 	if err != nil {
+		s.logger.Error("depositing", "error", err)
 		return nil, status.Errorf(codes.Internal, "deposit: %v", err)
 	}
 
 	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
 		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
 	err = s.store.StoreDeposits(ctx, []*big.Int{windowToDeposit})
 	if err != nil {
+		s.logger.Error("storing deposits", "error", err)
 		return nil, status.Errorf(codes.Internal, "storing deposits: %v", err)
 	}
 
@@ -310,6 +320,7 @@ func (s *Service) GetDeposit(
 	if r.WindowNumber == nil {
 		window, err = s.blockTrackerContract.GetCurrentWindow()
 		if err != nil {
+			s.logger.Error("getting current window", "error", err)
 			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 		}
 		// as oracle working N windows behind the current window, we add + N here
@@ -322,6 +333,7 @@ func (s *Service) GetDeposit(
 		Context: ctx,
 	}, s.owner, window)
 	if err != nil {
+		s.logger.Error("getting deposit", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 	}
 
@@ -334,6 +346,7 @@ func (s *Service) Withdraw(
 ) (*bidderapiv1.WithdrawResponse, error) {
 	err := s.validator.Validate(r)
 	if err != nil {
+		s.logger.Error("withdraw validation", "error", err)
 		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw request: %v", err)
 	}
 
@@ -345,6 +358,7 @@ func (s *Service) Withdraw(
 	if r.WindowNumber == nil {
 		window, err = s.blockTrackerContract.GetCurrentWindow()
 		if err != nil {
+			s.logger.Error("getting current window", "error", err)
 			return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 		}
 		window = new(big.Int).Sub(window, big.NewInt(1))
@@ -354,25 +368,30 @@ func (s *Service) Withdraw(
 
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
 	tx, err := s.registryContract.WithdrawBidderAmountFromWindow(opts, s.owner, window)
 	if err != nil {
+		s.logger.Error("withdrawing deposit", "error", err)
 		return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
 	}
 
 	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
 		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
 	err = s.store.ClearDeposits(ctx, []*big.Int{window})
 	if err != nil {
+		s.logger.Error("clearing deposits", "error", err)
 		return nil, status.Errorf(codes.Internal, "clearing deposits: %v", err)
 	}
 
@@ -402,30 +421,36 @@ func (s *Service) AutoDeposit(
 ) (*bidderapiv1.AutoDepositResponse, error) {
 	err := s.validator.Validate(r)
 	if err != nil {
+		s.logger.Error("auto deposit validation", "error", err)
 		return nil, status.Errorf(codes.InvalidArgument, "validating auto deposit request: %v", err)
 	}
 
 	if s.autoDepositTracker.IsWorking() {
+		s.logger.Error("auto deposit is already running")
 		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running")
 	}
 
 	currentWindow, err := s.blockTrackerContract.GetCurrentWindow()
 	if err != nil {
+		s.logger.Error("getting current window", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting current window: %v", err)
 	}
 
 	windowToDeposit, err := s.calculateWindowToDeposit(ctx, r, currentWindow.Uint64())
 	if err != nil {
+		s.logger.Error("calculating window to deposit", "error", err)
 		return nil, status.Errorf(codes.InvalidArgument, "calculating window to deposit: %v", err)
 	}
 
 	amount, success := big.NewInt(0).SetString(r.Amount, 10)
 	if !success {
+		s.logger.Error("parsing amount", "amount", r.Amount)
 		return nil, status.Errorf(codes.InvalidArgument, "parsing amount: %v", r.Amount)
 	}
 
 	err = s.autoDepositTracker.Start(ctx, windowToDeposit, amount)
 	if err != nil {
+		s.logger.Error("starting auto deposit", "error", err)
 		return nil, status.Errorf(codes.Internal, "starting auto deposit: %v", err)
 	}
 
@@ -446,10 +471,12 @@ func (s *Service) CancelAutoDeposit(
 	r *bidderapiv1.CancelAutoDepositRequest,
 ) (*bidderapiv1.CancelAutoDepositResponse, error) {
 	if !s.autoDepositTracker.IsWorking() {
+		s.logger.Error("auto deposit is not running")
 		return nil, status.Error(codes.FailedPrecondition, "auto deposit is not running")
 	}
 	windows, err := s.autoDepositTracker.Stop()
 	if err != nil {
+		s.logger.Error("cancel auto deposit", "error", err)
 		return nil, status.Errorf(codes.FailedPrecondition, "cancel auto deposit: %v", err)
 	}
 	if r.Withdraw {
@@ -517,15 +544,18 @@ func (s *Service) WithdrawFromWindows(
 ) (*bidderapiv1.WithdrawFromWindowsResponse, error) {
 	err := s.validator.Validate(r)
 	if err != nil {
+		s.logger.Error("validating withdraw from n windows request", "error", err)
 		return nil, status.Errorf(codes.InvalidArgument, "validating withdraw from n windows request: %v", err)
 	}
 
 	if s.autoDepositTracker.IsWorking() {
+		s.logger.Error("auto deposit is already running")
 		return nil, status.Error(codes.FailedPrecondition, "auto deposit is already running, stop and then withdraw")
 	}
 
 	opts, err := s.optsGetter(ctx)
 	if err != nil {
+		s.logger.Error("getting transact opts", "error", err)
 		return nil, status.Errorf(codes.Internal, "getting transact opts: %v", err)
 	}
 
@@ -536,20 +566,24 @@ func (s *Service) WithdrawFromWindows(
 
 	tx, err := s.registryContract.WithdrawFromWindows(opts, windows)
 	if err != nil {
+		s.logger.Error("withdrawing deposit", "error", err)
 		return nil, status.Errorf(codes.Internal, "withdrawing deposit: %v", err)
 	}
 
 	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 	if err != nil {
+		s.logger.Error("waiting for receipt", "error", err)
 		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
+		s.logger.Error("receipt status", "status", receipt.Status)
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
 	err = s.store.ClearDeposits(ctx, windows)
 	if err != nil {
+		s.logger.Error("clearing deposits", "error", err)
 		return nil, status.Errorf(codes.Internal, "clearing deposits: %v", err)
 	}
 
@@ -597,6 +631,7 @@ func (s *Service) AutoDepositStatus(
 				Context: ctx,
 			}, s.owner, new(big.Int).SetUint64(window))
 			if err != nil {
+				s.logger.Error("getting deposit", "error", err)
 				return nil, status.Errorf(codes.Internal, "getting deposit: %v", err)
 			}
 			ad := &bidderapiv1.AutoDeposit{

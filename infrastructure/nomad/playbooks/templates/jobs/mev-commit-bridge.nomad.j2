@@ -206,7 +206,7 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           XDG_CONFIG_HOME="local/.config"
-          STANDARD_BRIDGE_RELAYER_LOG_LEVEL="{{ job.env.get('log-level', 'debug') }}"
+          STANDARD_BRIDGE_RELAYER_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
           STANDARD_BRIDGE_RELAYER_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           STANDARD_BRIDGE_RELAYER_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           {%- raw %}

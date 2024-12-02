@@ -302,17 +302,19 @@ contract PreconfManager is
 
         commitmentIndex = getOpenedCommitmentIndex(newCommitment);
 
-        // Store the new commitment
-        openedCommitments[commitmentIndex] = newCommitment;
-        // Mark the unopened commitment as opened
-        unopenedCommitment.isOpened = true;
-
-        bidderRegistry.openBid(
+        uint256 updatedBidAmt = bidderRegistry.openBid(
             commitmentDigest,
             bidAmt,
             bidderAddress,
             blockNumber
         );
+
+        newCommitment.bidAmt = updatedBidAmt;
+
+        // Store the new commitment
+        openedCommitments[commitmentIndex] = newCommitment;
+        // Mark the unopened commitment as opened
+        unopenedCommitment.isOpened = true;
 
         ++commitmentsCount[committerAddress];
 
@@ -322,7 +324,7 @@ contract PreconfManager is
             commitmentIndex,
             bidderAddress,
             committerAddress,
-            bidAmt,
+            updatedBidAmt,
             blockNumber,
             bHash,
             decayStartTimeStamp,

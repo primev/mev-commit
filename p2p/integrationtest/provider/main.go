@@ -139,11 +139,6 @@ func main() {
 		return
 	}
 
-	if *relay == "" {
-		fmt.Println("please provide a valid relay address with the -relay flag")
-		return
-	}
-
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(receivedBids, sentBids)
 
@@ -185,28 +180,30 @@ func main() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		fmt.Sprintf("%s/%s", *relay, url.PathEscape("register")),
-		bytes.NewReader(body),
-	)
-	if err != nil {
-		logger.Error("failed to create request", "error", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		logger.Error("failed to post to relay", "error", err)
-		return
-	}
+	if *relay != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPost,
+			fmt.Sprintf("%s/%s", *relay, url.PathEscape("register")),
+			bytes.NewReader(body),
+		)
+		if err != nil {
+			logger.Error("failed to create request", "error", err)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			logger.Error("failed to post to relay", "error", err)
+			return
+		}
 
-	if res.StatusCode != http.StatusOK {
-		logger.Error("failed to post to relay", "status", res.Status)
-		return
+		if res.StatusCode != http.StatusOK {
+			logger.Error("failed to post to relay", "status", res.Status)
+			return
+		}
 	}
 
 	bidS, err := providerClient.ReceiveBids()

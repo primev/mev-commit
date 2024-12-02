@@ -51,7 +51,7 @@ job "{{ job.name }}" {
         cores = 6
         memory = 32768
       }
-      {% elif profile == 'stressnet' %}
+      {% elif profile == 'stressnet' or profile == 'stressnet-wl1' %}
       resources {
         cpu = 2000
         memory = 16384
@@ -170,6 +170,19 @@ job "{{ job.name }}" {
             {% endif %}
           {% endif %}
 
+          {%- raw %}
+          {{ with secret "secret/data/mev-commit" }}
+          GETH_ZERO_FEE_ADDRESSES="$(echo '{{ .Data.data.contract_deployer_keystore_filename }}' | awk -F'--' '{print "0x"$3}')"
+          {{ end }}
+          {{ with secret "secret/data/mev-commit" }}
+          GETH_ZERO_FEE_ADDRESSES+=",$(echo '{{ .Data.data.oracle_keystore_filename }}' | awk -F'--' '{print "0x"$3}')"
+          {{ end }}
+          {{ with secret "secret/data/mev-commit" }}
+          GETH_ZERO_FEE_ADDRESSES+=",$(echo '{{ .Data.data.bridge_relayer_keystore_filename }}' | awk -F'--' '{print "0x"$3}')"
+          {{ end }}
+          {% endraw %}
+
+          export GETH_ZERO_FEE_ADDRESSES
           chmod +x local/mev-commit-geth local/entrypoint.sh
           exec local/entrypoint.sh
         EOH

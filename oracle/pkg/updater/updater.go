@@ -38,6 +38,11 @@ const (
 	SettlementTypeSlash  SettlementType = "slash"
 )
 
+const (
+	PRECISION           = 1e16
+	ONE_HUNDRED_PERCENT = 100 * PRECISION
+)
+
 type Winner struct {
 	Winner []byte
 	Window int64
@@ -590,9 +595,9 @@ func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTim
 	// Calculate the decay percentage
 	decayPercentage := float64(timePassed) / float64(totalTime)
 
-	decayPercentageRound := int64(math.Round(decayPercentage * 100))
-	if decayPercentageRound > 100 {
-		decayPercentageRound = 100
+	decayPercentageRound := int64(math.Round(decayPercentage * ONE_HUNDRED_PERCENT))
+	if decayPercentageRound > ONE_HUNDRED_PERCENT {
+		decayPercentageRound = ONE_HUNDRED_PERCENT
 	}
 	u.logger.Debug("decay information",
 		"startTimestamp", startTimestamp,

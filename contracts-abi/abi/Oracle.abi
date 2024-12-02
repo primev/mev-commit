@@ -540,7 +540,7 @@
   },
   {
     "type": "error",
-    "name": "ResidualBidPercentAfterDecayExceeds100",
+    "name": "ResidualBidPercentAfterDecayExceedsMax",
     "inputs": [
       {
         "name": "residualBidPercentAfterDecay",

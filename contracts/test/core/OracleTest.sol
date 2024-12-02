@@ -16,7 +16,7 @@ contract OracleTest is Test {
     address public owner;
     Oracle public oracle;
     PreconfManager public preconfManager;
-    uint16 public feePercent;
+    uint256 public feePercent;
     uint256 public minStake;
     address public feeRecipient;
     ProviderRegistry public providerRegistry;
@@ -75,7 +75,7 @@ contract OracleTest is Test {
             1000
         );
 
-        feePercent = 10;
+        feePercent = 10 * 1e16; // 10%
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
 
@@ -199,7 +199,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             false,
-            50
+            50 * bidderRegistry.PRECISION()
         );
         vm.stopPrank();
         assertEq(
@@ -213,7 +213,7 @@ contract OracleTest is Test {
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = 200;
+        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
         uint64 bid = 200;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
@@ -249,7 +249,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            50
+            50 * bidderRegistry.PRECISION()
         );
         vm.stopPrank();
         assertEq(
@@ -313,7 +313,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            100
+            providerRegistry.ONE_HUNDRED_PERCENT()
         );
 
         vm.expectEmit(true, false, false, true);
@@ -323,13 +323,13 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             false,
-            50
+            50 * providerRegistry.PRECISION()
         );
         vm.stopPrank();
         assertEq(providerRegistry.getProviderStake(provider), 250 ether - ((bid*110)/100));
         assertEq(
             bidderRegistry.getProviderAmount(provider),
-            (((bid * (100 - feePercent)) / 100) * residualAfterDecay) / 100
+            (((bid * (providerRegistry.ONE_HUNDRED_PERCENT() - feePercent)) / providerRegistry.ONE_HUNDRED_PERCENT()) * residualAfterDecay) / 100
         );
     }
 
@@ -410,7 +410,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            100
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
         emit CommitmentProcessed(index2, true);
@@ -419,7 +419,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            100
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
         emit CommitmentProcessed(index3, true);
@@ -428,7 +428,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            100
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
         emit CommitmentProcessed(index4, true);
@@ -437,7 +437,7 @@ contract OracleTest is Test {
             blockNumber,
             provider,
             true,
-            100
+            bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.stopPrank();
         assertEq(providerRegistry.getProviderStake(provider), 250 ether - bid * 4);
@@ -526,7 +526,7 @@ contract OracleTest is Test {
                 blockNumber,
                 provider,
                 false,
-                100
+                bidderRegistry.ONE_HUNDRED_PERCENT()
             );
         }
         vm.stopPrank();

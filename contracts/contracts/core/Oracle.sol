@@ -79,7 +79,7 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
     ) external onlyOracle whenNotPaused {
         address blockWinner = _blockTrackerContract.getBlockWinner(blockNumber);
         require(blockWinner == builder, BuilderNotBlockWinner(blockWinner, builder));
-        require(residualBidPercentAfterDecay <= 100, ResidualBidPercentAfterDecayExceeds100(residualBidPercentAfterDecay));
+        require(residualBidPercentAfterDecay <= 1e18, ResidualBidPercentAfterDecayExceedsMax(residualBidPercentAfterDecay));
 
         IPreconfManager.OpenedCommitment
             memory commitment = _preconfManager.getCommitment(commitmentIndex);

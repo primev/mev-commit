@@ -40,7 +40,7 @@ contract BidderRegistry is
      */
     function initialize(
         address _protocolFeeRecipient,
-        uint16 _feePercent,
+        uint256 _feePercent,
         address _owner,
         address _blockTracker,
         uint256 _feePayoutPeriodBlocks
@@ -81,10 +81,6 @@ contract BidderRegistry is
     function depositForWindow(uint256 window) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
 
-        if (!bidderRegistered[msg.sender]) {
-            bidderRegistered[msg.sender] = true;
-        }
-
         uint256 newLockedFunds = lockedFunds[msg.sender][window] + msg.value;
         lockedFunds[msg.sender][window] = newLockedFunds;
 
@@ -100,10 +96,6 @@ contract BidderRegistry is
      */
     function depositForWindows(uint256[] calldata windows) external payable whenNotPaused {
         require(msg.value != 0, DepositAmountIsZero());
-
-        if (!bidderRegistered[msg.sender]) {
-            bidderRegistered[msg.sender] = true;
-        }
 
         uint256 amountToDeposit = msg.value / windows.length;
         uint256 remainingAmount = msg.value % windows.length; // to handle rounding issues
@@ -184,11 +176,10 @@ contract BidderRegistry is
         require(bidState.state == State.PreConfirmed, BidNotPreConfirmed(commitmentDigest, bidState.state, State.PreConfirmed));
         
         uint256 decayedAmt = (bidState.bidAmt *
-            residualBidPercentAfterDecay *
-            PRECISION) / PERCENT;
+            residualBidPercentAfterDecay) / ONE_HUNDRED_PERCENT;
 
-        uint256 feeAmt = (decayedAmt * uint256(feePercent) * PRECISION) /
-            PERCENT;
+        uint256 feeAmt = (decayedAmt * feePercent) /
+            ONE_HUNDRED_PERCENT;
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
         protocolFeeTracker.accumulatedAmount += feeAmt;
@@ -257,10 +248,10 @@ contract BidderRegistry is
         uint256 bidAmt,
         address bidder,
         uint64 blockNumber
-    ) external onlyPreconfManager whenNotPaused {
+    ) external onlyPreconfManager whenNotPaused returns (uint256) {
         BidState storage bidState = bidPayment[commitmentDigest];
         if (bidState.state != State.Undefined) {
-            return;
+            return bidAmt;
         }
         uint256 currentWindow = WindowFromBlockNumber.getWindowFromBlockNumber(
             blockNumber
@@ -288,6 +279,8 @@ contract BidderRegistry is
         bidState.state = State.PreConfirmed;
         bidState.bidder = bidder;
         bidState.bidAmt = bidAmt;
+
+        return bidAmt;
     }
 
     /**
@@ -306,7 +299,7 @@ contract BidderRegistry is
      * @dev onlyOwner restriction
      * @param newFeePercent this is the new fee percent
      */
-    function setNewFeePercent(uint16 newFeePercent) external onlyOwner {
+    function setNewFeePercent(uint256 newFeePercent) external onlyOwner {
         feePercent = newFeePercent;
         emit FeePercentUpdated(newFeePercent);
     }

@@ -14,7 +14,7 @@
   },
   {
     "type": "function",
-    "name": "PERCENT",
+    "name": "ONE_HUNDRED_PERCENT",
     "inputs": [],
     "outputs": [
       {
@@ -89,25 +89,6 @@
   },
   {
     "type": "function",
-    "name": "bidderRegistered",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "blockTrackerContract",
     "inputs": [],
     "outputs": [
@@ -152,8 +133,8 @@
     "outputs": [
       {
         "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -225,8 +206,8 @@
       },
       {
         "name": "_feePercent",
-        "type": "uint16",
-        "internalType": "uint16"
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "_owner",
@@ -327,7 +308,13 @@
         "internalType": "uint64"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -516,8 +503,8 @@
     "inputs": [
       {
         "name": "newFeePercent",
-        "type": "uint16",
-        "internalType": "uint16"
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -755,9 +742,9 @@
     "inputs": [
       {
         "name": "newFeePercent",
-        "type": "uint16",
+        "type": "uint256",
         "indexed": true,
-        "internalType": "uint16"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false

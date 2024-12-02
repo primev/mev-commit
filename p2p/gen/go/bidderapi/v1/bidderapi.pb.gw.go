@@ -10,6 +10,7 @@ package bidderapiv1
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 
@@ -24,21 +25,24 @@ import (
 )
 
 // Suppress "imported and not used" errors
-var _ codes.Code
-var _ io.Reader
-var _ status.Status
-var _ = runtime.String
-var _ = utilities.NewDoubleArray
-var _ = metadata.Join
+var (
+	_ codes.Code
+	_ io.Reader
+	_ status.Status
+	_ = errors.New
+	_ = runtime.String
+	_ = utilities.NewDoubleArray
+	_ = metadata.Join
+)
 
 func request_Bidder_SendBid_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (Bidder_SendBidClient, runtime.ServerMetadata, error) {
-	var protoReq Bid
-	var metadata runtime.ServerMetadata
-
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
+	var (
+		protoReq Bid
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	stream, err := client.SendBid(ctx, &protoReq)
 	if err != nil {
 		return nil, metadata, err
@@ -49,299 +53,244 @@ func request_Bidder_SendBid_0(ctx context.Context, marshaler runtime.Marshaler, 
 	}
 	metadata.HeaderMD = header
 	return stream, metadata, nil
-
 }
 
-var (
-	filter_Bidder_Deposit_0 = &utilities.DoubleArray{Encoding: map[string]int{"amount": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
-)
+var filter_Bidder_Deposit_0 = &utilities.DoubleArray{Encoding: map[string]int{"amount": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 
 func request_Bidder_Deposit_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DepositRequest
-	var metadata runtime.ServerMetadata
-
 	var (
-		val string
-		ok  bool
-		err error
-		_   = err
+		protoReq DepositRequest
+		metadata runtime.ServerMetadata
+		err      error
 	)
-
-	val, ok = pathParams["amount"]
+	val, ok := pathParams["amount"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "amount")
 	}
-
 	protoReq.Amount, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "amount", err)
 	}
-
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_Deposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := client.Deposit(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_Bidder_Deposit_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DepositRequest
-	var metadata runtime.ServerMetadata
-
 	var (
-		val string
-		ok  bool
-		err error
-		_   = err
+		protoReq DepositRequest
+		metadata runtime.ServerMetadata
+		err      error
 	)
-
-	val, ok = pathParams["amount"]
+	val, ok := pathParams["amount"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "amount")
 	}
-
 	protoReq.Amount, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "amount", err)
 	}
-
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_Deposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := server.Deposit(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
-var (
-	filter_Bidder_AutoDeposit_0 = &utilities.DoubleArray{Encoding: map[string]int{"amount": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
-)
+var filter_Bidder_AutoDeposit_0 = &utilities.DoubleArray{Encoding: map[string]int{"amount": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 
 func request_Bidder_AutoDeposit_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DepositRequest
-	var metadata runtime.ServerMetadata
-
 	var (
-		val string
-		ok  bool
-		err error
-		_   = err
+		protoReq DepositRequest
+		metadata runtime.ServerMetadata
+		err      error
 	)
-
-	val, ok = pathParams["amount"]
+	val, ok := pathParams["amount"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "amount")
 	}
-
 	protoReq.Amount, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "amount", err)
 	}
-
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_AutoDeposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := client.AutoDeposit(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_Bidder_AutoDeposit_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DepositRequest
-	var metadata runtime.ServerMetadata
-
 	var (
-		val string
-		ok  bool
-		err error
-		_   = err
+		protoReq DepositRequest
+		metadata runtime.ServerMetadata
+		err      error
 	)
-
-	val, ok = pathParams["amount"]
+	val, ok := pathParams["amount"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "amount")
 	}
-
 	protoReq.Amount, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "amount", err)
 	}
-
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_AutoDeposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := server.AutoDeposit(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
-var (
-	filter_Bidder_CancelAutoDeposit_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
-)
+var filter_Bidder_CancelAutoDeposit_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_Bidder_CancelAutoDeposit_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CancelAutoDepositRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq CancelAutoDepositRequest
+		metadata runtime.ServerMetadata
+	)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_CancelAutoDeposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := client.CancelAutoDeposit(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_Bidder_CancelAutoDeposit_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CancelAutoDepositRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq CancelAutoDepositRequest
+		metadata runtime.ServerMetadata
+	)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_CancelAutoDeposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := server.CancelAutoDeposit(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 func request_Bidder_AutoDepositStatus_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EmptyMessage
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq EmptyMessage
+		metadata runtime.ServerMetadata
+	)
 	msg, err := client.AutoDepositStatus(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_Bidder_AutoDepositStatus_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EmptyMessage
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq EmptyMessage
+		metadata runtime.ServerMetadata
+	)
 	msg, err := server.AutoDepositStatus(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 func request_Bidder_WithdrawFromWindows_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq WithdrawFromWindowsRequest
-	var metadata runtime.ServerMetadata
-
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
+	var (
+		protoReq WithdrawFromWindowsRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := client.WithdrawFromWindows(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_Bidder_WithdrawFromWindows_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq WithdrawFromWindowsRequest
-	var metadata runtime.ServerMetadata
-
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
+	var (
+		protoReq WithdrawFromWindowsRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := server.WithdrawFromWindows(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
-var (
-	filter_Bidder_GetDeposit_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
-)
+var filter_Bidder_GetDeposit_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_Bidder_GetDeposit_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetDepositRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq GetDepositRequest
+		metadata runtime.ServerMetadata
+	)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_GetDeposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := client.GetDeposit(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_Bidder_GetDeposit_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetDepositRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq GetDepositRequest
+		metadata runtime.ServerMetadata
+	)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_GetDeposit_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := server.GetDeposit(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
-var (
-	filter_Bidder_Withdraw_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
-)
+var filter_Bidder_Withdraw_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 
 func request_Bidder_Withdraw_0(ctx context.Context, marshaler runtime.Marshaler, client BidderClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq WithdrawRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq WithdrawRequest
+		metadata runtime.ServerMetadata
+	)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_Withdraw_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := client.Withdraw(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_Bidder_Withdraw_0(ctx context.Context, marshaler runtime.Marshaler, server BidderServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq WithdrawRequest
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq WithdrawRequest
+		metadata runtime.ServerMetadata
+	)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_Bidder_Withdraw_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-
 	msg, err := server.Withdraw(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 // RegisterBidderHandlerServer registers the http handlers for service Bidder to "mux".
@@ -350,23 +299,19 @@ func local_request_Bidder_Withdraw_0(ctx context.Context, marshaler runtime.Mars
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterBidderHandlerFromEndpoint instead.
 // GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, server BidderServer) error {
-
-	mux.Handle("POST", pattern_Bidder_SendBid_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_SendBid_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 		return
 	})
-
-	mux.Handle("POST", pattern_Bidder_Deposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_Deposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/Deposit", runtime.WithHTTPPathPattern("/v1/bidder/deposit/{amount}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/Deposit", runtime.WithHTTPPathPattern("/v1/bidder/deposit/{amount}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -378,20 +323,15 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_Deposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_AutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_AutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit/{amount}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit/{amount}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -403,20 +343,15 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_AutoDeposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_CancelAutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_CancelAutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/CancelAutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/cancel_auto_deposit"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/CancelAutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/cancel_auto_deposit"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -428,20 +363,15 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_CancelAutoDeposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_Bidder_AutoDepositStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_Bidder_AutoDepositStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDepositStatus", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit_status"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDepositStatus", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit_status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -453,20 +383,15 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_AutoDepositStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_WithdrawFromWindows_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_WithdrawFromWindows_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/WithdrawFromWindows", runtime.WithHTTPPathPattern("/v1/bidder/withdraw_from_windows"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/WithdrawFromWindows", runtime.WithHTTPPathPattern("/v1/bidder/withdraw_from_windows"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -478,20 +403,15 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_WithdrawFromWindows_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_Bidder_GetDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_Bidder_GetDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetDeposit", runtime.WithHTTPPathPattern("/v1/bidder/get_deposit"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetDeposit", runtime.WithHTTPPathPattern("/v1/bidder/get_deposit"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -503,20 +423,15 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_GetDeposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_Withdraw_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_Withdraw_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/Withdraw", runtime.WithHTTPPathPattern("/v1/bidder/withdraw"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/bidderapi.v1.Bidder/Withdraw", runtime.WithHTTPPathPattern("/v1/bidder/withdraw"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -528,9 +443,7 @@ func RegisterBidderHandlerServer(ctx context.Context, mux *runtime.ServeMux, ser
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_Withdraw_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
 
 	return nil
@@ -557,7 +470,6 @@ func RegisterBidderHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMu
 			}
 		}()
 	}()
-
 	return RegisterBidderHandler(ctx, mux, conn)
 }
 
@@ -573,14 +485,11 @@ func RegisterBidderHandler(ctx context.Context, mux *runtime.ServeMux, conn *grp
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
 // "BidderClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, client BidderClient) error {
-
-	mux.Handle("POST", pattern_Bidder_SendBid_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_SendBid_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/SendBid", runtime.WithHTTPPathPattern("/v1/bidder/bid"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/SendBid", runtime.WithHTTPPathPattern("/v1/bidder/bid"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -591,18 +500,13 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_SendBid_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_Deposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_Deposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/Deposit", runtime.WithHTTPPathPattern("/v1/bidder/deposit/{amount}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/Deposit", runtime.WithHTTPPathPattern("/v1/bidder/deposit/{amount}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -613,18 +517,13 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_Deposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_AutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_AutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit/{amount}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit/{amount}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -635,18 +534,13 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_AutoDeposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_CancelAutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_CancelAutoDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/CancelAutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/cancel_auto_deposit"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/CancelAutoDeposit", runtime.WithHTTPPathPattern("/v1/bidder/cancel_auto_deposit"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -657,18 +551,13 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_CancelAutoDeposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_Bidder_AutoDepositStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_Bidder_AutoDepositStatus_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDepositStatus", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit_status"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/AutoDepositStatus", runtime.WithHTTPPathPattern("/v1/bidder/auto_deposit_status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -679,18 +568,13 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_AutoDepositStatus_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_WithdrawFromWindows_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_WithdrawFromWindows_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/WithdrawFromWindows", runtime.WithHTTPPathPattern("/v1/bidder/withdraw_from_windows"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/WithdrawFromWindows", runtime.WithHTTPPathPattern("/v1/bidder/withdraw_from_windows"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -701,18 +585,13 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_WithdrawFromWindows_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_Bidder_GetDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_Bidder_GetDeposit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetDeposit", runtime.WithHTTPPathPattern("/v1/bidder/get_deposit"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/GetDeposit", runtime.WithHTTPPathPattern("/v1/bidder/get_deposit"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -723,18 +602,13 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_GetDeposit_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_Bidder_Withdraw_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_Bidder_Withdraw_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/Withdraw", runtime.WithHTTPPathPattern("/v1/bidder/withdraw"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/bidderapi.v1.Bidder/Withdraw", runtime.WithHTTPPathPattern("/v1/bidder/withdraw"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -745,46 +619,29 @@ func RegisterBidderHandlerClient(ctx context.Context, mux *runtime.ServeMux, cli
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_Bidder_Withdraw_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
 	return nil
 }
 
 var (
-	pattern_Bidder_SendBid_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "bid"}, ""))
-
-	pattern_Bidder_Deposit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "bidder", "deposit", "amount"}, ""))
-
-	pattern_Bidder_AutoDeposit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "bidder", "auto_deposit", "amount"}, ""))
-
-	pattern_Bidder_CancelAutoDeposit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "cancel_auto_deposit"}, ""))
-
-	pattern_Bidder_AutoDepositStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "auto_deposit_status"}, ""))
-
+	pattern_Bidder_SendBid_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "bid"}, ""))
+	pattern_Bidder_Deposit_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "bidder", "deposit", "amount"}, ""))
+	pattern_Bidder_AutoDeposit_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "bidder", "auto_deposit", "amount"}, ""))
+	pattern_Bidder_CancelAutoDeposit_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "cancel_auto_deposit"}, ""))
+	pattern_Bidder_AutoDepositStatus_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "auto_deposit_status"}, ""))
 	pattern_Bidder_WithdrawFromWindows_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "withdraw_from_windows"}, ""))
-
-	pattern_Bidder_GetDeposit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_deposit"}, ""))
-
-	pattern_Bidder_Withdraw_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "withdraw"}, ""))
+	pattern_Bidder_GetDeposit_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "get_deposit"}, ""))
+	pattern_Bidder_Withdraw_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "bidder", "withdraw"}, ""))
 )
 
 var (
-	forward_Bidder_SendBid_0 = runtime.ForwardResponseStream
-
-	forward_Bidder_Deposit_0 = runtime.ForwardResponseMessage
-
-	forward_Bidder_AutoDeposit_0 = runtime.ForwardResponseMessage
-
-	forward_Bidder_CancelAutoDeposit_0 = runtime.ForwardResponseMessage
-
-	forward_Bidder_AutoDepositStatus_0 = runtime.ForwardResponseMessage
-
+	forward_Bidder_SendBid_0             = runtime.ForwardResponseStream
+	forward_Bidder_Deposit_0             = runtime.ForwardResponseMessage
+	forward_Bidder_AutoDeposit_0         = runtime.ForwardResponseMessage
+	forward_Bidder_CancelAutoDeposit_0   = runtime.ForwardResponseMessage
+	forward_Bidder_AutoDepositStatus_0   = runtime.ForwardResponseMessage
 	forward_Bidder_WithdrawFromWindows_0 = runtime.ForwardResponseMessage
-
-	forward_Bidder_GetDeposit_0 = runtime.ForwardResponseMessage
-
-	forward_Bidder_Withdraw_0 = runtime.ForwardResponseMessage
+	forward_Bidder_GetDeposit_0          = runtime.ForwardResponseMessage
+	forward_Bidder_Withdraw_0            = runtime.ForwardResponseMessage
 )

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/primev/mev-commit/bridge/standard/pkg/transfer"
+	"github.com/primev/mev-commit/contracts-abi/config"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/theckman/yacspin"
 	"github.com/urfave/cli/v2"
@@ -49,24 +50,28 @@ var (
 		Usage:    "URL for L1 RPC",
 		EnvVars:  []string{"L1_RPC_URL"},
 		Required: true,
+		Value:    "https://ethereum-holesky-rpc.publicnode.com",
 	}
 	optionSettlementRPCUrl = &cli.StringFlag{
 		Name:     "settlement-rpc-url",
 		Usage:    "URL for settlement RPC",
 		EnvVars:  []string{"SETTLEMENT_RPC_URL"},
 		Required: true,
+		Value:    "https://chainrpc.testnet.mev-commit.xyz",
 	}
 	optionL1ContractAddr = &cli.StringFlag{
 		Name:     "l1-contract-addr",
 		Usage:    "address of the L1 gateway contract",
 		EnvVars:  []string{"L1_CONTRACT_ADDR"},
 		Required: true,
+		Value:    config.HoleskyContracts.L1Gateway,
 	}
 	optionSettlementContractAddr = &cli.StringFlag{
 		Name:     "settlement-contract-addr",
 		Usage:    "address of the settlement gateway contract",
 		EnvVars:  []string{"SETTLEMENT_CONTRACT_ADDR"},
 		Required: true,
+		Value:    config.TestnetContracts.SettlementGateway,
 	}
 	optionSilent = &cli.BoolFlag{
 		Name:    "silent",
