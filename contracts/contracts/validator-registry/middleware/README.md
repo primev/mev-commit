@@ -126,6 +126,28 @@ The described process considers Symbiotic's current design, where it's possible 
 1. `requestSlash` must be called before `epochDuration` - `vetoDuration` (equal to `slashPeriodSeconds` for our network) has passed since `captureTimestamp`, [source](https://github.com/symbioticfi/core/blob/629b9faac2377a9eb9cfdc6362b30d1dc1ef48f2/src/contracts/slasher/VetoSlasher.sol#L93).
 2. `executeSlash` must be called before `epochDuration` has passed since `captureTimestamp`, [source](https://github.com/symbioticfi/core/blob/629b9faac2377a9eb9cfdc6362b30d1dc1ef48f2/src/contracts/slasher/VetoSlasher.sol#L152).
 
+### Burner Router Requirements
+
+Any vault integrating with the mev-commit middleware contract must use a [burner router](https://docs.symbiotic.fi/modules/extensions/burners#burner-router). This is validated by the symbiotic core `BurnerRouterFactory` contract. Prior to vault and validator registration, the burner router must be configured as follows:
+
+* `IBurnerRouter.networkReceiver()` must be set to `MevCommitMiddlewareStorage.slashReceiver`.
+* `IBurnerRouter.delay()` must be greater than `MevCommitMiddlewareStorage.minBurnerRouterDelay`, a suggested value for the latter param is `2 days`.
+* `IBurnerRouter.operatorNetworkReceiver()` must be disable by setting to `address(0)`, or set to `MevCommitMiddlewareStorage.slashReceiver`. Essentially this value must not override a valid network receiver.
+
+Upon vault registration, and validator registration, these conditions are checked. If later on, these conditions are not met, all validators associated to a vault will no longer be opted-in, as enforced in `_isValidatorOptedIn`.
+
+### Vault Trust Assumptions
+
+For vaults that use burner routers, the following scenario is possible. The vault can create a network and specify its own receiver for that network, which will transfer funds to a vault-owned address. A validator represented by this vault could then act maliciously. As soon as the vault realizes/confirms that it has misbehaved w.r.t the mev-commit network, the vault would be slashed from its custom network, transferring vault collateral away from the vault, and thus avoiding losing funds to the mev-commit slash.
+
+Due to this scenario, the mev-commit network must fully trust all vaults that integrate with the middleware contract. Note `registerVaults` and related functions are `onlyOwner`, allowing the owner to choose its trusted vault set.
+
+To alleviate the described vault issue, the mev-commit middleware contract enforces a minimum burner router delay, allowing time for off-chain monitoring services to observe pending changes in vault state, and try to detect malicious behavior. Failed slashing attempts will also be monitored off-chain, and if a vault is found to be maliciously escaping slashing, they will be immediately deregistered, hopefully prior to enacting the malicious behavior with multiple validators. 
+
+Further, the described scenario carries significant reputational risks. Large vaults engaging in such actions would essentially ruin their reputation and ability to continue operating in the Symbiotic ecosystem. Thus, we assume that well known vaults have little incentive to perform the attack.
+
+A future upgrade could introduce a trusted, primev curated vault, that would only integrate with mev-commit and select other trusted networks.
+
 ### Configuration of slashPeriodSeconds
 
 `slashPeriodSeconds` must be set such that a mev-commit bidder knows all _currently opted-in_ block proposers from the current epoch, and next epoch, must deliver commitments, or are guaranteed slashable.
@@ -149,8 +171,8 @@ A recommended value to assume for `oracleProcessingPeriod` is 60 minutes, althou
 
 ### Rewards
 
-Operators and vault depositors will receive points commensurate with associated validator pubkey(s) being *opted-in* over time. When a Vault is represented by multiple validators, attribution is split evenly between the validators.
+Vault depositors will receive points commensurate with associated validator pubkey(s) being *opted-in* over time. When a Vault is represented by multiple validators, attribution is split evenly between the validators.
 
-Validator opt-in state can be queried as described above. This query offers concrete criteria that must be true for Vault depositors and Operators to accrue points/rewards over time from an associated validator.
+Validator opt-in state can be queried as described above. This query offers concrete criteria that must be true for Vault depositors to accrue points/rewards over time from an associated validator.
 
-Points/rewards for LST restakers would be computed off-chain, with heavy use of indexed events. The exact point weightings associated to different actors/events is yet to be finalized.
+Points/rewards would be computed off-chain, with heavy use of indexed events. The exact point weightings associated to different actors/events is yet to be finalized.
