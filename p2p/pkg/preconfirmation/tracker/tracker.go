@@ -51,6 +51,7 @@ type CommitmentStore interface {
 	ClearBlockNumber(blockNum int64) error
 	DeleteCommitmentByDigest(
 		blockNum int64,
+		bidAmt string,
 		digest [32]byte,
 	) error
 	SetCommitmentIndexByDigest(
@@ -509,5 +510,5 @@ func (t *Tracker) handleOpenedCommitmentStored(
 ) error {
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
-	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.CommitmentDigest)
+	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.BidAmt.String(), cs.CommitmentDigest)
 }
