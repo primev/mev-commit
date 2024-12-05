@@ -15,6 +15,7 @@ OTEL_COLLECTOR_ENDPOINT_URL=""
 SERVICE_NAME=""
 NAT_ADDR=""
 NAT_PORT=""
+AUTO_DEPOSIT_AMOUNT="300000000000"
 
 # Default mev-commit binary download values.
 ARTIFACTS_URL="https://github.com/primev/mev-commit/releases/latest/download/"
@@ -48,7 +49,7 @@ fi
 
 # Prints usage information for the script.
 usage() {
-  echo "Usage: $0 --node-type [bidder|provider] [--nat-ip ip_address[:port]] [--otel-collector-endpoint-url url] [--nickname nickname]"
+  echo "Usage: $0 --node-type [bidder|provider] [--nat-ip ip_address[:port]] [--otel-collector-endpoint-url url] [--nickname nickname] [--auto-deposit-amount amount]"
   exit 1
 }
 
@@ -207,6 +208,14 @@ parse_args() {
         SERVICE_NAME="${2}"
         shift
         ;;
+      --auto-deposit-amount)
+        AUTO_DEPOSIT_AMOUNT="${2}"
+        if ! [[ "${AUTO_DEPOSIT_AMOUNT}" =~ ^[0-9]+$ ]]; then
+          log_error "Invalid auto deposit amount: ${AUTO_DEPOSIT_AMOUNT}, must be a positive number"
+          usage
+        fi
+        shift
+        ;;
       *)
         log_error "Unknown parameter passed: ${1}"
         usage
@@ -338,7 +347,7 @@ main() {
         --show-error \
         --output /dev/null \
         --write-out "%{http_code}" \
-        --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/1000000000000000000"
+        --request POST "http://127.0.0.1:13523/v1/bidder/auto_deposit/${AUTO_DEPOSIT_AMOUNT}"
       )
       if [ "${response}" -ne 200 ]; then
         log_error "Failed to send auto deposit request, status code: ${response}"
