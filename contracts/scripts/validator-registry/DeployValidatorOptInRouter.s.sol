@@ -10,6 +10,7 @@ import {console} from "forge-std/console.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {ValidatorOptInRouter} from "../../contracts/validator-registry/ValidatorOptInRouter.sol";
 import {MainnetConstants} from "../MainnetConstants.sol";
+import {AlwaysFalseMevCommitMiddleware} from "../../contracts/utils/AlwaysFalseMiddleware.sol";
 
 contract BaseDeploy is Script {
     function deployValidatorOptInRouter(
@@ -30,13 +31,6 @@ contract BaseDeploy is Script {
         ValidatorOptInRouter router = ValidatorOptInRouter(payable(proxy));
         console.log("ValidatorOptInRouter owner:", router.owner());
         return proxy;
-    }
-}
-
-/// Temporary stand-in until the mev-commit middleware and symbiotic core, are ready for mainnet.
-contract AlwaysFalseMevCommitMiddleware {
-    function isValidatorOptedIn(bytes calldata) external pure returns (bool) {
-        return false;
     }
 }
 
