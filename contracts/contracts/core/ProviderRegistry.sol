@@ -272,20 +272,18 @@ contract ProviderRegistry is
 
     /**
      * @dev Register and stake function for providers.
-     * @param blsPublicKeys The BLS public keys of the provider.
      * The validity of this key must be verified manually off-chain.
      */
-    function registerAndStake(bytes[] calldata blsPublicKeys) public payable whenNotPaused {
-        _registerAndStake(msg.sender, blsPublicKeys);
+    function registerAndStake() public payable whenNotPaused {
+        _registerAndStake(msg.sender);
     }
 
     /**
     * @dev Register and stake on behalf of a provider.
     * @param provider Address of the provider.
-    * @param blsPublicKeys BLS public keys of the provider.
     */
-    function delegateRegisterAndStake(address provider, bytes[] calldata blsPublicKeys) public payable whenNotPaused onlyOwner {
-        _registerAndStake(provider, blsPublicKeys);
+    function delegateRegisterAndStake(address provider) public payable whenNotPaused onlyOwner {
+        _registerAndStake(provider);
     }
 
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
@@ -304,9 +302,7 @@ contract ProviderRegistry is
 
     /**
      * @dev Adds a verified BLS key to the provider's account.
-     * @param provider The address of the provider.
      * @param blsPublicKey The BLS public key to be added.
-     * @param message The message hash (32 bytes) used for verification.
      * @param signature The signature (96 bytes) used for verification.
      */
     function addVerifiedBLSKey(
@@ -314,7 +310,7 @@ contract ProviderRegistry is
         bytes calldata signature
     ) external {
         address provider = msg.sender;
-        
+
         require(providerRegistered[provider], "Provider not registered");
         require(blsPublicKey.length == 48, "Public key must be 48 bytes");
         require(signature.length == 96, "Signature must be 96 bytes");
@@ -358,7 +354,7 @@ contract ProviderRegistry is
         );
 
         // Call precompile
-        (bool success, bytes memory result) = BLS_PRECOMPILE.staticcall(input);
+        (bool success, bytes memory result) = address(0xf0).staticcall(input);
         
         // Check if call was successful
         if (!success) {

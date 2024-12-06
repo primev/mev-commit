@@ -68,7 +68,7 @@ interface IProviderRegistry {
     error BidderAmountIsZero(address sender);
     error BidderWithdrawalTransferFailed(address sender, uint256 amount);
     
-    function registerAndStake(bytes[] calldata blsPublicKeys) external payable;
+    function registerAndStake() external payable;
 
     function stake() external payable;
 
@@ -82,4 +82,6 @@ interface IProviderRegistry {
     function isProviderValid(address committerAddress) external view;
 
     function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address);
+
+    function addVerifiedBLSKey(bytes calldata blsPublicKey, bytes calldata signature) external;
 }
