@@ -10,8 +10,6 @@ abstract contract ProviderRegistryStorage {
     uint256 public constant PRECISION = 1e16;
     uint256 public constant ONE_HUNDRED_PERCENT = 100 * PRECISION;
 
-    address private constant BLS_PRECOMPILE = 0xf0;
-    
     /// @dev Minimum stake required for registration
     uint256 public minStake;
 
