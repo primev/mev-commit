@@ -302,20 +302,82 @@ contract ProviderRegistry is
         emit FundsDeposited(provider, msg.value);
     }
 
-    function _registerAndStake(address provider, bytes[] calldata blsPublicKeys) internal {
+    /**
+     * @dev Adds a verified BLS key to the provider's account.
+     * @param provider The address of the provider.
+     * @param blsPublicKey The BLS public key to be added.
+     * @param message The message hash (32 bytes) used for verification.
+     * @param signature The signature (96 bytes) used for verification.
+     */
+    function addVerifiedBLSKey(
+        bytes calldata blsPublicKey,
+        bytes calldata signature
+    ) external {
+        address provider = msg.sender;
+        
+        require(providerRegistered[provider], "Provider not registered");
+        require(blsPublicKey.length == 48, "Public key must be 48 bytes");
+        require(signature.length == 96, "Signature must be 96 bytes");
+
+
+        bytes32 message = keccak256(abi.encodePacked(provider));
+
+        // Verify the BLS signature
+        bool isValid = verifySignature(blsPublicKey, message, signature);
+        require(isValid, "Invalid BLS signature");
+
+        // Add the BLS public key to the provider's account
+        eoaToBlsPubkeys[provider].push(blsPublicKey);
+        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
+
+        emit BLSKeyAdded(provider, blsPublicKey);
+    }
+
+    /**
+     * @dev Verifies a BLS signature using the precompile
+     * @param pubKey The public key (48 bytes G1 point)
+     * @param message The message hash (32 bytes)
+     * @param signature The signature (96 bytes G2 point)
+     * @return success True if verification succeeded
+     */
+    function verifySignature(
+        bytes calldata pubKey,
+        bytes32 message,
+        bytes calldata signature
+    ) public view returns (bool) {
+        // Input validation
+        require(pubKey.length == 48, "Public key must be 48 bytes");
+        require(signature.length == 96, "Signature must be 96 bytes");
+
+        // Concatenate inputs in required format:
+        // [pubkey (48 bytes) | message (32 bytes) | signature (96 bytes)]
+        bytes memory input = bytes.concat(
+            pubKey,
+            message,
+            signature
+        );
+
+        // Call precompile
+        (bool success, bytes memory result) = BLS_PRECOMPILE.staticcall(input);
+        
+        // Check if call was successful
+        if (!success) {
+            return false;
+        }
+
+        // If we got a result back and it's not empty, verification succeeded
+        return result.length > 0;
+    }
+
+    event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
+ 
+    function _registerAndStake(address provider) internal {
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
-        require(blsPublicKeys.length != 0, AtLeastOneBLSKeyRequired());
-        uint256 numKeys = blsPublicKeys.length;
-        for (uint256 i = 0; i < numKeys; ++i) {
-            bytes memory key = blsPublicKeys[i];
-            require(key.length == 48, InvalidBLSPublicKeyLength(key.length, 48));
-            blockBuilderBLSKeyToAddress[key] = provider;
-        }
-        eoaToBlsPubkeys[provider] = blsPublicKeys;
+
         providerStakes[provider] = msg.value;
         providerRegistered[provider] = true;
-        emit ProviderRegistered(provider, msg.value, blsPublicKeys);
+        emit ProviderRegistered(provider, msg.value);
     }
 
     // solhint-disable-next-line no-empty-blocks

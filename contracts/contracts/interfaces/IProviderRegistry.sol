@@ -4,7 +4,7 @@ pragma solidity 0.8.26;
 interface IProviderRegistry {
 
     /// @dev Event emitted when a provider is registered
-    event ProviderRegistered(address indexed provider, uint256 stakedAmount, bytes[] blsPublicKeys);
+    event ProviderRegistered(address indexed provider, uint256 stakedAmount);
 
     /// @dev Event emitted when funds are deposited
     event FundsDeposited(address indexed provider, uint256 amount);
