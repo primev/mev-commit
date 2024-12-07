@@ -188,7 +188,7 @@ contract OracleTest is Test {
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
             providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
         }
-// TODO(@ckartik): Adds a manual register cal
+
         vm.stopPrank();
 
         bytes32 index = constructAndStoreCommitment(
@@ -240,7 +240,7 @@ contract OracleTest is Test {
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
             providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
         }
-// TODO(@ckartik): Adds a manual register cal
+
         vm.stopPrank();
 
         bytes32 index = constructAndStoreCommitment(
@@ -298,7 +298,7 @@ contract OracleTest is Test {
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
             providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
         }
-// TODO(@ckartik): Adds a manual register cal
+
         vm.stopPrank();
 
         bytes32 index1 = constructAndStoreCommitment(
@@ -379,7 +379,7 @@ contract OracleTest is Test {
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
             providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
         }
-// TODO(@ckartik): Adds a manual register cal
+
         vm.stopPrank();
 
         bytes32 index1 = constructAndStoreCommitment(
@@ -498,7 +498,7 @@ contract OracleTest is Test {
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
             providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
         }
-// TODO(@ckartik): Adds a manual register cal
+
         vm.stopPrank();
 
         bytes32[] memory commitments = new bytes32[](4);

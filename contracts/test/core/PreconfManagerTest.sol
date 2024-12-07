@@ -218,7 +218,7 @@ vm.prank(address(this));
             providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
         }
         vm.stopPrank();
-// TODO: add manaul BLS key registration
+
 
 
         // Step 2: Store the commitment
@@ -978,7 +978,7 @@ vm.prank(address(this));
             providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
         }
         vm.stopPrank();
-// TODO: add manaul BLS key registration
+
 
 
         // Request a withdrawal to create a pending withdrawal request
