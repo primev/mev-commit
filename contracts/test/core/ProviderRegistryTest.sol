@@ -126,7 +126,7 @@ contract ProviderRegistryTest is Test {
         bytes[] memory invalidBLSPubkeys = new bytes[](1);
         invalidBLSPubkeys[0] = abi.encodePacked(uint256(134));
         providerRegistry.registerAndStake{value: 1 wei}();
-// TODO: add manaul BLS key registration
+
 
     }
 
@@ -165,11 +165,11 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         vm.expectRevert(bytes(""));
         providerRegistry.registerAndStake{value: 1 wei}();
-// TODO: add manaul BLS key registration
+
 
     }
 
@@ -253,7 +253,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}();
-// TODO: add manaul BLS key registration
+
 
         address bidder = vm.addr(4);
 
@@ -273,7 +273,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}();
-// TODO: add manaul BLS key registration
+
 
         address bidder = vm.addr(4);
 
@@ -288,7 +288,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}();
-// TODO: add manaul BLS key registration
+
 
         address bidder = vm.addr(4);
         vm.expectRevert(bytes(""));
@@ -301,7 +301,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 2 ether}();
-// TODO: add manaul BLS key registration
+
 
         address bidder = vm.addr(4);
         vm.prank(address(this));
@@ -321,7 +321,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 3 ether}();
-// TODO: add manaul BLS key registration
+
 
         address bidder = vm.addr(4);
         vm.prank(address(this));
@@ -341,7 +341,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(provider, 3.1 ether);
         vm.prank(provider);
         providerRegistry.registerAndStake{value: 3.1 ether}();
-// TODO: add manaul BLS key registration
+
 
         address bidder = vm.addr(4);
         vm.prank(address(this));
@@ -361,7 +361,7 @@ contract ProviderRegistryTest is Test {
         address bidder = vm.addr(4);
 
         providerRegistry.registerAndStake{value: 2 ether}();
-// TODO: add manaul BLS key registration
+
 
         providerRegistry.setPreconfManager(address(this));
         providerRegistry.slash(1e18 wei, provider, payable(bidder), 50 * providerRegistry.PRECISION());
@@ -375,7 +375,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2 ether}();
-// TODO: add manaul BLS key registration
+
 
 
         vm.roll(350); // roll past protocol fee payout period
@@ -404,7 +404,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         providerRegistry.setPreconfManager(
             address(preconfManager)
@@ -433,7 +433,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         vm.expectRevert(bytes(""));
         address wrongNewProvider = vm.addr(12);
@@ -446,7 +446,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         assertEq(
             providerRegistry.providerStakes(newProvider),
@@ -465,7 +465,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         providerRegistry.unstake();
         vm.warp(block.timestamp + 24 hours); // Move forward in time
@@ -478,7 +478,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         vm.prank(newProvider);
         providerRegistry.unstake();
@@ -496,7 +496,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         providerRegistry.setPreconfManager(
             address(preconfManager)
@@ -525,7 +525,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         vm.prank(newProvider);
         providerRegistry.unstake();
@@ -547,7 +547,7 @@ contract ProviderRegistryTest is Test {
         vm.deal(newProvider, 3 ether);
         vm.prank(newProvider);
         providerRegistry.registerAndStake{value: 2e18 wei}();
-// TODO: add manaul BLS key registration
+
 
         vm.prank(newProvider);
         vm.expectRevert(
