@@ -561,7 +561,7 @@ contract ProviderRegistryTest is Test {
 
         vm.prank(address(this));
         providerRegistry.delegateRegisterAndStake{value: 2e18 wei}(newProvider);
-        // TODO(@ckartik): Add a manual register call for BLS keys
+        
         assertEq(
             providerRegistry.providerStakes(newProvider),
             2e18 wei,
