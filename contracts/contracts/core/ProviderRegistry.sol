@@ -183,6 +183,12 @@ contract ProviderRegistry is
         emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
+    function overrideAddBLSKey(address provider, bytes calldata blsPublicKey) external onlyOwner {
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
+        eoaToBlsPubkeys[provider].push(blsPublicKey);
+        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
+    }
+
     /// @dev Requests unstake of the staked amount.
     function unstake() external whenNotPaused {
         require(providerStakes[msg.sender] != 0, NoStakeToWithdraw(msg.sender));
