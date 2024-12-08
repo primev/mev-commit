@@ -122,9 +122,9 @@ contract ProviderRegistry is
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        if (!payable(bidder).send(amt)) {
-            emit TransferToBidderFailed(bidder, amt);
-            bidderSlashedAmount[bidder] += amt;
+        if (!payable(bidder).send(residualAmt)) {
+            emit TransferToBidderFailed(bidder, residualAmt);
+            bidderSlashedAmount[bidder] += residualAmt;
         }
 
         emit FundsSlashed(provider, residualAmt + penaltyFee);
