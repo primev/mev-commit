@@ -1,0 +1,132 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "backup" {
+  datacenters = ["{{ datacenter }}"]
+
+  type = "batch"
+
+  # The cron will run the job every hour.
+  periodic {
+    crons = ["0 * * * *"]
+  }
+
+  group "backup-group" {
+    count = 1
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+    }
+
+    volume "data-volume" {
+      type = "host"
+      source = "data-volume"
+      read_only = true
+    }
+
+    volume "backups-volume" {
+      type = "host"
+      source = "backups-volume"
+      read_only = false
+    }
+
+    task "backup" {
+      driver = "exec"
+
+      {% if env == 'devenv' %}
+      resources {
+        memory = 2048
+      }
+      {% endif %}
+
+      volume_mount {
+        volume = "data-volume"
+        destination = "/local/data"
+        read_only = false
+      }
+
+      volume_mount {
+        volume = "backups-volume"
+        destination = "/local/backups"
+        read_only = false
+      }
+
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          {%- raw %}
+          GETH_DATA_DIR="/local/data/mev-commit-geth-member-node/node-{{ env "NOMAD_ALLOC_INDEX" }}"
+          {% endraw %}
+          GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
+          GETH_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+        #!/usr/bin/env bash
+
+        {%- raw %}
+        {{- range nomadService "datadog-agent-logs-collector" }}
+          {{ if contains "tcp" .Tags }}
+        exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+          {{ end }}
+        {{- end }}
+        {% endraw %}
+
+        set -x #TODO: remove me!
+        BACKUP_FILE="local/backups/{{ version }}_{{ job.name }}-{% raw %}{{ env "NOMAD_ALLOC_INDEX" }}{% endraw %}_$(date +%Y%m%d%H%M%S).rlp"
+        if [[ ! -f /local/latest_block.txt ]]; then
+          echo "0" > /local/latest_block.txt
+        fi
+        START_BLOCK=$(cat /local/latest_block.txt)
+        END_BLOCK=$(local/mev-commit-geth attach --datadir="${GETH_DATA_DIR}" --exec "eth.blockNumber" 2>/dev/null)
+
+        echo "Exporting chain data to backup file: ${BACKUP_FILE}"
+        START_TIME=$(date +%s)
+        chmod +x local/mev-commit-geth
+        local/mev-commit-geth \
+          --verbosity=5 \
+          --log.format="${GETH_LOG_FORMAT}" \
+          --log.tags="${GETH_LOG_TAGS}" \
+          --datadir="${GETH_DATA_DIR}" \
+          export ${BACKUP_FILE} \
+          ${START_BLOCK} \
+          ${END_BLOCK}
+
+        if [[ "$?" -eq 0 ]] && [[ -f "${BACKUP_FILE}" ]]; then
+          ELAPSED_TIME=$(($(date +%s) - START_TIME))
+          echo "Backup finished in: $(date -u -d@${ELAPSED_TIME} +%H:%M:%S)"
+          echo "Backup file size: $(du -h ${BACKUP_FILE} | cut -f1)"
+          echo $((END_BLOCK + 1)) > /local/latest_block.txt
+        else
+          echo "Backup failed"
+          rm -f ${BACKUP_FILE}
+          exit 1
+        fi
+        EOH
+        destination = "local/run.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
+      }
+    }
+  }
+}
