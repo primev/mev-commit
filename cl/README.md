@@ -105,24 +105,6 @@ geth --verbosity 5 \
 - `--syncmode full`: Synchronization mode.
 - `--miner.recommit`: Frequency of miner recommit.
 
-### Obtaining the Genesis Block Hash
-
-You can obtain the genesis block hash by querying the latest block after initializing your node:
-
-```bash
-cast block latest -r http://localhost:8545
-```
-
-Look for the `hash` field in the output, which represents the latest block hash. Since the chain is just initialized, this will be the genesis block hash.
-
-Alternatively, you can use `curl` to get the genesis block hash:
-
-```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x0", false],"id":1}' -H "Content-Type: application/json" http://localhost:8545
-```
-
-Extract the `hash` value from the response and use it without `0x`.
-
 ## Running Redis
 
 We will use Docker Compose to run Redis.
@@ -166,26 +148,24 @@ go mod tidy
 go build -o consensus-client main.go
 ```
 
-### Configuration
+### Consensus Client Configuration
 
 The consensus client can be configured via command-line flags, environment variables, or a YAML configuration file.
 
-#### Command-Line Flags
+#### Command-Line Flags for Relayer
 
 - `--instance-id`: **(Required)** Unique instance ID for this node.
 - `--eth-client-url`: Ethereum client URL (default: `http://localhost:8551`).
 - `--jwt-secret`: JWT secret for Ethereum client.
-- `--genesis-block-hash`: Genesis block hash.
 - `--redis-addr`: Redis address (default: `127.0.0.1:7001`).
 - `--evm-build-delay`: EVM build delay (default: `1s`).
 - `--config`: Path to a YAML configuration file.
 
-#### Environment Variables
+#### Environment Variables for Consensus Client
 
 - `RAPP_INSTANCE_ID`
 - `RAPP_ETH_CLIENT_URL`
 - `RAPP_JWT_SECRET`
-- `RAPP_GENESIS_BLOCK_HASH`
 - `RAPP_REDIS_ADDR`
 - `RAPP_EVM_BUILD_DELAY`
 - `RAPP_CONFIG`
@@ -199,7 +179,6 @@ Run the client using command-line flags:
   --instance-id "node1" \
   --eth-client-url "http://localhost:8551" \
   --jwt-secret "your_jwt_secret" \
-  --genesis-block-hash "your_genesis_block_hash" \
   --redis-addr "127.0.0.1:7001" \
   --evm-build-delay "1s"
 ```
@@ -207,9 +186,8 @@ Run the client using command-line flags:
 **Note**:
 
 - Replace `"your_jwt_secret"` with the actual JWT secret you used earlier.
-- Replace `"your_genesis_block_hash"` with the genesis block hash obtained earlier.
 
-### Using a Configuration File
+### Using a Configuration File for Consensus Client
 
 Create a `config.yaml` file:
 
@@ -217,7 +195,6 @@ Create a `config.yaml` file:
 instance-id: "node1"
 eth-client-url: "http://localhost:8551"
 jwt-secret: "your_jwt_secret"
-genesis-block-hash: "your_genesis_block_hash"
 redis-addr: "127.0.0.1:7001"
 evm-build-delay: "1s"
 ```
@@ -231,6 +208,139 @@ Run the client with the configuration file:
 ## Additional Notes
 
 - **Multiple Instances**: You can run multiple instances of the consensus client by changing the `--instance-id` and `--eth-client-url` parameters.
+
+## Running the Relayer
+
+The Relayer is responsible for streaming payloads to member nodes, allowing them to apply these payloads to their respective Geth instances.
+
+### Build the Relayer
+
+Ensure all dependencies are installed and build the Relayer application:
+
+```bash
+go mod tidy
+go build -o relayer main.go
+```
+
+### Relayer Configuration
+
+The Relayer can be configured via command-line flags, environment variables, or a YAML configuration file.
+
+#### Command-Line Flags
+
+- `--config`: Path to config file.
+- `--redis-addr`: Redis address (default: 127.0.0.1:7001).
+- `--listen-addr`: Relayer listen address (default: :50051).
+- `--log-fmt`: Log format to use, options are text or json (default: text).
+- `--log-level`: Log level to use, options are debug, info, warn, error (default: info).
+
+#### Environment Variables
+
+- `RELAYER_CONFIG`
+- `RELAYER_REDIS_ADDR`
+- `RELAYER_LISTEN_ADDR`
+- `RELAYER_LOG_FMT`
+- `RELAYER_LOG_LEVEL`
+
+#### Run the Relayer
+
+Run the Relayer using command-line flags:
+
+```bash
+./relayer start \
+  --config "config.yaml" \
+  --redis-addr "127.0.0.1:7001" \
+  --listen-addr ":50051" \
+  --log-fmt "json" \
+  --log-level "info"
+```
+
+#### Using a Configuration File for Relayer
+
+Create a `relayer_config.yaml` file:
+
+```yaml
+redis-addr: "127.0.0.1:7001"
+listen-addr: ":50051"
+log-fmt: "json"
+log-level: "info"
+```
+
+Run the Relayer with the configuration file:
+
+```bash
+./relayer start --config relayer_config.yaml
+```
+
+## Build the Member Client
+
+Ensure all dependencies are installed and build the Member Client application:
+
+```bash
+go mod tidy
+go build -o memberclient main.go
+```
+
+### Configuration
+
+The Member Client can be configured via command-line flags, environment variables, or a YAML configuration file.
+
+### Command-Line Flags for Member Client
+
+- `--config`: Path to config file.
+- `--client-id`: (Required) Unique client ID for this member.
+- `--relayer-addr`: (Required) Relayer address.
+- `--eth-client-url`: Ethereum client URL (default: <http://localhost:8551>).
+- `--jwt-secret`: JWT secret for Ethereum client.
+- `--log-fmt`: Log format to use, options are text or json (default: text).
+- `--log-level`: Log level to use, options are debug, info, warn, error (default: info).
+
+### Environment Variables for Member Client
+
+- `MEMBER_CONFIG`
+- `MEMBER_CLIENT_ID`
+- `MEMBER_RELAYER_ADDR`
+- `MEMBER_ETH_CLIENT_URL`
+- `MEMBER_JWT_SECRET`
+- `MEMBER_LOG_FMT`
+- `MEMBER_LOG_LEVEL`
+
+### Run the Member Client
+
+Run the Member Client using command-line flags:
+
+```bash
+./memberclient start \
+  --client-id "member1" \
+  --relayer-addr "http://localhost:50051" \
+  --eth-client-url "http://localhost:8551" \
+  --jwt-secret "your_jwt_secret" \
+  --log-fmt "json" \
+  --log-level "info"
+```
+
+Note:
+
+Replace "your_jwt_secret" with the actual JWT secret you used earlier.
+
+### Using a Configuration File
+
+Create a member_config.yaml file:
+
+```yaml
+client-id: "member1"
+relayer-addr: "http://localhost:50051"
+eth-client-url: "http://localhost:8551"
+jwt-secret: "your_jwt_secret"
+log-fmt: "json"
+log-level: "info"
+```
+
+Run the Member Client with the configuration file:
+
+```bash
+./memberclient start --config member_config.yaml
+```
 
 ## Conclusion
 

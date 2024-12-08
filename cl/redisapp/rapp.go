@@ -24,7 +24,7 @@ type MevCommitChain struct {
 	lfm          *leaderfollower.LeaderFollowerManager
 }
 
-func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr, feeReceipt string,
+func NewMevCommitChain(instanceID, ecURL, jwtSecret, redisAddr, feeReceipt string,
 	logger *slog.Logger,
 	buildDelay, buildDelayEmptyBlocks time.Duration) (*MevCommitChain, error) {
 	// Create a context for cancellation
@@ -56,7 +56,7 @@ func NewMevCommitChain(instanceID, ecURL, jwtSecret, genesisBlockHash, redisAddr
 		return nil, err
 	}
 
-	coordinator, err := state.NewRedisCoordinator(instanceID, redisClient, logger, genesisBlockHash)
+	coordinator, err := state.NewRedisCoordinator(instanceID, redisClient, logger)
 	if err != nil {
 		cancel()
 		logger.Error("Error creating state manager", "error", err)

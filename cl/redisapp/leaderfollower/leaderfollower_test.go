@@ -222,7 +222,6 @@ func TestFollowerWork_WithMessages(t *testing.T) {
 		instanceID:   "test-instance",
 	}
 
-	// Prepare messages to return
 	messages := []redis.XStream{
 		{
 			Stream: "test-stream",
@@ -239,26 +238,30 @@ func TestFollowerWork_WithMessages(t *testing.T) {
 		},
 	}
 
-	// Set up expectations
 	gomock.InOrder(
 		mockSM.EXPECT().ReadMessagesFromStream(ctx, types.RedisMsgTypePending).Return([]redis.XStream{}, nil),
 		mockSM.EXPECT().ReadMessagesFromStream(ctx, types.RedisMsgTypeNew).Return(messages, nil),
 		mockBB.EXPECT().FinalizeBlock(ctx, "test-payload-id", "test-execution-payload", "1-0").Return(nil),
+		mockSM.EXPECT().AckMessage(ctx, "1-0").Return(nil).Do(func(ctx context.Context, msgID string) {
+			cancel()
+		}),
 	)
 
 	mockSM.EXPECT().ReadMessagesFromStream(ctx, gomock.Any()).AnyTimes().Return([]redis.XStream{}, nil)
 
-	// Run followerWork in a separate goroutine to allow context cancellation
 	done := make(chan error)
 	go func() {
 		err := lfm.followerWork(ctx)
 		done <- err
 	}()
 
-	// Wait for the function to return
-	err := <-done
-	if err != nil {
-		t.Errorf("followerWork returned error: %v", err)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("followerWork returned error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Errorf("followerWork timed out")
 	}
 }
 

@@ -283,6 +283,13 @@ func (lfm *LeaderFollowerManager) followerWork(ctx context.Context) error {
 						continue
 					}
 
+					err = lfm.stateManager.AckMessage(ctx, field.ID)
+					if err != nil {
+						lfm.logger.Error("Follower: Failed to acknowledge message", "error", err)
+					} else {
+						lfm.logger.Info("Follower: Successfully acknowledged message", "PayloadID", payloadIDStr)
+					}
+					
 					lfm.logger.Info("Follower: Successfully finalized block", "PayloadID", payloadIDStr)
 				}
 			}

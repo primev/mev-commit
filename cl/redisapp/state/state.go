@@ -2,7 +2,6 @@ package state
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -24,8 +23,6 @@ type RedisClient interface {
 type PipelineOperation func(redis.Pipeliner) error
 
 type StateManager interface {
-	SaveExecutionHead(ctx context.Context, head *types.ExecutionHead) error
-	LoadExecutionHead(ctx context.Context) (*types.ExecutionHead, error)
 	LoadOrInitializeBlockState(ctx context.Context) error
 	SaveBlockState(ctx context.Context) error
 	ResetBlockState(ctx context.Context) error
@@ -46,16 +43,14 @@ type StreamManager interface {
 type Coordinator interface {
 	StreamManager
 	StateManager
-	SaveExecutionHeadAndAck(ctx context.Context, head *types.ExecutionHead, messageID string) error
 	SaveBlockStateAndPublishToStream(ctx context.Context, bsState *types.BlockBuildState) error
 	Stop()
 }
 
 type RedisStateManager struct {
-	instanceID       string
-	redisClient      RedisClient
-	logger           *slog.Logger
-	genesisBlockHash string
+	instanceID  string
+	redisClient RedisClient
+	logger      *slog.Logger
 
 	blockStateKey   string
 	blockBuildState *types.BlockBuildState
@@ -80,14 +75,12 @@ func NewRedisStateManager(
 	instanceID string,
 	redisClient RedisClient,
 	logger *slog.Logger,
-	genesisBlockHash string,
 ) *RedisStateManager {
 	return &RedisStateManager{
-		instanceID:       instanceID,
-		redisClient:      redisClient,
-		logger:           logger,
-		genesisBlockHash: genesisBlockHash,
-		blockStateKey:    fmt.Sprintf("blockBuildState:%s", instanceID),
+		instanceID:    instanceID,
+		redisClient:   redisClient,
+		logger:        logger,
+		blockStateKey: fmt.Sprintf("blockBuildState:%s", instanceID),
 	}
 }
 
@@ -109,9 +102,8 @@ func NewRedisCoordinator(
 	instanceID string,
 	redisClient RedisClient,
 	logger *slog.Logger,
-	genesisBlockHash string,
 ) (*RedisCoordinator, error) {
-	stateMgr := NewRedisStateManager(instanceID, redisClient, logger, genesisBlockHash)
+	stateMgr := NewRedisStateManager(instanceID, redisClient, logger)
 	streamMgr := NewRedisStreamManager(instanceID, redisClient, logger)
 
 	coordinator := &RedisCoordinator{
@@ -141,51 +133,6 @@ func (s *RedisStateManager) ExecuteTransaction(ctx context.Context, ops ...Pipel
 	}
 
 	return nil
-}
-
-func (s *RedisStateManager) SaveExecutionHead(ctx context.Context, head *types.ExecutionHead) error {
-	return s.ExecuteTransaction(ctx, s.saveExecutionHeadFunc(ctx, head))
-}
-
-func (s *RedisStateManager) saveExecutionHeadFunc(ctx context.Context, head *types.ExecutionHead) PipelineOperation {
-	return func(pipe redis.Pipeliner) error {
-		data, err := msgpack.Marshal(head)
-		if err != nil {
-			return fmt.Errorf("failed to serialize execution head: %w", err)
-		}
-
-		key := fmt.Sprintf("executionHead:%s", s.instanceID)
-		pipe.Set(ctx, key, data, 0)
-		return nil
-	}
-}
-
-func (s *RedisStateManager) LoadExecutionHead(ctx context.Context) (*types.ExecutionHead, error) {
-	key := fmt.Sprintf("executionHead:%s", s.instanceID)
-	data, err := s.redisClient.Get(ctx, key).Result()
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			s.logger.Info("executionHead not found in Redis, initializing with default values")
-			hashBytes, decodeErr := hex.DecodeString(s.genesisBlockHash)
-			if decodeErr != nil {
-				s.logger.Error("Error decoding genesis block hash", "error", decodeErr)
-				return nil, decodeErr
-			}
-			head := &types.ExecutionHead{BlockHash: hashBytes, BlockTime: uint64(time.Now().UnixMilli())}
-			if saveErr := s.SaveExecutionHead(ctx, head); saveErr != nil {
-				return nil, saveErr
-			}
-			return head, nil
-		}
-		return nil, fmt.Errorf("failed to retrieve execution head: %w", err)
-	}
-
-	var head types.ExecutionHead
-	if err := msgpack.Unmarshal([]byte(data), &head); err != nil {
-		return nil, fmt.Errorf("failed to deserialize execution head: %w", err)
-	}
-
-	return &head, nil
 }
 
 func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) error {
@@ -344,20 +291,6 @@ func (s *RedisStreamManager) Stop() {
 	}
 }
 
-func (c *RedisCoordinator) SaveExecutionHeadAndAck(ctx context.Context, head *types.ExecutionHead, messageID string) error {
-	err := c.stateMgr.ExecuteTransaction(
-		ctx,
-		c.stateMgr.saveExecutionHeadFunc(ctx, head),
-		c.streamMgr.ackMessageFunc(ctx, messageID),
-	)
-	if err != nil {
-		return err
-	}
-
-	c.logger.Info("Follower: Execution head saved and message acknowledged", "MessageID", messageID)
-	return nil
-}
-
 func (c *RedisCoordinator) SaveBlockStateAndPublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
 	c.stateMgr.blockBuildState = bsState
 
@@ -385,16 +318,8 @@ func (c *RedisCoordinator) GetBlockBuildState(ctx context.Context) types.BlockBu
 	return c.stateMgr.GetBlockBuildState(ctx)
 }
 
-func (c *RedisCoordinator) LoadExecutionHead(ctx context.Context) (*types.ExecutionHead, error) {
-	return c.stateMgr.LoadExecutionHead(ctx)
-}
-
 func (c *RedisCoordinator) LoadOrInitializeBlockState(ctx context.Context) error {
 	return c.stateMgr.LoadOrInitializeBlockState(ctx)
-}
-
-func (c *RedisCoordinator) SaveExecutionHead(ctx context.Context, head *types.ExecutionHead) error {
-	return c.stateMgr.SaveExecutionHead(ctx, head)
 }
 
 func (c *RedisCoordinator) ExecuteTransaction(ctx context.Context, ops ...PipelineOperation) error {
