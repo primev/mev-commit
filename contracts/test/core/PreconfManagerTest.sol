@@ -724,8 +724,10 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.sharedSecretKey
             );
+            uint256 oneHundredPercent = providerRegistry.ONE_HUNDRED_PERCENT();
+            
             vm.prank(oracleContract);
-            preconfManager.initiateSlash(index, 100);
+            preconfManager.initiateSlash(index, oneHundredPercent);
 
             (, isSettled, , , , , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
