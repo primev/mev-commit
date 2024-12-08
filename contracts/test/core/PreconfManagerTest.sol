@@ -725,7 +725,7 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.sharedSecretKey
             );
             uint256 oneHundredPercent = providerRegistry.ONE_HUNDRED_PERCENT();
-            
+
             vm.prank(oracleContract);
             preconfManager.initiateSlash(index, oneHundredPercent);
 
@@ -1007,7 +1007,7 @@ vm.prank(address(this));
         openFirstCommitment(bidder, unopenedIndex1, testCommitment);
 
         bytes32 txnHashAndBidder = keccak256(
-            abi.encode(testCommitment.txnHash, bidder)
+            abi.encode(testCommitment.txnHash, bidder, testCommitment.blockNumber)
         );
         // Verify that the first commitment is processed
         assertTrue(
@@ -1112,7 +1112,6 @@ vm.prank(address(this));
 
         // Update the fields for the second commitment
         testCommitment2.bidAmt += 1;
-        testCommitment2.blockNumber += 1;
         testCommitment2.decayStartTimestamp += 1;
         testCommitment2.decayEndTimestamp += 1;
         testCommitment2.dispatchTimestamp += 1;
