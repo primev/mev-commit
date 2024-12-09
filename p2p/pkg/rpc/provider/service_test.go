@@ -518,7 +518,7 @@ func TestBLSKeys(t *testing.T) {
 		t.Fatalf("error unmarshalling public key: %v", err)
 	}
 
-	signature2, err := hex.DecodeString(encodedSignature)
+	signature2, _ := hex.DecodeString(encodedSignature)
 
 	if !bls.Verify[bls.G1](&pubkey2bytes, hash.Bytes(), signature2) {
 		t.Errorf("Signature verification failed")
