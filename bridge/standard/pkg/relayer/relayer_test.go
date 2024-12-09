@@ -17,9 +17,10 @@ import (
 )
 
 type Transfer struct {
-	Recipient   common.Address
-	Amount      *big.Int
-	TransferIdx *big.Int
+	Recipient       common.Address
+	Amount          *big.Int
+	TransferIdx     *big.Int
+	FinalizationFee *big.Int
 }
 
 type testL1Gateway struct {
@@ -33,12 +34,13 @@ func (t *testL1Gateway) Subscribe(ctx context.Context) (<-chan *l1gateway.L1gate
 	return t.initiated, t.err
 }
 
-func (t *testL1Gateway) FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int) error {
+func (t *testL1Gateway) FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int, finalizationFee *big.Int) error {
 	t.mu.Lock()
 	t.finalized = append(t.finalized, Transfer{
-		Recipient:   recipient,
-		Amount:      amount,
-		TransferIdx: transferIdx,
+		Recipient:       recipient,
+		Amount:          amount,
+		TransferIdx:     transferIdx,
+		FinalizationFee: finalizationFee,
 	})
 	t.mu.Unlock()
 	return nil
@@ -55,12 +57,13 @@ func (t *testSettlementGateway) Subscribe(ctx context.Context) (<-chan *settleme
 	return t.initiated, t.err
 }
 
-func (t *testSettlementGateway) FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int) error {
+func (t *testSettlementGateway) FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int, finalizationFee *big.Int) error {
 	t.mu.Lock()
 	t.finalized = append(t.finalized, Transfer{
-		Recipient:   recipient,
-		Amount:      amount,
-		TransferIdx: transferIdx,
+		Recipient:       recipient,
+		Amount:          amount,
+		TransferIdx:     transferIdx,
+		FinalizationFee: finalizationFee,
 	})
 	t.mu.Unlock()
 	return nil
@@ -83,32 +86,37 @@ func TestRelayer(t *testing.T) {
 
 	expTransfers := []Transfer{
 		{
-			Recipient:   common.HexToAddress("0x1234"),
-			Amount:      big.NewInt(100),
-			TransferIdx: big.NewInt(1),
+			Recipient:       common.HexToAddress("0x1234"),
+			Amount:          big.NewInt(100),
+			TransferIdx:     big.NewInt(1),
+			FinalizationFee: big.NewInt(10),
 		},
 		{
-			Recipient:   common.HexToAddress("0x5678"),
-			Amount:      big.NewInt(200),
-			TransferIdx: big.NewInt(2),
+			Recipient:       common.HexToAddress("0x5678"),
+			Amount:          big.NewInt(200),
+			TransferIdx:     big.NewInt(2),
+			FinalizationFee: big.NewInt(20),
 		},
 		{
-			Recipient:   common.HexToAddress("0x9abc"),
-			Amount:      big.NewInt(300),
-			TransferIdx: big.NewInt(3),
+			Recipient:       common.HexToAddress("0x9abc"),
+			Amount:          big.NewInt(300),
+			TransferIdx:     big.NewInt(3),
+			FinalizationFee: big.NewInt(30),
 		},
 		{
-			Recipient:   common.HexToAddress("0xdef0"),
-			Amount:      big.NewInt(400),
-			TransferIdx: big.NewInt(4),
+			Recipient:       common.HexToAddress("0xdef0"),
+			Amount:          big.NewInt(400),
+			TransferIdx:     big.NewInt(4),
+			FinalizationFee: big.NewInt(40),
 		},
 	}
 
 	for _, transfer := range expTransfers {
 		l1Gateway.initiated <- &l1gateway.L1gatewayTransferInitiated{
-			Recipient:   transfer.Recipient,
-			Amount:      transfer.Amount,
-			TransferIdx: transfer.TransferIdx,
+			Recipient:                   transfer.Recipient,
+			Amount:                      transfer.Amount,
+			TransferIdx:                 transfer.TransferIdx,
+			CounterpartyFinalizationFee: transfer.FinalizationFee,
 		}
 	}
 
@@ -135,9 +143,10 @@ func TestRelayer(t *testing.T) {
 
 	for _, transfer := range expTransfers {
 		settlementGateway.initiated <- &settlementgateway.SettlementgatewayTransferInitiated{
-			Recipient:   transfer.Recipient,
-			Amount:      transfer.Amount,
-			TransferIdx: transfer.TransferIdx,
+			Recipient:                   transfer.Recipient,
+			Amount:                      transfer.Amount,
+			TransferIdx:                 transfer.TransferIdx,
+			CounterpartyFinalizationFee: transfer.FinalizationFee,
 		}
 	}
 
