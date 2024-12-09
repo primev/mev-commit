@@ -7,6 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/armon/go-radix v1.0.0
 	github.com/bufbuild/protovalidate-go v0.6.0
+	github.com/cloudflare/circl v1.5.0
 	github.com/cockroachdb/pebble v1.1.2
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/go-logr/logr v1.4.2
