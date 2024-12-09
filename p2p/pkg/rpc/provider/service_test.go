@@ -93,6 +93,13 @@ func (t *testRegistryContract) ParseUnstake(log types.Log) (*providerregistry.Pr
 	}, nil
 }
 
+func (t *testRegistryContract) ParseBLSKeyAdded(log types.Log) (*providerregistry.ProviderregistryBLSKeyAdded, error) {
+	return &providerregistry.ProviderregistryBLSKeyAdded{
+		Provider:     common.Address{},
+		BlsPublicKey: t.blsKey,
+	}, nil
+}
+
 func (t *testRegistryContract) Unstake(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
