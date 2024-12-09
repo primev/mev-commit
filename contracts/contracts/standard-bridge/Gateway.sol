@@ -22,24 +22,33 @@ abstract contract Gateway is IGateway, GatewayStorage,
     /// @notice If _recipient is a contract, manual withdrawal may be required on the counterparty chain.
     /// @notice The caller of this function takes responsiblity for whatever address is specified as the _recipient.
     /// That is, if _recipient is a contract with an immutable receiver that reverts, the user would be at fault for loss of funds.
+    /// @param _recipient The address to receive the tokens.
+    /// @param _amount The amount of Ether to transfer in wei.
+    /// @return returnIdx The index of the initiated transfer.
     function initiateTransfer(address _recipient, uint256 _amount) 
         external payable whenNotPaused nonReentrant returns (uint256 returnIdx) {
-        require(_amount >= counterpartyFee, AmountTooSmall(_amount, counterpartyFee));
+        require(_amount >= counterpartyFinalizationFee, AmountTooSmall(_amount, counterpartyFinalizationFee));
         _decrementMsgSender(_amount);
         ++transferInitiatedIdx;
-        emit TransferInitiated(msg.sender, _recipient, _amount, transferInitiatedIdx);
+        emit TransferInitiated(msg.sender, _recipient, _amount, transferInitiatedIdx, counterpartyFinalizationFee);
         return transferInitiatedIdx;
     }
 
     /// @dev Finalizes a transfer as the destination chain gateway.
     /// @dev The inheriting contract MUST implement eth transfer failure handling, and the retry capability.
-    function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx) 
+    /// @param _recipient The address to receive the tokens.
+    /// @param _amount The amount of Ether to transfer in wei.
+    /// @param _counterpartyIdx The index of the counterparty gateway contract.
+    /// @param _finalizationFee The finalization fee (wei) paid to the relayer by the this contract.
+    /// @notice The relayer is responsible for ensuring that the _finalizationFee value is the same as what was specified 
+    /// as `counterpartyFinalizationFee` in the corresponding TransferInitiated event.
+    function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx, uint256 _finalizationFee) 
         external onlyRelayer whenNotPaused nonReentrant {
-        require(_amount >= finalizationFee, AmountTooSmall(_amount, finalizationFee));
+        require(_amount >= _finalizationFee, AmountTooSmall(_amount, _finalizationFee));
         require(_counterpartyIdx == transferFinalizedIdx, InvalidCounterpartyIndex(_counterpartyIdx, transferFinalizedIdx));
-        uint256 amountAfterFee = _amount - finalizationFee;
+        uint256 amountAfterFee = _amount - _finalizationFee;
         _fund(amountAfterFee, _recipient);
-        _fund(finalizationFee, relayer);
+        _fund(_finalizationFee, relayer);
         ++transferFinalizedIdx;
         emit TransferFinalized(_recipient, _amount, _counterpartyIdx);
     }
@@ -57,20 +66,11 @@ abstract contract Gateway is IGateway, GatewayStorage,
         emit RelayerSet(_relayer);
     }
 
-    /// @dev Allows owner to set a new finalization fee.
-    /// @notice If using this function, ensure the same value is set as the `counterpartyFee` in the counterparty contract.
-    function setFinalizationFee(uint256 _finalizationFee) external onlyOwner {
-        require(_finalizationFee > 0, FinalizationFeeTooSmall(_finalizationFee));
-        finalizationFee = _finalizationFee;
-        emit FinalizationFeeSet(_finalizationFee);
-    }
-
-    /// @dev Allows owner to set a new counterparty fee.
-    /// @notice If using this function, ensure the same value is set as the `finalizationFee` in the counterparty contract.
-    function setCounterpartyFee(uint256 _counterpartyFee) external onlyOwner {
-        require(_counterpartyFee > 0, CounterpartyFeeTooSmall(_counterpartyFee));
-        counterpartyFee = _counterpartyFee;
-        emit CounterpartyFeeSet(_counterpartyFee);
+    /// @dev Allows owner to set a new counterparty finalization fee.
+    function setCounterpartyFinalizationFee(uint256 _counterpartyFinalizationFee) external onlyOwner {
+        require(_counterpartyFinalizationFee > 0, CounterpartyFinalizationFeeTooSmall(_counterpartyFinalizationFee));
+        counterpartyFinalizationFee = _counterpartyFinalizationFee;
+        emit CounterpartyFinalizationFeeSet(_counterpartyFinalizationFee);
     }
 
     // solhint-disable-next-line no-empty-blocks

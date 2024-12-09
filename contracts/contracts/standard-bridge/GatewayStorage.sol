@@ -13,14 +13,11 @@ contract GatewayStorage {
     /// @dev Address of relayer account. 
     address public relayer;
 
-    /// @dev The finalization fee (wei) paid to the relayer by this contract upon transfer finalization.
-    /// This must be greater on average, over time, than what the relayer will pay per finalizeTransfer tx.
-    /// @notice When setting this value, ensure the same value is set as the `counterpartyFee` in the counterparty contract.
-    uint256 public finalizationFee;
-
-    /// @dev The finalization fee (wei) of the counterparty gateway contract, included for UX purposes.
-    /// @notice When setting this value, ensure the same value is set as the `finalizationFee` in the counterparty contract.
-    uint256 public counterpartyFee;
+    /// @dev The finalization fee (wei) of the counterparty gateway contract,
+    /// paid to the relayer by the counterparty contract upon transfer finalization.
+    /// @notice This value must on average, over time, be greater than what the relayer will pay per finalizeTransfer tx on the counterparty chain.
+    /// @notice Consequently, the value may be mutated by the contract owner.
+    uint256 public counterpartyFinalizationFee;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;

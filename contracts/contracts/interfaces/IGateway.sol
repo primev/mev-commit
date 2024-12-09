@@ -12,12 +12,14 @@ interface IGateway {
      * @param recipient Address receiving the tokens.
      * @param amount Ether being transferred in wei.
      * @param transferIdx Current index of this gateway.
+     * @param counterpartyFinalizationFee The finalization fee (wei) paid to the relayer by the counterparty contract.
      */
     event TransferInitiated(
         address indexed sender,
         address indexed recipient,
         uint256 amount,
-        uint256 indexed transferIdx
+        uint256 indexed transferIdx,
+        uint256 counterpartyFinalizationFee
     );
 
     /**
@@ -32,15 +34,13 @@ interface IGateway {
         uint256 indexed counterpartyIdx
     );
 
-    event FinalizationFeeSet(uint256 finalizationFee);
-    event CounterpartyFeeSet(uint256 counterpartyFee);
+    event CounterpartyFinalizationFeeSet(uint256 counterpartyFinalizationFee);
     event RelayerSet(address indexed relayer);
 
     error SenderNotRelayer(address sender, address relayer);
-    error AmountTooSmall(uint256 amount, uint256 counterpartyFee);
+    error AmountTooSmall(uint256 amount, uint256 counterpartyFinalizationFee);
     error InvalidCounterpartyIndex(uint256 counterpartyIdx, uint256 transferFinalizedIdx);
-    error FinalizationFeeTooSmall(uint256 _finalizationFee);
-    error CounterpartyFeeTooSmall(uint256 _counterpartyFee);
+    error CounterpartyFinalizationFeeTooSmall(uint256 _counterpartyFinalizationFee);
     error RelayerCannotBeZeroAddress();
 
     /**
@@ -59,11 +59,13 @@ interface IGateway {
      * @param _recipient Address to receive the tokens.
      * @param _amount Amount of Ether to transfer in wei.
      * @param _counterpartyIdx Index of the counterparty transfer.
+     * @param _finalizationFee The finalization fee (wei) paid to the relayer by the this contract.
      */
     function finalizeTransfer(
         address _recipient,
         uint256 _amount,
-        uint256 _counterpartyIdx
+        uint256 _counterpartyIdx,
+        uint256 _finalizationFee
     ) external;
 
     /**
