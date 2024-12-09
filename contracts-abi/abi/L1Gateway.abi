@@ -34,20 +34,7 @@
   },
   {
     "type": "function",
-    "name": "counterpartyFee",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "finalizationFee",
+    "name": "counterpartyFinalizationFee",
     "inputs": [],
     "outputs": [
       {
@@ -76,6 +63,11 @@
         "name": "_counterpartyIdx",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "_finalizationFee",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -96,12 +88,7 @@
         "internalType": "address"
       },
       {
-        "name": "_finalizationFee",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_counterpartyFee",
+        "name": "_counterpartyFinalizationFee",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -214,23 +201,10 @@
   },
   {
     "type": "function",
-    "name": "setCounterpartyFee",
+    "name": "setCounterpartyFinalizationFee",
     "inputs": [
       {
-        "name": "_counterpartyFee",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "setFinalizationFee",
-    "inputs": [
-      {
-        "name": "_finalizationFee",
+        "name": "_counterpartyFinalizationFee",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -349,23 +323,10 @@
   },
   {
     "type": "event",
-    "name": "CounterpartyFeeSet",
+    "name": "CounterpartyFinalizationFeeSet",
     "inputs": [
       {
-        "name": "counterpartyFee",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "FinalizationFeeSet",
-    "inputs": [
-      {
-        "name": "finalizationFee",
+        "name": "counterpartyFinalizationFee",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -502,6 +463,12 @@
         "type": "uint256",
         "indexed": true,
         "internalType": "uint256"
+      },
+      {
+        "name": "counterpartyFinalizationFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -591,7 +558,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "counterpartyFee",
+        "name": "counterpartyFinalizationFee",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -599,10 +566,10 @@
   },
   {
     "type": "error",
-    "name": "CounterpartyFeeTooSmall",
+    "name": "CounterpartyFinalizationFeeTooSmall",
     "inputs": [
       {
-        "name": "_counterpartyFee",
+        "name": "_counterpartyFinalizationFee",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -638,17 +605,6 @@
     "type": "error",
     "name": "FailedInnerCall",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "FinalizationFeeTooSmall",
-    "inputs": [
-      {
-        "name": "_finalizationFee",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
   },
   {
     "type": "error",
