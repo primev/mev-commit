@@ -271,7 +271,15 @@ func (s *Service) Stake(
 	}
 
 	for i, _ := range stake.BlsPublicKeys {
-		tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, []byte(stake.BlsPublicKeys[i]), []byte(stake.BlsSignatures[i]))
+		pubKey, err := hex.DecodeString(stake.BlsPublicKeys[i])
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "decoding bls public key: %v", err)
+		}
+		signature, err := hex.DecodeString(stake.BlsSignatures[i])
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "decoding bls signature: %v", err)
+		}
+		tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, pubKey, signature)
 		if txErr != nil {
 			return nil, status.Errorf(codes.Internal, "adding verified bls key: %v", txErr)
 		}
