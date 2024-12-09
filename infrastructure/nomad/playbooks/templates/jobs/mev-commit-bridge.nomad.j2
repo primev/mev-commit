@@ -225,7 +225,7 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
-          STANDARD_BRIDGE_RELAYER_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
+          STANDARD_BRIDGE_RELAYER_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           L1_CHAIN_ID="{{ job.env['l1_chain_id'] }}"
           CONTRACTS_PATH="local/contracts"
           ARTIFACT_OUT_PATH="local"
