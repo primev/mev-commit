@@ -235,6 +235,35 @@ contract ProviderRegistry is
     }
 
     /**
+     * @dev Adds a verified BLS key to the provider's account.
+     * @param blsPublicKey The BLS public key to be added.
+     * @param signature The signature (96 bytes) used for verification.
+     */
+    function addVerifiedBLSKey(
+        bytes calldata blsPublicKey,
+        bytes calldata signature
+    ) external {
+        address provider = msg.sender;
+
+        require(providerRegistered[provider], "Provider not registered");
+        require(blsPublicKey.length == 48, "Public key must be 48 bytes");
+        require(signature.length == 96, "Signature must be 96 bytes");
+
+
+        bytes32 message = keccak256(abi.encodePacked(provider));
+
+        // Verify the BLS signature
+        bool isValid = verifySignature(blsPublicKey, message, signature);
+        require(isValid, "Invalid BLS signature");
+
+        // Add the BLS public key to the provider's account
+        eoaToBlsPubkeys[provider].push(blsPublicKey);
+        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
+
+        emit BLSKeyAdded(provider, blsPublicKey);
+    }
+
+    /**
      * @dev Manually withdraws accumulated penalty fees to the recipient
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
@@ -276,6 +305,8 @@ contract ProviderRegistry is
         return penaltyFeeTracker.accumulatedAmount;
     }
 
+    
+
     /**
      * @dev Register and stake function for providers.
      * The validity of this key must be verified manually off-chain.
@@ -304,35 +335,6 @@ contract ProviderRegistry is
         require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
-    }
-
-    /**
-     * @dev Adds a verified BLS key to the provider's account.
-     * @param blsPublicKey The BLS public key to be added.
-     * @param signature The signature (96 bytes) used for verification.
-     */
-    function addVerifiedBLSKey(
-        bytes calldata blsPublicKey,
-        bytes calldata signature
-    ) external {
-        address provider = msg.sender;
-
-        require(providerRegistered[provider], "Provider not registered");
-        require(blsPublicKey.length == 48, "Public key must be 48 bytes");
-        require(signature.length == 96, "Signature must be 96 bytes");
-
-
-        bytes32 message = keccak256(abi.encodePacked(provider));
-
-        // Verify the BLS signature
-        bool isValid = verifySignature(blsPublicKey, message, signature);
-        require(isValid, "Invalid BLS signature");
-
-        // Add the BLS public key to the provider's account
-        eoaToBlsPubkeys[provider].push(blsPublicKey);
-        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
-
-        emit BLSKeyAdded(provider, blsPublicKey);
     }
 
     /**

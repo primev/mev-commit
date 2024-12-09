@@ -12,7 +12,7 @@ contract BLSVerifyPreCompileMock is Test {
         vm.etch(BLS_VERIFY, code);
     }
 
-    function testVerifySignature() public {
+    function testVerifySignature() public view {
         // Store the values as constants or immutable variables since they're fixed test data
         bytes memory pubKeyData = hex"b67a5148a03229926e34b190af81a82a81c4df66831c98c03a139778418dd09a3b542ced0022620d19f35781ece6dc36";
         bytes32 messageData = keccak256(abi.encodePacked("test message"));
