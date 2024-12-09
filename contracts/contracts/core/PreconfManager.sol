@@ -228,12 +228,12 @@ contract PreconfManager is
             bidSignature
         );
 
-        bytes32 txnHashAndBidder = keccak256(
-            abi.encode(txnHash, bidderAddress)
+        bytes32 txnHashBidderBlockNumber = keccak256(
+            abi.encode(txnHash, bidderAddress, blockNumber)
         );
 
         require(
-            processedTxnHashes[txnHashAndBidder] == false,
+            processedTxnHashes[txnHashBidderBlockNumber] == false,
             TxnHashAlreadyProcessed(txnHash, bidderAddress)
         );
 
@@ -318,7 +318,7 @@ contract PreconfManager is
 
         ++commitmentsCount[committerAddress];
 
-        processedTxnHashes[txnHashAndBidder] = true;
+        processedTxnHashes[txnHashBidderBlockNumber] = true;
 
         emit OpenedCommitmentStored(
             commitmentIndex,

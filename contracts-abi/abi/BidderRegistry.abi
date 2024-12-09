@@ -1005,11 +1005,6 @@
   },
   {
     "type": "error",
-    "name": "BidderAmountIsZero",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "BidderWithdrawalTransferFailed",
     "inputs": [
       {

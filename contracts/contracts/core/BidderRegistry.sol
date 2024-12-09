@@ -136,9 +136,6 @@ contract BidderRegistry is
             require(window < currentWindow, WithdrawAfterWindowSettled(window, currentWindow));
 
             uint256 amount = lockedFunds[msg.sender][window];
-            if (amount == 0) {
-                continue;
-            }
 
             lockedFunds[msg.sender][window] = 0;
             maxBidPerBlock[msg.sender][window] = 0;
@@ -359,7 +356,6 @@ contract BidderRegistry is
         // withdraw is enabled only when closed and settled
         require(window < currentWindow, WindowNotSettled());
         uint256 amount = lockedFunds[bidder][window];
-        require(amount != 0, BidderAmountIsZero());
 
         lockedFunds[bidder][window] = 0;
         maxBidPerBlock[bidder][window] = 0;
