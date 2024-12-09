@@ -330,12 +330,6 @@ contract ProviderRegistry is
         require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
     }
 
-    function _stake(address provider) internal {
-        require(providerRegistered[provider], ProviderNotRegistered(provider));
-        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
-        providerStakes[provider] += msg.value;
-        emit FundsDeposited(provider, msg.value);
-    }
 
     /**
      * @dev Verifies a BLS signature using the precompile
@@ -373,8 +367,13 @@ contract ProviderRegistry is
         return result.length > 0;
     }
 
-    event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
- 
+    function _stake(address provider) internal {
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
+        providerStakes[provider] += msg.value;
+        emit FundsDeposited(provider, msg.value);
+    }
+
     function _registerAndStake(address provider) internal {
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
