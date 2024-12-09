@@ -47,6 +47,19 @@
   },
   {
     "type": "function",
+    "name": "burnerRouterFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "deregisterOperators",
     "inputs": [
       {
@@ -200,6 +213,11 @@
         "internalType": "contract IRegistry"
       },
       {
+        "name": "_burnerRouterFactory",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      },
+      {
         "name": "_network",
         "type": "address",
         "internalType": "address"
@@ -213,6 +231,16 @@
         "name": "_slashOracle",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "_slashReceiver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_minBurnerRouterDelay",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "_owner",
@@ -257,6 +285,62 @@
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isVaultBurnerValid",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isVaultBurnerValidAgainstOperator",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minBurnerRouterDelay",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -550,6 +634,32 @@
   },
   {
     "type": "function",
+    "name": "setBurnerRouterFactory",
+    "inputs": [
+      {
+        "name": "_burnerRouterFactory",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMinBurnerRouterDelay",
+    "inputs": [
+      {
+        "name": "minBurnerRouterDelay_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setNetwork",
     "inputs": [
       {
@@ -615,6 +725,19 @@
   },
   {
     "type": "function",
+    "name": "setSlashReceiver",
+    "inputs": [
+      {
+        "name": "slashReceiver_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setVaultFactory",
     "inputs": [
       {
@@ -648,6 +771,19 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "slashReceiver",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -947,6 +1083,19 @@
   },
   {
     "type": "event",
+    "name": "BurnerRouterFactorySet",
+    "inputs": [
+      {
+        "name": "burnerRouterFactory",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -954,6 +1103,19 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinBurnerRouterDelaySet",
+    "inputs": [
+      {
+        "name": "minBurnerRouterDelay",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1148,6 +1310,19 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlashReceiverSet",
+    "inputs": [
+      {
+        "name": "slashReceiver",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1538,6 +1713,33 @@
     "type": "error",
     "name": "InvalidReceive",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidVaultBurner",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVaultBurnerConsideringOperator",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

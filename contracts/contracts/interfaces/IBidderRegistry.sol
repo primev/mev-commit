@@ -96,7 +96,6 @@ interface IBidderRegistry {
 
     /// @dev Error emitted when the window is not settled
     error WindowNotSettled();
-    error BidderAmountIsZero();
 
     /// @dev Error emitted when withdrawal transfer failed
     error BidderWithdrawalTransferFailed(address bidder, uint256 amount);

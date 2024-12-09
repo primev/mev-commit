@@ -8,6 +8,7 @@ import {MevCommitMiddlewareTest} from "./MevCommitMiddlewareTest.sol";
 import {MockVetoSlasher} from "./MockVetoSlasher.sol";
 import {MockInstantSlasher} from "./MockInstantSlasher.sol";
 import {MockDelegator} from "./MockDelegator.sol";
+import {MockBurnerRouter} from "./MockBurnerRouter.sol";
 
 contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
@@ -71,6 +72,17 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vaultFactoryMock.register();
         vm.prank(address(vault2));
         vaultFactoryMock.register();
+
+        mockBurnerRouter = new MockBurnerRouter(2 days);
+        mockBurnerRouter2 = new MockBurnerRouter(2 days);
+        vm.prank(address(mockBurnerRouter));
+        burnerRouterFactoryMock.register();
+        vm.prank(address(mockBurnerRouter2));
+        burnerRouterFactoryMock.register();
+        vault1.setBurner(address(mockBurnerRouter));
+        vault2.setBurner(address(mockBurnerRouter2));
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        mockBurnerRouter2.setNetworkReceiver(network, slashReceiver);
 
         vm.prank(owner);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
@@ -137,8 +149,53 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         vault1.setEpochDuration(151 hours);
         vault2.setEpochDuration(151 hours + 5 hours);
 
+        mockBurnerRouter = new MockBurnerRouter(3 days);
+        mockBurnerRouter2 = new MockBurnerRouter(3 days);
+        vm.prank(address(mockBurnerRouter));
+        burnerRouterFactoryMock.register();
+        vm.prank(address(mockBurnerRouter2));
+        burnerRouterFactoryMock.register();
+        vault1.setBurner(address(mockBurnerRouter));
+        vault2.setBurner(address(mockBurnerRouter2));
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        mockBurnerRouter2.setNetworkReceiver(network, slashReceiver);
+
         vm.prank(owner);
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        bytes[][] memory blsPubkeys = new bytes[][](2);
+        blsPubkeys[0] = new bytes[](3);
+        blsPubkeys[0][0] = sampleValPubkey1;
+        blsPubkeys[0][1] = sampleValPubkey2;
+        blsPubkeys[0][2] = sampleValPubkey3;
+        blsPubkeys[1] = new bytes[](3);
+        blsPubkeys[1][0] = sampleValPubkey4;
+        blsPubkeys[1][1] = sampleValPubkey5;
+        blsPubkeys[1][2] = sampleValPubkey6;
+
+        uint256 invalidDelay = 15 minutes;
+        mockBurnerRouter.setDelay(invalidDelay);
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurnerConsideringOperator.selector,
+                address(vault1), operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        uint256 validDelay = 5 days;
+        mockBurnerRouter.setDelay(validDelay);
+        address invalidReceiver = vm.addr(0x1117778);
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, invalidReceiver);
+
+        vm.prank(operator1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.InvalidVaultBurnerConsideringOperator.selector,
+                address(vault1), operator1)
+        );
+        mevCommitMiddleware.registerValidators(blsPubkeys, vaults);
+
+        address validReceiver = slashReceiver;
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, validReceiver);
 
         // delegator 1 (associated with vault 1) allocates 29 stake to operator 1
         mockDelegator1.setStake(operator1, 29);
@@ -151,16 +208,6 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         potentialSlashableVals = mevCommitMiddleware.potentialSlashableValidators(address(vault2), operator1);
         assertEq(potentialSlashableVals, 2);
-
-        bytes[][] memory blsPubkeys = new bytes[][](2);
-        blsPubkeys[0] = new bytes[](3);
-        blsPubkeys[0][0] = sampleValPubkey1;
-        blsPubkeys[0][1] = sampleValPubkey2;
-        blsPubkeys[0][2] = sampleValPubkey3;
-        blsPubkeys[1] = new bytes[](3);
-        blsPubkeys[1][0] = sampleValPubkey4;
-        blsPubkeys[1][1] = sampleValPubkey5;
-        blsPubkeys[1][2] = sampleValPubkey6;
 
         vm.prank(operator1);
         vm.expectRevert(
@@ -1236,6 +1283,32 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         vm.expectRevert(abi.encodeWithSelector(IMevCommitMiddleware.NoSlashAmountAtTimestamp.selector, address(vault1), 0));
         mevCommitMiddleware.getSlashAmountAt(address(vault1), 0);
+    }
+
+    function test_ValidatorOptedOutIfBurnerBecomesInvalid() public {
+        test_registerValidators();
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        mockBurnerRouter.setDelay(60 minutes);
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setDelay(6 days);
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        address operator1 = vm.addr(0x1117);
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, address(0x23423));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, address(0));
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        mockBurnerRouter.setOperatorNetworkReceiver(network, operator1, slashReceiver);
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+
+        mockBurnerRouter.setNetworkReceiver(network, address(0));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setNetworkReceiver(network, vm.addr(0x23423));
+        assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
     }
 
     function test_isValidatorOptedInBadKey() public view {

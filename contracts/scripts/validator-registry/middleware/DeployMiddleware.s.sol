@@ -20,9 +20,12 @@ contract BaseDeploy is Script {
         IRegistry networkRegistry,
         IRegistry operatorRegistry,
         IRegistry vaultFactory,
+        IRegistry burnerRouterFactory,
         address network,
         uint256 slashPeriodSeconds,
         address slashOracle,
+        address slashReceiver,
+        uint256 minBurnerRouterDelay,
         address owner
     ) public returns (address) {
         console.log("Deploying MevCommitMiddleware on chain:", block.chainid);
@@ -32,9 +35,12 @@ contract BaseDeploy is Script {
                 networkRegistry, 
                 operatorRegistry, 
                 vaultFactory, 
+                burnerRouterFactory,
                 network, 
                 slashPeriodSeconds,
                 slashOracle,
+                slashReceiver,
+                minBurnerRouterDelay,
                 owner
             ))
         );
@@ -50,12 +56,15 @@ contract DeployHolesky is BaseDeploy {
     IRegistry constant public NETWORK_REGISTRY = IRegistry(SymbioticHoleskyDevnetConsts.NETWORK_REGISTRY);
     IRegistry constant public OPERATOR_REGISTRY = IRegistry(SymbioticHoleskyDevnetConsts.OPERATOR_REGISTRY);
     IRegistry constant public VAULT_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.VAULT_FACTORY);
-    
+    IRegistry constant public BURNER_ROUTER_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.BURNER_ROUTER_FACTORY);
+
     // On Holesky, use dev keystore account. On mainnet these will be the primev multisig.
     address constant public EXPECTED_MSG_SENDER = 0x4535bd6fF24860b5fd2889857651a85fb3d3C6b1;
     address constant public OWNER = EXPECTED_MSG_SENDER;
     address constant public NETWORK = EXPECTED_MSG_SENDER;
     address constant public SLASH_ORACLE = EXPECTED_MSG_SENDER; // Temporary placeholder until oracle implements slashing.
+    address constant public SLASH_RECEIVER = EXPECTED_MSG_SENDER; 
+    uint256 constant public MIN_BURNER_ROUTER_DELAY = 2 days;
 
     uint96 constant public SUBNETWORK_ID = 1;
     uint256 constant public VAULT1_MAX_NETWORK_LIMIT = 100000 ether;
@@ -76,9 +85,12 @@ contract DeployHolesky is BaseDeploy {
             NETWORK_REGISTRY, 
             OPERATOR_REGISTRY, 
             VAULT_FACTORY, 
+            BURNER_ROUTER_FACTORY,
             NETWORK, 
             SLASH_PERIOD_SECONDS, 
             SLASH_ORACLE, 
+            SLASH_RECEIVER,
+            MIN_BURNER_ROUTER_DELAY,
             OWNER
         );
 

@@ -39,9 +39,15 @@ job "{{ job.name }}" {
     task "geth" {
       driver = "exec"
 
+      {% if profile == 'stressnet' or profile == 'stressnet-wl1' %}
       resources {
         memory = 4096
       }
+      {% else %}
+      resources {
+        memory = 1024
+      }
+      {% endif %}
 
       {% for port_name in job.ports[0] %}
       service {

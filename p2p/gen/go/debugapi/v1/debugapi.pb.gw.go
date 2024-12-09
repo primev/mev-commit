@@ -10,6 +10,7 @@ package debugapiv1
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 
@@ -24,99 +25,86 @@ import (
 )
 
 // Suppress "imported and not used" errors
-var _ codes.Code
-var _ io.Reader
-var _ status.Status
-var _ = runtime.String
-var _ = utilities.NewDoubleArray
-var _ = metadata.Join
+var (
+	_ codes.Code
+	_ io.Reader
+	_ status.Status
+	_ = errors.New
+	_ = runtime.String
+	_ = utilities.NewDoubleArray
+	_ = metadata.Join
+)
 
 func request_DebugService_GetTopology_0(ctx context.Context, marshaler runtime.Marshaler, client DebugServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EmptyMessage
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq EmptyMessage
+		metadata runtime.ServerMetadata
+	)
 	msg, err := client.GetTopology(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_DebugService_GetTopology_0(ctx context.Context, marshaler runtime.Marshaler, server DebugServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EmptyMessage
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq EmptyMessage
+		metadata runtime.ServerMetadata
+	)
 	msg, err := server.GetTopology(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 func request_DebugService_GetPendingTransactions_0(ctx context.Context, marshaler runtime.Marshaler, client DebugServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EmptyMessage
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq EmptyMessage
+		metadata runtime.ServerMetadata
+	)
 	msg, err := client.GetPendingTransactions(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_DebugService_GetPendingTransactions_0(ctx context.Context, marshaler runtime.Marshaler, server DebugServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq EmptyMessage
-	var metadata runtime.ServerMetadata
-
+	var (
+		protoReq EmptyMessage
+		metadata runtime.ServerMetadata
+	)
 	msg, err := server.GetPendingTransactions(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 func request_DebugService_CancelTransaction_0(ctx context.Context, marshaler runtime.Marshaler, client DebugServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CancelTransactionReq
-	var metadata runtime.ServerMetadata
-
 	var (
-		val string
-		ok  bool
-		err error
-		_   = err
+		protoReq CancelTransactionReq
+		metadata runtime.ServerMetadata
+		err      error
 	)
-
-	val, ok = pathParams["tx_hash"]
+	val, ok := pathParams["tx_hash"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "tx_hash")
 	}
-
 	protoReq.TxHash, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "tx_hash", err)
 	}
-
 	msg, err := client.CancelTransaction(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
-
 }
 
 func local_request_DebugService_CancelTransaction_0(ctx context.Context, marshaler runtime.Marshaler, server DebugServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CancelTransactionReq
-	var metadata runtime.ServerMetadata
-
 	var (
-		val string
-		ok  bool
-		err error
-		_   = err
+		protoReq CancelTransactionReq
+		metadata runtime.ServerMetadata
+		err      error
 	)
-
-	val, ok = pathParams["tx_hash"]
+	val, ok := pathParams["tx_hash"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "tx_hash")
 	}
-
 	protoReq.TxHash, err = runtime.String(val)
 	if err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "tx_hash", err)
 	}
-
 	msg, err := server.CancelTransaction(ctx, &protoReq)
 	return msg, metadata, err
-
 }
 
 // RegisterDebugServiceHandlerServer registers the http handlers for service DebugService to "mux".
@@ -125,16 +113,13 @@ func local_request_DebugService_CancelTransaction_0(ctx context.Context, marshal
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterDebugServiceHandlerFromEndpoint instead.
 // GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterDebugServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server DebugServiceServer) error {
-
-	mux.Handle("GET", pattern_DebugService_GetTopology_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_DebugService_GetTopology_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/debugapi.v1.DebugService/GetTopology", runtime.WithHTTPPathPattern("/v1/debug/topology"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/debugapi.v1.DebugService/GetTopology", runtime.WithHTTPPathPattern("/v1/debug/topology"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -146,20 +131,15 @@ func RegisterDebugServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_DebugService_GetTopology_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_DebugService_GetPendingTransactions_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_DebugService_GetPendingTransactions_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/debugapi.v1.DebugService/GetPendingTransactions", runtime.WithHTTPPathPattern("/v1/debug/pending_transactions"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/debugapi.v1.DebugService/GetPendingTransactions", runtime.WithHTTPPathPattern("/v1/debug/pending_transactions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -171,20 +151,15 @@ func RegisterDebugServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_DebugService_GetPendingTransactions_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_DebugService_CancelTransaction_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_DebugService_CancelTransaction_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/debugapi.v1.DebugService/CancelTransaction", runtime.WithHTTPPathPattern("/v1/debug/cancel_transaction/{tx_hash}"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/debugapi.v1.DebugService/CancelTransaction", runtime.WithHTTPPathPattern("/v1/debug/cancel_transaction/{tx_hash}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -196,9 +171,7 @@ func RegisterDebugServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_DebugService_CancelTransaction_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
 
 	return nil
@@ -225,7 +198,6 @@ func RegisterDebugServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.S
 			}
 		}()
 	}()
-
 	return RegisterDebugServiceHandler(ctx, mux, conn)
 }
 
@@ -241,14 +213,11 @@ func RegisterDebugServiceHandler(ctx context.Context, mux *runtime.ServeMux, con
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
 // "DebugServiceClient" to call the correct interceptors. This client ignores the HTTP middlewares.
 func RegisterDebugServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client DebugServiceClient) error {
-
-	mux.Handle("GET", pattern_DebugService_GetTopology_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_DebugService_GetTopology_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/debugapi.v1.DebugService/GetTopology", runtime.WithHTTPPathPattern("/v1/debug/topology"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/debugapi.v1.DebugService/GetTopology", runtime.WithHTTPPathPattern("/v1/debug/topology"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -259,18 +228,13 @@ func RegisterDebugServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_DebugService_GetTopology_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("GET", pattern_DebugService_GetPendingTransactions_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodGet, pattern_DebugService_GetPendingTransactions_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/debugapi.v1.DebugService/GetPendingTransactions", runtime.WithHTTPPathPattern("/v1/debug/pending_transactions"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/debugapi.v1.DebugService/GetPendingTransactions", runtime.WithHTTPPathPattern("/v1/debug/pending_transactions"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -281,18 +245,13 @@ func RegisterDebugServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_DebugService_GetPendingTransactions_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
-	mux.Handle("POST", pattern_DebugService_CancelTransaction_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle(http.MethodPost, pattern_DebugService_CancelTransaction_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		var err error
-		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/debugapi.v1.DebugService/CancelTransaction", runtime.WithHTTPPathPattern("/v1/debug/cancel_transaction/{tx_hash}"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/debugapi.v1.DebugService/CancelTransaction", runtime.WithHTTPPathPattern("/v1/debug/cancel_transaction/{tx_hash}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -303,26 +262,19 @@ func RegisterDebugServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
-
 		forward_DebugService_CancelTransaction_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
 	})
-
 	return nil
 }
 
 var (
-	pattern_DebugService_GetTopology_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "debug", "topology"}, ""))
-
+	pattern_DebugService_GetTopology_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "debug", "topology"}, ""))
 	pattern_DebugService_GetPendingTransactions_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "debug", "pending_transactions"}, ""))
-
-	pattern_DebugService_CancelTransaction_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "debug", "cancel_transaction", "tx_hash"}, ""))
+	pattern_DebugService_CancelTransaction_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "debug", "cancel_transaction", "tx_hash"}, ""))
 )
 
 var (
-	forward_DebugService_GetTopology_0 = runtime.ForwardResponseMessage
-
+	forward_DebugService_GetTopology_0            = runtime.ForwardResponseMessage
 	forward_DebugService_GetPendingTransactions_0 = runtime.ForwardResponseMessage
-
-	forward_DebugService_CancelTransaction_0 = runtime.ForwardResponseMessage
+	forward_DebugService_CancelTransaction_0      = runtime.ForwardResponseMessage
 )

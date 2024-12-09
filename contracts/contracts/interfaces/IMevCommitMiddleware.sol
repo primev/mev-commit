@@ -98,6 +98,9 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the vault factory is set
     event VaultFactorySet(address vaultFactory);
 
+    /// @notice Emmitted when the burner router factory is set
+    event BurnerRouterFactorySet(address burnerRouterFactory);
+
     /// @notice Emmitted when the network is set
     event NetworkSet(address network);
 
@@ -109,6 +112,12 @@ interface IMevCommitMiddleware {
 
     /// @notice Emmitted when the slash oracle is set
     event SlashOracleSet(address slashOracle);
+
+    /// @notice Emmitted when the slash receiver is set
+    event SlashReceiverSet(address slashReceiver);
+
+    /// @notice Emmitted when the minimum burner router delay is set
+    event MinBurnerRouterDelaySet(uint256 minBurnerRouterDelay);
 
     /// @notice Emmitted when validator positions are swapped as a part of slashing
     /// @dev Each array index corresponds to a swap instance. ie. all lists should be of equal length.
@@ -181,6 +190,10 @@ interface IMevCommitMiddleware {
     error VaultNotRegistered(address vault);
 
     error VaultDeregRequestExists(address vault);
+
+    error InvalidVaultBurner(address vault);
+
+    error InvalidVaultBurnerConsideringOperator(address vault, address operator);
 
     error ValidatorNotInValset(bytes blsPubkey, address vault, address operator);
 
