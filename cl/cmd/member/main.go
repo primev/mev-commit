@@ -86,10 +86,10 @@ var (
 )
 
 type Config struct {
-    ClientID      string
-    RelayerAddr   string
-    EthClientURL  string
-    JWTSecret     string
+	ClientID     string
+	RelayerAddr  string
+	EthClientURL string
+	JWTSecret    string
 }
 
 func main() {
@@ -142,7 +142,7 @@ func startMemberClient(c *cli.Context) error {
 		EthClientURL: c.String(ethClientURLFlag.Name),
 		JWTSecret:    c.String(jwtSecretFlag.Name),
 	}
-	
+
 	log.Info("Starting member client with configuration", "config", cfg)
 
 	// Initialize the MemberClient
