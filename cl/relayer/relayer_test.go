@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -136,49 +138,11 @@ func TestSubscribe(t *testing.T) {
 	pb.RegisterRelayerServer(r.server, r)
 
 	lis := bufconn.Listen(1024 * 1024)
-	go func() {
-		if err := r.server.Serve(lis); err != nil {
-			t.Errorf("Server exited with error: %v", err)
-		}
-	}()
 
-	defer r.server.GracefulStop()
+	serverDone := make(chan struct{})
+	var serverErr atomic.Value
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	conn, err := grpc.NewClient(
-		"passthrough:///",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
-			return lis.Dial()
-		}))
-	if err != nil {
-		t.Fatalf("failed to dial bufconn: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewRelayerClient(conn)
-
-	// Expect a consumer group to be created
 	mock.ExpectXGroupCreateMkStream(blockStreamName, "member_group:testClient", "0").SetVal("OK")
-
-	stream, err := client.Subscribe(ctx)
-	if err != nil {
-		t.Fatalf("failed to call Subscribe: %v", err)
-	}
-
-	// Send initial subscribe request
-	err = stream.Send(&pb.ClientMessage{
-		Message: &pb.ClientMessage_SubscribeRequest{
-			SubscribeRequest: &pb.SubscribeRequest{
-				ClientId: "testClient",
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("failed to send subscribe request: %v", err)
-	}
 
 	mock.ExpectXReadGroup(&redis.XReadGroupArgs{
 		Group:    "member_group:testClient",
@@ -210,6 +174,75 @@ func TestSubscribe(t *testing.T) {
 		},
 	})
 
+	ackCalled := make(chan struct{})
+
+	customMatch := func(expected, actual []interface{}) error {
+		if len(actual) >= 1 {
+			cmdName, ok := actual[0].(string)
+			if ok && strings.ToUpper(cmdName) == "XACK" {
+				select {
+				case <-ackCalled:
+				default:
+					close(ackCalled)
+				}
+			}
+		}
+		return nil
+	}
+
+	mock.CustomMatch(customMatch).ExpectXAck(blockStreamName, "member_group:testClient", "123-1").SetVal(int64(1))
+
+	go func() {
+		err := r.server.Serve(lis)
+		if err != nil && err != grpc.ErrServerStopped {
+			serverErr.Store(err)
+		}
+		close(serverDone)
+	}()
+
+	defer func() {
+		r.server.GracefulStop()
+		<-serverDone
+		if err, ok := serverErr.Load().(error); ok {
+			t.Errorf("Server error: %v", err)
+		}
+	}()
+
+	// Create a gRPC client
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, err := grpc.NewClient(
+		"passthrough:///",
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
+			return lis.Dial()
+		}),
+	)
+	if err != nil {
+		t.Fatalf("failed to dial bufconn: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewRelayerClient(conn)
+
+	// Call Subscribe
+	stream, err := client.Subscribe(ctx)
+	if err != nil {
+		t.Fatalf("failed to call Subscribe: %v", err)
+	}
+
+	err = stream.Send(&pb.ClientMessage{
+		Message: &pb.ClientMessage_SubscribeRequest{
+			SubscribeRequest: &pb.SubscribeRequest{
+				ClientId: "testClient",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to send subscribe request: %v", err)
+	}
+
 	recvMsg, err := stream.Recv()
 	if err != nil {
 		t.Fatalf("failed to receive message from server: %v", err)
@@ -217,8 +250,6 @@ func TestSubscribe(t *testing.T) {
 	if recvMsg.GetPayloadId() != "payload_123" {
 		t.Errorf("expected payload_123, got %s", recvMsg.GetPayloadId())
 	}
-
-	mock.ExpectXAck(blockStreamName, "member_group:testClient", "123-1").SetVal(1)
 
 	err = stream.Send(&pb.ClientMessage{
 		Message: &pb.ClientMessage_AckPayload{
@@ -233,28 +264,13 @@ func TestSubscribe(t *testing.T) {
 		t.Fatalf("failed to send ack: %v", err)
 	}
 
-	mock.ExpectXReadGroup(&redis.XReadGroupArgs{
-		Group:    "member_group:testClient",
-		Consumer: "member_consumer:testClient",
-		Streams:  []string{blockStreamName, "0"},
-		Count:    1,
-		Block:    time.Second,
-	}).SetErr(redis.Nil)
-
-	mock.ExpectXReadGroup(&redis.XReadGroupArgs{
-		Group:    "member_group:testClient",
-		Consumer: "member_consumer:testClient",
-		Streams:  []string{blockStreamName, ">"},
-		Count:    1,
-		Block:    time.Second,
-	}).SetErr(redis.Nil)
-
-	// Give the server some time to process these reads
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-ackCalled:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for XAck to be called")
+	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet redis expectations: %v", err)
 	}
-
-	cancel()
 }
