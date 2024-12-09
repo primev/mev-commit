@@ -37,7 +37,7 @@ type Options struct {
 	Logger                 *slog.Logger
 	HTTPPort               int
 	Signer                 keysigner.KeySigner
-	L1RPCURL               string
+	L1RPCURLs              []string
 	L1GatewayContractAddr  common.Address
 	SettlementRPCURL       string
 	SettlementContractAddr common.Address
@@ -100,7 +100,7 @@ func NewNode(opts *Options) (*Node, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 
-		client, err := ethclient.DialContext(ctx, opts.L1RPCURL)
+		client, err := ethclient.DialContext(ctx, opts.L1RPCURLs[0])
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to the Ethereum node: %w", err)
 		}
@@ -125,7 +125,7 @@ func NewNode(opts *Options) (*Node, error) {
 		ctx,
 		"l1",
 		opts.Logger,
-		opts.L1RPCURL,
+		opts.L1RPCURLs,
 		opts.Signer,
 		opts.L1GatewayContractAddr,
 		l1Store,
@@ -139,7 +139,7 @@ func NewNode(opts *Options) (*Node, error) {
 		ctx,
 		"settlement",
 		opts.Logger,
-		opts.SettlementRPCURL,
+		[]string{opts.SettlementRPCURL},
 		opts.Signer,
 		opts.SettlementContractAddr,
 		settlementStore,
@@ -243,12 +243,12 @@ func (n *Node) createGatewayContract(
 	ctx context.Context,
 	component string,
 	logger *slog.Logger,
-	rpcURL string,
+	rpcURLs []string,
 	signer keysigner.KeySigner,
 	contractAddr common.Address,
 	st *store.Store,
 ) error {
-	client, err := ethclient.Dial(rpcURL)
+	client, err := ethclient.Dial(rpcURLs[0])
 	if err != nil {
 		return fmt.Errorf("failed to connect to the Ethereum node: %w", err)
 	}
@@ -288,7 +288,7 @@ func (n *Node) createGatewayContract(
 
 	wrappedClient, err := ethwrapper.NewClient(
 		logger.With("component", fmt.Sprintf("%s/ethwrapper", component)),
-		[]string{rpcURL},
+		rpcURLs,
 		opts...,
 	)
 	if err != nil {

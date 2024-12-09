@@ -85,10 +85,10 @@ var (
 		},
 	})
 
-	optionL1RPCUrl = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "l1-rpc-url",
-		Usage:    "URL for L1 RPC",
-		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_L1_RPC_URL"},
+	optionL1RPCUrls = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
+		Name:     "l1-rpc-urls",
+		Usage:    "URLs for L1 RPC",
+		EnvVars:  []string{"STANDARD_BRIDGE_RELAYER_L1_RPC_URLS"},
 		Required: true,
 	})
 
@@ -158,7 +158,7 @@ func main() {
 		optionLogFmt,
 		optionLogLevel,
 		optionLogTags,
-		optionL1RPCUrl,
+		optionL1RPCUrls,
 		optionSettlementRPCUrl,
 		optionL1ContractAddr,
 		optionSettlementContractAddr,
@@ -219,7 +219,7 @@ func start(c *cli.Context) error {
 		Logger:                 logger,
 		HTTPPort:               c.Int(optionHTTPPort.Name),
 		Signer:                 signer,
-		L1RPCURL:               c.String(optionL1RPCUrl.Name),
+		L1RPCURLs:              c.StringSlice(optionL1RPCUrls.Name),
 		L1GatewayContractAddr:  common.HexToAddress(c.String(optionL1ContractAddr.Name)),
 		SettlementRPCURL:       c.String(optionSettlementRPCUrl.Name),
 		SettlementContractAddr: common.HexToAddress(c.String(optionSettlementContractAddr.Name)),
