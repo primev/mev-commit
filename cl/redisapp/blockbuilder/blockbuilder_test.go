@@ -80,7 +80,6 @@ func TestBlockBuilder_startBuild(t *testing.T) {
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 	timestamp := time.Now()
 
@@ -145,7 +144,6 @@ func TestBlockBuilder_getPayload(t *testing.T) {
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	hash := common.BytesToHash(executionHead.BlockHash)
@@ -212,7 +210,6 @@ func TestBlockBuilder_FinalizeBlock(t *testing.T) {
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	payloadIDStr := "payloadID123"
@@ -295,7 +292,6 @@ func TestBlockBuilder_startBuild_ForkchoiceUpdatedError(t *testing.T) {
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	timestamp := time.Now()
@@ -340,7 +336,6 @@ func TestBlockBuilder_startBuild_InvalidPayloadStatus(t *testing.T) {
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	timestamp := time.Now()
@@ -389,7 +384,6 @@ func TestBlockBuilder_getPayload_GetPayloadUnknownPayload(t *testing.T) {
 		engineCl:     mockEngineClient,
 		buildDelay:   time.Duration(1 * time.Second),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	hash := common.BytesToHash(executionHead.BlockHash)
@@ -442,7 +436,6 @@ func TestBlockBuilder_FinalizeBlock_InvalidBlockHeight(t *testing.T) {
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	payloadIDStr := "payloadID123"
@@ -498,7 +491,6 @@ func TestBlockBuilder_FinalizeBlock_NewPayloadInvalidStatus(t *testing.T) {
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	payloadIDStr := "payloadID123"
@@ -559,7 +551,6 @@ func TestBlockBuilder_FinalizeBlock_ForkchoiceUpdatedInvalidStatus(t *testing.T)
 		buildDelay:   buildDelay,
 		buildDelayMs: uint64(buildDelay.Milliseconds()),
 		logger:       stLog,
-		ctx:          ctx,
 	}
 
 	payloadIDStr := "payloadID123"

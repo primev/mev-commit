@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	etypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
 	"github.com/vmihailenco/msgpack/v5"
@@ -36,8 +35,14 @@ type EngineClient interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*etypes.Header, error)
 }
 
+type stateManager interface {
+	SaveBlockStateAndPublishToStream(ctx context.Context, state *types.BlockBuildState) error
+	GetBlockBuildState(ctx context.Context) types.BlockBuildState
+	ResetBlockState(ctx context.Context) error
+}
+
 type BlockBuilder struct {
-	stateManager          state.Coordinator
+	stateManager          stateManager
 	engineCl              EngineClient
 	logger                *slog.Logger
 	buildDelay            time.Duration
@@ -47,10 +52,9 @@ type BlockBuilder struct {
 	lastBlockTime         time.Time
 	feeRecipient          common.Address
 	executionHead         *types.ExecutionHead
-	ctx                   context.Context
 }
 
-func NewBlockBuilder(stateManager state.Coordinator, engineCl EngineClient, logger *slog.Logger, buildDelay, buildDelayEmptyBlocks time.Duration, feeReceipt string) *BlockBuilder {
+func NewBlockBuilder(stateManager stateManager, engineCl EngineClient, logger *slog.Logger, buildDelay, buildDelayEmptyBlocks time.Duration, feeReceipt string) *BlockBuilder {
 	return &BlockBuilder{
 		stateManager:          stateManager,
 		engineCl:              engineCl,

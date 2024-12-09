@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/heyvito/go-leader/leader"
-	"github.com/primev/mev-commit/cl/redisapp/state"
 	"github.com/primev/mev-commit/cl/redisapp/types"
 	"github.com/primev/mev-commit/cl/redisapp/util"
 	"github.com/redis/go-redis/v9"
@@ -18,8 +17,8 @@ import (
 type LeaderFollowerManager struct {
 	isLeader              atomic.Bool
 	isFollowerInitialized atomic.Bool
-	stateManager          state.Coordinator
-	blockBuilder          BlockBuilder
+	stateManager          stateManager
+	blockBuilder          blockBuilder
 	leaderProc            leader.Leader
 	logger                *slog.Logger
 	instanceID            string
@@ -30,7 +29,7 @@ type LeaderFollowerManager struct {
 	erroredCh  <-chan error
 }
 
-type BlockBuilder interface {
+type blockBuilder interface {
 	// Retrieves the latest payload and ensures it meets necessary conditions
 	GetPayload(ctx context.Context) error
 
@@ -44,12 +43,23 @@ type BlockBuilder interface {
 	SetLastCallTimeToZero()
 }
 
+// todo: work with block state through block builder, not directly
+type stateManager interface {
+	// state related methods
+	GetBlockBuildState(ctx context.Context) types.BlockBuildState
+	ResetBlockState(ctx context.Context) error
+
+	// stream related methods
+	AckMessage(ctx context.Context, messageID string) error
+	ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error)
+}
+
 func NewLeaderFollowerManager(
 	instanceID string,
 	logger *slog.Logger,
 	redisClient *redis.Client,
-	stateManager state.Coordinator,
-	blockBuilder BlockBuilder,
+	stateManager stateManager,
+	blockBuilder blockBuilder,
 ) (*LeaderFollowerManager, error) {
 	// Initialize leader election
 	leaderOpts := leader.Opts{
@@ -289,7 +299,7 @@ func (lfm *LeaderFollowerManager) followerWork(ctx context.Context) error {
 					} else {
 						lfm.logger.Info("Follower: Successfully acknowledged message", "PayloadID", payloadIDStr)
 					}
-					
+
 					lfm.logger.Info("Follower: Successfully finalized block", "PayloadID", payloadIDStr)
 				}
 			}

@@ -23,20 +23,14 @@ type RedisClient interface {
 type PipelineOperation func(redis.Pipeliner) error
 
 type StateManager interface {
-	LoadOrInitializeBlockState(ctx context.Context) error
-	SaveBlockState(ctx context.Context) error
 	ResetBlockState(ctx context.Context) error
 	GetBlockBuildState(ctx context.Context) types.BlockBuildState
-	ExecuteTransaction(ctx context.Context, ops ...PipelineOperation) error
 	Stop()
 }
 
 type StreamManager interface {
-	CreateConsumerGroup(ctx context.Context) error
 	ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error)
 	AckMessage(ctx context.Context, messageID string) error
-	PublishToStream(ctx context.Context, bsState *types.BlockBuildState) error
-	ExecuteTransaction(ctx context.Context, ops ...PipelineOperation) error
 	Stop()
 }
 
@@ -66,9 +60,10 @@ type RedisStreamManager struct {
 }
 
 type RedisCoordinator struct {
-	stateMgr  *RedisStateManager
-	streamMgr *RedisStreamManager
-	logger    *slog.Logger
+	stateMgr    *RedisStateManager
+	streamMgr   *RedisStreamManager
+	redisClient RedisClient // added to close the client
+	logger      *slog.Logger
 }
 
 func NewRedisStateManager(
@@ -107,24 +102,25 @@ func NewRedisCoordinator(
 	streamMgr := NewRedisStreamManager(instanceID, redisClient, logger)
 
 	coordinator := &RedisCoordinator{
-		stateMgr:  stateMgr,
-		streamMgr: streamMgr,
-		logger:    logger,
+		stateMgr:    stateMgr,
+		streamMgr:   streamMgr,
+		redisClient: redisClient,
+		logger:      logger,
 	}
 
-	if err := streamMgr.CreateConsumerGroup(context.Background()); err != nil {
-		return nil, err
+	if err := streamMgr.createConsumerGroup(context.Background()); err != nil {
+		return nil, fmt.Errorf("failed to create consumer group: %w", err)
 	}
 
 	return coordinator, nil
 }
 
-func (s *RedisStateManager) ExecuteTransaction(ctx context.Context, ops ...PipelineOperation) error {
+func (s *RedisStateManager) executeTransaction(ctx context.Context, ops ...PipelineOperation) error {
 	pipe := s.redisClient.TxPipeline()
 
 	for _, op := range ops {
 		if err := op(pipe); err != nil {
-			return err
+			return fmt.Errorf("failed to execute operation: %w", err)
 		}
 	}
 
@@ -135,7 +131,7 @@ func (s *RedisStateManager) ExecuteTransaction(ctx context.Context, ops ...Pipel
 	return nil
 }
 
-func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) error {
+func (s *RedisStateManager) loadOrInitializeBlockState(ctx context.Context) error {
 	data, err := s.redisClient.Get(ctx, s.blockStateKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
@@ -143,7 +139,7 @@ func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) erro
 				CurrentStep: types.StepBuildBlock,
 			}
 			s.logger.Info("Leader block build state not found in Redis, initializing with default values")
-			return s.SaveBlockState(ctx)
+			return s.saveBlockState(ctx)
 		}
 		return fmt.Errorf("failed to retrieve leader block build state: %w", err)
 	}
@@ -158,8 +154,8 @@ func (s *RedisStateManager) LoadOrInitializeBlockState(ctx context.Context) erro
 	return nil
 }
 
-func (s *RedisStateManager) SaveBlockState(ctx context.Context) error {
-	return s.ExecuteTransaction(ctx, s.saveBlockStateFunc(ctx, s.blockBuildState))
+func (s *RedisStateManager) saveBlockState(ctx context.Context) error {
+	return s.executeTransaction(ctx, s.saveBlockStateFunc(ctx, s.blockBuildState))
 }
 
 func (s *RedisStateManager) saveBlockStateFunc(ctx context.Context, bsState *types.BlockBuildState) PipelineOperation {
@@ -179,7 +175,7 @@ func (s *RedisStateManager) ResetBlockState(ctx context.Context) error {
 		CurrentStep: types.StepBuildBlock,
 	}
 
-	if err := s.SaveBlockState(ctx); err != nil {
+	if err := s.saveBlockState(ctx); err != nil {
 		return fmt.Errorf("failed to reset leader state: %w", err)
 	}
 
@@ -189,7 +185,7 @@ func (s *RedisStateManager) ResetBlockState(ctx context.Context) error {
 func (s *RedisStateManager) GetBlockBuildState(ctx context.Context) types.BlockBuildState {
 	if s.blockBuildState == nil {
 		s.logger.Error("Leader blockBuildState is not initialized")
-		if err := s.LoadOrInitializeBlockState(ctx); err != nil {
+		if err := s.loadOrInitializeBlockState(ctx); err != nil {
 			s.logger.Warn("Failed to load/init state", "error", err)
 			return types.BlockBuildState{}
 		}
@@ -211,12 +207,12 @@ func (s *RedisStateManager) Stop() {
 	}
 }
 
-func (s *RedisStreamManager) ExecuteTransaction(ctx context.Context, ops ...PipelineOperation) error {
+func (s *RedisStreamManager) executeTransaction(ctx context.Context, ops ...PipelineOperation) error {
 	pipe := s.redisClient.TxPipeline()
 
 	for _, op := range ops {
 		if err := op(pipe); err != nil {
-			return err
+			return fmt.Errorf("failed to execute operation: %w", err)
 		}
 	}
 
@@ -227,7 +223,7 @@ func (s *RedisStreamManager) ExecuteTransaction(ctx context.Context, ops ...Pipe
 	return nil
 }
 
-func (s *RedisStreamManager) CreateConsumerGroup(ctx context.Context) error {
+func (s *RedisStreamManager) createConsumerGroup(ctx context.Context) error {
 	if err := s.redisClient.XGroupCreateMkStream(ctx, blockStreamName, s.groupName, "0").Err(); err != nil {
 		if !strings.Contains(err.Error(), "BUSYGROUP") {
 			return fmt.Errorf("failed to create consumer group '%s': %w", s.groupName, err)
@@ -254,7 +250,7 @@ func (s *RedisStreamManager) ReadMessagesFromStream(ctx context.Context, msgType
 }
 
 func (s *RedisStreamManager) AckMessage(ctx context.Context, messageID string) error {
-	return s.ExecuteTransaction(ctx, s.ackMessageFunc(ctx, messageID))
+	return s.executeTransaction(ctx, s.ackMessageFunc(ctx, messageID))
 }
 
 func (s *RedisStreamManager) ackMessageFunc(ctx context.Context, messageID string) PipelineOperation {
@@ -262,10 +258,6 @@ func (s *RedisStreamManager) ackMessageFunc(ctx context.Context, messageID strin
 		pipe.XAck(ctx, blockStreamName, s.groupName, messageID)
 		return nil
 	}
-}
-
-func (s *RedisStreamManager) PublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
-	return s.ExecuteTransaction(ctx, s.publishToStreamFunc(ctx, bsState))
 }
 
 func (s *RedisStreamManager) publishToStreamFunc(ctx context.Context, bsState *types.BlockBuildState) PipelineOperation {
@@ -294,7 +286,7 @@ func (s *RedisStreamManager) Stop() {
 func (c *RedisCoordinator) SaveBlockStateAndPublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
 	c.stateMgr.blockBuildState = bsState
 
-	err := c.stateMgr.ExecuteTransaction(
+	err := c.stateMgr.executeTransaction(
 		ctx,
 		c.stateMgr.saveBlockStateFunc(ctx, bsState),
 		c.streamMgr.publishToStreamFunc(ctx, bsState),
@@ -306,28 +298,12 @@ func (c *RedisCoordinator) SaveBlockStateAndPublishToStream(ctx context.Context,
 	return nil
 }
 
-func (c *RedisCoordinator) SaveBlockState(ctx context.Context) error {
-	return c.stateMgr.SaveBlockState(ctx)
-}
-
 func (c *RedisCoordinator) ResetBlockState(ctx context.Context) error {
 	return c.stateMgr.ResetBlockState(ctx)
 }
 
 func (c *RedisCoordinator) GetBlockBuildState(ctx context.Context) types.BlockBuildState {
 	return c.stateMgr.GetBlockBuildState(ctx)
-}
-
-func (c *RedisCoordinator) LoadOrInitializeBlockState(ctx context.Context) error {
-	return c.stateMgr.LoadOrInitializeBlockState(ctx)
-}
-
-func (c *RedisCoordinator) ExecuteTransaction(ctx context.Context, ops ...PipelineOperation) error {
-	return c.stateMgr.ExecuteTransaction(ctx, ops...)
-}
-
-func (c *RedisCoordinator) CreateConsumerGroup(ctx context.Context) error {
-	return c.streamMgr.CreateConsumerGroup(ctx)
 }
 
 func (c *RedisCoordinator) ReadMessagesFromStream(ctx context.Context, msgType types.RedisMsgType) ([]redis.XStream, error) {
@@ -338,11 +314,8 @@ func (c *RedisCoordinator) AckMessage(ctx context.Context, messageID string) err
 	return c.streamMgr.AckMessage(ctx, messageID)
 }
 
-func (c *RedisCoordinator) PublishToStream(ctx context.Context, bsState *types.BlockBuildState) error {
-	return c.streamMgr.PublishToStream(ctx, bsState)
-}
-
 func (c *RedisCoordinator) Stop() {
-	c.stateMgr.Stop()
-	c.streamMgr.Stop()
+	if err := c.redisClient.Close(); err != nil {
+		c.logger.Error("Error closing Redis client in StateManager", "error", err)
+	}
 }
