@@ -145,7 +145,7 @@ Ensure all dependencies are installed and build the application:
 
 ```bash
 go mod tidy
-go build -o consensus-client main.go
+go build -o consensus-client cmd/redisapp/main.go
 ```
 
 ### Consensus Client Configuration
@@ -219,7 +219,7 @@ Ensure all dependencies are installed and build the Relayer application:
 
 ```bash
 go mod tidy
-go build -o relayer main.go
+go build -o relayer cmd/relayer/main.go
 ```
 
 ### Relayer Configuration
@@ -272,13 +272,17 @@ Run the Relayer with the configuration file:
 ./relayer start --config relayer_config.yaml
 ```
 
-## Build the Member Client
+## Running member nodes
+
+Member nodes connect to the Relayer to receive payloads from the stream and apply them to their Geth instances.
+
+### Build the Member Client
 
 Ensure all dependencies are installed and build the Member Client application:
 
 ```bash
 go mod tidy
-go build -o memberclient main.go
+go build -o memberclient cmd/member/main.go
 ```
 
 ### Configuration
