@@ -45,7 +45,8 @@ type Service struct {
 type ProviderRegistryContract interface {
 	ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error)
 	Stake(opts *bind.TransactOpts) (*types.Transaction, error)
-	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error)
+	RegisterAndStake(opts *bind.TransactOpts) (*types.Transaction, error)
+	AddVerifiedBLSKey(opts *bind.TransactOpts, blsPublicKey []byte, signature []byte) (*types.Transaction, error)
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	GetBLSKeys(*bind.CallOpts, common.Address) ([][]byte, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
@@ -237,18 +238,18 @@ func (s *Service) Stake(
 		return nil, status.Errorf(codes.Internal, "checking registration: %v", err)
 	}
 	if !registered {
-		blsPubkeyBytesArray := make([][]byte, len(stake.BlsPublicKeys))
-		for i, key := range stake.BlsPublicKeys {
-			stake.BlsPublicKeys[i] = strings.TrimPrefix(key, "0x")
-			blsPubkeyBytes, err := hex.DecodeString(stake.BlsPublicKeys[i])
-			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
-			}
-			blsPubkeyBytesArray[i] = blsPubkeyBytes
+		tx, txErr = s.registryContract.RegisterAndStake(opts)
+		receipt, err := s.watcher.WaitForReceipt(ctx, tx)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 		}
 
-		tx, txErr = s.registryContract.RegisterAndStake(opts, blsPubkeyBytesArray)
-
+		for i, _ := range stake.BlsPublicKeys {
+			tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, []byte(stake.BlsPublicKeys[i]), []byte(stake.BlsSignatures[i]))
+		}
 	} else {
 		tx, txErr = s.registryContract.Stake(opts)
 	}
