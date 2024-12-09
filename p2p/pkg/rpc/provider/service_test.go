@@ -38,9 +38,13 @@ func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address c
 	return true, nil
 }
 
-func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error) {
+func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts) (*types.Transaction, error) {
 	t.stake = opts.Value
-	t.blsKey = blsPublicKey[0]
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
+func (t *testRegistryContract) AddVerifiedBLSKey(opts *bind.TransactOpts, blsPublicKey []byte, blsSignature []byte) (*types.Transaction, error) {
+	t.blsKey = blsPublicKey
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
@@ -187,11 +191,12 @@ func TestStakeHandling(t *testing.T) {
 	client, _ := startServer(t)
 
 	validBLSKey := "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456"
-
+	validSignature := "bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"
 	t.Run("register stake", func(t *testing.T) {
 		type testCase struct {
 			amount       string
 			blsPublicKey string
+			blsSignature string
 			err          string
 		}
 
@@ -199,6 +204,7 @@ func TestStakeHandling(t *testing.T) {
 			{
 				amount:       "",
 				blsPublicKey: "",
+				blsSignature: "",
 				err:          "amount must be a valid integer",
 			},
 			{
@@ -222,16 +228,24 @@ func TestStakeHandling(t *testing.T) {
 			{
 				amount:       "1000000000000000000",
 				blsPublicKey: validBLSKey,
+				blsSignature: "",
+				err:          "bls_signatures must be a valid 96-byte hex string, with optional 0x prefix.",
+			},
+			{
+				amount:       "1000000000000000000",
+				blsPublicKey: validBLSKey,
+				blsSignature: validSignature,
 				err:          "",
 			},
 			{
 				amount:       "1000000000000000000",
 				blsPublicKey: validBLSKey,
+				blsSignature: validSignature,
 				err:          "",
 			},
 		} {
 			stake, err := client.Stake(context.Background(),
-				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKeys: []string{tc.blsPublicKey}})
+				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKeys: []string{tc.blsPublicKey}, BlsSignatures: []string{tc.blsSignature}})
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("expected error staking: %s got %v", tc.err, err)
@@ -470,6 +484,7 @@ func TestWithdrawStakedAmount(t *testing.T) {
 		_, err := client.Stake(context.Background(), &providerapiv1.StakeRequest{
 			Amount:        "1000000000000000000",
 			BlsPublicKeys: []string{"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456"},
+			BlsSignatures: []string{"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"},
 		})
 		if err != nil {
 			t.Fatalf("error depositing stake: %v", err)

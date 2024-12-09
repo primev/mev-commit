@@ -114,6 +114,15 @@ paths:
             type: string
             pattern: ^(0x)?[a-fA-F0-9]{96}$
           collectionFormat: multi
+        - name: blsSignatures
+          description: BLS signatures corresponding to the BLS public keys.
+          in: query
+          required: false
+          type: array
+          items:
+            type: string
+            pattern: ^(0x)?[a-fA-F0-9]{192}$
+          collectionFormat: multi
   /v1/provider/unstake:
     post:
       summary: Unstake
