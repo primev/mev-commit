@@ -68,7 +68,7 @@ abstract contract Gateway is IGateway, GatewayStorage,
 
     /// @dev Allows owner to set a new counterparty finalization fee.
     function setCounterpartyFinalizationFee(uint256 _counterpartyFinalizationFee) external onlyOwner {
-        require(_counterpartyFinalizationFee > 0, CounterpartyFinalizationFeeTooSmall(_counterpartyFinalizationFee));
+        require(_counterpartyFinalizationFee != 0, CounterpartyFinalizationFeeTooSmall(_counterpartyFinalizationFee));
         counterpartyFinalizationFee = _counterpartyFinalizationFee;
         emit CounterpartyFinalizationFeeSet(_counterpartyFinalizationFee);
     }
