@@ -79,11 +79,11 @@ interface IProviderRegistry {
         uint256 residualBidPercentAfterDecay
     ) external;
     
+    function addVerifiedBLSKey(bytes calldata blsPublicKey, bytes calldata signature) external;
+
     function isProviderValid(address committerAddress) external view;
 
     function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address);
-
-    function addVerifiedBLSKey(bytes calldata blsPublicKey, bytes calldata signature) external;
 
     function overrideAddBLSKey(address provider, bytes calldata blsPublicKey) external;
 }
