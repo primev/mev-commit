@@ -36,6 +36,9 @@ interface IProviderRegistry {
     /// @dev Event emitted when the fee percent is updated
     event FeePercentUpdated(uint256 indexed newFeePercent);
 
+    /// @dev Event emitted when a BLS key is added
+    event BLSKeyAdded(address indexed provider, bytes blsPublicKey);
+
     /// @dev Event emitted when there are insufficient funds to slash
     event InsufficientFundsToSlash(
         address indexed provider,
@@ -67,7 +70,7 @@ interface IProviderRegistry {
     error PendingWithdrawalRequest(address sender);
     error BidderAmountIsZero(address sender);
     error BidderWithdrawalTransferFailed(address sender, uint256 amount);
-    
+ 
     function registerAndStake() external payable;
 
     function stake() external payable;
@@ -78,12 +81,12 @@ interface IProviderRegistry {
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external;
-    
+
     function addVerifiedBLSKey(bytes calldata blsPublicKey, bytes calldata signature) external;
+    
+    function overrideAddBLSKey(address provider, bytes calldata blsPublicKey) external;
 
     function isProviderValid(address committerAddress) external view;
 
     function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address);
-
-    function overrideAddBLSKey(address provider, bytes calldata blsPublicKey) external;
 }
