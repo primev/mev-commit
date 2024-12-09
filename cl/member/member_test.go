@@ -124,7 +124,19 @@ func TestMemberClientRun(t *testing.T) {
 	relayerServer := &fakeRelayerServer{}
 	pb.RegisterRelayerServer(s, relayerServer)
 
-	go s.Serve(lis)
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- s.Serve(lis)
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			t.Fatalf("failed to serve: %v", err)
+		}
+	case <-time.After(time.Millisecond * 100):
+		// Server started successfully
+	}
 
 	clientID := "test-client-id"
 	relayerAddr := lis.Addr().String()

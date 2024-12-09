@@ -133,7 +133,10 @@ func (r *Relayer) handleBidirectionalStream(stream pb.Relayer_SubscribeServer, c
 			if !ok || !okPayload || !okSenderID {
 				r.logger.Error("Invalid message format", "clientID", clientID)
 				// Acknowledge malformed messages to prevent reprocessing
-				r.ackMessage(ctx, field.ID, groupName)
+				err = r.ackMessage(ctx, field.ID, groupName)
+				if err != nil {
+					r.logger.Error("Failed to acknowledge malformed message", "clientID", clientID, "error", err)
+				}
 				pendingMessageID = ""
 				continue
 			}
