@@ -2,6 +2,8 @@ package providerapi_test
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"net"
@@ -11,9 +13,11 @@ import (
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/cloudflare/circl/sign/bls"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
@@ -482,16 +486,52 @@ func TestBidHandling(t *testing.T) {
 	}
 }
 
+// func TestBLSKeys(t *testing.T) {
+
+// 	iv := make([]byte, 32)
+// 	_, err := rand.Read(iv)
+// 	assert.NoError(t, err)
+// 	blsPrivKey, err := bls.KeyGen[bls.G1](iv, []byte{}, []byte{})
+// 	assert.NoError(t, err)
+
+// 	pubKey := blsPrivKey.PublicKey()
+
+// 	// Keccak the value 0x53c61cfb8128ad59244e8c1d26109252ace23d14
+// 	value := common.Hex2Bytes("53c61cfb8128ad59244e8c1d26109252ace23d14")
+// 	hash := crypto.Keccak256Hash(value)
+// 	t.Logf("Keccak hash: %s", hash.Hex())
+
+// 	signature := bls.Sign(blsPrivKey, hash.Bytes())
+// 	pubKeyBytes, _ := pubKey.MarshalBinary()
+// 	if !bls.Verify[bls.G1](pubKeyBytes, hash.Bytes(), signature) {
+// 		t.Errorf("Signature verification failed")
+// 	}
+// 	//  return nil, nil
+// 	// }
+// 	// return input[:48], nil
+// }
+
 func TestWithdrawStakedAmount(t *testing.T) {
 	t.Parallel()
 
 	client, _ := startServer(t)
 
 	t.Run("withdraw stake", func(t *testing.T) {
+		iv := make([]byte, 32)
+		_, _ = rand.Read(iv)
+		blsPrivKey, _ := bls.KeyGen[bls.G1](iv, []byte{}, []byte{})
+		pubKey := blsPrivKey.PublicKey()
+		pubKeyBytes, _ := pubKey.MarshalBinary()
+		value := common.Hex2Bytes("0x53c61cfb8128ad59244e8c1d26109252ace23d14")
+		hash := crypto.Keccak256Hash(value)
+		signature := bls.Sign(blsPrivKey, hash.Bytes())
+
+		t.Logf("Public Key: %s", hex.EncodeToString(pubKeyBytes))
+
 		_, err := client.Stake(context.Background(), &providerapiv1.StakeRequest{
 			Amount:        "1000000000000000000",
-			BlsPublicKeys: []string{"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456"},
-			BlsSignatures: []string{"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"},
+			BlsPublicKeys: []string{hex.EncodeToString(pubKeyBytes)},
+			BlsSignatures: []string{hex.EncodeToString(signature)},
 		})
 		if err != nil {
 			t.Fatalf("error depositing stake: %v", err)
