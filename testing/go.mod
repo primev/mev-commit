@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	github.com/armon/go-radix v1.0.0
+	github.com/cloudflare/circl v1.5.0
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/primev/mev-commit/bridge/standard v0.0.1
 	github.com/primev/mev-commit/contracts-abi v0.0.1
@@ -23,7 +24,6 @@ require (
 	github.com/bits-and-blooms/bitset v1.13.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudflare/circl v1.5.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
