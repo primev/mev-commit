@@ -18,13 +18,11 @@ contract SettlementGateway is Gateway {
         address _allocatorAddr,
         address _owner,
         address _relayer,
-        uint256 _finalizationFee,
-        uint256 _counterpartyFee
+        uint256 _counterpartyFinalizationFee
     ) external initializer {
         allocatorAddr = _allocatorAddr;
         relayer = _relayer;
-        finalizationFee = _finalizationFee;
-        counterpartyFee = _counterpartyFee;
+        counterpartyFinalizationFee = _counterpartyFinalizationFee;
         transferInitiatedIdx = 0;
         transferFinalizedIdx = 1; // First expected transfer index is 1
         __Ownable_init(_owner);
