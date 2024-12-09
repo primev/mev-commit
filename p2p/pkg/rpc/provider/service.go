@@ -241,7 +241,7 @@ func (s *Service) Stake(
 		tx, txErr = s.registryContract.RegisterAndStake(opts)
 		receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+			return nil, status.Errorf(codes.Internal, "waiting for receipt for registration: %v", err)
 		}
 		if receipt.Status != types.ReceiptStatusSuccessful {
 			return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
@@ -249,6 +249,16 @@ func (s *Service) Stake(
 
 		for i, _ := range stake.BlsPublicKeys {
 			tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, []byte(stake.BlsPublicKeys[i]), []byte(stake.BlsSignatures[i]))
+			if txErr != nil {
+				return nil, status.Errorf(codes.Internal, "adding verified bls key: %v", txErr)
+			}
+			receipt, err = s.watcher.WaitForReceipt(ctx, tx)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "waiting for receipt for adding verified bls key: %v", err)
+			}
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+			}
 		}
 	} else {
 		tx, txErr = s.registryContract.Stake(opts)
