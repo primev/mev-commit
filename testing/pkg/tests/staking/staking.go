@@ -11,6 +11,9 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/cloudflare/circl/sign/bls"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
@@ -96,18 +99,22 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 
 		stakeAmount := big.NewInt(0).Mul(amount, big.NewInt(10))
 
-		blsPubkeyBytes := make([]byte, 48)
-		_, err = rand.Read(blsPubkeyBytes)
-		if err != nil {
-			l.Error("failed to generate mock BLS public key", "err", err)
-			return fmt.Errorf("failed to generate mock BLS public key: %w", err)
-		}
+		iv := make([]byte, 32)
+		_, _ = rand.Read(iv)
+		blsPrivKey, _ := bls.KeyGen[bls.G1](iv, []byte{}, []byte{})
+		pubKey := blsPrivKey.PublicKey()
+		pubKeyBytes, _ := pubKey.MarshalBinary()
+		value := common.Hex2Bytes(p.EthAddress())
+		hash := crypto.Keccak256Hash(value)
+		signature := bls.Sign(blsPrivKey, hash.Bytes())
 
 		// Register a provider
 		resp, err := providerAPI.Stake(ctx, &providerapiv1.StakeRequest{
 			Amount:        stakeAmount.String(),
-			BlsPublicKeys: []string{hex.EncodeToString(blsPubkeyBytes)},
+			BlsPublicKeys: []string{hex.EncodeToString(pubKeyBytes)},
+			BlsSignatures: []string{hex.EncodeToString(signature)},
 		})
+
 		if err != nil {
 			l.Error("failed to register stake", "error", err)
 			return fmt.Errorf("failed to register stake: %w", err)
@@ -118,7 +125,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 			return fmt.Errorf("invalid stake amount returned: %s", resp.Amount)
 		}
 
-		reqBytes, err := json.Marshal([]string{hex.EncodeToString(blsPubkeyBytes)})
+		reqBytes, err := json.Marshal([]string{hex.EncodeToString(pubKeyBytes)})
 		if err != nil {
 			l.Error("failed to create bls key upload req", "error", err)
 			return fmt.Errorf("failed to marshal bls keys: %w", err)
