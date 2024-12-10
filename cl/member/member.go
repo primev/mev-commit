@@ -20,13 +20,13 @@ import (
 )
 
 type MemberClient struct {
-	clientID    string
-	relayerAddr string
-	conn        *grpc.ClientConn
-	client      pb.RelayerClient
-	logger      *slog.Logger
-	engineCl    EngineClient
-	bb          BlockBuilder
+	clientID     string
+	streamerAddr string
+	conn         *grpc.ClientConn
+	client       pb.PayloadStreamerClient
+	logger       *slog.Logger
+	engineCl     EngineClient
+	bb           BlockBuilder
 }
 
 type EngineClient interface {
@@ -39,12 +39,12 @@ type BlockBuilder interface {
 	FinalizeBlock(ctx context.Context, payloadIDStr, executionPayloadStr, msgID string) error
 }
 
-func NewMemberClient(clientID, relayerAddr, ecURL, jwtSecret string, logger *slog.Logger) (*MemberClient, error) {
-	conn, err := grpc.NewClient(relayerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func NewMemberClient(clientID, streamerAddr, ecURL, jwtSecret string, logger *slog.Logger) (*MemberClient, error) {
+	conn, err := grpc.NewClient(streamerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
-	client := pb.NewRelayerClient(conn)
+	client := pb.NewPayloadStreamerClient(conn)
 
 	bytes, err := hex.DecodeString(jwtSecret)
 	if err != nil {
@@ -59,13 +59,13 @@ func NewMemberClient(clientID, relayerAddr, ecURL, jwtSecret string, logger *slo
 	bb := blockbuilder.NewMemberBlockBuilder(engineCL, logger)
 
 	return &MemberClient{
-		clientID:    clientID,
-		relayerAddr: relayerAddr,
-		conn:        conn,
-		client:      client,
-		engineCl:    engineCL,
-		logger:      logger,
-		bb:          bb,
+		clientID:     clientID,
+		streamerAddr: streamerAddr,
+		conn:         conn,
+		client:       client,
+		engineCl:     engineCL,
+		logger:       logger,
+		bb:           bb,
 	}, nil
 }
 

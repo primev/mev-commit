@@ -4,7 +4,7 @@ package pb;
 
 option go_package = "./pb";
 
-service Relayer {
+service PayloadStreamer {
     rpc Subscribe(stream ClientMessage) returns (stream PayloadMessage);
 }
 

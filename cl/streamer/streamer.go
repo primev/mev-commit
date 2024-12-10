@@ -1,4 +1,4 @@
-package relayer
+package streamer
 
 import (
 	"context"
@@ -26,14 +26,14 @@ const (
 	RedisMsgTypeNew     RedisMsgType = ">"
 )
 
-type Relayer struct {
-	pb.UnimplementedRelayerServer
+type PayloadStreamer struct {
+	pb.UnimplementedPayloadStreamerServer
 	redisClient *redis.Client
 	logger      *slog.Logger
 	server      *grpc.Server
 }
 
-func NewRelayer(redisAddr string, logger *slog.Logger) (*Relayer, error) {
+func NewPayloadStreamer(redisAddr string, logger *slog.Logger) (*PayloadStreamer, error) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: redisAddr,
 	})
@@ -44,40 +44,40 @@ func NewRelayer(redisAddr string, logger *slog.Logger) (*Relayer, error) {
 		return nil, err
 	}
 
-	return &Relayer{
+	return &PayloadStreamer{
 		redisClient: redisClient,
 		logger:      logger,
 		server:      grpc.NewServer(),
 	}, nil
 }
 
-func (r *Relayer) Start(address string) error {
+func (s *PayloadStreamer) Start(address string) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
 	}
 
-	pb.RegisterRelayerServer(r.server, r)
-	reflection.Register(r.server)
+	pb.RegisterPayloadStreamerServer(s.server, s)
+	reflection.Register(s.server)
 
-	r.logger.Info("Relayer is listening", "address", address)
-	return r.server.Serve(lis)
+	s.logger.Info("PayloadStreamer is listening", "address", address)
+	return s.server.Serve(lis)
 }
 
-func (r *Relayer) Stop() {
-	r.server.GracefulStop()
-	if err := r.redisClient.Close(); err != nil {
-		r.logger.Error("Error closing Redis client in Relayer", "error", err)
+func (s *PayloadStreamer) Stop() {
+	s.server.GracefulStop()
+	if err := s.redisClient.Close(); err != nil {
+		s.logger.Error("Error closing Redis client in PayloadStreamer", "error", err)
 	}
 }
 
-func (r *Relayer) Subscribe(stream pb.Relayer_SubscribeServer) error {
+func (s *PayloadStreamer) Subscribe(stream pb.PayloadStreamer_SubscribeServer) error {
 	ctx := stream.Context()
 
 	var clientID string
 	firstMessage, err := stream.Recv()
 	if err != nil {
-		r.logger.Error("Failed to receive initial message", "error", err)
+		s.logger.Error("Failed to receive initial message", "error", err)
 		return err
 	}
 	if req := firstMessage.GetSubscribeRequest(); req != nil {
@@ -89,34 +89,34 @@ func (r *Relayer) Subscribe(stream pb.Relayer_SubscribeServer) error {
 	groupName := "member_group:" + clientID
 	consumerName := "member_consumer:" + clientID
 
-	err = r.createConsumerGroup(ctx, groupName)
+	err = s.createConsumerGroup(ctx, groupName)
 	if err != nil {
-		r.logger.Error("Failed to create consumer group", "clientID", clientID, "error", err)
+		s.logger.Error("Failed to create consumer group", "clientID", clientID, "error", err)
 		return err
 	}
 
-	r.logger.Info("Subscriber connected", "clientID", clientID)
-	return r.handleBidirectionalStream(stream, clientID, groupName, consumerName)
+	s.logger.Info("Subscriber connected", "clientID", clientID)
+	return s.handleBidirectionalStream(stream, clientID, groupName, consumerName)
 }
 
-func (r *Relayer) createConsumerGroup(ctx context.Context, groupName string) error {
-	err := r.redisClient.XGroupCreateMkStream(ctx, blockStreamName, groupName, "0").Err()
+func (s *PayloadStreamer) createConsumerGroup(ctx context.Context, groupName string) error {
+	err := s.redisClient.XGroupCreateMkStream(ctx, blockStreamName, groupName, "0").Err()
 	if err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
 		return err
 	}
 	return nil
 }
 
-func (r *Relayer) handleBidirectionalStream(stream pb.Relayer_SubscribeServer, clientID, groupName, consumerName string) error {
+func (s *PayloadStreamer) handleBidirectionalStream(stream pb.PayloadStreamer_SubscribeServer, clientID, groupName, consumerName string) error {
 	ctx := stream.Context()
 	var pendingMessageID string
 
 	for {
 		if pendingMessageID == "" {
 			// No pending message, read the next message from Redis
-			messages, err := r.readMessages(ctx, groupName, consumerName)
+			messages, err := s.readMessages(ctx, groupName, consumerName)
 			if err != nil {
-				r.logger.Error("Error reading messages", "clientID", clientID, "error", err)
+				s.logger.Error("Error reading messages", "clientID", clientID, "error", err)
 				return err
 			}
 			if len(messages) == 0 {
@@ -131,11 +131,11 @@ func (r *Relayer) handleBidirectionalStream(stream pb.Relayer_SubscribeServer, c
 			executionPayloadStr, okPayload := field.Values["execution_payload"].(string)
 			senderInstanceID, okSenderID := field.Values["sender_instance_id"].(string)
 			if !ok || !okPayload || !okSenderID {
-				r.logger.Error("Invalid message format", "clientID", clientID)
+				s.logger.Error("Invalid message format", "clientID", clientID)
 				// Acknowledge malformed messages to prevent reprocessing
-				err = r.ackMessage(ctx, field.ID, groupName)
+				err = s.ackMessage(ctx, field.ID, groupName)
 				if err != nil {
-					r.logger.Error("Failed to acknowledge malformed message", "clientID", clientID, "error", err)
+					s.logger.Error("Failed to acknowledge malformed message", "clientID", clientID, "error", err)
 				}
 				pendingMessageID = ""
 				continue
@@ -148,43 +148,43 @@ func (r *Relayer) handleBidirectionalStream(stream pb.Relayer_SubscribeServer, c
 				MessageId:        field.ID,
 			})
 			if err != nil {
-				r.logger.Error("Failed to send message to client", "clientID", clientID, "error", err)
+				s.logger.Error("Failed to send message to client", "clientID", clientID, "error", err)
 				return err
 			}
 		}
 
 		clientMsg, err := stream.Recv()
 		if err != nil {
-			r.logger.Error("Failed to receive acknowledgment", "clientID", clientID, "error", err)
+			s.logger.Error("Failed to receive acknowledgment", "clientID", clientID, "error", err)
 			return err
 		}
 
 		if ack := clientMsg.GetAckPayload(); ack != nil {
 			if ack.MessageId == pendingMessageID {
-				err := r.ackMessage(ctx, pendingMessageID, groupName)
+				err := s.ackMessage(ctx, pendingMessageID, groupName)
 				if err != nil {
-					r.logger.Error("Failed to acknowledge message", "clientID", clientID, "error", err)
+					s.logger.Error("Failed to acknowledge message", "clientID", clientID, "error", err)
 					return err
 				}
-				r.logger.Info("Message acknowledged", "clientID", clientID, "messageID", pendingMessageID)
+				s.logger.Info("Message acknowledged", "clientID", clientID, "messageID", pendingMessageID)
 				pendingMessageID = ""
 			} else {
-				r.logger.Error("Received acknowledgment for unknown message ID", "clientID", clientID, "messageID", ack.MessageId)
+				s.logger.Error("Received acknowledgment for unknown message ID", "clientID", clientID, "messageID", ack.MessageId)
 			}
 		} else {
-			r.logger.Error("Expected AckPayloadRequest, got something else", "clientID", clientID)
+			s.logger.Error("Expected AckPayloadRequest, got something else", "clientID", clientID)
 		}
 	}
 }
 
-func (r *Relayer) readMessages(ctx context.Context, groupName, consumerName string) ([]redis.XStream, error) {
-	messages, err := r.readMessagesFromStream(ctx, RedisMsgTypePending, groupName, consumerName)
+func (s *PayloadStreamer) readMessages(ctx context.Context, groupName, consumerName string) ([]redis.XStream, error) {
+	messages, err := s.readMessagesFromStream(ctx, RedisMsgTypePending, groupName, consumerName)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(messages) == 0 || len(messages[0].Messages) == 0 {
-		messages, err = r.readMessagesFromStream(ctx, RedisMsgTypeNew, groupName, consumerName)
+		messages, err = s.readMessagesFromStream(ctx, RedisMsgTypeNew, groupName, consumerName)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +193,7 @@ func (r *Relayer) readMessages(ctx context.Context, groupName, consumerName stri
 	return messages, nil
 }
 
-func (s *Relayer) readMessagesFromStream(ctx context.Context, msgType RedisMsgType, groupName, consumerName string) ([]redis.XStream, error) {
+func (s *PayloadStreamer) readMessagesFromStream(ctx context.Context, msgType RedisMsgType, groupName, consumerName string) ([]redis.XStream, error) {
 	args := &redis.XReadGroupArgs{
 		Group:    groupName,
 		Consumer: consumerName,
@@ -210,6 +210,6 @@ func (s *Relayer) readMessagesFromStream(ctx context.Context, msgType RedisMsgTy
 	return messages, nil
 }
 
-func (r *Relayer) ackMessage(ctx context.Context, messageID, groupName string) error {
-	return r.redisClient.XAck(ctx, blockStreamName, groupName, messageID).Err()
+func (s *PayloadStreamer) ackMessage(ctx context.Context, messageID, groupName string) error {
+	return s.redisClient.XAck(ctx, blockStreamName, groupName, messageID).Err()
 }

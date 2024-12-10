@@ -152,7 +152,7 @@ go build -o consensus-client cmd/redisapp/main.go
 
 The consensus client can be configured via command-line flags, environment variables, or a YAML configuration file.
 
-#### Command-Line Flags for Relayer
+#### Command-Line Flags for Streamer
 
 - `--instance-id`: **(Required)** Unique instance ID for this node.
 - `--eth-client-url`: Ethereum client URL (default: `http://localhost:8551`).
@@ -209,45 +209,45 @@ Run the client with the configuration file:
 
 - **Multiple Instances**: You can run multiple instances of the consensus client by changing the `--instance-id` and `--eth-client-url` parameters.
 
-## Running the Relayer
+## Running the Streamer
 
-The Relayer is responsible for streaming payloads to member nodes, allowing them to apply these payloads to their respective Geth instances.
+The Streamer is responsible for streaming payloads to member nodes, allowing them to apply these payloads to their respective Geth instances.
 
-### Build the Relayer
+### Build the Streamer
 
-Ensure all dependencies are installed and build the Relayer application:
+Ensure all dependencies are installed and build the Streamer application:
 
 ```bash
 go mod tidy
-go build -o relayer cmd/relayer/main.go
+go build -o streamer cmd/streamer/main.go
 ```
 
-### Relayer Configuration
+### Streamer Configuration
 
-The Relayer can be configured via command-line flags, environment variables, or a YAML configuration file.
+The Streamer can be configured via command-line flags, environment variables, or a YAML configuration file.
 
 #### Command-Line Flags
 
 - `--config`: Path to config file.
 - `--redis-addr`: Redis address (default: 127.0.0.1:7001).
-- `--listen-addr`: Relayer listen address (default: :50051).
+- `--listen-addr`: Streamer listen address (default: :50051).
 - `--log-fmt`: Log format to use, options are text or json (default: text).
 - `--log-level`: Log level to use, options are debug, info, warn, error (default: info).
 
 #### Environment Variables
 
-- `RELAYER_CONFIG`
-- `RELAYER_REDIS_ADDR`
-- `RELAYER_LISTEN_ADDR`
-- `RELAYER_LOG_FMT`
-- `RELAYER_LOG_LEVEL`
+- `STREAMER_CONFIG`
+- `STREAMER_REDIS_ADDR`
+- `STREAMER_LISTEN_ADDR`
+- `STREAMER_LOG_FMT`
+- `STREAMER_LOG_LEVEL`
 
-#### Run the Relayer
+#### Run the Streamer
 
-Run the Relayer using command-line flags:
+Run the Streamer using command-line flags:
 
 ```bash
-./relayer start \
+./streamer start \
   --config "config.yaml" \
   --redis-addr "127.0.0.1:7001" \
   --listen-addr ":50051" \
@@ -255,9 +255,9 @@ Run the Relayer using command-line flags:
   --log-level "info"
 ```
 
-#### Using a Configuration File for Relayer
+#### Using a Configuration File for Streamer
 
-Create a `relayer_config.yaml` file:
+Create a `streamer_config.yaml` file:
 
 ```yaml
 redis-addr: "127.0.0.1:7001"
@@ -266,15 +266,15 @@ log-fmt: "json"
 log-level: "info"
 ```
 
-Run the Relayer with the configuration file:
+Run the Streamer with the configuration file:
 
 ```bash
-./relayer start --config relayer_config.yaml
+./streamer start --config streamer_config.yaml
 ```
 
 ## Running member nodes
 
-Member nodes connect to the Relayer to receive payloads from the stream and apply them to their Geth instances.
+Member nodes connect to the Streamer to receive payloads from the stream and apply them to their Geth instances.
 
 ### Build the Member Client
 
@@ -293,7 +293,7 @@ The Member Client can be configured via command-line flags, environment variable
 
 - `--config`: Path to config file.
 - `--client-id`: (Required) Unique client ID for this member.
-- `--relayer-addr`: (Required) Relayer address.
+- `--streamer-addr`: (Required) Streamer address.
 - `--eth-client-url`: Ethereum client URL (default: <http://localhost:8551>).
 - `--jwt-secret`: JWT secret for Ethereum client.
 - `--log-fmt`: Log format to use, options are text or json (default: text).
@@ -303,7 +303,7 @@ The Member Client can be configured via command-line flags, environment variable
 
 - `MEMBER_CONFIG`
 - `MEMBER_CLIENT_ID`
-- `MEMBER_RELAYER_ADDR`
+- `MEMBER_STREAMER_ADDR`
 - `MEMBER_ETH_CLIENT_URL`
 - `MEMBER_JWT_SECRET`
 - `MEMBER_LOG_FMT`
@@ -316,7 +316,7 @@ Run the Member Client using command-line flags:
 ```bash
 ./memberclient start \
   --client-id "member1" \
-  --relayer-addr "http://localhost:50051" \
+  --streamer-addr "http://localhost:50051" \
   --eth-client-url "http://localhost:8551" \
   --jwt-secret "your_jwt_secret" \
   --log-fmt "json" \
@@ -333,7 +333,7 @@ Create a member_config.yaml file:
 
 ```yaml
 client-id: "member1"
-relayer-addr: "http://localhost:50051"
+streamer-addr: "http://localhost:50051"
 eth-client-url: "http://localhost:8551"
 jwt-secret: "your_jwt_secret"
 log-fmt: "json"

@@ -28,14 +28,14 @@ var (
 		Required: true,
 	})
 
-	relayerAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:     "relayer-addr",
-		Usage:    "Relayer address",
-		EnvVars:  []string{"MEMBER_RELAYER_ADDR"},
+	streamerAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:     "streamer-addr",
+		Usage:    "Streamer address",
+		EnvVars:  []string{"MEMBER_STREAMER_ADDR"},
 		Required: true,
 		Action: func(_ *cli.Context, s string) error {
 			if _, err := url.Parse(s); err != nil {
-				return fmt.Errorf("invalid relayer-addr: %v", err)
+				return fmt.Errorf("invalid streamer-addr: %v", err)
 			}
 			return nil
 		},
@@ -87,7 +87,7 @@ var (
 
 type Config struct {
 	ClientID     string
-	RelayerAddr  string
+	StreamerAddr string
 	EthClientURL string
 	JWTSecret    string
 }
@@ -96,7 +96,7 @@ func main() {
 	flags := []cli.Flag{
 		configFlag,
 		clientIDFlag,
-		relayerAddrFlag,
+		streamerAddrFlag,
 		ethClientURLFlag,
 		jwtSecretFlag,
 		logFmtFlag,
@@ -138,7 +138,7 @@ func startMemberClient(c *cli.Context) error {
 
 	cfg := Config{
 		ClientID:     c.String(clientIDFlag.Name),
-		RelayerAddr:  c.String(relayerAddrFlag.Name),
+		StreamerAddr: c.String(streamerAddrFlag.Name),
 		EthClientURL: c.String(ethClientURLFlag.Name),
 		JWTSecret:    c.String(jwtSecretFlag.Name),
 	}
@@ -146,7 +146,7 @@ func startMemberClient(c *cli.Context) error {
 	log.Info("Starting member client with configuration", "config", cfg)
 
 	// Initialize the MemberClient
-	memberClient, err := member.NewMemberClient(cfg.ClientID, cfg.RelayerAddr, cfg.EthClientURL, cfg.JWTSecret, log)
+	memberClient, err := member.NewMemberClient(cfg.ClientID, cfg.StreamerAddr, cfg.EthClientURL, cfg.JWTSecret, log)
 	if err != nil {
 		log.Error("Failed to initialize MemberClient", "error", err)
 		return err

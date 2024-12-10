@@ -1,4 +1,4 @@
-package relayer
+package streamer
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func TestCreateConsumerGroup(t *testing.T) {
 	logger := slog.Default()
 	db, mock := redismock.NewClientMock()
 
-	r := &Relayer{
+	r := &PayloadStreamer{
 		redisClient: db,
 		logger:      logger,
 		server:      grpc.NewServer(),
@@ -52,7 +52,7 @@ func TestAckMessage(t *testing.T) {
 	logger := slog.Default()
 	db, mock := redismock.NewClientMock()
 
-	r := &Relayer{
+	r := &PayloadStreamer{
 		redisClient: db,
 		logger:      logger,
 	}
@@ -75,7 +75,7 @@ func TestReadMessages(t *testing.T) {
 	logger := slog.Default()
 	db, mock := redismock.NewClientMock()
 
-	r := &Relayer{
+	r := &PayloadStreamer{
 		redisClient: db,
 		logger:      logger,
 	}
@@ -129,13 +129,13 @@ func TestSubscribe(t *testing.T) {
 	logger := slog.Default()
 	db, mock := redismock.NewClientMock()
 
-	r := &Relayer{
+	r := &PayloadStreamer{
 		redisClient: db,
 		logger:      logger,
 		server:      grpc.NewServer(),
 	}
 
-	pb.RegisterRelayerServer(r.server, r)
+	pb.RegisterPayloadStreamerServer(r.server, r)
 
 	lis := bufconn.Listen(1024 * 1024)
 
@@ -224,7 +224,7 @@ func TestSubscribe(t *testing.T) {
 	}
 	defer conn.Close()
 
-	client := pb.NewRelayerClient(conn)
+	client := pb.NewPayloadStreamerClient(conn)
 
 	// Call Subscribe
 	stream, err := client.Subscribe(ctx)

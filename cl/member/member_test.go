@@ -61,9 +61,9 @@ func (f *mockBlockBuilder) Calls() []finalizeCall {
 	return append([]finalizeCall(nil), f.finalizeCalls...)
 }
 
-// fakeRelayerServer simulates the Relayer gRPC service for testing.
-type fakeRelayerServer struct {
-	pb.UnimplementedRelayerServer
+// fakePayloadStreamerServer simulates the PayloadStreamer gRPC service for testing.
+type fakePayloadStreamerServer struct {
+	pb.UnimplementedPayloadStreamerServer
 
 	mu            sync.Mutex
 	subscribed    bool
@@ -72,7 +72,7 @@ type fakeRelayerServer struct {
 	serverStopped bool
 }
 
-func (s *fakeRelayerServer) Subscribe(stream pb.Relayer_SubscribeServer) error {
+func (s *fakePayloadStreamerServer) Subscribe(stream pb.PayloadStreamer_SubscribeServer) error {
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF || s.serverStopped {
@@ -121,8 +121,8 @@ func TestMemberClientRun(t *testing.T) {
 	s := grpc.NewServer()
 	defer s.Stop()
 
-	relayerServer := &fakeRelayerServer{}
-	pb.RegisterRelayerServer(s, relayerServer)
+	streamerServer := &fakePayloadStreamerServer{}
+	pb.RegisterPayloadStreamerServer(s, streamerServer)
 
 	errChan := make(chan error, 1)
 	go func() {
@@ -139,26 +139,26 @@ func TestMemberClientRun(t *testing.T) {
 	}
 
 	clientID := "test-client-id"
-	relayerAddr := lis.Addr().String()
+	streamerAddr := lis.Addr().String()
 	logger := slog.Default()
 
 	engineClient := &mockEngineClient{}
 	blockBuilder := &mockBlockBuilder{}
 
-	conn, err := grpc.NewClient(relayerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(streamerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("failed to dial test server: %v", err)
 	}
-	relayerClient := pb.NewRelayerClient(conn)
+	streamerClient := pb.NewPayloadStreamerClient(conn)
 
 	mc := &MemberClient{
-		clientID:    clientID,
-		relayerAddr: relayerAddr,
-		conn:        conn,
-		client:      relayerClient,
-		logger:      logger,
-		engineCl:    engineClient,
-		bb:          blockBuilder,
+		clientID:     clientID,
+		streamerAddr: streamerAddr,
+		conn:         conn,
+		client:       streamerClient,
+		logger:       logger,
+		engineCl:     engineClient,
+		bb:           blockBuilder,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -169,10 +169,10 @@ func TestMemberClientRun(t *testing.T) {
 		t.Errorf("MemberClient.Run returned an error: %v", err)
 	}
 
-	relayerServer.mu.Lock()
-	subscribed := relayerServer.subscribed
-	sentPayload := relayerServer.sentPayload
-	relayerServer.mu.Unlock()
+	streamerServer.mu.Lock()
+	subscribed := streamerServer.subscribed
+	sentPayload := streamerServer.sentPayload
+	streamerServer.mu.Unlock()
 
 	if !subscribed {
 		t.Errorf("Server did not receive subscription from client")

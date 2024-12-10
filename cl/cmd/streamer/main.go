@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/primev/mev-commit/cl/relayer"
+	"github.com/primev/mev-commit/cl/streamer"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 	"github.com/urfave/cli/v2/altsrc"
@@ -18,13 +18,13 @@ var (
 	configFlag = &cli.StringFlag{
 		Name:    "config",
 		Usage:   "Path to config file",
-		EnvVars: []string{"RELAYER_CONFIG"},
+		EnvVars: []string{"STREAMER_CONFIG"},
 	}
 
 	redisAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "redis-addr",
 		Usage:   "Redis address",
-		EnvVars: []string{"RELAYER_REDIS_ADDR"},
+		EnvVars: []string{"STREAMER_REDIS_ADDR"},
 		Value:   "127.0.0.1:7001",
 		Action: func(_ *cli.Context, s string) error {
 			host, port, err := net.SplitHostPort(s)
@@ -43,22 +43,22 @@ var (
 
 	listenAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "listen-addr",
-		Usage:   "Relayer listen address",
-		EnvVars: []string{"RELAYER_LISTEN_ADDR"},
+		Usage:   "Streamer listen address",
+		EnvVars: []string{"STREAMER_LISTEN_ADDR"},
 		Value:   ":50051",
 	})
 
 	logFmtFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "Log format to use, options are 'text' or 'json'",
-		EnvVars: []string{"RELAYER_LOG_FMT"},
+		EnvVars: []string{"STREAMER_LOG_FMT"},
 		Value:   "text",
 	})
 
 	logLevelFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "log-level",
 		Usage:   "Log level to use, options are 'debug', 'info', 'warn', 'error'",
-		EnvVars: []string{"RELAYER_LOG_LEVEL"},
+		EnvVars: []string{"STREAMER_LOG_LEVEL"},
 		Value:   "info",
 	})
 )
@@ -78,8 +78,8 @@ func main() {
 	}
 
 	app := &cli.App{
-		Name:  "relayer",
-		Usage: "Start the relayer",
+		Name:  "streamer",
+		Usage: "Start the streamer",
 		Flags: flags,
 		Before: altsrc.InitInputSourceWithContext(flags,
 			func(c *cli.Context) (altsrc.InputSourceContext, error) {
@@ -90,16 +90,16 @@ func main() {
 				return &altsrc.MapInputSource{}, nil
 			}),
 		Action: func(c *cli.Context) error {
-			return startRelayer(c)
+			return startStreamer(c)
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Println("Error running relayer:", err)
+		fmt.Println("Error running streamer:", err)
 	}
 }
 
-func startRelayer(c *cli.Context) error {
+func startStreamer(c *cli.Context) error {
 	log, err := util.NewLogger(
 		c.String(logLevelFlag.Name),
 		c.String(logFmtFlag.Name),
@@ -116,30 +116,30 @@ func startRelayer(c *cli.Context) error {
 		ListenAddr: c.String(listenAddrFlag.Name),
 	}
 
-	log.Info("Starting relayer with configuration", "config", cfg)
+	log.Info("Starting streamer with configuration", "config", cfg)
 
-	// Initialize the Relayer
-	relayer, err := relayer.NewRelayer(cfg.RedisAddr, log)
+	// Initialize the Streamer
+	streamer, err := streamer.NewPayloadStreamer(cfg.RedisAddr, log)
 	if err != nil {
-		log.Error("Failed to initialize Relayer", "error", err)
+		log.Error("Failed to initialize Streamer", "error", err)
 		return err
 	}
 
 	ctx, stop := signal.NotifyContext(c.Context, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Start the relayer
+	// Start the streamer
 	go func() {
-		if err := relayer.Start(cfg.ListenAddr); err != nil {
-			log.Error("Relayer exited with error", "error", err)
+		if err := streamer.Start(cfg.ListenAddr); err != nil {
+			log.Error("Streamer exited with error", "error", err)
 			stop()
 		}
 	}()
 
 	<-ctx.Done()
 
-	relayer.Stop()
+	streamer.Stop()
 
-	log.Info("Relayer shutdown completed")
+	log.Info("Streamer shutdown completed")
 	return nil
 }
