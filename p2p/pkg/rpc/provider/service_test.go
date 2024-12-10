@@ -30,10 +30,11 @@ import (
 )
 
 type testRegistryContract struct {
-	stake    *big.Int
-	topup    *big.Int
-	minStake *big.Int
-	blsKey   []byte
+	stake        *big.Int
+	topup        *big.Int
+	minStake     *big.Int
+	blsKey       []byte
+	blsSignature []byte
 }
 
 func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error) {
@@ -50,6 +51,7 @@ func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts) (*types
 
 func (t *testRegistryContract) AddVerifiedBLSKey(opts *bind.TransactOpts, blsPublicKey []byte, blsSignature []byte) (*types.Transaction, error) {
 	t.blsKey = blsPublicKey
+	t.blsSignature = blsSignature
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 

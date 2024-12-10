@@ -271,7 +271,15 @@ func (s *Service) Stake(
 	}
 
 	for i, _ := range stake.BlsPublicKeys {
-		tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, []byte(stake.BlsPublicKeys[i]), []byte(stake.BlsSignatures[i]))
+		blsPublicKey, err := hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKeys[i], "0x"))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "decoding bls public key: %v", err)
+		}
+		blsSignature, err := hex.DecodeString(strings.TrimPrefix(stake.BlsSignatures[i], "0x"))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "decoding bls signature: %v", err)
+		}
+		tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, blsPublicKey, blsSignature)
 		if txErr != nil {
 			return nil, status.Errorf(codes.Internal, "adding verified bls key: %v", txErr)
 		}
@@ -288,7 +296,7 @@ func (s *Service) Stake(
 		for _, log := range receipt.Logs {
 			if blsKeyEvent, err := s.registryContract.ParseBLSKeyAdded(*log); err == nil {
 				s.logger.Info("verified bls key added", "key", blsKeyEvent.BlsPublicKey)
-				stakeResponse.BlsPublicKeys = append(stakeResponse.BlsPublicKeys, string(blsKeyEvent.BlsPublicKey))
+				stakeResponse.BlsPublicKeys = append(stakeResponse.BlsPublicKeys, hex.EncodeToString(blsKeyEvent.BlsPublicKey))
 			}
 		}
 	}
