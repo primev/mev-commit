@@ -138,7 +138,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 			return fmt.Errorf("invalid stake amount returned: %s", resp.Amount)
 		}
 
-		reqBytes, err := json.Marshal([]string{hex.EncodeToString(pubKeyBytes)})
+		reqBytes, err := json.Marshal([]string{hex.EncodeToString(pubkeyb)})
 		if err != nil {
 			l.Error("failed to create bls key upload req", "error", err)
 			return fmt.Errorf("failed to marshal bls keys: %w", err)
