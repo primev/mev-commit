@@ -694,29 +694,29 @@ profiles:
 
   devnet:
     jobs:
-      - *artifacts_job
-      - *datadog_agent_logs_collector_job
-      - *otel_collector_job
+      # - *artifacts_job
+      # - *datadog_agent_logs_collector_job
+      # - *otel_collector_job
       - *mev_commit_geth_bootnode1_job
-      - *mev_commit_geth_signer_node1_job
-      - *mev_commit_geth_member_node_job
-      - *mock_l1_job
-      - *l1_transactor_job
-      - *relay_emulator_job
-      - *contracts_deployer_job
-      - *mev_commit_bridge_job
-      - *bridge_emulator_job
-      - *mev_commit_dashboard_job
-      - *mev_commit_bootnode1_job
-      - *mev_commit_provider_node1_job
-      - *mev_commit_provider_node1_funder_job
-      - *mev_commit_oracle_job
-      - *mev_commit_bidder_node1_job
-      - *mev_commit_bidder_node1_funder_job
-      - *mev_commit_provider_emulator_node1_job
-      - *mev_commit_bidder_emulator_node1_job
-      - *mev_commit_faucet_job
-      - *datadog_agent_metrics_collector_job
+      # - *mev_commit_geth_signer_node1_job
+      # - *mev_commit_geth_member_node_job
+      # - *mock_l1_job
+      # - *l1_transactor_job
+      # - *relay_emulator_job
+      # - *contracts_deployer_job
+      # - *mev_commit_bridge_job
+      # - *bridge_emulator_job
+      # - *mev_commit_dashboard_job
+      # - *mev_commit_bootnode1_job
+      # - *mev_commit_provider_node1_job
+      # - *mev_commit_provider_node1_funder_job
+      # - *mev_commit_oracle_job
+      # - *mev_commit_bidder_node1_job
+      # - *mev_commit_bidder_node1_funder_job
+      # - *mev_commit_provider_emulator_node1_job
+      # - *mev_commit_bidder_emulator_node1_job
+      # - *mev_commit_faucet_job
+      # - *datadog_agent_metrics_collector_job
 
   testnet:
     jobs:
