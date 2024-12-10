@@ -31,7 +31,7 @@ var (
 
 // L1gatewayMetaData contains all meta data concerning the L1gateway contract.
 var L1gatewayMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"counterpartyFee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"finalizationFee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"finalizeTransfer\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_counterpartyIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_relayer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_finalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_counterpartyFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initiateTransfer\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"returnIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"relayer\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setCounterpartyFee\",\"inputs\":[{\"name\":\"_counterpartyFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setFinalizationFee\",\"inputs\":[{\"name\":\"_finalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setRelayer\",\"inputs\":[{\"name\":\"_relayer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferFinalizedIdx\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferInitiatedIdx\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferredFundsNeedingWithdrawal\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CounterpartyFeeSet\",\"inputs\":[{\"name\":\"counterpartyFee\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"FinalizationFeeSet\",\"inputs\":[{\"name\":\"finalizationFee\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RelayerSet\",\"inputs\":[{\"name\":\"relayer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferFinalized\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"counterpartyIdx\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferInitiated\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"transferIdx\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferNeedsWithdrawal\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferSuccess\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"AmountTooSmall\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"counterpartyFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"CounterpartyFeeTooSmall\",\"inputs\":[{\"name\":\"_counterpartyFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FinalizationFeeTooSmall\",\"inputs\":[{\"name\":\"_finalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"IncorrectEtherValueSent\",\"inputs\":[{\"name\":\"msgValue\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"amountExpected\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InsufficientContractBalance\",\"inputs\":[{\"name\":\"thisContractBalance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"amountRequested\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidCounterpartyIndex\",\"inputs\":[{\"name\":\"counterpartyIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"transferFinalizedIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoFundsNeedingWithdrawal\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RelayerCannotBeZeroAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SenderNotRelayer\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"TransferFailed\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"fallback\",\"stateMutability\":\"payable\"},{\"type\":\"receive\",\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"UPGRADE_INTERFACE_VERSION\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"counterpartyFinalizationFee\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"finalizeTransfer\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_counterpartyIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"_finalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initialize\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_relayer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_counterpartyFinalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"initiateTransfer\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"returnIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"relayer\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setCounterpartyFinalizationFee\",\"inputs\":[{\"name\":\"_counterpartyFinalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"setRelayer\",\"inputs\":[{\"name\":\"_relayer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferFinalizedIdx\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferInitiatedIdx\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferredFundsNeedingWithdrawal\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdraw\",\"inputs\":[{\"name\":\"_recipient\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"CounterpartyFinalizationFeeSet\",\"inputs\":[{\"name\":\"counterpartyFinalizationFee\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint64\",\"indexed\":false,\"internalType\":\"uint64\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RelayerSet\",\"inputs\":[{\"name\":\"relayer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferFinalized\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"counterpartyIdx\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferInitiated\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"transferIdx\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"counterpartyFinalizationFee\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferNeedsWithdrawal\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"TransferSuccess\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"AddressEmptyCode\",\"inputs\":[{\"name\":\"target\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"AmountTooSmall\",\"inputs\":[{\"name\":\"amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"counterpartyFinalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"CounterpartyFinalizationFeeTooSmall\",\"inputs\":[{\"name\":\"_counterpartyFinalizationFee\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"ERC1967InvalidImplementation\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ERC1967NonPayable\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EnforcedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExpectedPause\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FailedInnerCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IncorrectEtherValueSent\",\"inputs\":[{\"name\":\"msgValue\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"amountExpected\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InsufficientContractBalance\",\"inputs\":[{\"name\":\"thisContractBalance\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"amountRequested\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidCounterpartyIndex\",\"inputs\":[{\"name\":\"counterpartyIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"transferFinalizedIdx\",\"type\":\"uint256\",\"internalType\":\"uint256\"}]},{\"type\":\"error\",\"name\":\"InvalidFallback\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidInitialization\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoFundsNeedingWithdrawal\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"NotInitializing\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OwnableInvalidOwner\",\"inputs\":[{\"name\":\"owner\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"OwnableUnauthorizedAccount\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"ReentrancyGuardReentrantCall\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RelayerCannotBeZeroAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SenderNotRelayer\",\"inputs\":[{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"relayer\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"TransferFailed\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"type\":\"error\",\"name\":\"UUPSUnauthorizedCallContext\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UUPSUnsupportedProxiableUUID\",\"inputs\":[{\"name\":\"slot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]",
 }
 
 // L1gatewayABI is the input ABI used to generate the binding from.
@@ -211,12 +211,12 @@ func (_L1gateway *L1gatewayCallerSession) UPGRADEINTERFACEVERSION() (string, err
 	return _L1gateway.Contract.UPGRADEINTERFACEVERSION(&_L1gateway.CallOpts)
 }
 
-// CounterpartyFee is a free data retrieval call binding the contract method 0x97599011.
+// CounterpartyFinalizationFee is a free data retrieval call binding the contract method 0xce4ab0ad.
 //
-// Solidity: function counterpartyFee() view returns(uint256)
-func (_L1gateway *L1gatewayCaller) CounterpartyFee(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function counterpartyFinalizationFee() view returns(uint256)
+func (_L1gateway *L1gatewayCaller) CounterpartyFinalizationFee(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _L1gateway.contract.Call(opts, &out, "counterpartyFee")
+	err := _L1gateway.contract.Call(opts, &out, "counterpartyFinalizationFee")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -228,49 +228,18 @@ func (_L1gateway *L1gatewayCaller) CounterpartyFee(opts *bind.CallOpts) (*big.In
 
 }
 
-// CounterpartyFee is a free data retrieval call binding the contract method 0x97599011.
+// CounterpartyFinalizationFee is a free data retrieval call binding the contract method 0xce4ab0ad.
 //
-// Solidity: function counterpartyFee() view returns(uint256)
-func (_L1gateway *L1gatewaySession) CounterpartyFee() (*big.Int, error) {
-	return _L1gateway.Contract.CounterpartyFee(&_L1gateway.CallOpts)
+// Solidity: function counterpartyFinalizationFee() view returns(uint256)
+func (_L1gateway *L1gatewaySession) CounterpartyFinalizationFee() (*big.Int, error) {
+	return _L1gateway.Contract.CounterpartyFinalizationFee(&_L1gateway.CallOpts)
 }
 
-// CounterpartyFee is a free data retrieval call binding the contract method 0x97599011.
+// CounterpartyFinalizationFee is a free data retrieval call binding the contract method 0xce4ab0ad.
 //
-// Solidity: function counterpartyFee() view returns(uint256)
-func (_L1gateway *L1gatewayCallerSession) CounterpartyFee() (*big.Int, error) {
-	return _L1gateway.Contract.CounterpartyFee(&_L1gateway.CallOpts)
-}
-
-// FinalizationFee is a free data retrieval call binding the contract method 0x78d3d576.
-//
-// Solidity: function finalizationFee() view returns(uint256)
-func (_L1gateway *L1gatewayCaller) FinalizationFee(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _L1gateway.contract.Call(opts, &out, "finalizationFee")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-// FinalizationFee is a free data retrieval call binding the contract method 0x78d3d576.
-//
-// Solidity: function finalizationFee() view returns(uint256)
-func (_L1gateway *L1gatewaySession) FinalizationFee() (*big.Int, error) {
-	return _L1gateway.Contract.FinalizationFee(&_L1gateway.CallOpts)
-}
-
-// FinalizationFee is a free data retrieval call binding the contract method 0x78d3d576.
-//
-// Solidity: function finalizationFee() view returns(uint256)
-func (_L1gateway *L1gatewayCallerSession) FinalizationFee() (*big.Int, error) {
-	return _L1gateway.Contract.FinalizationFee(&_L1gateway.CallOpts)
+// Solidity: function counterpartyFinalizationFee() view returns(uint256)
+func (_L1gateway *L1gatewayCallerSession) CounterpartyFinalizationFee() (*big.Int, error) {
+	return _L1gateway.Contract.CounterpartyFinalizationFee(&_L1gateway.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -542,46 +511,46 @@ func (_L1gateway *L1gatewayTransactorSession) AcceptOwnership() (*types.Transact
 	return _L1gateway.Contract.AcceptOwnership(&_L1gateway.TransactOpts)
 }
 
-// FinalizeTransfer is a paid mutator transaction binding the contract method 0xc40a7c82.
+// FinalizeTransfer is a paid mutator transaction binding the contract method 0x169235ed.
 //
-// Solidity: function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx) returns()
-func (_L1gateway *L1gatewayTransactor) FinalizeTransfer(opts *bind.TransactOpts, _recipient common.Address, _amount *big.Int, _counterpartyIdx *big.Int) (*types.Transaction, error) {
-	return _L1gateway.contract.Transact(opts, "finalizeTransfer", _recipient, _amount, _counterpartyIdx)
+// Solidity: function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx, uint256 _finalizationFee) returns()
+func (_L1gateway *L1gatewayTransactor) FinalizeTransfer(opts *bind.TransactOpts, _recipient common.Address, _amount *big.Int, _counterpartyIdx *big.Int, _finalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.contract.Transact(opts, "finalizeTransfer", _recipient, _amount, _counterpartyIdx, _finalizationFee)
 }
 
-// FinalizeTransfer is a paid mutator transaction binding the contract method 0xc40a7c82.
+// FinalizeTransfer is a paid mutator transaction binding the contract method 0x169235ed.
 //
-// Solidity: function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx) returns()
-func (_L1gateway *L1gatewaySession) FinalizeTransfer(_recipient common.Address, _amount *big.Int, _counterpartyIdx *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.FinalizeTransfer(&_L1gateway.TransactOpts, _recipient, _amount, _counterpartyIdx)
+// Solidity: function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx, uint256 _finalizationFee) returns()
+func (_L1gateway *L1gatewaySession) FinalizeTransfer(_recipient common.Address, _amount *big.Int, _counterpartyIdx *big.Int, _finalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.Contract.FinalizeTransfer(&_L1gateway.TransactOpts, _recipient, _amount, _counterpartyIdx, _finalizationFee)
 }
 
-// FinalizeTransfer is a paid mutator transaction binding the contract method 0xc40a7c82.
+// FinalizeTransfer is a paid mutator transaction binding the contract method 0x169235ed.
 //
-// Solidity: function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx) returns()
-func (_L1gateway *L1gatewayTransactorSession) FinalizeTransfer(_recipient common.Address, _amount *big.Int, _counterpartyIdx *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.FinalizeTransfer(&_L1gateway.TransactOpts, _recipient, _amount, _counterpartyIdx)
+// Solidity: function finalizeTransfer(address _recipient, uint256 _amount, uint256 _counterpartyIdx, uint256 _finalizationFee) returns()
+func (_L1gateway *L1gatewayTransactorSession) FinalizeTransfer(_recipient common.Address, _amount *big.Int, _counterpartyIdx *big.Int, _finalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.Contract.FinalizeTransfer(&_L1gateway.TransactOpts, _recipient, _amount, _counterpartyIdx, _finalizationFee)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xeb990c59.
+// Initialize is a paid mutator transaction binding the contract method 0x1794bb3c.
 //
-// Solidity: function initialize(address _owner, address _relayer, uint256 _finalizationFee, uint256 _counterpartyFee) returns()
-func (_L1gateway *L1gatewayTransactor) Initialize(opts *bind.TransactOpts, _owner common.Address, _relayer common.Address, _finalizationFee *big.Int, _counterpartyFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.contract.Transact(opts, "initialize", _owner, _relayer, _finalizationFee, _counterpartyFee)
+// Solidity: function initialize(address _owner, address _relayer, uint256 _counterpartyFinalizationFee) returns()
+func (_L1gateway *L1gatewayTransactor) Initialize(opts *bind.TransactOpts, _owner common.Address, _relayer common.Address, _counterpartyFinalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.contract.Transact(opts, "initialize", _owner, _relayer, _counterpartyFinalizationFee)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xeb990c59.
+// Initialize is a paid mutator transaction binding the contract method 0x1794bb3c.
 //
-// Solidity: function initialize(address _owner, address _relayer, uint256 _finalizationFee, uint256 _counterpartyFee) returns()
-func (_L1gateway *L1gatewaySession) Initialize(_owner common.Address, _relayer common.Address, _finalizationFee *big.Int, _counterpartyFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.Initialize(&_L1gateway.TransactOpts, _owner, _relayer, _finalizationFee, _counterpartyFee)
+// Solidity: function initialize(address _owner, address _relayer, uint256 _counterpartyFinalizationFee) returns()
+func (_L1gateway *L1gatewaySession) Initialize(_owner common.Address, _relayer common.Address, _counterpartyFinalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.Contract.Initialize(&_L1gateway.TransactOpts, _owner, _relayer, _counterpartyFinalizationFee)
 }
 
-// Initialize is a paid mutator transaction binding the contract method 0xeb990c59.
+// Initialize is a paid mutator transaction binding the contract method 0x1794bb3c.
 //
-// Solidity: function initialize(address _owner, address _relayer, uint256 _finalizationFee, uint256 _counterpartyFee) returns()
-func (_L1gateway *L1gatewayTransactorSession) Initialize(_owner common.Address, _relayer common.Address, _finalizationFee *big.Int, _counterpartyFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.Initialize(&_L1gateway.TransactOpts, _owner, _relayer, _finalizationFee, _counterpartyFee)
+// Solidity: function initialize(address _owner, address _relayer, uint256 _counterpartyFinalizationFee) returns()
+func (_L1gateway *L1gatewayTransactorSession) Initialize(_owner common.Address, _relayer common.Address, _counterpartyFinalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.Contract.Initialize(&_L1gateway.TransactOpts, _owner, _relayer, _counterpartyFinalizationFee)
 }
 
 // InitiateTransfer is a paid mutator transaction binding the contract method 0xb504cd1e.
@@ -647,46 +616,25 @@ func (_L1gateway *L1gatewayTransactorSession) RenounceOwnership() (*types.Transa
 	return _L1gateway.Contract.RenounceOwnership(&_L1gateway.TransactOpts)
 }
 
-// SetCounterpartyFee is a paid mutator transaction binding the contract method 0x30ef0586.
+// SetCounterpartyFinalizationFee is a paid mutator transaction binding the contract method 0x55f4bdfc.
 //
-// Solidity: function setCounterpartyFee(uint256 _counterpartyFee) returns()
-func (_L1gateway *L1gatewayTransactor) SetCounterpartyFee(opts *bind.TransactOpts, _counterpartyFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.contract.Transact(opts, "setCounterpartyFee", _counterpartyFee)
+// Solidity: function setCounterpartyFinalizationFee(uint256 _counterpartyFinalizationFee) returns()
+func (_L1gateway *L1gatewayTransactor) SetCounterpartyFinalizationFee(opts *bind.TransactOpts, _counterpartyFinalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.contract.Transact(opts, "setCounterpartyFinalizationFee", _counterpartyFinalizationFee)
 }
 
-// SetCounterpartyFee is a paid mutator transaction binding the contract method 0x30ef0586.
+// SetCounterpartyFinalizationFee is a paid mutator transaction binding the contract method 0x55f4bdfc.
 //
-// Solidity: function setCounterpartyFee(uint256 _counterpartyFee) returns()
-func (_L1gateway *L1gatewaySession) SetCounterpartyFee(_counterpartyFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.SetCounterpartyFee(&_L1gateway.TransactOpts, _counterpartyFee)
+// Solidity: function setCounterpartyFinalizationFee(uint256 _counterpartyFinalizationFee) returns()
+func (_L1gateway *L1gatewaySession) SetCounterpartyFinalizationFee(_counterpartyFinalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.Contract.SetCounterpartyFinalizationFee(&_L1gateway.TransactOpts, _counterpartyFinalizationFee)
 }
 
-// SetCounterpartyFee is a paid mutator transaction binding the contract method 0x30ef0586.
+// SetCounterpartyFinalizationFee is a paid mutator transaction binding the contract method 0x55f4bdfc.
 //
-// Solidity: function setCounterpartyFee(uint256 _counterpartyFee) returns()
-func (_L1gateway *L1gatewayTransactorSession) SetCounterpartyFee(_counterpartyFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.SetCounterpartyFee(&_L1gateway.TransactOpts, _counterpartyFee)
-}
-
-// SetFinalizationFee is a paid mutator transaction binding the contract method 0x21d411a1.
-//
-// Solidity: function setFinalizationFee(uint256 _finalizationFee) returns()
-func (_L1gateway *L1gatewayTransactor) SetFinalizationFee(opts *bind.TransactOpts, _finalizationFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.contract.Transact(opts, "setFinalizationFee", _finalizationFee)
-}
-
-// SetFinalizationFee is a paid mutator transaction binding the contract method 0x21d411a1.
-//
-// Solidity: function setFinalizationFee(uint256 _finalizationFee) returns()
-func (_L1gateway *L1gatewaySession) SetFinalizationFee(_finalizationFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.SetFinalizationFee(&_L1gateway.TransactOpts, _finalizationFee)
-}
-
-// SetFinalizationFee is a paid mutator transaction binding the contract method 0x21d411a1.
-//
-// Solidity: function setFinalizationFee(uint256 _finalizationFee) returns()
-func (_L1gateway *L1gatewayTransactorSession) SetFinalizationFee(_finalizationFee *big.Int) (*types.Transaction, error) {
-	return _L1gateway.Contract.SetFinalizationFee(&_L1gateway.TransactOpts, _finalizationFee)
+// Solidity: function setCounterpartyFinalizationFee(uint256 _counterpartyFinalizationFee) returns()
+func (_L1gateway *L1gatewayTransactorSession) SetCounterpartyFinalizationFee(_counterpartyFinalizationFee *big.Int) (*types.Transaction, error) {
+	return _L1gateway.Contract.SetCounterpartyFinalizationFee(&_L1gateway.TransactOpts, _counterpartyFinalizationFee)
 }
 
 // SetRelayer is a paid mutator transaction binding the contract method 0x6548e9bc.
@@ -836,9 +784,9 @@ func (_L1gateway *L1gatewayTransactorSession) Receive() (*types.Transaction, err
 	return _L1gateway.Contract.Receive(&_L1gateway.TransactOpts)
 }
 
-// L1gatewayCounterpartyFeeSetIterator is returned from FilterCounterpartyFeeSet and is used to iterate over the raw logs and unpacked data for CounterpartyFeeSet events raised by the L1gateway contract.
-type L1gatewayCounterpartyFeeSetIterator struct {
-	Event *L1gatewayCounterpartyFeeSet // Event containing the contract specifics and raw log
+// L1gatewayCounterpartyFinalizationFeeSetIterator is returned from FilterCounterpartyFinalizationFeeSet and is used to iterate over the raw logs and unpacked data for CounterpartyFinalizationFeeSet events raised by the L1gateway contract.
+type L1gatewayCounterpartyFinalizationFeeSetIterator struct {
+	Event *L1gatewayCounterpartyFinalizationFeeSet // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -852,7 +800,7 @@ type L1gatewayCounterpartyFeeSetIterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *L1gatewayCounterpartyFeeSetIterator) Next() bool {
+func (it *L1gatewayCounterpartyFinalizationFeeSetIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -861,7 +809,7 @@ func (it *L1gatewayCounterpartyFeeSetIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(L1gatewayCounterpartyFeeSet)
+			it.Event = new(L1gatewayCounterpartyFinalizationFeeSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -876,7 +824,7 @@ func (it *L1gatewayCounterpartyFeeSetIterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(L1gatewayCounterpartyFeeSet)
+		it.Event = new(L1gatewayCounterpartyFinalizationFeeSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -892,41 +840,41 @@ func (it *L1gatewayCounterpartyFeeSetIterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *L1gatewayCounterpartyFeeSetIterator) Error() error {
+func (it *L1gatewayCounterpartyFinalizationFeeSetIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *L1gatewayCounterpartyFeeSetIterator) Close() error {
+func (it *L1gatewayCounterpartyFinalizationFeeSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// L1gatewayCounterpartyFeeSet represents a CounterpartyFeeSet event raised by the L1gateway contract.
-type L1gatewayCounterpartyFeeSet struct {
-	CounterpartyFee *big.Int
-	Raw             types.Log // Blockchain specific contextual infos
+// L1gatewayCounterpartyFinalizationFeeSet represents a CounterpartyFinalizationFeeSet event raised by the L1gateway contract.
+type L1gatewayCounterpartyFinalizationFeeSet struct {
+	CounterpartyFinalizationFee *big.Int
+	Raw                         types.Log // Blockchain specific contextual infos
 }
 
-// FilterCounterpartyFeeSet is a free log retrieval operation binding the contract event 0x05c0c89ce202456ae9a28898a2ea3b1b0bc57c7a775275f31fa6bcd6b5c0effa.
+// FilterCounterpartyFinalizationFeeSet is a free log retrieval operation binding the contract event 0xfd0467d48910fb6e6de1f4e0b9eedc9e04a7c227bad40d827a84a2b650ec0b7f.
 //
-// Solidity: event CounterpartyFeeSet(uint256 counterpartyFee)
-func (_L1gateway *L1gatewayFilterer) FilterCounterpartyFeeSet(opts *bind.FilterOpts) (*L1gatewayCounterpartyFeeSetIterator, error) {
+// Solidity: event CounterpartyFinalizationFeeSet(uint256 counterpartyFinalizationFee)
+func (_L1gateway *L1gatewayFilterer) FilterCounterpartyFinalizationFeeSet(opts *bind.FilterOpts) (*L1gatewayCounterpartyFinalizationFeeSetIterator, error) {
 
-	logs, sub, err := _L1gateway.contract.FilterLogs(opts, "CounterpartyFeeSet")
+	logs, sub, err := _L1gateway.contract.FilterLogs(opts, "CounterpartyFinalizationFeeSet")
 	if err != nil {
 		return nil, err
 	}
-	return &L1gatewayCounterpartyFeeSetIterator{contract: _L1gateway.contract, event: "CounterpartyFeeSet", logs: logs, sub: sub}, nil
+	return &L1gatewayCounterpartyFinalizationFeeSetIterator{contract: _L1gateway.contract, event: "CounterpartyFinalizationFeeSet", logs: logs, sub: sub}, nil
 }
 
-// WatchCounterpartyFeeSet is a free log subscription operation binding the contract event 0x05c0c89ce202456ae9a28898a2ea3b1b0bc57c7a775275f31fa6bcd6b5c0effa.
+// WatchCounterpartyFinalizationFeeSet is a free log subscription operation binding the contract event 0xfd0467d48910fb6e6de1f4e0b9eedc9e04a7c227bad40d827a84a2b650ec0b7f.
 //
-// Solidity: event CounterpartyFeeSet(uint256 counterpartyFee)
-func (_L1gateway *L1gatewayFilterer) WatchCounterpartyFeeSet(opts *bind.WatchOpts, sink chan<- *L1gatewayCounterpartyFeeSet) (event.Subscription, error) {
+// Solidity: event CounterpartyFinalizationFeeSet(uint256 counterpartyFinalizationFee)
+func (_L1gateway *L1gatewayFilterer) WatchCounterpartyFinalizationFeeSet(opts *bind.WatchOpts, sink chan<- *L1gatewayCounterpartyFinalizationFeeSet) (event.Subscription, error) {
 
-	logs, sub, err := _L1gateway.contract.WatchLogs(opts, "CounterpartyFeeSet")
+	logs, sub, err := _L1gateway.contract.WatchLogs(opts, "CounterpartyFinalizationFeeSet")
 	if err != nil {
 		return nil, err
 	}
@@ -936,8 +884,8 @@ func (_L1gateway *L1gatewayFilterer) WatchCounterpartyFeeSet(opts *bind.WatchOpt
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(L1gatewayCounterpartyFeeSet)
-				if err := _L1gateway.contract.UnpackLog(event, "CounterpartyFeeSet", log); err != nil {
+				event := new(L1gatewayCounterpartyFinalizationFeeSet)
+				if err := _L1gateway.contract.UnpackLog(event, "CounterpartyFinalizationFeeSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -958,146 +906,12 @@ func (_L1gateway *L1gatewayFilterer) WatchCounterpartyFeeSet(opts *bind.WatchOpt
 	}), nil
 }
 
-// ParseCounterpartyFeeSet is a log parse operation binding the contract event 0x05c0c89ce202456ae9a28898a2ea3b1b0bc57c7a775275f31fa6bcd6b5c0effa.
+// ParseCounterpartyFinalizationFeeSet is a log parse operation binding the contract event 0xfd0467d48910fb6e6de1f4e0b9eedc9e04a7c227bad40d827a84a2b650ec0b7f.
 //
-// Solidity: event CounterpartyFeeSet(uint256 counterpartyFee)
-func (_L1gateway *L1gatewayFilterer) ParseCounterpartyFeeSet(log types.Log) (*L1gatewayCounterpartyFeeSet, error) {
-	event := new(L1gatewayCounterpartyFeeSet)
-	if err := _L1gateway.contract.UnpackLog(event, "CounterpartyFeeSet", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// L1gatewayFinalizationFeeSetIterator is returned from FilterFinalizationFeeSet and is used to iterate over the raw logs and unpacked data for FinalizationFeeSet events raised by the L1gateway contract.
-type L1gatewayFinalizationFeeSetIterator struct {
-	Event *L1gatewayFinalizationFeeSet // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *L1gatewayFinalizationFeeSetIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(L1gatewayFinalizationFeeSet)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(L1gatewayFinalizationFeeSet)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *L1gatewayFinalizationFeeSetIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *L1gatewayFinalizationFeeSetIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// L1gatewayFinalizationFeeSet represents a FinalizationFeeSet event raised by the L1gateway contract.
-type L1gatewayFinalizationFeeSet struct {
-	FinalizationFee *big.Int
-	Raw             types.Log // Blockchain specific contextual infos
-}
-
-// FilterFinalizationFeeSet is a free log retrieval operation binding the contract event 0xd636108a5ebf9fe91b4bf69bc6776a0ef5c6a54e4d945c2aeeaa08a2bf6b0bc5.
-//
-// Solidity: event FinalizationFeeSet(uint256 finalizationFee)
-func (_L1gateway *L1gatewayFilterer) FilterFinalizationFeeSet(opts *bind.FilterOpts) (*L1gatewayFinalizationFeeSetIterator, error) {
-
-	logs, sub, err := _L1gateway.contract.FilterLogs(opts, "FinalizationFeeSet")
-	if err != nil {
-		return nil, err
-	}
-	return &L1gatewayFinalizationFeeSetIterator{contract: _L1gateway.contract, event: "FinalizationFeeSet", logs: logs, sub: sub}, nil
-}
-
-// WatchFinalizationFeeSet is a free log subscription operation binding the contract event 0xd636108a5ebf9fe91b4bf69bc6776a0ef5c6a54e4d945c2aeeaa08a2bf6b0bc5.
-//
-// Solidity: event FinalizationFeeSet(uint256 finalizationFee)
-func (_L1gateway *L1gatewayFilterer) WatchFinalizationFeeSet(opts *bind.WatchOpts, sink chan<- *L1gatewayFinalizationFeeSet) (event.Subscription, error) {
-
-	logs, sub, err := _L1gateway.contract.WatchLogs(opts, "FinalizationFeeSet")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(L1gatewayFinalizationFeeSet)
-				if err := _L1gateway.contract.UnpackLog(event, "FinalizationFeeSet", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseFinalizationFeeSet is a log parse operation binding the contract event 0xd636108a5ebf9fe91b4bf69bc6776a0ef5c6a54e4d945c2aeeaa08a2bf6b0bc5.
-//
-// Solidity: event FinalizationFeeSet(uint256 finalizationFee)
-func (_L1gateway *L1gatewayFilterer) ParseFinalizationFeeSet(log types.Log) (*L1gatewayFinalizationFeeSet, error) {
-	event := new(L1gatewayFinalizationFeeSet)
-	if err := _L1gateway.contract.UnpackLog(event, "FinalizationFeeSet", log); err != nil {
+// Solidity: event CounterpartyFinalizationFeeSet(uint256 counterpartyFinalizationFee)
+func (_L1gateway *L1gatewayFilterer) ParseCounterpartyFinalizationFeeSet(log types.Log) (*L1gatewayCounterpartyFinalizationFeeSet, error) {
+	event := new(L1gatewayCounterpartyFinalizationFeeSet)
+	if err := _L1gateway.contract.UnpackLog(event, "CounterpartyFinalizationFeeSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2047,16 +1861,17 @@ func (it *L1gatewayTransferInitiatedIterator) Close() error {
 
 // L1gatewayTransferInitiated represents a TransferInitiated event raised by the L1gateway contract.
 type L1gatewayTransferInitiated struct {
-	Sender      common.Address
-	Recipient   common.Address
-	Amount      *big.Int
-	TransferIdx *big.Int
-	Raw         types.Log // Blockchain specific contextual infos
+	Sender                      common.Address
+	Recipient                   common.Address
+	Amount                      *big.Int
+	TransferIdx                 *big.Int
+	CounterpartyFinalizationFee *big.Int
+	Raw                         types.Log // Blockchain specific contextual infos
 }
 
-// FilterTransferInitiated is a free log retrieval operation binding the contract event 0x6abe792a4e9e702afbc17fdac3c94f6ed1d8c9a8e4917c99672474b3f775ab43.
+// FilterTransferInitiated is a free log retrieval operation binding the contract event 0xb6167f4688b09f3299421570723fc91f0bd78d6f55e8d51fbfca3bfbda7a2664.
 //
-// Solidity: event TransferInitiated(address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx)
+// Solidity: event TransferInitiated(address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx, uint256 counterpartyFinalizationFee)
 func (_L1gateway *L1gatewayFilterer) FilterTransferInitiated(opts *bind.FilterOpts, sender []common.Address, recipient []common.Address, transferIdx []*big.Int) (*L1gatewayTransferInitiatedIterator, error) {
 
 	var senderRule []interface{}
@@ -2080,9 +1895,9 @@ func (_L1gateway *L1gatewayFilterer) FilterTransferInitiated(opts *bind.FilterOp
 	return &L1gatewayTransferInitiatedIterator{contract: _L1gateway.contract, event: "TransferInitiated", logs: logs, sub: sub}, nil
 }
 
-// WatchTransferInitiated is a free log subscription operation binding the contract event 0x6abe792a4e9e702afbc17fdac3c94f6ed1d8c9a8e4917c99672474b3f775ab43.
+// WatchTransferInitiated is a free log subscription operation binding the contract event 0xb6167f4688b09f3299421570723fc91f0bd78d6f55e8d51fbfca3bfbda7a2664.
 //
-// Solidity: event TransferInitiated(address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx)
+// Solidity: event TransferInitiated(address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx, uint256 counterpartyFinalizationFee)
 func (_L1gateway *L1gatewayFilterer) WatchTransferInitiated(opts *bind.WatchOpts, sink chan<- *L1gatewayTransferInitiated, sender []common.Address, recipient []common.Address, transferIdx []*big.Int) (event.Subscription, error) {
 
 	var senderRule []interface{}
@@ -2131,9 +1946,9 @@ func (_L1gateway *L1gatewayFilterer) WatchTransferInitiated(opts *bind.WatchOpts
 	}), nil
 }
 
-// ParseTransferInitiated is a log parse operation binding the contract event 0x6abe792a4e9e702afbc17fdac3c94f6ed1d8c9a8e4917c99672474b3f775ab43.
+// ParseTransferInitiated is a log parse operation binding the contract event 0xb6167f4688b09f3299421570723fc91f0bd78d6f55e8d51fbfca3bfbda7a2664.
 //
-// Solidity: event TransferInitiated(address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx)
+// Solidity: event TransferInitiated(address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx, uint256 counterpartyFinalizationFee)
 func (_L1gateway *L1gatewayFilterer) ParseTransferInitiated(log types.Log) (*L1gatewayTransferInitiated, error) {
 	event := new(L1gatewayTransferInitiated)
 	if err := _L1gateway.contract.UnpackLog(event, "TransferInitiated", log); err != nil {

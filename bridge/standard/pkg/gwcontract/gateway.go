@@ -19,6 +19,7 @@ type GatewayTransactor interface {
 		_recipient common.Address,
 		_amount *big.Int,
 		_counterpartyIdx *big.Int,
+		_finalizationFee *big.Int,
 	) (*types.Transaction, error)
 }
 
@@ -71,6 +72,7 @@ func (g *Gateway[EventType]) FinalizeTransfer(
 	recipient common.Address,
 	amount *big.Int,
 	counterpartyIdx *big.Int,
+	finalizationFee *big.Int,
 ) error {
 	switch settled, err := g.store.IsSettled(ctx, counterpartyIdx); {
 	case err != nil:
@@ -92,6 +94,7 @@ func (g *Gateway[EventType]) FinalizeTransfer(
 		recipient,
 		amount,
 		counterpartyIdx,
+		finalizationFee,
 	)
 	if err != nil {
 		g.logger.Error(

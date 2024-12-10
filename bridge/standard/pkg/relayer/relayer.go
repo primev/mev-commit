@@ -14,12 +14,12 @@ import (
 
 type L1Gateway interface {
 	Subscribe(ctx context.Context) (<-chan *l1gateway.L1gatewayTransferInitiated, <-chan error)
-	FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int) error
+	FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int, finalizationFee *big.Int) error
 }
 
 type SettlementGateway interface {
 	Subscribe(ctx context.Context) (<-chan *settlementgateway.SettlementgatewayTransferInitiated, <-chan error)
-	FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int) error
+	FinalizeTransfer(ctx context.Context, recipient common.Address, amount *big.Int, transferIdx *big.Int, finalizationFee *big.Int) error
 }
 
 type Relayer struct {
@@ -72,6 +72,7 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 					upd.Recipient,
 					upd.Amount,
 					upd.TransferIdx,
+					upd.CounterpartyFinalizationFee,
 				)
 				if err != nil {
 					r.logger.Error(
@@ -104,6 +105,7 @@ func (r *Relayer) Start(ctx context.Context) <-chan struct{} {
 					upd.Recipient,
 					upd.Amount,
 					upd.TransferIdx,
+					upd.CounterpartyFinalizationFee,
 				)
 				if err != nil {
 					r.logger.Error(

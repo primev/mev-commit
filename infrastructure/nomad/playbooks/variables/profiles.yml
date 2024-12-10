@@ -604,7 +604,7 @@ jobs:
           to: 5433
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
-      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
+      l1_rpc_urls: "{{ resolved_l1_rpc_urls }}"
 
   mev_commit_faucet: &mev_commit_faucet_job
     name: mev-commit-faucet

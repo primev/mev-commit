@@ -100,6 +100,7 @@ func (t *testGatewayTransactor) FinalizeTransfer(
 	recipient common.Address,
 	amount *big.Int,
 	counterpartyIdx *big.Int,
+	finalizationFee *big.Int,
 ) (*types.Transaction, error) {
 	newNonce := t.nonce
 	t.nonce++
@@ -143,22 +144,25 @@ func TestGateway(t *testing.T) {
 
 	transfers := []*l1gateway.L1gatewayTransferInitiated{
 		{
-			Sender:      common.HexToAddress("0x1234"),
-			Recipient:   common.HexToAddress("0x5678"),
-			Amount:      big.NewInt(100),
-			TransferIdx: big.NewInt(1),
+			Sender:                      common.HexToAddress("0x1234"),
+			Recipient:                   common.HexToAddress("0x5678"),
+			Amount:                      big.NewInt(100),
+			TransferIdx:                 big.NewInt(1),
+			CounterpartyFinalizationFee: big.NewInt(10),
 		},
 		{
-			Sender:      common.HexToAddress("0x5678"),
-			Recipient:   common.HexToAddress("0x1234"),
-			Amount:      big.NewInt(200),
-			TransferIdx: big.NewInt(2),
+			Sender:                      common.HexToAddress("0x5678"),
+			Recipient:                   common.HexToAddress("0x1234"),
+			Amount:                      big.NewInt(200),
+			TransferIdx:                 big.NewInt(2),
+			CounterpartyFinalizationFee: big.NewInt(20),
 		},
 		{
-			Sender:      common.HexToAddress("0x1234"),
-			Recipient:   common.HexToAddress("0x5678"),
-			Amount:      big.NewInt(300),
-			TransferIdx: big.NewInt(3),
+			Sender:                      common.HexToAddress("0x1234"),
+			Recipient:                   common.HexToAddress("0x5678"),
+			Amount:                      big.NewInt(300),
+			TransferIdx:                 big.NewInt(3),
+			CounterpartyFinalizationFee: big.NewInt(30),
 		},
 	}
 
@@ -208,6 +212,7 @@ func TestGateway(t *testing.T) {
 			transfer.Recipient,
 			transfer.Amount,
 			transfer.TransferIdx,
+			transfer.CounterpartyFinalizationFee,
 		); err != nil {
 			t.Fatal(err)
 		}
@@ -229,6 +234,7 @@ func TestGateway(t *testing.T) {
 		transfers[0].Recipient,
 		transfers[0].Amount,
 		transfers[0].TransferIdx,
+		transfers[0].CounterpartyFinalizationFee,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -241,6 +247,7 @@ func TestGateway(t *testing.T) {
 		common.HexToAddress("0x1234"),
 		big.NewInt(100),
 		big.NewInt(4),
+		big.NewInt(10),
 	); err == nil {
 		t.Fatal("expected error")
 	}
@@ -254,6 +261,7 @@ func publishTransfer(
 	event := brABI.Events["TransferInitiated"]
 	buf, err := event.Inputs.NonIndexed().Pack(
 		transfer.Amount,
+		transfer.CounterpartyFinalizationFee,
 	)
 	if err != nil {
 		return err

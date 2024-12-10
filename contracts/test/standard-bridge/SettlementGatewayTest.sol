@@ -19,15 +19,13 @@ contract SettlementGatewayTest is Test {
     address owner;
     address relayer;
     address bridgeUser;
-    uint256 finalizationFee;
-    uint256 counterpartyFee;
+    uint256 counterpartyFinalizationFee;
 
     function setUp() public {
         owner = address(this); // Original contract deployer as owner
         relayer = address(0x78);
         bridgeUser = address(0x101);
-        finalizationFee = 0.05 ether;
-        counterpartyFee = 0.1 ether;
+        counterpartyFinalizationFee = 0.1 ether;
 
         address allocatorProxy = Upgrades.deployUUPSProxy(
             "Allocator.sol",
@@ -41,8 +39,7 @@ contract SettlementGatewayTest is Test {
             (address(allocator), 
             owner, 
             relayer, 
-            finalizationFee, 
-            counterpartyFee))
+            counterpartyFinalizationFee))
         );
         settlementGateway = SettlementGateway(payable(settlementGatewayProxy));
 
@@ -54,47 +51,31 @@ contract SettlementGatewayTest is Test {
         // Test if the constructor correctly initializes variables
         assertEq(settlementGateway.owner(), owner);
         assertEq(settlementGateway.relayer(), relayer);
-        assertEq(settlementGateway.finalizationFee(), finalizationFee);
-        assertEq(settlementGateway.counterpartyFee(), counterpartyFee);
+        assertEq(settlementGateway.counterpartyFinalizationFee(), counterpartyFinalizationFee);
         assertEq(settlementGateway.allocatorAddr(), address(allocator));
     }
 
     // Expected event signature emitted in initiateTransfer()
     event TransferInitiated(
-        address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx);
+        address indexed sender, address indexed recipient, uint256 amount, uint256 indexed transferIdx, uint256 counterpartyFinalizationFee);
 
     event TransferNeedsWithdrawal(address indexed recipient, uint256 amount);
     event TransferSuccess(address indexed recipient, uint256 amount);
 
-    event FinalizationFeeSet(uint256 finalizationFee);
-    event CounterpartyFeeSet(uint256 counterpartyFee);
+    event CounterpartyFinalizationFeeSet(uint256 counterpartyFinalizationFee);
 
-    function test_SetFinalizationFee() public {
+    function test_SetCounterpartyFinalizationFee() public {
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
         );
         vm.prank(vm.addr(888));
-        settlementGateway.setFinalizationFee(0.0015 ether);
+        settlementGateway.setCounterpartyFinalizationFee(0.0005 ether);
 
-        assertEq(settlementGateway.finalizationFee(), 0.05 ether);
+        assertEq(settlementGateway.counterpartyFinalizationFee(), 0.1 ether);
         vm.expectEmit(true, true, true, true);
-        emit FinalizationFeeSet(0.0015 ether);
-        settlementGateway.setFinalizationFee(0.0015 ether);
-        assertEq(settlementGateway.finalizationFee(), 0.0015 ether);
-    }
-
-    function test_SetCounterpartyFee() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, vm.addr(888))
-        );
-        vm.prank(vm.addr(888));
-        settlementGateway.setCounterpartyFee(0.0005 ether);
-
-        assertEq(settlementGateway.counterpartyFee(), 0.1 ether);
-        vm.expectEmit(true, true, true, true);
-        emit CounterpartyFeeSet(0.0005 ether);
-        settlementGateway.setCounterpartyFee(0.0005 ether);
-        assertEq(settlementGateway.counterpartyFee(), 0.0005 ether);
+        emit CounterpartyFinalizationFeeSet(0.0005 ether);
+        settlementGateway.setCounterpartyFinalizationFee(0.0005 ether);
+        assertEq(settlementGateway.counterpartyFinalizationFee(), 0.0005 ether);
     }
 
     event RelayerSet(address indexed relayer);
@@ -128,7 +109,7 @@ contract SettlementGatewayTest is Test {
 
         // Set up expectation for event
         vm.expectEmit(true, true, true, true);
-        emit TransferInitiated(bridgeUser, bridgeUser, amount, 1);
+        emit TransferInitiated(bridgeUser, bridgeUser, amount, 1, counterpartyFinalizationFee);
 
         // Call function as bridgeUser
         vm.prank(bridgeUser);
@@ -202,6 +183,7 @@ contract SettlementGatewayTest is Test {
     function test_FinalizeTransferSuccess() public {
         uint256 amount = 2 ether;
         uint256 counterpartyIdx = 1;
+        uint256 finalizationFee = 0.05 ether;
 
         // Fund allocator and relayer
         vm.deal(address(allocator), 3 ether);
@@ -225,7 +207,7 @@ contract SettlementGatewayTest is Test {
 
         // Call function as relayer
         vm.prank(relayer);
-        settlementGateway.finalizeTransfer(bridgeUser, amount, counterpartyIdx);
+        settlementGateway.finalizeTransfer(bridgeUser, amount, counterpartyIdx, finalizationFee);
 
         // Final assertions
         assertEq(address(allocator).balance, 1 ether);
@@ -243,11 +225,12 @@ contract SettlementGatewayTest is Test {
         vm.expectEmit(true, true, true, true);
         emit TransferFinalized(bridgeUser, 0.5 ether, counterpartyIdx+1);
         vm.prank(relayer);
-        settlementGateway.finalizeTransfer(bridgeUser, 0.5 ether, counterpartyIdx+1);
+        settlementGateway.finalizeTransfer(bridgeUser, 0.5 ether, counterpartyIdx+1, finalizationFee);
     }
 
     function test_OnlyRelayerCanCallFinalizeTransfer() public {
         uint256 amount = 0.1 ether;
+        uint256 finalizationFee = 0.05 ether;
         vm.deal(address(allocator), 3 ether);
         vm.deal(relayer, 3 ether);
 
@@ -259,7 +242,7 @@ contract SettlementGatewayTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IGateway.SenderNotRelayer.selector, bridgeUser, relayer));
         vm.prank(bridgeUser);
-        settlementGateway.finalizeTransfer(address(0x101), amount, 1);
+        settlementGateway.finalizeTransfer(address(0x101), amount, 1, finalizationFee);
 
         assertEq(address(allocator).balance, 3 ether);
         assertEq(relayer.balance, 3 ether);
@@ -269,6 +252,7 @@ contract SettlementGatewayTest is Test {
     }
 
     function test_FinalizeTransferAmountTooSmallForFinalizationFee() public {
+        uint256 finalizationFee = 0.05 ether;
         vm.deal(address(allocator), 1 ether);
         vm.deal(relayer, 1 ether);
 
@@ -280,7 +264,7 @@ contract SettlementGatewayTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IGateway.AmountTooSmall.selector, 0.04 ether, 0.05 ether));
         vm.prank(relayer);
-        settlementGateway.finalizeTransfer(bridgeUser, 0.04 ether, 1);
+        settlementGateway.finalizeTransfer(bridgeUser, 0.04 ether, 1, finalizationFee);
 
         assertEq(address(allocator).balance, 1 ether);
         assertEq(address(settlementGateway).balance, 0 ether);
@@ -291,6 +275,7 @@ contract SettlementGatewayTest is Test {
 
     function test_FinalizeTransferInvalidCounterpartyIdx() public {
         uint256 amount = 0.1 ether;
+        uint256 finalizationFee = 0.05 ether;
         vm.deal(address(allocator), 1 ether);
         vm.deal(relayer, 1 ether);
 
@@ -302,7 +287,7 @@ contract SettlementGatewayTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IGateway.InvalidCounterpartyIndex.selector, 7, 1));
         vm.prank(relayer);
-        settlementGateway.finalizeTransfer(bridgeUser, amount, 7);
+        settlementGateway.finalizeTransfer(bridgeUser, amount, 7, finalizationFee);
 
         assertEq(address(allocator).balance, 1 ether);
         assertEq(address(settlementGateway).balance, 0 ether);
@@ -313,6 +298,7 @@ contract SettlementGatewayTest is Test {
 
     function test_FinalizeTransferWithInsufficientContractBalance() public {
         uint256 amount = 0.1 ether;
+        uint256 finalizationFee = 0.05 ether;
         vm.deal(address(allocator), 0.04 ether);
         vm.deal(relayer, 1 ether);
 
@@ -324,7 +310,7 @@ contract SettlementGatewayTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IAllocator.InsufficientContractBalance.selector, 0.04 ether, 0.1 ether - finalizationFee));
         vm.prank(relayer);
-        settlementGateway.finalizeTransfer(bridgeUser, amount, 1);
+        settlementGateway.finalizeTransfer(bridgeUser, amount, 1, finalizationFee);
 
         assertEq(address(allocator).balance, 0.04 ether);
         assertEq(address(settlementGateway).balance, 0 ether);
@@ -336,7 +322,7 @@ contract SettlementGatewayTest is Test {
     function test_FinalizeTransferRevertingReceiver() public {
         uint256 amount = 2 ether;
         uint256 counterpartyIdx = 1;
-
+        uint256 finalizationFee = 0.05 ether;
         vm.deal(address(allocator), 3 ether);
         vm.deal(relayer, 3 ether);
 
@@ -359,7 +345,7 @@ contract SettlementGatewayTest is Test {
         emit TransferFinalized(receiver, amount, counterpartyIdx);
 
         vm.prank(relayer);
-        settlementGateway.finalizeTransfer(receiver, amount, counterpartyIdx);
+        settlementGateway.finalizeTransfer(receiver, amount, counterpartyIdx, finalizationFee);
 
         assertEq(address(allocator).balance, 2.95 ether);
         assertEq(relayer.balance, 3.05 ether);
@@ -389,7 +375,7 @@ contract SettlementGatewayTest is Test {
     function test_finalizeTransferEventReceiver() public {
         uint256 amount = 2 ether;
         uint256 counterpartyIdx = 1;
-
+        uint256 finalizationFee = 0.05 ether;
         vm.deal(address(allocator), 3 ether);
         vm.deal(relayer, 3 ether);
 
@@ -412,7 +398,7 @@ contract SettlementGatewayTest is Test {
         emit TransferFinalized(receiver, amount, counterpartyIdx);
 
         vm.prank(relayer);
-        settlementGateway.finalizeTransfer(receiver, amount, counterpartyIdx);
+        settlementGateway.finalizeTransfer(receiver, amount, counterpartyIdx, finalizationFee);
 
         assertEq(address(allocator).balance, 2.95 ether);
         assertEq(relayer.balance, 3.05 ether);

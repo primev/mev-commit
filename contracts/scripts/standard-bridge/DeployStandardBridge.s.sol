@@ -62,7 +62,6 @@ contract DeploySettlementGateway is BridgeBase {
 
         address relayerAddr = _getRelayerAddress();
         uint256 l1FinalizationFee = _getL1FinalizationFee();
-        uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
 
         require(address(msg.sender).balance >= DEPLOYER_GENESIS_ALLOCATION,
             DeployerMustHaveGenesisAllocation(address(msg.sender).balance, DEPLOYER_GENESIS_ALLOCATION));
@@ -84,8 +83,7 @@ contract DeploySettlementGateway is BridgeBase {
                 (allocatorProxy,
                     msg.sender, // Owner
                     relayerAddr,
-                    settlementFinalizationFee, // SettlementGateway._finalizationFee
-                    l1FinalizationFee)) // SettlementGateway._counterpartyFee
+                    l1FinalizationFee)) // SettlementGateway._counterpartyFinalizationFee
         );
         SettlementGateway settlementGateway = SettlementGateway(payable(sgProxy));
         console.log("SettlementGateway:", address(settlementGateway));
@@ -110,7 +108,6 @@ contract DeployL1Gateway is BridgeBase {
 
         address owner = _getL1OwnerAddress(); // On mainnet, this must be the primev multisig.
         address relayerAddr = _getRelayerAddress();
-        uint256 l1FinalizationFee = _getL1FinalizationFee();
         uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
 
         // Caller needs funds to lock ETH w.r.t mev-commit chain setup cost, and ETH for L1 setup cost.
@@ -122,8 +119,7 @@ contract DeployL1Gateway is BridgeBase {
             abi.encodeCall(L1Gateway.initialize,
                 (owner, // Owner
                     relayerAddr,
-                    l1FinalizationFee, // L1Gateway._finalizationFee
-                    settlementFinalizationFee)) // L1Gateway._counterpartyFee
+                    settlementFinalizationFee)) // L1Gateway._counterpartyFinalizationFee
         );
         L1Gateway l1Gateway = L1Gateway(payable(l1gProxy));
         console.log("L1Gateway:", address(l1Gateway));
