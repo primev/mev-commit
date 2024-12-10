@@ -65,5 +65,6 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
         --use 0.8.26 \
         --broadcast \
         --json \
+        --verify \
         --via-ir
 fi
