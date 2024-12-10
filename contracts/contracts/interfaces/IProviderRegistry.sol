@@ -60,6 +60,7 @@ interface IProviderRegistry {
     error ProviderCommitmentsPending(address sender, uint256 numPending);
     error StakeTransferFailed(address sender, uint256 amount);
     error ProviderAlreadyRegistered(address sender);
+    error BLSKeyAlreadyRegistered(bytes blsKey);
     error InsufficientStake(uint256 stake, uint256 minStake);
     error InvalidBLSPublicKeyLength(uint256 length, uint256 expectedLength);
     error ProviderNotRegistered(address sender);
