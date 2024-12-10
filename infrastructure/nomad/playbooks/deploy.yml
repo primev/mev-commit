@@ -515,6 +515,7 @@
             "londonBlock": 0,
             "arrowGlacierBlock": 0,
             "grayGlacierBlock": 0,
+            "cancunTime": 0,
             "clique": {
               "period": 200,
               "epoch": 30000
