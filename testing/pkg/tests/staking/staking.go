@@ -9,9 +9,9 @@ import (
 	"math/big"
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/cloudflare/circl/sign/bls"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
@@ -98,7 +98,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 
 		stakeAmount := big.NewInt(0).Mul(amount, big.NewInt(10))
 		// Generate a BLS signature to verify
-		message := []byte(strings.ToLower(strings.TrimPrefix(p.EthAddress(), "0x")))
+		message := common.HexToAddress(p.EthAddress()).Bytes()
 		hashedMessage := crypto.Keccak256(message)
 		ikm := make([]byte, 32)
 		privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
