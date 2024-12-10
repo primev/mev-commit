@@ -3,7 +3,6 @@ package staking
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/cloudflare/circl/sign/bls"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
@@ -99,20 +97,34 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 		}
 
 		stakeAmount := big.NewInt(0).Mul(amount, big.NewInt(10))
+		// Generate a BLS signature to verify
+		message := []byte(strings.ToLower(strings.TrimPrefix(p.EthAddress(), "0x")))
+		hashedMessage := crypto.Keccak256(message)
+		ikm := make([]byte, 32)
+		privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
+		if err != nil {
+			l.Error("failed to generate private key", "error", err)
+			return fmt.Errorf("failed to generate private key: %w", err)
+		}
+		publicKey := privateKey.PublicKey()
+		signature := bls.Sign(privateKey, hashedMessage)
 
-		iv := make([]byte, 32)
-		_, _ = rand.Read(iv)
-		blsPrivKey, _ := bls.KeyGen[bls.G1](iv, []byte{}, []byte{})
-		pubKey := blsPrivKey.PublicKey()
-		pubKeyBytes, _ := pubKey.MarshalBinary()
-		value := common.Hex2Bytes(strings.TrimPrefix(p.EthAddress(), "0x"))
-		hash := crypto.Keccak256Hash(value)
-		signature := bls.Sign(blsPrivKey, hash.Bytes())
+		// Verify the signature
+		if !bls.Verify(publicKey, hashedMessage, signature) {
+			l.Error("failed to verify generated BLS signature")
+			return fmt.Errorf("failed to verify generated BLS signature")
+		}
+
+		pubkeyb, err := publicKey.MarshalBinary()
+		if err != nil {
+			l.Error("failed to marshal public key", "error", err)
+			return fmt.Errorf("failed to marshal public key: %w", err)
+		}
 
 		// Register a provider
 		resp, err := providerAPI.Stake(ctx, &providerapiv1.StakeRequest{
 			Amount:        stakeAmount.String(),
-			BlsPublicKeys: []string{hex.EncodeToString(pubKeyBytes)},
+			BlsPublicKeys: []string{hex.EncodeToString(pubkeyb)},
 			BlsSignatures: []string{hex.EncodeToString(signature)},
 		})
 

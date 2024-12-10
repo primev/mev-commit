@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -23,7 +24,6 @@ import (
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	"github.com/primev/mev-commit/x/util"
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
@@ -490,44 +490,27 @@ func TestBidHandling(t *testing.T) {
 }
 
 func TestBLSKeys(t *testing.T) {
+	// Generate a BLS signature to verify
+	message := []byte("adb4257612d45f12570533308b20ac77dbfeb85a")
+	hashedMessage := crypto.Keccak256(message)
+	ikm := make([]byte, 32)
+	privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to generate private key: %v", err)
+	}
+	publicKey := privateKey.PublicKey()
+	signature := bls.Sign(privateKey, hashedMessage)
 
-	iv := make([]byte, 32)
-	_, err := rand.Read(iv)
-	assert.NoError(t, err)
-	blsPrivKey, err := bls.KeyGen[bls.G1](iv, []byte{}, []byte{})
-	assert.NoError(t, err)
-
-	pubKey := blsPrivKey.PublicKey()
-
-	// Keccak the value 0x53c61cfb8128ad59244e8c1d26109252ace23d14
-	value := common.Hex2Bytes("328809Bc894f92807417D2dAD6b7C998c1aFdac6")
-	hash := crypto.Keccak256Hash(value)
-	t.Logf("Keccak hash: %s", hash.Hex())
-
-	signature := bls.Sign(blsPrivKey, hash.Bytes())
-	pubKeyBytes, _ := pubKey.MarshalBinary()
-	encodedPubKey := hex.EncodeToString(pubKeyBytes)
-	t.Logf("Encoded Public Key: %s", encodedPubKey)
-
-	encodedSignature := hex.EncodeToString(signature)
-	t.Logf("Encoded Signature: %s", encodedSignature)
-
-	pubKey2, err := hex.DecodeString(encodedPubKey)
-	assert.NoError(t, err)
-
-	var pubkey2bytes bls.PublicKey[bls.G1]
-	if err := pubkey2bytes.UnmarshalBinary(pubKey2); err != nil {
-		t.Fatalf("error unmarshalling public key: %v", err)
+	// Verify the signature
+	if !bls.Verify(publicKey, hashedMessage, signature) {
+		t.Fatalf("Failed to verify generated BLS signature")
 	}
 
-	signature2, _ := hex.DecodeString(encodedSignature)
+	pubkeyb, _ := publicKey.MarshalBinary()
+	fmt.Printf("Public Key: %s\n", common.Bytes2Hex(pubkeyb))
+	fmt.Printf("Message: %s\n", common.Bytes2Hex(hashedMessage))
+	fmt.Printf("Signature: %s\n", common.Bytes2Hex(signature))
 
-	if !bls.Verify[bls.G1](&pubkey2bytes, hash.Bytes(), signature2) {
-		t.Errorf("Signature verification failed")
-	}
-	//  return nil, nil
-	// }
-	// return input[:48], nil
 }
 
 func TestWithdrawStakedAmount(t *testing.T) {
