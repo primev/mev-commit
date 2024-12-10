@@ -500,7 +500,7 @@ func TestBLSKeys(t *testing.T) {
 	pubKey := blsPrivKey.PublicKey()
 
 	// Keccak the value 0x53c61cfb8128ad59244e8c1d26109252ace23d14
-	value := common.Hex2Bytes("53c61cfb8128ad59244e8c1d26109252ace23d14")
+	value := common.Hex2Bytes("328809Bc894f92807417D2dAD6b7C998c1aFdac6")
 	hash := crypto.Keccak256Hash(value)
 	t.Logf("Keccak hash: %s", hash.Hex())
 
