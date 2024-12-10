@@ -111,7 +111,6 @@ job "{{ job.name }}" {
           KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
-          ETHERSCAN_API_KEY="{{ with secret "secret/data/etherscan" }}{{ .Data.data.etherscan_api_key }}{{ end }}"
           {% endraw %}
           CHAIN_ID="{{ job.env['chain-id'] }}"
           SCRIPT_PATH_PREFIX="local/contracts/scripts"
@@ -218,6 +217,7 @@ job "{{ job.name }}" {
           {% if profile == 'testnet' %}
           export RPC_URL="{{ job.env['l1_rpc_url'] }}"
           export CHAIN_ID="17000"
+          export ETHERSCAN_API_KEY="{{ job.env['etherscan_api_key'] }}"
           {% endif %}
 
           {%- raw %}
