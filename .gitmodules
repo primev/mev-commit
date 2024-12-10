@@ -25,3 +25,6 @@
 [submodule "contracts/lib/burners"]
 	path = contracts/lib/burners
 	url = https://github.com/symbioticfi/burners
+[submodule "external/geth-pos"]
+	path = external/geth-pos
+	url = git@github.com:primev/mev-commit-go-ethereum.git
