@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/cloudflare/circl/sign/bls"
 	"github.com/ethereum/go-ethereum/common"
@@ -104,7 +105,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 		blsPrivKey, _ := bls.KeyGen[bls.G1](iv, []byte{}, []byte{})
 		pubKey := blsPrivKey.PublicKey()
 		pubKeyBytes, _ := pubKey.MarshalBinary()
-		value := common.Hex2Bytes(p.EthAddress())
+		value := common.Hex2Bytes(strings.TrimPrefix(p.EthAddress(), "0x"))
 		hash := crypto.Keccak256Hash(value)
 		signature := bls.Sign(blsPrivKey, hash.Bytes())
 

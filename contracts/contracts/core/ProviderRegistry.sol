@@ -305,8 +305,6 @@ contract ProviderRegistry is
         return penaltyFeeTracker.accumulatedAmount;
     }
 
-    
-
     /**
      * @dev Register and stake function for providers.
      * The validity of this key must be verified manually off-chain.
