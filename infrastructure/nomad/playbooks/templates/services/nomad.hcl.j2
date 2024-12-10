@@ -36,6 +36,11 @@ client {
     path = "{{ ansible_user_home }}/{{ env }}/artifacts"
   }
   {% endif %}
+  {% if env == "testenv" or env == "mainenv" %}
+  host_volume "backups-volume" {
+    path = "{{ ansible_user_home }}/{{ env }}/backups"
+  }
+  {% endif %}
 }
 {% endif %}
 
