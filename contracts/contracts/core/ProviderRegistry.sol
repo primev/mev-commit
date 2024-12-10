@@ -310,7 +310,7 @@ contract ProviderRegistry is
         for (uint256 i = 0; i < numKeys; ++i) {
             bytes memory key = blsPublicKeys[i];
             require(key.length == 48, InvalidBLSPublicKeyLength(key.length, 48));
-            require(!blockBuilderBLSKeyToAddress[key], BLSKeyAlreadyRegistered(key));
+            require(blockBuilderBLSKeyToAddress[key] == address(0), BLSKeyAlreadyRegistered(key));
             blockBuilderBLSKeyToAddress[key] = provider;
         }
         eoaToBlsPubkeys[provider] = blsPublicKeys;
