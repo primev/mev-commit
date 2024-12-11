@@ -116,6 +116,7 @@ func (b *ProviderClient) CheckAndStake(_ []string) error {
 
 	b.logger.Info("stake amount", "stake", stakeAmt.Amount)
 
+	b.logger.Info("eth address", "address", ethAddress)
 	stakedAmt, set := big.NewInt(0).SetString(stakeAmt.Amount, 10)
 	if !set {
 		b.logger.Error("failed to parse stake amount")
