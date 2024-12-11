@@ -112,7 +112,7 @@ func (b *ProviderClient) CheckAndStake(_ []string) error {
 		return err
 	}
 
-	ethAddress := topology.GetTopology().Fields["ethAddress"].GetStringValue()
+	ethAddress := topology.GetTopology().Fields["self"].GetStructValue().Fields["Ethereum Address"].GetStringValue()
 
 	b.logger.Info("stake amount", "stake", stakeAmt.Amount)
 
