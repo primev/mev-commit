@@ -183,7 +183,7 @@ jobs:
     env:
       chain-id: "{{ environments[env].chain_id }}"
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
-      etherscan_api_key: "{{ etherscan_api_key }}"
+      etherscan_api_key: "{{ (etherscan_api_key) if env == 'testnet' else '' }}"
 
   mev_commit_dashboard: &mev_commit_dashboard_job
     name: mev-commit-dashboard
