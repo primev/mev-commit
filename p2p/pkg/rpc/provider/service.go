@@ -279,6 +279,8 @@ func (s *Service) Stake(
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "decoding bls signature: %v", err)
 		}
+
+		s.logger.Info("adding verified bls key", "blsPublicKey", hex.EncodeToString(blsPublicKey), "blsSignature", hex.EncodeToString(blsSignature))
 		tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, blsPublicKey, blsSignature)
 		if txErr != nil {
 			return nil, status.Errorf(codes.Internal, "adding verified bls key: %v", txErr)

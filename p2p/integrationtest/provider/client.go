@@ -149,6 +149,9 @@ func (b *ProviderClient) CheckAndStake(_ []string) error {
 		b.logger.Error("failed to marshal public key", "error", err)
 		return fmt.Errorf("failed to marshal public key: %w", err)
 	}
+	b.logger.Info("generated BLS key pair",
+		"public_key", hex.EncodeToString(pubkeyb),
+		"signature", hex.EncodeToString(signature))
 
 	// Register a provider
 	_, err = b.client.Stake(context.Background(), &providerapiv1.StakeRequest{
