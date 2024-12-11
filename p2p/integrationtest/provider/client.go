@@ -91,7 +91,7 @@ func (b *ProviderClient) Close() error {
 	return b.conn.Close()
 }
 
-func (b *ProviderClient) CheckAndStake(keys []string) error {
+func (b *ProviderClient) CheckAndStake(_ []string) error {
 	stakeAmt, err := b.client.GetStake(context.Background(), &providerapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get stake amount", "err", err)
@@ -112,8 +112,7 @@ func (b *ProviderClient) CheckAndStake(keys []string) error {
 	}
 
 	_, err = b.client.Stake(context.Background(), &providerapiv1.StakeRequest{
-		Amount:        "10000000000000000000",
-		BlsPublicKeys: keys,
+		Amount: "10000000000000000000",
 	})
 	if err != nil {
 		b.logger.Error("failed to register stake", "err", err)
