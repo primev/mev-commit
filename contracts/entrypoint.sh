@@ -14,6 +14,10 @@ KEYSTORE_FILENAME=${KEYSTORE_FILENAME:-*}
 KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"pwd"}
 CONTRACT_REPO_ROOT_PATH=${CONTRACT_REPO_ROOT_PATH:-$PWD}
 
+if [ -n "${ETHERSCAN_API_KEY}" ]; then
+    VERIFY_OPTION="--verify"
+fi
+
 if [ "${DEPLOY_TYPE}" = "core" ]; then
     if [ -z "$ORACLE_KEYSTORE_ADDRESS" ]; then
         echo "ORACLE_KEYSTORE_ADDRESS not specified"
@@ -65,5 +69,6 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
         --use 0.8.26 \
         --broadcast \
         --json \
+        ${VERIFY_OPTION} \
         --via-ir
 fi
