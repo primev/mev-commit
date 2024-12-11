@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	github.com/armon/go-radix v1.0.0
+	github.com/cloudflare/circl v1.5.0
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/primev/mev-commit/bridge/standard v0.0.1
 	github.com/primev/mev-commit/contracts-abi v0.0.1

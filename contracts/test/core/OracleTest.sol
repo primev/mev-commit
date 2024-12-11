@@ -10,6 +10,7 @@ import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
 
 contract OracleTest is Test {
     using ECDSA for bytes32;
@@ -29,6 +30,7 @@ contract OracleTest is Test {
     bytes public sharedSecretKey;
     bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
+    bytes public dummyBLSSignature = hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     uint256 public constant withdrawalDelay = 24 hours ; // 24 hours
     uint256 public constant protocolFeePayoutPeriodBlocks = 100;
     struct TestCommitment {
@@ -59,6 +61,10 @@ contract OracleTest is Test {
     );
 
     function setUp() public {
+        address BLS_VERIFY_ADDRESS = address(0xf0);
+        bytes memory code = type(MockBLSVerify).creationCode;
+        vm.etch(BLS_VERIFY_ADDRESS, code);
+
         testNumber = 2;
         testNumber2 = 2;
         sharedSecretKey = bytes("0xsecret");
@@ -178,7 +184,11 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
+        providerRegistry.registerAndStake{value: 250 ether}();
+        for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
+            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+        }
+
         vm.stopPrank();
 
         bytes32 index = constructAndStoreCommitment(
@@ -226,7 +236,11 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
+        providerRegistry.registerAndStake{value: 250 ether}();
+        for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
+            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+        }
+
         vm.stopPrank();
 
         bytes32 index = constructAndStoreCommitment(
@@ -280,7 +294,11 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
+        providerRegistry.registerAndStake{value: 250 ether}();
+        for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
+            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+        }
+
         vm.stopPrank();
 
         bytes32 index1 = constructAndStoreCommitment(
@@ -357,7 +375,11 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
+        providerRegistry.registerAndStake{value: 250 ether}();
+        for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
+            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+        }
+
         vm.stopPrank();
 
         bytes32 index1 = constructAndStoreCommitment(
@@ -472,7 +494,11 @@ contract OracleTest is Test {
 
         vm.deal(provider, 200000 ether);
         vm.startPrank(provider);
-        providerRegistry.registerAndStake{value: 250 ether}(validBLSPubkeys);
+        providerRegistry.registerAndStake{value: 250 ether}();
+        for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
+            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+        }
+
         vm.stopPrank();
 
         bytes32[] memory commitments = new bytes32[](4);
