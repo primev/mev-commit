@@ -72,7 +72,7 @@ interface IProviderRegistry {
     error BidderWithdrawalTransferFailed(address sender, uint256 amount);
     error PublicKeyLengthInvalid(uint256 exp, uint256 got);
     error SignatureLengthInvalid(uint256 exp, uint256 got);
-    error SignatureInvalid();
+    error BLSSignatureInvalid();
  
     function registerAndStake() external payable;
 

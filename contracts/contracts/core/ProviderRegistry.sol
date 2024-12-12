@@ -254,7 +254,7 @@ contract ProviderRegistry is
 
         // Verify the BLS signature
         bool isValid = verifySignature(blsPublicKey, message, signature);
-        require(isValid, SignatureInvalid());
+        require(isValid, BLSSignatureInvalid());
 
         // Add the BLS public key to the provider's account
         eoaToBlsPubkeys[provider].push(blsPublicKey);
