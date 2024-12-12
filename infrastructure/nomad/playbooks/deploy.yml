@@ -9,6 +9,7 @@
     build_artifacts: false
     build_templates: false
     genesis_file_url: ""
+    genesis_pos_file_url: ""
     otel_collector_endpoint_url: ""
     aws_s3_bucket: "primev-infrastructure-artifacts"
 
@@ -549,6 +550,78 @@
       delegate_to: localhost
       run_once: true
       when: build_artifacts and genesis_file_url | trim | length > 0
+
+    - name: Assemble Genesis File For Pos Geth
+      ansible.builtin.shell: |
+        ALLOCATIONS="$(cat {{ dist_dir }}/allocations.txt 2>/dev/null)"
+
+        ALLOC=$(echo '{}' | jq '.')
+        for ADDRESS in ${ALLOCATIONS}; do
+          ALLOC=$(
+            echo "${ALLOC}" | jq --arg address "0x${ADDRESS}" '
+              . + {
+                ($address): {
+                    "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD4A51000FDA0FFFF"
+                }
+              }
+            '
+         )
+        done
+
+        ADDRESS_COUNT=0
+
+        echo $(cat <<-EOH
+        {
+          "config": {
+            "chainId": {{ environments[env].chain_id }},
+            "homesteadBlock": 0,
+            "daoForkSupport": true,
+            "eip150Block": 0,
+            "eip155Block": 0,
+            "eip158Block": 0,
+            "byzantiumBlock": 0,
+            "constantinopleBlock": 0,
+            "petersburgBlock": 0,
+            "istanbulBlock": 0,
+            "muirGlacierBlock": 0,
+            "berlinBlock": 0,
+            "londonBlock": 0,
+            "arrowGlacierBlock": 0,
+            "grayGlacierBlock": 0,
+            "mergeNetsplitBlock": 0,4
+            "shanghaiTime": 0,
+            "cancunTime": 0,
+            "terminalTotalDifficulty": 0,
+            "terminalTotalDifficultyPassed": true
+          },
+          "nonce": "0x0",
+          {% if environments[env].genesis_timestamp is defined %}
+          "timestamp": "{{ environments[env].genesis_timestamp }}",
+          {% else %}
+          "timestamp": "0x$(printf "%x" "$(date +%s)")",
+          {% endif %}
+          "difficulty": "0x1",
+          "gasLimit": "0x1c9c380",
+          "coinbase": "0x0000000000000000000000000000000000000000",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "alloc": ${ALLOC},
+        }
+        EOH
+        ) | jq -c '.' > "{{ dist_dir }}/genesis_pos_{{ environments[env].version }}.json"
+      args:
+        executable: bash
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and genesis_pos_file_url | trim | length == 0
+
+    - name: Fetch Genesis File for PoS Geth
+      ansible.builtin.uri:
+        url: "{{ genesis_pos_file_url }}"
+        dest: "{{ dist_dir }}/genesis_pos_{{ environments[env].version }}.json"
+        return_content: no
+      delegate_to: localhost
+      run_once: true
+      when: build_artifacts and genesis_pos_file_url | trim | length > 0
 
     - name: Prepare launchmevcommit Script
       ansible.builtin.shell: |
