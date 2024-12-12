@@ -1109,6 +1109,11 @@
   },
   {
     "type": "error",
+    "name": "BLSSignatureInvalid",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BidderAmountIsZero",
     "inputs": [
       {
@@ -1364,8 +1369,40 @@
   },
   {
     "type": "error",
+    "name": "PublicKeyLengthInvalid",
+    "inputs": [
+      {
+        "name": "exp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "got",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SignatureLengthInvalid",
+    "inputs": [
+      {
+        "name": "exp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "got",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",
