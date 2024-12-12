@@ -23,7 +23,7 @@ concurrency:
 jobs:
   go-modules:
     name: Test and Build Go Modules
-    runs-on: primev-ci-runner
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
 
     steps:
@@ -111,7 +111,7 @@ jobs:
 
   foundry:
     name: Foundry Checks and Reports
-    runs-on: primev-ci-runner
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -141,7 +141,7 @@ jobs:
 
   contracts:
     name: Test and Build Contracts Scripts
-    runs-on: primev-ci-runner
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
