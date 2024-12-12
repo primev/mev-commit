@@ -81,7 +81,7 @@ job "{{ job.name }}" {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_pos_{{ version }}.json"
       }
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-go-ethereum_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% else %}
       artifact {
@@ -91,7 +91,7 @@ job "{{ job.name }}" {
         source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/genesis_{{ version }}.json"
       }
       artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-geth_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-go-ethereum_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% endif %}
 
@@ -102,7 +102,7 @@ job "{{ job.name }}" {
           {% endraw %}
           GETH_CONFIG="local/config_{{ version }}.toml"
           GENESIS_L1_PATH="local/genesis_{{ version }}.json"
-          GETH_BIN_PATH="local/mev-commit-geth"
+          GETH_BIN_PATH="local/mev-commit-go-ethereum"
           NODE_IP="{{ job.env['ip'] }}"
           {% if job.env['type'] != 'signer' %}
           PUBLIC_NODE_IP="{{ job.env['public_ip'] }}"
@@ -131,7 +131,7 @@ job "{{ job.name }}" {
           BOOTNODE_ENDPOINT="{{ geth_bootnode_url }}"
             {% else %}
           {%- raw %}
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
+          {{- range nomadService "mev-commit-geth-pos-bootnode1" }}
             {{- if contains "p2p" .Tags }}
           BOOTNODE_ENDPOINT="enode://{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_nodekey_address }}{{ end }}@{{ .Address }}:{{ .Port }}"
             {{- end }}
@@ -183,7 +183,7 @@ job "{{ job.name }}" {
           {% endraw %}
 
           export GETH_ZERO_FEE_ADDRESSES
-          chmod +x local/mev-commit-geth local/entrypoint.sh
+          chmod +x local/mev-commit-go-ethereum local/entrypoint.sh
           exec local/entrypoint.sh
         EOH
         destination = "local/run.sh"
