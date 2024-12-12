@@ -78,7 +78,7 @@ jobs:
       type: bootnode
       sync_mode: snap
 
-    mev_commit_geth_pos_bootnode1: &mev_commit_geth_pos_bootnode1_job
+  mev_commit_geth_pos_bootnode1: &mev_commit_geth_pos_bootnode1_job
     name: mev-commit-geth-pos-bootnode1
     template: mev-commit-geth-pos.nomad.j2
     count: 1
@@ -107,9 +107,9 @@ jobs:
 
   mev_commit_geth_pos_signer_node1: &mev_commit_geth_pos_signer_node1_job
     name: mev-commit-geth-pos-signer-node1
-    template: mev-commit-geth.nomad.j2
+    template: mev-commit-geth-pos.nomad.j2
     artifacts:
-      - *geth_artifact
+      - *geth_pos_artifact
       - nodekey:
           name: geth_signer_node1_nodekey
       - keystores:
