@@ -9,6 +9,7 @@ on:
         type: choice
         options:
           - devnet
+          - devnet-redis
           - testnet
           - stressnet
           - stressnet-wl1
