@@ -54,7 +54,8 @@ jobs:
           WORKSPACE_MODULES=$(go list -f '{{.Dir}}' -m)
 
           ADDITIONAL_MODULES=(
-          "${GITHUB_WORKSPACE}/external/geth"
+          "${GITHUB_WORKSPACE}/external/geth",
+          "${GITHUB_WORKSPACE}/external/geth-pos",
           )
 
           ALL_MODULES=$(printf "%s\n" "${WORKSPACE_MODULES}" "${ADDITIONAL_MODULES[@]}")
@@ -62,7 +63,7 @@ jobs:
           echo "GO_MODULES<<EOF" >> ${GITHUB_ENV}
           echo "${ALL_MODULES}" >> ${GITHUB_ENV}
           echo "EOF" >> ${GITHUB_ENV}
-          echo "GO_LINT_MODULES=$(printf "%s " $(echo "${ALL_MODULES}" | sed 's|$|/...|' | grep -v '/external/geth'))" >> ${GITHUB_ENV}
+          echo "GO_LINT_MODULES=$(printf "%s " $(echo "${ALL_MODULES}" | sed 's|$|/...|' | grep -v '/external/geth' | grep -v '/external/geth-pos' ))" >> ${GITHUB_ENV}
 
       - name: Run Gofmt
         run: |
@@ -93,7 +94,7 @@ jobs:
           GOWORK: off
 
       - name: Run Test
-        run: echo ${GO_MODULES} | tr ' ' '\n' | grep -v '/external/geth' | xargs -I {} sh -c 'go test -short -race {}/...'
+        run: echo ${GO_MODULES} | tr ' ' '\n' | grep -v '/external/geth' | grep -v '/external/geth-pos' | xargs -I {} sh -c 'go test -short -race {}/...'
 
       - name: Setup Protobuf
         uses: bufbuild/buf-setup-action@v1.31.0
