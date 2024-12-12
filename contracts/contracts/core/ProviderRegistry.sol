@@ -245,16 +245,16 @@ contract ProviderRegistry is
     ) external {
         address provider = msg.sender;
 
-        require(providerRegistered[provider], "Provider not registered");
-        require(blsPublicKey.length == 48, "Public key must be 48 bytes");
-        require(signature.length == 96, "Signature must be 96 bytes");
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(blsPublicKey.length == 48, PublicKeyLengthInvalid(48, blsPublicKey.length));
+        require(signature.length == 96, SignatureLengthInvalid(96, signature.length));
 
 
         bytes32 message = keccak256(abi.encodePacked(provider));
 
         // Verify the BLS signature
         bool isValid = verifySignature(blsPublicKey, message, signature);
-        require(isValid, "Invalid BLS signature");
+        require(isValid, SignatureInvalid());
 
         // Add the BLS public key to the provider's account
         eoaToBlsPubkeys[provider].push(blsPublicKey);
