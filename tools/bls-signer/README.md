@@ -19,3 +19,8 @@ The tool will log:
 - The hex-encoded BLS signature
 
 The logged public key and signature should be used when making a staking request to register as a provider.
+
+Example usage:
+```
+bls-signer --private-key 0x30B67395EDA0B03F5E400498690FB8D7CF7BAC53132F89CCED0D65559DB065C9 --payload 0xdeadbeef
+```
