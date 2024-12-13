@@ -240,6 +240,12 @@ func (s *Service) Stake(
 	}
 
 	if !registered {
+		if len(stake.BlsPublicKeys) == 0 {
+			return nil, status.Error(codes.InvalidArgument, "missing BLS keys")
+		}
+		if len(stake.BlsSignatures) == 0 {
+			return nil, status.Error(codes.InvalidArgument, "missing BLS signatures")
+		}
 		tx, txErr = s.registryContract.RegisterAndStake(opts)
 	} else {
 		tx, txErr = s.registryContract.Stake(opts)

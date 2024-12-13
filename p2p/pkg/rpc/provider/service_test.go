@@ -208,18 +208,16 @@ func TestStakeHandling(t *testing.T) {
 	validSignature := "bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"
 	t.Run("register stake", func(t *testing.T) {
 		type testCase struct {
-			amount       string
-			blsPublicKey string
-			blsSignature string
-			err          string
+			amount        string
+			blsPublicKeys []string
+			blsSignatures []string
+			err           string
 		}
 
 		for _, tc := range []testCase{
 			{
-				amount:       "",
-				blsPublicKey: "",
-				blsSignature: "",
-				err:          "amount must be a valid integer",
+				amount: "",
+				err:    "amount must be a valid integer",
 			},
 			{
 				amount: "0000000000000000000",
@@ -230,36 +228,39 @@ func TestStakeHandling(t *testing.T) {
 				err:    "amount must be a valid integer",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: "0x",
-				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{"0x"},
+				err:           "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: "0x12345",
-				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{"0x12345"},
+				err:           "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: validBLSKey,
-				blsSignature: "",
-				err:          "bls_signatures must be a valid 96-byte hex string, with optional 0x prefix.",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{validBLSKey},
+				err:           "missing BLS signatures",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: validBLSKey,
-				blsSignature: validSignature,
-				err:          "",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{validBLSKey},
+				blsSignatures: []string{validSignature},
+				err:           "",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: validBLSKey,
-				blsSignature: validSignature,
-				err:          "",
+				amount: "1000000000000000000",
+				err:    "",
 			},
 		} {
-			stake, err := client.Stake(context.Background(),
-				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKeys: []string{tc.blsPublicKey}, BlsSignatures: []string{tc.blsSignature}})
+			stake, err := client.Stake(
+				context.Background(),
+				&providerapiv1.StakeRequest{
+					Amount:        tc.amount,
+					BlsPublicKeys: tc.blsPublicKeys,
+					BlsSignatures: tc.blsSignatures,
+				},
+			)
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("expected error staking: %s got %v", tc.err, err)
@@ -271,8 +272,8 @@ func TestStakeHandling(t *testing.T) {
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
 				}
-				if stake.BlsPublicKeys[0] != tc.blsPublicKey {
-					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKeys[0])
+				if len(tc.blsPublicKeys) > 0 && stake.BlsPublicKeys[0] != tc.blsPublicKeys[0] {
+					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKeys[0], stake.BlsPublicKeys[0])
 				}
 			}
 		}

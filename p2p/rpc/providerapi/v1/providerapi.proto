@@ -92,7 +92,7 @@ message StakeRequest {
   }, (buf.validate.field).cel = {
       id: "bls_public_key",
       message: "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
-      expression: "size(this) > 0 && this.all(r, r.matches('^(0x)?[a-fA-F0-9]{96}$'))"
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{96}$'))"
   }];
   repeated string bls_signatures = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "BLS signatures corresponding to the BLS public keys."
@@ -100,7 +100,7 @@ message StakeRequest {
   }, (buf.validate.field).cel = {
       id: "bls_signatures",
       message: "bls_signatures must be a valid 96-byte hex string, with optional 0x prefix.",
-      expression: "size(this) > 0 && this.all(r, r.matches('^(0x)?[a-fA-F0-9]{192}$'))"
+      expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]{192}$'))"
   }];
 };
 
