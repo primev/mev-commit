@@ -17,13 +17,15 @@ import (
 
 var (
 	optionPrivateKey = &cli.StringFlag{
-		Name:  "private-key",
-		Usage: "BLS private key as hex encoded string (with optional 0x prefix). Must be a valid hex string representing a BLS private key.",
+		Name:     "private-key",
+		Usage:    "BLS private key as hex encoded string (with optional 0x prefix). Must be a valid hex string representing a BLS private key.",
+		Required: true,
 	}
 
-	optionEthAddress = &cli.StringFlag{
-		Name:  "eth-address",
-		Usage: "Ethereum address as hex string (with optional 0x prefix)",
+	optionPayload = &cli.StringFlag{
+		Name:     "payload",
+		Usage:    "Payload as hex string (with optional 0x prefix)",
+		Required: true,
 	}
 )
 
@@ -33,7 +35,7 @@ func main() {
 		Usage: "Create BLS signatures",
 		Flags: []cli.Flag{
 			optionPrivateKey,
-			optionEthAddress,
+			optionPayload,
 		},
 		Action: run,
 	}
@@ -46,15 +48,7 @@ func main() {
 
 func run(c *cli.Context) error {
 	blsPrivKeyHex := c.String("private-key")
-	ethAddress := c.String("eth-address")
-
-	if blsPrivKeyHex == "" {
-		return fmt.Errorf("--private-key flag is required")
-	}
-
-	if ethAddress == "" {
-		return fmt.Errorf("--eth-address flag is required")
-	}
+	payload := c.String("payload")
 
 	// Strip 0x prefix if present
 	blsPrivKeyHex = strings.TrimPrefix(blsPrivKeyHex, "0x")
@@ -68,7 +62,7 @@ func run(c *cli.Context) error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	// Create BLS signature
-	hashedMessage := crypto.Keccak256(common.HexToAddress(ethAddress).Bytes())
+	hashedMessage := crypto.Keccak256(common.HexToAddress(payload).Bytes())
 	privateKey := new(bls.PrivateKey[bls.G1])
 	if err := privateKey.UnmarshalBinary(privKeyBytes); err != nil {
 		logger.Error("failed to unmarshal private key", "error", err)
@@ -91,7 +85,7 @@ func run(c *cli.Context) error {
 	}
 
 	logger.Info("generated BLS signature",
-		"eth_address", ethAddress,
+		"payload", payload,
 		"public_key", hex.EncodeToString(pubkeyb),
 		"signature", hex.EncodeToString(signature))
 

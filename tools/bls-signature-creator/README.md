@@ -1,6 +1,6 @@
-# BLS Signature Creator
+# BLS Signer
 
-A tool for creating BLS signatures for provider registration.
+Tool for signing payloads using BLS keys. It takes a BLS private key and payload as input and generates a BLS signature that can be used for provider registration and other signing operations.
 
 ## Installation
 
@@ -11,10 +11,10 @@ The binary is named `bls-signature-creator` and is available for Linux x86_64 an
 ## Usage
 The tool requires:
 - A BLS private key (provided as a hex encoded string with optional 0x prefix) via the `--private-key` flag
-- An Ethereum address (provided as a hex string with optional 0x prefix) via the `--eth-address` flag
+- A payload (provided as a hex string with optional 0x prefix) via the `--payload` flag
 
 The tool will log:
-- The Ethereum address that was provided
+- The payload that was provided
 - The hex-encoded BLS public key derived from your private key
 - The hex-encoded BLS signature
 

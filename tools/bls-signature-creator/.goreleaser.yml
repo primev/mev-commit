@@ -1,7 +1,7 @@
 version: 1
 
-project_name: bls-signature-creator
-dist: /tmp/dist/bls-signature-creator
+project_name: bls-signer
+dist: /tmp/dist/bls-signer
 
 builds:
   - env:
