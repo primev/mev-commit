@@ -50,6 +50,7 @@ func TestBids(t *testing.T) {
 		reqBid := &preconfpb.Bid{
 			TxHash:              "0xkartik",
 			BidAmount:           "10",
+			SlashAmount:         "5",
 			BlockNumber:         2,
 			DecayStartTimestamp: start,
 			DecayEndTimestamp:   end,
@@ -136,6 +137,7 @@ func TestBids(t *testing.T) {
 		bid := &preconfpb.Bid{
 			TxHash:              "0xkartik",
 			BidAmount:           "10",
+			SlashAmount:         "5",
 			BlockNumber:         2,
 			DecayStartTimestamp: start,
 			DecayEndTimestamp:   end,
@@ -177,6 +179,7 @@ func TestHashing(t *testing.T) {
 			TxHash:              "0xkartik",
 			RevertingTxHashes:   "0xkartik",
 			BidAmount:           "2",
+			SlashAmount:         "1",
 			BlockNumber:         2,
 			DecayStartTimestamp: 10,
 			DecayEndTimestamp:   20,
@@ -195,7 +198,7 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
+		expHash := "a5d72544568f6e99d58fbfec7045b1975767e766012df265c28d811314c7a267"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -223,7 +226,7 @@ func TestHashing(t *testing.T) {
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
+		bidHash := "a5d72544568f6e99d58fbfec7045b1975767e766012df265c28d811314c7a267"
 		bidSignature := "5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
@@ -239,6 +242,7 @@ func TestHashing(t *testing.T) {
 			TxHash:              "0xkartik",
 			RevertingTxHashes:   "0xkartik",
 			BidAmount:           "2",
+			SlashAmount:         "1",
 			BlockNumber:         2,
 			DecayStartTimestamp: 10,
 			DecayEndTimestamp:   20,
@@ -265,7 +269,7 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "a7f6241be0c5055f054fcbe03d98a1920f0ab874039474401323d8d95930a076"
+		expHash := "3d5593a8af85ae2b0c9b119b34e6040b8baf33ccb911e6e7d5bd33bfeb17df47"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -320,6 +324,7 @@ func TestVerify(t *testing.T) {
 type testBid struct {
 	hash        string
 	amount      string
+	slashAmount string
 	blocknumber int64
 	start       int64
 	end         int64
@@ -336,11 +341,13 @@ func generateRandomValues() (*testBid, error) {
 	bidHash := hex.EncodeToString(bidHashBytes)
 
 	bidAmount := mrand.Int63n(1000)
+	slashAmount := mrand.Int63n(bidAmount)
 	blocknumber := mrand.Int63n(100000)
 
 	return &testBid{
 		hash:        bidHash,
 		amount:      fmt.Sprintf("%d", bidAmount),
+		slashAmount: fmt.Sprintf("%d", slashAmount),
 		blocknumber: blocknumber,
 		start:       start,
 		end:         end,
@@ -383,6 +390,7 @@ func BenchmarkConstructEncryptedBid(b *testing.B) {
 		_, _, err := encryptor.ConstructEncryptedBid(&preconfpb.Bid{
 			TxHash:              bids[i].hash,
 			BidAmount:           bids[i].amount,
+			SlashAmount:         bids[i].slashAmount,
 			BlockNumber:         bids[i].blocknumber,
 			DecayStartTimestamp: bids[i].start,
 			DecayEndTimestamp:   bids[i].end,
@@ -448,6 +456,7 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 		bids[i] = &preconfpb.Bid{
 			TxHash:              bid.hash,
 			BidAmount:           bid.amount,
+			SlashAmount:         bid.slashAmount,
 			BlockNumber:         bid.blocknumber,
 			DecayStartTimestamp: bid.start,
 			DecayEndTimestamp:   bid.end,
