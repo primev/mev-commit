@@ -255,8 +255,7 @@ func RunAddDeposit(ctx context.Context, cluster orchestrator.Orchestrator, _ any
 
 		// Register a provider
 		resp, err := providerAPI.Stake(ctx, &providerapiv1.StakeRequest{
-			Amount:        amount.String(),
-			BlsPublicKeys: getStakeResp.BlsPublicKeys,
+			Amount: amount.String(),
 		})
 		if err != nil {
 			l.Error("failed to register stake", "error", err)
