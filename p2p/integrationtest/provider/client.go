@@ -99,17 +99,17 @@ func (b *ProviderClient) Close() error {
 	return b.conn.Close()
 }
 
-func (b *ProviderClient) CheckAndStake(_ []string) error {
+func (b *ProviderClient) CheckAndStake() (string, error) {
 	stakeAmt, err := b.client.GetStake(context.Background(), &providerapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get stake amount", "err", err)
-		return err
+		return "", err
 	}
 
 	topology, err := b.debugClient.GetTopology(context.Background(), &debugapi.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get topology", "err", err)
-		return err
+		return "", err
 	}
 
 	ethAddress := topology.GetTopology().Fields["self"].GetStructValue().Fields["Ethereum Address"].GetStringValue()
@@ -120,12 +120,15 @@ func (b *ProviderClient) CheckAndStake(_ []string) error {
 	stakedAmt, set := big.NewInt(0).SetString(stakeAmt.Amount, 10)
 	if !set {
 		b.logger.Error("failed to parse stake amount")
-		return errors.New("failed to parse stake amount")
+		return "", errors.New("failed to parse stake amount")
 	}
 
 	if stakedAmt.Cmp(big.NewInt(0)) > 0 {
 		b.logger.Error("bidder already staked")
-		return nil
+		if len(stakeAmt.BlsPublicKeys) == 0 {
+			return "", errors.New("bidder already staked but no BLS public keys found")
+		}
+		return stakeAmt.BlsPublicKeys[0], nil
 	}
 
 	hashedMessage := crypto.Keccak256(common.HexToAddress(ethAddress).Bytes())
@@ -133,7 +136,7 @@ func (b *ProviderClient) CheckAndStake(_ []string) error {
 	privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
 	if err != nil {
 		b.logger.Error("failed to generate private key", "error", err)
-		return fmt.Errorf("failed to generate private key: %w", err)
+		return "", fmt.Errorf("failed to generate private key: %w", err)
 	}
 	publicKey := privateKey.PublicKey()
 	signature := bls.Sign(privateKey, hashedMessage)
@@ -141,13 +144,13 @@ func (b *ProviderClient) CheckAndStake(_ []string) error {
 	// Verify the signature
 	if !bls.Verify(publicKey, hashedMessage, signature) {
 		b.logger.Error("failed to verify generated BLS signature")
-		return fmt.Errorf("failed to verify generated BLS signature")
+		return "", fmt.Errorf("failed to verify generated BLS signature")
 	}
 
 	pubkeyb, err := publicKey.MarshalBinary()
 	if err != nil {
 		b.logger.Error("failed to marshal public key", "error", err)
-		return fmt.Errorf("failed to marshal public key: %w", err)
+		return "", fmt.Errorf("failed to marshal public key: %w", err)
 	}
 	b.logger.Info("generated BLS key pair",
 		"public_key", hex.EncodeToString(pubkeyb),
@@ -161,13 +164,12 @@ func (b *ProviderClient) CheckAndStake(_ []string) error {
 	})
 	if err != nil {
 		b.logger.Error("failed to register stake", "err", err)
-		return err
+		return "", err
 	}
 
 	b.logger.Info("staked 10 ETH")
 
-	return nil
-
+	return hex.EncodeToString(pubkeyb), nil
 }
 
 func (b *ProviderClient) startSender() error {
