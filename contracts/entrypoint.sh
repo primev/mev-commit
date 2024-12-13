@@ -14,12 +14,6 @@ KEYSTORE_FILENAME=${KEYSTORE_FILENAME:-*}
 KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"pwd"}
 CONTRACT_REPO_ROOT_PATH=${CONTRACT_REPO_ROOT_PATH:-$PWD}
 
-set -x
-
-free -h
-ulimit -s unlimited
-ulimit -a
-
 if [ -n "${ETHERSCAN_API_KEY}" ]; then
     VERIFY_OPTION="--verify"
 fi
