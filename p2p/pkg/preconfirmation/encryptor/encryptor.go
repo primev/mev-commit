@@ -31,8 +31,8 @@ var (
 )
 
 var (
-	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"))
-	EIP712CommitmentTypeHash = crypto.Keccak256Hash([]byte("OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"))
+	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmount)"))
+	EIP712CommitmentTypeHash = crypto.Keccak256Hash([]byte("OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmount,bytes32 bidHash,string signature,string sharedSecretKey)"))
 )
 
 type Store interface {
@@ -292,6 +292,11 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		return common.Hash{}, ErrInvalidBidAmt
 	}
 
+	slashAmt, ok := big.NewInt(0).SetString(bid.SlashAmount, 10)
+	if !ok {
+		return common.Hash{}, ErrInvalidBidAmt
+	}
+
 	txnHashHash := crypto.Keccak256Hash([]byte(bid.TxHash))
 	revertingTxHashesHash := crypto.Keccak256Hash([]byte(bid.RevertingTxHashes))
 
@@ -303,6 +308,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: "uint64"},
 		{Name: "decayStartTimestamp", Type: "uint64"},
 		{Name: "decayEndTimestamp", Type: "uint64"},
+		{Name: "slashAmount", Type: "uint256"},
 	})
 	if err != nil {
 		return common.Hash{}, err
@@ -317,6 +323,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: *bidStructType.TupleElems[4]},
 		{Name: "decayStartTimestamp", Type: *bidStructType.TupleElems[5]},
 		{Name: "decayEndTimestamp", Type: *bidStructType.TupleElems[6]},
+		{Name: "slashAmount", Type: *bidStructType.TupleElems[7]},
 	}
 
 	// Encode the bid struct using ABI encoding
@@ -328,6 +335,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		uint64(bid.BlockNumber),
 		uint64(bid.DecayStartTimestamp),
 		uint64(bid.DecayEndTimestamp),
+		slashAmt,
 	)
 	if err != nil {
 		return common.Hash{}, err
@@ -357,6 +365,11 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 		return common.Hash{}, ErrInvalidBidAmt
 	}
 
+	slashAmt, ok := big.NewInt(0).SetString(c.Bid.SlashAmount, 10)
+	if !ok {
+		return common.Hash{}, ErrInvalidBidAmt
+	}
+
 	txnHashHash := crypto.Keccak256Hash([]byte(c.Bid.TxHash))
 	revertingTxHashesHash := crypto.Keccak256Hash([]byte(c.Bid.RevertingTxHashes))
 	bidDigestHash, err := toBytes32(c.Bid.Digest)
@@ -374,6 +387,7 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 		{Name: "blockNumber", Type: "uint64"},
 		{Name: "decayStartTimestamp", Type: "uint64"},
 		{Name: "decayEndTimestamp", Type: "uint64"},
+		{Name: "slashAmount", Type: "uint256"},
 		{Name: "bidDigest", Type: "bytes32"},
 		{Name: "signature", Type: "bytes32"},
 		{Name: "sharedSecret", Type: "bytes32"},
@@ -391,9 +405,10 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 		{Name: "blockNumber", Type: *preConfStructType.TupleElems[4]},
 		{Name: "decayStartTimestamp", Type: *preConfStructType.TupleElems[5]},
 		{Name: "decayEndTimestamp", Type: *preConfStructType.TupleElems[6]},
-		{Name: "bidDigest", Type: *preConfStructType.TupleElems[7]},
-		{Name: "signature", Type: *preConfStructType.TupleElems[8]},
-		{Name: "sharedSecret", Type: *preConfStructType.TupleElems[9]},
+		{Name: "slashAmount", Type: *preConfStructType.TupleElems[7]},
+		{Name: "bidDigest", Type: *preConfStructType.TupleElems[8]},
+		{Name: "signature", Type: *preConfStructType.TupleElems[9]},
+		{Name: "sharedSecret", Type: *preConfStructType.TupleElems[10]},
 	}
 
 	// Encode the pre-confirmation struct using ABI encoding
@@ -405,6 +420,7 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 		uint64(c.Bid.BlockNumber),
 		uint64(c.Bid.DecayStartTimestamp),
 		uint64(c.Bid.DecayEndTimestamp),
+		slashAmt,
 		bidDigestHash,
 		signatureHash,
 		sharedSecretHash,
