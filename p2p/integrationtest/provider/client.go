@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/cloudflare/circl/sign/bls"
@@ -133,6 +134,7 @@ func (b *ProviderClient) CheckAndStake() (string, error) {
 
 	hashedMessage := crypto.Keccak256(common.HexToAddress(ethAddress).Bytes())
 	ikm := make([]byte, 32)
+	_, _ = rand.Read(ikm)
 	privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
 	if err != nil {
 		b.logger.Error("failed to generate private key", "error", err)
