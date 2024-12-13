@@ -111,7 +111,6 @@ job "{{ job.name }}" {
           GETH_NODE_TYPE="{{ job.env['type'] }}"
           GETH_VERBOSITY={{ job.env.get('log-verbosity', '3') }}
           GETH_LOG_FORMAT="{{ job.env.get('log-format', 'json') }}"
-          GETH_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           {% if job.env['type'] != 'archive' %}
           {%- raw %}
           NODE_KEY="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('nodekey', 'defined') | map(attribute='nodekey.name') | first }}{% raw %} }}{{ end }}"
