@@ -2,11 +2,8 @@ package main
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"os"
 	"strings"
 
@@ -18,22 +15,15 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type Topology struct {
-	Self struct {
-		EthereumAddress string `json:"Ethereum Address"`
-	} `json:"self"`
-}
-
 var (
 	optionPrivateKey = &cli.StringFlag{
 		Name:  "private-key",
 		Usage: "BLS private key as hex encoded string (with optional 0x prefix). Must be a valid hex string representing a BLS private key.",
 	}
 
-	optionServerAddr = &cli.StringFlag{
-		Name:  "server",
-		Usage: "Provider server address",
-		Value: "localhost:8545",
+	optionEthAddress = &cli.StringFlag{
+		Name:  "eth-address",
+		Usage: "Ethereum address as hex string (with optional 0x prefix)",
 	}
 )
 
@@ -43,7 +33,7 @@ func main() {
 		Usage: "Create BLS signatures",
 		Flags: []cli.Flag{
 			optionPrivateKey,
-			optionServerAddr,
+			optionEthAddress,
 		},
 		Action: run,
 	}
@@ -56,10 +46,14 @@ func main() {
 
 func run(c *cli.Context) error {
 	blsPrivKeyHex := c.String("private-key")
-	serverAddr := c.String("server")
+	ethAddress := c.String("eth-address")
 
 	if blsPrivKeyHex == "" {
 		return fmt.Errorf("--private-key flag is required")
+	}
+
+	if ethAddress == "" {
+		return fmt.Errorf("--eth-address flag is required")
 	}
 
 	// Strip 0x prefix if present
@@ -72,28 +66,6 @@ func run(c *cli.Context) error {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
-	// Get topology from debug endpoint
-	resp, err := http.Get(fmt.Sprintf("http://%s/v1/debug/topology", serverAddr))
-	if err != nil {
-		logger.Error("failed to get topology", "error", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logger.Error("failed to read response body", "error", err)
-		return err
-	}
-
-	var topology Topology
-	if err := json.Unmarshal(body, &topology); err != nil {
-		logger.Error("failed to unmarshal topology", "error", err)
-		return err
-	}
-
-	ethAddress := topology.Self.EthereumAddress
 
 	// Create BLS signature
 	hashedMessage := crypto.Keccak256(common.HexToAddress(ethAddress).Bytes())
