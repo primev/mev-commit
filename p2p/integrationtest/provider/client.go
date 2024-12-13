@@ -124,9 +124,9 @@ func (b *ProviderClient) CheckAndStake() (string, error) {
 	}
 
 	if stakedAmt.Cmp(big.NewInt(0)) > 0 {
-		b.logger.Error("bidder already staked")
+		b.logger.Error("provider already staked")
 		if len(stakeAmt.BlsPublicKeys) == 0 {
-			return "", errors.New("bidder already staked but no BLS public keys found")
+			return "", errors.New("provider already staked but no BLS public keys found")
 		}
 		return stakeAmt.BlsPublicKeys[0], nil
 	}
