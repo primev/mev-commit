@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
-	"math/rand"
 	"time"
 
 	"github.com/cloudflare/circl/sign/bls"
