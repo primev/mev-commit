@@ -2,7 +2,10 @@ package providerapi_test
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -11,9 +14,11 @@ import (
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/cloudflare/circl/sign/bls"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
@@ -25,10 +30,11 @@ import (
 )
 
 type testRegistryContract struct {
-	stake    *big.Int
-	topup    *big.Int
-	minStake *big.Int
-	blsKey   []byte
+	stake        *big.Int
+	topup        *big.Int
+	minStake     *big.Int
+	blsKey       []byte
+	blsSignature []byte
 }
 
 func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error) {
@@ -38,9 +44,14 @@ func (t *testRegistryContract) ProviderRegistered(opts *bind.CallOpts, address c
 	return true, nil
 }
 
-func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error) {
+func (t *testRegistryContract) RegisterAndStake(opts *bind.TransactOpts) (*types.Transaction, error) {
 	t.stake = opts.Value
-	t.blsKey = blsPublicKey[0]
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
+}
+
+func (t *testRegistryContract) AddVerifiedBLSKey(opts *bind.TransactOpts, blsPublicKey []byte, blsSignature []byte) (*types.Transaction, error) {
+	t.blsKey = blsPublicKey
+	t.blsSignature = blsSignature
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
@@ -86,6 +97,13 @@ func (t *testRegistryContract) ParseUnstake(log types.Log) (*providerregistry.Pr
 	return &providerregistry.ProviderregistryUnstake{
 		Provider:  common.Address{},
 		Timestamp: new(big.Int).SetInt64(time.Now().Unix()),
+	}, nil
+}
+
+func (t *testRegistryContract) ParseBLSKeyAdded(log types.Log) (*providerregistry.ProviderregistryBLSKeyAdded, error) {
+	return &providerregistry.ProviderregistryBLSKeyAdded{
+		Provider:     common.Address{},
+		BlsPublicKey: t.blsKey,
 	}, nil
 }
 
@@ -187,19 +205,19 @@ func TestStakeHandling(t *testing.T) {
 	client, _ := startServer(t)
 
 	validBLSKey := "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456"
-
+	validSignature := "bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2"
 	t.Run("register stake", func(t *testing.T) {
 		type testCase struct {
-			amount       string
-			blsPublicKey string
-			err          string
+			amount        string
+			blsPublicKeys []string
+			blsSignatures []string
+			err           string
 		}
 
 		for _, tc := range []testCase{
 			{
-				amount:       "",
-				blsPublicKey: "",
-				err:          "amount must be a valid integer",
+				amount: "",
+				err:    "amount must be a valid integer",
 			},
 			{
 				amount: "0000000000000000000",
@@ -210,28 +228,39 @@ func TestStakeHandling(t *testing.T) {
 				err:    "amount must be a valid integer",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: "0x",
-				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{"0x"},
+				err:           "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: "0x12345",
-				err:          "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{"0x12345"},
+				err:           "bls_public_key must be a valid 48-byte hex string, with optional 0x prefix.",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: validBLSKey,
-				err:          "",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{validBLSKey},
+				err:           "missing BLS signatures",
 			},
 			{
-				amount:       "1000000000000000000",
-				blsPublicKey: validBLSKey,
-				err:          "",
+				amount:        "1000000000000000000",
+				blsPublicKeys: []string{validBLSKey},
+				blsSignatures: []string{validSignature},
+				err:           "",
+			},
+			{
+				amount: "1000000000000000000",
+				err:    "",
 			},
 		} {
-			stake, err := client.Stake(context.Background(),
-				&providerapiv1.StakeRequest{Amount: tc.amount, BlsPublicKeys: []string{tc.blsPublicKey}})
+			stake, err := client.Stake(
+				context.Background(),
+				&providerapiv1.StakeRequest{
+					Amount:        tc.amount,
+					BlsPublicKeys: tc.blsPublicKeys,
+					BlsSignatures: tc.blsSignatures,
+				},
+			)
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("expected error staking: %s got %v", tc.err, err)
@@ -243,8 +272,8 @@ func TestStakeHandling(t *testing.T) {
 				if stake.Amount != tc.amount {
 					t.Fatalf("expected amount to be %v, got %v", tc.amount, stake.Amount)
 				}
-				if stake.BlsPublicKeys[0] != tc.blsPublicKey {
-					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKey, stake.BlsPublicKeys[0])
+				if len(tc.blsPublicKeys) > 0 && stake.BlsPublicKeys[0] != tc.blsPublicKeys[0] {
+					t.Fatalf("expected bls_public_key to be %v, got %v", tc.blsPublicKeys[0], stake.BlsPublicKeys[0])
 				}
 			}
 		}
@@ -461,15 +490,51 @@ func TestBidHandling(t *testing.T) {
 	}
 }
 
+func TestBLSKeys(t *testing.T) {
+	// Generate a BLS signature to verify
+	message := []byte("adb4257612d45f12570533308b20ac77dbfeb85a")
+	hashedMessage := crypto.Keccak256(message)
+	ikm := make([]byte, 32)
+	privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to generate private key: %v", err)
+	}
+	publicKey := privateKey.PublicKey()
+	signature := bls.Sign(privateKey, hashedMessage)
+
+	// Verify the signature
+	if !bls.Verify(publicKey, hashedMessage, signature) {
+		t.Fatalf("Failed to verify generated BLS signature")
+	}
+
+	pubkeyb, _ := publicKey.MarshalBinary()
+	fmt.Printf("Public Key: %s\n", common.Bytes2Hex(pubkeyb))
+	fmt.Printf("Message: %s\n", common.Bytes2Hex(hashedMessage))
+	fmt.Printf("Signature: %s\n", common.Bytes2Hex(signature))
+
+}
+
 func TestWithdrawStakedAmount(t *testing.T) {
 	t.Parallel()
 
 	client, _ := startServer(t)
 
 	t.Run("withdraw stake", func(t *testing.T) {
+		iv := make([]byte, 32)
+		_, _ = rand.Read(iv)
+		blsPrivKey, _ := bls.KeyGen[bls.G1](iv, []byte{}, []byte{})
+		pubKey := blsPrivKey.PublicKey()
+		pubKeyBytes, _ := pubKey.MarshalBinary()
+		value := common.Hex2Bytes("0x53c61cfb8128ad59244e8c1d26109252ace23d14")
+		hash := crypto.Keccak256Hash(value)
+		signature := bls.Sign(blsPrivKey, hash.Bytes())
+
+		t.Logf("Public Key: %s", hex.EncodeToString(pubKeyBytes))
+
 		_, err := client.Stake(context.Background(), &providerapiv1.StakeRequest{
 			Amount:        "1000000000000000000",
-			BlsPublicKeys: []string{"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456"},
+			BlsPublicKeys: []string{hex.EncodeToString(pubKeyBytes)},
+			BlsSignatures: []string{hex.EncodeToString(signature)},
 		})
 		if err != nil {
 			t.Fatalf("error depositing stake: %v", err)

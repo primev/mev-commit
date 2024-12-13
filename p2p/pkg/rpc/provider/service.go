@@ -45,7 +45,8 @@ type Service struct {
 type ProviderRegistryContract interface {
 	ProviderRegistered(opts *bind.CallOpts, address common.Address) (bool, error)
 	Stake(opts *bind.TransactOpts) (*types.Transaction, error)
-	RegisterAndStake(opts *bind.TransactOpts, blsPublicKey [][]byte) (*types.Transaction, error)
+	RegisterAndStake(opts *bind.TransactOpts) (*types.Transaction, error)
+	AddVerifiedBLSKey(opts *bind.TransactOpts, blsPublicKey []byte, signature []byte) (*types.Transaction, error)
 	GetProviderStake(*bind.CallOpts, common.Address) (*big.Int, error)
 	GetBLSKeys(*bind.CallOpts, common.Address) ([][]byte, error)
 	MinStake(*bind.CallOpts) (*big.Int, error)
@@ -53,6 +54,7 @@ type ProviderRegistryContract interface {
 	ParseFundsDeposited(types.Log) (*providerregistry.ProviderregistryFundsDeposited, error)
 	ParseUnstake(types.Log) (*providerregistry.ProviderregistryUnstake, error)
 	ParseWithdraw(types.Log) (*providerregistry.ProviderregistryWithdraw, error)
+	ParseBLSKeyAdded(types.Log) (*providerregistry.ProviderregistryBLSKeyAdded, error)
 	Withdraw(opts *bind.TransactOpts) (*types.Transaction, error)
 	Unstake(opts *bind.TransactOpts) (*types.Transaction, error)
 }
@@ -236,19 +238,15 @@ func (s *Service) Stake(
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "checking registration: %v", err)
 	}
+
 	if !registered {
-		blsPubkeyBytesArray := make([][]byte, len(stake.BlsPublicKeys))
-		for i, key := range stake.BlsPublicKeys {
-			stake.BlsPublicKeys[i] = strings.TrimPrefix(key, "0x")
-			blsPubkeyBytes, err := hex.DecodeString(stake.BlsPublicKeys[i])
-			if err != nil {
-				return nil, status.Errorf(codes.InvalidArgument, "decoding bls public key: %v", err)
-			}
-			blsPubkeyBytesArray[i] = blsPubkeyBytes
+		if len(stake.BlsPublicKeys) == 0 {
+			return nil, status.Error(codes.InvalidArgument, "missing BLS keys")
 		}
-
-		tx, txErr = s.registryContract.RegisterAndStake(opts, blsPubkeyBytesArray)
-
+		if len(stake.BlsSignatures) == 0 {
+			return nil, status.Error(codes.InvalidArgument, "missing BLS signatures")
+		}
+		tx, txErr = s.registryContract.RegisterAndStake(opts)
 	} else {
 		tx, txErr = s.registryContract.Stake(opts)
 	}
@@ -258,29 +256,65 @@ func (s *Service) Stake(
 
 	receipt, err := s.watcher.WaitForReceipt(ctx, tx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "waiting for receipt: %v", err)
+		return nil, status.Errorf(codes.Internal, "waiting for receipt for registration: %v", err)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
 	}
 
+	var stakeResponse *providerapiv1.StakeResponse
 	for _, log := range receipt.Logs {
 		if registration, err := s.registryContract.ParseProviderRegistered(*log); err == nil {
 			s.logger.Info("stake registered", "amount", registration.StakedAmount)
-			return &providerapiv1.StakeResponse{
-				Amount:        registration.StakedAmount.String(),
-				BlsPublicKeys: stake.BlsPublicKeys,
-			}, nil
-		}
-		if deposit, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
+			stakeResponse = &providerapiv1.StakeResponse{
+				Amount: registration.StakedAmount.String(),
+			}
+		} else if deposit, err := s.registryContract.ParseFundsDeposited(*log); err == nil {
 			s.logger.Info("stake deposited", "amount", deposit.Amount)
-			return &providerapiv1.StakeResponse{Amount: deposit.Amount.String()}, nil
+			stakeResponse = &providerapiv1.StakeResponse{Amount: deposit.Amount.String()}
 		}
 	}
 
-	s.logger.Error("no registration event found")
-	return nil, status.Error(codes.Internal, "no registration event found")
+	for i, _ := range stake.BlsPublicKeys {
+		blsPublicKey, err := hex.DecodeString(strings.TrimPrefix(stake.BlsPublicKeys[i], "0x"))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "decoding bls public key: %v", err)
+		}
+		blsSignature, err := hex.DecodeString(strings.TrimPrefix(stake.BlsSignatures[i], "0x"))
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "decoding bls signature: %v", err)
+		}
+
+		opts, err = s.optsGetter(ctx)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "getting transact opts for adding BLS key: %v", err)
+		}
+
+		s.logger.Info("adding verified bls key", "blsPublicKey", hex.EncodeToString(blsPublicKey), "blsSignature", hex.EncodeToString(blsSignature))
+		tx, txErr = s.registryContract.AddVerifiedBLSKey(opts, blsPublicKey, blsSignature)
+		if txErr != nil {
+			return nil, status.Errorf(codes.Internal, "adding verified bls key: %v", txErr)
+		}
+		receipt, err = s.watcher.WaitForReceipt(ctx, tx)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "waiting for receipt for adding verified bls key: %v", err)
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			return nil, status.Errorf(codes.Internal, "receipt status: %v", receipt.Status)
+		}
+
+		s.logger.Info("verified bls key added", "key", stake.BlsPublicKeys[i])
+
+		for _, log := range receipt.Logs {
+			if blsKeyEvent, err := s.registryContract.ParseBLSKeyAdded(*log); err == nil {
+				s.logger.Info("verified bls key added", "key", blsKeyEvent.BlsPublicKey)
+				stakeResponse.BlsPublicKeys = append(stakeResponse.BlsPublicKeys, hex.EncodeToString(blsKeyEvent.BlsPublicKey))
+			}
+		}
+	}
+
+	return stakeResponse, nil
 }
 
 func (s *Service) GetStake(

@@ -3,7 +3,6 @@ package staking
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,6 +10,9 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/cloudflare/circl/sign/bls"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
@@ -95,19 +97,37 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 		}
 
 		stakeAmount := big.NewInt(0).Mul(amount, big.NewInt(10))
-
-		blsPubkeyBytes := make([]byte, 48)
-		_, err = rand.Read(blsPubkeyBytes)
+		// Generate a BLS signature to verify
+		message := common.HexToAddress(p.EthAddress()).Bytes()
+		hashedMessage := crypto.Keccak256(message)
+		ikm := make([]byte, 32)
+		privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
 		if err != nil {
-			l.Error("failed to generate mock BLS public key", "err", err)
-			return fmt.Errorf("failed to generate mock BLS public key: %w", err)
+			l.Error("failed to generate private key", "error", err)
+			return fmt.Errorf("failed to generate private key: %w", err)
+		}
+		publicKey := privateKey.PublicKey()
+		signature := bls.Sign(privateKey, hashedMessage)
+
+		// Verify the signature
+		if !bls.Verify(publicKey, hashedMessage, signature) {
+			l.Error("failed to verify generated BLS signature")
+			return fmt.Errorf("failed to verify generated BLS signature")
+		}
+
+		pubkeyb, err := publicKey.MarshalBinary()
+		if err != nil {
+			l.Error("failed to marshal public key", "error", err)
+			return fmt.Errorf("failed to marshal public key: %w", err)
 		}
 
 		// Register a provider
 		resp, err := providerAPI.Stake(ctx, &providerapiv1.StakeRequest{
 			Amount:        stakeAmount.String(),
-			BlsPublicKeys: []string{hex.EncodeToString(blsPubkeyBytes)},
+			BlsPublicKeys: []string{hex.EncodeToString(pubkeyb)},
+			BlsSignatures: []string{hex.EncodeToString(signature)},
 		})
+
 		if err != nil {
 			l.Error("failed to register stake", "error", err)
 			return fmt.Errorf("failed to register stake: %w", err)
@@ -118,7 +138,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 			return fmt.Errorf("invalid stake amount returned: %s", resp.Amount)
 		}
 
-		reqBytes, err := json.Marshal([]string{hex.EncodeToString(blsPubkeyBytes)})
+		reqBytes, err := json.Marshal([]string{hex.EncodeToString(pubkeyb)})
 		if err != nil {
 			l.Error("failed to create bls key upload req", "error", err)
 			return fmt.Errorf("failed to marshal bls keys: %w", err)
@@ -235,8 +255,7 @@ func RunAddDeposit(ctx context.Context, cluster orchestrator.Orchestrator, _ any
 
 		// Register a provider
 		resp, err := providerAPI.Stake(ctx, &providerapiv1.StakeRequest{
-			Amount:        amount.String(),
-			BlsPublicKeys: getStakeResp.BlsPublicKeys,
+			Amount: amount.String(),
 		})
 		if err != nil {
 			l.Error("failed to register stake", "error", err)

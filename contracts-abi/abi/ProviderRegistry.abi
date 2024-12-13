@@ -60,6 +60,24 @@
   },
   {
     "type": "function",
+    "name": "addVerifiedBLSKey",
+    "inputs": [
+      {
+        "name": "blsPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "bidderSlashedAmount",
     "inputs": [
       {
@@ -104,11 +122,6 @@
         "name": "provider",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "blsPublicKeys",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -307,6 +320,24 @@
   },
   {
     "type": "function",
+    "name": "overrideAddBLSKey",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blsPublicKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "owner",
     "inputs": [],
     "outputs": [
@@ -446,13 +477,7 @@
   {
     "type": "function",
     "name": "registerAndStake",
-    "inputs": [
-      {
-        "name": "blsPublicKeys",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
-      }
-    ],
+    "inputs": [],
     "outputs": [],
     "stateMutability": "payable"
   },
@@ -623,6 +648,35 @@
   },
   {
     "type": "function",
+    "name": "verifySignature",
+    "inputs": [
+      {
+        "name": "pubKey",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "message",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "withdraw",
     "inputs": [],
     "outputs": [],
@@ -666,6 +720,25 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "BLSKeyAdded",
+    "inputs": [
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "blsPublicKey",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -918,12 +991,6 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
-      },
-      {
-        "name": "blsPublicKeys",
-        "type": "bytes[]",
-        "indexed": false,
-        "internalType": "bytes[]"
       }
     ],
     "anonymous": false
@@ -1038,6 +1105,11 @@
   {
     "type": "error",
     "name": "AtLeastOneBLSKeyRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BLSSignatureInvalid",
     "inputs": []
   },
   {
@@ -1297,8 +1369,40 @@
   },
   {
     "type": "error",
+    "name": "PublicKeyLengthInvalid",
+    "inputs": [
+      {
+        "name": "exp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "got",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SignatureLengthInvalid",
+    "inputs": [
+      {
+        "name": "exp",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "got",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

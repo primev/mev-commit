@@ -183,6 +183,12 @@ contract ProviderRegistry is
         emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
+    function overrideAddBLSKey(address provider, bytes calldata blsPublicKey) external onlyOwner {
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
+        eoaToBlsPubkeys[provider].push(blsPublicKey);
+        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
+    }
+
     /// @dev Requests unstake of the staked amount.
     function unstake() external whenNotPaused {
         require(providerStakes[msg.sender] != 0, NoStakeToWithdraw(msg.sender));
@@ -229,6 +235,35 @@ contract ProviderRegistry is
     }
 
     /**
+     * @dev Adds a verified BLS key to the provider's account.
+     * @param blsPublicKey The BLS public key to be added.
+     * @param signature The signature (96 bytes) used for verification.
+     */
+    function addVerifiedBLSKey(
+        bytes calldata blsPublicKey,
+        bytes calldata signature
+    ) external {
+        address provider = msg.sender;
+
+        require(providerRegistered[provider], ProviderNotRegistered(provider));
+        require(blsPublicKey.length == 48, PublicKeyLengthInvalid(48, blsPublicKey.length));
+        require(signature.length == 96, SignatureLengthInvalid(96, signature.length));
+
+
+        bytes32 message = keccak256(abi.encodePacked(provider));
+
+        // Verify the BLS signature
+        bool isValid = verifySignature(blsPublicKey, message, signature);
+        require(isValid, BLSSignatureInvalid());
+
+        // Add the BLS public key to the provider's account
+        eoaToBlsPubkeys[provider].push(blsPublicKey);
+        blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
+
+        emit BLSKeyAdded(provider, blsPublicKey);
+    }
+
+    /**
      * @dev Manually withdraws accumulated penalty fees to the recipient
      * to cover the edge case that oracle doesn't slash/reward, and funds still need to be withdrawn.
      */
@@ -272,20 +307,18 @@ contract ProviderRegistry is
 
     /**
      * @dev Register and stake function for providers.
-     * @param blsPublicKeys The BLS public keys of the provider.
      * The validity of this key must be verified manually off-chain.
      */
-    function registerAndStake(bytes[] calldata blsPublicKeys) public payable whenNotPaused {
-        _registerAndStake(msg.sender, blsPublicKeys);
+    function registerAndStake() public payable whenNotPaused {
+        _registerAndStake(msg.sender);
     }
 
     /**
     * @dev Register and stake on behalf of a provider.
     * @param provider Address of the provider.
-    * @param blsPublicKeys BLS public keys of the provider.
     */
-    function delegateRegisterAndStake(address provider, bytes[] calldata blsPublicKeys) public payable whenNotPaused onlyOwner {
-        _registerAndStake(provider, blsPublicKeys);
+    function delegateRegisterAndStake(address provider) public payable whenNotPaused onlyOwner {
+        _registerAndStake(provider);
     }
 
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
@@ -295,6 +328,43 @@ contract ProviderRegistry is
         require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
     }
 
+
+    /**
+     * @dev Verifies a BLS signature using the precompile
+     * @param pubKey The public key (48 bytes G1 point)
+     * @param message The message hash (32 bytes)
+     * @param signature The signature (96 bytes G2 point)
+     * @return success True if verification succeeded
+     */
+    function verifySignature(
+        bytes calldata pubKey,
+        bytes32 message,
+        bytes calldata signature
+    ) public view returns (bool) {
+        // Input validation
+        require(pubKey.length == 48, "Public key must be 48 bytes");
+        require(signature.length == 96, "Signature must be 96 bytes");
+
+        // Concatenate inputs in required format:
+        // [pubkey (48 bytes) | message (32 bytes) | signature (96 bytes)]
+        bytes memory input = bytes.concat(
+            pubKey,
+            message,
+            signature
+        );
+
+        // Call precompile
+        (bool success, bytes memory result) = address(0xf0).staticcall(input);
+        
+        // Check if call was successful
+        if (!success) {
+            return false;
+        }
+
+        // If we got a result back and it's not empty, verification succeeded
+        return result.length > 0;
+    }
+
     function _stake(address provider) internal {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
         require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
@@ -302,20 +372,13 @@ contract ProviderRegistry is
         emit FundsDeposited(provider, msg.value);
     }
 
-    function _registerAndStake(address provider, bytes[] calldata blsPublicKeys) internal {
+    function _registerAndStake(address provider) internal {
         require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
-        require(blsPublicKeys.length != 0, AtLeastOneBLSKeyRequired());
-        uint256 numKeys = blsPublicKeys.length;
-        for (uint256 i = 0; i < numKeys; ++i) {
-            bytes memory key = blsPublicKeys[i];
-            require(key.length == 48, InvalidBLSPublicKeyLength(key.length, 48));
-            blockBuilderBLSKeyToAddress[key] = provider;
-        }
-        eoaToBlsPubkeys[provider] = blsPublicKeys;
+
         providerStakes[provider] = msg.value;
         providerRegistered[provider] = true;
-        emit ProviderRegistered(provider, msg.value, blsPublicKeys);
+        emit ProviderRegistered(provider, msg.value);
     }
 
     // solhint-disable-next-line no-empty-blocks

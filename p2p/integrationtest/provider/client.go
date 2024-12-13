@@ -3,11 +3,17 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"math/big"
 	"time"
 
+	"github.com/cloudflare/circl/sign/bls"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	debugapi "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -18,6 +24,7 @@ import (
 type ProviderClient struct {
 	conn         *grpc.ClientConn
 	client       providerapiv1.ProviderClient
+	debugClient  debugapi.DebugServiceClient
 	logger       *slog.Logger
 	senderC      chan *providerapiv1.BidResponse
 	senderClosed chan struct{}
@@ -74,6 +81,7 @@ func NewProviderClient(
 
 	b := &ProviderClient{
 		conn:         conn,
+		debugClient:  debugapi.NewDebugServiceClient(conn),
 		client:       providerapiv1.NewProviderClient(conn),
 		logger:       logger,
 		senderC:      make(chan *providerapiv1.BidResponse),
@@ -91,15 +99,24 @@ func (b *ProviderClient) Close() error {
 	return b.conn.Close()
 }
 
-func (b *ProviderClient) CheckAndStake(keys []string) error {
+func (b *ProviderClient) CheckAndStake(_ []string) error {
 	stakeAmt, err := b.client.GetStake(context.Background(), &providerapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get stake amount", "err", err)
 		return err
 	}
 
+	topology, err := b.debugClient.GetTopology(context.Background(), &debugapi.EmptyMessage{})
+	if err != nil {
+		b.logger.Error("failed to get topology", "err", err)
+		return err
+	}
+
+	ethAddress := topology.GetTopology().Fields["self"].GetStructValue().Fields["Ethereum Address"].GetStringValue()
+
 	b.logger.Info("stake amount", "stake", stakeAmt.Amount)
 
+	b.logger.Info("eth address", "address", ethAddress)
 	stakedAmt, set := big.NewInt(0).SetString(stakeAmt.Amount, 10)
 	if !set {
 		b.logger.Error("failed to parse stake amount")
@@ -111,9 +128,36 @@ func (b *ProviderClient) CheckAndStake(keys []string) error {
 		return nil
 	}
 
+	hashedMessage := crypto.Keccak256(common.HexToAddress(ethAddress).Bytes())
+	ikm := make([]byte, 32)
+	privateKey, err := bls.KeyGen[bls.G1](ikm, nil, nil)
+	if err != nil {
+		b.logger.Error("failed to generate private key", "error", err)
+		return fmt.Errorf("failed to generate private key: %w", err)
+	}
+	publicKey := privateKey.PublicKey()
+	signature := bls.Sign(privateKey, hashedMessage)
+
+	// Verify the signature
+	if !bls.Verify(publicKey, hashedMessage, signature) {
+		b.logger.Error("failed to verify generated BLS signature")
+		return fmt.Errorf("failed to verify generated BLS signature")
+	}
+
+	pubkeyb, err := publicKey.MarshalBinary()
+	if err != nil {
+		b.logger.Error("failed to marshal public key", "error", err)
+		return fmt.Errorf("failed to marshal public key: %w", err)
+	}
+	b.logger.Info("generated BLS key pair",
+		"public_key", hex.EncodeToString(pubkeyb),
+		"signature", hex.EncodeToString(signature))
+
+	// Register a provider
 	_, err = b.client.Stake(context.Background(), &providerapiv1.StakeRequest{
 		Amount:        "10000000000000000000",
-		BlsPublicKeys: keys,
+		BlsPublicKeys: []string{hex.EncodeToString(pubkeyb)},
+		BlsSignatures: []string{hex.EncodeToString(signature)},
 	})
 	if err != nil {
 		b.logger.Error("failed to register stake", "err", err)
