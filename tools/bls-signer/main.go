@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 
@@ -31,7 +30,7 @@ var (
 
 func main() {
 	app := &cli.App{
-		Name:  "bls-signature-creator",
+		Name:  "bls-signer",
 		Usage: "Create BLS signatures",
 		Flags: []cli.Flag{
 			optionPrivateKey,
@@ -59,13 +58,11 @@ func run(c *cli.Context) error {
 		return fmt.Errorf("invalid private key hex string: %v", err)
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
 	// Create BLS signature
 	hashedMessage := crypto.Keccak256(common.HexToAddress(payload).Bytes())
 	privateKey := new(bls.PrivateKey[bls.G1])
 	if err := privateKey.UnmarshalBinary(privKeyBytes); err != nil {
-		logger.Error("failed to unmarshal private key", "error", err)
+		fmt.Fprintf(c.App.Writer, "Failed to unmarshal private key: %v\n", err)
 		return err
 	}
 
@@ -74,20 +71,20 @@ func run(c *cli.Context) error {
 
 	// Verify the signature
 	if !bls.Verify(publicKey, hashedMessage, signature) {
-		logger.Error("failed to verify generated BLS signature")
+		fmt.Fprintln(c.App.Writer, "Failed to verify generated BLS signature")
 		return fmt.Errorf("failed to verify generated BLS signature")
 	}
 
 	pubkeyb, err := publicKey.MarshalBinary()
 	if err != nil {
-		logger.Error("failed to marshal public key", "error", err)
+		fmt.Fprintf(c.App.Writer, "Failed to marshal public key: %v\n", err)
 		return err
 	}
 
-	logger.Info("generated BLS signature",
-		"payload", payload,
-		"public_key", hex.EncodeToString(pubkeyb),
-		"signature", hex.EncodeToString(signature))
+	fmt.Fprintf(c.App.Writer, "Generated BLS signature:\n")
+	fmt.Fprintf(c.App.Writer, "Payload: %s\n", payload)
+	fmt.Fprintf(c.App.Writer, "Public key: %s\n", hex.EncodeToString(pubkeyb))
+	fmt.Fprintf(c.App.Writer, "Signature: %s\n", hex.EncodeToString(signature))
 
 	return nil
 }

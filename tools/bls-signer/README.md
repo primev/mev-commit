@@ -6,7 +6,7 @@ Tool for signing payloads using BLS keys. It takes a BLS private key and payload
 
 Download the latest release binary for your platform from the [releases page](../../releases).
 
-The binary is named `bls-signature-creator` and is available for Linux x86_64 and arm64 architectures.
+The binary is named `bls-signer` and is available for Linux x86_64 and arm64 architectures.
 
 ## Usage
 The tool requires:
