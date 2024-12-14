@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	crand "crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -162,19 +160,13 @@ func main() {
 	}
 	defer providerClient.Close()
 
-	blsPubKey := make([]byte, 48)
-	if _, err = crand.Read(blsPubKey); err != nil {
-		logger.Error("failed to generate BLS public key", "error", err)
-		return
-	}
-
-	payload := hex.EncodeToString(blsPubKey)
-	if err = providerClient.CheckAndStake([]string{payload}); err != nil {
+	pubKey, err := providerClient.CheckAndStake()
+	if err != nil {
 		logger.Error("failed to check and stake", "error", err)
 		return
 	}
 
-	body, err := json.Marshal([]string{payload})
+	body, err := json.Marshal([]string{pubKey})
 	if err != nil {
 		logger.Error("failed to marshal body", "error", err)
 		return
