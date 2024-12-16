@@ -49,7 +49,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       matrix:
-        module: [ infrastructure/tools/keystore-generator,  p2p/integrationtest/real-bidder, p2p/integrationtest/provider, bridge/standard, external/geth, external/geth-pos, oracle, p2p]
+        module: [ infrastructure/tools/keystore-generator,  p2p/integrationtest/real-bidder, p2p/integrationtest/provider, bridge/standard, external/geth, external/geth-pos, oracle, p2p, cl]
 
     steps:
       - name: Checkout Code
