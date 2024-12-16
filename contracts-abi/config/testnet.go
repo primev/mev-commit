@@ -32,5 +32,5 @@ var HoleskyContracts = L1Contracts{
 	ValidatorOptInRouter: "0x251Fbc993f58cBfDA8Ad7b0278084F915aCE7fc3",
 	VanillaRegistry:      "0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf",
 	MevCommitAVS:         "0xEDEDB8ed37A43Fd399108A44646B85b780D85DD4",
-	L1Gateway:            "0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67",
+	L1Gateway:            "0x567f0f6d4f7A306c9824d5Ffd0E26f39682cDd7c",
 }
