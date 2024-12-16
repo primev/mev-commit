@@ -11,7 +11,7 @@ builds:
     goarch:
       - amd64
       - arm64
-    dir: ./tools/bls-signature-creator
+    dir: ./tools/bls-signature
     binary: "{{ .ProjectName }}"
     flags:
       - -v
