@@ -1,0 +1,96 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "redisapp-{{ env }}" {
+  datacenters = ["{{ datacenter }}"]
+
+  # Example service job
+  group "redisapp-group" {
+    count = 1
+
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
+    network {
+      mode = "bridge"
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+    }
+
+    task "redisapp" {
+      driver = "exec"
+
+      # Assuming artifact is uploaded to S3 or local dev environment server
+      {% if env != 'devenv' %}
+      artifact {
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/rapp_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% else %}
+      artifact {
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/rapp_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+      }
+      {% endif %}
+
+      template {
+        data = <<-EOH
+          RAPP_INSTANCE_ID="redisapp-1"
+          RAPP_ETH_CLIENT_URL="http://{{ nomadService "mev_commit_geth_pos_signer_node1" | json | fromjson | selectattr("Tags","contains", ["http"]) | map("attribute","Address") | first }}:{{ nomadService "mev_commit_geth_pos_signer_node1" | json | fromjson | selectattr("Tags","contains", ["http"]) | map("attribute","Port") | first }}"
+
+          # Redis address from redis-master service
+          RAPP_REDIS_ADDR="{{ (nomadService "redis-master" | json | fromjson | selectattr("Tags","contains", ["redis","master"]) | list)[0].Address }}:{{ (nomadService "redis-master" | json | fromjson | selectattr("Tags","contains", ["redis","master"]) | list)[0].Port }}"
+
+          RAPP_JWT_SECRET="13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
+        EOH
+        destination = "secrets/.env"
+        env = true
+      }
+
+      template {
+        data = <<-EOH
+          #!/usr/bin/env bash
+
+          {% raw %}
+          {{- range nomadService "datadog-agent-logs-collector" }}
+            {{ if contains "tcp" .Tags }}
+          exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
+            {{ end }}
+          {{- end }}
+
+          chmod +x local/rapp
+          # Start the app
+          exec local/rapp start
+          {% endraw %}
+        EOH
+        destination = "local/run.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run.sh"]
+      }
+
+      # If redisapp is a service:
+      # service {
+      #   name = "redisapp"
+      #   port = "app"
+      #   tags = ["redisapp"]
+      #   provider = "nomad"
+
+      #   check {
+      #     type = "tcp"
+      #     interval = "10s"
+      #     timeout = "2s"
+      #   }
+      # }
+    }
+  }
+}

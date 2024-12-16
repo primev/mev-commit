@@ -1,0 +1,190 @@
+#jinja2: trim_blocks:True, lstrip_blocks:True
+job "redis-{{ env }}" {
+  datacenters = ["{{ datacenter }}"]
+  
+  group "redis-group" {
+    count = 1
+
+    {% if env == 'devenv' %}
+    restart {
+      attempts = 0
+      mode = "fail"
+    }
+
+    reschedule {
+      attempts = 0
+      unlimited = false
+    }
+    {% endif %}
+
+    network {
+      mode = "bridge"
+
+      dns {
+        servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
+      }
+
+      port "redis_master" {
+        static = 7001
+      }
+
+      port "redis_replica" {
+        static = 7002
+      }
+    }
+
+    volume "redis-master-data" {
+      type = "host"
+      source = "redis-master-data"
+      read_only = false
+    }
+
+    volume "redis-replica-data" {
+      type = "host"
+      source = "redis-replica-data"
+      read_only = false
+    }
+
+    task "redis-master" {
+      driver = "exec"
+      # Download Redis source from the official releases
+      artifact {
+        source = "http://download.redis.io/releases/redis-7.4.1.tar.gz"
+      }
+
+      volume_mount {
+        volume = "redis-master-data"
+        destination = "/local/data"
+        read_only = false
+      }
+
+      resources {
+        cpu    = 500
+        memory = 512
+      }
+
+      template {
+        data = <<-EOF
+          port 7001
+          bind 0.0.0.0
+          dir /local/data
+          cluster-enabled no
+          appendonly yes
+        EOF
+        destination = "local/redis-master.conf"
+      }
+
+      # Build script to compile Redis and run it
+      template {
+        data = <<-EOF
+          #!/usr/bin/env bash
+
+          # Unpack the Redis source tarball (artifact downloaded to /local)
+          tar -xzf local/redis-7.4.1.tar.gz -C local
+          cd local/redis-7.4.1
+
+          # Build Redis (requires build tools on the host)
+          make > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to build Redis"
+            exit 1
+          fi
+
+          # Run Redis server
+          exec src/redis-server /local/redis-master.conf
+        EOF
+        destination = "local/run-master.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run-master.sh"]
+      }
+
+      service {
+        name = "redis-master"
+        port = "redis_master"
+        tags = ["redis", "master"]
+        provider = "nomad"
+
+        check {
+          type     = "tcp"
+          interval = "10s"
+          timeout  = "2s"
+        }
+      }
+    }
+
+    task "redis-replica" {
+      driver = "exec"
+      depends = ["redis-master"]
+
+      artifact {
+        source = "http://download.redis.io/releases/redis-7.4.1.tar.gz"
+      }
+
+      volume_mount {
+        volume = "redis-replica-data"
+        destination = "/local/data"
+        read_only = false
+      }
+
+      resources {
+        cpu    = 500
+        memory = 512
+      }
+
+      template {
+        data = <<-EOF
+          port 7002
+          bind 0.0.0.0
+          dir /local/data
+          # Assuming service discovery with consul, otherwise replace with the master's IP
+          replicaof redis-master.service.consul 7001
+          appendonly yes
+        EOF
+        destination = "local/redis-replica.conf"
+      }
+
+      template {
+        data = <<-EOF
+          #!/usr/bin/env bash
+
+          tar -xzf local/redis-7.4.1.tar.gz -C local
+          cd local/redis-7.4.1
+
+          make > /dev/null 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to build Redis"
+            exit 1
+          fi
+
+          exec src/redis-server /local/redis-replica.conf
+        EOF
+        destination = "local/run-replica.sh"
+        change_mode = "noop"
+        perms = "0755"
+      }
+
+      config {
+        command = "bash"
+        args = ["-c", "exec local/run-replica.sh"]
+      }
+
+      service {
+        name = "redis-replica"
+        port = "redis_replica"
+        tags = ["redis", "replica"]
+        provider = "nomad"
+
+        check {
+          type     = "tcp"
+          interval = "10s"
+          timeout  = "2s"
+        }
+      }
+    }
+  }
+}
