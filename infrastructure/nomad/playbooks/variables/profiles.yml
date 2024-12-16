@@ -89,12 +89,6 @@ jobs:
     ports:
       - metrics:
           to: 6060
-        http:
-          static: 8545
-          to: 8545
-        ws:
-          static: 8546
-          to: 8546
         p2p:
           static: 30301
           to: 30301
@@ -121,6 +115,12 @@ jobs:
         p2p:
           static: 30311
           to: 30311
+        http:
+          static: 8545
+          to: 8545
+        ws:
+          static: 8546
+          to: 8546
     env:
       ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
@@ -692,6 +692,16 @@ jobs:
         metrics:
           to: 8888
 
+  redis: &redis_job
+    name: redis
+    template: redis.nomad.j2
+    count: 1
+
+  redisapp: &redisapp_job
+    name: redisapp
+    template: redisapp.nomad.j2
+    count: 1
+
   l1-transactor: &l1_transactor_job
     name: l1-transactor
     template: l1-transactor.nomad.j2
@@ -774,8 +784,10 @@ profiles:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
       - *otel_collector_job
+      - *redis_job
       - *mev_commit_geth_pos_bootnode1_job
       - *mev_commit_geth_pos_signer_node1_job
+      - *redisapp_job
       - *mock_l1_job
       - *l1_transactor_job
       - *relay_emulator_job
