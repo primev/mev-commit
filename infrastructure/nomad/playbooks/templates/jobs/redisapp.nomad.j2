@@ -41,9 +41,18 @@ job "redisapp-{{ env }}" {
       template {
         data = <<-EOH
           RAPP_INSTANCE_ID="redisapp-1"
-          RAPP_ETH_CLIENT_URL="http://{{ nomadService('mev_commit_geth_pos_signer_node1') | to_json | from_json | selectattr('Tags','contains', ['http']) | map('attribute','Address') | first }}:{{ nomadService('mev_commit_geth_pos_signer_node1') | to_json | from_json | selectattr('Tags','contains', ['http']) | map('attribute','Port') | first }}"
-
-          RAPP_REDIS_ADDR="{{ (nomadService('redis-master') | to_json | from_json | selectattr('Tags','contains', ['redis','master']) | list)[0].Address }}:{{ (nomadService('redis-master') | to_json | from_json | selectattr('Tags','contains', ['redis','master']) | list)[0].Port }}"
+          {%- raw %}
+          {{- range nomadService "mev_commit_geth_pos_signer_node1" }}
+           {{- if contains "http-engine" .Tags}}
+          RAPP_ETH_CLIENT_URL="http://{{ .Address }}:{{ .Port }}"
+           {{- end }}
+          {{- end }}
+          {% endraw %}
+          {%- raw %}
+            {{- range nomadService "redis" }}
+          RAPP_REDIS_ADDR="{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {% endraw %}
           
           RAPP_JWT_SECRET="13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
         EOH
