@@ -181,6 +181,7 @@ func (s *Service) SendBid(
 			DecayEndTimestamp:   bid.DecayEndTimestamp,
 			RevertingTxHashes:   strings.Join(stripPrefix(bid.RevertingTxHashes), ","),
 			RawTransactions:     bid.RawTransactions,
+			SlashAmount:         bid.SlashAmount,
 		},
 	)
 	if err != nil {
@@ -203,6 +204,7 @@ func (s *Service) SendBid(
 			DecayEndTimestamp:    b.DecayEndTimestamp,
 			DispatchTimestamp:    resp.DispatchTimestamp,
 			RevertingTxHashes:    strings.Split(b.RevertingTxHashes, ","),
+			SlashAmount:          b.SlashAmount,
 		})
 		if err != nil {
 			s.logger.Error("sending preConfirmation", "error", err)
