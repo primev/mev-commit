@@ -41,10 +41,10 @@ job "redisapp-{{ env }}" {
       template {
         data = <<-EOH
           RAPP_INSTANCE_ID="redisapp-1"
-          RAPP_ETH_CLIENT_URL="http://{{ nomadService "mev_commit_geth_pos_signer_node1" | json | fromjson | selectattr("Tags","contains", ["http"]) | map("attribute","Address") | first }}:{{ nomadService "mev_commit_geth_pos_signer_node1" | json | fromjson | selectattr("Tags","contains", ["http"]) | map("attribute","Port") | first }}"
+          RAPP_ETH_CLIENT_URL="http://{{ nomadService('mev_commit_geth_pos_signer_node1') | json | fromjson | selectattr('Tags','contains', ['http']) | map('attribute','Address') | first }}:{{ nomadService('mev_commit_geth_pos_signer_node1') | json | fromjson | selectattr('Tags','contains', ['http']) | map('attribute','Port') | first }}"
 
           # Redis address from redis-master service
-          RAPP_REDIS_ADDR="{{ (nomadService "redis-master" | json | fromjson | selectattr("Tags","contains", ["redis","master"]) | list)[0].Address }}:{{ (nomadService "redis-master" | json | fromjson | selectattr("Tags","contains", ["redis","master"]) | list)[0].Port }}"
+          RAPP_REDIS_ADDR="{{ (nomadService('redis-master') | json | fromjson | selectattr('Tags','contains', ['redis','master']) | list)[0].Address }}:{{ (nomadService('redis-master') | json | fromjson | selectattr('Tags','contains', ['redis','master']) | list)[0].Port }}"
 
           RAPP_JWT_SECRET="13373d9a0257983ad150392d7ddb2f9172c9396b4c450e26af469d123c7aaa5c"
         EOH
@@ -77,20 +77,6 @@ job "redisapp-{{ env }}" {
         command = "bash"
         args = ["-c", "exec local/run.sh"]
       }
-
-      # If redisapp is a service:
-      # service {
-      #   name = "redisapp"
-      #   port = "app"
-      #   tags = ["redisapp"]
-      #   provider = "nomad"
-
-      #   check {
-      #     type = "tcp"
-      #     interval = "10s"
-      #     timeout = "2s"
-      #   }
-      # }
     }
   }
 }
