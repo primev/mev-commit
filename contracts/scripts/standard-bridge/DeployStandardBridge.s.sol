@@ -106,13 +106,13 @@ contract DeployL1Gateway is BridgeBase {
 
         vm.startBroadcast();
 
-        address owner = _getL1OwnerAddress(); // On mainnet, this must be the primev multisig.
-        address relayerAddr = _getRelayerAddress();
-        uint256 settlementFinalizationFee = _getSettlementFinalizationFee();
+        address owner = msg.sender;
+        address relayerAddr = msg.sender;
+        uint256 settlementFinalizationFee = 5;
 
         // Caller needs funds to lock ETH w.r.t mev-commit chain setup cost, and ETH for L1 setup cost.
-        require(address(msg.sender).balance >= MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST,
-            DeployerMustHaveEnoughFunds(address(msg.sender).balance, MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST));
+        // require(address(msg.sender).balance >= MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST,
+        //     DeployerMustHaveEnoughFunds(address(msg.sender).balance, MEV_COMMIT_CHAIN_SETUP_COST + L1_SETUP_COST));
 
         address l1gProxy = Upgrades.deployUUPSProxy(
             "L1Gateway.sol",
@@ -124,11 +124,11 @@ contract DeployL1Gateway is BridgeBase {
         L1Gateway l1Gateway = L1Gateway(payable(l1gProxy));
         console.log("L1Gateway:", address(l1Gateway));
 
-        (bool success, ) = payable(address(l1Gateway)).call{value: MEV_COMMIT_CHAIN_SETUP_COST}("");
-        require(success, FailedToFundL1Gateway(address(l1Gateway)));
+        // (bool success, ) = payable(address(l1Gateway)).call{value: MEV_COMMIT_CHAIN_SETUP_COST}("");
+        // require(success, FailedToFundL1Gateway(address(l1Gateway)));
 
-        (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
-        require(success, FailedToSendETHToRelayer(relayerAddr));
+        // (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
+        // require(success, FailedToSendETHToRelayer(relayerAddr));
 
         vm.stopBroadcast();
     }
