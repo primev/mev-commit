@@ -121,6 +121,9 @@ jobs:
         ws:
           static: 8546
           to: 8546
+        http-engine:
+          static: 8551
+          to: 8551
     env:
       ip: 0.0.0.0
       net_restrict: 0.0.0.0/0
@@ -696,6 +699,10 @@ jobs:
     name: redis
     template: redis.nomad.j2
     count: 1
+    ports:
+      - tcp:
+          static: 7001
+          to: 7001
 
   redisapp: &redisapp_job
     name: redisapp
