@@ -119,7 +119,6 @@ job "redis-{{ env }}" {
 
     task "redis-replica" {
       driver = "exec"
-      depends = ["redis-master"]
 
       artifact {
         source = "http://download.redis.io/releases/redis-7.4.1.tar.gz"
