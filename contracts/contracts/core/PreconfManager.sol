@@ -25,17 +25,16 @@ contract PreconfManager is
     PausableUpgradeable
 {
     using ECDSA for bytes32;
-
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmount,bytes32 bidHash,string signature,string sharedSecretKey)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmount)"
         );
 
     // EIP-712 domain separator
@@ -199,6 +198,7 @@ contract PreconfManager is
      * @param revertingTxHashes The reverting transaction hashes
      * @param decayStartTimeStamp The start time of the decay
      * @param decayEndTimeStamp The end time of the decay
+     * @param slashAmount The amount to slash if provider fails to include tx
      * @param bidSignature The signature of the bid
      * @param sharedSecretKey The shared secret key
      * @return commitmentIndex The index of the stored commitment
@@ -211,6 +211,7 @@ contract PreconfManager is
         string memory revertingTxHashes,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
+        uint256 slashAmount,
         bytes calldata bidSignature,
         bytes memory sharedSecretKey
     ) public whenNotPaused returns (bytes32 commitmentIndex) {
@@ -225,6 +226,7 @@ contract PreconfManager is
             decayEndTimeStamp,
             txnHash,
             revertingTxHashes,
+            slashAmount,
             bidSignature
         );
 
@@ -244,6 +246,7 @@ contract PreconfManager is
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
+            slashAmount,
             bHash,
             bidSignature,
             sharedSecretKey
@@ -291,6 +294,7 @@ contract PreconfManager is
             unopenedCommitment.dispatchTimestamp,
             committerAddress,
             bidAmt,
+            slashAmount,
             bHash,
             commitmentDigest,
             bidSignature,
@@ -335,7 +339,8 @@ contract PreconfManager is
             bidSignature,
             unopenedCommitment.commitmentSignature,
             unopenedCommitment.dispatchTimestamp,
-            sharedSecretKey
+            sharedSecretKey,
+            slashAmount
         );
         return commitmentIndex;
     }
@@ -528,7 +533,7 @@ contract PreconfManager is
                 )
             );
     }
-
+    
     /**
      * @dev Gives digest to be signed for pre confirmation
      * @param _txnHash transaction Hash.
@@ -538,6 +543,7 @@ contract PreconfManager is
      * @param _bidHash hash of the bid.
      * @param _bidSignature signature of the bid.
      * @param _sharedSecretKey shared secret key.
+     * @param _slashAmount amount to slash if provider fails to include tx
      * @return digest it returns a digest that can be used for signing bids.
      */
     function getPreConfHash(
@@ -547,6 +553,7 @@ contract PreconfManager is
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
+        uint256 _slashAmount,
         bytes32 _bidHash,
         bytes memory _bidSignature,
         bytes memory _sharedSecretKey
@@ -563,6 +570,7 @@ contract PreconfManager is
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp,
+                        _slashAmount,
                         _bidHash,
                         keccak256(_bidSignature),
                         keccak256(_sharedSecretKey)
@@ -579,6 +587,7 @@ contract PreconfManager is
      * @param decayEndTimeStamp decay end time.
      * @param txnHash transaction Hash.
      * @param revertingTxHashes reverting transaction hashes.
+     * @param slashAmount amount to slash if provider fails to include tx
      * @param bidSignature bid signature.
      * @return messageDigest returns the bid hash for given bid info.
      * @return recoveredAddress the address from the bid hash.
@@ -590,6 +599,7 @@ contract PreconfManager is
         uint64 decayEndTimeStamp,
         string memory txnHash,
         string memory revertingTxHashes,
+        uint256 slashAmount,
         bytes calldata bidSignature
     ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
@@ -598,7 +608,8 @@ contract PreconfManager is
             bidAmt,
             blockNumber,
             decayStartTimeStamp,
-            decayEndTimeStamp
+            decayEndTimeStamp,
+            slashAmount
         );
         recoveredAddress = messageDigest.recover(bidSignature);
     }
@@ -652,7 +663,6 @@ contract PreconfManager is
 
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
-
     function _getPreConfHash(
         CommitmentParams memory params
     ) internal view returns (bytes32) {
@@ -664,6 +674,7 @@ contract PreconfManager is
                 params.blockNumber,
                 params.decayStartTimeStamp,
                 params.decayEndTimeStamp,
+                params.slashAmount,
                 params.bidHash,
                 params.bidSignature,
                 params.sharedSecretKey
