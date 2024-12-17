@@ -240,10 +240,11 @@ job "{{ job.name }}" {
 
           # --verify flag in entrypoint.sh only works when running forge script from the contracts directory.
           # Here we setup the environment variables to function when cd'ing into the contracts directory.
+          cd ${CONTRACT_REPO_ROOT_PATH}
           export FORGE_BIN_PATH="../../${XDG_CONFIG_HOME}/.foundry/bin/forge"
           export SCRIPT_PATH_PREFIX="scripts"
           export CONTRACT_REPO_ROOT_PATH="./"
-          LOGS="$(cd ${CONTRACT_REPO_ROOT_PATH} && ./entrypoint.sh)"
+          LOGS="$(./entrypoint.sh)"
 
           # Now cd back to previous directory.
           cd ../../
