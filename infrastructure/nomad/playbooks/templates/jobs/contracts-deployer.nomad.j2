@@ -237,7 +237,17 @@ job "{{ job.name }}" {
             {{ end }}
           {% endraw %}
           export L1_OWNER_ADDRESS=${SENDER} #TODO: this should be a multisig address on mainnet.
-          LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
+
+          # --verify flag in entrypoint.sh only works when running forge script from the contracts directory.
+          # Here we setup the environment variables to function when cd'ing into the contracts directory.
+          export FORGE_BIN_PATH="../../${XDG_CONFIG_HOME}/.foundry/bin/forge"
+          export SCRIPT_PATH_PREFIX="scripts"
+          export CONTRACT_REPO_ROOT_PATH="./"
+          LOGS="$(cd ${CONTRACT_REPO_ROOT_PATH} && ./entrypoint.sh)"
+
+          # Now cd back to previous directory.
+          cd ../../
+
           if [ $? -ne 0 ]; then
             echo "Failed to deploy contracts!"
             echo "${LOGS}"
