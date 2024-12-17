@@ -244,6 +244,7 @@ job "{{ job.name }}" {
           export FORGE_BIN_PATH="../../${XDG_CONFIG_HOME}/.foundry/bin/forge"
           export SCRIPT_PATH_PREFIX="scripts"
           export CONTRACT_REPO_ROOT_PATH="./"
+          export ETHERSCAN_API_KEY="EH42PBNXAE8IK4YBF6AUKQMH79VW29D89H"
           LOGS="$(./entrypoint.sh)"
 
           # Now cd back to previous directory.

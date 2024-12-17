@@ -61,11 +61,10 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
         --root "${CONTRACT_REPO_ROOT_PATH}" \
         --priority-gas-price 2000000000 \
         --with-gas-price 5000000000 \
-        --rpc-url "${RPC_URL}" \
-        --chain-id "${CHAIN_ID}" \
-        --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
-        --password "${KEYSTORE_PASSWORD}" \
-        --sender "${SENDER}" \
+        --rpc-url "https://eth-holesky.g.alchemy.com/v2/a4-kNJRrkOqfQza9FNIayasNghgQk5E6" \
+        --chain-id "17000" \
+        --private-key "0x120e26406fe7504f4877cc55d77fec99a26e8b01275fe72d46b9ccdd4f4ca27f" \
+        --sender "0x88195Fe694bf1EA76cE8d3bc02D6abC2E7c17c77" \
         --use 0.8.26 \
         --broadcast \
         --json \
