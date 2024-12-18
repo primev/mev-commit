@@ -35,26 +35,25 @@ job "redis-{{ env }}" {
 
     volume "redis-master-data" {
       type = "host"
-      source = "redis-master-data"
+      source = "data-volume"
       read_only = false
     }
 
     volume "redis-replica-data" {
       type = "host"
-      source = "redis-replica-data"
+      source = "data-volume"
       read_only = false
     }
 
     task "redis-master" {
       driver = "exec"
-
       artifact {
         source = "http://download.redis.io/releases/redis-7.4.1.tar.gz"
       }
 
       volume_mount {
         volume = "redis-master-data"
-        destination = "/local/data"
+        destination = "/local/master-data"
         read_only = false
       }
 
@@ -67,7 +66,7 @@ job "redis-{{ env }}" {
         data = <<-EOF
           port 7001
           bind 0.0.0.0
-          dir /local/data
+          dir /local/master-data
           cluster-enabled no
           appendonly yes
         EOF
@@ -77,19 +76,13 @@ job "redis-{{ env }}" {
       template {
         data = <<-EOF
           #!/usr/bin/env bash
-
-          # Unpack the Redis source tarball (artifact downloaded to /local)
           tar -xzf local/redis-7.4.1.tar.gz -C local
           cd local/redis-7.4.1
-
-          # Build Redis (requires build tools on the host)
           make > /dev/null 2>&1
           if [ $? -ne 0 ]; then
             echo "Failed to build Redis"
             exit 1
           fi
-
-          # Run Redis server
           exec src/redis-server /local/redis-master.conf
         EOF
         destination = "local/run-master.sh"
@@ -118,14 +111,13 @@ job "redis-{{ env }}" {
 
     task "redis-replica" {
       driver = "exec"
-
       artifact {
         source = "http://download.redis.io/releases/redis-7.4.1.tar.gz"
       }
 
       volume_mount {
         volume = "redis-replica-data"
-        destination = "/local/data"
+        destination = "/local/replica-data"
         read_only = false
       }
 
@@ -138,8 +130,7 @@ job "redis-{{ env }}" {
         data = <<-EOF
           port 7002
           bind 0.0.0.0
-          dir /local/data
-          # Assuming service discovery with consul, otherwise replace with the master's IP
+          dir /local/replica-data
           replicaof redis-master.service.consul 7001
           appendonly yes
         EOF
@@ -149,16 +140,13 @@ job "redis-{{ env }}" {
       template {
         data = <<-EOF
           #!/usr/bin/env bash
-
           tar -xzf local/redis-7.4.1.tar.gz -C local
           cd local/redis-7.4.1
-
           make > /dev/null 2>&1
           if [ $? -ne 0 ]; then
             echo "Failed to build Redis"
             exit 1
           fi
-
           exec src/redis-server /local/redis-replica.conf
         EOF
         destination = "local/run-replica.sh"
