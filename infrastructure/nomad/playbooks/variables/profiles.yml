@@ -703,7 +703,7 @@ jobs:
     template: redis.nomad.j2
     count: 1
     ports:
-      - tcp:
+      - redis_master:
           static: 7001
           to: 7001
 

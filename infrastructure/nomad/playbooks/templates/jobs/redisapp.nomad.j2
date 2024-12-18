@@ -50,7 +50,7 @@ job "redisapp-{{ env }}" {
           {% endraw %}
           {%- raw %}
             {{- range nomadService "redis-master" }}
-                {{- if contains "tcp" .Tags }}
+                {{- if contains "redis_master" .Tags }}
           RAPP_REDIS_ADDR="{{ .Address }}:{{ .Port }}"
                 {{- end }}
             {{- end }}

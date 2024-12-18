@@ -24,19 +24,15 @@ job "redis" {
         servers = {{ (ansible_facts['dns']['nameservers'] + ['1.1.1.1']) | tojson }}
       }
 
-      {% if job.ports is defined %}
-        {% for port_name, port_details in job.ports[0].items() %}
-      port "{{ port_name }}" {
-        {% if port_details.get('static') %}
-        static = {{ port_details['static'] }}
-        {% endif %}
-        {% if port_details.get('to') %}
-        to = {{ port_details['to'] }}
-        {% endif %}
+      port "redis_master" {
+        static = 7001
+        to = 7001
       }
-        {% endfor %}
-      {% endif %}
 
+      port "redis_replica" {
+        static = 7002
+        to = 7001
+      }
     }
 
     volume "redis-master-data" {
