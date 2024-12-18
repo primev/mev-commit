@@ -131,7 +131,7 @@ job "redis" {
           port 7002
           bind 0.0.0.0
           dir /local/replica-data
-          replicaof redis-master.service.consul 7001
+          replicaof 127.0.0.1 7001
           appendonly yes
         EOF
         destination = "local/redis-replica.conf"
