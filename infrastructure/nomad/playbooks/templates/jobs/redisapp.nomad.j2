@@ -49,7 +49,7 @@ job "redisapp-{{ env }}" {
           {{- end }}
           {% endraw %}
           {%- raw %}
-            {{- range nomadService "redis" }}
+            {{- range nomadService "redis-master" }}
           RAPP_REDIS_ADDR="{{ .Address }}:{{ .Port }}"
             {{- end }}
           {% endraw %}
