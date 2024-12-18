@@ -19,7 +19,7 @@ artifacts:
     path: external/geth-pos
   redisapp: &redisapp_artifact
     type: binary
-    path: redisapp
+    path: cl/cmd/redisapp
   contracts: &contracts_artifact
     name: contracts
     type: archive
