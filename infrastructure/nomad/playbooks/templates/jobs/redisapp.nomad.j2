@@ -42,7 +42,7 @@ job "redisapp-{{ env }}" {
         data = <<-EOH
           RAPP_INSTANCE_ID="redisapp-1"
           {%- raw %}
-          {{- range nomadService "mev_commit_geth_pos_signer_node1" }}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
            {{- if contains "http-engine" .Tags}}
           RAPP_ETH_CLIENT_URL="http://{{ .Address }}:{{ .Port }}"
            {{- end }}
