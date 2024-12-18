@@ -31,7 +31,7 @@ job "redis" {
 
       port "redis_replica" {
         static = 7002
-        to = 7001
+        to = 7002
       }
     }
 
@@ -68,6 +68,7 @@ job "redis" {
         data = <<-EOF
           port 7001
           bind 0.0.0.0
+          protected-mode no
           dir /local/master-data
           cluster-enabled no
           appendonly yes
@@ -132,6 +133,7 @@ job "redis" {
         data = <<-EOF
           port 7002
           bind 0.0.0.0
+          protected-mode no
           dir /local/replica-data
           replicaof 127.0.0.1 7001
           appendonly yes
