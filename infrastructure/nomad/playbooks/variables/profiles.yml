@@ -17,6 +17,9 @@ artifacts:
   geth-pos: &geth_pos_artifact
     type: binary
     path: external/geth-pos
+  redisapp: &redisapp_artifact
+    type: binary
+    path: cl/cmd/redisapp
   contracts: &contracts_artifact
     name: contracts
     type: archive
@@ -706,6 +709,8 @@ jobs:
 
   redisapp: &redisapp_job
     name: redisapp
+    artifacts:
+      - *redisapp_artifact
     template: redisapp.nomad.j2
     count: 1
 
