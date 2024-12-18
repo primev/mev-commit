@@ -25,6 +25,7 @@ contract PreconfManagerTest is Test {
         bytes commitmentSignature;
         uint64 dispatchTimestamp;
         bytes sharedSecretKey;
+        uint256 slashAmount;
     }
 
     TestCommitment internal _testCommitmentAliceBob;
@@ -46,6 +47,7 @@ contract PreconfManagerTest is Test {
     uint256 public withdrawalDelay;
     uint256 public protocolFeePayoutPeriodBlocks;
     address public oracleContract;
+    uint256 public constant SLASH_AMOUNT = 2 ether;
     function setUp() public {
          address BLS_VERIFY_ADDRESS = address(0xf0);
         bytes memory code = type(MockBLSVerify).creationCode;
@@ -63,7 +65,8 @@ contract PreconfManagerTest is Test {
             hex"5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b",
             hex"026b7694e7eaeca9f77718b127e33e20588825820ecc939d751ad2bd21bbd78b71685e2c3f3f76eb37ce8e67843089effd731e93463b8f935cbbf52add269a6d1c",
             15,
-            bytes("0xsecret")
+            bytes("0xsecret"),
+            SLASH_AMOUNT
         );
 
         feePercent = 10;
@@ -147,7 +150,8 @@ vm.prank(address(this));
                 sharedSecretKey: bytes("0xsecret"),
                 bidHash: hex"447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf",
                 bidSignature: hex"5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b",
-                commitmentSignature: hex"026b7694e7eaeca9f77718b127e33e20588825820ecc939d751ad2bd21bbd78b71685e2c3f3f76eb37ce8e67843089effd731e93463b8f935cbbf52add269a6d1c"
+                commitmentSignature: hex"026b7694e7eaeca9f77718b127e33e20588825820ecc939d751ad2bd21bbd78b71685e2c3f3f76eb37ce8e67843089effd731e93463b8f935cbbf52add269a6d1c",
+                slashAmt: SLASH_AMOUNT
             });
 
         // Step 2: Calculate the bid hash using the getBidHash function
@@ -157,7 +161,8 @@ vm.prank(address(this));
             testCommitment.bidAmt,
             testCommitment.blockNumber,
             testCommitment.decayStartTimeStamp,
-            testCommitment.decayEndTimeStamp
+            testCommitment.decayEndTimeStamp,
+            testCommitment.slashAmt
         );
 
         // Add a alice private key and console log the key
@@ -174,6 +179,7 @@ vm.prank(address(this));
             testCommitment.blockNumber,
             testCommitment.decayStartTimeStamp,
             testCommitment.decayEndTimeStamp,
+            testCommitment.slashAmt,
             bidHash,
             bidSignature,
             testCommitment.sharedSecretKey
@@ -337,7 +343,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.bidAmt,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp
+            _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount
         );
         assertEq(bidHash, _testCommitmentAliceBob.bidDigest);
     }
@@ -351,7 +358,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.bidAmt,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp
+            _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
@@ -364,6 +372,7 @@ vm.prank(address(this));
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount,
             bidHash,
             signature,
             sharedSecretKey
@@ -389,6 +398,7 @@ vm.prank(address(this));
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount,
             _testCommitmentAliceBob.bidSignature
         );
 
@@ -403,6 +413,7 @@ vm.prank(address(this));
             _testCommitmentAliceBob.revertingTxHashes,
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
@@ -422,6 +433,7 @@ vm.prank(address(this));
             _testCommitmentAliceBob.revertingTxHashes,
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.sharedSecretKey
         );
@@ -435,6 +447,7 @@ vm.prank(address(this));
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
+            _testCommitmentAliceBob.slashAmount,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.sharedSecretKey
@@ -452,6 +465,7 @@ vm.prank(address(this));
         uint64 blockNumber,
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
+        uint256 slashAmount,
         bytes memory bidSignature
     ) public view returns (bytes32) {
         bytes32 bidHash = preconfManager.getBidHash(
@@ -460,7 +474,8 @@ vm.prank(address(this));
             bidAmt,
             blockNumber,
             decayStartTimestamp,
-            decayEndTimestamp
+            decayEndTimestamp,
+            slashAmount
         );
         bytes memory sharedSecretKey = abi.encodePacked(keccak256("0xsecret"));
         bytes32 preConfHash = preconfManager.getPreConfHash(
@@ -470,6 +485,7 @@ vm.prank(address(this));
             blockNumber,
             decayStartTimestamp,
             decayEndTimestamp,
+            slashAmount,
             bidHash,
             bidSignature,
             sharedSecretKey
@@ -490,6 +506,7 @@ vm.prank(address(this));
         string memory revertingTxHashes,
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
+        uint256 slashAmount,
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp,
@@ -501,7 +518,8 @@ vm.prank(address(this));
             bidAmt,
             blockNumber,
             decayStartTimestamp,
-            decayEndTimestamp
+            decayEndTimestamp,
+            slashAmount
         );
 
         bytes32 commitmentDigest = preconfManager.getPreConfHash(
@@ -511,6 +529,7 @@ vm.prank(address(this));
             blockNumber,
             decayStartTimestamp,
             decayEndTimestamp,
+            slashAmount,
             bidHash,
             bidSignature,
             sharedSecretKey
@@ -540,6 +559,7 @@ vm.prank(address(this));
         string memory revertingTxHashes,
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
+        uint256 slashAmount,
         bytes memory bidSignature,
         bytes memory sharedSecretKey
     ) public returns (bytes32) {
@@ -552,6 +572,7 @@ vm.prank(address(this));
             revertingTxHashes,
             decayStartTimestamp,
             decayEndTimestamp,
+            slashAmount,
             bidSignature,
             sharedSecretKey
         );
@@ -567,6 +588,7 @@ vm.prank(address(this));
         uint64 decayEndTimestamp,
         string memory txnHash,
         string memory revertingTxHashes,
+        uint256 slashAmount,
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey
@@ -585,7 +607,8 @@ vm.prank(address(this));
                 bidHash: commitment.bidHash,
                 bidSignature: bidSignature,
                 commitmentSignature: commitmentSignature,
-                sharedSecretKey: sharedSecretKey
+                sharedSecretKey: sharedSecretKey,
+                slashAmt: slashAmount
             });
 
         (, address committerAddress) = preconfManager.verifyPreConfCommitment(
@@ -636,6 +659,7 @@ vm.prank(address(this));
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount,
             _testCommitmentAliceBob.bidSignature
         );
         // Step 2: Store the commitment
@@ -648,6 +672,7 @@ vm.prank(address(this));
             _testCommitmentAliceBob.revertingTxHashes,
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.slashAmount,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
