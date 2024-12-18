@@ -30,11 +30,11 @@ job "redisapp-{{ env }}" {
       # Assuming artifact is uploaded to S3 or local dev environment server
       {% if env != 'devenv' %}
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/rapp_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/redisapp_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% else %}
       artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/rapp_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/redisapp_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% endif %}
 
@@ -71,9 +71,9 @@ job "redisapp-{{ env }}" {
             {{ end }}
           {{- end }}
 
-          chmod +x local/rapp
+          chmod +x local/redisapp
           # Start the app
-          exec local/rapp start
+          exec local/redisapp start
           {% endraw %}
         EOH
         destination = "local/run.sh"
