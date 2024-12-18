@@ -26,10 +26,12 @@ job "redis" {
 
       port "redis_master" {
         static = 7001
+        to = 7001
       }
 
       port "redis_replica" {
         static = 7002
+        to = 7001
       }
     }
 
