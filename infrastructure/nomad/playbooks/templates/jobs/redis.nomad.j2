@@ -101,7 +101,7 @@ job "redis" {
       service {
         name = "redis-master"
         port = "redis_master"
-        tags = ["redis", "master"]
+        tags = ["redis_master"]
         provider = "nomad"
 
         check {
@@ -166,7 +166,7 @@ job "redis" {
       service {
         name = "redis-replica"
         port = "redis_replica"
-        tags = ["redis", "replica"]
+        tags = ["redis_replica"]
         provider = "nomad"
 
         check {
