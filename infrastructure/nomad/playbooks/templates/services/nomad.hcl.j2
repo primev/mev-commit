@@ -36,6 +36,16 @@ client {
     path = "{{ ansible_user_home }}/{{ env }}/artifacts"
   }
   {% endif %}
+
+  host_volume "redis-master-data" {
+    path = "/opt/redis/master/data"
+    read_only = false
+  }
+
+  host_volume "redis-replica-data" {
+    path = "/opt/redis/replica/data"
+    read_only = false
+  }
 }
 {% endif %}
 
