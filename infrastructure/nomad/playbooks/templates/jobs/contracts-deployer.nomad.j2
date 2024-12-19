@@ -162,6 +162,14 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
+          {%- raw %}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
+            {{- if contains "http" .Tags }}
+          export RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+          {% endraw %}
+          
           start_time=$(date +%s)
           export DEPLOY_TYPE="core"
           echo "Deploying ${DEPLOY_TYPE} contracts..."
