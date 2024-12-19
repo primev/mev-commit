@@ -149,7 +149,7 @@ job "{{ job.name }}" {
             --strip-components=1
 
           chmod +x local/foundry.sh && local/foundry.sh
-          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup -v nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup -i nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
           export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           echo ""
