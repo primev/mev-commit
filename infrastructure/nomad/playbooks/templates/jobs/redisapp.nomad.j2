@@ -4,7 +4,7 @@ job "redisapp-{{ env }}" {
 
   # Example service job
   group "redisapp-group" {
-    count = 1
+    count = {{ job.count }}
 
     {% if env == 'devenv' %}
     restart {
@@ -40,9 +40,14 @@ job "redisapp-{{ env }}" {
 
       template {
         data = <<-EOH
-          RAPP_INSTANCE_ID="redisapp-1"
+          RAPP_INSTANCE_ID="redisapp-{{ env "NOMAD_ALLOC_INDEX" }}"
           {%- raw %}
           {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
+           {{- if contains "http-engine" .Tags}}
+          RAPP_ETH_CLIENT_URL="http://{{ .Address }}:{{ .Port }}"
+           {{- end }}
+          {{- end }}
+          {{- range nomadService "mev-commit-geth-pos-bootnode1" }}
            {{- if contains "http-engine" .Tags}}
           RAPP_ETH_CLIENT_URL="http://{{ .Address }}:{{ .Port }}"
            {{- end }}

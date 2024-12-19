@@ -95,6 +95,9 @@ jobs:
         p2p:
           static: 30301
           to: 30301
+        http_engine:
+          static: 8552
+          to: 8552
     env:
       ip: 0.0.0.0
       public_ip: 0.0.0.0
@@ -730,7 +733,7 @@ jobs:
     artifacts:
       - *redisapp_artifact
     template: redisapp.nomad.j2
-    count: 1
+    count: 2
 
   l1-transactor: &l1_transactor_job
     name: l1-transactor
