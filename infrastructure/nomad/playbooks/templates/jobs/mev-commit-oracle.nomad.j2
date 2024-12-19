@@ -204,6 +204,15 @@ job "{{ job.name }}" {
           MEV_ORACLE_SETTLEMENT_RPC_URL_WS="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1"}}
+            {{- if contains "http" .Tags }}
+            MEV_ORACLE_SETTLEMENT_RPC_URL_HTTP="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+            {{- if contains "ws" .Tags }}
+            MEV_ORACLE_SETTLEMENT_RPC_URL_WS="ws://{{ .Address}}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
+
           {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
             {{- if contains "db" .Tags }}
           MEV_ORACLE_PG_HOST="localhost"

@@ -123,6 +123,36 @@ job "{{ job.name }}" {
             fi
               {{- end }}
             {{- end }}
+            {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
+            {{- if contains "http" .Tags }}
+          cast send \
+            --keystore "${KEYSTORE_FILE}" \
+            --password "${KEYSTORE_PASSWORD}" \
+            --priority-gas-price 2000000000 \
+            --gas-price 5000000000 \
+              {%- endraw %}
+              {% if profile == 'stressnet-wl1' %}
+              {%- raw %}
+            --value 1000ether \
+              {%- endraw %}
+              {% else %}
+              {%- raw %}
+            --value 10ether \
+              {%- endraw %}
+              {% endif %}
+              {%- raw %}
+            --rpc-url http://{{ .Address }}:{{ .Port }} \
+            "${ADDRESS}"
+
+            if [ $? -eq 0 ]; then
+              echo "Funds successfully sent to: ${ADDRESS}"
+            else
+              echo "Failed to send funds to: ${ADDRESS}"
+              exit 1
+            fi
+              {{- end }}
+            {{- end }}
+
           {{- end }}
           {% endraw %}
         EOH

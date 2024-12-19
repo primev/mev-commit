@@ -218,6 +218,11 @@ job "{{ job.name }}" {
           STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
+            {{- if contains "http" .Tags }}
+          STANDARD_BRIDGE_RELAYER_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
           {{- range nomadService "{% endraw %}{{ job.name }}{% raw %}" }}
             {{- if contains "db" .Tags }}
           STANDARD_BRIDGE_RELAYER_PG_HOST="localhost"

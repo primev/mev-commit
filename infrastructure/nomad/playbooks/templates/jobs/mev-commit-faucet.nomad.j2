@@ -62,6 +62,11 @@ job "{{ job.name }}" {
           SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1"}}
+            {{- if contains "http" .Tags }}
+          SETTLEMENT_RPC_ENDPOINT="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
           HTTP_PORT="{% endraw %}{{ job.ports | selectattr('http', 'defined') | map(attribute='http.static') | first }}{% raw %}"
           {% endraw %}
         EOH

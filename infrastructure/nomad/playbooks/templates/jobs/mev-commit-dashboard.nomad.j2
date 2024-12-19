@@ -98,6 +98,11 @@ job "{{ job.name }}" {
           DASHBOARD_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
+            {{- if contains "ws" .Tags }}
+          DASHBOARD_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
           {% endraw %}
         EOH
         destination = "secrets/.env"

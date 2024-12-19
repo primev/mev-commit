@@ -231,6 +231,22 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
 
+          {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
+            {{- if contains "metrics" .Tags }}
+            - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/debug/metrics/prometheus
+              service: "mev-commit-geth-pos-signer-node1"
+              metrics:
+                - txpool*
+                - trie*
+                - system*
+                - state*
+                - rpc*
+                - p2p*
+                - eth*
+                - chain*
+            {{- end }}
+          {{- end }}
+          
           {{- range nomadService "mev-commit-geth-member-node" }}
             {{- if contains "metrics" .Tags }}
             - openmetrics_endpoint: http://{{ .Address }}:{{ .Port }}/debug/metrics/prometheus

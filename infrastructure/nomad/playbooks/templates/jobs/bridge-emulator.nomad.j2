@@ -79,6 +79,14 @@ job "{{ job.name }}" {
           EMULATOR_SETTLEMENT_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
+            {{- if contains "http" .Tags }}
+          EMULATOR_L1_RPC_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+            {{- if contains "ws" .Tags }}
+          EMULATOR_L1_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
           {{- range nomadService "mock-l1" }}
             {{- if contains "http" .Tags }}
           EMULATOR_L1_RPC_URL="http://{{ .Address }}:{{ .Port }}"

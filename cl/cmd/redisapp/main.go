@@ -140,7 +140,7 @@ var (
 		Name:    "evm-build-delay",
 		Usage:   "EVM build delay",
 		EnvVars: []string{"RAPP_EVM_BUILD_DELAY"},
-		Value:   200 * time.Millisecond,
+		Value:   400 * time.Millisecond,
 	})
 
 	evmBuildDelayEmptyBlockFlag = altsrc.NewDurationFlag(&cli.DurationFlag{
