@@ -9,6 +9,8 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {ValidatorOptInRouter} from "../../contracts/validator-registry/ValidatorOptInRouter.sol";
+import {MainnetConstants} from "../MainnetConstants.sol";
+import {AlwaysFalseMevCommitMiddleware} from "../../contracts/utils/AlwaysFalseMiddleware.sol";
 
 contract BaseDeploy is Script {
     function deployValidatorOptInRouter(
@@ -29,6 +31,27 @@ contract BaseDeploy is Script {
         ValidatorOptInRouter router = ValidatorOptInRouter(payable(proxy));
         console.log("ValidatorOptInRouter owner:", router.owner());
         return proxy;
+    }
+}
+
+contract DeployMainnet is BaseDeploy {
+    address constant public VANILLA_REGISTRY = 0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9;
+    address constant public MEV_COMMIT_AVS = 0xBc77233855e3274E1903771675Eb71E602D9DC2e;
+    address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+
+    function run() external {
+        require(block.chainid == 1, "must deploy on mainnet");
+        vm.startBroadcast();
+
+        AlwaysFalseMevCommitMiddleware alwaysFalseMevCommitMiddleware = new AlwaysFalseMevCommitMiddleware();
+
+        deployValidatorOptInRouter(
+            VANILLA_REGISTRY,
+            MEV_COMMIT_AVS,
+            address(alwaysFalseMevCommitMiddleware),
+            OWNER
+        );
+        vm.stopBroadcast();
     }
 }
 

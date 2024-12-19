@@ -5,6 +5,7 @@ go 1.23
 toolchain go1.23.0
 
 require (
+	github.com/cloudflare/circl v1.5.0
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/primev/mev-commit/contracts-abi v0.0.1
