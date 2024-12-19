@@ -241,6 +241,24 @@ jobs:
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
       etherscan_api_key: "{{ (etherscan_api_key) if env == 'testnet' else '' }}"
 
+  contracts_deployer: &contracts_deployer_pos_job
+    name: contracts-deployer-pos
+    template: contracts-deployer-pos.nomad.j2
+    artifacts:
+      - *contracts_artifact
+      - keystores:
+          contract_deployer_keystore:
+            allocation: true
+          bridge_relayer_keystore:
+    count: 1
+    ports:
+      - http:
+          static: 1010
+          to: 8080
+    env:
+      chain-id: "{{ environments[env].chain_id }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
+
   mev_commit_dashboard: &mev_commit_dashboard_job
     name: mev-commit-dashboard
     template: mev-commit-dashboard.nomad.j2
@@ -803,7 +821,7 @@ profiles:
       - *mock_l1_job
       - *l1_transactor_job
       - *relay_emulator_job
-      - *contracts_deployer_job
+      - *contracts_deployer_pos_job
       - *mev_commit_bridge_job
       - *bridge_emulator_job
       - *mev_commit_dashboard_job

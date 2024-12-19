@@ -155,7 +155,7 @@ job "{{ job.name }}" {
           echo ""
 
           {%- raw %}
-          {{- range nomadService "mev-commit-geth-bootnode1" }}
+          {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
             {{- if contains "http" .Tags }}
           export RPC_URL="http://{{ .Address }}:{{ .Port }}"
             {{- end }}
@@ -217,7 +217,6 @@ job "{{ job.name }}" {
           {% if profile == 'testnet' %}
           export RPC_URL="{{ job.env['l1_rpc_url'] }}"
           export CHAIN_ID="17000"
-          export ETHERSCAN_API_KEY="{{ job.env['etherscan_api_key'] }}"
           {% endif %}
 
           {%- raw %}
@@ -237,18 +236,7 @@ job "{{ job.name }}" {
             {{ end }}
           {% endraw %}
           export L1_OWNER_ADDRESS=${SENDER} #TODO: this should be a multisig address on mainnet.
-
-          # --verify flag in entrypoint.sh only works when running forge script from the contracts directory.
-          # Here we setup the environment variables to function when cd'ing into the contracts directory.
-          cd ${CONTRACT_REPO_ROOT_PATH}
-          export FORGE_BIN_PATH="../../${XDG_CONFIG_HOME}/.foundry/bin/forge"
-          export SCRIPT_PATH_PREFIX="scripts"
-          export CONTRACT_REPO_ROOT_PATH="./"
-          LOGS="$(./entrypoint.sh)"
-
-          # Now cd back to previous directory.
-          cd ../../
-
+          LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
             echo "Failed to deploy contracts!"
             echo "${LOGS}"
