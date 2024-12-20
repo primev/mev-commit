@@ -20,6 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gorilla/websocket"
+	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
+	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 )
 
@@ -72,11 +74,23 @@ func main() {
 		multiLogger.Fatalf("Failed to connect to the WebSocket client: %v", err)
 	}
 
-	// Create contract instance
-	contractAddress := common.HexToAddress("0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67")
-	contract, err := providerregistry.NewProviderregistryFilterer(contractAddress, client)
+	// Create contract instances
+	providerRegistryAddr := common.HexToAddress("0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67")
+	providerContract, err := providerregistry.NewProviderregistryFilterer(providerRegistryAddr, client)
 	if err != nil {
-		multiLogger.Fatalf("Failed to instantiate contract: %v", err)
+		multiLogger.Fatalf("Failed to instantiate provider registry contract: %v", err)
+	}
+
+	bidderRegistryAddr := common.HexToAddress("0x948eCD70FaeF6746A30a00F30f8b9fB2659e4062")
+	bidderContract, err := bidderregistry.NewBidderregistryFilterer(bidderRegistryAddr, client)
+	if err != nil {
+		multiLogger.Fatalf("Failed to instantiate bidder registry contract: %v", err)
+	}
+
+	blockTrackerAddr := common.HexToAddress("0x0b3b6Cf113959214E313d6Ad37Ad56831acb1776")
+	blockTrackerContract, err := blocktracker.NewBlocktrackerFilterer(blockTrackerAddr, client)
+	if err != nil {
+		multiLogger.Fatalf("Failed to instantiate block tracker contract: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -96,6 +110,9 @@ func main() {
 	unstakeChan := make(chan *providerregistry.ProviderregistryUnstake)
 	unpausedChan := make(chan *providerregistry.ProviderregistryUnpaused)
 	withdrawalDelayUpdatedChan := make(chan *providerregistry.ProviderregistryWithdrawalDelayUpdated)
+	providerSlashingChan := make(chan *providerregistry.ProviderregistryFundsSlashed)
+	bidderRewardChan := make(chan *bidderregistry.BidderregistryFundsRewarded)
+	newL1BlockChan := make(chan *blocktracker.BlocktrackerNewL1Block)
 
 	// Set up HTTP server and routes
 	http.HandleFunc("/", handleHome)
@@ -111,7 +128,7 @@ func main() {
 	}()
 
 	// Watch for events
-	go watchEvents(ctx, contract, EventChannels{
+	go watchEvents(ctx, providerContract, bidderContract, blockTrackerContract, EventChannels{
 		blsKeyAddedChan:                  blsKeyAddedChan,
 		feePayoutPeriodBlocksUpdatedChan: feePayoutPeriodBlocksUpdatedChan,
 		feePercentUpdatedChan:            feePercentUpdatedChan,
@@ -125,10 +142,13 @@ func main() {
 		unstakeChan:                      unstakeChan,
 		unpausedChan:                     unpausedChan,
 		withdrawalDelayUpdatedChan:       withdrawalDelayUpdatedChan,
+		providerSlashingChan:             providerSlashingChan,
+		bidderRewardChan:                 bidderRewardChan,
+		newL1BlockChan:                   newL1BlockChan,
 	}, multiLogger, fileLogger)
 
-	multiLogger.Println("Started watching for ProviderRegistry events...")
-	fileLogger.Println("Started watching for ProviderRegistry events...")
+	multiLogger.Println("Started watching for contract events...")
+	fileLogger.Println("Started watching for contract events...")
 
 	// Handle OS signals for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -163,6 +183,14 @@ func main() {
 			logEvent(ctx, client, "Contract Unpaused", event.Raw, fmt.Sprintf("Account: %s", event.Account.Hex()), multiLogger, fileLogger)
 		case event := <-withdrawalDelayUpdatedChan:
 			logEvent(ctx, client, "Withdrawal Delay Updated", event.Raw, fmt.Sprintf("New Delay: %s", event.NewWithdrawalDelay), multiLogger, fileLogger)
+		case event := <-providerSlashingChan:
+			logEvent(ctx, client, "Provider Slashing", event.Raw, fmt.Sprintf("Provider: %s, Amount: %s", event.Provider.Hex(), event.Amount), multiLogger, fileLogger)
+		case event := <-bidderRewardChan:
+			logEvent(ctx, client, "Bidder Reward", event.Raw, fmt.Sprintf("Bidder: %s, Amount: %s", event.Bidder.Hex(), event.Amount), multiLogger, fileLogger)
+		case event := <-newL1BlockChan:
+			if event.Winner != [20]byte{} {
+				logEvent(ctx, client, "New L1 Block", event.Raw, fmt.Sprintf("Block Number: %s, Winner: %s", event.BlockNumber, event.Winner), multiLogger, fileLogger)
+			}
 		case sig := <-sigChan:
 			shutdownMsg := fmt.Sprintf("\nCaught signal %v. Shutting down...", sig)
 			multiLogger.Println(shutdownMsg)
@@ -243,11 +271,16 @@ type EventChannels struct {
 	unstakeChan                      chan *providerregistry.ProviderregistryUnstake
 	unpausedChan                     chan *providerregistry.ProviderregistryUnpaused
 	withdrawalDelayUpdatedChan       chan *providerregistry.ProviderregistryWithdrawalDelayUpdated
+	providerSlashingChan             chan *providerregistry.ProviderregistryFundsSlashed
+	bidderRewardChan                 chan *bidderregistry.BidderregistryFundsRewarded
+	newL1BlockChan                   chan *blocktracker.BlocktrackerNewL1Block
 }
 
 func watchEvents(
 	ctx context.Context,
-	contract *providerregistry.ProviderregistryFilterer,
+	providerContract *providerregistry.ProviderregistryFilterer,
+	bidderContract *bidderregistry.BidderregistryFilterer,
+	blockTrackerContract *blocktracker.BlocktrackerFilterer,
 	channels EventChannels,
 	multiLogger, fileLogger *log.Logger,
 ) {
@@ -265,7 +298,7 @@ func watchEvents(
 		}
 
 		// Filter all events
-		if logs, err := contract.FilterBLSKeyAdded(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterBLSKeyAdded(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -275,7 +308,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterFeePayoutPeriodBlocksUpdated(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterFeePayoutPeriodBlocksUpdated(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -285,7 +318,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterFeePercentUpdated(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterFeePercentUpdated(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -295,7 +328,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterFeeTransfer(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterFeeTransfer(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -305,7 +338,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterInsufficientFundsToSlash(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterInsufficientFundsToSlash(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -315,7 +348,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterMinStakeUpdated(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterMinStakeUpdated(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -325,7 +358,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterOwnershipTransferStarted(filterOpts, nil, nil); err == nil {
+		if logs, err := providerContract.FilterOwnershipTransferStarted(filterOpts, nil, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -335,7 +368,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterOwnershipTransferred(filterOpts, nil, nil); err == nil {
+		if logs, err := providerContract.FilterOwnershipTransferred(filterOpts, nil, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -345,7 +378,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterPaused(filterOpts); err == nil {
+		if logs, err := providerContract.FilterPaused(filterOpts); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -355,7 +388,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterPreconfManagerUpdated(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterPreconfManagerUpdated(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -365,7 +398,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterUnstake(filterOpts, nil); err == nil {
+		if logs, err := providerContract.FilterUnstake(filterOpts, nil); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -375,7 +408,7 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterUnpaused(filterOpts); err == nil {
+		if logs, err := providerContract.FilterUnpaused(filterOpts); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
@@ -385,12 +418,42 @@ func watchEvents(
 			}
 		}
 
-		if logs, err := contract.FilterWithdrawalDelayUpdated(filterOpts); err == nil {
+		if logs, err := providerContract.FilterWithdrawalDelayUpdated(filterOpts); err == nil {
 			for logs.Next() {
 				select {
 				case <-ctx.Done():
 					return
 				case channels.withdrawalDelayUpdatedChan <- logs.Event:
+				}
+			}
+		}
+
+		if logs, err := providerContract.FilterFundsSlashed(filterOpts, nil); err == nil {
+			for logs.Next() {
+				select {
+				case <-ctx.Done():
+					return
+				case channels.providerSlashingChan <- logs.Event:
+				}
+			}
+		}
+
+		if logs, err := bidderContract.FilterFundsRewarded(filterOpts, nil, nil, nil); err == nil {
+			for logs.Next() {
+				select {
+				case <-ctx.Done():
+					return
+				case channels.bidderRewardChan <- logs.Event:
+				}
+			}
+		}
+
+		if logs, err := blockTrackerContract.FilterNewL1Block(filterOpts, nil, nil, nil); err == nil {
+			for logs.Next() {
+				select {
+				case <-ctx.Done():
+					return
+				case channels.newL1BlockChan <- logs.Event:
 				}
 			}
 		}
@@ -435,5 +498,4 @@ func logEvent(ctx context.Context, client *ethclient.Client, eventName string, r
 		details,
 		rawLog.BlockNumber)
 	multiLogger.Println(eventMsg)
-	fileLogger.Println(eventMsg)
 }

@@ -1,50 +1,214 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Provider Registry Event Monitor</title>
+    <title>Mev-commit Event Monitor</title>
     <style>
+        :root {
+            --provider-color: #2196F3;
+            --bidder-color: #4CAF50; 
+            --block-color: #FF9800;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
             background-color: #f5f5f5;
         }
-        #eventLog {
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
             padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #333;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: white;
+        }
+
+        #providerTab {
+            background-color: #e3f2fd;
+            color: var(--provider-color);
+        }
+        #providerTab.active {
+            background-color: var(--provider-color);
+        }
+
+        #bidderTab {
+            background-color: #e8f5e9;
+            color: var(--bidder-color);
+        }
+        #bidderTab.active {
+            background-color: var(--bidder-color);
+        }
+
+        #blockTab {
+            background-color: #fff3e0;
+            color: var(--block-color);
+        }
+        #blockTab.active {
+            background-color: var(--block-color);
+        }
+
+        .event-section {
+            display: none;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             height: 600px;
             overflow-y: auto;
         }
+
+        .event-section.active {
+            display: block;
+        }
+
         .event {
             margin: 10px 0;
-            padding: 10px;
-            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 4px;
             background-color: #f8f9fa;
+            transition: transform 0.2s ease;
         }
+
+        .event:hover {
+            transform: translateX(5px);
+        }
+
+        #providerEvents .event {
+            border-left: 4px solid var(--provider-color);
+        }
+
+        #bidderEvents .event {
+            border-left: 4px solid var(--bidder-color);
+        }
+
+        #blockEvents .event {
+            border-left: 4px solid var(--block-color);
+        }
+
         .timestamp {
             color: #666;
             font-size: 0.9em;
         }
+
         .eventName {
-            color: #2196F3;
             font-weight: bold;
+            margin: 5px 0;
         }
+
+        #providerEvents .eventName {
+            color: var(--provider-color);
+        }
+
+        #bidderEvents .eventName {
+            color: var(--bidder-color);
+        }
+
+        #blockEvents .eventName {
+            color: var(--block-color);
+        }
+
         .details {
-            margin-top: 5px;
+            margin: 5px 0;
+            line-height: 1.4;
         }
+
         .blockNumber {
             color: #666;
             font-size: 0.9em;
         }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 10px;
+        }
+
+        .pagination button {
+            padding: 5px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .no-events {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
     </style>
 </head>
 <body>
-    <h1>Provider Registry Event Monitor</h1>
-    <div id="eventLog"></div>
+    <div class="container">
+        <div class="header">
+            <h1>Provider Registry Event Monitor</h1>
+        </div>
+
+        <div class="tabs">
+            <button id="providerTab" class="tab active" onclick="switchTab('provider')">Provider Registry</button>
+            <button id="bidderTab" class="tab" onclick="switchTab('bidder')">Bidder Registry</button>
+            <button id="blockTab" class="tab" onclick="switchTab('block')">Block Tracker</button>
+        </div>
+
+        <div id="providerEvents" class="event-section active">
+            <div class="events-container"></div>
+        </div>
+
+        <div id="bidderEvents" class="event-section">
+            <div class="events-container"></div>
+        </div>
+
+        <div id="blockEvents" class="event-section">
+            <div class="events-container"></div>
+            <div class="pagination">
+                <button onclick="prevPage()">Previous</button>
+                <span id="pageInfo">Page 1</span>
+                <button onclick="nextPage()">Next</button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        const eventLog = document.getElementById('eventLog');
+        const ITEMS_PER_PAGE = 50;
+        let currentPage = 1;
+        let blockEvents = [];
         let ws;
 
         function connect() {
@@ -61,8 +225,26 @@
 
             ws.onclose = function() {
                 console.log('Disconnected from websocket');
-                setTimeout(connect, 1000); // Reconnect after 1 second
+                setTimeout(connect, 1000);
             };
+        }
+
+        function switchTab(type) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.event-section').forEach(section => section.classList.remove('active'));
+            
+            document.getElementById(`${type}Tab`).classList.add('active');
+            document.getElementById(`${type}Events`).classList.add('active');
+        }
+
+        function getEventSection(event) {
+            if (event.eventName.startsWith('Bidder')) {
+                return document.querySelector('#bidderEvents .events-container');
+            } else if (event.eventName === 'New L1 Block') {
+                return document.querySelector('#blockEvents .events-container');
+            } else {
+                return document.querySelector('#providerEvents .events-container');
+            }
         }
 
         function addEvent(event) {
@@ -74,14 +256,70 @@
                 <div class="details">${event.details}</div>
                 <div class="blockNumber">Block: ${event.blockNumber}</div>
             `;
-            eventLog.insertBefore(eventDiv, eventLog.firstChild);
+
+            if (event.eventName === 'New L1 Block') {
+                blockEvents.unshift(event);
+                updateBlockEvents();
+            } else {
+                const section = getEventSection(event);
+                section.insertBefore(eventDiv, section.firstChild);
+            }
+        }
+
+        function updateBlockEvents() {
+            const container = document.querySelector('#blockEvents .events-container');
+            container.innerHTML = '';
+
+            const start = (currentPage - 1) * ITEMS_PER_PAGE;
+            const end = start + ITEMS_PER_PAGE;
+            const pageEvents = blockEvents.slice(start, end);
+
+            if (pageEvents.length === 0) {
+                container.innerHTML = '<div class="no-events">No block events found</div>';
+                return;
+            }
+
+            pageEvents.forEach(event => {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'event';
+                eventDiv.innerHTML = `
+                    <div class="timestamp">${event.timestamp}</div>
+                    <div class="eventName">${event.eventName}</div>
+                    <div class="details">${event.details}</div>
+                    <div class="blockNumber">Block: ${event.blockNumber}</div>
+                `;
+                container.appendChild(eventDiv);
+            });
+
+            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${Math.ceil(blockEvents.length / ITEMS_PER_PAGE)}`;
+        }
+
+        function nextPage() {
+            if (currentPage * ITEMS_PER_PAGE < blockEvents.length) {
+                currentPage++;
+                updateBlockEvents();
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                updateBlockEvents();
+            }
         }
 
         // Load existing logs when page loads
         fetch('/logs')
             .then(response => response.json())
             .then(logs => {
-                logs.reverse().forEach(log => addEvent(log));
+                logs.reverse().forEach(log => {
+                    if (log.eventName === 'New L1 Block') {
+                        blockEvents.push(log);
+                    } else {
+                        addEvent(log);
+                    }
+                });
+                updateBlockEvents();
             });
 
         // Connect to websocket
