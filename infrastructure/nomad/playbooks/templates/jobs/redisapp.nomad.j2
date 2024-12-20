@@ -40,7 +40,7 @@ job "redisapp-{{ env }}" {
 
       template {
         data = <<-EOH
-          RAPP_INSTANCE_ID="redisapp-{{ env "NOMAD_ALLOC_INDEX" }}"
+          RAPP_INSTANCE_ID="redisapp-1"
           {%- raw %}
           {{- range nomadService "mev-commit-geth-pos-signer-node1" }}
            {{- if contains "http-engine" .Tags}}

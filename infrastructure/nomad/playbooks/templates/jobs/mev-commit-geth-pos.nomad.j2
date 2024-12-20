@@ -125,8 +125,6 @@ job "{{ job.name }}" {
           {% endif %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
           GETH_STATE_SCHEME="{% if profile == 'archive' %}hash{% else %}path{% endif %}"
-            {% endif %}
-          {% endif %}
         EOH
         destination = "secrets/.env"
         env = true
