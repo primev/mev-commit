@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Provider Registry Event Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        #eventLog {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            height: 600px;
+            overflow-y: auto;
+        }
+        .event {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #2196F3;
+            background-color: #f8f9fa;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .eventName {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        .details {
+            margin-top: 5px;
+        }
+        .blockNumber {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Provider Registry Event Monitor</h1>
+    <div id="eventLog"></div>
+
+    <script>
+        const eventLog = document.getElementById('eventLog');
+        let ws;
+
+        function connect() {
+            ws = new WebSocket('ws://' + window.location.host + '/ws');
+            
+            ws.onopen = function() {
+                console.log('Connected to websocket');
+            };
+
+            ws.onmessage = function(e) {
+                const event = JSON.parse(e.data);
+                addEvent(event);
+            };
+
+            ws.onclose = function() {
+                console.log('Disconnected from websocket');
+                setTimeout(connect, 1000); // Reconnect after 1 second
+            };
+        }
+
+        function addEvent(event) {
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'event';
+            eventDiv.innerHTML = `
+                <div class="timestamp">${event.timestamp}</div>
+                <div class="eventName">${event.eventName}</div>
+                <div class="details">${event.details}</div>
+                <div class="blockNumber">Block: ${event.blockNumber}</div>
+            `;
+            eventLog.insertBefore(eventDiv, eventLog.firstChild);
+        }
+
+        // Load existing logs when page loads
+        fetch('/logs')
+            .then(response => response.json())
+            .then(logs => {
+                logs.reverse().forEach(log => addEvent(log));
+            });
+
+        // Connect to websocket
+        connect();
+    </script>
+</body>
+</html>

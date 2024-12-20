@@ -2,11 +2,16 @@ package main
 
 import (
 	"context"
+	"embed"
+	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"math/big"
+	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,7 +19,38 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/gorilla/websocket"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
+)
+
+//go:embed templates/*
+var content embed.FS
+
+type LogEntry struct {
+	Timestamp   string `json:"timestamp"`
+	EventName   string `json:"eventName"`
+	Details     string `json:"details"`
+	BlockNumber uint64 `json:"blockNumber"`
+}
+
+type LogStore struct {
+	sync.RWMutex
+	logs []LogEntry
+}
+
+var (
+	upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+	logStore = &LogStore{
+		logs: make([]LogEntry, 0),
+	}
+	wsClients = make(map[*websocket.Conn]bool)
+	wsLock    sync.RWMutex
 )
 
 func main() {
@@ -60,6 +96,19 @@ func main() {
 	unstakeChan := make(chan *providerregistry.ProviderregistryUnstake)
 	unpausedChan := make(chan *providerregistry.ProviderregistryUnpaused)
 	withdrawalDelayUpdatedChan := make(chan *providerregistry.ProviderregistryWithdrawalDelayUpdated)
+
+	// Set up HTTP server and routes
+	http.HandleFunc("/", handleHome)
+	http.HandleFunc("/ws", handleWebSocket)
+	http.HandleFunc("/logs", handleGetLogs)
+
+	// Start HTTP server
+	go func() {
+		multiLogger.Println("Starting web server on :8080...")
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			multiLogger.Fatalf("Failed to start web server: %v", err)
+		}
+	}()
 
 	// Watch for events
 	go watchEvents(ctx, contract, EventChannels{
@@ -120,6 +169,62 @@ func main() {
 			fileLogger.Println(shutdownMsg)
 			cancel()
 			return
+		}
+	}
+}
+
+func handleHome(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFS(content, "templates/index.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpl.Execute(w, nil)
+}
+
+func handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Failed to upgrade websocket: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	wsLock.Lock()
+	wsClients[conn] = true
+	wsLock.Unlock()
+
+	defer func() {
+		wsLock.Lock()
+		delete(wsClients, conn)
+		wsLock.Unlock()
+	}()
+
+	// Keep connection alive
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			break
+		}
+	}
+}
+
+func handleGetLogs(w http.ResponseWriter, r *http.Request) {
+	logStore.RLock()
+	defer logStore.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(logStore.logs)
+}
+
+func broadcastToWebSockets(entry LogEntry) {
+	wsLock.RLock()
+	defer wsLock.RUnlock()
+
+	for client := range wsClients {
+		if err := client.WriteJSON(entry); err != nil {
+			log.Printf("Failed to write to websocket: %v", err)
+			client.Close()
+			delete(wsClients, client)
 		}
 	}
 }
@@ -309,8 +414,23 @@ func logEvent(ctx context.Context, client *ethclient.Client, eventName string, r
 	}
 	blockTime := time.UnixMilli(int64(block.Time()))
 
+	entry := LogEntry{
+		Timestamp:   blockTime.Format(time.RFC3339),
+		EventName:   eventName,
+		Details:     details,
+		BlockNumber: rawLog.BlockNumber,
+	}
+
+	// Store the log
+	logStore.Lock()
+	logStore.logs = append(logStore.logs, entry)
+	logStore.Unlock()
+
+	// Broadcast to WebSocket clients
+	broadcastToWebSockets(entry)
+
 	eventMsg := fmt.Sprintf("[%s] %s - %s, Block: %d",
-		blockTime.Format(time.RFC3339),
+		entry.Timestamp,
 		eventName,
 		details,
 		rawLog.BlockNumber)
