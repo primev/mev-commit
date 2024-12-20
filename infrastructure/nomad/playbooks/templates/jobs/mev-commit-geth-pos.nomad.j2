@@ -125,7 +125,7 @@ job "{{ job.name }}" {
           {% endif %}
           GETH_SYNC_MODE="{{ job.env['sync_mode'] }}"
           GETH_STATE_SCHEME="{% if profile == 'archive' %}hash{% else %}path{% endif %}"
-          {% if job.env['type'] != 'bootnode' %}
+          {% comment %} {% if job.env['type'] != 'bootnode' %}
             {% if geth_bootnode_url is defined %}
           BOOTNODE_ENDPOINT="{{ geth_bootnode_url }}"
             {% else %}
@@ -134,7 +134,7 @@ job "{{ job.name }}" {
             {{- if contains "p2p" .Tags }}
           BOOTNODE_ENDPOINT="enode://{{ with secret "secret/data/mev-commit" }}{{ .Data.data.geth_bootnode1_nodekey_address }}{{ end }}@{{ .Address }}:{{ .Port }}"
             {{- end }}
-          {{- end }}
+          {{- end }} {% endcomment %}
           {% endraw %}
             {% endif %}
           {% endif %}

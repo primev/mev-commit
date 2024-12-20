@@ -47,11 +47,6 @@ job "redisapp-{{ env }}" {
           RAPP_ETH_CLIENT_URL="http://{{ .Address }}:{{ .Port }}"
            {{- end }}
           {{- end }}
-          {{- range nomadService "mev-commit-geth-pos-bootnode1" }}
-           {{- if contains "http-engine" .Tags}}
-          RAPP_ETH_CLIENT_URL="http://{{ .Address }}:{{ .Port }}"
-           {{- end }}
-          {{- end }}
           {% endraw %}
           {%- raw %}
             {{- range nomadService "redis-master" }}
