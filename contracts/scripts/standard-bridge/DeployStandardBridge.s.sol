@@ -16,20 +16,23 @@ contract BridgeBase is Script {
     // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
     uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether;
 
-    // Amount of ETH to initially fund the relayer account on both chains.
-    uint256 public constant RELAYER_INITIAL_FUNDING = 1 ether;
+    // Amount of ETH to initially fund the relayer account on the mev-commit chain.
+    uint256 public constant RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 256 gwei;
 
-    // Amount of ETH to initially fund the oracle account on L1 chain.
-    uint256 public constant ORACLE_INITIAL_FUNDING = 1 ether;
+    // Amount of ETH to initially fund the oracle account on the mev-commit chain.
+    uint256 public constant ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 256 gwei;
+
+    // Amount of ETH to initially fund the relayer account on L1.
+    uint256 public constant RELAYER_INITIAL_FUNDING_L1 = 1 ether;
 
     // Amount of ETH required by the contract deployer to initialize all bridge and core contract state,
     // AND initially fund the relayer, all on mev-commit chain.
     // This amount of ETH must be initially locked in the L1 gateway contract to ensure a 1:1 peg
     // between mev-commit chain ETH and L1 ETH.
-    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING + ORACLE_INITIAL_FUNDING;
+    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN + ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
 
     // Amount of ETH required on L1 to initialize the L1 gateway, make transfer calls, and initially fund the relayer on L1.
-    uint256 public constant L1_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING;
+    uint256 public constant L1_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING_L1;
 
     error RelayerAddressNotSet(address addr);
     error L1FinalizationFeeNotSet(uint256 fee);
@@ -90,7 +93,7 @@ contract DeploySettlementGateway is BridgeBase {
 
         allocator.addToWhitelist(address(settlementGateway));
 
-        (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
+        (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
 
         vm.stopBroadcast();
@@ -127,7 +130,7 @@ contract DeployL1Gateway is BridgeBase {
         (bool success, ) = payable(address(l1Gateway)).call{value: MEV_COMMIT_CHAIN_SETUP_COST}("");
         require(success, FailedToFundL1Gateway(address(l1Gateway)));
 
-        (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING}("");
+        (success, ) = payable(relayerAddr).call{value: RELAYER_INITIAL_FUNDING_L1}("");
         require(success, FailedToSendETHToRelayer(relayerAddr));
 
         vm.stopBroadcast();
