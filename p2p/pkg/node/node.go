@@ -101,6 +101,7 @@ type Options struct {
 	OracleWindowOffset       *big.Int
 	BeaconAPIURL             string
 	L1RPCURL                 string
+	LaggeredMode             int
 	BidderBidTimeout         time.Duration
 	ProviderDecisionTimeout  time.Duration
 }
@@ -416,17 +417,24 @@ func NewNode(opts *Options) (*Node, error) {
 			return nil, err
 		}
 
-		validatorRouterSession := &validatorrouter.ValidatoroptinrouterCallerSession{
-			Contract: validatorRouterCaller,
-			CallOpts: bind.CallOpts{
-				From: opts.KeySigner.GetAddress(),
-			},
+		callOptsGetter := func() (*bind.CallOpts, error) {
+			blkNum, err := l1ContractRPC.BlockNumber(context.Background())
+			if err != nil {
+				return nil, err
+			}
+			currentBlkNum := big.NewInt(0).SetUint64(blkNum)
+			queryBlkNum := big.NewInt(0).Sub(currentBlkNum, big.NewInt(int64(opts.LaggeredMode)))
+			return &bind.CallOpts{
+				From:        opts.KeySigner.GetAddress(),
+				BlockNumber: queryBlkNum,
+			}, nil
 		}
 
 		validatorAPI := validatorapi.NewService(
 			opts.BeaconAPIURL,
-			validatorRouterSession,
+			validatorRouterCaller,
 			opts.Logger.With("component", "validatorapi"),
+			callOptsGetter,
 		)
 		validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
 

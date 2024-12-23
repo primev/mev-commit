@@ -430,6 +430,13 @@ var (
 		Value:    30 * time.Second,
 		Category: categoryProvider,
 	})
+
+	optionLaggerdMode = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:    "laggerd-mode",
+		Usage:   "No of blocks to lag behind for L1 chain",
+		EnvVars: []string{"MEV_COMMIT_LAGGERD_MODE"},
+		Value:   10,
+	})
 )
 
 func main() {
@@ -649,6 +656,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 		BeaconAPIURL:             c.String(optionBeaconAPIURL.Name),
 		L1RPCURL:                 c.String(optionL1RPCURL.Name),
+		LaggeredMode:             c.Int(optionLaggerdMode.Name),
 		BidderBidTimeout:         c.Duration(optionBidderBidTimeout.Name),
 		ProviderDecisionTimeout:  c.Duration(optionProviderDecisionTimeout.Name),
 	})

@@ -83,6 +83,7 @@ job "{{ job.name }}" {
         data = <<-EOH
           MEV_COMMIT_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           MEV_COMMIT_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          MEV_ORACLE_LAGGERD_MODE="{{ job.env.get('laggerd-mode', '10') }}"
           MEV_COMMIT_OTEL_COLLECTOR_ENDPOINT_URL="{{ job.env.get('otel_collector_endpoint_url', '') }}"
           {%- raw %}
           MEV_COMMIT_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
