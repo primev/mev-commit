@@ -1,7 +1,7 @@
 {
     "name": "Mev-commit",
-    "website": "https://docs.primev.xyz/concepts/what-is-mev-commit",
-    "description": "Mev-commit is a peer-to-peer (P2P) networking platform designed to facilitate real-time interactions and coordination between mev actors and execution providers. It provides a robust network for exchanging execution bids and cryptographic commitments, which are used to specify execution requirements in detail and to receive credible commitments that act as promises to fulfill bid requirements. Mev-commit allows actors to engage in “fast games” such as preconfirmations through real-time cryptographic commitments and settles results using a high throughput blockchain for permissionless access.",
+    "website": "https://docs.primev.xyz/",
+    "description": "Mev-commit is a credible commitment network that enhances validator yield, offering preconfirmations to make Ethereum fast. Mev-commit is a p2p networking platform that facilitates end-to-end encrypted real-time interactions and coordination between mev actors and execution providers, settling on a high throughput blockchain.",
     "logo": "https://raw.githubusercontent.com/primev/mev-commit/main/static/primev-logo.png",
     "twitter": "https://x.com/primev_xyz"
 }
