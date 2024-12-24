@@ -737,6 +737,21 @@ profiles:
       - *mev_commit_provider_emulator_node1_job
       - *datadog_agent_metrics_collector_job
 
+  mainnet:
+    jobs:
+      - *artifacts_job
+      - *datadog_agent_logs_collector_job
+      - *otel_collector_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *contracts_deployer_job
+      - *mev_commit_bridge_job
+      - *mev_commit_dashboard_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_oracle_job
+      - *datadog_agent_metrics_collector_job
+
   stressnet:
     jobs:
       - *artifacts_job
