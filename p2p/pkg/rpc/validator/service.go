@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
@@ -18,7 +19,7 @@ import (
 )
 
 type ValidatorRouterContract interface {
-	AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, error)
+	AreValidatorsOptedIn(opts *bind.CallOpts, valBLSPubKeys [][]byte) ([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, error)
 }
 
 type Service struct {
@@ -27,14 +28,21 @@ type Service struct {
 	validatorRouter ValidatorRouterContract
 	logger          *slog.Logger
 	metrics         *metrics
+	optsGetter      func() (*bind.CallOpts, error)
 }
 
-func NewService(apiURL string, validatorRouter ValidatorRouterContract, logger *slog.Logger) *Service {
+func NewService(
+	apiURL string,
+	validatorRouter ValidatorRouterContract,
+	logger *slog.Logger,
+	optsGetter func() (*bind.CallOpts, error),
+) *Service {
 	return &Service{
 		apiURL:          apiURL,
 		validatorRouter: validatorRouter,
 		logger:          logger,
 		metrics:         newMetrics(),
+		optsGetter:      optsGetter,
 	}
 }
 
@@ -177,7 +185,17 @@ func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uin
 		validatorsKeys = append(validatorsKeys, pubkeyBytes)
 	}
 
-	areValidatorsOptedIn, err := s.validatorRouter.AreValidatorsOptedIn(validatorsKeys)
+	if len(validatorsKeys) == 0 {
+		return validators, nil
+	}
+
+	opts, err := s.optsGetter()
+	if err != nil {
+		s.logger.Error("getting call opts", "error", err)
+		return nil, status.Errorf(codes.Internal, "getting call opts: %v", err)
+	}
+
+	areValidatorsOptedIn, err := s.validatorRouter.AreValidatorsOptedIn(opts, validatorsKeys)
 	if err != nil {
 		s.logger.Error("checking if validators are opted in", "error", err)
 		return nil, status.Errorf(codes.Internal, "checking if validators are opted in: %v", err)

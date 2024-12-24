@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
@@ -22,7 +23,7 @@ type MockValidatorRouterContract struct {
 	ExpectedCalls map[string]interface{}
 }
 
-func (m *MockValidatorRouterContract) AreValidatorsOptedIn(valBLSPubKeys [][]byte) ([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, error) {
+func (m *MockValidatorRouterContract) AreValidatorsOptedIn(_ *bind.CallOpts, valBLSPubKeys [][]byte) ([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, error) {
 	results := make([]validatoroptinrouter.IValidatorOptInRouterOptInStatus, len(valBLSPubKeys))
 	for i, key := range valBLSPubKeys {
 		if m.ExpectedCalls[string(key)] == nil {
@@ -56,8 +57,12 @@ func TestGetValidators(t *testing.T) {
 		},
 	}
 
+	optsGetter := func() (*bind.CallOpts, error) {
+		return &bind.CallOpts{}, nil
+	}
+
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	resp, err := service.GetValidators(context.Background(), req)
@@ -85,9 +90,13 @@ func TestGetValidators_HTTPError(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
+	optsGetter := func() (*bind.CallOpts, error) {
+		return &bind.CallOpts{}, nil
+	}
+
 	mockValidatorRouter := &MockValidatorRouterContract{}
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	_, err := service.GetValidators(context.Background(), req)
@@ -125,8 +134,12 @@ func TestGetValidators_EpochZero(t *testing.T) {
 		},
 	}
 
+	optsGetter := func() (*bind.CallOpts, error) {
+		return &bind.CallOpts{}, nil
+	}
+
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 0}
 	resp, err := service.GetValidators(context.Background(), req)
