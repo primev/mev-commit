@@ -432,10 +432,11 @@ var (
 	})
 
 	optionLaggerdMode = altsrc.NewIntFlag(&cli.IntFlag{
-		Name:    "laggerd-mode",
-		Usage:   "No of blocks to lag behind for L1 chain",
-		EnvVars: []string{"MEV_COMMIT_LAGGERD_MODE"},
-		Value:   10,
+		Name:     "laggerd-mode",
+		Usage:    "No of blocks to lag behind for L1 chain when fetching validator duties",
+		EnvVars:  []string{"MEV_COMMIT_LAGGERD_MODE"},
+		Value:    10,
+		Category: categoryEthRPC,
 	})
 )
 
