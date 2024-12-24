@@ -57,7 +57,7 @@ job "{{ job.name }}" {
     task "node" {
       driver = "exec"
 
-      {% if profile == 'testnet' %}
+      {% if profile == 'testnet' or profile == 'mainnet' %}
       resources {
         cores = 4
         memory = 8192

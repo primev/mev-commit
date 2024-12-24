@@ -12,3 +12,10 @@ environments:
     secrets: fetch
     genesis_timestamp: "0x668ebdff"
     domain: testnet.mev-commit.xyz
+  mainenv:
+    chain_id: 8855
+    profile: "{{ profile }}"
+    version: "{{ version }}"
+    secrets: fetch
+    genesis_timestamp: "0x676b1b58"
+    domain: mev-commit.xyz

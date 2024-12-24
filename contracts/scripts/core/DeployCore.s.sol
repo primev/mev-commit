@@ -14,7 +14,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {console} from "forge-std/console.sol";
 
-contract DeployTestnet is Script {
+contract DeployCore is Script {
 
     // Amount of ETH to initially fund the oracle account on L1 chain.
     uint256 public constant ORACLE_INITIAL_FUNDING = 1 ether;
@@ -23,7 +23,6 @@ contract DeployTestnet is Script {
     error FailedToSendETHToOracle(address addr);
 
     function run() external {
-        require(block.chainid == 17864, "chainID not 17864 (testnet env)");
         vm.startBroadcast();
 
         uint256 minStake = 1 ether;
