@@ -101,7 +101,7 @@ type Options struct {
 	OracleWindowOffset       *big.Int
 	BeaconAPIURL             string
 	L1RPCURL                 string
-	LaggardMode              int
+	LaggardMode              *big.Int
 	BidderBidTimeout         time.Duration
 	ProviderDecisionTimeout  time.Duration
 }
@@ -423,7 +423,7 @@ func NewNode(opts *Options) (*Node, error) {
 				return nil, err
 			}
 			currentBlkNum := big.NewInt(0).SetUint64(blkNum)
-			queryBlkNum := big.NewInt(0).Sub(currentBlkNum, big.NewInt(int64(opts.LaggardMode)))
+			queryBlkNum := big.NewInt(0).Sub(currentBlkNum, opts.LaggardMode)
 			return &bind.CallOpts{
 				From:        opts.KeySigner.GetAddress(),
 				BlockNumber: queryBlkNum,

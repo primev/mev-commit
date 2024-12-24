@@ -657,7 +657,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 		BeaconAPIURL:             c.String(optionBeaconAPIURL.Name),
 		L1RPCURL:                 c.String(optionL1RPCURL.Name),
-		LaggardMode:              c.Int(optionLaggardMode.Name),
+		LaggardMode:              big.NewInt(int64(c.Int(optionLaggardMode.Name))),
 		BidderBidTimeout:         c.Duration(optionBidderBidTimeout.Name),
 		ProviderDecisionTimeout:  c.Duration(optionProviderDecisionTimeout.Name),
 	})
