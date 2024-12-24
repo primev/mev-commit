@@ -46,7 +46,7 @@ job "{{ job.name }}" {
       driver = "exec"
       kill_timeout = "25s"
 
-      {% if profile == 'testnet' or profile == 'archive' %}
+      {% if profile == 'testnet' or profile == 'mainnet' or profile == 'archive' %}
       resources {
         cores = 6
         memory = 32768

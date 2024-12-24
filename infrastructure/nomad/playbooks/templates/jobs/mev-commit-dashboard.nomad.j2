@@ -56,7 +56,7 @@ job "{{ job.name }}" {
     task "dashboard" {
       driver = "exec"
 
-      {% if profile == 'testnet' %}
+      {% if profile == 'testnet' or profile == 'mainnet' %}
       resources {
         memory = 4096
       }

@@ -61,7 +61,7 @@ job "{{ job.name }}" {
         sidecar = true
       }
 
-      {% if profile == 'testnet' %}
+      {% if profile == 'testnet' or profile == 'mainnet' %}
       resources {
         cores = 4
         memory = 8192
@@ -151,7 +151,7 @@ job "{{ job.name }}" {
     task "oracle" {
       driver = "exec"
 
-      {% if profile == 'testnet' %}
+      {% if profile == 'testnet' or profile == 'mainnet' %}
       resources {
         cores = 4
         memory = 8192
