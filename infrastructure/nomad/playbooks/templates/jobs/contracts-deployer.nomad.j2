@@ -186,6 +186,7 @@ job "{{ job.name }}" {
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/${DEPLOY_TYPE}_addresses.json
+          echo "${LOGS}"
 
           forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
 
@@ -213,6 +214,7 @@ job "{{ job.name }}" {
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/${DEPLOY_TYPE}_addresses.json
+          echo "${LOGS}"
 
           forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
 
@@ -267,6 +269,7 @@ job "{{ job.name }}" {
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/${DEPLOY_TYPE}_addresses.json
+          echo "${LOGS}"
 
           {%- endif %}
 
