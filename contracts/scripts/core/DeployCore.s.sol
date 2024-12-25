@@ -17,7 +17,7 @@ import {console} from "forge-std/console.sol";
 contract DeployTestnet is Script {
 
     // Amount of ETH to initially fund the oracle account on L1 chain.
-    uint256 public constant ORACLE_INITIAL_FUNDING = 1 ether;
+    uint256 public constant ORACLE_INITIAL_FUNDING = 300 gwei;
     uint256 public constant PERCENT_MULTIPLIER = 1e16;
     
     error FailedToSendETHToOracle(address addr);
