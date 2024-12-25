@@ -29,10 +29,10 @@ contract BridgeBase is Script {
     // AND initially fund the relayer, all on mev-commit chain.
     // This amount of ETH must be initially locked in the L1 gateway contract to ensure a 1:1 peg
     // between mev-commit chain ETH and L1 ETH.
-    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN + ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
+    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 0.1 ether + RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN + ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
 
     // Amount of ETH required on L1 to initialize the L1 gateway, make transfer calls, and initially fund the relayer on L1.
-    uint256 public constant L1_SETUP_COST = 1 ether + RELAYER_INITIAL_FUNDING_L1;
+    uint256 public constant L1_SETUP_COST = 0.01 ether + RELAYER_INITIAL_FUNDING_L1;
 
     error RelayerAddressNotSet(address addr);
     error L1FinalizationFeeNotSet(uint256 fee);
