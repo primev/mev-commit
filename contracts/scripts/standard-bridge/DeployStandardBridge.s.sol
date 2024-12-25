@@ -17,7 +17,7 @@ contract BridgeBase is Script {
     uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether;
 
     // Amount of ETH to initially fund the relayer account on the mev-commit chain.
-    uint256 public constant RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 300 gwei; // 256 gwei + buffer
+    uint256 public constant RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.03 ether;
 
     // Amount of ETH to initially fund the relayer account on L1.
     uint256 public constant RELAYER_INITIAL_FUNDING_L1 = 1 ether;
