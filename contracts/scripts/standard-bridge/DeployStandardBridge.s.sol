@@ -13,11 +13,19 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {console} from "forge-std/console.sol";
 
 contract BridgeBase is Script {
-    // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
-    uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether;
-
     // Amount of ETH to initially fund the relayer account on the mev-commit chain.
+    // This should be high enough to cover the cost of enqueuing transactions as
+    // long as the relayer account is a zero-fee account.
     uint256 public constant RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.03 ether;
+
+    // Amount of ETH to initially fund the oracle account on the mev-commit chain.
+    // This should be high enough to cover the cost of enqueuing transactions as
+    // long as the oracle account is a zero-fee account.
+    uint256 public constant ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.03 ether;
+
+    // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
+    // Since the deployer deploys the core contracts first, the ORACLE_INITIAL_FUNDING is subtracted from this amount.
+    uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether - 0.03 ether;
 
     // Amount of ETH to initially fund the relayer account on L1.
     uint256 public constant RELAYER_INITIAL_FUNDING_L1 = 1 ether;
@@ -26,7 +34,7 @@ contract BridgeBase is Script {
     // AND initially fund the relayer, all on mev-commit chain.
     // This amount of ETH must be initially locked in the L1 gateway contract to ensure a 1:1 peg
     // between mev-commit chain ETH and L1 ETH.
-    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = 0.01 ether + RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
+    uint256 public constant MEV_COMMIT_CHAIN_SETUP_COST = ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN + RELAYER_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
 
     // Amount of ETH required on L1 to initialize the L1 gateway, make transfer calls, and initially fund the relayer on L1.
     uint256 public constant L1_SETUP_COST = 0.01 ether + RELAYER_INITIAL_FUNDING_L1;

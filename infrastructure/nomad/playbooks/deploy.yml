@@ -480,7 +480,7 @@
               . + {
                 ($address): {
                     {% if profile == 'mainnet' %}
-                    "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE4F2FBDFD0B813FFFF"
+                    "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE4E51B291D10AFFFFF"
                     {% else %}
                     "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD4A51000FDA0FFFF"
                     {% endif %}
