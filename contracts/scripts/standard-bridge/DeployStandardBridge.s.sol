@@ -24,8 +24,10 @@ contract BridgeBase is Script {
     uint256 public constant ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN = 0.03 ether;
 
     // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
-    // Since the deployer deploys the core contracts first, the ORACLE_INITIAL_FUNDING is subtracted from this amount.
-    uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether - 0.03 ether;
+    uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether;
+
+    // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
+    uint256 public constant DEPLOYER_INITIAL_BALANCE = DEPLOYER_GENESIS_ALLOCATION - ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
 
     // Amount of ETH to initially fund the relayer account on L1.
     uint256 public constant RELAYER_INITIAL_FUNDING_L1 = 1 ether;
@@ -71,8 +73,8 @@ contract DeploySettlementGateway is BridgeBase {
         address relayerAddr = _getRelayerAddress();
         uint256 l1FinalizationFee = _getL1FinalizationFee();
 
-        require(address(msg.sender).balance >= DEPLOYER_GENESIS_ALLOCATION,
-            DeployerMustHaveGenesisAllocation(address(msg.sender).balance, DEPLOYER_GENESIS_ALLOCATION));
+        require(address(msg.sender).balance >= DEPLOYER_INITIAL_BALANCE,
+            DeployerMustHaveGenesisAllocation(address(msg.sender).balance, DEPLOYER_INITIAL_BALANCE);
 
         address allocatorProxy = Upgrades.deployUUPSProxy(
             "Allocator.sol",
