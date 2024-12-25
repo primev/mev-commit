@@ -26,7 +26,8 @@ contract BridgeBase is Script {
     // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
     uint256 public constant DEPLOYER_GENESIS_ALLOCATION = type(uint256).max - 500 ether;
 
-    // Amount of ETH which must be allocated only to the contract deployer on mev-commit chain genesis.
+    // Amount of ETH which must be present in the deployer account after core contract deployment. The funds
+    // for the Oracle are already transferred.
     uint256 public constant DEPLOYER_INITIAL_BALANCE = DEPLOYER_GENESIS_ALLOCATION - ORACLE_INITIAL_FUNDING_MEV_COMMIT_CHAIN;
 
     // Amount of ETH to initially fund the relayer account on L1.
