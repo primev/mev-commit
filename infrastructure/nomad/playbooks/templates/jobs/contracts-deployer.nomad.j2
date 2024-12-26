@@ -51,7 +51,7 @@ job "{{ job.name }}" {
     task "contracts" {
       driver = "exec"
 
-      {% if profile == 'testnet' %}
+      {% if profile == 'testnet' or profile == 'mainnet' %}
       resources {
         cpu = 4000
         memory = 2048
@@ -148,8 +148,10 @@ job "{{ job.name }}" {
             --directory /usr/local \
             --strip-components=1
 
+          find local/contracts -type f -name "._*.sol" -exec rm -f {} +
           chmod +x local/foundry.sh && local/foundry.sh
-          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup -i nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          ${XDG_CONFIG_HOME}/.foundry/bin/foundryup -i nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
           export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           echo ""
@@ -217,6 +219,10 @@ job "{{ job.name }}" {
           {% if profile == 'testnet' %}
           export RPC_URL="{{ job.env['l1_rpc_url'] }}"
           export CHAIN_ID="17000"
+          export ETHERSCAN_API_KEY="{{ job.env['etherscan_api_key'] }}"
+          {% elif profile == 'mainnet' %}
+          export RPC_URL="{{ job.env['l1_rpc_url'] }}"
+          export CHAIN_ID="1"
           export ETHERSCAN_API_KEY="{{ job.env['etherscan_api_key'] }}"
           {% endif %}
 
