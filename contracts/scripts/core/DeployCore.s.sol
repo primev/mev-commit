@@ -25,7 +25,7 @@ contract DeployCore is Script {
     function run() external {
         vm.startBroadcast();
 
-        uint256 minStake = 1 ether;
+        uint256 minStake = 10 ether;
         address protocolFeeRecipient = address(
             0xfA0B0f5d298d28EFE4d35641724141ef19C05684 // Placeholder for now, L1 preconf.eth address
         );
