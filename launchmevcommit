@@ -6,7 +6,7 @@ BINARY_PATH="${ROOT_PATH}/mev-commit"
 
 # Default mev-commit configuration values.
 NODE_TYPE="bidder"
-DOMAIN="testnet.mev-commit.xyz"
+DOMAIN="mev-commit.xyz"
 RPC_URL="wss://chainrpc-wss.${DOMAIN}"
 FAUCET_URL="https://faucet.${DOMAIN}"
 BOOTNODE="/dnsaddr/bootnode.${DOMAIN}"

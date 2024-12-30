@@ -224,7 +224,7 @@ var (
 		Name:    "bidder-registry-contract",
 		Usage:   "Address of the bidder registry contract",
 		EnvVars: []string{"MEV_COMMIT_BIDDER_REGISTRY_ADDR"},
-		Value:   contracts.TestnetContracts.BidderRegistry,
+		Value:   contracts.MainnetContracts.BidderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid bidder registry address: %s", s)
@@ -238,7 +238,7 @@ var (
 		Name:    "provider-registry-contract",
 		Usage:   "Address of the provider registry contract",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_REGISTRY_ADDR"},
-		Value:   contracts.TestnetContracts.ProviderRegistry,
+		Value:   contracts.MainnetContracts.ProviderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid provider registry address: %s", s)
@@ -252,7 +252,7 @@ var (
 		Name:    "preconf-contract",
 		Usage:   "Address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
-		Value:   contracts.TestnetContracts.PreconfManager,
+		Value:   contracts.MainnetContracts.PreconfManager,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid preconfirmation commitment store address: %s", s)
@@ -266,7 +266,7 @@ var (
 		Name:    "block-tracker-contract",
 		Usage:   "Address of the block tracker contract",
 		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
-		Value:   contracts.TestnetContracts.BlockTracker,
+		Value:   contracts.MainnetContracts.BlockTracker,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid block tracker address: %s", s)
@@ -280,7 +280,7 @@ var (
 		Name:    "validator-router-contract",
 		Usage:   "Address of the validator router contract",
 		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
-		Value:   contracts.HoleskyContracts.ValidatorOptInRouter,
+		Value:   contracts.EthereumContracts.ValidatorOptInRouter,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid validator router address: %s", s)
