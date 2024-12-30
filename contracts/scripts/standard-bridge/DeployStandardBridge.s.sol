@@ -11,6 +11,7 @@ import {L1Gateway} from "../../contracts/standard-bridge/L1Gateway.sol";
 import {Allocator} from "../../contracts/standard-bridge/Allocator.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {console} from "forge-std/console.sol";
+import {MainnetConstants} from "../MainnetConstants.sol";
 
 contract BridgeBase is Script {
     // Amount of ETH to initially fund the relayer account on the mev-commit chain.
@@ -145,7 +146,10 @@ contract DeployL1Gateway is BridgeBase {
     }
 
     function _getL1OwnerAddress() internal view returns (address ownerAddr) {
-        ownerAddr = vm.envAddress("L1_OWNER_ADDRESS");
-        require(ownerAddr != address(0), L1OwnerAddressNotSet(ownerAddr));
+        if (block.chainid == 1) {
+            ownerAddr = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+        } else {
+            ownerAddr = msg.sender;
+        }
     }
 }
