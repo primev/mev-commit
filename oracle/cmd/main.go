@@ -124,35 +124,35 @@ var (
 		Name:    "oracle-contract-addr",
 		Usage:   "address of the oracle contract",
 		EnvVars: []string{"MEV_ORACLE_ORACLE_CONTRACT_ADDR"},
-		Value:   contracts.MainnetContracts.Oracle,
+		Value:   contracts.MevCommitChainContracts.Oracle,
 	})
 
 	optionPreconfContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "preconf-contract-addr",
 		Usage:   "address of the preconf contract",
 		EnvVars: []string{"MEV_ORACLE_PRECONF_CONTRACT_ADDR"},
-		Value:   contracts.MainnetContracts.PreconfManager,
+		Value:   contracts.MevCommitChainContracts.PreconfManager,
 	})
 
 	optionBlockTrackerContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "blocktracker-contract-addr",
 		Usage:   "address of the block tracker contract",
 		EnvVars: []string{"MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR"},
-		Value:   contracts.MainnetContracts.BlockTracker,
+		Value:   contracts.MevCommitChainContracts.BlockTracker,
 	})
 
 	optionBidderRegistryContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "bidder-registry-contract-addr",
 		Usage:   "address of the bidder registry contract",
 		EnvVars: []string{"MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR"},
-		Value:   contracts.MainnetContracts.BidderRegistry,
+		Value:   contracts.MevCommitChainContracts.BidderRegistry,
 	})
 
 	optionProviderRegistryContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "provider-registry-contract-addr",
 		Usage:   "address of the provider registry contract",
 		EnvVars: []string{"MEV_ORACLE_PROVIDERREGISTRY_CONTRACT_ADDR"},
-		Value:   contracts.MainnetContracts.ProviderRegistry,
+		Value:   contracts.MevCommitChainContracts.ProviderRegistry,
 	})
 
 	optionPgHost = altsrc.NewStringFlag(&cli.StringFlag{

@@ -49,13 +49,13 @@ var (
 		Name:    "l1-rpc-url",
 		Usage:   "URL for L1 RPC",
 		EnvVars: []string{"L1_RPC_URL"},
-		Value:   "https://ethereum-holesky-rpc.publicnode.com",
+		Value:   "https://eth.llamarpc.com",
 	}
 	optionSettlementRPCUrl = &cli.StringFlag{
 		Name:    "settlement-rpc-url",
 		Usage:   "URL for settlement RPC",
 		EnvVars: []string{"SETTLEMENT_RPC_URL"},
-		Value:   "https://chainrpc.testnet.mev-commit.xyz",
+		Value:   "https://chainrpc.mev-commit.xyz",
 	}
 	optionL1ContractAddr = &cli.StringFlag{
 		Name:    "l1-contract-addr",
@@ -67,7 +67,7 @@ var (
 		Name:    "settlement-contract-addr",
 		Usage:   "address of the settlement gateway contract",
 		EnvVars: []string{"SETTLEMENT_CONTRACT_ADDR"},
-		Value:   config.MainnetContracts.SettlementGateway,
+		Value:   config.MevCommitChainContracts.SettlementGateway,
 	}
 	optionSilent = &cli.BoolFlag{
 		Name:    "silent",
