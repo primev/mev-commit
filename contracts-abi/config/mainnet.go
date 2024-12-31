@@ -1,6 +1,6 @@
 package config
 
-var MainnetContracts = Contracts{
+var MevCommitChainContracts = Contracts{
 	BidderRegistry:    "0xC973D09e51A20C9Ab0214c439e4B34Dbac52AD67",
 	ProviderRegistry:  "0xb772Add4718E5BD6Fe57Fb486A6f7f008E52167E",
 	PreconfManager:    "0x9fF03b7Ca0767f069e7AA811E383752267cc47Ec",

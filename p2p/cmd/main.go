@@ -224,7 +224,7 @@ var (
 		Name:    "bidder-registry-contract",
 		Usage:   "Address of the bidder registry contract",
 		EnvVars: []string{"MEV_COMMIT_BIDDER_REGISTRY_ADDR"},
-		Value:   contracts.MainnetContracts.BidderRegistry,
+		Value:   contracts.MevCommitChainContracts.BidderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid bidder registry address: %s", s)
@@ -238,7 +238,7 @@ var (
 		Name:    "provider-registry-contract",
 		Usage:   "Address of the provider registry contract",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_REGISTRY_ADDR"},
-		Value:   contracts.MainnetContracts.ProviderRegistry,
+		Value:   contracts.MevCommitChainContracts.ProviderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid provider registry address: %s", s)
@@ -252,7 +252,7 @@ var (
 		Name:    "preconf-contract",
 		Usage:   "Address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
-		Value:   contracts.MainnetContracts.PreconfManager,
+		Value:   contracts.MevCommitChainContracts.PreconfManager,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid preconfirmation commitment store address: %s", s)
@@ -266,7 +266,7 @@ var (
 		Name:    "block-tracker-contract",
 		Usage:   "Address of the block tracker contract",
 		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
-		Value:   contracts.MainnetContracts.BlockTracker,
+		Value:   contracts.MevCommitChainContracts.BlockTracker,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid block tracker address: %s", s)
