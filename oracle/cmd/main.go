@@ -249,10 +249,10 @@ var (
 		Usage:   "URLs for relay",
 		EnvVars: []string{"MEV_ORACLE_RELAY_URLS"},
 		Value: cli.NewStringSlice(
-			"https://holesky.aestus.live",
-			"https://boost-relay-holesky.flashbots.net",
-			"https://bloxroute.holesky.blxrbdn.com",
-			"https://holesky.titanrelay.xyz",
+			"https://mainnet.aestus.live",
+			"https://mainnet.titanrelay.xyz",
+			"https://bloxroute.max-profit.blxrbdn.com",
+			"https://boost-relay.flashbots.net",
 		),
 	})
 )
