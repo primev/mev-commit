@@ -61,13 +61,13 @@ var (
 		Name:    "l1-contract-addr",
 		Usage:   "address of the L1 gateway contract",
 		EnvVars: []string{"L1_CONTRACT_ADDR"},
-		Value:   config.HoleskyContracts.L1Gateway,
+		Value:   config.EthereumContracts.L1Gateway,
 	}
 	optionSettlementContractAddr = &cli.StringFlag{
 		Name:    "settlement-contract-addr",
 		Usage:   "address of the settlement gateway contract",
 		EnvVars: []string{"SETTLEMENT_CONTRACT_ADDR"},
-		Value:   config.TestnetContracts.SettlementGateway,
+		Value:   config.MainnetContracts.SettlementGateway,
 	}
 	optionSilent = &cli.BoolFlag{
 		Name:    "silent",
