@@ -289,7 +289,6 @@ func TestStakeHandling(t *testing.T) {
 		}
 	})
 }
-
 func TestBidHandling(t *testing.T) {
 	t.Parallel()
 
@@ -318,6 +317,7 @@ func TestBidHandling(t *testing.T) {
 				Signature:           []byte("signature"),
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
+				SlashAmount:         "0",
 			},
 			status:                 providerapiv1.BidResponse_STATUS_ACCEPTED,
 			decayDispatchTimestamp: 10,
@@ -332,6 +332,7 @@ func TestBidHandling(t *testing.T) {
 				Signature:           []byte("signature"),
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
+				SlashAmount:         "0",
 			},
 			status:                 providerapiv1.BidResponse_STATUS_REJECTED,
 			decayDispatchTimestamp: 10,
@@ -346,6 +347,7 @@ func TestBidHandling(t *testing.T) {
 				Signature:           []byte("signature"),
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
+				SlashAmount:         "0",
 			},
 			status:                 providerapiv1.BidResponse_STATUS_UNSPECIFIED,
 			noStatus:               true,
@@ -361,6 +363,7 @@ func TestBidHandling(t *testing.T) {
 				Signature:           []byte("signature"),
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
+				SlashAmount:         "0",
 			},
 			processErr:             "tx_hashes: tx_hashes must be a valid array of transaction hashes",
 			decayDispatchTimestamp: 10,
@@ -375,6 +378,7 @@ func TestBidHandling(t *testing.T) {
 				Signature:           []byte("signature"),
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
+				SlashAmount:         "0",
 			},
 			processErr:             "bid_amount: bid_amount must be a valid integer",
 			decayDispatchTimestamp: 10,
@@ -389,6 +393,7 @@ func TestBidHandling(t *testing.T) {
 				Signature:           []byte("signature"),
 				DecayStartTimestamp: 199,
 				DecayEndTimestamp:   299,
+				SlashAmount:         "0",
 			},
 			processErr:             "block_number: value must be greater than 0",
 			decayDispatchTimestamp: 10,
@@ -424,6 +429,9 @@ func TestBidHandling(t *testing.T) {
 					}
 					if bid.BlockNumber != tc.bid.BlockNumber {
 						t.Errorf("expected block number to be %v, got %v", tc.bid.BlockNumber, bid.BlockNumber)
+					}
+					if bid.SlashAmount != tc.bid.SlashAmount {
+						t.Errorf("expected slash amount to be %v, got %v", tc.bid.SlashAmount, bid.SlashAmount)
 					}
 					bidCh <- bid
 				}
