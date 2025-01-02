@@ -12,7 +12,6 @@ import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 import {FeePayout} from "../utils/FeePayout.sol";
 
 /// @title Bidder Registry
-/// @author Kartik Chopra
 /// @notice This contract is for bidder registry and staking.
 contract BidderRegistry is
     IBidderRegistry,
