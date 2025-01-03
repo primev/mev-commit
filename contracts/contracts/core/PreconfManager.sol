@@ -189,75 +189,70 @@ contract PreconfManager is
         _unpause();
     }
 
+    struct OpenCommitmentParams {
+        bytes32 unopenedCommitmentIndex;
+        uint256 bidAmt;
+        uint64 blockNumber;
+        string txnHash;
+        string revertingTxHashes;
+        uint64 decayStartTimeStamp;
+        uint64 decayEndTimeStamp;
+        uint256 slashAmount;
+        bytes bidSignature;
+        bytes sharedSecretKey;
+    }
+
     /**
      * @dev Open a commitment
-     * @param unopenedCommitmentIndex The index of the unopened commitment
-     * @param bidAmt The bid amount
-     * @param blockNumber The block number
-     * @param txnHash The transaction hash
-     * @param revertingTxHashes The reverting transaction hashes
-     * @param decayStartTimeStamp The start time of the decay
-     * @param decayEndTimeStamp The end time of the decay
-     * @param slashAmount The amount to slash if provider fails to include tx
-     * @param bidSignature The signature of the bid
-     * @param sharedSecretKey The shared secret key
+     * @param params The parameters for opening a commitment
      * @return commitmentIndex The index of the stored commitment
      */
     function openCommitment(
-        bytes32 unopenedCommitmentIndex,
-        uint256 bidAmt,
-        uint64 blockNumber,
-        string memory txnHash,
-        string memory revertingTxHashes,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        uint256 slashAmount,
-        bytes calldata bidSignature,
-        bytes memory sharedSecretKey
+        OpenCommitmentParams memory params
     ) public whenNotPaused returns (bytes32 commitmentIndex) {
-        if (decayStartTimeStamp >= decayEndTimeStamp) {
-            revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
+        if (params.decayStartTimeStamp >= params.decayEndTimeStamp) {
+            revert InvalidDecayTime(params.decayStartTimeStamp, params.decayEndTimeStamp);
         }
 
         (bytes32 bHash, address bidderAddress) = verifyBid(
-            bidAmt,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            txnHash,
-            revertingTxHashes,
-            slashAmount,
-            bidSignature
+            params.bidAmt,
+            params.blockNumber,
+            params.decayStartTimeStamp,
+            params.decayEndTimeStamp,
+            params.slashAmount,
+            params.txnHash,
+            params.revertingTxHashes,
+            params.bidSignature
         );
 
         bytes32 txnHashBidderBlockNumber = keccak256(
-            abi.encode(txnHash, bidderAddress, blockNumber)
+            abi.encode(params.txnHash, bidderAddress, params.blockNumber)
         );
 
         require(
             processedTxnHashes[txnHashBidderBlockNumber] == false,
-            TxnHashAlreadyProcessed(txnHash, bidderAddress)
+            TxnHashAlreadyProcessed(params.txnHash, bidderAddress)
         );
 
         bytes32 commitmentDigest = getPreConfHash(
-            txnHash,
-            revertingTxHashes,
-            bidAmt,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            slashAmount,
+            params.txnHash,
+            params.revertingTxHashes,
+            params.bidAmt,
+            params.blockNumber,
+            params.decayStartTimeStamp,
+            params.decayEndTimeStamp,
+            params.slashAmount,
             bHash,
-            bidSignature,
-            sharedSecretKey
+            params.bidSignature,
+            params.sharedSecretKey
         );
 
         UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
-            unopenedCommitmentIndex
+            params.unopenedCommitmentIndex
         ];
 
         if (unopenedCommitment.isOpened) {
-            revert CommitmentAlreadyOpened(unopenedCommitmentIndex);
+            revert CommitmentAlreadyOpened(params.unopenedCommitmentIndex);
         }
 
         if (unopenedCommitment.commitmentDigest != commitmentDigest) {
@@ -271,7 +266,7 @@ contract PreconfManager is
             unopenedCommitment.commitmentSignature
         );
 
-        address winner = blockTracker.getBlockWinner(blockNumber);
+        address winner = blockTracker.getBlockWinner(params.blockNumber);
 
         if (winner != committerAddress) {
             revert WinnerIsNotCommitter(committerAddress, winner);
@@ -288,29 +283,29 @@ contract PreconfManager is
         OpenedCommitment memory newCommitment = OpenedCommitment(
             bidderAddress,
             false,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
+            params.blockNumber,
+            params.decayStartTimeStamp,
+            params.decayEndTimeStamp,
+            params.slashAmount,
             unopenedCommitment.dispatchTimestamp,
             committerAddress,
-            bidAmt,
-            slashAmount,
+            params.bidAmt,
             bHash,
             commitmentDigest,
-            bidSignature,
+            params.bidSignature,
             unopenedCommitment.commitmentSignature,
-            sharedSecretKey,
-            txnHash,
-            revertingTxHashes
+            params.sharedSecretKey,
+            params.txnHash,
+            params.revertingTxHashes
         );
 
         commitmentIndex = getOpenedCommitmentIndex(newCommitment);
 
         uint256 updatedBidAmt = bidderRegistry.openBid(
             commitmentDigest,
-            bidAmt,
+            params.bidAmt,
             bidderAddress,
-            blockNumber
+            params.blockNumber
         );
 
         newCommitment.bidAmt = updatedBidAmt;
@@ -329,18 +324,18 @@ contract PreconfManager is
             bidderAddress,
             committerAddress,
             updatedBidAmt,
-            slashAmount,
-            blockNumber,
+            params.blockNumber,
             bHash,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            txnHash,
-            revertingTxHashes,
+            params.decayStartTimeStamp,
+            params.decayEndTimeStamp,
+            params.slashAmount,
+            params.txnHash,
+            params.revertingTxHashes,
             commitmentDigest,
-            bidSignature,
+            params.bidSignature,
             unopenedCommitment.commitmentSignature,
             unopenedCommitment.dispatchTimestamp,
-            sharedSecretKey
+            params.sharedSecretKey
         );
         return commitmentIndex;
     }
@@ -541,11 +536,12 @@ contract PreconfManager is
      * @param _txnHash transaction Hash.
      * @param _bidAmt bid amount.
      * @param _blockNumber block number.
-     * @param _revertingTxHashes reverting transaction hashes.
+     * @param _decayStartTimeStamp decay start time.
+     * @param _decayEndTimeStamp decay end time.
+     * @param _slashAmount amount to slash if provider fails to include tx
      * @param _bidHash hash of the bid.
      * @param _bidSignature signature of the bid.
      * @param _sharedSecretKey shared secret key.
-     * @param _slashAmount amount to slash if provider fails to include tx
      * @return digest it returns a digest that can be used for signing bids.
      */
     function getPreConfHash(
@@ -587,9 +583,9 @@ contract PreconfManager is
      * @param blockNumber block number.
      * @param decayStartTimeStamp decay start time.
      * @param decayEndTimeStamp decay end time.
+     * @param slashAmount amount to slash if provider fails to include tx
      * @param txnHash transaction Hash.
      * @param revertingTxHashes reverting transaction hashes.
-     * @param slashAmount amount to slash if provider fails to include tx
      * @param bidSignature bid signature.
      * @return messageDigest returns the bid hash for given bid info.
      * @return recoveredAddress the address from the bid hash.
@@ -599,9 +595,9 @@ contract PreconfManager is
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
+        uint256 slashAmount,
         string memory txnHash,
         string memory revertingTxHashes,
-        uint256 slashAmount,
         bytes calldata bidSignature
     ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
@@ -676,7 +672,7 @@ contract PreconfManager is
                 params.blockNumber,
                 params.decayStartTimeStamp,
                 params.decayEndTimeStamp,
-                params.slashAmt,
+                params.slashAmount,
                 params.bidHash,
                 params.bidSignature,
                 params.sharedSecretKey

@@ -292,7 +292,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		return common.Hash{}, ErrInvalidBidAmt
 	}
 
-	slashAmt, ok := big.NewInt(0).SetString(bid.SlashAmount, 10)
+	slashAmount, ok := big.NewInt(0).SetString(bid.SlashAmount, 10)
 	if !ok {
 		return common.Hash{}, ErrInvalidBidAmt
 	}
@@ -335,7 +335,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		uint64(bid.BlockNumber),
 		uint64(bid.DecayStartTimestamp),
 		uint64(bid.DecayEndTimestamp),
-		slashAmt,
+		slashAmount,
 	)
 	if err != nil {
 		return common.Hash{}, err
@@ -365,7 +365,7 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 		return common.Hash{}, ErrInvalidBidAmt
 	}
 
-	slashAmt, ok := big.NewInt(0).SetString(c.Bid.SlashAmount, 10)
+	slashAmount, ok := big.NewInt(0).SetString(c.Bid.SlashAmount, 10)
 	if !ok {
 		return common.Hash{}, ErrInvalidBidAmt
 	}
@@ -420,7 +420,7 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 		uint64(c.Bid.BlockNumber),
 		uint64(c.Bid.DecayStartTimestamp),
 		uint64(c.Bid.DecayEndTimestamp),
-		slashAmt,
+		slashAmount,
 		bidDigestHash,
 		signatureHash,
 		sharedSecretHash,

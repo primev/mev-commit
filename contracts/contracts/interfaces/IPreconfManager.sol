@@ -13,10 +13,10 @@ interface IPreconfManager {
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
+        uint256 slashAmount; // Amount of ETH that will be slashed from the provider if they fail to include the transaction
         uint64 dispatchTimestamp;
         address committer;
         uint256 bidAmt;
-        uint256 slashAmt; // Amount of ETH that will be slashed from the provider if they fail to include the transaction
         bytes32 bidHash;
         bytes32 commitmentDigest;
         bytes bidSignature;
@@ -31,10 +31,10 @@ interface IPreconfManager {
         string txnHash;
         string revertingTxHashes;
         uint256 bidAmt;
-        uint256 slashAmt; // Amount of ETH that will be slashed from the provider if they fail to include the transaction
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
+        uint256 slashAmount; // Amount of ETH that will be slashed from the provider if they fail to include the transaction
         bytes32 bidHash;
         bytes bidSignature;
         bytes commitmentSignature;
@@ -56,11 +56,11 @@ interface IPreconfManager {
         address bidder,
         address committer,
         uint256 bidAmt,
-        uint256 slashAmt,
         uint64 blockNumber,
         bytes32 bidHash,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
+        uint256 slashAmount,
         string txnHash,
         string revertingTxHashes,
         bytes32 commitmentDigest,
@@ -85,7 +85,7 @@ interface IPreconfManager {
         string txnHash,
         string revertingTxHashes,
         uint256 indexed bidAmt,
-        uint256 slashAmt,
+        uint256 slashAmount,
         uint64 blockNumber
     );
 
@@ -188,7 +188,7 @@ interface IPreconfManager {
      * @param revertingTxHashes The reverting transaction hashes.
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
-     * @param slashAmt The amount to slash if provider fails to include transaction.
+     * @param slashAmount The amount to slash if provider fails to include transaction.
      * @param bidSignature The signature of the bid.
      * @param sharedSecretKey The shared secret key.
      * @return commitmentIndex The index of the stored commitment.
@@ -201,7 +201,7 @@ interface IPreconfManager {
         string memory revertingTxHashes,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
-        uint256 slashAmt,
+        uint256 slashAmount,
         bytes calldata bidSignature,
         bytes memory sharedSecretKey
     ) external returns (bytes32 commitmentIndex);
@@ -274,7 +274,7 @@ interface IPreconfManager {
      * @param _blockNumber The block number.
      * @param _decayStartTimeStamp The start time of the decay.
      * @param _decayEndTimeStamp The end time of the decay.
-     * @param _slashAmt The amount to slash if provider fails to include transaction.
+     * @param _slashAmount The amount to slash if provider fails to include transaction.
      * @return The computed bid hash.
      */
     function getBidHash(
@@ -284,7 +284,7 @@ interface IPreconfManager {
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
-        uint256 _slashAmt
+        uint256 _slashAmount
     ) external view returns (bytes32);
 
     /**
@@ -295,7 +295,7 @@ interface IPreconfManager {
      * @param _blockNumber The block number.
      * @param _decayStartTimeStamp The start time of the decay.
      * @param _decayEndTimeStamp The end time of the decay.
-     * @param _slashAmt The amount to slash if provider fails to include transaction.
+     * @param _slashAmount The amount to slash if provider fails to include transaction.
      * @param _bidHash The bid hash.
      * @param _bidSignature The bid signature.
      * @param _sharedSecretKey The shared secret key.
@@ -308,7 +308,7 @@ interface IPreconfManager {
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
-        uint256 _slashAmt,
+        uint256 _slashAmount,
         bytes32 _bidHash,
         bytes memory _bidSignature,
         bytes memory _sharedSecretKey
@@ -320,9 +320,9 @@ interface IPreconfManager {
      * @param blockNumber The block number.
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
+     * @param slashAmount The amount to slash if provider fails to include transaction.
      * @param txnHash The transaction hash.
      * @param revertingTxHashes The reverting transaction hashes.
-     * @param slashAmt The amount to slash if provider fails to include transaction.
      * @param bidSignature The bid signature.
      * @return messageDigest The computed bid hash.
      * @return recoveredAddress The address recovered from the bid signature.
@@ -332,9 +332,9 @@ interface IPreconfManager {
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
+        uint256 slashAmount,
         string memory txnHash,
         string memory revertingTxHashes,
-        uint256 slashAmt,
         bytes calldata bidSignature
     ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
