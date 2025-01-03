@@ -329,6 +329,7 @@ contract PreconfManager is
             bidderAddress,
             committerAddress,
             updatedBidAmt,
+            slashAmount,
             blockNumber,
             bHash,
             decayStartTimeStamp,
@@ -339,8 +340,7 @@ contract PreconfManager is
             bidSignature,
             unopenedCommitment.commitmentSignature,
             unopenedCommitment.dispatchTimestamp,
-            sharedSecretKey,
-            slashAmount
+            sharedSecretKey
         );
         return commitmentIndex;
     }
@@ -515,7 +515,8 @@ contract PreconfManager is
         uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp
+        uint64 _decayEndTimeStamp,
+        uint256 _slashAmount
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
@@ -528,7 +529,8 @@ contract PreconfManager is
                         _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
-                        _decayEndTimeStamp
+                        _decayEndTimeStamp,
+                        _slashAmount
                     )
                 )
             );
@@ -674,7 +676,7 @@ contract PreconfManager is
                 params.blockNumber,
                 params.decayStartTimeStamp,
                 params.decayEndTimeStamp,
-                params.slashAmount,
+                params.slashAmt,
                 params.bidHash,
                 params.bidSignature,
                 params.sharedSecretKey
