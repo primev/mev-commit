@@ -50,6 +50,20 @@ interface IPreconfManager {
         bytes commitmentSignature;
     }
 
+    /// @dev Struct for all the parameters needed to open a commitment
+    struct OpenCommitmentParams {
+        bytes32 unopenedCommitmentIndex;
+        uint256 bidAmt;
+        uint64 blockNumber;
+        string txnHash;
+        string revertingTxHashes;
+        uint64 decayStartTimeStamp;
+        uint64 decayEndTimeStamp;
+        uint256 slashAmount;
+        bytes bidSignature;
+        bytes sharedSecretKey;
+    }
+
     /// @dev Event to log successful opened commitment storage
     event OpenedCommitmentStored(
         bytes32 indexed commitmentIndex,
@@ -181,29 +195,11 @@ interface IPreconfManager {
 
     /**
      * @dev Opens a commitment.
-     * @param unopenedCommitmentIndex The index of the unopened commitment.
-     * @param bidAmt The bid amount.
-     * @param blockNumber The block number.
-     * @param txnHash The transaction hash.
-     * @param revertingTxHashes The reverting transaction hashes.
-     * @param decayStartTimeStamp The start time of the decay.
-     * @param decayEndTimeStamp The end time of the decay.
-     * @param slashAmount The amount to slash if provider fails to include transaction.
-     * @param bidSignature The signature of the bid.
-     * @param sharedSecretKey The shared secret key.
+     * @param params The parameters for opening a commitment
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
-        bytes32 unopenedCommitmentIndex,
-        uint256 bidAmt,
-        uint64 blockNumber,
-        string memory txnHash,
-        string memory revertingTxHashes,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        uint256 slashAmount,
-        bytes calldata bidSignature,
-        bytes memory sharedSecretKey
+        OpenCommitmentParams memory params
     ) external returns (bytes32 commitmentIndex);
 
     /**

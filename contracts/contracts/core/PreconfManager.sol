@@ -189,19 +189,6 @@ contract PreconfManager is
         _unpause();
     }
 
-    struct OpenCommitmentParams {
-        bytes32 unopenedCommitmentIndex;
-        uint256 bidAmt;
-        uint64 blockNumber;
-        string txnHash;
-        string revertingTxHashes;
-        uint64 decayStartTimeStamp;
-        uint64 decayEndTimeStamp;
-        uint256 slashAmount;
-        bytes bidSignature;
-        bytes sharedSecretKey;
-    }
-
     /**
      * @dev Open a commitment
      * @param params The parameters for opening a commitment
@@ -598,7 +585,7 @@ contract PreconfManager is
         uint256 slashAmount,
         string memory txnHash,
         string memory revertingTxHashes,
-        bytes calldata bidSignature
+        bytes memory bidSignature
     ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
             txnHash,

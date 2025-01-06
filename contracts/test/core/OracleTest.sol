@@ -11,7 +11,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
-
+import {IPreconfManager} from "../../contracts/interfaces/IPreconfManager.sol";
 contract OracleTest is Test {
     using ECDSA for bytes32;
     address public owner;
@@ -548,16 +548,18 @@ contract OracleTest is Test {
         for (uint256 i = 0; i < commitments.length; ++i) {
             vm.startPrank(provider);
             preconfManager.openCommitment(
-                commitments[i],
-                bid,
-                blockNumber,
-                txnHashes[i],
-                revertingTxHashes,
-                10,
-                20,
-                0,
-                bidSignatures[i],
-                sharedSecretKey
+                IPreconfManager.OpenCommitmentParams({
+                    unopenedCommitmentIndex: commitments[i],
+                    bidAmt: bid,
+                    blockNumber: blockNumber,
+                    txnHash: txnHashes[i],
+                    revertingTxHashes: revertingTxHashes,
+                    decayStartTimeStamp: 10,
+                    decayEndTimeStamp: 20,
+                    slashAmount: 0,
+                    bidSignature: bidSignatures[i],
+                    sharedSecretKey: sharedSecretKey
+                })
             );
             vm.stopPrank();
         }
@@ -711,16 +713,18 @@ contract OracleTest is Test {
     ) public returns (bytes32) {
         vm.startPrank(provider);
         bytes32 commitmentIndex = preconfManager.openCommitment(
-            unopenedCommitmentIndex,
-            bid,
-            blockNumber,
-            txnHash,
-            revertingTxHashes,
-            10,
-            20,
-            0,
-            bidSignature,
-            sharedSecretKey
+            IPreconfManager.OpenCommitmentParams({
+                unopenedCommitmentIndex: unopenedCommitmentIndex,
+                bidAmt: bid,
+                blockNumber: blockNumber,
+                txnHash: txnHash,
+                revertingTxHashes: revertingTxHashes,
+                decayStartTimeStamp: 10,
+                decayEndTimeStamp: 20,
+                slashAmount: 0,
+                bidSignature: bidSignature,
+                sharedSecretKey: sharedSecretKey
+            })
         );
         vm.stopPrank();
         return commitmentIndex;
