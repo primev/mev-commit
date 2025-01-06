@@ -248,6 +248,7 @@ func main() {
 				optionBlockNumber,
 				optionDecayDuration,
 				optionBidAmount,
+				optionTipBoost,
 			},
 			Action: func(c *cli.Context) error {
 				privateKey, err := crypto.HexToECDSA(c.String(optionFrom.Name))
