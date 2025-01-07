@@ -72,7 +72,7 @@ contract DeployMainnet is BaseDeploy {
     IAVSDirectory constant public AVS_DIRECTORY = IAVSDirectory(EigenMainnetReleaseConsts.AVS_DIRECTORY);
     address constant public FREEZE_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
     uint256 constant public UNFREEZE_FEE = 1 ether;
-    address constant public UNFREEZE_RECEIVER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    address constant public UNFREEZE_RECEIVER = MainnetConstants.COMMITMENT_HOLDINGS_MULTISIG;
     uint256 constant public UNFREEZE_PERIOD_BLOCKS = 12000; // ~ 1 day
     uint256 constant public OPERATOR_DEREG_PERIOD_BLOCKS = 50000; // 50k * 12s ~= 1 week, which suffices for short-term manual slashing.
     uint256 constant public VALIDATOR_DEREG_PERIOD_BLOCKS = 50000; // 50k * 12s ~= 1 week, which suffices for short-term manual slashing.
