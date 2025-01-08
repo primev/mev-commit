@@ -98,6 +98,7 @@ contract ProviderRegistry is
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function slash(
+        bytes32 commitmentDigest,
         uint256 amt,
         address provider,
         address payable bidder,
@@ -117,16 +118,19 @@ contract ProviderRegistry is
         providerStakes[provider] -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
+        emit PenaltyFeeAllocated(commitmentDigest, penaltyFee, provider, penaltyFeeTracker.recipient);
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
         if (!payable(bidder).send(residualAmt)) {
-            emit TransferToBidderFailed(bidder, residualAmt);
+            emit TransferToBidderFailed(commitmentDigest, bidder, residualAmt);
             bidderSlashedAmount[bidder] += residualAmt;
+        } else {
+            emit ResidualSlashAmountTransferredToBidder(commitmentDigest, bidder, residualAmt);
         }
 
-        emit FundsSlashed(provider, residualAmt + penaltyFee);
+        emit FundsSlashed(commitmentDigest, provider, residualAmt + penaltyFee);
     }
 
     /**

@@ -10,7 +10,7 @@ interface IProviderRegistry {
     event FundsDeposited(address indexed provider, uint256 amount);
 
     /// @dev Event emitted when funds are slashed
-    event FundsSlashed(address indexed provider, uint256 amount);
+    event FundsSlashed(bytes32 indexed commitmentDigest, address indexed provider, uint256 amount);
 
     /// @dev Event emitted when withdrawal is requested
     event Unstake(address indexed provider, uint256 timestamp);
@@ -47,8 +47,14 @@ interface IProviderRegistry {
         uint256 penaltyFee
     );
 
+    /// @dev Event emitted when penalty fee is allocated for a commitment that is slashed
+    event PenaltyFeeAllocated(bytes32 indexed commitmentDigest, uint256 amount, address indexed provider, address indexed protocolFeeRecipient);
+
+    /// @dev Event emitted when residual amount after decay is transferred to the bidder after a slash
+    event ResidualSlashAmountTransferredToBidder(bytes32 indexed commitmentDigest, address indexed bidder, uint256 amount);
+
     /// @dev Event emitted when transfer to bidder fails
-    event TransferToBidderFailed(address bidder, uint256 amount);
+    event TransferToBidderFailed(bytes32 indexed commitmentDigest, address indexed bidder, uint256 amount);
 
     /// @dev Event emitted when a bidder withdraws slashed amount
     /// in case of transfer failure
@@ -79,6 +85,7 @@ interface IProviderRegistry {
     function stake() external payable;
 
     function slash(
+        bytes32 commitmentDigest,
         uint256 amt,
         address provider,
         address payable bidder,

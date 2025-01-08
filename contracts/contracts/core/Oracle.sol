@@ -152,27 +152,27 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
 
     /**
      * @dev Internal function to process a commitment, either slashing or rewarding based on the commitment's state.
-     * @param commitmentIndex The id of the commitment to be processed.
+     * @param commitmentDigest The hash of the commitment to be processed.
      * @param isSlash Determines if the commitment should be slashed or rewarded.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function _processCommitment(
-        bytes32 commitmentIndex,
+        bytes32 commitmentDigest,
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) private {
         if (isSlash) {
             _preconfManager.initiateSlash(
-                commitmentIndex,
+                commitmentDigest,
                 residualBidPercentAfterDecay
             );
         } else {
             _preconfManager.initiateReward(
-                commitmentIndex,
+                commitmentDigest,
                 residualBidPercentAfterDecay
             );
         }
         // Emit an event that a commitment has been processed
-        emit CommitmentProcessed(commitmentIndex, isSlash);
+        emit CommitmentProcessed(commitmentDigest, isSlash, residualBidPercentAfterDecay);
     }
 }

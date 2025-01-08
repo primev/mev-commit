@@ -179,6 +179,7 @@ contract BidderRegistry is
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
         protocolFeeTracker.accumulatedAmount += feeAmt;
+        emit ProtocolFeeTransferred(commitmentDigest, feeAmt, protocolFeeTracker.recipient);
         if (FeePayout.isPayoutDue(protocolFeeTracker)) {
             FeePayout.transferToRecipient(protocolFeeTracker);
         }
@@ -190,8 +191,10 @@ contract BidderRegistry is
         if (fundsToReturn > 0) {
             if (!payable(bidState.bidder).send(fundsToReturn)) {
                 // edge case, when bidder is rejecting transfer
-                emit TransferToBidderFailed(bidState.bidder, fundsToReturn);
+                emit TransferToBidderFailed(commitmentDigest, bidState.bidder, fundsToReturn);
                 lockedFunds[bidState.bidder][windowToSettle] += fundsToReturn;
+            } else {
+                emit LeftOverFundsReturned(commitmentDigest, bidState.bidder, windowToSettle, fundsToReturn);
             }
         }
 
@@ -225,7 +228,7 @@ contract BidderRegistry is
         bidState.bidAmt = 0;
 
         if (!payable(bidState.bidder).send(amt)) {
-            emit TransferToBidderFailed(bidState.bidder, amt);
+            emit TransferToBidderFailed(commitmentDigest, bidState.bidder, amt);
             lockedFunds[bidState.bidder][window] += amt;
         }
 
@@ -263,11 +266,13 @@ contract BidderRegistry is
 
         // Check if bid exceeds the available amount for the block
         if (availableAmount < bidAmt) {
+            emit BidAmountExceedsAvailableAmount(commitmentDigest, bidAmt, availableAmount);
             bidAmt = availableAmount;
         }
 
         // Update the used funds for the block and locked funds if bid is greater than 0
         if (bidAmt > 0) {
+            emit BidAmountUsed(commitmentDigest, bidAmt, blockNumber);
             usedFunds[bidder][blockNumber] += bidAmt;
             lockedFunds[bidder][currentWindow] -= bidAmt;
         }
