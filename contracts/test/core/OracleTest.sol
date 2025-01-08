@@ -53,10 +53,13 @@ contract OracleTest is Test {
         uint256 blockNumber,
         string blockBuilderName
     );
-    event CommitmentProcessed(bytes32 indexed commitmentDigest, bool isSlash);
+
+    event CommitmentProcessed(bytes32 indexed commitmentDigest, bool isSlash, uint256 residualBidPercentAfterDecay);
+    
     event FundsRetrieved(
         bytes32 indexed commitmentDigest,
-        uint256 window,
+        address indexed bidder,
+        uint256 indexed window,
         uint256 amount
     );
 
@@ -257,7 +260,7 @@ contract OracleTest is Test {
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
         vm.expectEmit(true, false, false, true);
-        emit CommitmentProcessed(index, true);
+        emit CommitmentProcessed(index, true, 50 * bidderRegistry.PRECISION());
         oracle.processBuilderCommitmentForBlockNumber(
             index,
             blockNumber,
@@ -325,7 +328,7 @@ contract OracleTest is Test {
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
         vm.expectEmit(true, false, false, true);
-        emit CommitmentProcessed(index1, true);
+        emit CommitmentProcessed(index1, true, providerRegistry.ONE_HUNDRED_PERCENT());
         oracle.processBuilderCommitmentForBlockNumber(
             index1,
             blockNumber,
@@ -335,7 +338,7 @@ contract OracleTest is Test {
         );
 
         vm.expectEmit(true, false, false, true);
-        emit CommitmentProcessed(index2, false);
+        emit CommitmentProcessed(index2, false, 50 * providerRegistry.PRECISION());
         oracle.processBuilderCommitmentForBlockNumber(
             index2,
             blockNumber,
@@ -426,7 +429,7 @@ contract OracleTest is Test {
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
 
         vm.expectEmit(true, false, false, true);
-        emit CommitmentProcessed(index1, true);
+        emit CommitmentProcessed(index1, true, providerRegistry.ONE_HUNDRED_PERCENT());
         oracle.processBuilderCommitmentForBlockNumber(
             index1,
             blockNumber,
@@ -435,7 +438,7 @@ contract OracleTest is Test {
             bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
-        emit CommitmentProcessed(index2, true);
+        emit CommitmentProcessed(index2, true, providerRegistry.ONE_HUNDRED_PERCENT());
         oracle.processBuilderCommitmentForBlockNumber(
             index2,
             blockNumber,
@@ -444,7 +447,7 @@ contract OracleTest is Test {
             bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
-        emit CommitmentProcessed(index3, true);
+        emit CommitmentProcessed(index3, true, providerRegistry.ONE_HUNDRED_PERCENT());
         oracle.processBuilderCommitmentForBlockNumber(
             index3,
             blockNumber,
@@ -453,7 +456,7 @@ contract OracleTest is Test {
             bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.expectEmit(true, false, false, true);
-        emit CommitmentProcessed(index4, true);
+        emit CommitmentProcessed(index4, true, providerRegistry.ONE_HUNDRED_PERCENT());
         oracle.processBuilderCommitmentForBlockNumber(
             index4,
             blockNumber,
@@ -546,7 +549,7 @@ contract OracleTest is Test {
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
         for (uint256 i = 0; i < commitments.length; ++i) {
             vm.expectEmit(true, false, false, true);
-            emit CommitmentProcessed(commitments[i], false);
+            emit CommitmentProcessed(commitments[i], false, bidderRegistry.ONE_HUNDRED_PERCENT());
             oracle.processBuilderCommitmentForBlockNumber(
                 commitments[i],
                 blockNumber,
