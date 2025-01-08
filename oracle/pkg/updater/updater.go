@@ -343,7 +343,7 @@ func (u *Updater) handleOpenedCommitment(
 		return err
 	}
 	// Compute the decay percentage
-	decayPercentage := u.computeDecayPercentage(
+	residualPercentage := u.computeResidualAfterDecay(
 		update.DecayStartTimeStamp,
 		update.DecayEndTimeStamp,
 		update.DispatchTimestamp,
@@ -382,7 +382,7 @@ func (u *Updater) handleOpenedCommitment(
 				ctx,
 				update,
 				SettlementTypeSlash,
-				decayPercentage,
+				residualPercentage,
 				winner.Window,
 			)
 		}
@@ -392,7 +392,7 @@ func (u *Updater) handleOpenedCommitment(
 		ctx,
 		update,
 		SettlementTypeReward,
-		decayPercentage,
+		residualPercentage,
 		winner.Window,
 	)
 }
@@ -582,7 +582,7 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 // computeDecayPercentage takes startTimestamp, endTimestamp, commitTimestamp and computes a linear decay percentage
 // The computation does not care what format the timestamps are in, as long as they are consistent
 // (e.g they could be unix or unixMili timestamps)
-func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
+func (u *Updater) computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
 	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
 		u.logger.Debug("timestamp out of range", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
 		return 0
@@ -594,10 +594,12 @@ func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTim
 	timePassed := commitTimestamp - startTimestamp
 	// Calculate the decay percentage
 	decayPercentage := float64(timePassed) / float64(totalTime)
+	// Residual value
+	residual := float64(1) - decayPercentage
 
-	decayPercentageRound := int64(math.Round(decayPercentage * ONE_HUNDRED_PERCENT))
-	if decayPercentageRound > ONE_HUNDRED_PERCENT {
-		decayPercentageRound = ONE_HUNDRED_PERCENT
+	residualPercentageRound := int64(math.Round(residual * ONE_HUNDRED_PERCENT))
+	if residualPercentageRound > ONE_HUNDRED_PERCENT {
+		residualPercentageRound = ONE_HUNDRED_PERCENT
 	}
 	u.logger.Debug("decay information",
 		"startTimestamp", startTimestamp,
@@ -606,6 +608,7 @@ func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTim
 		"totalTime", totalTime,
 		"timePassed", timePassed,
 		"decayPercentage", decayPercentage,
+		"residual", residual,
 	)
-	return decayPercentageRound
+	return residualPercentageRound
 }
