@@ -403,7 +403,7 @@ DONE:
 					residualBidPercent := computeResidualAfterDecay(uint64(pc.DecayStartTimestamp), uint64(pc.DecayEndTimestamp), uint64(pc.DispatchTimestamp))
 					bidAmt, _ := new(big.Int).SetString(entry.Bid.Amount, 10)
 					residualBidAmt := new(big.Int).Mul(residualBidPercent, bidAmt)
-					residualBidAmt.Div(residualBidAmt, big.NewInt(PRECISION))
+					residualBidAmt.Div(residualBidAmt, big.NewInt(ONE_HUNDRED_PERCENT))
 					if fr.(*bidderregistry.BidderregistryFundsRewarded).Amount.Cmp(residualBidAmt) != 0 {
 						logger.Error("Residual bid amount mismatch", "entry", entry, "expected", residualBidAmt, "actual", fr.(*bidderregistry.BidderregistryFundsRewarded).Amount)
 						return fmt.Errorf("residual bid amount mismatch")
