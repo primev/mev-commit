@@ -571,6 +571,11 @@
     "name": "slash",
     "inputs": [
       {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
         "name": "amt",
         "type": "uint256",
         "internalType": "uint256"
@@ -828,6 +833,12 @@
     "name": "FundsSlashed",
     "inputs": [
       {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
         "name": "provider",
         "type": "address",
         "indexed": true,
@@ -952,6 +963,37 @@
   },
   {
     "type": "event",
+    "name": "PenaltyFeeAllocated",
+    "inputs": [
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "provider",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "protocolFeeRecipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PenaltyFeeRecipientUpdated",
     "inputs": [
       {
@@ -997,12 +1039,43 @@
   },
   {
     "type": "event",
-    "name": "TransferToBidderFailed",
+    "name": "ResidualSlashAmountTransferredToBidder",
     "inputs": [
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
       {
         "name": "bidder",
         "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
         "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TransferToBidderFailed",
+    "inputs": [
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "bidder",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       },
       {
