@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -388,15 +389,24 @@ DONE:
 						logger.Error("Funds not retrieved", "entry", entry)
 						return fmt.Errorf("funds not retrieved")
 					}
+
 				} else {
 					if pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
 						logger.Error("Provider should not be slashed", "entry", entry)
 						return fmt.Errorf("provider should not be slashed")
 					}
-					_, ok := store.Get(fundsRewardedKey(cmtDigest))
+					fr, ok := store.Get(fundsRewardedKey(cmtDigest))
 					if !ok {
 						logger.Error("Funds not rewarded", "entry", entry)
 						return fmt.Errorf("funds not rewarded")
+					}
+					residualBidPercent := computeResidualAfterDecay(uint64(pc.DecayStartTimestamp), uint64(pc.DecayEndTimestamp), uint64(pc.DispatchTimestamp))
+					bidAmt, _ := new(big.Int).SetString(entry.Bid.Amount, 10)
+					residualBidAmt := new(big.Int).Mul(residualBidPercent, bidAmt)
+					residualBidAmt.Div(residualBidAmt, big.NewInt(PRECISION))
+					if fr.(*bidderregistry.BidderregistryFundsRewarded).Amount.Cmp(residualBidAmt) != 0 {
+						logger.Error("Residual bid amount mismatch", "entry", entry, "expected", residualBidAmt, "actual", fr.(*bidderregistry.BidderregistryFundsRewarded).Amount)
+						return fmt.Errorf("residual bid amount mismatch")
 					}
 				}
 			}
@@ -568,4 +578,31 @@ func getRevertingTxns(
 	}
 
 	return revertingTxns, nil
+}
+
+const (
+	PRECISION           = 1e16
+	ONE_HUNDRED_PERCENT = 100 * PRECISION
+)
+
+func computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uint64) *big.Int {
+	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
+		return big.NewInt(0)
+	}
+
+	// Calculate the total time in seconds
+	totalTime := endTimestamp - startTimestamp
+	// Calculate the time passed in seconds
+	timePassed := commitTimestamp - startTimestamp
+	// Calculate the decay percentage
+	decayPercentage := float64(timePassed) / float64(totalTime)
+	// Residual value
+	residual := 1 - decayPercentage
+
+	residualPercentageRound := math.Round(residual * ONE_HUNDRED_PERCENT)
+	if residualPercentageRound > ONE_HUNDRED_PERCENT {
+		residualPercentageRound = ONE_HUNDRED_PERCENT
+	}
+
+	return big.NewInt(int64(residualPercentageRound))
 }
