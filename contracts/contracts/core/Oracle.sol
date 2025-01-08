@@ -157,22 +157,22 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function _processCommitment(
-        bytes32 commitmentIndex,
+        bytes32 commitmentDigest,
         bool isSlash,
         uint256 residualBidPercentAfterDecay
     ) private {
         if (isSlash) {
             _preconfManager.initiateSlash(
-                commitmentIndex,
+                commitmentDigest,
                 residualBidPercentAfterDecay
             );
         } else {
             _preconfManager.initiateReward(
-                commitmentIndex,
+                commitmentDigest,
                 residualBidPercentAfterDecay
             );
         }
         // Emit an event that a commitment has been processed
-        emit CommitmentProcessed(commitmentIndex, isSlash, residualBidPercentAfterDecay);
+        emit CommitmentProcessed(commitmentDigest, isSlash, residualBidPercentAfterDecay);
     }
 }

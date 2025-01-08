@@ -39,11 +39,19 @@ interface IBidderRegistry {
         uint256 amount
     );
 
-    /// @dev Event emitted when funds are retrieved from a bidder's deposit
+    /// @dev Event emitted when funds are rewarded to a provider from a bidder's deposit for successfully carrying out a commitment
     event FundsRewarded(
         bytes32 indexed commitmentDigest,
         address indexed bidder,
         address indexed provider,
+        uint256 window,
+        uint256 amount
+    );
+
+    /// @dev Event emitted when left over funds are returned to a bidder after a commitment is processed
+    event LeftOverFundsReturned(
+        bytes32 indexed commitmentDigest,
+        address indexed bidder,
         uint256 window,
         uint256 amount
     );
@@ -71,13 +79,13 @@ interface IBidderRegistry {
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
 
     /// @dev Event emitted when transfer to bidder fails
-    event TransferToBidderFailed(address bidder, uint256 amount);
+    event TransferToBidderFailed(bytes32 indexed commitmentDigest, address indexed bidder, uint256 amount);
 
     /// @dev Error emitted when the sender is not the preconfManager
     error SenderIsNotPreconfManager(address sender, address preconfManager);
 
     /// @dev Error emitted when the bid is not preconfirmed
-    error BidNotPreConfirmed(bytes32 commitmentDigest, State actualState, State expectedState);
+    error BidNotPreConfirmed(bytes32 indexed commitmentDigest, State actualState, State expectedState);
 
     /// @dev Error emitted when the withdraw after window settled
     error WithdrawAfterWindowSettled(uint256 window, uint256 currentWindow);

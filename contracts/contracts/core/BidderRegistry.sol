@@ -190,8 +190,10 @@ contract BidderRegistry is
         if (fundsToReturn > 0) {
             if (!payable(bidState.bidder).send(fundsToReturn)) {
                 // edge case, when bidder is rejecting transfer
-                emit TransferToBidderFailed(bidState.bidder, fundsToReturn);
+                emit TransferToBidderFailed(commitmentDigest, bidState.bidder, fundsToReturn);
                 lockedFunds[bidState.bidder][windowToSettle] += fundsToReturn;
+            } else {
+                emit LeftOverFundsReturned(commitmentDigest, bidState.bidder, windowToSettle, fundsToReturn);
             }
         }
 

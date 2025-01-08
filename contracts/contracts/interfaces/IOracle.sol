@@ -16,7 +16,7 @@ interface IOracle {
     event BlockTrackerSet(address indexed newBlockTracker);
 
     /// @dev Event emitted when a commitment is processed.
-    event CommitmentProcessed(bytes32 indexed commitmentIndex, bool isSlash, uint256 residualBidPercentAfterDecay);
+    event CommitmentProcessed(bytes32 indexed commitmentDigest, bool isSlash, uint256 residualBidPercentAfterDecay);
 
     /// @dev Error emitted when the sender is not the oracle account
     error NotOracleAccount(address sender, address oracleAccount);
@@ -39,7 +39,7 @@ interface IOracle {
     ) external;
 
     function processBuilderCommitmentForBlockNumber(
-        bytes32 commitmentIndex,
+        bytes32 commitmentDigest,
         uint256 blockNumber,
         address builder,
         bool isSlash,
