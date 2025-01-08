@@ -97,6 +97,9 @@ interface IPreconfManager {
     /// @dev Event to log successful update of the bidder registry
     event BidderRegistryUpdated(address indexed newBidderRegistry);
 
+    /// @dev Event to log successful slash initiation
+    event SlashInitiated(bytes32 indexed commitmentDigest, uint256 bidAmt, address indexed committer, address indexed bidder, uint256 residualBidPercentAfterDecay);
+
     /// @dev Event to log successful update of the block tracker
     event BlockTrackerUpdated(address indexed newBlockTracker);
 
@@ -215,21 +218,21 @@ interface IPreconfManager {
 
     /**
      * @dev Initiates a slash for a commitment.
-     * @param commitmentIndex The hash of the commitment to be slashed.
+     * @param commitmentDigest The hash of the commitment to be slashed.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function initiateSlash(
-        bytes32 commitmentIndex,
+        bytes32 commitmentDigest,
         uint256 residualBidPercentAfterDecay
     ) external;
 
     /**
      * @dev Initiates a reward for a commitment.
-     * @param commitmentIndex The hash of the commitment to be rewarded.
+     * @param commitmentDigest The hash of the commitment to be rewarded.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function initiateReward(
-        bytes32 commitmentIndex,
+        bytes32 commitmentDigest,
         uint256 residualBidPercentAfterDecay
     ) external;
 

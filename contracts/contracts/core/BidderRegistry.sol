@@ -228,7 +228,7 @@ contract BidderRegistry is
         bidState.bidAmt = 0;
 
         if (!payable(bidState.bidder).send(amt)) {
-            emit TransferToBidderFailed(bidState.bidder, amt);
+            emit TransferToBidderFailed(commitmentDigest, bidState.bidder, amt);
             lockedFunds[bidState.bidder][window] += amt;
         }
 

@@ -400,19 +400,19 @@ contract PreconfManager is
 
     /**
      * @dev Initiate a slash for a commitment.
-     * @param commitmentIndex The hash of the commitment to be slashed.
+     * @param commitmentDigest The hash of the commitment to be slashed.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function initiateSlash(
-        bytes32 commitmentIndex,
+        bytes32 commitmentDigest,
         uint256 residualBidPercentAfterDecay
     ) public onlyOracleContract whenNotPaused {
         OpenedCommitment storage commitment = openedCommitments[
-            commitmentIndex
+            commitmentDigest
         ];
         require(
             !commitment.isSettled,
-            CommitmentAlreadySettled(commitmentIndex)
+            CommitmentAlreadySettled(commitmentDigest)
         );
 
         commitment.isSettled = true;
@@ -423,13 +423,14 @@ contract PreconfManager is
         );
 
         providerRegistry.slash(
+            commitmentDigest,
             commitment.bidAmt,
             commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
         );
-        
-        emit SlashInitiated(commitmentIndex, commitment.bidAmt, commitment.committer, commitment.bidder, residualBidPercentAfterDecay);
+
+        emit SlashInitiated(commitmentDigest, commitment.bidAmt, commitment.committer, commitment.bidder, residualBidPercentAfterDecay);
 
         bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentDigest);
     }

@@ -152,7 +152,7 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
 
     /**
      * @dev Internal function to process a commitment, either slashing or rewarding based on the commitment's state.
-     * @param commitmentIndex The id of the commitment to be processed.
+     * @param commitmentDigest The hash of the commitment to be processed.
      * @param isSlash Determines if the commitment should be slashed or rewarded.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */

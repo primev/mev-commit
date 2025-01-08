@@ -94,7 +94,7 @@ interface IBidderRegistry {
     error SenderIsNotPreconfManager(address sender, address preconfManager);
 
     /// @dev Error emitted when the bid is not preconfirmed
-    error BidNotPreConfirmed(bytes32 indexed commitmentDigest, State actualState, State expectedState);
+    error BidNotPreConfirmed(bytes32 commitmentDigest, State actualState, State expectedState);
 
     /// @dev Error emitted when the withdraw after window settled
     error WithdrawAfterWindowSettled(uint256 window, uint256 currentWindow);
