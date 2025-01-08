@@ -1087,7 +1087,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 
 	// timestamp of the First block commitment is X
 	startTimestamp := time.UnixMilli(1615195200000)
-	midTimestamp := startTimestamp.Add(time.Duration(2.5 * float64(time.Second)))
+	midTimestamp := startTimestamp.Add(time.Duration(1 * float64(time.Second)))
 	endTimestamp := startTimestamp.Add(5 * time.Second)
 
 	key, err := crypto.GenerateKey()
@@ -1255,7 +1255,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if commitment.isSlash {
 				t.Fatal("wrong isSlash")
 			}
-			if commitment.residualDecay.Cmp(big.NewInt(50*updater.PRECISION)) != 0 {
+			if commitment.residualDecay.Cmp(big.NewInt(80*updater.PRECISION)) != 0 {
 				t.Fatal("wrong residual decay")
 			}
 		}
@@ -1282,7 +1282,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			if settlement.settlementType != updater.SettlementTypeReward {
 				t.Fatal("wrong settlement type")
 			}
-			if settlement.decayPercentage != 50*updater.PRECISION {
+			if settlement.decayPercentage != 20*updater.PRECISION {
 				t.Fatal("wrong decay percentage")
 			}
 			if settlement.window != 5 {
