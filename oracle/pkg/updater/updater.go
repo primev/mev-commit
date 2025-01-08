@@ -404,12 +404,14 @@ func (u *Updater) settle(
 	decayPercentage int64,
 	window int64,
 ) error {
+	residualDecay := big.NewInt(0).Sub(big.NewInt(ONE_HUNDRED_PERCENT), big.NewInt(decayPercentage))
+
 	commitmentPostingTxn, err := u.oracle.ProcessBuilderCommitmentForBlockNumber(
 		update.CommitmentIndex,
 		big.NewInt(0).SetUint64(update.BlockNumber),
 		update.Committer,
 		settlementType == SettlementTypeSlash,
-		big.NewInt(decayPercentage),
+		residualDecay,
 	)
 	if err != nil {
 		u.logger.Error(
