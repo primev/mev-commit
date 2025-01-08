@@ -97,13 +97,12 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 				logger.Info(
 					"Received opened commitment",
 					"digest", hex.EncodeToString(c.CommitmentDigest[:]),
-					"index", hex.EncodeToString(c.CommitmentIndex[:]),
 					"decay_start", c.DecayStartTimeStamp,
 					"decay_end", c.DecayEndTimeStamp,
 					"dispatch_timestamp", c.DispatchTimestamp,
 					"block_number", c.BlockNumber,
 				)
-				store.Insert(openCmtKey(c.CommitmentIndex[:]), c)
+				store.Insert(openCmtKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(
@@ -111,10 +110,10 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 			func(c *oracle.OracleCommitmentProcessed) {
 				logger.Info(
 					"Received settlement",
-					"index", hex.EncodeToString(c.CommitmentIndex[:]),
+					"digest", hex.EncodeToString(c.CommitmentDigest[:]),
 					"slash", c.IsSlash,
 				)
-				store.Insert(settleKey(c.CommitmentIndex[:]), c)
+				store.Insert(settleKey(c.CommitmentDigest[:]), c)
 			},
 		),
 		events.NewEventHandler(

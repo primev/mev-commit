@@ -202,7 +202,7 @@ func (s *statHandler) configureDashboard() error {
 				s.statMu.Lock()
 				defer s.statMu.Unlock()
 
-				cmt, ok := s.commitments.Get(upd.CommitmentIndex)
+				cmt, ok := s.commitments.Get(upd.CommitmentDigest)
 				if !ok {
 					return
 				}
