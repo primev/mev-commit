@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -398,6 +399,11 @@ DONE:
 						return fmt.Errorf("funds not rewarded")
 					}
 				}
+				residualBid := computeResidualAfterDecay(uint64(pc.DecayStartTimestamp), uint64(pc.DecayEndTimestamp), uint64(pc.DispatchTimestamp))
+				if pcmt.(*oracle.OracleCommitmentProcessed).ResidualBidPercentAfterDecay.Cmp(residualBid) != 0 {
+					logger.Error("Residual bid percent after decay mismatch", "entry", entry)
+					return fmt.Errorf("residual bid percent after decay mismatch")
+				}
 			}
 		}
 		if !foundCmt {
@@ -567,4 +573,31 @@ func getRevertingTxns(
 	}
 
 	return revertingTxns, nil
+}
+
+const (
+	PRECISION           = 1e16
+	ONE_HUNDRED_PERCENT = 100 * PRECISION
+)
+
+func computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uint64) *big.Int {
+	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
+		return big.NewInt(0)
+	}
+
+	// Calculate the total time in seconds
+	totalTime := endTimestamp - startTimestamp
+	// Calculate the time passed in seconds
+	timePassed := commitTimestamp - startTimestamp
+	// Calculate the decay percentage
+	decayPercentage := float64(timePassed) / float64(totalTime)
+	// Residual value
+	residual := 1 - decayPercentage
+
+	residualPercentageRound := math.Round(residual * ONE_HUNDRED_PERCENT)
+	if residualPercentageRound > ONE_HUNDRED_PERCENT {
+		residualPercentageRound = ONE_HUNDRED_PERCENT
+	}
+
+	return big.NewInt(int64(residualPercentageRound))
 }
