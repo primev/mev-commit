@@ -173,6 +173,6 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
             );
         }
         // Emit an event that a commitment has been processed
-        emit CommitmentProcessed(commitmentIndex, isSlash);
+        emit CommitmentProcessed(commitmentIndex, isSlash, residualBidPercentAfterDecay);
     }
 }
