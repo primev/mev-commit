@@ -179,6 +179,7 @@ contract BidderRegistry is
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
         protocolFeeTracker.accumulatedAmount += feeAmt;
+        emit ProtocolFeeTransferred(commitmentDigest, feeAmt, protocolFeeTracker.recipient);
         if (FeePayout.isPayoutDue(protocolFeeTracker)) {
             FeePayout.transferToRecipient(protocolFeeTracker);
         }
@@ -265,11 +266,13 @@ contract BidderRegistry is
 
         // Check if bid exceeds the available amount for the block
         if (availableAmount < bidAmt) {
+            emit BidAmountExceedsAvailableAmount(commitmentDigest, bidAmt, availableAmount);
             bidAmt = availableAmount;
         }
 
         // Update the used funds for the block and locked funds if bid is greater than 0
         if (bidAmt > 0) {
+            emit BidAmountUsed(commitmentDigest, bidAmt, blockNumber);
             usedFunds[bidder][blockNumber] += bidAmt;
             lockedFunds[bidder][currentWindow] -= bidAmt;
         }

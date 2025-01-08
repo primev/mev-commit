@@ -428,6 +428,8 @@ contract PreconfManager is
             payable(commitment.bidder),
             residualBidPercentAfterDecay
         );
+        
+        emit SlashInitiated(commitmentIndex, commitment.bidAmt, commitment.committer, commitment.bidder, residualBidPercentAfterDecay);
 
         bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentDigest);
     }

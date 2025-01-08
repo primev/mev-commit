@@ -31,7 +31,7 @@ interface IBidderRegistry {
         uint256 indexed windowNumber
     );
 
-    /// @dev Event emitted when funds are retrieved from a bidder's deposit
+    /// @dev Event emitted when funds are retrieved from a bidder's deposit for a commitment that was not successfull
     event FundsRetrieved(
         bytes32 indexed commitmentDigest,
         address indexed bidder,
@@ -63,6 +63,12 @@ interface IBidderRegistry {
         uint256 indexed amount
     );
 
+    /// @dev Event emitted when a bidder's bid amount exceeds the available amount for a commitment
+    event BidAmountExceedsAvailableAmount(bytes32 indexed commitmentDigest, uint256 bidAmt, uint256 availableAmount);
+
+    /// @dev Event emitted when a bidder's bid amount is used for a commitment
+    event BidAmountUsed(bytes32 indexed commitmentDigest, uint256 bidAmt, uint64 blockNumber);
+
     /// @dev Event emitted when the preconfManager is updated
     event PreconfManagerUpdated(address indexed newPreconfManager);
 
@@ -80,6 +86,9 @@ interface IBidderRegistry {
 
     /// @dev Event emitted when transfer to bidder fails
     event TransferToBidderFailed(bytes32 indexed commitmentDigest, address indexed bidder, uint256 amount);
+
+    /// @dev Event emitted when the protocol fee is deducted from the bidder's deposit for successfully carrying out a commitment
+    event ProtocolFeeTransferred(bytes32 indexed commitmentDigest, uint256 amount, address feeRecipient);
 
     /// @dev Error emitted when the sender is not the preconfManager
     error SenderIsNotPreconfManager(address sender, address preconfManager);
