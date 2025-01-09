@@ -405,7 +405,7 @@ DONE:
 					residualBidAmt := new(big.Int).Mul(residualBidPercent, bidAmt)
 					residualBidAmt.Div(residualBidAmt, big.NewInt(ONE_HUNDRED_PERCENT))
 					if fr.(*bidderregistry.BidderregistryFundsRewarded).Amount.Cmp(residualBidAmt) != 0 {
-						logger.Error("Residual bid amount mismatch", "entry", entry, "expected", residualBidAmt, "actual", fr.(*bidderregistry.BidderregistryFundsRewarded).Amount)
+						logger.Error("residual bid amount mismatch", "entry", entry, "expected", residualBidAmt, "actual", fr.(*bidderregistry.BidderregistryFundsRewarded).Amount)
 						return fmt.Errorf("residual bid amount mismatch")
 					}
 				}
@@ -590,13 +590,9 @@ func computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uin
 		return big.NewInt(0)
 	}
 
-	// Calculate the total time in seconds
 	totalTime := endTimestamp - startTimestamp
-	// Calculate the time passed in seconds
 	timePassed := commitTimestamp - startTimestamp
-	// Calculate the decay percentage
 	decayPercentage := float64(timePassed) / float64(totalTime)
-	// Residual value
 	residual := 1 - decayPercentage
 
 	residualPercentageRound := math.Round(residual * ONE_HUNDRED_PERCENT)
