@@ -160,7 +160,7 @@ func (b *ProviderClient) CheckAndStake() (string, error) {
 
 	// Register a provider
 	_, err = b.client.Stake(context.Background(), &providerapiv1.StakeRequest{
-		Amount:        "10000000000000000000",
+		Amount:        "15000000000000000000",
 		BlsPublicKeys: []string{hex.EncodeToString(pubkeyb)},
 		BlsSignatures: []string{hex.EncodeToString(signature)},
 	})
@@ -169,7 +169,7 @@ func (b *ProviderClient) CheckAndStake() (string, error) {
 		return "", err
 	}
 
-	b.logger.Info("staked 10 ETH")
+	b.logger.Info("staked 15 ETH")
 
 	return hex.EncodeToString(pubkeyb), nil
 }

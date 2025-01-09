@@ -13,6 +13,8 @@ import (
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
+const basefeeWiggleMultiplier = 2
+
 type Canceller struct {
 	chainID   *big.Int
 	ethClient *ethclient.Client
@@ -37,25 +39,24 @@ func NewCanceller(
 	}
 }
 
-func (c *Canceller) suggestMaxFeeAndTipCap(
-	ctx context.Context,
-	gasPrice *big.Int,
-) (*big.Int, *big.Int, error) {
+func (c *Canceller) suggestMaxFeeAndTipCap(ctx context.Context) (*big.Int, *big.Int, error) {
 	// Returns priority fee per gas
 	gasTipCap, err := c.ethClient.SuggestGasTipCap(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to suggest gas tip cap: %w", err)
 	}
 
-	// Returns priority fee per gas + base fee per gas
-	if gasPrice == nil {
-		gasPrice, err = c.ethClient.SuggestGasPrice(ctx)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to suggest gas price: %w", err)
-		}
+	head, err := c.ethClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get latest block header: %w", err)
 	}
 
-	return gasPrice, gasTipCap, nil
+	gasFeeCap := new(big.Int).Add(
+		gasTipCap,
+		new(big.Int).Mul(head.BaseFee, big.NewInt(basefeeWiggleMultiplier)),
+	)
+
+	return gasFeeCap, gasTipCap, nil
 }
 
 func (c *Canceller) CancelTx(ctx context.Context, txnHash common.Hash) (common.Hash, error) {
@@ -68,7 +69,7 @@ func (c *Canceller) CancelTx(ctx context.Context, txnHash common.Hash) (common.H
 		return common.Hash{}, ethereum.NotFound
 	}
 
-	gasFeeCap, gasTipCap, err := c.suggestMaxFeeAndTipCap(ctx, txn.GasPrice())
+	gasFeeCap, gasTipCap, err := c.suggestMaxFeeAndTipCap(ctx)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("failed to suggest max fee and tip cap: %w", err)
 	}

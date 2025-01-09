@@ -224,7 +224,7 @@ var (
 		Name:    "bidder-registry-contract",
 		Usage:   "Address of the bidder registry contract",
 		EnvVars: []string{"MEV_COMMIT_BIDDER_REGISTRY_ADDR"},
-		Value:   contracts.TestnetContracts.BidderRegistry,
+		Value:   contracts.MevCommitChainContracts.BidderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid bidder registry address: %s", s)
@@ -238,7 +238,7 @@ var (
 		Name:    "provider-registry-contract",
 		Usage:   "Address of the provider registry contract",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_REGISTRY_ADDR"},
-		Value:   contracts.TestnetContracts.ProviderRegistry,
+		Value:   contracts.MevCommitChainContracts.ProviderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid provider registry address: %s", s)
@@ -252,7 +252,7 @@ var (
 		Name:    "preconf-contract",
 		Usage:   "Address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
-		Value:   contracts.TestnetContracts.PreconfManager,
+		Value:   contracts.MevCommitChainContracts.PreconfManager,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid preconfirmation commitment store address: %s", s)
@@ -266,7 +266,7 @@ var (
 		Name:    "block-tracker-contract",
 		Usage:   "Address of the block tracker contract",
 		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
-		Value:   contracts.TestnetContracts.BlockTracker,
+		Value:   contracts.MevCommitChainContracts.BlockTracker,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid block tracker address: %s", s)
@@ -280,7 +280,7 @@ var (
 		Name:    "validator-router-contract",
 		Usage:   "Address of the validator router contract",
 		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
-		Value:   contracts.HoleskyContracts.ValidatorOptInRouter,
+		Value:   contracts.EthereumContracts.ValidatorOptInRouter,
 		Action: func(ctx *cli.Context, s string) error {
 			if !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid validator router address: %s", s)
@@ -429,6 +429,14 @@ var (
 		EnvVars:  []string{"MEV_COMMIT_PROVIDER_DECISION_TIMEOUT"},
 		Value:    30 * time.Second,
 		Category: categoryProvider,
+	})
+
+	optionLaggardMode = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:     "laggard-mode",
+		Usage:    "No of blocks to lag behind for L1 chain when fetching validator duties",
+		EnvVars:  []string{"MEV_COMMIT_LAGGARD_MODE"},
+		Value:    10,
+		Category: categoryEthRPC,
 	})
 )
 
@@ -649,6 +657,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		OracleWindowOffset:       big.NewInt(defaultOracleWindowOffset),
 		BeaconAPIURL:             c.String(optionBeaconAPIURL.Name),
 		L1RPCURL:                 c.String(optionL1RPCURL.Name),
+		LaggardMode:              big.NewInt(int64(c.Int(optionLaggardMode.Name))),
 		BidderBidTimeout:         c.Duration(optionBidderBidTimeout.Name),
 		ProviderDecisionTimeout:  c.Duration(optionProviderDecisionTimeout.Name),
 	})

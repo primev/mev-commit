@@ -97,35 +97,35 @@ var (
 		Name:    "oracle-contract-addr",
 		Usage:   "address of the oracle contract",
 		EnvVars: []string{"DASHBOARD_ORACLE_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.Oracle,
+		Value:   contracts.MevCommitChainContracts.Oracle,
 	}
 
 	optionPreconfContractAddr = &cli.StringFlag{
 		Name:    "preconf-contract-addr",
 		Usage:   "address of the preconf contract",
 		EnvVars: []string{"DASHBOARD_PRECONF_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.PreconfManager,
+		Value:   contracts.MevCommitChainContracts.PreconfManager,
 	}
 
 	optionBlockTrackerContractAddr = &cli.StringFlag{
 		Name:    "blocktracker-contract-addr",
 		Usage:   "address of the block tracker contract",
 		EnvVars: []string{"DASHBOARD_BLOCKTRACKER_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.BlockTracker,
+		Value:   contracts.MevCommitChainContracts.BlockTracker,
 	}
 
 	optionBidderRegistryContractAddr = &cli.StringFlag{
 		Name:    "bidder-registry-contract-addr",
 		Usage:   "address of the bidder registry contract",
 		EnvVars: []string{"DASHBOARD_BIDDERREGISTRY_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.BidderRegistry,
+		Value:   contracts.MevCommitChainContracts.BidderRegistry,
 	}
 
 	optionProviderRegistryContractAddr = &cli.StringFlag{
 		Name:    "provider-registry-contract-addr",
 		Usage:   "address of the provider registry contract",
 		EnvVars: []string{"DASHBOARD_PROVIDERREGISTRY_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.ProviderRegistry,
+		Value:   contracts.MevCommitChainContracts.ProviderRegistry,
 	}
 )
 

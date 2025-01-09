@@ -305,7 +305,7 @@ message Bid {
   }, (buf.validate.field).cel = {
       id: "amount",
       message: "amount must be a valid integer.",
-      expression: "this.matches('^[0-9]+$') && uint(this) > 0"
+      expression: "this.matches('^[1-9][0-9]*$')"
   }];
   int64 block_number = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Max block number that the bidder wants to include the transaction in."

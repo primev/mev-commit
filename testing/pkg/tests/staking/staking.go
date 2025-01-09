@@ -90,13 +90,12 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, cfg any) error 
 			return fmt.Errorf("failed to get min stake: %w", err)
 		}
 
-		amount, set := big.NewInt(0).SetString(minStake.Amount, 10)
+		stakeAmount, set := big.NewInt(0).SetString(minStake.Amount, 10)
 		if !set {
 			l.Error("failed to parse min stake", "amount", minStake.Amount)
 			return fmt.Errorf("failed to parse min stake: %s", minStake.Amount)
 		}
 
-		stakeAmount := big.NewInt(0).Mul(amount, big.NewInt(10))
 		// Generate a BLS signature to verify
 		message := common.HexToAddress(p.EthAddress()).Bytes()
 		hashedMessage := crypto.Keccak256(message)

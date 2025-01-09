@@ -13,7 +13,6 @@ import {Errors} from "../utils/Errors.sol";
 /**
  * @title Oracle
  * @notice A contract for Fetching L1 Block Builder Info and Block Data.
- * @author Kartik Chopra
  * @dev This contract serves as an oracle to fetch and process Ethereum Layer 1 block data.
  */
 contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable {

@@ -12,7 +12,6 @@ import {FeePayout} from "../utils/FeePayout.sol";
 import {Errors} from "../utils/Errors.sol";
 
 /// @title Provider Registry
-/// @author Kartik Chopra
 /// @notice This contract is for provider registry and staking.
 contract ProviderRegistry is
     IProviderRegistry,

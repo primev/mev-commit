@@ -248,6 +248,7 @@ func main() {
 				optionBlockNumber,
 				optionDecayDuration,
 				optionBidAmount,
+				optionTipBoost,
 			},
 			Action: func(c *cli.Context) error {
 				privateKey, err := crypto.HexToECDSA(c.String(optionFrom.Name))
@@ -333,8 +334,10 @@ func main() {
 
 				tx := types.NewTx(txData)
 
-				// Chain ID for Holesky (17000)
-				chainID := big.NewInt(17000)
+				chainID, err := client.ChainID(c.Context)
+				if err != nil {
+					return fmt.Errorf("failed to get chain ID: %w", err)
+				}
 
 				// Sign the transaction
 				signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), privateKey)
