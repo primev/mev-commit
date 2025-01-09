@@ -45,7 +45,7 @@ contract SetupVault is Script {
         console.log("Burner router deployed to:", address(burnerRouter));
 
         // Deploy vault with delegator and slasher
-        IVaultConfigurator vaultConfigurator = IVaultConfigurator(0xD2191FE92987171691d552C219b8caEf186eb9cA);
+        IVaultConfigurator vaultConfigurator = IVaultConfigurator(0xD2191FE92987171691d552C219b8caEf186eb9cA); // From https://docs.symbiotic.fi/deployments/current
 
         address[] memory networkLimitSetRoleHolders = new address[](1);
         networkLimitSetRoleHolders[0] = msg.sender;
