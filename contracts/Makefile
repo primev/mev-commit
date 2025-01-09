@@ -26,3 +26,43 @@ get-vanilla-registry-params:
 
 get-mev-commit-avs-params:
 	forge script scripts/validator-registry/GetParams.s.sol:GetMevCommitAVSParams --via-ir --rpc-url https://eth.llamarpc.com
+
+setup-vault:
+	forge script scripts/validator-registry/middleware/ExampleSetup.s.sol:SetupVault \
+		--via-ir \
+		--rpc-url https://1rpc.io/holesky \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--broadcast
+
+deposit-to-vault:
+	forge script scripts/validator-registry/middleware/ExampleSetup.s.sol:DepositToVault \
+		--via-ir \
+		--rpc-url https://1rpc.io/holesky \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--broadcast
+
+operator-actions:
+	forge script scripts/validator-registry/middleware/ExampleSetup.s.sol:OperatorActions \
+		--via-ir \
+		--rpc-url https://1rpc.io/holesky \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--broadcast
+
+primev-team-actions:
+	forge script scripts/validator-registry/middleware/ExampleSetup.s.sol:PrimevTeamActions \
+		--via-ir \
+		--rpc-url https://1rpc.io/holesky \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--broadcast
+
+vault-actions:
+	forge script scripts/validator-registry/middleware/ExampleSetup.s.sol:VaultActions \
+		--via-ir \
+		--rpc-url https://1rpc.io/holesky \
+		--keystore $$KEYSTORE \
+		--password $$PASSWORD \
+		--broadcast
