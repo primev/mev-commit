@@ -60,6 +60,19 @@
   },
   {
     "type": "function",
+    "name": "delegatorFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "deregisterOperators",
     "inputs": [
       {
@@ -209,6 +222,16 @@
       },
       {
         "name": "_vaultFactory",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      },
+      {
+        "name": "_delegatorFactory",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      },
+      {
+        "name": "_slasherFactory",
         "type": "address",
         "internalType": "contract IRegistry"
       },
@@ -647,6 +670,19 @@
   },
   {
     "type": "function",
+    "name": "setDelegatorFactory",
+    "inputs": [
+      {
+        "name": "_delegatorFactory",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setMinBurnerRouterDelay",
     "inputs": [
       {
@@ -731,6 +767,19 @@
         "name": "slashReceiver_",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setSlasherFactory",
+    "inputs": [
+      {
+        "name": "_slasherFactory",
+        "type": "address",
+        "internalType": "contract IRegistry"
       }
     ],
     "outputs": [],
@@ -844,6 +893,19 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "slasherFactory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IRegistry"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1096,6 +1158,19 @@
   },
   {
     "type": "event",
+    "name": "DelegatorFactorySet",
+    "inputs": [
+      {
+        "name": "delegatorFactory",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -1320,6 +1395,19 @@
     "inputs": [
       {
         "name": "slashReceiver",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SlasherFactorySet",
+    "inputs": [
+      {
+        "name": "slasherFactory",
         "type": "address",
         "indexed": false,
         "internalType": "address"
@@ -1587,6 +1675,22 @@
     "type": "error",
     "name": "CheckpointUnorderedInsertion",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DelegatorNotEntity",
+    "inputs": [
+      {
+        "name": "delegator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "delegatorFactory",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -2034,6 +2138,22 @@
     "inputs": [
       {
         "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SlasherNotEntity",
+    "inputs": [
+      {
+        "name": "slasher",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "slasherFactory",
         "type": "address",
         "internalType": "address"
       }
