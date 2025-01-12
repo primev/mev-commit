@@ -98,6 +98,12 @@ interface IMevCommitMiddleware {
     /// @notice Emmitted when the vault factory is set
     event VaultFactorySet(address vaultFactory);
 
+    /// @notice Emmitted when the delegator factory is set
+    event DelegatorFactorySet(address delegatorFactory);
+
+    /// @notice Emmitted when the slasher factory is set
+    event SlasherFactorySet(address slasherFactory);
+
     /// @notice Emmitted when the burner router factory is set
     event BurnerRouterFactorySet(address burnerRouterFactory);
 
@@ -173,11 +179,15 @@ interface IMevCommitMiddleware {
 
     error InvalidVaultEpochDuration(address vault, uint256 vaultEpochDurationSec, uint256 slashPeriodSec);
 
+    error DelegatorNotEntity(address delegator, address delegatorFactory);
+
     error FullRestakeDelegatorNotSupported(address vault);
 
     error UnknownDelegatorType(address vault, uint256 delegatorType);
 
     error SlasherNotSetForVault(address vault);
+
+    error SlasherNotEntity(address slasher, address slasherFactory);
 
     error VetoSlasherMustHaveZeroResolver(address vault);
 
