@@ -425,7 +425,7 @@
           echo "Error: No static nodes found."
           exit 1
         fi
-        cat "${STATIC_NODES}" | remarshal --if json --of toml - > "{{ dist_dir }}/config_{{ environments[env].version }}.toml"
+        cat "${STATIC_NODES}" | remarshal --if json --of toml - > "{{ dist_dir }}/config_{{ env }}-{{ environments[env].version }}.toml"
       args:
         executable: bash
       delegate_to: localhost
@@ -538,7 +538,7 @@
           "extradata": "${EXTRADATA}"
         }
         EOH
-        ) | jq -c '.' > "{{ dist_dir }}/genesis_{{ environments[env].version }}.json"
+        ) | jq -c '.' > "{{ dist_dir }}/genesis_{{ env }}-{{ environments[env].version }}.json"
       args:
         executable: bash
       delegate_to: localhost
