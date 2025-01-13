@@ -20,6 +20,8 @@ contract BaseDeploy is Script {
         IRegistry networkRegistry,
         IRegistry operatorRegistry,
         IRegistry vaultFactory,
+        IRegistry delegatorFactory,
+        IRegistry slasherFactory,
         IRegistry burnerRouterFactory,
         address network,
         uint256 slashPeriodSeconds,
@@ -35,6 +37,8 @@ contract BaseDeploy is Script {
                 networkRegistry, 
                 operatorRegistry, 
                 vaultFactory, 
+                delegatorFactory,
+                slasherFactory,
                 burnerRouterFactory,
                 network, 
                 slashPeriodSeconds,
@@ -56,6 +60,8 @@ contract DeployHolesky is BaseDeploy {
     IRegistry constant public NETWORK_REGISTRY = IRegistry(SymbioticHoleskyDevnetConsts.NETWORK_REGISTRY);
     IRegistry constant public OPERATOR_REGISTRY = IRegistry(SymbioticHoleskyDevnetConsts.OPERATOR_REGISTRY);
     IRegistry constant public VAULT_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.VAULT_FACTORY);
+    IRegistry constant public DELEGATOR_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.DELEGATOR_FACTORY);
+    IRegistry constant public SLASHER_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.SLASHER_FACTORY);
     IRegistry constant public BURNER_ROUTER_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.BURNER_ROUTER_FACTORY);
 
     // On Holesky, use dev keystore account. On mainnet these will be the primev multisig.
@@ -85,6 +91,8 @@ contract DeployHolesky is BaseDeploy {
             NETWORK_REGISTRY, 
             OPERATOR_REGISTRY, 
             VAULT_FACTORY, 
+            DELEGATOR_FACTORY,
+            SLASHER_FACTORY,
             BURNER_ROUTER_FACTORY,
             NETWORK, 
             SLASH_PERIOD_SECONDS, 
