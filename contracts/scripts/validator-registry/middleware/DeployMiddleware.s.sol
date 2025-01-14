@@ -11,7 +11,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
-import {SymbioticHoleskyDevnetConsts} from "./ReleaseAddrConsts.s.sol";
+import {SymbioticHoleskyDevnetConsts, SymbioticMainnetConsts} from "./ReleaseAddrConsts.s.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/delegator/IBaseDelegator.sol";
 import {INetworkMiddlewareService} from "symbiotic-core/interfaces/service/INetworkMiddlewareService.sol";
 import {MainnetConstants} from "../../MainnetConstants.sol";
