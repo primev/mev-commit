@@ -11,9 +11,10 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
-import {SymbioticHoleskyDevnetConsts} from "./ReleaseAddrConsts.s.sol";
+import {SymbioticHoleskyDevnetConsts, SymbioticMainnetConsts} from "./ReleaseAddrConsts.s.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/delegator/IBaseDelegator.sol";
 import {INetworkMiddlewareService} from "symbiotic-core/interfaces/service/INetworkMiddlewareService.sol";
+import {MainnetConstants} from "../../MainnetConstants.sol";
 
 contract BaseDeploy is Script {
     function deployMevCommitMiddleware(
@@ -52,6 +53,44 @@ contract BaseDeploy is Script {
         MevCommitMiddleware mevCommitMiddleware = MevCommitMiddleware(payable(proxy));
         console.log("MevCommitMiddleware owner:", mevCommitMiddleware.owner());
         return proxy;
+    }
+}
+
+contract DeployMainnet is BaseDeploy {
+    IRegistry constant public NETWORK_REGISTRY = IRegistry(SymbioticMainnetConsts.NETWORK_REGISTRY);
+    IRegistry constant public OPERATOR_REGISTRY = IRegistry(SymbioticMainnetConsts.OPERATOR_REGISTRY);
+    IRegistry constant public VAULT_FACTORY = IRegistry(SymbioticMainnetConsts.VAULT_FACTORY);
+    IRegistry constant public DELEGATOR_FACTORY = IRegistry(SymbioticMainnetConsts.DELEGATOR_FACTORY);
+    IRegistry constant public SLASHER_FACTORY = IRegistry(SymbioticMainnetConsts.SLASHER_FACTORY);
+    IRegistry constant public BURNER_ROUTER_FACTORY = IRegistry(SymbioticMainnetConsts.BURNER_ROUTER_FACTORY);
+
+    address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    address constant public NETWORK = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    uint256 constant public SLASH_PERIOD_SECONDS = 1 days;
+    address constant public SLASH_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    address constant public SLASH_RECEIVER = MainnetConstants.COMMITMENT_HOLDINGS_MULTISIG;
+    uint256 constant public MIN_BURNER_ROUTER_DELAY = 2 days;
+
+    function run() external {
+        require(block.chainid == 1, "must deploy on mainnet");
+        vm.startBroadcast();
+
+        deployMevCommitMiddleware(
+            NETWORK_REGISTRY, 
+            OPERATOR_REGISTRY, 
+            VAULT_FACTORY, 
+            DELEGATOR_FACTORY,
+            SLASHER_FACTORY,
+            BURNER_ROUTER_FACTORY,
+            NETWORK, 
+            SLASH_PERIOD_SECONDS, 
+            SLASH_ORACLE, 
+            SLASH_RECEIVER,
+            MIN_BURNER_ROUTER_DELAY,
+            OWNER
+        );
+
+        vm.stopBroadcast();
     }
 }
 

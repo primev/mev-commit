@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
+/// @notice Relevant constants communicated by Symbiotic team as canonical mainnet addresses.
+/// @notice Last updated 1-14-2025
+library SymbioticMainnetConsts {
+    address internal constant NETWORK_REGISTRY = 0xC773b1011461e7314CF05f97d95aa8e92C1Fd8aA;
+    address internal constant OPERATOR_REGISTRY = 0xAd817a6Bc954F678451A71363f04150FDD81Af9F;
+    address internal constant VAULT_FACTORY = 0xAEb6bdd95c502390db8f52c8909F703E9Af6a346;
+    address internal constant DELEGATOR_FACTORY = 0x985Ed57AF9D475f1d83c1c1c8826A0E5A34E8C7B;
+    address internal constant SLASHER_FACTORY = 0x685c2eD7D59814d2a597409058Ee7a92F21e48Fd;
+    address internal constant BURNER_ROUTER_FACTORY = 0x99F2B89fB3C363fBafD8d826E5AA77b28bAB70a0;
+}
+
 /// @notice Constants from https://docs.symbiotic.fi/deployments/current
 /// @notice Last updated 11-30-2024
 library SymbioticHoleskyDevnetConsts {
