@@ -264,9 +264,13 @@ job "{{ job.name }}" {
             sleep 3
           fi
 
+          {% endraw %}
+          {% if job.env['oracle_relay_urls'] %}
+          export MEV_ORACLE_RELAY_URLS="{{ job.env['oracle_relay_urls'] }}"
+          {% endif %}
+
           chmod +x local/mev-commit-oracle
           exec local/mev-commit-oracle start
-          {% endraw %}
         EOH
         destination = "local/run.sh"
         change_mode = "noop"

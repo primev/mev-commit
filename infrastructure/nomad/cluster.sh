@@ -19,11 +19,12 @@ etherscan_api_key=""
 otel_collector_endpoint_url=""
 genesis_file_url=""
 geth_bootnode_url=""
+oracle_relay_urls=""
 
 help() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--oracle-relay-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--environment <name=devenv>] [--debug]]"
     echo "$0 --help"
     echo
@@ -40,6 +41,7 @@ help() {
     echo "    --no-logs-collection                 Disable the collection of logs from deployed jobs."
     echo "    --datadog-key <key>                  Datadog API key, cannot be empty."
     echo "    --l1-rpc-urls <urls>                 Comma separated list of L1 RPC URLs, cannot be empty."
+    echo "    --oracle-relay-urls <urls>           Comma separated list of Oracle Relay URLs, cannot be empty."
     echo "    --etherscan-api-key <key>            Etherscan API key, cannot be empty."
     echo "    --otel-collector-endpoint-url <url>  OpenTelemetry Collector Endpoint URL, cannot be empty."
     echo "    --genesis-file-url <url>             URL to the genesis file, cannot be empty."
@@ -63,7 +65,7 @@ help() {
 usage() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--oracle-relay-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--environment <name=devenv>] [--debug]]"
     echo "$0 --help"
     exit 1
@@ -203,6 +205,15 @@ parse_args() {
                         usage
                     fi
                 fi
+                if [[ $# -gt 0 && $1 == "--oracle-relay-urls" ]]; then  # Added flag
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        oracle_relay_urls="$2"
+                        shift 2
+                    else
+                        echo "Error: --oracle-relay-urls requires a value."
+                        usage
+                    fi
+                fi
                 if [[ $# -gt 0 && $1 == "--etherscan-api-key" ]]; then
                     if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                         etherscan_api_key="$2"
@@ -304,6 +315,7 @@ main() {
             [[ "${force_build_templates_flag}" == true ]] && flags+=("--extra-vars" "build_templates=true")
             [[ -n "${datadog_key}" ]] && flags+=("--extra-vars" "datadog_key=${datadog_key}")
             [[ -n "${l1_rpc_urls}" ]] && flags+=("--extra-vars" "l1_rpc_urls=${l1_rpc_urls}")
+            [[ -n "${oracle_relay_urls}" ]] && flags+=("--extra-vars" "oracle_relay_urls=${oracle_relay_urls}")
             [[ -n "${etherscan_api_key}" ]] && flags+=("--extra-vars" "etherscan_api_key=${etherscan_api_key}")
             [[ -n "${otel_collector_endpoint_url}" ]] && flags+=("--extra-vars" "otel_collector_endpoint_url=${otel_collector_endpoint_url}")
             [[ -n "${genesis_file_url}" ]] && flags+=("--extra-vars" "genesis_file_url=${genesis_file_url}")
