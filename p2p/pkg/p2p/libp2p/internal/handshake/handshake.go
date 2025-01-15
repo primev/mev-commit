@@ -3,8 +3,8 @@ package handshake
 import (
 	"bytes"
 	"context"
-	"crypto/ecdh"
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -128,10 +128,12 @@ func (h *Service) setHandshakeReq() error {
 	}
 
 	if h.peerType == p2p.PeerTypeProvider {
+		fmt.Println("h.providerKeys: ", h.providerKeys)
 		ppk := p2pcrypto.SerializeEciesPublicKey(h.providerKeys.PKEPublicKey)
+		bn254pk := p2pcrypto.BN254PublicKeyToBytes(h.providerKeys.NIKEPublicKey)
 		req.Keys = &handshakepb.SerializedKeys{
 			PKEPublicKey:  ppk,
-			NIKEPublicKey: h.providerKeys.NIKEPublicKey.Bytes(),
+			NIKEPublicKey: bn254pk,
 		}
 	}
 
@@ -201,13 +203,13 @@ func (h *Service) Handle(
 		if err != nil {
 			return &p2p.Peer{}, err
 		}
-		npk, err := ecdh.P256().NewPublicKey(req.Keys.NIKEPublicKey)
+		bn254pk, err := p2pcrypto.BN254PublicKeyFromBytes(req.Keys.NIKEPublicKey)
 		if err != nil {
 			return &p2p.Peer{}, err
 		}
 		p.Keys = &p2p.Keys{
 			PKEPublicKey:  ppk,
-			NIKEPublicKey: npk,
+			NIKEPublicKey: bn254pk,
 		}
 	}
 	return p, nil
@@ -261,13 +263,16 @@ func (h *Service) Handshake(
 		if err != nil {
 			return &p2p.Peer{}, err
 		}
-		npk, err := ecdh.P256().NewPublicKey(ack.Keys.NIKEPublicKey)
+		bn254pk, err := p2pcrypto.BN254PublicKeyFromBytes(ack.Keys.NIKEPublicKey)
+		if err != nil {
+			return &p2p.Peer{}, err
+		}
 		if err != nil {
 			return &p2p.Peer{}, err
 		}
 		p.Keys = &p2p.Keys{
 			PKEPublicKey:  ppk,
-			NIKEPublicKey: npk,
+			NIKEPublicKey: bn254pk,
 		}
 	}
 

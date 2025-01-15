@@ -2,7 +2,6 @@ package handshake_test
 
 import (
 	"context"
-	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"testing"
@@ -11,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/libp2p/go-libp2p/core"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p/internal/handshake"
@@ -58,11 +58,15 @@ func TestHandshake(t *testing.T) {
 		address2 := common.HexToAddress("0x2")
 		ks2 := mockkeysigner.NewMockKeySigner(privKey2, address2)
 		store1 := keysstore.New(inmemstorage.New())
-		nikePrivateKey1, err := ecdh.P256().GenerateKey(rand.Reader)
+		sk1, pk1, err := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = store1.SetNikePrivateKey(nikePrivateKey1)
+		err = store1.SetBN254PrivateKey(&sk1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store1.SetBN254PublicKey(&pk1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +80,7 @@ func TestHandshake(t *testing.T) {
 		}
 		providerKeys1 := p2p.Keys{
 			PKEPublicKey:  &prvKey1.PublicKey,
-			NIKEPublicKey: nikePrivateKey1.PublicKey(),
+			NIKEPublicKey: &pk1,
 		}
 		hs1, err := handshake.New(
 			ks1,
@@ -93,11 +97,15 @@ func TestHandshake(t *testing.T) {
 			t.Fatal(err)
 		}
 		store2 := keysstore.New(inmemstorage.New())
-		nikePrivateKey2, err := ecdh.P256().GenerateKey(rand.Reader)
+		sk2, pk2, err := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = store2.SetNikePrivateKey(nikePrivateKey2)
+		err = store2.SetBN254PrivateKey(&sk2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = store2.SetBN254PublicKey(&pk2)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,7 +120,7 @@ func TestHandshake(t *testing.T) {
 
 		providerKeys2 := p2p.Keys{
 			PKEPublicKey:  &prvKey2.PublicKey,
-			NIKEPublicKey: nikePrivateKey2.PublicKey(),
+			NIKEPublicKey: &pk2,
 		}
 
 		hs2, err := handshake.New(
@@ -152,13 +160,13 @@ func TestHandshake(t *testing.T) {
 				t.Errorf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 				return
 			}
-			nikePrvKey, err := store2.GetNikePrivateKey()
+			bn254pk, err := store2.GetBN254PublicKey()
 			if err != nil {
 				t.Error(err)
 				return
 			}
-			if !p.Keys.NIKEPublicKey.Equal(nikePrvKey.PublicKey()) {
-				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), nikePrvKey.PublicKey().Bytes())
+			if !p.Keys.NIKEPublicKey.Equal(bn254pk) {
+				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), p2pcrypto.BN254PublicKeyToBytes(bn254pk))
 				return
 			}
 			prvKey2, err := store2.GetECIESPrivateKey()
@@ -183,12 +191,12 @@ func TestHandshake(t *testing.T) {
 		if p.Type != p2p.PeerTypeProvider {
 			t.Fatalf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 		}
-		nikePrvKey, err := store1.GetNikePrivateKey()
+		bn254pk, err := store1.GetBN254PublicKey()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !p.Keys.NIKEPublicKey.Equal(nikePrvKey.PublicKey()) {
-			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), nikePrvKey.Bytes())
+		if !p.Keys.NIKEPublicKey.Equal(bn254pk) {
+			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), p2pcrypto.BN254PublicKeyToBytes(bn254pk))
 		}
 		prvKey1, err = store1.GetECIESPrivateKey()
 		if err != nil {

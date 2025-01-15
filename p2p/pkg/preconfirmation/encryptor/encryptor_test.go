@@ -1,7 +1,6 @@
 package preconfencryptor_test
 
 import (
-	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -118,11 +117,15 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+		psk, ppk, err := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+		err = providerStore.SetBN254PrivateKey(&psk)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = providerStore.SetBN254PublicKey(&ppk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -157,7 +160,7 @@ func TestBids(t *testing.T) {
 
 		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(
 			bid,
-			providerNikePrivateKey.PublicKey(),
+			&ppk,
 			nikePrivateKey,
 			encryptedPreConfirmation,
 		)
@@ -425,11 +428,15 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	providerNikePrivateKey, providerNikePublicKey, err := p2pcrypto.GenerateKeyPairBN254()
 	if err != nil {
 		b.Fatal(err)
 	}
-	err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+	err = providerStore.SetBN254PrivateKey(&providerNikePrivateKey)
+	if err != nil {
+		b.Fatal(err)
+	}
+	err = providerStore.SetBN254PublicKey(&providerNikePublicKey)
 	if err != nil {
 		b.Fatal(err)
 	}

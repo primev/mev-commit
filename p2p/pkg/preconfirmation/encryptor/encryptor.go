@@ -2,12 +2,12 @@ package preconfencryptor
 
 import (
 	"bytes"
-	"crypto/ecdh"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -37,14 +37,14 @@ var (
 
 type Store interface {
 	GetAESKey(common.Address) ([]byte, error)
-	GetNikePrivateKey() (*ecdh.PrivateKey, error)
+	GetBN254PrivateKey() (*fr.Element, error)
 }
 
 type encryptor struct {
 	keySigner                  keysigner.KeySigner
-	address                    []byte           // set for the provider
-	nikePrvKey                 *ecdh.PrivateKey // set for the provider
-	aesKey                     []byte           // set for the bidder
+	address                    []byte      // set for the provider
+	nikePrvKey                 *fr.Element // set for the provider
+	aesKey                     []byte      // set for the bidder
 	store                      Store
 	domainSeparatorBidHash     common.Hash // Precomputed domain separator for bids
 	domainSeparatorPreConfHash common.Hash // Precomputed domain separator for pre-confirmations
@@ -57,7 +57,7 @@ func NewEncryptor(ks keysigner.KeySigner, store Store, chainID *big.Int, preconf
 	if err != nil {
 		return nil, err
 	}
-	nikePrvKey, err := store.GetNikePrivateKey()
+	nikePrvKey, err := store.GetBN254PrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func NewEncryptor(ks keysigner.KeySigner, store Store, chainID *big.Int, preconf
 
 func (e *encryptor) ConstructEncryptedBid(
 	bid *preconfpb.Bid,
-) (*preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
+) (*preconfpb.EncryptedBid, *fr.Element, error) {
 	if bid.TxHash == "" || bid.BidAmount == "" || bid.BlockNumber == 0 {
 		return nil, nil, ErrMissingRequiredFields
 	}
@@ -102,14 +102,14 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	sk, pk, err := p2pcrypto.GenerateKeyPairBN254()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	transformSignatureVValue(sig)
 
-	bid.NikePublicKey = nikePrivateKey.PublicKey().Bytes()
+	bid.NikePublicKey = p2pcrypto.BN254PublicKeyToBytes(&pk)
 	bid.Digest = bidHash
 	bid.Signature = sig
 
@@ -123,25 +123,22 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	return &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, nikePrivateKey, nil
+	return &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, &sk, nil
 }
 
 func (e *encryptor) ConstructEncryptedPreConfirmation(
 	bid *preconfpb.Bid,
 ) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
-	bidDataPublicKey, err := ecdh.Curve.NewPublicKey(ecdh.P256(), bid.NikePublicKey)
+	bidDataPublicKey, err := p2pcrypto.BN254PublicKeyFromBytes(bid.NikePublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	sharedSecretProviderSk, err := e.nikePrvKey.ECDH(bidDataPublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
+	sharedKeyProvider := p2pcrypto.DeriveSharedKey(*e.nikePrvKey, *bidDataPublicKey)
 
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:             bid,
-		SharedSecret:    sharedSecretProviderSk,
+		SharedSecret:    p2pcrypto.BN254PublicKeyToBytes(&sharedKeyProvider),
 		ProviderAddress: e.address,
 	}
 
@@ -208,22 +205,20 @@ func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.
 // that signed the preconfirmation.
 func (e *encryptor) VerifyEncryptedPreConfirmation(
 	bid *preconfpb.Bid,
-	providerNikePK *ecdh.PublicKey,
-	bidderNikeSC *ecdh.PrivateKey,
+	providerNikePK *bn254.G1Affine,
+	bidderNikeSC *fr.Element,
 	c *preconfpb.EncryptedPreConfirmation,
 ) ([]byte, *common.Address, error) {
 	if c.Signature == nil {
 		return nil, nil, ErrMissingHashSignature
 	}
 
-	sharedSecredBidderSk, err := bidderNikeSC.ECDH(providerNikePK)
-	if err != nil {
-		return nil, nil, err
-	}
+	sharedKeyBidder := p2pcrypto.DeriveSharedKey(*bidderNikeSC, *providerNikePK)
+	sharedKeyBidderBytes := p2pcrypto.BN254PublicKeyToBytes(&sharedKeyBidder)
 
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:          bid,
-		SharedSecret: sharedSecredBidderSk,
+		SharedSecret: sharedKeyBidderBytes,
 	}
 
 	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation, e.domainSeparatorPreConfHash)
@@ -236,7 +231,7 @@ func (e *encryptor) VerifyEncryptedPreConfirmation(
 		return nil, nil, err
 	}
 
-	return sharedSecredBidderSk, address, nil
+	return sharedKeyBidderBytes, address, nil
 }
 
 func eipVerify(
