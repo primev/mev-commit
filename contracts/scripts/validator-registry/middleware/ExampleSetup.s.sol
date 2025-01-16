@@ -131,18 +131,18 @@ contract PrimevTeamActions is Script {
     function run() external {
         vm.startBroadcast();
 
-        IMevCommitMiddleware existingMevCommitMiddleware = IMevCommitMiddleware(payable(0x79FeCD427e5A3e5f1a40895A0AC20A6a50C95393));
+        IMevCommitMiddleware existingMevCommitMiddleware = IMevCommitMiddleware(payable(0x21fD239311B050bbeE7F32850d99ADc224761382));
 
         address[] memory vaults = new address[](1);
         vaults[0] = 0x5DF518571733d5F4f496D76C9087110FAe98a946;
 
         uint160[] memory slashAmounts = new uint160[](1);
-        slashAmounts[0] = 0.01 ether;
+        slashAmounts[0] = 1 ether;
 
         existingMevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         IBaseDelegator delegator = IBaseDelegator(IVault(vaults[0]).delegator());
-        delegator.setMaxNetworkLimit(1, 1000000 ether);
+        delegator.setMaxNetworkLimit(1, 1000 ether);
 
         address[] memory operators = new address[](1);
         operators[0] = 0xb4F13624966E874967d7C9231F2F740F03F1A832;
