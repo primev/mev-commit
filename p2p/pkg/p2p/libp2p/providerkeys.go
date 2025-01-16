@@ -75,8 +75,7 @@ func getOrSetECDHPublicKey(store Store) (*bn254.G1Affine, error) {
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("pk: ", pk)
-		fmt.Println("sk: ", sk)
+		return &pk, nil
 	}
 
 	return pk, nil
