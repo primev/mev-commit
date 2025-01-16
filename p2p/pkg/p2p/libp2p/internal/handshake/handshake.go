@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -128,7 +127,6 @@ func (h *Service) setHandshakeReq() error {
 	}
 
 	if h.peerType == p2p.PeerTypeProvider {
-		fmt.Println("h.providerKeys: ", h.providerKeys)
 		ppk := p2pcrypto.SerializeEciesPublicKey(h.providerKeys.PKEPublicKey)
 		bn254pk := p2pcrypto.BN254PublicKeyToBytes(h.providerKeys.NIKEPublicKey)
 		req.Keys = &handshakepb.SerializedKeys{

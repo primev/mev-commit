@@ -102,14 +102,11 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	sk, pk, err := p2pcrypto.GenerateKeyPairBN254()
-	if err != nil {
-		return nil, nil, err
-	}
+	sk, pk := p2pcrypto.GenerateKeyPairBN254()
 
 	transformSignatureVValue(sig)
 
-	bid.NikePublicKey = p2pcrypto.BN254PublicKeyToBytes(&pk)
+	bid.NikePublicKey = p2pcrypto.BN254PublicKeyToBytes(pk)
 	bid.Digest = bidHash
 	bid.Signature = sig
 
@@ -123,7 +120,7 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	return &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, &sk, nil
+	return &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, sk, nil
 }
 
 func (e *encryptor) ConstructEncryptedPreConfirmation(
@@ -134,11 +131,11 @@ func (e *encryptor) ConstructEncryptedPreConfirmation(
 		return nil, nil, err
 	}
 
-	sharedKeyProvider := p2pcrypto.DeriveSharedKey(*e.nikePrvKey, *bidDataPublicKey)
+	sharedKeyProvider := p2pcrypto.DeriveSharedKey(e.nikePrvKey, bidDataPublicKey)
 
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:             bid,
-		SharedSecret:    p2pcrypto.BN254PublicKeyToBytes(&sharedKeyProvider),
+		SharedSecret:    p2pcrypto.BN254PublicKeyToBytes(sharedKeyProvider),
 		ProviderAddress: e.address,
 	}
 
@@ -213,8 +210,8 @@ func (e *encryptor) VerifyEncryptedPreConfirmation(
 		return nil, nil, ErrMissingHashSignature
 	}
 
-	sharedKeyBidder := p2pcrypto.DeriveSharedKey(*bidderNikeSC, *providerNikePK)
-	sharedKeyBidderBytes := p2pcrypto.BN254PublicKeyToBytes(&sharedKeyBidder)
+	sharedKeyBidder := p2pcrypto.DeriveSharedKey(bidderNikeSC, providerNikePK)
+	sharedKeyBidderBytes := p2pcrypto.BN254PublicKeyToBytes(sharedKeyBidder)
 
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:          bid,

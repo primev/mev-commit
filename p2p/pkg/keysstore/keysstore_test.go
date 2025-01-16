@@ -66,11 +66,10 @@ func TestNikePrivateKey(t *testing.T) {
 	assert.Nil(t, retrievedKey)
 
 	// Generate Nike private key
-	sk, _, err := p2pcrypto.GenerateKeyPairBN254()
-	assert.NoError(t, err)
+	sk, _ := p2pcrypto.GenerateKeyPairBN254()
 
 	// Set and get Nike private key
-	err = store.SetBN254PrivateKey(&sk)
+	err = store.SetBN254PrivateKey(sk)
 	assert.NoError(t, err)
 
 	retrievedKey, err = store.GetBN254PrivateKey()
@@ -88,11 +87,10 @@ func TestNikePublicKey(t *testing.T) {
 	assert.Nil(t, retrievedKey)
 
 	// Generate Nike key pair
-	_, pk, err := p2pcrypto.GenerateKeyPairBN254()
-	assert.NoError(t, err)
+	_, pk := p2pcrypto.GenerateKeyPairBN254()
 
 	// Set and get Nike public key
-	err = store.SetBN254PublicKey(&pk)
+	err = store.SetBN254PublicKey(pk)
 	assert.NoError(t, err)
 
 	retrievedKey, err = store.GetBN254PublicKey()

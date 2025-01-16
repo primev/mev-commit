@@ -10,8 +10,9 @@ import (
 
 // GenerateKeyPairBN254 returns a BN254 private key (fr.Element) and the
 // corresponding public key in G1 affine form.
-func GenerateKeyPairBN254() (sk fr.Element, pk bn254.G1Affine, err error) {
+func GenerateKeyPairBN254() (sk *fr.Element, pk *bn254.G1Affine) {
 	// 1) Generate random secret in Fr
+	sk = &fr.Element{}
 	sk.SetRandom()
 
 	// 2) Retrieve the G1 generator (1,2) from the bn254 package
@@ -22,19 +23,20 @@ func GenerateKeyPairBN254() (sk fr.Element, pk bn254.G1Affine, err error) {
 	sk.BigInt(&skBigInt)
 
 	// 4) pk = g1Aff^sk
+	pk = &bn254.G1Affine{}
 	pk.ScalarMultiplication(&g1Aff, &skBigInt)
 
-	return sk, pk, nil
+	return sk, pk
 }
 
 // DeriveSharedKey does pkB^skA in BN254 G1 (ECDH-style).
-func DeriveSharedKey(skA fr.Element, pkB bn254.G1Affine) bn254.G1Affine {
+func DeriveSharedKey(skA *fr.Element, pkB *bn254.G1Affine) *bn254.G1Affine {
 	var skABig big.Int
 	skA.BigInt(&skABig)
 
 	var shared bn254.G1Affine
-	shared.ScalarMultiplication(&pkB, &skABig)
-	return shared
+	shared.ScalarMultiplication(pkB, &skABig)
+	return &shared
 }
 
 func BN254PublicKeyToBytes(pub *bn254.G1Affine) []byte {

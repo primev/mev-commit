@@ -58,15 +58,12 @@ func TestHandshake(t *testing.T) {
 		address2 := common.HexToAddress("0x2")
 		ks2 := mockkeysigner.NewMockKeySigner(privKey2, address2)
 		store1 := keysstore.New(inmemstorage.New())
-		sk1, pk1, err := p2pcrypto.GenerateKeyPairBN254()
+		sk1, pk1 := p2pcrypto.GenerateKeyPairBN254()
+		err = store1.SetBN254PrivateKey(sk1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = store1.SetBN254PrivateKey(&sk1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = store1.SetBN254PublicKey(&pk1)
+		err = store1.SetBN254PublicKey(pk1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -80,7 +77,7 @@ func TestHandshake(t *testing.T) {
 		}
 		providerKeys1 := p2p.Keys{
 			PKEPublicKey:  &prvKey1.PublicKey,
-			NIKEPublicKey: &pk1,
+			NIKEPublicKey: pk1,
 		}
 		hs1, err := handshake.New(
 			ks1,
@@ -97,15 +94,15 @@ func TestHandshake(t *testing.T) {
 			t.Fatal(err)
 		}
 		store2 := keysstore.New(inmemstorage.New())
-		sk2, pk2, err := p2pcrypto.GenerateKeyPairBN254()
+		sk2, pk2 := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = store2.SetBN254PrivateKey(&sk2)
+		err = store2.SetBN254PrivateKey(sk2)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = store2.SetBN254PublicKey(&pk2)
+		err = store2.SetBN254PublicKey(pk2)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +117,7 @@ func TestHandshake(t *testing.T) {
 
 		providerKeys2 := p2p.Keys{
 			PKEPublicKey:  &prvKey2.PublicKey,
-			NIKEPublicKey: &pk2,
+			NIKEPublicKey: pk2,
 		}
 
 		hs2, err := handshake.New(
