@@ -21,8 +21,10 @@ contract BidderRegistryTest is Test {
     ProviderRegistry public providerRegistry;
 
     /// @dev Event emitted when a bidder is registered with their staked amount
-    event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
-
+    event BidderRegistered(address indexed bidder, uint256 indexed depositedAmount, uint256 indexed windowNumber);
+    event BidderDepositedForWindow(address indexed bidder, uint256 window, uint256 amount, uint256 totalAmountAllocated);
+    event MaxBidForWindowUpdated(address indexed bidder, uint256 indexed window, uint256 maxBidPerBlock);
+    event BidderWithdrawal(address indexed bidder, uint256 indexed window, uint256 indexed amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
@@ -556,5 +558,67 @@ contract BidderRegistryTest is Test {
 
         vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
         bidderRegistry.depositForWindow{value: 0 ether}(nextWindow);   
+    }
+
+    function test_DepositForWindowEvents() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        uint256 depositAmount = 1 ether;
+
+        vm.startPrank(bidder);
+        
+        // Calculate expected maxBidPerBlock
+        uint256 expectedMaxBid = depositAmount / WindowFromBlockNumber.BLOCKS_PER_WINDOW;
+
+        // Expect all three events in order
+        vm.expectEmit(true, true, true, true);
+        emit BidderRegistered(bidder, depositAmount, nextWindow);
+        
+        vm.expectEmit(true, true, true, true);
+        emit BidderDepositedForWindow(bidder, nextWindow, depositAmount, depositAmount);
+        
+        vm.expectEmit(true, true, true, true);
+        emit MaxBidForWindowUpdated(bidder, nextWindow, expectedMaxBid);
+
+        // Make deposit
+        bidderRegistry.depositForWindow{value: depositAmount}(nextWindow);
+
+        // Verify state
+        assertEq(bidderRegistry.getDeposit(bidder, nextWindow), depositAmount);
+        assertEq(bidderRegistry.maxBidPerBlock(bidder, nextWindow), expectedMaxBid);
+        vm.stopPrank();
+    }
+
+    function test_DepositForWindowsEvents() public {
+        uint256[] memory windows = new uint256[](2);
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        windows[0] = currentWindow + 1;
+        windows[1] = currentWindow + 2;
+        uint256 totalDeposit = 2 ether;
+        uint256 depositPerWindow = totalDeposit / windows.length;
+        uint256 expectedMaxBidPerWindow = depositPerWindow / WindowFromBlockNumber.BLOCKS_PER_WINDOW;
+
+        vm.startPrank(bidder);
+
+        // Expect events for each window
+        for (uint256 i = 0; i < windows.length; ++i) {
+            vm.expectEmit(true, true, true, true);
+            emit BidderRegistered(bidder, depositPerWindow, windows[i]);
+            
+            vm.expectEmit(true, true, true, true);
+            emit BidderDepositedForWindow(bidder, windows[i], depositPerWindow, depositPerWindow);
+
+            vm.expectEmit(true, true, true, true);
+            emit MaxBidForWindowUpdated(bidder, windows[i], expectedMaxBidPerWindow);
+        }
+
+        bidderRegistry.depositForWindows{value: totalDeposit}(windows);
+
+        // Verify state for each window
+        for (uint256 i = 0; i < windows.length; ++i) {
+            assertEq(bidderRegistry.getDeposit(bidder, windows[i]), depositPerWindow);
+            assertEq(bidderRegistry.maxBidPerBlock(bidder, windows[i]), expectedMaxBidPerWindow);
+        }
+        vm.stopPrank();
     }
 }
