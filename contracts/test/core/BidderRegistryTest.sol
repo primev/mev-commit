@@ -19,13 +19,17 @@ contract BidderRegistryTest is Test {
     uint256 public feePayoutPeriodBlocks;
     BlockTracker public blockTracker;
     ProviderRegistry public providerRegistry;
+    address public oracleAccount;
 
-    /// @dev Event emitted when a bidder is registered with their staked amount
-    event BidderRegistered(address indexed bidder, uint256 indexed stakedAmount, uint256 indexed windowNumber);
-
+    event BidderRegistered(
+        address indexed bidder,
+        uint256 indexed depositedAmount,
+        uint256 indexed windowNumber
+    );
     event FeeTransfer(uint256 amount, address indexed recipient);
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+    event BidderWithdrawal(address indexed bidder, uint256 indexed window, uint256 indexed amount);
 
     function setUp() public {
         testNumber = 42;
@@ -33,9 +37,10 @@ contract BidderRegistryTest is Test {
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
         feePayoutPeriodBlocks = 100;
+        oracleAccount = address(this);
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (address(this), address(this)))
+            abi.encodeCall(BlockTracker.initialize, (oracleAccount, address(this)))
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
@@ -556,5 +561,42 @@ contract BidderRegistryTest is Test {
 
         vm.expectRevert(IBidderRegistry.DepositAmountIsZero.selector);
         bidderRegistry.depositForWindow{value: 0 ether}(nextWindow);   
+    }
+
+    function test_WithdrawFromWindowsEventEmission() public {
+        uint256 currentWindow = blockTracker.getCurrentWindow();
+        uint256 nextWindow = currentWindow + 1;
+        uint256 depositAmount = 1000000000000000000;
+
+        // Setup: Deposit for two windows
+        vm.startPrank(bidder);
+        bidderRegistry.depositForWindow{value: depositAmount}(nextWindow);
+        bidderRegistry.depositForWindow{value: depositAmount}(nextWindow + 1);
+        
+        // Move blocks forward to make windows withdrawable
+        uint256 newBlockNumber = block.number + WindowFromBlockNumber.BLOCKS_PER_WINDOW * 3;
+        vm.stopPrank();
+        vm.prank(oracleAccount);
+        blockTracker.recordL1Block(uint64(newBlockNumber), "test");
+
+        vm.startPrank(bidder);
+        // Prepare windows array for withdrawal
+        uint256[] memory windows = new uint256[](2);
+        windows[0] = nextWindow;
+        windows[1] = nextWindow + 1;
+
+        // Expect events in order
+        vm.expectEmit(true, true, true, true);
+        emit BidderWithdrawal(bidder, nextWindow, depositAmount);
+        vm.expectEmit(true, true, true, true);
+        emit BidderWithdrawal(bidder, nextWindow + 1, depositAmount);
+
+        // Perform withdrawal
+        bidderRegistry.withdrawFromWindows(windows);
+        vm.stopPrank();
+
+        // Verify state after withdrawal
+        assertEq(bidderRegistry.getDeposit(bidder, nextWindow), 0);
+        assertEq(bidderRegistry.getDeposit(bidder, nextWindow + 1), 0);
     }
 }

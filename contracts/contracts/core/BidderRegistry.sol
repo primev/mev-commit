@@ -128,6 +128,8 @@ contract BidderRegistry is
     ) external nonReentrant whenNotPaused {
         uint256 currentWindow = blockTrackerContract.getCurrentWindow();
         uint256 totalAmount;
+        uint256[] memory withdrawnWindows = new uint256[](windows.length);
+        uint256[] memory withdrawnAmounts = new uint256[](windows.length);
 
         uint256 len = windows.length;
         for (uint256 i = 0; i < len; ++i) {
@@ -145,13 +147,18 @@ contract BidderRegistry is
                 usedFunds[msg.sender][uint64(blockNumber)] = 0;
             }
 
-            emit BidderWithdrawal(msg.sender, window, amount);
-
+            withdrawnWindows[i] = window;
+            withdrawnAmounts[i] = amount;
             totalAmount += amount;
         }
 
         (bool success, ) = msg.sender.call{value: totalAmount}("");
         require(success, BidderWithdrawalTransferFailed(msg.sender, totalAmount));
+
+        // Emit events only after successful transfer
+        for (uint256 i = 0; i < len; ++i) {
+            emit BidderWithdrawal(msg.sender, withdrawnWindows[i], withdrawnAmounts[i]);
+        }
     }
 
     /**
