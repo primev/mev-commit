@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 )
 
@@ -24,21 +25,18 @@ type Topology struct {
 	logger      *slog.Logger
 	addressbook p2p.Addressbook
 	announcer   Announcer
+	notifier    notifications.Notifier
 	metrics     *metrics
-	subs        []func(p2p.Peer)
 }
 
-func (t *Topology) SubscribePeer(handler func(p2p.Peer)) {
-	t.subs = append(t.subs, handler)
-}
-
-func New(a p2p.Addressbook, logger *slog.Logger) *Topology {
+func New(a p2p.Addressbook, n notifications.Notifier, logger *slog.Logger) *Topology {
 	return &Topology{
 		providers:   make(map[common.Address]p2p.Peer),
 		bidders:     make(map[common.Address]p2p.Peer),
 		addressbook: a,
 		logger:      logger,
 		metrics:     newMetrics(),
+		notifier:    n,
 	}
 }
 
@@ -105,12 +103,25 @@ func (t *Topology) add(p p2p.Peer) {
 
 	switch p.Type {
 	case p2p.PeerTypeProvider:
+		if _, alreadyConnected := t.providers[p.EthAddress]; alreadyConnected {
+			return
+		}
 		t.providers[p.EthAddress] = p
 		t.metrics.ConnectedProvidersCount.Inc()
 	case p2p.PeerTypeBidder:
+		if _, alreadyConnected := t.providers[p.EthAddress]; alreadyConnected {
+			return
+		}
 		t.bidders[p.EthAddress] = p
 		t.metrics.ConnectedBiddersCount.Inc()
 	}
+
+	t.notifier.Notify(&notifications.Notification{
+		Topic: notifications.TopicPeerConnected,
+		Value: map[string]interface{}{
+			"peer": p,
+		},
+	})
 }
 
 func (t *Topology) Disconnected(p p2p.Peer) {
@@ -127,14 +138,18 @@ func (t *Topology) Disconnected(p p2p.Peer) {
 		delete(t.bidders, p.EthAddress)
 		t.metrics.ConnectedBiddersCount.Dec()
 	}
+
+	t.notifier.Notify(&notifications.Notification{
+		Topic: notifications.TopicPeerDisconnected,
+		Value: map[string]interface{}{
+			"peer": p,
+		},
+	})
 }
 
 func (t *Topology) AddPeers(peers ...p2p.Peer) {
 	for _, p := range peers {
 		t.add(p)
-		for _, sub := range t.subs {
-			sub(p)
-		}
 	}
 }
 
