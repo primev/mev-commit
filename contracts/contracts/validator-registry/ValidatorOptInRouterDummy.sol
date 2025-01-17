@@ -52,7 +52,7 @@ contract ValidatorOptInRouterDummy is IValidatorOptInRouter {
         
         // Use first byte of pubkey to determine opt-in status
         // If first byte is < 64 (25% of 256), return true
-        bool isOptedIn = uint8(valBLSPubKey[0]) < 64;
+        bool isOptedIn = uint8(valBLSPubKey[1]) < 64;
         
         optInStatus.isVanillaOptedIn = isOptedIn;
         optInStatus.isAvsOptedIn = isOptedIn;
