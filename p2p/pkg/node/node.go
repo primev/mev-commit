@@ -545,13 +545,6 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
-			if opts.AutodepositAmount != nil {
-				err = autoDeposit.Start(context.Background(), nil, opts.AutodepositAmount)
-				if err != nil {
-					opts.Logger.Error("failed to start auto deposit tracker", "error", err)
-					return nil, errors.Join(err, nd.Close())
-				}
-			}
 			nd.autoDeposit = autoDeposit
 
 			bidderAPI := bidderapi.NewService(
@@ -601,6 +594,14 @@ func NewNode(opts *Options) (*Node, error) {
 		closeChan := s.Startable.Start(ctx)
 		healthChecker.Register(health.CloseChannelHealthCheck(s.Desc, closeChan))
 		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
+	}
+
+	if opts.PeerType == p2p.PeerTypeBidder.String() && opts.AutodepositAmount != nil {
+		err = nd.autoDeposit.Start(ctx, nil, opts.AutodepositAmount)
+		if err != nil {
+			opts.Logger.Error("failed to start auto deposit tracker", "error", err)
+			return nil, errors.Join(err, nd.Close())
+		}
 	}
 
 	nd.cancelFunc = cancel
