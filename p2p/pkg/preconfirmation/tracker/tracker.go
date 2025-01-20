@@ -17,8 +17,8 @@ import (
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
-	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
+	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
@@ -411,38 +411,43 @@ func (t *Tracker) openCommitments(
 		}
 
 		pubB, err := crypto.BN254PublicKeyFromBytes(commitment.Bid.NikePublicKey)
-        if err != nil {
-            t.logger.Error("failed to parse bidder pubkey B", "error", err)
-            continue
-        }
-
-		sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
-        if err != nil {
-            t.logger.Error("failed to parse shared secret C = B^a", "error", err)
-            continue
-        }
-
-		contextData := []byte("mev-commit opening, mainnet, v1.0")
-        proof, err := crypto.GenerateOptimizedProof(t.providerNikeSK, t.providerNikePK, pubB, sharedC, contextData)
-        if err != nil {
-            t.logger.Error("failed to generate ZK proof for openCommitment", "error", err)
-            continue
-        }
-
-		var cBig, zBig big.Int
-        proof.C.BigInt(&cBig)
-        proof.Z.BigInt(&zBig)
-
-		var providerXBig, providerYBig big.Int
-		t.providerNikePK.X.BigInt(&providerXBig)
-		t.providerNikePK.Y.BigInt(&providerYBig)
+		if err != nil {
+			t.logger.Error("failed to parse bidder pubkey B", "error", err)
+			continue
+		}
 
 		var bidderXBig, bidderYBig big.Int
 		pubB.X.BigInt(&bidderXBig)
 		pubB.Y.BigInt(&bidderYBig)
-		
-		zkProof := []*big.Int{&providerXBig, &providerYBig, &bidderXBig, &bidderYBig, &cBig, &zBig}
 
+		var zkProof []*big.Int
+		if t.peerType == p2p.PeerTypeProvider {
+
+			sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
+			if err != nil {
+				t.logger.Error("failed to parse shared secret C = B^a", "error", err)
+				continue
+			}
+
+			contextData := []byte("mev-commit opening, mainnet, v1.0")
+			proof, err := crypto.GenerateOptimizedProof(t.providerNikeSK, t.providerNikePK, pubB, sharedC, contextData)
+			if err != nil {
+				t.logger.Error("failed to generate ZK proof for openCommitment", "error", err)
+				continue
+			}
+
+			var cBig, zBig big.Int
+			proof.C.BigInt(&cBig)
+			proof.Z.BigInt(&zBig)
+
+			var providerXBig, providerYBig big.Int
+			t.providerNikePK.X.BigInt(&providerXBig)
+			t.providerNikePK.Y.BigInt(&providerYBig)
+
+			zkProof = []*big.Int{&providerXBig, &providerYBig, &bidderXBig, &bidderYBig, &cBig, &zBig}
+		} else {
+			zkProof = []*big.Int{nil, nil, &bidderXBig, &bidderYBig, nil, nil}
+		}
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
 			commitmentIdx,
@@ -455,7 +460,6 @@ func (t *Tracker) openCommitments(
 			commitment.PreConfirmation.Bid.Signature,
 			commitment.PreConfirmation.SharedSecret,
 			zkProof,
-
 		)
 		if err != nil {
 			t.logger.Error("failed to open commitment", "error", err)
