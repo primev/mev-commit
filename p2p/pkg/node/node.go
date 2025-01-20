@@ -588,6 +588,7 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	nd.cancelFunc = cancel
 	healthChecker := health.New()
 
 	for _, s := range startables {
@@ -603,8 +604,6 @@ func NewNode(opts *Options) (*Node, error) {
 			return nil, errors.Join(err, nd.Close())
 		}
 	}
-
-	nd.cancelFunc = cancel
 
 	started := make(chan struct{})
 	go func() {
