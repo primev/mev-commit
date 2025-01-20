@@ -446,7 +446,8 @@ func (t *Tracker) openCommitments(
 
 			zkProof = []*big.Int{&providerXBig, &providerYBig, &bidderXBig, &bidderYBig, &cBig, &zBig}
 		} else {
-			zkProof = []*big.Int{nil, nil, &bidderXBig, &bidderYBig, nil, nil}
+			zeroInt := big.NewInt(0)
+			zkProof = []*big.Int{zeroInt, zeroInt, &bidderXBig, &bidderYBig, zeroInt, zeroInt}
 		}
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
