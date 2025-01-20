@@ -528,6 +528,14 @@ contract OracleTest is Test {
         blockTracker.recordL1Block(blockNumber, validBLSPubkey);
         vm.stopPrank();
 
+        uint256[] memory zkProof = new uint256[](6);
+        zkProof[0] = 1;
+        zkProof[1] = 2;
+        zkProof[2] = 1;
+        zkProof[3] = 2;
+        zkProof[4] = 2;
+        zkProof[5] = 3;
+
         for (uint256 i = 0; i < commitments.length; ++i) {
             vm.startPrank(provider);
             preconfManager.openCommitment(
@@ -539,7 +547,8 @@ contract OracleTest is Test {
                 10,
                 20,
                 bidSignatures[i],
-                sharedSecretKey
+                sharedSecretKey,
+                zkProof
             );
             vm.stopPrank();
         }
@@ -614,6 +623,14 @@ contract OracleTest is Test {
         uint64 bid,
         uint64 blockNumber
     ) public view returns (bytes32) {
+        uint256[] memory zkProof = new uint256[](6);
+        zkProof[0] = 1;
+        zkProof[1] = 2;
+        zkProof[2] = 1;
+        zkProof[3] = 2;
+        zkProof[4] = 2;
+        zkProof[5] = 3;
+
         return
             preconfManager.getBidHash(
                 txnHash,
@@ -621,7 +638,8 @@ contract OracleTest is Test {
                 bid,
                 blockNumber,
                 10,
-                20
+                20,
+                zkProof
             );
     }
 
@@ -696,6 +714,14 @@ contract OracleTest is Test {
         string memory revertingTxHashes,
         bytes memory bidSignature
     ) public returns (bytes32) {
+        uint256[] memory zkProof = new uint256[](6);
+        zkProof[0] = 1;
+        zkProof[1] = 2;
+        zkProof[2] = 1;
+        zkProof[3] = 2;
+        zkProof[4] = 2;
+        zkProof[5] = 3;
+
         vm.startPrank(provider);
         bytes32 commitmentIndex = preconfManager.openCommitment(
             unopenedCommitmentIndex,
@@ -706,7 +732,8 @@ contract OracleTest is Test {
             10,
             20,
             bidSignature,
-            sharedSecretKey
+            sharedSecretKey,
+            zkProof
         );
         vm.stopPrank();
         return commitmentIndex;
@@ -731,13 +758,22 @@ contract OracleTest is Test {
             bytes memory commitmentSignature
         )
     {
+        uint256[] memory zkProof = new uint256[](6);
+        zkProof[0] = 1;
+        zkProof[1] = 2;
+        zkProof[2] = 1;
+        zkProof[3] = 2;
+        zkProof[4] = 2;
+        zkProof[5] = 3;
+
         bytes32 bidHash = preconfManager.getBidHash(
             txnHash,
             revertingTxHashes,
             bid,
             blockNumber,
             decayStartTimestamp,
-            decayEndTimestamp
+            decayEndTimestamp,
+            zkProof
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);

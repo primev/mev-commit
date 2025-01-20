@@ -11,6 +11,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {IProviderRegistry} from "../../contracts/interfaces/IProviderRegistry.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
+
 contract PreconfManagerTest is Test {
     struct TestCommitment {
         uint256 bidAmt;
@@ -25,6 +26,7 @@ contract PreconfManagerTest is Test {
         bytes commitmentSignature;
         uint64 dispatchTimestamp;
         bytes sharedSecretKey;
+        uint256[] zkProof;
     }
 
     TestCommitment internal _testCommitmentAliceBob;
@@ -39,17 +41,33 @@ contract PreconfManagerTest is Test {
     bytes public validBLSPubkey =
         hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
-    bytes public validBLSPubkey2 = hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82c";
-    bytes public validBLSPubkey3 = hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82d";
-    bytes[] public validMultiBLSPubkeys = [validBLSPubkey, validBLSPubkey2, validBLSPubkey3];
-    bytes public dummyBLSSignature = hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
+    bytes public validBLSPubkey2 =
+        hex"90000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82c";
+    bytes public validBLSPubkey3 =
+        hex"a0000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82d";
+    bytes[] public validMultiBLSPubkeys = [
+        validBLSPubkey,
+        validBLSPubkey2,
+        validBLSPubkey3
+    ];
+    bytes public dummyBLSSignature =
+        hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     uint256 public withdrawalDelay;
     uint256 public protocolFeePayoutPeriodBlocks;
     address public oracleContract;
+
     function setUp() public {
-         address BLS_VERIFY_ADDRESS = address(0xf0);
+        address BLS_VERIFY_ADDRESS = address(0xf0);
         bytes memory code = type(MockBLSVerify).creationCode;
         vm.etch(BLS_VERIFY_ADDRESS, code);
+
+        uint256[] memory zkProof = new uint256[](6);
+        zkProof[0] = 1;
+        zkProof[1] = 2;
+        zkProof[2] = 1;
+        zkProof[3] = 2;
+        zkProof[4] = 2;
+        zkProof[5] = 3;
 
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -58,18 +76,19 @@ contract PreconfManagerTest is Test {
             "0xkartik",
             10,
             20,
-            0x447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf,
-            0xa7f6241be0c5055f054fcbe03d98a1920f0ab874039474401323d8d95930a076,
-            hex"5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b",
-            hex"026b7694e7eaeca9f77718b127e33e20588825820ecc939d751ad2bd21bbd78b71685e2c3f3f76eb37ce8e67843089effd731e93463b8f935cbbf52add269a6d1c",
+            0x520eacb6555b9bfb82c1b0f04b5969c0b4cb277a030f62aa6cab3f7dec011b75,
+            0x37e6872aa386743965cbd8486e03ee6f9efd9897a4f99d3caf0450d9c24c0636,
+            hex"1193ce788e005ddad9c98f7d3d191eb0b17c0f28e735c736061e233f6b6abf5e5603091b91e4c395d4d5efd52b33720e392e79d3d7f3c735e2c45faef861ea0c1c",
+            hex"9e0a9307fdbb29718a7ad667ac8027735c4ae923e1f689c9358a995d72c0690b3849e163c85fb9fa77f93ce3af4e447d76be9930c7786e5089e1ec701af8ee9c1b",
             15,
-            bytes("0xsecret")
+            bytes("0xsecret"),
+            zkProof
         );
 
         feePercent = 10;
         minStake = 1e18 wei;
         feeRecipient = vm.addr(9);
-        withdrawalDelay = 24 hours ; // 24 hours
+        withdrawalDelay = 24 hours; // 24 hours
         protocolFeePayoutPeriodBlocks = 100;
         oracleContract = address(0x6793);
         address providerRegistryProxy = Upgrades.deployUUPSProxy(
@@ -96,7 +115,7 @@ contract PreconfManagerTest is Test {
             )
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
-vm.prank(address(this));
+        vm.prank(address(this));
         blockTracker.setProviderRegistry(address(providerRegistry));
         address bidderRegistryProxy = Upgrades.deployUUPSProxy(
             "BidderRegistry.sol",
@@ -136,6 +155,14 @@ vm.prank(address(this));
 
     function test_GetBidHash1() public {
         // Step 1: Prepare the test commitment data
+        uint256[] memory zkProof = new uint256[](6);
+        zkProof[0] = 1;
+        zkProof[1] = 2;
+        zkProof[2] = 1;
+        zkProof[3] = 2;
+        zkProof[4] = 2;
+        zkProof[5] = 3;
+
         PreconfManager.CommitmentParams memory testCommitment = IPreconfManager
             .CommitmentParams({
                 txnHash: "0xkartik",
@@ -146,8 +173,9 @@ vm.prank(address(this));
                 decayEndTimeStamp: 20,
                 sharedSecretKey: bytes("0xsecret"),
                 bidHash: hex"447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf",
-                bidSignature: hex"5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b",
-                commitmentSignature: hex"026b7694e7eaeca9f77718b127e33e20588825820ecc939d751ad2bd21bbd78b71685e2c3f3f76eb37ce8e67843089effd731e93463b8f935cbbf52add269a6d1c"
+                bidSignature: hex"1193ce788e005ddad9c98f7d3d191eb0b17c0f28e735c736061e233f6b6abf5e5603091b91e4c395d4d5efd52b33720e392e79d3d7f3c735e2c45faef861ea0c1c",
+                commitmentSignature: hex"026b7694e7eaeca9f77718b127e33e20588825820ecc939d751ad2bd21bbd78b71685e2c3f3f76eb37ce8e67843089effd731e93463b8f935cbbf52add269a6d1c",
+                zkProof: zkProof
             });
 
         // Step 2: Calculate the bid hash using the getBidHash function
@@ -157,7 +185,8 @@ vm.prank(address(this));
             testCommitment.bidAmt,
             testCommitment.blockNumber,
             testCommitment.decayStartTimeStamp,
-            testCommitment.decayEndTimeStamp
+            testCommitment.decayEndTimeStamp,
+            testCommitment.zkProof
         );
 
         // Add a alice private key and console log the key
@@ -215,11 +244,12 @@ vm.prank(address(this));
         vm.startPrank(committer);
         providerRegistry.registerAndStake{value: 1 ether}();
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
         vm.stopPrank();
-
-
 
         // Step 2: Store the commitment
         vm.prank(committer);
@@ -337,7 +367,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.bidAmt,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp
+            _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.zkProof
         );
         assertEq(bidHash, _testCommitmentAliceBob.bidDigest);
     }
@@ -351,7 +382,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.bidAmt,
             _testCommitmentAliceBob.blockNumber,
             _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp
+            _testCommitmentAliceBob.decayEndTimestamp,
+            _testCommitmentAliceBob.zkProof
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
@@ -373,6 +405,8 @@ vm.prank(address(this));
         (, uint256 providerPk) = makeAddrAndKey("bob");
         (v, r, s) = vm.sign(providerPk, preConfHash);
         signature = abi.encodePacked(r, s, v);
+
+        assertEq(signature, _testCommitmentAliceBob.commitmentSignature);
     }
 
     function test_StoreCommitment() public {
@@ -381,17 +415,7 @@ vm.prank(address(this));
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 2 ether}(1);
 
-        // Step 1: Verify that the commitment has not been used before
-        verifyCommitmentNotUsed(
-            _testCommitmentAliceBob.txnHash,
-            _testCommitmentAliceBob.revertingTxHashes,
-            _testCommitmentAliceBob.bidAmt,
-            _testCommitmentAliceBob.blockNumber,
-            _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp,
-            _testCommitmentAliceBob.bidSignature
-        );
-
+        verifyCommitmentNotUsed(_testCommitmentAliceBob);
         (address committer, ) = makeAddrAndKey("bob");
 
         // Step 2: Store the commitment
@@ -406,7 +430,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
-            _testCommitmentAliceBob.sharedSecretKey
+            _testCommitmentAliceBob.sharedSecretKey,
+            _testCommitmentAliceBob.zkProof
         );
 
         // Step 3: Move to the next window
@@ -423,7 +448,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.bidSignature,
-            _testCommitmentAliceBob.sharedSecretKey
+            _testCommitmentAliceBob.sharedSecretKey,
+            _testCommitmentAliceBob.zkProof
         );
 
         // Step 5: Verify the stored commitment
@@ -437,7 +463,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.revertingTxHashes,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
-            _testCommitmentAliceBob.sharedSecretKey
+            _testCommitmentAliceBob.sharedSecretKey,
+            _testCommitmentAliceBob.zkProof
         );
 
         string memory commitmentTxnHash = preconfManager
@@ -446,39 +473,36 @@ vm.prank(address(this));
     }
 
     function verifyCommitmentNotUsed(
-        string memory txnHash,
-        string memory revertingTxHashes,
-        uint256 bidAmt,
-        uint64 blockNumber,
-        uint64 decayStartTimestamp,
-        uint64 decayEndTimestamp,
-        bytes memory bidSignature
+        TestCommitment memory c
     ) public view returns (bytes32) {
         bytes32 bidHash = preconfManager.getBidHash(
-            txnHash,
-            revertingTxHashes,
-            bidAmt,
-            blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp
+            c.txnHash,
+            c.revertingTxHashes,
+            c.bidAmt,
+            c.blockNumber,
+            c.decayStartTimestamp,
+            c.decayEndTimestamp,
+            c.zkProof
         );
+
         bytes memory sharedSecretKey = abi.encodePacked(keccak256("0xsecret"));
+
         bytes32 preConfHash = preconfManager.getPreConfHash(
-            txnHash,
-            revertingTxHashes,
-            bidAmt,
-            blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp,
+            c.txnHash,
+            c.revertingTxHashes,
+            c.bidAmt,
+            c.blockNumber,
+            c.decayStartTimestamp,
+            c.decayEndTimestamp,
             bidHash,
-            bidSignature,
+            c.bidSignature,
             sharedSecretKey
         );
 
         (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
             .openedCommitments(preConfHash);
-        assertEq(isSettled, false);
 
+        assertEq(isSettled, false);
         return bidHash;
     }
 
@@ -493,15 +517,24 @@ vm.prank(address(this));
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp,
-        bytes memory sharedSecretKey
-    ) public returns (bytes32) {
+        bytes memory sharedSecretKey,
+        uint256[] memory zkProof
+    )
+        public
+        returns (
+            bytes32
+        )
+    {
         bytes32 bidHash = preconfManager.getBidHash(
             txnHash,
             revertingTxHashes,
             bidAmt,
             blockNumber,
             decayStartTimestamp,
-            decayEndTimestamp
+            decayEndTimestamp,
+            zkProof
+            // bidderPKx,
+            // bidderPKy
         );
 
         bytes32 commitmentDigest = preconfManager.getPreConfHash(
@@ -519,7 +552,10 @@ vm.prank(address(this));
         vm.startPrank(committer);
         providerRegistry.registerAndStake{value: 10 ether}();
         for (uint256 i = 0; i < validMultiBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validMultiBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validMultiBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
 
         bytes32 commitmentIndex = preconfManager.storeUnopenedCommitment(
@@ -541,7 +577,8 @@ vm.prank(address(this));
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         bytes memory bidSignature,
-        bytes memory sharedSecretKey
+        bytes memory sharedSecretKey,
+        uint256[] memory zkProof
     ) public returns (bytes32) {
         vm.prank(msgSender);
         bytes32 commitmentIndex = preconfManager.openCommitment(
@@ -553,7 +590,8 @@ vm.prank(address(this));
             decayStartTimestamp,
             decayEndTimestamp,
             bidSignature,
-            sharedSecretKey
+            sharedSecretKey,
+            zkProof
         );
 
         return commitmentIndex;
@@ -569,7 +607,8 @@ vm.prank(address(this));
         string memory revertingTxHashes,
         bytes memory bidSignature,
         bytes memory commitmentSignature,
-        bytes memory sharedSecretKey
+        bytes memory sharedSecretKey,
+        uint256[] memory zkProof
     ) public view {
         PreconfManager.OpenedCommitment memory commitment = preconfManager
             .getCommitment(index);
@@ -585,7 +624,8 @@ vm.prank(address(this));
                 bidHash: commitment.bidHash,
                 bidSignature: bidSignature,
                 commitmentSignature: commitmentSignature,
-                sharedSecretKey: sharedSecretKey
+                sharedSecretKey: sharedSecretKey,
+                zkProof: zkProof
             });
 
         (, address committerAddress) = preconfManager.verifyPreConfCommitment(
@@ -629,15 +669,7 @@ vm.prank(address(this));
         vm.prank(bidder);
         bidderRegistry.depositForWindow{value: 2 ether}(window);
         // Step 1: Verify that the commitment has not been used before
-        verifyCommitmentNotUsed(
-            _testCommitmentAliceBob.txnHash,
-            _testCommitmentAliceBob.revertingTxHashes,
-            _testCommitmentAliceBob.bidAmt,
-            _testCommitmentAliceBob.blockNumber,
-            _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp,
-            _testCommitmentAliceBob.bidSignature
-        );
+        verifyCommitmentNotUsed(_testCommitmentAliceBob);
         // Step 2: Store the commitment
         (address committer, ) = makeAddrAndKey("bob");
         bytes32 commitmentIndex = storeCommitment(
@@ -651,7 +683,8 @@ vm.prank(address(this));
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
-            _testCommitmentAliceBob.sharedSecretKey
+            _testCommitmentAliceBob.sharedSecretKey,
+            _testCommitmentAliceBob.zkProof
         );
         PreconfManager.UnopenedCommitment
             memory storedCommitment = preconfManager.getUnopenedCommitment(
@@ -675,21 +708,11 @@ vm.prank(address(this));
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
-                .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber
-                );
+                .getWindowFromBlockNumber(_testCommitmentAliceBob.blockNumber);
             bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
             // Step 1: Verify that the commitment has not been used before
-            bytes32 bidHash = verifyCommitmentNotUsed(
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
-                _testCommitmentAliceBob.bidAmt,
-                _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.decayStartTimestamp,
-                _testCommitmentAliceBob.decayEndTimestamp,
-                _testCommitmentAliceBob.bidSignature
-            );
+            bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
 
             bytes32 preConfHash = preconfManager.getPreConfHash(
                 _testCommitmentAliceBob.txnHash,
@@ -701,6 +724,8 @@ vm.prank(address(this));
                 bidHash,
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.sharedSecretKey
+                // _testCommitmentAliceBob.bidderPKx,
+                // _testCommitmentAliceBob.bidderPKy
             );
 
             // Verify that the commitment has not been set before
@@ -720,11 +745,13 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.sharedSecretKey,
+                _testCommitmentAliceBob.zkProof
             );
             providerRegistry.setPreconfManager(address(preconfManager));
             uint256 blockNumber = 2;
             blockTracker.recordL1Block(blockNumber, validBLSPubkey);
+
             bytes32 index = openCommitment(
                 committer,
                 unopenedIndex,
@@ -735,7 +762,8 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.sharedSecretKey,
+                _testCommitmentAliceBob.zkProof
             );
             uint256 oneHundredPercent = providerRegistry.ONE_HUNDRED_PERCENT();
 
@@ -767,20 +795,12 @@ vm.prank(address(this));
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
             uint256 depositWindow = WindowFromBlockNumber
-                .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber
-                );
+                .getWindowFromBlockNumber(_testCommitmentAliceBob.blockNumber);
             bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
-                _testCommitmentAliceBob.bidAmt,
-                _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.decayStartTimestamp,
-                _testCommitmentAliceBob.decayEndTimestamp,
-                _testCommitmentAliceBob.bidSignature
+                _testCommitmentAliceBob
             );
             bytes32 preConfHash = preconfManager.getPreConfHash(
                 _testCommitmentAliceBob.txnHash,
@@ -811,12 +831,14 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.sharedSecretKey,
+                _testCommitmentAliceBob.zkProof
             );
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 validBLSPubkey
             );
+
             bytes32 index = openCommitment(
                 committer,
                 unopenedIndex,
@@ -827,7 +849,8 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.sharedSecretKey,
+                _testCommitmentAliceBob.zkProof
             );
             vm.prank(oracleContract);
             preconfManager.initiateReward(index, 100);
@@ -849,22 +872,16 @@ vm.prank(address(this));
         {
             (address bidder, ) = makeAddrAndKey("alice");
             uint256 depositWindow = WindowFromBlockNumber
-                .getWindowFromBlockNumber(
-                    _testCommitmentAliceBob.blockNumber
-                );
+                .getWindowFromBlockNumber(_testCommitmentAliceBob.blockNumber);
             vm.deal(bidder, 5 ether);
             vm.prank(bidder);
             bidderRegistry.depositForWindow{value: 2 ether}(depositWindow);
 
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
-                _testCommitmentAliceBob.bidAmt,
-                _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.decayStartTimestamp,
-                _testCommitmentAliceBob.decayEndTimestamp,
-                _testCommitmentAliceBob.bidSignature
+                _testCommitmentAliceBob
+                // _testCommitmentAliceBob.bidderPKx,
+                // _testCommitmentAliceBob.bidderPKy
             );
             bytes32 preConfHash = preconfManager.getPreConfHash(
                 _testCommitmentAliceBob.txnHash,
@@ -895,12 +912,14 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.sharedSecretKey,
+                _testCommitmentAliceBob.zkProof
             );
             blockTracker.recordL1Block(
                 _testCommitmentAliceBob.blockNumber,
                 validBLSPubkey
             );
+
             bytes32 index = openCommitment(
                 committer,
                 unopenedIndex,
@@ -911,7 +930,8 @@ vm.prank(address(this));
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.sharedSecretKey,
+                _testCommitmentAliceBob.zkProof
             );
             uint256 window = blockTracker.getCurrentWindow();
             vm.prank(oracleContract);
@@ -977,11 +997,12 @@ vm.prank(address(this));
         vm.startPrank(committer);
         providerRegistry.registerAndStake{value: 2 ether}();
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
         vm.stopPrank();
-
-
 
         // Request a withdrawal to create a pending withdrawal request
         vm.prank(committer);
@@ -1026,7 +1047,11 @@ vm.prank(address(this));
         openFirstCommitment(bidder, unopenedIndex1, testCommitment);
 
         bytes32 txnHashAndBidder = keccak256(
-            abi.encode(testCommitment.txnHash, bidder, testCommitment.blockNumber)
+            abi.encode(
+                testCommitment.txnHash,
+                bidder,
+                testCommitment.blockNumber
+            )
         );
         // Verify that the first commitment is processed
         assertTrue(
@@ -1057,6 +1082,7 @@ vm.prank(address(this));
                 bidder
             )
         );
+
         preconfManager.openCommitment(
             unopenedIndex2,
             testCommitment2.bidAmt,
@@ -1066,7 +1092,8 @@ vm.prank(address(this));
             testCommitment2.decayStartTimestamp,
             testCommitment2.decayEndTimestamp,
             testCommitment2.bidSignature,
-            testCommitment2.sharedSecretKey
+            testCommitment2.sharedSecretKey,
+            testCommitment2.zkProof
         );
     }
 
@@ -1098,7 +1125,8 @@ vm.prank(address(this));
                 testCommitment.bidSignature,
                 testCommitment.commitmentSignature,
                 testCommitment.dispatchTimestamp,
-                testCommitment.sharedSecretKey
+                testCommitment.sharedSecretKey,
+                testCommitment.zkProof
             );
     }
 
@@ -1118,7 +1146,8 @@ vm.prank(address(this));
                 testCommitment.decayStartTimestamp,
                 testCommitment.decayEndTimestamp,
                 testCommitment.bidSignature,
-                testCommitment.sharedSecretKey
+                testCommitment.sharedSecretKey,
+                testCommitment.zkProof
             );
     }
 
@@ -1142,7 +1171,8 @@ vm.prank(address(this));
             testCommitment2.bidAmt,
             testCommitment2.blockNumber,
             testCommitment2.decayStartTimestamp,
-            testCommitment2.decayEndTimestamp
+            testCommitment2.decayEndTimestamp,
+            testCommitment2.zkProof
         );
 
         testCommitment2.bidDigest = bidHash2;

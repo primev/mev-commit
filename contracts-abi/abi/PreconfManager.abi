@@ -188,6 +188,11 @@
         "name": "_decayEndTimeStamp",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -683,6 +688,11 @@
         "name": "sharedSecretKey",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -1103,6 +1113,11 @@
         "name": "bidSignature",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -1177,6 +1192,11 @@
             "name": "sharedSecretKey",
             "type": "bytes",
             "internalType": "bytes"
+          },
+          {
+            "name": "zkProof",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
           }
         ]
       }

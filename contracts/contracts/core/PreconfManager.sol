@@ -35,7 +35,7 @@ contract PreconfManager is
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 bidderPKx,uint256 bidderPKy)"
         );
 
     // EIP-712 domain separator
@@ -212,8 +212,13 @@ contract PreconfManager is
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory sharedSecretKey
-    ) public whenNotPaused returns (bytes32 commitmentIndex) {
+        bytes memory sharedSecretKey,
+        uint256[] calldata zkProof
+    )
+        public
+        whenNotPaused
+        returns (bytes32 commitmentIndex)
+    {
         if (decayStartTimeStamp >= decayEndTimeStamp) {
             revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
         }
@@ -225,7 +230,8 @@ contract PreconfManager is
             decayEndTimeStamp,
             txnHash,
             revertingTxHashes,
-            bidSignature
+            bidSignature,
+            zkProof
         );
 
         bytes32 txnHashBidderBlockNumber = keccak256(
@@ -510,8 +516,15 @@ contract PreconfManager is
         uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp
-    ) public view returns (bytes32) {
+        uint64 _decayEndTimeStamp,
+        uint256[] calldata zkProof
+    )
+        public
+        view
+        returns (
+            bytes32
+        )
+    {
         return
             ECDSA.toTypedDataHash(
                 domainSeparatorBid,
@@ -523,7 +536,9 @@ contract PreconfManager is
                         _bidAmt,
                         _blockNumber,
                         _decayStartTimeStamp,
-                        _decayEndTimeStamp
+                        _decayEndTimeStamp,
+                        zkProof[2], // _bidderPKx,
+                        zkProof[3] // _bidderPKy
                     )
                 )
             );
@@ -550,7 +565,15 @@ contract PreconfManager is
         bytes32 _bidHash,
         bytes memory _bidSignature,
         bytes memory _sharedSecretKey
-    ) public view returns (bytes32) {
+    )
+        public
+        view
+        returns (
+            // uint256 _bidderPKx,
+            // uint256 _bidderPKy
+            bytes32
+        )
+    {
         return
             ECDSA.toTypedDataHash(
                 domainSeparatorPreconf,
@@ -566,6 +589,8 @@ contract PreconfManager is
                         _bidHash,
                         keccak256(_bidSignature),
                         keccak256(_sharedSecretKey)
+                        // _bidderPKx,
+                        // _bidderPKy
                     )
                 )
             );
@@ -590,7 +615,8 @@ contract PreconfManager is
         uint64 decayEndTimeStamp,
         string memory txnHash,
         string memory revertingTxHashes,
-        bytes calldata bidSignature
+        bytes calldata bidSignature,
+        uint256[] calldata zkProof
     ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
             txnHash,
@@ -598,7 +624,10 @@ contract PreconfManager is
             bidAmt,
             blockNumber,
             decayStartTimeStamp,
-            decayEndTimeStamp
+            decayEndTimeStamp,
+            zkProof
+            // bidderPKx,
+            // bidderPKy
         );
         recoveredAddress = messageDigest.recover(bidSignature);
     }
@@ -667,6 +696,8 @@ contract PreconfManager is
                 params.bidHash,
                 params.bidSignature,
                 params.sharedSecretKey
+                // 1,
+                // 2
             );
     }
 }

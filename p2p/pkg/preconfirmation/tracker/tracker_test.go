@@ -19,6 +19,7 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	preconftracker "github.com/primev/mev-commit/p2p/pkg/preconfirmation/tracker"
@@ -59,6 +60,7 @@ func TestTracker(t *testing.T) {
 		openedCommitments: make(chan openedCommitment, 10),
 	}
 
+	sk, pk := crypto.GenerateKeyPairBN254()
 	tracker := preconftracker.NewTracker(
 		p2p.PeerTypeBidder,
 		common.HexToAddress("0x1234"),
@@ -66,6 +68,8 @@ func TestTracker(t *testing.T) {
 		st,
 		contract,
 		&testReceiptGetter{count: 1},
+		pk,
+		sk,
 		func(context.Context) (*bind.TransactOpts, error) {
 			return &bind.TransactOpts{
 				From: common.HexToAddress("0x1234"),
@@ -96,6 +100,8 @@ func TestTracker(t *testing.T) {
 	for i := 1; i <= 10; i++ {
 		digest := common.HexToHash(fmt.Sprintf("0x%x", i))
 
+		_, pkBid := crypto.GenerateKeyPairBN254()
+		sharedKey := crypto.DeriveSharedKey(sk, pkBid)
 		commitments = append(commitments, &store.EncryptedPreConfirmationWithDecrypted{
 			EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
 				Commitment: digest.Bytes(),
@@ -110,12 +116,12 @@ func TestTracker(t *testing.T) {
 					DecayEndTimestamp:   2,
 					Digest:              []byte(fmt.Sprintf("digest%d", i)),
 					Signature:           []byte(fmt.Sprintf("signature%d", i)),
-					NikePublicKey:       []byte(fmt.Sprintf("nikePublicKey%d", i)),
+					NikePublicKey:       crypto.BN254PublicKeyToBytes(pkBid),
 				},
 				Digest:          digest.Bytes(),
 				Signature:       []byte(fmt.Sprintf("signature%d", i)),
 				ProviderAddress: getProvider(getBlockNum(i)).Bytes(),
-				SharedSecret:    []byte(fmt.Sprintf("sharedSecret%d", i)),
+				SharedSecret:    crypto.BN254PublicKeyToBytes(sharedKey),
 			},
 			TxnHash: common.HexToHash(fmt.Sprintf("0x%x", i)),
 		})
@@ -342,6 +348,8 @@ func TestTrackerIgnoreOldBlocks(t *testing.T) {
 		openedCommitments: make(chan openedCommitment, 10),
 	}
 
+	sk, pk := crypto.GenerateKeyPairBN254()
+
 	tracker := preconftracker.NewTracker(
 		p2p.PeerTypeProvider,
 		common.HexToAddress("0x1234"),
@@ -349,6 +357,8 @@ func TestTrackerIgnoreOldBlocks(t *testing.T) {
 		st,
 		contract,
 		&testReceiptGetter{count: 1},
+		pk,
+		sk,
 		func(context.Context) (*bind.TransactOpts, error) {
 			return &bind.TransactOpts{
 				From: common.HexToAddress("0x1234"),
@@ -392,6 +402,7 @@ type openedCommitment struct {
 	decayEndTimeStamp        uint64
 	bidSignature             []byte
 	sharedSecretKey          []byte
+	zkProof                  []*big.Int
 }
 
 type testPreconfContract struct {
@@ -409,6 +420,7 @@ func (t *testPreconfContract) OpenCommitment(
 	decayEndTimeStamp uint64,
 	bidSignature []byte,
 	sharedSecretKey []byte,
+	zkProof []*big.Int,
 ) (*types.Transaction, error) {
 	t.openedCommitments <- openedCommitment{
 		encryptedCommitmentIndex: encryptedCommitmentIndex,
@@ -420,6 +432,7 @@ func (t *testPreconfContract) OpenCommitment(
 		decayEndTimeStamp:        decayEndTimeStamp,
 		bidSignature:             bidSignature,
 		sharedSecretKey:          sharedSecretKey,
+		zkProof:                  zkProof,
 	}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }

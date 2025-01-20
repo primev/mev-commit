@@ -23,6 +23,8 @@ interface IPreconfManager {
         bytes sharedSecretKey;
         string txnHash;
         string revertingTxHashes;
+        // uint256 bidderPKx;
+        // uint256 bidderPKy;
     }
 
     /// @dev Struct for all the commitment params to avoid too deep in the stack error
@@ -37,6 +39,9 @@ interface IPreconfManager {
         bytes bidSignature;
         bytes commitmentSignature;
         bytes sharedSecretKey;
+        uint256[] zkProof;
+        // uint256 bidderPKx;
+        // uint256 bidderPKy;
     }
 
     /// @dev Struct for all the information around unopened preconfirmations commitment
@@ -113,13 +118,20 @@ interface IPreconfManager {
     error CommitmentAlreadyOpened(bytes32 commitmentIndex);
 
     /// @dev Error if commitment index is invalid
-    error InvalidCommitmentDigest(bytes32 commitmentDigest, bytes32 computedDigest);
+    error InvalidCommitmentDigest(
+        bytes32 commitmentDigest,
+        bytes32 computedDigest
+    );
 
     /// @dev Error if commitment is not by the winner
     error WinnerIsNotCommitter(address committer, address winner);
 
     /// @dev Error if commitment is not opened by the committer or the bidder
-    error UnauthorizedOpenCommitment(address committer, address bidder, address sender);
+    error UnauthorizedOpenCommitment(
+        address committer,
+        address bidder,
+        address sender
+    );
 
     /// @dev Error if encrypted commitment is sent by the committer
     error SenderIsNotCommitter(address expected, address actual);
@@ -197,7 +209,8 @@ interface IPreconfManager {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory sharedSecretKey
+        bytes memory sharedSecretKey,
+        uint256[] calldata zkProof
     ) external returns (bytes32 commitmentIndex);
 
     /**
@@ -276,7 +289,8 @@ interface IPreconfManager {
         uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp
+        uint64 _decayEndTimeStamp,
+        uint256[] calldata zkProof
     ) external view returns (bytes32);
 
     /**
@@ -323,7 +337,8 @@ interface IPreconfManager {
         uint64 decayEndTimeStamp,
         string memory txnHash,
         string memory revertingTxHashes,
-        bytes calldata bidSignature
+        bytes calldata bidSignature,
+        uint256[] calldata zkProof
     ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
     /**

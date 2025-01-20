@@ -31,7 +31,7 @@ var (
 )
 
 var (
-	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"))
+	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 bidderPKx,uint256 bidderPKy)"))
 	EIP712CommitmentTypeHash = crypto.Keccak256Hash([]byte("OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"))
 )
 
@@ -91,7 +91,14 @@ func (e *encryptor) ConstructEncryptedBid(
 	if bid.TxHash == "" || bid.BidAmount == "" || bid.BlockNumber == 0 {
 		return nil, nil, ErrMissingRequiredFields
 	}
-
+	var (
+		sk *fr.Element
+		pk *bn254.G1Affine
+	)
+	if bid.NikePublicKey == nil {
+		sk, pk = p2pcrypto.GenerateKeyPairBN254()
+		bid.NikePublicKey = p2pcrypto.BN254PublicKeyToBytes(pk)
+	}
 	bidHash, err := GetBidHash(bid, e.domainSeparatorBidHash)
 	if err != nil {
 		return nil, nil, err
@@ -102,11 +109,8 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	sk, pk := p2pcrypto.GenerateKeyPairBN254()
-
 	transformSignatureVValue(sig)
 
-	bid.NikePublicKey = p2pcrypto.BN254PublicKeyToBytes(pk)
 	bid.Digest = bidHash
 	bid.Signature = sig
 
@@ -286,7 +290,10 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 
 	txnHashHash := crypto.Keccak256Hash([]byte(bid.TxHash))
 	revertingTxHashesHash := crypto.Keccak256Hash([]byte(bid.RevertingTxHashes))
-
+	bidderPK, err := p2pcrypto.BN254PublicKeyFromBytes(bid.NikePublicKey)
+	if err != nil {
+		return common.Hash{}, err
+	}
 	bidStructType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "EIP712BidTypeHash", Type: "bytes32"},
 		{Name: "txnHash", Type: "bytes32"},
@@ -295,6 +302,8 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: "uint64"},
 		{Name: "decayStartTimestamp", Type: "uint64"},
 		{Name: "decayEndTimestamp", Type: "uint64"},
+		{Name: "bidderPKx", Type: "uint256"},
+		{Name: "bidderPKy", Type: "uint256"},
 	})
 	if err != nil {
 		return common.Hash{}, err
@@ -309,7 +318,13 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: *bidStructType.TupleElems[4]},
 		{Name: "decayStartTimestamp", Type: *bidStructType.TupleElems[5]},
 		{Name: "decayEndTimestamp", Type: *bidStructType.TupleElems[6]},
+		{Name: "bidderPKx", Type: *bidStructType.TupleElems[7]},
+		{Name: "bidderPKy", Type: *bidStructType.TupleElems[8]},
 	}
+
+	var pkXBigInt, pkYBigInt big.Int
+	bidderPK.X.BigInt(&pkXBigInt)
+	bidderPK.Y.BigInt(&pkYBigInt)
 
 	// Encode the bid struct using ABI encoding
 	encodedBid, err := bidStructArguments.Pack(
@@ -320,6 +335,8 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		uint64(bid.BlockNumber),
 		uint64(bid.DecayStartTimestamp),
 		uint64(bid.DecayEndTimestamp),
+		&pkXBigInt,
+		&pkYBigInt,
 	)
 	if err != nil {
 		return common.Hash{}, err
@@ -357,6 +374,15 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 	}
 	signatureHash := crypto.Keccak256Hash(c.Bid.Signature)
 	sharedSecretHash := crypto.Keccak256Hash(c.SharedSecret)
+
+	bidderPK, err := p2pcrypto.BN254PublicKeyFromBytes(c.Bid.NikePublicKey)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	var pkXBigInt, pkYBigInt big.Int
+	bidderPK.X.BigInt(&pkXBigInt)
+	bidderPK.Y.BigInt(&pkYBigInt)
 
 	preConfStructType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "EIP712CommitmentTypeHash", Type: "bytes32"},
