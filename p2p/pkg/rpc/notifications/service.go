@@ -14,6 +14,13 @@ type service struct {
 	logger   *slog.Logger
 }
 
+func NewService(notifiee notifications.Notifiee, logger *slog.Logger) notificationsapiv1.NotificationsServer {
+	return &service{
+		notifiee: notifiee,
+		logger:   logger,
+	}
+}
+
 func (s *service) Subscribe(req *notificationsapiv1.SubscribeRequest, stream notificationsapiv1.Notifications_SubscribeServer) error {
 	notificationChan := s.notifiee.Subscribe(req.Topics...)
 	defer func() {
