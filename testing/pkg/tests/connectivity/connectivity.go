@@ -7,7 +7,10 @@ import (
 	"time"
 
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
+	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -22,103 +25,146 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 
 	logger := cluster.Logger().With("test", "connectivity")
 
-	start := time.Now()
-	bootnodeConnected := false
-	for {
-		// first check if all nodes are connected to the bootnode
-		for _, b := range cluster.Bootnodes() {
-			l := cluster.Logger().With("bootnode", b.EthAddress())
-			topo, err := b.DebugAPI().GetTopology(ctx, &debugapiv1.EmptyMessage{})
+	cctx, cancel := context.WithTimeout(ctx, connectedTimeout)
+	defer cancel()
+
+	eg, egCtx := errgroup.WithContext(cctx)
+	for _, b := range cluster.Bootnodes() {
+		eg.Go(func() error {
+			notificationChan, err := b.NotificationsAPI().Subscribe(egCtx, &notificationsapiv1.SubscribeRequest{
+				Topics: []string{notifications.TopicPeerConnected},
+			})
 			if err != nil {
-				l.Error("failed to get topology", "error", err)
-				return fmt.Errorf("failed to get topology: %s", err)
+				return fmt.Errorf("failed to subscribe to notifications: %w", err)
 			}
-
-			connectedBidders := getBidders(topo)
-			if len(connectedBidders) != len(bidders) {
-				break
-			}
-
-			connectedProviders := getProviders(topo)
-			if len(connectedProviders) != len(providers) {
-				break
-			}
-
-			for _, p := range connectedProviders {
-				if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
-					return p1.EthAddress() == p.GetStringValue()
-				}) {
-					l.Error("provider not connected", "provider", p.GetStringValue())
-					return fmt.Errorf("provider not connected: %s", p.GetStringValue())
+			count := 0
+			for {
+				msg, err := notificationChan.Recv()
+				if err != nil {
+					return fmt.Errorf("failed to receive notification: %w", err)
+				}
+				if msg.Topic != notifications.TopicPeerConnected {
+					continue
+				}
+				count++
+				if count == len(providers)+len(bidders) {
+					logger.Info("all nodes connected to bootnode", "bootnode", b.EthAddress())
+					return nil
 				}
 			}
+		})
+	}
 
-			for _, b := range connectedBidders {
-				if !slices.ContainsFunc(bidders, func(b1 orchestrator.Bidder) bool {
-					return b1.EthAddress() == b.GetStringValue()
-				}) {
-					l.Error("bidder not connected", "bidder", b.GetStringValue())
-					return fmt.Errorf("bidder not connected: %s", b.GetStringValue())
+	for _, b := range bidders {
+		eg.Go(func() error {
+			notificationChan, err := b.NotificationsAPI().Subscribe(egCtx, &notificationsapiv1.SubscribeRequest{
+				Topics: []string{notifications.TopicPeerConnected},
+			})
+			if err != nil {
+				return fmt.Errorf("failed to subscribe to notifications: %w", err)
+			}
+			count := 0
+			for {
+				msg, err := notificationChan.Recv()
+				if err != nil {
+					return fmt.Errorf("failed to receive notification: %w", err)
+				}
+				if msg.Topic != notifications.TopicPeerConnected {
+					continue
+				}
+				count++
+				if count == len(providers) {
+					logger.Info("all providers connected to bidder", "bidder", b.EthAddress())
+					return nil
 				}
 			}
+		})
+	}
 
-			logger.Info("all connected to bootnode")
-			bootnodeConnected = true
+	err := eg.Wait()
+	if err != nil {
+		logger.Error("failed to get correct notifications for node connectivity", "error", err)
+		return fmt.Errorf("failed to get correct notifications for node connectivity: %w", err)
+	}
+
+	// ensure correct nodes are connected
+	for _, b := range cluster.Bootnodes() {
+		l := cluster.Logger().With("bootnode", b.EthAddress())
+		topo, err := b.DebugAPI().GetTopology(ctx, &debugapiv1.EmptyMessage{})
+		if err != nil {
+			l.Error("failed to get topology", "error", err)
+			return fmt.Errorf("failed to get topology: %s", err)
 		}
 
-		if bootnodeConnected {
-			break
+		connectedBidders := getBidders(topo)
+		if len(connectedBidders) != len(bidders) {
+			return fmt.Errorf(
+				"bootnode not connected to all bidders: connected %d, total %d",
+				len(connectedBidders), len(bidders),
+			)
 		}
 
-		if time.Since(start) > connectedTimeout {
-			logger.Error("timeout waiting for all nodes to connect to bootnode")
-			return fmt.Errorf("timeout waiting for all nodes to connect")
+		connectedProviders := getProviders(topo)
+		if len(connectedProviders) != len(providers) {
+			return fmt.Errorf(
+				"bootnode not connected to all providers: connected %d, total %d",
+				len(connectedProviders), len(providers),
+			)
 		}
+
+		for _, p := range connectedProviders {
+			if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
+				return p1.EthAddress() == p.GetStringValue()
+			}) {
+				l.Error("provider not connected", "provider", p.GetStringValue())
+				return fmt.Errorf("provider not connected: %s", p.GetStringValue())
+			}
+		}
+
+		for _, b := range connectedBidders {
+			if !slices.ContainsFunc(bidders, func(b1 orchestrator.Bidder) bool {
+				return b1.EthAddress() == b.GetStringValue()
+			}) {
+				l.Error("bidder not connected", "bidder", b.GetStringValue())
+				return fmt.Errorf("bidder not connected: %s", b.GetStringValue())
+			}
+		}
+
+		logger.Info("all connected to bootnode")
 	}
 
 	// check if all bidders are connected to all providers
-	allProvidersConnected := false
-	for {
-		for _, b := range bidders {
-			l := cluster.Logger().With("bidder", b.EthAddress())
+	for _, b := range bidders {
+		l := cluster.Logger().With("bidder", b.EthAddress())
 
-			topo, err := b.DebugAPI().GetTopology(ctx, &debugapiv1.EmptyMessage{})
-			if err != nil {
-				l.Error("failed to get topology", "error", err)
-				return fmt.Errorf("failed to get topology: %s", err)
-			}
-
-			connectedProviders := getProviders(topo)
-			if len(connectedProviders) != len(providers) {
-				l.Info(
-					"bidder not connected to all providers",
-					"connected", len(connectedProviders), "total", len(providers),
-					"bidder", b.EthAddress(),
-				)
-				break
-			}
-
-			for _, p := range connectedProviders {
-				if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
-					return p1.EthAddress() == p.GetStringValue()
-				}) {
-					l.Error("bidder connected to unknown provider", "provider", p.GetStringValue())
-					return fmt.Errorf("bidder connected to unknown provider: %s", p.GetStringValue())
-				}
-			}
-
-			l.Info("bidder connected to all providers")
-			allProvidersConnected = true
+		topo, err := b.DebugAPI().GetTopology(ctx, &debugapiv1.EmptyMessage{})
+		if err != nil {
+			l.Error("failed to get topology", "error", err)
+			return fmt.Errorf("failed to get topology: %s", err)
 		}
 
-		if allProvidersConnected {
-			break
+		connectedProviders := getProviders(topo)
+		if len(connectedProviders) != len(providers) {
+			l.Error(
+				"bidder not connected to all providers",
+				"connected", len(connectedProviders), "total", len(providers),
+			)
+			return fmt.Errorf(
+				"bidder not connected to all providers: connected %d, total %d",
+				len(connectedProviders), len(providers),
+			)
 		}
 
-		if time.Since(start) > connectedTimeout {
-			logger.Error("timeout waiting for all bidders to connect to all providers")
-			return fmt.Errorf("timeout waiting for all bidders to connect to all providers")
+		for _, p := range connectedProviders {
+			if !slices.ContainsFunc(providers, func(p1 orchestrator.Provider) bool {
+				return p1.EthAddress() == p.GetStringValue()
+			}) {
+				l.Error("bidder connected to unknown provider", "provider", p.GetStringValue())
+				return fmt.Errorf("bidder connected to unknown provider: %s", p.GetStringValue())
+			}
 		}
+
+		l.Info("bidder connected to all providers")
 	}
 
 	logger.Info("test passed")
