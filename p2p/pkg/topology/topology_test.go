@@ -45,8 +45,8 @@ func (a *announcer) BroadcastPeers(_ context.Context, p p2p.Peer, peers []p2p.Pe
 
 type testNotifier struct {
 	mu           sync.Mutex
-	connected    []p2p.Peer
-	disconnected []p2p.Peer
+	connected    []string
+	disconnected []string
 }
 
 func (t *testNotifier) Notify(n *notifications.Notification) {
@@ -55,9 +55,9 @@ func (t *testNotifier) Notify(n *notifications.Notification) {
 
 	switch n.Topic {
 	case notifications.TopicPeerConnected:
-		t.connected = append(t.connected, n.Value["peer"].(p2p.Peer))
+		t.connected = append(t.connected, n.Value["ethAddress"].(string))
 	case notifications.TopicPeerDisconnected:
-		t.disconnected = append(t.disconnected, n.Value["peer"].(p2p.Peer))
+		t.disconnected = append(t.disconnected, n.Value["ethAddress"].(string))
 	}
 }
 
@@ -102,7 +102,7 @@ func TestTopology(t *testing.T) {
 		if !topo.IsConnected(p.EthAddress) {
 			t.Fatal("peer not connected")
 		}
-		if !slices.Contains(notifier.connected, p) {
+		if !slices.Contains(notifier.connected, p.EthAddress.Hex()) {
 			t.Fatal("peer connected notification not found", p)
 		}
 	}
@@ -148,7 +148,7 @@ func TestTopology(t *testing.T) {
 		t.Fatal("disconnect notification not found")
 	}
 
-	if notifier.disconnected[0].EthAddress != p1.EthAddress {
+	if notifier.disconnected[0] != p1.EthAddress.Hex() {
 		t.Fatal("wrong peer in disconnect notification")
 	}
 }
