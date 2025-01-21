@@ -24,11 +24,13 @@ func NewService(notifiee notifications.Notifiee, logger *slog.Logger) notificati
 func (s *service) Subscribe(req *notificationsapiv1.SubscribeRequest, stream notificationsapiv1.Notifications_SubscribeServer) error {
 	notificationChan := s.notifiee.Subscribe(req.Topics...)
 	defer func() {
-		go s.notifiee.Unsubscribe(notificationChan)
+		<-s.notifiee.Unsubscribe(notificationChan)
 	}()
+	s.logger.Info("subscribed to notifications", "topics", req.Topics)
 	for {
 		select {
 		case notification := <-notificationChan:
+			s.logger.Info("received notification", "notification", notification)
 			val, err := structpb.NewStruct(notification.Value)
 			if err != nil {
 				s.logger.Error("failed to convert notification value to structpb.Value", "error", err, "notification", notification)
@@ -42,6 +44,7 @@ func (s *service) Subscribe(req *notificationsapiv1.SubscribeRequest, stream not
 				s.logger.Error("failed to send notification", "error", err, "notification", notification)
 				return err
 			}
+			s.logger.Info("sent notification", "notification", notification)
 		case <-stream.Context().Done():
 			return nil
 		}

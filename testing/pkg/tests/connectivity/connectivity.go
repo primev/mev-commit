@@ -43,7 +43,9 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 				if err != nil {
 					return fmt.Errorf("failed to receive notification: %w", err)
 				}
+				logger.Info("received notification", "notification", msg)
 				if msg.Topic != notifications.TopicPeerConnected {
+					logger.Info("skipping notification", "topic", msg.Topic)
 					continue
 				}
 				count++
@@ -51,6 +53,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 					logger.Info("all nodes connected to bootnode", "bootnode", b.EthAddress())
 					return nil
 				}
+				logger.Info("waiting for all nodes to connect to bootnode", "connected", count, "total", len(providers)+len(bidders))
 			}
 		})
 	}
@@ -69,7 +72,9 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 				if err != nil {
 					return fmt.Errorf("failed to receive notification: %w", err)
 				}
+				logger.Info("received notification", "notification", msg)
 				if msg.Topic != notifications.TopicPeerConnected {
+					logger.Info("skipping notification", "topic", msg.Topic)
 					continue
 				}
 				count++
@@ -77,6 +82,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 					logger.Info("all providers connected to bidder", "bidder", b.EthAddress())
 					return nil
 				}
+				logger.Info("waiting for all providers to connect to bidder", "connected", count, "total", len(providers))
 			}
 		})
 	}
