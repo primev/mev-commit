@@ -604,8 +604,8 @@ func NewNode(opts *Options) (*Node, error) {
 			go func() {
 				sub := notificationsSvc.Subscribe(notifications.TopicPeerConnected)
 				for p := range sub {
-					peer, ok := p.Value["peer"].(p2p.Peer)
-					if ok && peer.Type == p2p.PeerTypeProvider {
+					peerType, ok := p.Value["type"].(string)
+					if ok && peerType == p2p.PeerTypeProvider.String() {
 						err = keyexchange.SendTimestampMessage()
 						if err != nil {
 							opts.Logger.Error("failed to send timestamp message", "error", err)

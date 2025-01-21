@@ -118,8 +118,9 @@ func (t *Topology) add(p p2p.Peer) {
 
 	t.notifier.Notify(&notifications.Notification{
 		Topic: notifications.TopicPeerConnected,
-		Value: map[string]interface{}{
-			"peer": p,
+		Value: map[string]any{
+			"ethAddress": p.EthAddress.Hex(),
+			"type":       p.Type.String(),
 		},
 	})
 }
@@ -141,8 +142,9 @@ func (t *Topology) Disconnected(p p2p.Peer) {
 
 	t.notifier.Notify(&notifications.Notification{
 		Topic: notifications.TopicPeerDisconnected,
-		Value: map[string]interface{}{
-			"peer": p,
+		Value: map[string]any{
+			"ethAddress": p.EthAddress.Hex(),
+			"type":       p.Type.String(),
 		},
 	})
 }
