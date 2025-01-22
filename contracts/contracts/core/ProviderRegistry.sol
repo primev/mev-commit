@@ -118,7 +118,7 @@ contract ProviderRegistry is
         providerStakes[provider] -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
-        emit FeePayout.FundsAccumulatedForTreasury(commitmentDigest, penaltyFee, penaltyFeeTracker.recipient, bidder, provider);
+        emit FeePayout.FundsAccumulatedForTreasury(commitmentDigest, penaltyFee, penaltyFeeTracker.accumulatedAmount, penaltyFeeTracker.recipient, bidder, provider);
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }

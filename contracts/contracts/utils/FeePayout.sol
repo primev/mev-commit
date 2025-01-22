@@ -21,6 +21,7 @@ library FeePayout {
     event FundsAccumulatedForTreasury(
         bytes32 indexed commitmentDigest,
         uint256 amount,
+        uint256 totalAccumulated,
         address recipient,
         address indexed bidder,
         address indexed provider

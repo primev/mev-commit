@@ -179,7 +179,7 @@ contract BidderRegistry is
         uint256 amtMinusFeeAndDecay = decayedAmt - feeAmt;
 
         protocolFeeTracker.accumulatedAmount += feeAmt;
-        emit FeePayout.FundsAccumulatedForTreasury(commitmentDigest, feeAmt, protocolFeeTracker.recipient, bidState.bidder, provider);
+        emit FeePayout.FundsAccumulatedForTreasury(commitmentDigest, feeAmt, protocolFeeTracker.accumulatedAmount, protocolFeeTracker.recipient, bidState.bidder, provider);
         if (FeePayout.isPayoutDue(protocolFeeTracker)) {
             FeePayout.transferToRecipient(protocolFeeTracker);
         }
