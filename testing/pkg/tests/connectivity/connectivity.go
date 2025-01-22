@@ -30,6 +30,8 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 
 	eg, egCtx := errgroup.WithContext(cctx)
 	for _, b := range cluster.Bootnodes() {
+		// we wait for provider connected events only as bidders would already be connected
+		// to bootnode by the time test starts.
 		eg.Go(func() error {
 			notificationChan, err := b.NotificationsAPI().Subscribe(egCtx, &notificationsapiv1.SubscribeRequest{
 				Topics: []string{notifications.TopicPeerConnected},
@@ -49,11 +51,11 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 					continue
 				}
 				count++
-				if count == len(providers)+len(bidders) {
-					logger.Info("all nodes connected to bootnode", "bootnode", b.EthAddress())
+				if count == len(providers) {
+					logger.Info("all provider nodes connected to bootnode", "bootnode", b.EthAddress())
 					return nil
 				}
-				logger.Info("waiting for all nodes to connect to bootnode", "connected", count, "total", len(providers)+len(bidders))
+				logger.Info("waiting for all provider nodes to connect to bootnode", "connected", count, "total", len(providers))
 			}
 		})
 	}
