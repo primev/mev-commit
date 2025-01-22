@@ -426,7 +426,8 @@ contract PreconfManager is
             commitment.bidAmt,
             commitment.committer,
             payable(commitment.bidder),
-            residualBidPercentAfterDecay
+            residualBidPercentAfterDecay,
+            commitment.commitmentDigest
         );
 
         bidderRegistry.unlockFunds(windowToSettle, commitment.commitmentDigest);
