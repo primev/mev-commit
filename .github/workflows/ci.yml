@@ -159,10 +159,7 @@ jobs:
           node-version: 20.x
 
       - name: Install Foundry
-        run: |
-          curl -L https://foundry.paradigm.xyz | bash
-          source $HOME/.bashrc
-          foundryup
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install solhint
         run: npm install -g solhint
