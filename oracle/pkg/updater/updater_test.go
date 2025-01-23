@@ -128,12 +128,12 @@ func TestUpdater(t *testing.T) {
 			BidAmt:              big.NewInt(10),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
+			// SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -172,12 +172,12 @@ func TestUpdater(t *testing.T) {
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
+			// SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
@@ -394,12 +394,12 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			BidAmt:              big.NewInt(10),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
+			// SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -438,12 +438,12 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
+			// SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
@@ -667,12 +667,12 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			BidAmt:              big.NewInt(10),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   strings.TrimPrefix(txn.Hash().Hex(), "0x"),
-			SharedSecretKey:     []byte("shared_secret_key"),
+			// SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -711,12 +711,12 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   bundle,
-			SharedSecretKey:     []byte("shared_secret_key"),
+			// SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
@@ -937,12 +937,12 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
+			// SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		commitments = append(commitments, commitment)
@@ -1132,7 +1132,7 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			RevertingTxHashes:   "",
 			BlockNumber:         blockNum,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
+			// CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
@@ -1490,16 +1490,16 @@ func publishOpenedCommitment(
 		c.Committer,
 		c.BidAmt,
 		c.BlockNumber,
-		c.BidHash,
+		// c.BidHash,
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,
 		c.TxnHash,
 		c.RevertingTxHashes,
 		c.CommitmentDigest,
-		c.BidSignature,
-		c.CommitmentSignature,
+		// c.BidSignature,
+		// c.CommitmentSignature,
 		c.DispatchTimestamp,
-		c.SharedSecretKey,
+		// c.SharedSecretKey,
 	)
 	if err != nil {
 		return err

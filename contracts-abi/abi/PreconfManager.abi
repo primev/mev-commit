@@ -66,6 +66,19 @@
   },
   {
     "type": "function",
+    "name": "ZK_CONTEXT_HASH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
@@ -261,27 +274,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "bidHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
             "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
           },
           {
-            "name": "bidSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
             "name": "commitmentSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "sharedSecretKey",
             "type": "bytes",
             "internalType": "bytes"
           },
@@ -350,27 +348,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "bidHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
             "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
           },
           {
-            "name": "bidSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
             "name": "commitmentSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "sharedSecretKey",
             "type": "bytes",
             "internalType": "bytes"
           },
@@ -451,25 +434,6 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getTxnHashFromCommitment",
-    "inputs": [
-      {
-        "name": "commitmentIndex",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "txnHash",
-        "type": "string",
-        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -756,27 +720,12 @@
         "internalType": "uint256"
       },
       {
-        "name": "bidHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
         "name": "commitmentDigest",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
         "name": "commitmentSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "sharedSecretKey",
         "type": "bytes",
         "internalType": "bytes"
       },
@@ -1135,87 +1084,6 @@
     "stateMutability": "view"
   },
   {
-    "type": "function",
-    "name": "verifyPreConfCommitment",
-    "inputs": [
-      {
-        "name": "params",
-        "type": "tuple",
-        "internalType": "struct IPreconfManager.CommitmentParams",
-        "components": [
-          {
-            "name": "txnHash",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "revertingTxHashes",
-            "type": "string",
-            "internalType": "string"
-          },
-          {
-            "name": "bidAmt",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "blockNumber",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "decayStartTimeStamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "decayEndTimeStamp",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "bidHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "bidSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "commitmentSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "sharedSecretKey",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "zkProof",
-            "type": "uint256[]",
-            "internalType": "uint256[]"
-          }
-        ]
-      }
-    ],
-    "outputs": [
-      {
-        "name": "preConfHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "committerAddress",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
     "type": "event",
     "name": "BidderRegistryUpdated",
     "inputs": [
@@ -1302,12 +1170,6 @@
         "internalType": "uint64"
       },
       {
-        "name": "bidHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
         "name": "decayStartTimeStamp",
         "type": "uint64",
         "indexed": false,
@@ -1338,28 +1200,10 @@
         "internalType": "bytes32"
       },
       {
-        "name": "bidSignature",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
-        "name": "commitmentSignature",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
         "name": "dispatchTimestamp",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
-      },
-      {
-        "name": "sharedSecretKey",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
       }
     ],
     "anonymous": false

@@ -156,22 +156,23 @@ func TestTracker(t *testing.T) {
 	}
 	// this commitment should not be opened again
 	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerOpenedCommitmentStored{
-		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
-		Bidder:              common.HexToAddress("0x1234"),
-		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
-		BidAmt:              amount,
-		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
-		BidHash:             common.BytesToHash(commitments[4].PreConfirmation.Bid.Digest),
+		CommitmentIndex: common.HexToHash(fmt.Sprintf("0x%x", 5)),
+		Bidder:          common.HexToAddress("0x1234"),
+		Committer:       common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
+		BidAmt:          amount,
+		BlockNumber:     uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
+		// BidHash:             common.BytesToHash(commitments[4].PreConfirmation.Bid.Digest),
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
 		DecayEndTimeStamp:   uint64(commitments[4].PreConfirmation.Bid.DecayEndTimestamp),
 		TxnHash:             commitments[4].PreConfirmation.Bid.TxHash,
 		RevertingTxHashes:   commitments[4].PreConfirmation.Bid.RevertingTxHashes,
 		CommitmentDigest:    common.BytesToHash(commitments[4].PreConfirmation.Digest),
-		BidSignature:        commitments[4].PreConfirmation.Bid.Signature,
-		CommitmentSignature: commitments[4].PreConfirmation.Signature,
-		DispatchTimestamp:   uint64(1),
-		SharedSecretKey:     commitments[4].PreConfirmation.SharedSecret,
+		// BidSignature:        commitments[4].PreConfirmation.Bid.Signature,
+		// CommitmentSignature: commitments[4].PreConfirmation.Signature,
+		DispatchTimestamp: uint64(1),
+		// SharedSecretKey:     commitments[4].PreConfirmation.SharedSecret,
 	})
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,16 +498,16 @@ func publishOpenedCommitment(
 		c.Committer,
 		c.BidAmt,
 		c.BlockNumber,
-		c.BidHash,
+		// c.BidHash,
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,
 		c.TxnHash,
 		c.RevertingTxHashes,
 		c.CommitmentDigest,
-		c.BidSignature,
-		c.CommitmentSignature,
+		// c.BidSignature,
+		// c.CommitmentSignature,
 		c.DispatchTimestamp,
-		c.SharedSecretKey,
+		// c.SharedSecretKey,
 	)
 	if err != nil {
 		return err

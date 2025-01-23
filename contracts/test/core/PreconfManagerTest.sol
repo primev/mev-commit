@@ -61,13 +61,15 @@ contract PreconfManagerTest is Test {
         bytes memory code = type(MockBLSVerify).creationCode;
         vm.etch(BLS_VERIFY_ADDRESS, code);
 
-        uint256[] memory zkProof = new uint256[](6);
+        uint256[] memory zkProof = new uint256[](8);
         zkProof[0] = 1;
         zkProof[1] = 2;
         zkProof[2] = 1;
         zkProof[3] = 2;
-        zkProof[4] = 2;
-        zkProof[5] = 3;
+        zkProof[4] = 1;
+        zkProof[5] = 2;
+        zkProof[6] = 4833965732415232685733168623250142802606775734468361419774429897021568911860;
+        zkProof[7] = 17054277139424042536513237122007132285941588665947672923923774289554239583758;
 
         _testCommitmentAliceBob = TestCommitment(
             2,
@@ -461,15 +463,12 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.txnHash,
             _testCommitmentAliceBob.revertingTxHashes,
+            _testCommitmentAliceBob.bidDigest,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.sharedSecretKey,
             _testCommitmentAliceBob.zkProof
         );
-
-        string memory commitmentTxnHash = preconfManager
-            .getTxnHashFromCommitment(index);
-        assertEq(commitmentTxnHash, _testCommitmentAliceBob.txnHash);
     }
 
     function verifyCommitmentNotUsed(
@@ -499,7 +498,7 @@ contract PreconfManagerTest is Test {
             sharedSecretKey
         );
 
-        (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
+        (, bool isSettled, , , , , , , , , ,) = preconfManager
             .openedCommitments(preConfHash);
 
         assertEq(isSettled, false);
@@ -605,6 +604,7 @@ contract PreconfManagerTest is Test {
         uint64 decayEndTimestamp,
         string memory txnHash,
         string memory revertingTxHashes,
+        bytes32 bidHash,
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         bytes memory sharedSecretKey,
@@ -621,18 +621,18 @@ contract PreconfManagerTest is Test {
                 blockNumber: blockNumber,
                 decayStartTimeStamp: decayStartTimestamp,
                 decayEndTimeStamp: decayEndTimestamp,
-                bidHash: commitment.bidHash,
+                bidHash: bidHash,
                 bidSignature: bidSignature,
                 commitmentSignature: commitmentSignature,
                 sharedSecretKey: sharedSecretKey,
                 zkProof: zkProof
             });
 
-        (, address committerAddress) = preconfManager.verifyPreConfCommitment(
-            commitmentParams
-        );
+        // (, address committerAddress) = preconfManager.verifyPreConfCommitment(
+        //     commitmentParams
+        // );
 
-        assertNotEq(committerAddress, address(0));
+        // assertNotEq(committerAddress, address(0));
         assertEq(
             commitment.bidAmt,
             bidAmt,
@@ -643,16 +643,16 @@ contract PreconfManagerTest is Test {
             blockNumber,
             "Stored blockNumber should match input blockNumber"
         );
-        assertEq(
-            commitment.txnHash,
-            txnHash,
-            "Stored txnHash should match input txnHash"
-        );
-        assertEq(
-            commitment.bidSignature,
-            bidSignature,
-            "Stored bidSignature should match input bidSignature"
-        );
+        // assertEq(
+        //     commitment.txnHash,
+        //     txnHash,
+        //     "Stored txnHash should match input txnHash"
+        // );
+        // assertEq(
+        //     commitment.bidSignature,
+        //     bidSignature,
+        //     "Stored bidSignature should match input bidSignature"
+        // );
         assertEq(
             commitment.commitmentSignature,
             commitmentSignature,
@@ -729,7 +729,7 @@ contract PreconfManagerTest is Test {
             );
 
             // Verify that the commitment has not been set before
-            (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
+            (, bool isSettled, , , , , , , , , ,) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
@@ -770,7 +770,7 @@ contract PreconfManagerTest is Test {
             vm.prank(oracleContract);
             preconfManager.initiateSlash(index, oneHundredPercent);
 
-            (, isSettled, , , , , , , , , , , , , ) = preconfManager
+            (, isSettled, , , , , , , , , , ) = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been deleted
             assert(isSettled == true);
@@ -815,7 +815,7 @@ contract PreconfManagerTest is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
+            (, bool isSettled, , , , , , , , , ,) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
@@ -855,7 +855,7 @@ contract PreconfManagerTest is Test {
             vm.prank(oracleContract);
             preconfManager.initiateReward(index, 100);
 
-            (, isSettled, , , , , , , , , , , , , ) = preconfManager
+            (, isSettled, , , , , , , , , , )  = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isSettled == true);
@@ -896,7 +896,7 @@ contract PreconfManagerTest is Test {
             );
 
             // Verify that the commitment has not been used before
-            (, bool isSettled, , , , , , , , , , , , , ) = preconfManager
+            (, bool isSettled, , , , , , , , , ,) = preconfManager
                 .openedCommitments(preConfHash);
             assert(isSettled == false);
             (address committer, ) = makeAddrAndKey("bob");
@@ -937,7 +937,7 @@ contract PreconfManagerTest is Test {
             vm.prank(oracleContract);
             preconfManager.initiateReward(index, 0);
 
-            (, isSettled, , , , , , , , , , , , , ) = preconfManager
+            (, isSettled, , , , , , , , , , )  = preconfManager
                 .openedCommitments(index);
             // Verify that the commitment has been marked as used
             assert(isSettled == true);

@@ -16,7 +16,9 @@ func GenerateKeyPairBN254() (sk *fr.Element, pk *bn254.G1Affine) {
 	sk.SetRandom()
 
 	// 2) Retrieve the G1 generator (1,2) from the bn254 package
-	_, _, g1Aff, _ := bn254.Generators()
+	var g1Aff bn254.G1Affine
+	g1Aff.X.SetOne()
+	g1Aff.Y.SetUint64(2)
 
 	// 3) Convert sk -> big.Int to call ScalarMultiplication
 	var skBigInt big.Int

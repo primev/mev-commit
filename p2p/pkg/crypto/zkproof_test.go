@@ -1,6 +1,7 @@
 package crypto_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -20,7 +21,9 @@ func TestGenerateAndVerify(t *testing.T) {
 	// 2) Compute A = g^a, B = g^b
 	//    and then C = B^a
 	//    bn254.Generators() => we want the g1 generator
-	_, _, g1Aff, _ := bn254.Generators()
+	var g1Aff bn254.G1Affine
+	g1Aff.X.SetOne()
+	g1Aff.Y.SetUint64(2)
 
 	// A = g^a
 	var A bn254.G1Affine
@@ -55,7 +58,9 @@ func TestProofTamperedC(t *testing.T) {
 	b.SetRandom()
 
 	// Setup A, B, C same as above
-	_, _, g1Aff, _ := bn254.Generators()
+	var g1Aff bn254.G1Affine
+	g1Aff.X.SetOne()
+	g1Aff.Y.SetUint64(2)
 
 	var A, B, C bn254.G1Affine
 	var aBigInt, bBigInt big.Int
@@ -90,7 +95,9 @@ func TestProofTamperedZ(t *testing.T) {
 	b.SetRandom()
 
 	// Setup A, B, C
-	_, _, g1Aff, _ := bn254.Generators()
+	var g1Aff bn254.G1Affine
+	g1Aff.X.SetOne()
+	g1Aff.Y.SetUint64(2)
 	var A, B, C bn254.G1Affine
 	var aBigInt, bBigInt big.Int
 	a.BigInt(&aBigInt)
@@ -124,7 +131,9 @@ func TestProofTamperedContext(t *testing.T) {
 	b.SetRandom()
 
 	// Setup A, B, C
-	_, _, g1Aff, _ := bn254.Generators()
+	var g1Aff bn254.G1Affine
+	g1Aff.X.SetOne()
+	g1Aff.Y.SetUint64(2)
 	var A, B, C bn254.G1Affine
 	var aBigInt, bBigInt big.Int
 	a.BigInt(&aBigInt)
@@ -155,7 +164,9 @@ func TestEdgeCases(t *testing.T) {
 	var b fr.Element
 	b.SetRandom()
 
-	_, _, g1Aff, _ := bn254.Generators()
+	var g1Aff bn254.G1Affine
+	g1Aff.X.SetOne()
+	g1Aff.Y.SetUint64(2)
 
 	// A = g^0 => identity
 	var A bn254.G1Affine
@@ -201,4 +212,101 @@ func TestEdgeCases(t *testing.T) {
 		err2 = crypto.VerifyOptimizedProof(p2, &A2, &B2, &C2, ctx2)
 		require.NoError(t, err2, "verify failed on random trial")
 	}
+}
+
+func TestFixedPublicKeys(t *testing.T) {
+	//
+	// 1) Hard-code: a=1, b=1 => pubA=(1,2), pubB=(1,2), sharedC=(1,2)
+	//
+	var skA, skB fr.Element
+	skA.SetOne() // a=1
+	skB.SetOne() // b=1
+
+	// The "public keys" are all (1,2). We won't even call GenerateKeyPairBN254,
+	// because we are forcing them. In your proof.go, (1,2) is used as the generator.
+	// So A=(1,2), B=(1,2), C=(1,2).
+	pubA := makeAffinePoint(1, 2)
+	pubB := makeAffinePoint(1, 2)
+	sharedC := makeAffinePoint(1, 2)
+
+	// This context is typically hashed in with T1, T2
+	context := []byte("mev-commit opening, mainnet, v1.0")
+
+	foundAny := false
+	for kVal := 1; kVal <= 30; kVal++ {
+		// We'll manually produce T1 = g^k, T2 = B^k, then c = H(...), z = k - a*c
+		// If it verifies, we print out c,z
+		proof, ok := generateProofWithFixedK(skA, pubA, pubB, sharedC, context, kVal)
+		if !ok {
+			continue
+		}
+		// Try verifying
+		err := crypto.VerifyOptimizedProof(proof, pubA, pubB, sharedC, context)
+		if err == nil {
+			fmt.Println("SUCCESS: ephemeral proof with k =", kVal)
+			fmt.Printf(" c = %s\n", proof.C.String())
+			fmt.Printf(" z = %s\n", proof.Z.String())
+			fmt.Println("So your zkProof array is: [1, 2, 1, 2, 1, 2, c, z] => ")
+			fmt.Printf("  [1, 2, 1, 2, 1, 2, %s, %s]\n", proof.C.String(), proof.Z.String())
+			foundAny = true
+			break
+		}
+	}
+	if !foundAny {
+		t.Error("No ephemeral k in [1..30] produced a valid proof with A=B=C=(1,2).")
+	} else {
+		t.Log("Test complete: at least one ephemeral proof was found.")
+	}
+}
+
+// makeAffinePoint(1,2)
+func makeAffinePoint(x, y uint64) *bn254.G1Affine {
+	var p bn254.G1Affine
+	p.X.SetUint64(x)
+	p.Y.SetUint64(y)
+	return &p
+}
+
+// generateProofWithFixedK is basically "GenerateOptimizedProof" except we forcibly set k = kVal
+// rather than randomizing it. We replicate the logic: T1 = g^k, T2 = B^k, c=H(...), z=k-a*c
+func generateProofWithFixedK(
+	skA fr.Element, // a=1
+	pubA, pubB, sharedC *bn254.G1Affine, // (1,2)
+	context []byte,
+	kVal int,
+) (crypto.Proof, bool) {
+
+	var proof crypto.Proof
+
+	// (1) T1 = g^k, T2 = B^k => but B=(1,2), so T2 = (1,2)^k
+	g := makeAffinePoint(1, 2)
+	var T1, T2 bn254.G1Affine
+
+	// convert kVal -> fr, then -> big.Int for gnark-crypto
+	var kEl fr.Element
+	kEl.SetUint64(uint64(kVal))
+
+	var kBig big.Int
+	kEl.BigInt(&kBig)
+
+	// T1 = (1,2)^k
+	T1.ScalarMultiplication(g, &kBig)
+	// T2 = B^k = (1,2)^k
+	T2.ScalarMultiplication(pubB, &kBig)
+
+	// (2) c = truncatedHash(pubA, pubB, sharedC, T1, T2, context)
+	c, err := crypto.ComputeZKChallenge(context, pubA, pubB, sharedC, &T1, &T2)
+	if err != nil {
+		return proof, false
+	}
+
+	// (3) z = k - a*c
+	var z fr.Element
+	z.Mul(&c, &skA) // z = a*c => 1*c
+	z.Neg(&z)       // z = -c
+	z.Add(&z, &kEl) // z = kVal - c
+	proof.C = c
+	proof.Z = z
+
+	return proof, true
 }

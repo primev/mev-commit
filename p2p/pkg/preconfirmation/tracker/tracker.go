@@ -444,10 +444,14 @@ func (t *Tracker) openCommitments(
 			t.providerNikePK.X.BigInt(&providerXBig)
 			t.providerNikePK.Y.BigInt(&providerYBig)
 
-			zkProof = []*big.Int{&providerXBig, &providerYBig, &bidderXBig, &bidderYBig, &cBig, &zBig}
+			var sharedCXBig, sharedCYBig big.Int
+			sharedC.X.BigInt(&sharedCXBig)
+			sharedC.Y.BigInt(&sharedCYBig)
+
+			zkProof = []*big.Int{&providerXBig, &providerYBig, &bidderXBig, &bidderYBig, &sharedCXBig, &sharedCYBig, &cBig, &zBig}
 		} else {
 			zeroInt := big.NewInt(0)
-			zkProof = []*big.Int{zeroInt, zeroInt, &bidderXBig, &bidderYBig, zeroInt, zeroInt}
+			zkProof = []*big.Int{zeroInt, zeroInt, &bidderXBig, &bidderYBig, zeroInt, zeroInt, zeroInt, zeroInt}
 		}
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
