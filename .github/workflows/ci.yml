@@ -123,8 +123,15 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.18.2
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
 
       - name: Print Versions
         run: |
@@ -153,13 +160,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Use Node.js 20.x
+      - name: Install Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 20.18.2
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
 
       - name: Install solhint
         run: npm install -g solhint
