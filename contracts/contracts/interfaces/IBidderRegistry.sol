@@ -36,15 +36,10 @@ interface IBidderRegistry {
         address indexed bidder,
         uint256 window,
         uint256 amount,
-        uint256 totalAmountAllocated
-    );
-
-    /// @dev Event emitted when max bid per block is updated for a window
-    event MaxBidForWindowUpdated(
-        address indexed bidder,
-        uint256 indexed window,
+        uint256 totalAmountAllocated,
         uint256 maxBidPerBlock
     );
+
 
     /// @dev Event emitted when funds are retrieved from a bidder's deposit
     event FundsRetrieved(

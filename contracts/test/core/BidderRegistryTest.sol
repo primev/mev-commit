@@ -22,8 +22,7 @@ contract BidderRegistryTest is Test {
 
     /// @dev Event emitted when a bidder is registered with their staked amount
     event BidderRegistered(address indexed bidder, uint256 indexed depositedAmount, uint256 indexed windowNumber);
-    event BidderDepositedForWindow(address indexed bidder, uint256 window, uint256 amount, uint256 totalAmountAllocated);
-    event MaxBidForWindowUpdated(address indexed bidder, uint256 indexed window, uint256 maxBidPerBlock);
+    event BidderDepositedForWindow(address indexed bidder, uint256 window, uint256 amount, uint256 totalAmountAllocated, uint256 maxBidPerBlock);
     event BidderWithdrawal(address indexed bidder, uint256 indexed window, uint256 indexed amount);
     event FeeTransfer(uint256 amount, address indexed recipient);
     event ProtocolFeeRecipientUpdated(address indexed newProtocolFeeRecipient);
@@ -575,11 +574,8 @@ contract BidderRegistryTest is Test {
         emit BidderRegistered(bidder, depositAmount, nextWindow);
         
         vm.expectEmit(true, true, true, true);
-        emit BidderDepositedForWindow(bidder, nextWindow, depositAmount, depositAmount);
+        emit BidderDepositedForWindow(bidder, nextWindow, depositAmount, depositAmount, expectedMaxBid);
         
-        vm.expectEmit(true, true, true, true);
-        emit MaxBidForWindowUpdated(bidder, nextWindow, expectedMaxBid);
-
         // Make deposit
         bidderRegistry.depositForWindow{value: depositAmount}(nextWindow);
 
@@ -606,10 +602,7 @@ contract BidderRegistryTest is Test {
             emit BidderRegistered(bidder, depositPerWindow, windows[i]);
             
             vm.expectEmit(true, true, true, true);
-            emit BidderDepositedForWindow(bidder, windows[i], depositPerWindow, depositPerWindow);
-
-            vm.expectEmit(true, true, true, true);
-            emit MaxBidForWindowUpdated(bidder, windows[i], expectedMaxBidPerWindow);
+            emit BidderDepositedForWindow(bidder, windows[i], depositPerWindow, depositPerWindow, expectedMaxBidPerWindow);
         }
 
         bidderRegistry.depositForWindows{value: totalDeposit}(windows);
