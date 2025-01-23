@@ -22,6 +22,8 @@ contract DeployMiddlewareWithMocks is Script {
         RegistryMock networkRegistryMock = new RegistryMock();
         RegistryMock operatorRegistryMock = new RegistryMock();
         RegistryMock vaultFactoryMock = new RegistryMock();
+        RegistryMock delegatorFactoryMock = new RegistryMock();
+        RegistryMock slasherFactoryMock = new RegistryMock();
         RegistryMock burnerRouterFactoryMock = new RegistryMock();
 
         uint256 slashPeriodSeconds = 150;
@@ -39,6 +41,8 @@ contract DeployMiddlewareWithMocks is Script {
                 IRegistry(networkRegistryMock), 
                 IRegistry(operatorRegistryMock), 
                 IRegistry(vaultFactoryMock), 
+                IRegistry(delegatorFactoryMock),
+                IRegistry(slasherFactoryMock),
                 IRegistry(burnerRouterFactoryMock),
                 network, 
                 slashPeriodSeconds,

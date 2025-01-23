@@ -590,6 +590,7 @@ jobs:
           to: 8080
     env:
       l1_rpc_urls: "{{ resolved_l1_rpc_urls }}"
+      oracle_relay_urls: "{{ oracle_relay_urls if oracle_relay_urls is defined else '' }}"
 
   mev_commit_bridge: &mev_commit_bridge_job
     name: mev-commit-bridge
