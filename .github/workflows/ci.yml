@@ -157,14 +157,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          
+
       - name: Install OpenZeppelin Upgrades Core
         run: npm install @openzeppelin/upgrades-core@1.42.0
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.3.1
         with:
-          version: v0.3.1
+          version: nightly
 
       - name: Install solhint
         run: npm install -g solhint
