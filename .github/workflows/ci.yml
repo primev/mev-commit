@@ -157,11 +157,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          
+
       - name: Install Foundry
         run: |
           curl -L https://foundry.paradigm.xyz | bash
-          export PATH="$PATH:$HOME/.foundry/bin"
+          source $HOME/.bashrc
           foundryup
 
       - name: Install solhint
