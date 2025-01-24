@@ -34,7 +34,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 		// to bootnode by the time test starts.
 		eg.Go(func() error {
 			notificationChan, err := b.NotificationsAPI().Subscribe(egCtx, &notificationsapiv1.SubscribeRequest{
-				Topics: []string{notifications.TopicPeerConnected},
+				Topics: []string{string(notifications.TopicPeerConnected)},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to subscribe to notifications: %w", err)
@@ -46,7 +46,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 					return fmt.Errorf("failed to receive notification: %w", err)
 				}
 				logger.Info("received notification", "notification", msg)
-				if msg.Topic != notifications.TopicPeerConnected {
+				if msg.Topic != string(notifications.TopicPeerConnected) {
 					logger.Info("skipping notification", "topic", msg.Topic)
 					continue
 				}
@@ -63,7 +63,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 	for _, b := range bidders {
 		eg.Go(func() error {
 			notificationChan, err := b.NotificationsAPI().Subscribe(egCtx, &notificationsapiv1.SubscribeRequest{
-				Topics: []string{notifications.TopicPeerConnected},
+				Topics: []string{string(notifications.TopicPeerConnected)},
 			})
 			if err != nil {
 				return fmt.Errorf("failed to subscribe to notifications: %w", err)
@@ -75,7 +75,7 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 					return fmt.Errorf("failed to receive notification: %w", err)
 				}
 				logger.Info("received notification", "notification", msg)
-				if msg.Topic != notifications.TopicPeerConnected {
+				if msg.Topic != string(notifications.TopicPeerConnected) {
 					logger.Info("skipping notification", "topic", msg.Topic)
 					continue
 				}
