@@ -604,7 +604,7 @@ func NewNode(opts *Options) (*Node, error) {
 			go func() {
 				sub := notificationsSvc.Subscribe(notifications.TopicPeerConnected)
 				for p := range sub {
-					peerType, ok := p.Value["type"].(string)
+					peerType, ok := p.Value()["type"].(string)
 					if ok && peerType == p2p.PeerTypeProvider.String() {
 						err = keyexchange.SendTimestampMessage()
 						if err != nil {

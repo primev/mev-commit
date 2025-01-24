@@ -53,11 +53,11 @@ func (t *testNotifier) Notify(n *notifications.Notification) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	switch n.Topic {
+	switch n.Topic() {
 	case notifications.TopicPeerConnected:
-		t.connected = append(t.connected, n.Value["ethAddress"].(string))
+		t.connected = append(t.connected, n.Value()["ethAddress"].(string))
 	case notifications.TopicPeerDisconnected:
-		t.disconnected = append(t.disconnected, n.Value["ethAddress"].(string))
+		t.disconnected = append(t.disconnected, n.Value()["ethAddress"].(string))
 	}
 }
 

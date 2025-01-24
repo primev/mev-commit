@@ -116,13 +116,15 @@ func (t *Topology) add(p p2p.Peer) {
 		t.metrics.ConnectedBiddersCount.Inc()
 	}
 
-	t.notifier.Notify(&notifications.Notification{
-		Topic: notifications.TopicPeerConnected,
-		Value: map[string]any{
-			"ethAddress": p.EthAddress.Hex(),
-			"type":       p.Type.String(),
-		},
-	})
+	t.notifier.Notify(
+		notifications.NewNotification(
+			notifications.TopicPeerConnected,
+			map[string]any{
+				"ethAddress": p.EthAddress.Hex(),
+				"type":       p.Type.String(),
+			},
+		),
+	)
 }
 
 func (t *Topology) Disconnected(p p2p.Peer) {
@@ -140,13 +142,15 @@ func (t *Topology) Disconnected(p p2p.Peer) {
 		t.metrics.ConnectedBiddersCount.Dec()
 	}
 
-	t.notifier.Notify(&notifications.Notification{
-		Topic: notifications.TopicPeerDisconnected,
-		Value: map[string]any{
-			"ethAddress": p.EthAddress.Hex(),
-			"type":       p.Type.String(),
-		},
-	})
+	t.notifier.Notify(
+		notifications.NewNotification(
+			notifications.TopicPeerDisconnected,
+			map[string]any{
+				"ethAddress": p.EthAddress.Hex(),
+				"type":       p.Type.String(),
+			},
+		),
+	)
 }
 
 func (t *Topology) AddPeers(peers ...p2p.Peer) {

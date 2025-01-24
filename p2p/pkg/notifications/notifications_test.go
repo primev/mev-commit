@@ -19,26 +19,30 @@ func TestNotifications(t *testing.T) {
 
 	// Create a new notification with the "peer_connected" topic and a value of
 	// map[string]any{"peer_id": "1234"}.
-	notification := &notifications.Notification{
-		Topic: notifications.TopicPeerConnected,
-		Value: map[string]any{"peer_id": "1234"},
-	}
+	notification := notifications.NewNotification(
+		notifications.TopicPeerConnected,
+		map[string]any{"peer_id": "1234"},
+	)
 
 	// Notify the subscribers about the notification.
 	n.Notify(notification)
 
 	// Receive the notification from the channel.
 	receivedNotification := <-ch
-	if diff := cmp.Diff(notification, receivedNotification); diff != "" {
+	if diff := cmp.Diff(
+		notification,
+		receivedNotification,
+		cmp.AllowUnexported(notifications.Notification{}),
+	); diff != "" {
 		t.Errorf("unexpected notification (-want +got):\n%s", diff)
 	}
 
 	// Create a new notification with the "peer_disconnected" topic and a value of
 	// map[string]any{"peer_id": "1234"}.
-	notification = &notifications.Notification{
-		Topic: notifications.TopicPeerDisconnected,
-		Value: map[string]any{"peer_id": "1234"},
-	}
+	notification = notifications.NewNotification(
+		notifications.TopicPeerDisconnected,
+		map[string]any{"peer_id": "1234"},
+	)
 
 	// Notify the subscribers about the notification.
 	n.Notify(notification)
@@ -55,10 +59,10 @@ func TestNotifications(t *testing.T) {
 
 	// Create a new notification with the "peer_connected" topic and a value of
 	// map[string]any{"peer_id": "1234"}.
-	notification = &notifications.Notification{
-		Topic: notifications.TopicPeerConnected,
-		Value: map[string]any{"peer_id": "1234"},
-	}
+	notification = notifications.NewNotification(
+		notifications.TopicPeerConnected,
+		map[string]any{"peer_id": "1234"},
+	)
 
 	// Notify the subscribers about the notification.
 	n.Notify(notification)
@@ -73,17 +77,21 @@ func TestNotifications(t *testing.T) {
 
 	// Create a new notification with the "peer_disconnected" topic and a value of
 	// map[string]any{"peer_id": "1234"}.
-	notification = &notifications.Notification{
-		Topic: notifications.TopicPeerDisconnected,
-		Value: map[string]any{"peer_id": "1234"},
-	}
+	notification = notifications.NewNotification(
+		notifications.TopicPeerDisconnected,
+		map[string]any{"peer_id": "1234"},
+	)
 
 	// Notify the subscribers about the notification.
 	n.Notify(notification)
 
 	// Receive the notification from the channel.
 	receivedNotification = <-ch
-	if diff := cmp.Diff(notification, receivedNotification); diff != "" {
+	if diff := cmp.Diff(
+		notification,
+		receivedNotification,
+		cmp.AllowUnexported(notifications.Notification{}),
+	); diff != "" {
 		t.Errorf("unexpected notification (-want +got):\n%s", diff)
 	}
 

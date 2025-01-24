@@ -20,7 +20,7 @@ type testNotifiee struct {
 	notifications chan *notifications.Notification
 }
 
-func (n *testNotifiee) Subscribe(topics ...string) chan *notifications.Notification {
+func (n *testNotifiee) Subscribe(_ ...notifications.Topic) chan *notifications.Notification {
 	return n.notifications
 }
 
@@ -88,18 +88,21 @@ func TestSubscribe(t *testing.T) {
 	defer cancel()
 
 	stream, err := client.Subscribe(ctx, &notificationsapiv1.SubscribeRequest{
-		Topics: []string{"topic1", "topic2"},
+		Topics: []string{
+			string(notifications.TopicPeerConnected),
+			string(notifications.TopicPeerDisconnected),
+		},
 	})
 	if err != nil {
 		t.Fatalf("error subscribing: %v", err)
 	}
 
-	n1 := &notifications.Notification{
-		Topic: "topic1",
-		Value: map[string]interface{}{
+	n1 := notifications.NewNotification(
+		notifications.TopicPeerConnected,
+		map[string]interface{}{
 			"key": "value",
 		},
-	}
+	)
 
 	n.notifications <- n1
 
@@ -108,14 +111,14 @@ func TestSubscribe(t *testing.T) {
 		t.Fatalf("error receiving notification: %v", err)
 	}
 
-	if resp.Topic != n1.Topic {
-		t.Errorf("expected topic %q, got %q", n1.Topic, resp.Topic)
+	if resp.Topic != string(n1.Topic()) {
+		t.Errorf("expected topic %q, got %q", n1.Topic(), resp.Topic)
 	}
 
-	if resp.Value.Fields["key"].GetStringValue() != n1.Value["key"] {
+	if resp.Value.Fields["key"].GetStringValue() != n1.Value()["key"] {
 		t.Errorf(
 			"expected value %q, got %q",
-			n1.Value["key"], resp.Value.Fields["key"].GetStringValue(),
+			n1.Value()["key"], resp.Value.Fields["key"].GetStringValue(),
 		)
 	}
 
