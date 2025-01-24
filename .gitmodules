@@ -22,6 +22,7 @@
 [submodule "contracts/lib/openzeppelin-upgrades"]
 	path = contracts/lib/openzeppelin-upgrades
 	url = https://github.com/OpenZeppelin/openzeppelin-upgrades.git
+	branch = master
 [submodule "contracts/lib/burners"]
 	path = contracts/lib/burners
 	url = https://github.com/symbioticfi/burners
