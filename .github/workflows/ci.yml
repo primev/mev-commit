@@ -127,9 +127,9 @@ jobs:
         run: npm install @openzeppelin/upgrades-core@1.42.0
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.3.1
+        uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: nightly-36d1a1ba7391957770638d2bbacd669adb5cfc00
 
       - name: Print Versions
         run: |
@@ -167,9 +167,9 @@ jobs:
         run: npm install @openzeppelin/upgrades-core@1.42.0
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.3.1
+        uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: nightly-36d1a1ba7391957770638d2bbacd669adb5cfc00
 
       - name: Install solhint
         run: npm install -g solhint
