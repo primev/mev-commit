@@ -1,7 +1,7 @@
 # mev-commit
 
 [![CI](https://github.com/primev/mev-commit/actions/workflows/ci.yml/badge.svg)](https://github.com/primev/mev-commit/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE.txt)
+[![License](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
 
 
 Is P2P software that creates a network of execution providers and bidders.
