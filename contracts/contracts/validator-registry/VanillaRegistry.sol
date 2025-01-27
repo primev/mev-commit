@@ -46,6 +46,7 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         uint256 _slashingPayoutPeriodBlocks,
         address _owner
     ) external initializer {
+        __Pausable_init();
         _setMinStake(_minStake);
         _setSlashOracle(_slashOracle);
         _setUnstakePeriodBlocks(_unstakePeriodBlocks);
