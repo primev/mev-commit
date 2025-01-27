@@ -128,8 +128,7 @@ contract ProviderRegistry is
             bidderSlashedAmount[bidder] += residualAmt;
         }
 
-        emit FundsSlashed(provider, residualAmt + penaltyFee);
-        emit FundsSlashedV2(provider, residualAmt + penaltyFee, commitmentDigest);
+        emit FundsSlashed(provider, residualAmt + penaltyFee, commitmentDigest);
     }
 
     /**

@@ -30,6 +30,7 @@ contract ProviderRegistryTest is Test {
     event FeeTransfer(uint256 amount, address indexed recipient);
     event PenaltyFeeRecipientUpdated(address indexed newPenaltyFeeRecipient);
     event FeePayoutPeriodBlocksUpdated(uint256 indexed newFeePayoutPeriodBlocks);
+    event FundsSlashed(address indexed provider, uint256 amount, bytes32 indexed commitmentDigest);
     event InsufficientFundsToSlash(
         address indexed provider,
         uint256 providerStake,

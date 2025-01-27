@@ -10,10 +10,7 @@ interface IProviderRegistry {
     event FundsDeposited(address indexed provider, uint256 amount);
 
     /// @dev Event emitted when funds are slashed
-    event FundsSlashed(address indexed provider, uint256 amount);
-
-    /// @dev Event emitted when funds are slashed
-    event FundsSlashedV2(address indexed provider, uint256 amount, bytes32 indexed commitmentDigest);
+    event FundsSlashed(address indexed provider, uint256 amount, bytes32 indexed commitmentDigest);
 
     /// @dev Event emitted when withdrawal is requested
     event Unstake(address indexed provider, uint256 timestamp);
