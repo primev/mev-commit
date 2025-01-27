@@ -7,26 +7,6 @@ pragma solidity 0.8.26;
  */
 interface IPreconfManager {
     /// @dev Struct for all the information around preconfirmations commitment
-    // struct OpenedCommitment {
-    //     address bidder;
-    //     bool isSettled; // Flag to check if the commitment is settled with slashing or rewarding
-    //     uint64 blockNumber;
-    //     uint64 decayStartTimeStamp;
-    //     uint64 decayEndTimeStamp;
-    //     uint64 dispatchTimestamp;
-    //     address committer;
-    //     uint256 bidAmt;
-    //     bytes32 bidHash;
-    //     bytes32 commitmentDigest;
-    //     bytes bidSignature;
-    //     bytes commitmentSignature;
-    //     bytes sharedSecretKey;
-    //     string txnHash;
-    //     string revertingTxHashes;
-    //     // uint256 bidderPKx;
-    //     // uint256 bidderPKy;
-    // }
-
     struct OpenedCommitment {
         address bidder;
         bool isSettled;
@@ -53,10 +33,7 @@ interface IPreconfManager {
         bytes32 bidHash;
         bytes bidSignature;
         bytes commitmentSignature;
-        bytes sharedSecretKey;
         uint256[] zkProof;
-        // uint256 bidderPKx;
-        // uint256 bidderPKy;
     }
 
     /// @dev Struct for all the information around unopened preconfirmations commitment
@@ -67,25 +44,6 @@ interface IPreconfManager {
         bytes32 commitmentDigest;
         bytes commitmentSignature;
     }
-
-    // /// @dev Event to log successful opened commitment storage
-    // event OpenedCommitmentStored(
-    //     bytes32 indexed commitmentIndex,
-    //     address bidder,
-    //     address committer,
-    //     uint256 bidAmt,
-    //     uint64 blockNumber,
-    //     bytes32 bidHash,
-    //     uint64 decayStartTimeStamp,
-    //     uint64 decayEndTimeStamp,
-    //     string txnHash,
-    //     string revertingTxHashes,
-    //     bytes32 commitmentDigest,
-    //     bytes bidSignature,
-    //     bytes commitmentSignature,
-    //     uint64 dispatchTimestamp,
-    //     bytes sharedSecretKey
-    // );
 
     /// @dev Event to log successful opened commitment storage
     event OpenedCommitmentStored(
@@ -134,6 +92,9 @@ interface IPreconfManager {
 
     /// @dev Event to log successful update of the block tracker
     event BlockTrackerUpdated(address indexed newBlockTracker);
+
+    /// @dev Error if provider zk proof is invalid 
+    error ProviderZKProofInvalid(address sender);
 
     /// @dev Error if sender is not oracle contract
     error SenderIsNotOracleContract(address sender, address oracleContract);
@@ -227,7 +188,7 @@ interface IPreconfManager {
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
      * @param bidSignature The signature of the bid.
-     * @param sharedSecretKey The shared secret key.
+     * @param zkProof The zk proof.
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
@@ -239,7 +200,6 @@ interface IPreconfManager {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory sharedSecretKey,
         uint256[] calldata zkProof
     ) external returns (bytes32 commitmentIndex);
 
@@ -276,14 +236,14 @@ interface IPreconfManager {
         uint256 residualBidPercentAfterDecay
     ) external;
 
-    // /**
-    //  * @dev Gets the transaction hash from a commitment.
-    //  * @param commitmentIndex The index of the commitment.
-    //  * @return txnHash The transaction hash.
-    //  */
-    // function getTxnHashFromCommitment(
-    //     bytes32 commitmentIndex
-    // ) external view returns (string memory txnHash);
+    /**
+     * @dev Gets the transaction hash from a commitment.
+     * @param commitmentIndex The index of the commitment.
+     * @return txnHash The transaction hash.
+     */
+    function getTxnHashFromCommitment(
+        bytes32 commitmentIndex
+    ) external view returns (string memory txnHash);
 
     /**
      * @dev Gets a commitment by its index.
@@ -325,27 +285,15 @@ interface IPreconfManager {
 
     /**
      * @dev Computes the pre-confirmation hash for a given set of parameters.
-     * @param _txnHash The transaction hash.
-     * @param _revertingTxHashes The reverting transaction hashes.
-     * @param _bidAmt The bid amount.
-     * @param _blockNumber The block number.
-     * @param _decayStartTimeStamp The start time of the decay.
-     * @param _decayEndTimeStamp The end time of the decay.
      * @param _bidHash The bid hash.
      * @param _bidSignature The bid signature.
-     * @param _sharedSecretKey The shared secret key.
+     * @param _zkProof The zk proof.
      * @return The computed pre-confirmation hash.
      */
     function getPreConfHash(
-        string memory _txnHash,
-        string memory _revertingTxHashes,
-        uint256 _bidAmt,
-        uint64 _blockNumber,
-        uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
         bytes memory _bidSignature,
-        bytes memory _sharedSecretKey
+        uint256[] calldata _zkProof
     ) external view returns (bytes32);
 
     /**
@@ -371,15 +319,15 @@ interface IPreconfManager {
         uint256[] calldata zkProof
     ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
-    // /**
-    //  * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
-    //  * @param params The commitment params associated with the commitment.
-    //  * @return preConfHash The hash of the pre-confirmation commitment.
-    //  * @return committerAddress The address of the committer recovered from the commitment signature.
-    //  */
-    // function verifyPreConfCommitment(
-    //     CommitmentParams memory params
-    // ) external view returns (bytes32 preConfHash, address committerAddress);
+    /**
+     * @dev Verifies a pre-confirmation commitment by computing the hash and recovering the committer's address.
+     * @param params The commitment params associated with the commitment.
+     * @return preConfHash The hash of the pre-confirmation commitment.
+     * @return committerAddress The address of the committer recovered from the commitment signature.
+     */
+    function verifyPreConfCommitment(
+        CommitmentParams calldata params
+    ) external view returns (bytes32 preConfHash, address committerAddress);
 
     /**
      * @dev Computes the index of an opened commitment.

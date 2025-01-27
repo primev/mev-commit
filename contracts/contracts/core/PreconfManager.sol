@@ -12,6 +12,7 @@ import {IPreconfManager} from "../interfaces/IPreconfManager.sol";
 import {PreconfManagerStorage} from "./PreconfManagerStorage.sol";
 import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 import {Errors} from "../utils/Errors.sol";
+import {BN128} from "../utils/BN128.sol";
 
 /**
  * @title PreconfManager - A contract for managing preconfirmation commitments and bids.
@@ -29,7 +30,7 @@ contract PreconfManager is
     /// @dev EIP-712 Type Hash for preconfirmation commitment
     bytes32 public constant EIP712_COMMITMENT_TYPEHASH =
         keccak256(
-            "OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"
+            "OpenedCommitment(bytes32 bidHash,string signature,uint256 sharedKeyX,uint256 sharedKeyY)"
         );
 
     /// @dev EIP-712 Type Hash for preconfirmation bid
@@ -207,7 +208,7 @@ contract PreconfManager is
      * @param decayStartTimeStamp The start time of the decay
      * @param decayEndTimeStamp The end time of the decay
      * @param bidSignature The signature of the bid
-     * @param sharedSecretKey The shared secret key
+     * @param zkProof The zk proof
      * @return commitmentIndex The index of the stored commitment
      */
     function openCommitment(
@@ -219,7 +220,6 @@ contract PreconfManager is
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory sharedSecretKey,
         uint256[] calldata zkProof
     ) public whenNotPaused returns (bytes32 commitmentIndex) {
         if (decayStartTimeStamp >= decayEndTimeStamp) {
@@ -247,15 +247,9 @@ contract PreconfManager is
         );
 
         bytes32 commitmentDigest = getPreConfHash(
-            txnHash,
-            revertingTxHashes,
-            bidAmt,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
             bHash,
             bidSignature,
-            sharedSecretKey
+            zkProof
         );
 
         UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
@@ -284,7 +278,10 @@ contract PreconfManager is
         }
 
         if (msg.sender == winner) {
-            _providerVerifyZKProof(zkProof);
+            require(
+                _verifyZKProof(zkProof),
+                ProviderZKProofInvalid(msg.sender)
+            );
         }
 
         if (msg.sender != winner && msg.sender != bidderAddress) {
@@ -304,11 +301,8 @@ contract PreconfManager is
             unopenedCommitment.dispatchTimestamp,
             committerAddress,
             bidAmt,
-            // bHash,
             commitmentDigest,
-            // bidSignature,
             unopenedCommitment.commitmentSignature,
-            // sharedSecretKey,
             txnHash,
             revertingTxHashes
         );
@@ -333,35 +327,15 @@ contract PreconfManager is
 
         processedTxnHashes[txnHashBidderBlockNumber] = true;
 
-        // emit OpenedCommitmentStored(
-        //     commitmentIndex,
-        //     bidderAddress,
-        //     committerAddress,
-        //     updatedBidAmt,
-        //     blockNumber,
-        //     bHash,
-        //     decayStartTimeStamp,
-        //     decayEndTimeStamp,
-        //     txnHash,
-        //     revertingTxHashes,
-        //     commitmentDigest,
-        //     bidSignature,
-        //     unopenedCommitment.commitmentSignature,
-        //     unopenedCommitment.dispatchTimestamp,
-        //     sharedSecretKey
-        // );
         emitOpenedCommitmentStored(commitmentIndex, newCommitment);
-        // emit OpenedCommitmentStored(
-        //     commitmentIndex,
-        //     newCommitment.bidder,
-        //     newCommitment.committer,
-        //     newCommitment.blockNumber,
-        //     newCommitment.bidAmt,
-        //     newCommitment.commitmentDigest
-        // );
         return commitmentIndex;
     }
 
+    /**
+     * @dev Emit OpenedCommitmentStored event
+     * @param commitmentIndex The index of the stored commitment
+     * @param newCommitment The commitment to be stored
+     */
     function emitOpenedCommitmentStored(
         bytes32 commitmentIndex,
         OpenedCommitment memory newCommitment
@@ -476,6 +450,7 @@ contract PreconfManager is
     /**
      * @dev Initiate a reward for a commitment.
      * @param commitmentIndex The hash of the commitment to be rewarded.
+     * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function initiateReward(
         bytes32 commitmentIndex,
@@ -504,16 +479,16 @@ contract PreconfManager is
         );
     }
 
-    // /**
-    //  * @dev Get a commitments' enclosed transaction by its commitmentIndex.
-    //  * @param commitmentIndex The index of the commitment.
-    //  * @return txnHash The transaction hash.
-    //  */
-    // function getTxnHashFromCommitment(
-    //     bytes32 commitmentIndex
-    // ) public view returns (string memory txnHash) {
-    //     return openedCommitments[commitmentIndex].txnHash;
-    // }
+    /**
+     * @dev Get a commitments' enclosed transaction by its commitmentIndex.
+     * @param commitmentIndex The index of the commitment.
+     * @return txnHash The transaction hash.
+     */
+    function getTxnHashFromCommitment(
+        bytes32 commitmentIndex
+    ) public view returns (string memory txnHash) {
+        return openedCommitments[commitmentIndex].txnHash;
+    }
 
     /**
      * @dev Get a commitment by its commitmentIndex.
@@ -543,6 +518,9 @@ contract PreconfManager is
      * @param _bidAmt bid amount.
      * @param _blockNumber block number
      * @param _revertingTxHashes reverting transaction hashes.
+     * @param _decayStartTimeStamp decay start time.
+     * @param _decayEndTimeStamp decay end time.
+     * @param _zkProof zk proof with bidder public key.
      * @return digest it returns a digest that can be used for signing bids
      */
     function getBidHash(
@@ -552,7 +530,7 @@ contract PreconfManager is
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
-        uint256[] calldata zkProof
+        uint256[] calldata _zkProof
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
@@ -566,8 +544,8 @@ contract PreconfManager is
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp,
-                        zkProof[2], // _bidderPKx,
-                        zkProof[3] // _bidderPKy
+                        _zkProof[2], // _bidderPKx,
+                        _zkProof[3] // _bidderPKy
                     )
                 )
             );
@@ -575,51 +553,26 @@ contract PreconfManager is
 
     /**
      * @dev Gives digest to be signed for pre confirmation
-     * @param _txnHash transaction Hash.
-     * @param _bidAmt bid amount.
-     * @param _blockNumber block number.
-     * @param _revertingTxHashes reverting transaction hashes.
      * @param _bidHash hash of the bid.
      * @param _bidSignature signature of the bid.
-     * @param _sharedSecretKey shared secret key.
+     * @param _zkProof zk proof.
      * @return digest it returns a digest that can be used for signing bids.
      */
     function getPreConfHash(
-        string memory _txnHash,
-        string memory _revertingTxHashes,
-        uint256 _bidAmt,
-        uint64 _blockNumber,
-        uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
         bytes memory _bidSignature,
-        bytes memory _sharedSecretKey
-    )
-        public
-        view
-        returns (
-            // uint256 _bidderPKx,
-            // uint256 _bidderPKy
-            bytes32
-        )
-    {
+        uint256[] calldata _zkProof
+    ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
                 domainSeparatorPreconf,
                 keccak256(
                     abi.encode(
                         EIP712_COMMITMENT_TYPEHASH,
-                        keccak256(bytes(_txnHash)),
-                        keccak256(bytes(_revertingTxHashes)),
-                        _bidAmt,
-                        _blockNumber,
-                        _decayStartTimeStamp,
-                        _decayEndTimeStamp,
                         _bidHash,
                         keccak256(_bidSignature),
-                        keccak256(_sharedSecretKey)
-                        // _bidderPKx,
-                        // _bidderPKy
+                        _zkProof[4], // sharedKeyX
+                        _zkProof[5] // sharedKeyY
                     )
                 )
             );
@@ -634,6 +587,7 @@ contract PreconfManager is
      * @param txnHash transaction Hash.
      * @param revertingTxHashes reverting transaction hashes.
      * @param bidSignature bid signature.
+     * @param zkProof zk proof.
      * @return messageDigest returns the bid hash for given bid info.
      * @return recoveredAddress the address from the bid hash.
      */
@@ -655,8 +609,6 @@ contract PreconfManager is
             decayStartTimeStamp,
             decayEndTimeStamp,
             zkProof
-            // bidderPKx,
-            // bidderPKy
         );
         recoveredAddress = messageDigest.recover(bidSignature);
     }
@@ -667,12 +619,12 @@ contract PreconfManager is
      * @return preConfHash The hash of the pre-confirmation commitment.
      * @return committerAddress The address of the committer recovered from the commitment signature.
      */
-    // function verifyPreConfCommitment(
-    //     CommitmentParams memory params
-    // ) public view returns (bytes32 preConfHash, address committerAddress) {
-    //     preConfHash = _getPreConfHash(params);
-    //     committerAddress = preConfHash.recover(params.commitmentSignature);
-    // }
+    function verifyPreConfCommitment(
+        CommitmentParams calldata params
+    ) public view returns (bytes32 preConfHash, address committerAddress) {
+        preConfHash = _getPreConfHash(params);
+        committerAddress = preConfHash.recover(params.commitmentSignature);
+    }
 
     /**
      * @dev Get the index of an opened commitment.
@@ -711,27 +663,15 @@ contract PreconfManager is
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    // function _getPreConfHash(
-    //     CommitmentParams memory params
-    // ) internal view returns (bytes32) {
-    //     return
-    //         getPreConfHash(
-    //             params.txnHash,
-    //             params.revertingTxHashes,
-    //             params.bidAmt,
-    //             params.blockNumber,
-    //             params.decayStartTimeStamp,
-    //             params.decayEndTimeStamp,
-    //             params.bidHash,
-    //             params.bidSignature,
-    //             params.sharedSecretKey
-    //             // 1,
-    //             // 2
-    //         );
-    // }
-
-    function _providerVerifyZKProof(uint256[] calldata zkProof) internal view {
-        require(_verifyZKProof(zkProof), "Provider's ZK proof invalid");
+    function _getPreConfHash(
+        CommitmentParams calldata params
+    ) internal view returns (bytes32) {
+        return
+            getPreConfHash(
+                params.bidHash,
+                params.bidSignature,
+                params.zkProof
+            );
     }
 
     /**
@@ -743,29 +683,29 @@ contract PreconfManager is
      * The proof is {c, z}, plus we have inputs {providerPub, bidPub, sharedSecret}.
      */
     function _verifyZKProof(
-        // // The provider's registered BN254 public key (A = g^a).
-        // uint256 providerPubX,
-        // uint256 providerPubY,
-        // // The bidder's ephemeral BN254 public key (B = g^b).
-        // uint256 bidPubX,
-        // uint256 bidPubY,
-        // // The final shared secret in the commitment (C = B^a).
-        // uint256 sharedSecX,
-        // uint256 sharedSecY,
-        // // The proof data
-        // uint256 c,
-        // uint256 z
         uint256[] calldata zkProof
     ) internal view returns (bool) {
         // 1. Recompute a = g^z * (providerPub)^c
-        (uint256 gzX, uint256 gzY) = _ecMul(GX, GY, zkProof[7]);
-        (uint256 AcX, uint256 AcY) = _ecMul(zkProof[0], zkProof[1], zkProof[6]);
-        (uint256 aX, uint256 aY) = _ecAdd(gzX, gzY, AcX, AcY);
+        (uint256 gzX, uint256 gzY) = BN128._ecMul(GX, GY, zkProof[7]);
+        (uint256 AcX, uint256 AcY) = BN128._ecMul(
+            zkProof[0],
+            zkProof[1],
+            zkProof[6]
+        );
+        (uint256 aX, uint256 aY) = BN128._ecAdd(gzX, gzY, AcX, AcY);
 
         // 2. Recompute a' = B^z * C^c
-        (uint256 BzX, uint256 BzY) = _ecMul(zkProof[2], zkProof[3], zkProof[7]);
-        (uint256 CcX, uint256 CcY) = _ecMul(zkProof[4], zkProof[5], zkProof[6]);
-        (uint256 aX2, uint256 aY2) = _ecAdd(BzX, BzY, CcX, CcY);
+        (uint256 BzX, uint256 BzY) = BN128._ecMul(
+            zkProof[2],
+            zkProof[3],
+            zkProof[7]
+        );
+        (uint256 CcX, uint256 CcY) = BN128._ecMul(
+            zkProof[4],
+            zkProof[5],
+            zkProof[6]
+        );
+        (uint256 aX2, uint256 aY2) = BN128._ecAdd(BzX, BzY, CcX, CcY);
 
         // 3. Recompute c' by hashing the context + all relevant points
         bytes32 computedChallenge = keccak256(
@@ -788,63 +728,5 @@ contract PreconfManager is
         uint256 computedChallengeInt = uint256(computedChallenge) &
             BN254_MASK_253;
         return (computedChallengeInt == zkProof[6]);
-    }
-
-    /**
-     * @dev BN128 addition precompile call:
-     *       (x3, y3) = (x1, y1) + (x2, y2)
-     */
-    function _ecAdd(
-        uint256 x1,
-        uint256 y1,
-        uint256 x2,
-        uint256 y2
-    ) internal view returns (uint256 x3, uint256 y3) {
-        // 0x06 = bn128Add precompile
-        // Inputs are 4 * 32 bytes = x1, y1, x2, y2
-        // Output is 2 * 32 bytes = (x3, y3)
-        bool success;
-        assembly {
-            // free memory pointer
-            let memPtr := mload(0x40)
-            mstore(memPtr, x1)
-            mstore(add(memPtr, 0x20), y1)
-            mstore(add(memPtr, 0x40), x2)
-            mstore(add(memPtr, 0x60), y2)
-            // call precompile
-            if iszero(staticcall(gas(), 0x06, memPtr, 0x80, memPtr, 0x40)) {
-                revert(0, 0)
-            }
-            x3 := mload(memPtr)
-            y3 := mload(add(memPtr, 0x20))
-            success := true
-        }
-        require(success, "bn128Add failed");
-    }
-
-    /**
-     * @dev BN128 multiplication precompile call:
-     *       (x3, y3) = scalar * (x1, y1)
-     */
-    function _ecMul(
-        uint256 x1,
-        uint256 y1,
-        uint256 scalar
-    ) internal view returns (uint256 x2, uint256 y2) {
-        bool success;
-        assembly {
-            let memPtr := mload(0x40)
-            mstore(memPtr, x1)
-            mstore(add(memPtr, 0x20), y1)
-            mstore(add(memPtr, 0x40), scalar)
-            // call precompile at 0x07
-            if iszero(staticcall(gas(), 0x07, memPtr, 0x60, memPtr, 0x40)) {
-                revert(0, 0)
-            }
-            x2 := mload(memPtr)
-            y2 := mload(add(memPtr, 0x20))
-            success := true
-        }
-        require(success, "bn128Mul failed");
     }
 }

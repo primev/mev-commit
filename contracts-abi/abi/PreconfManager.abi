@@ -203,7 +203,7 @@
         "internalType": "uint64"
       },
       {
-        "name": "zkProof",
+        "name": "_zkProof",
         "type": "uint256[]",
         "internalType": "uint256[]"
       }
@@ -384,36 +384,6 @@
     "name": "getPreConfHash",
     "inputs": [
       {
-        "name": "_txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "_revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "_bidAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
         "name": "_bidHash",
         "type": "bytes32",
         "internalType": "bytes32"
@@ -424,9 +394,9 @@
         "internalType": "bytes"
       },
       {
-        "name": "_sharedSecretKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "_zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -434,6 +404,25 @@
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTxnHashFromCommitment",
+    "inputs": [
+      {
+        "name": "commitmentIndex",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "txnHash",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -645,11 +634,6 @@
       },
       {
         "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "sharedSecretKey",
         "type": "bytes",
         "internalType": "bytes"
       },
@@ -1084,6 +1068,82 @@
     "stateMutability": "view"
   },
   {
+    "type": "function",
+    "name": "verifyPreConfCommitment",
+    "inputs": [
+      {
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct IPreconfManager.CommitmentParams",
+        "components": [
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "bidAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayStartTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayEndTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "bidHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "bidSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "commitmentSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "zkProof",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "preConfHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "committerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
     "type": "event",
     "name": "BidderRegistryUpdated",
     "inputs": [
@@ -1398,6 +1458,16 @@
   },
   {
     "type": "error",
+    "name": "BN128AddFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BN128MulFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CommitmentAlreadyOpened",
     "inputs": [
       {
@@ -1534,6 +1604,17 @@
     "inputs": [
       {
         "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ProviderZKProofInvalid",
+    "inputs": [
+      {
+        "name": "sender",
         "type": "address",
         "internalType": "address"
       }

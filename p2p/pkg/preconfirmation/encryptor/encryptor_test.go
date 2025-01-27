@@ -262,11 +262,14 @@ func TestHashing(t *testing.T) {
 			NikePublicKey:       nikePublicKey,
 		}
 
-		sharedSecretBytes := []byte("0xsecret")
+		var sharedKey bn254.G1Affine
+		sharedKey.X.SetUint64(1)
+		sharedKey.Y.SetUint64(2)
 
+		sharedKeyBytes := p2pcrypto.BN254PublicKeyToBytes(&sharedKey)
 		preConfirmation := &preconfpb.PreConfirmation{
 			Bid:          bid,
-			SharedSecret: sharedSecretBytes,
+			SharedSecret: sharedKeyBytes,
 		}
 
 		chainID := big.NewInt(31337)
@@ -276,12 +279,12 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		hash, err := preconfencryptor.GetPreConfirmationHash(preConfirmation, domainSeparatorPreConfHash)
+		hash, err := preconfencryptor.GetPreConfirmationHash(preConfirmation, &sharedKey, domainSeparatorPreConfHash)
 		if err != nil {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "37e6872aa386743965cbd8486e03ee6f9efd9897a4f99d3caf0450d9c24c0636"
+		expHash := "8cca321f795582fe855dc47cd5e83d4747ce13ffc23747ca68b19f2147fe985f"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}

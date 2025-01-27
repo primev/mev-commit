@@ -25,7 +25,6 @@ contract PreconfManagerTest is Test {
         bytes bidSignature;
         bytes commitmentSignature;
         uint64 dispatchTimestamp;
-        bytes sharedSecretKey;
         uint256[] zkProof;
     }
 
@@ -54,6 +53,7 @@ contract PreconfManagerTest is Test {
         hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
     uint256 public withdrawalDelay;
     uint256 public protocolFeePayoutPeriodBlocks;
+    uint256[] zkProof;
     address public oracleContract;
 
     function setUp() public {
@@ -61,7 +61,7 @@ contract PreconfManagerTest is Test {
         bytes memory code = type(MockBLSVerify).creationCode;
         vm.etch(BLS_VERIFY_ADDRESS, code);
 
-        uint256[] memory zkProof = new uint256[](8);
+        zkProof = new uint256[](8);
         zkProof[0] = 1;
         zkProof[1] = 2;
         zkProof[2] = 1;
@@ -79,11 +79,10 @@ contract PreconfManagerTest is Test {
             10,
             20,
             0x520eacb6555b9bfb82c1b0f04b5969c0b4cb277a030f62aa6cab3f7dec011b75,
-            0x37e6872aa386743965cbd8486e03ee6f9efd9897a4f99d3caf0450d9c24c0636,
+            0x8cca321f795582fe855dc47cd5e83d4747ce13ffc23747ca68b19f2147fe985f,
             hex"1193ce788e005ddad9c98f7d3d191eb0b17c0f28e735c736061e233f6b6abf5e5603091b91e4c395d4d5efd52b33720e392e79d3d7f3c735e2c45faef861ea0c1c",
-            hex"9e0a9307fdbb29718a7ad667ac8027735c4ae923e1f689c9358a995d72c0690b3849e163c85fb9fa77f93ce3af4e447d76be9930c7786e5089e1ec701af8ee9c1b",
+            hex"aee7d98893440ade16f5b086b2d765bd2576937016120425a92db1ebc4c5152d16cf449f76ffccbbe42bdeda7104639d30e8890927c07e7f00b8014c85ad00d21c",
             15,
-            bytes("0xsecret"),
             zkProof
         );
 
@@ -157,14 +156,6 @@ contract PreconfManagerTest is Test {
 
     function test_GetBidHash1() public {
         // Step 1: Prepare the test commitment data
-        uint256[] memory zkProof = new uint256[](6);
-        zkProof[0] = 1;
-        zkProof[1] = 2;
-        zkProof[2] = 1;
-        zkProof[3] = 2;
-        zkProof[4] = 2;
-        zkProof[5] = 3;
-
         PreconfManager.CommitmentParams memory testCommitment = IPreconfManager
             .CommitmentParams({
                 txnHash: "0xkartik",
@@ -173,7 +164,6 @@ contract PreconfManagerTest is Test {
                 blockNumber: 2,
                 decayStartTimeStamp: 10,
                 decayEndTimeStamp: 20,
-                sharedSecretKey: bytes("0xsecret"),
                 bidHash: hex"447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf",
                 bidSignature: hex"1193ce788e005ddad9c98f7d3d191eb0b17c0f28e735c736061e233f6b6abf5e5603091b91e4c395d4d5efd52b33720e392e79d3d7f3c735e2c45faef861ea0c1c",
                 commitmentSignature: hex"026b7694e7eaeca9f77718b127e33e20588825820ecc939d751ad2bd21bbd78b71685e2c3f3f76eb37ce8e67843089effd731e93463b8f935cbbf52add269a6d1c",
@@ -199,15 +189,9 @@ contract PreconfManagerTest is Test {
         bytes memory bidSignature = abi.encodePacked(r, s, v);
         // Step 3: Calculate the commitment hash using the getPreConfHash function
         bytes32 commitmentDigest = preconfManager.getPreConfHash(
-            testCommitment.txnHash,
-            testCommitment.revertingTxHashes,
-            testCommitment.bidAmt,
-            testCommitment.blockNumber,
-            testCommitment.decayStartTimeStamp,
-            testCommitment.decayEndTimeStamp,
             bidHash,
             bidSignature,
-            testCommitment.sharedSecretKey
+            zkProof
         );
 
         // Step 4: Verify the bid hash is correctly generated and not zero
@@ -390,17 +374,10 @@ contract PreconfManagerTest is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bytes memory signature = abi.encodePacked(r, s, v);
-        bytes memory sharedSecretKey = bytes("0xsecret");
         bytes32 preConfHash = preconfManager.getPreConfHash(
-            _testCommitmentAliceBob.txnHash,
-            _testCommitmentAliceBob.revertingTxHashes,
-            _testCommitmentAliceBob.bidAmt,
-            _testCommitmentAliceBob.blockNumber,
-            _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp,
             bidHash,
             signature,
-            sharedSecretKey
+            zkProof
         );
         assertEq(preConfHash, _testCommitmentAliceBob.commitmentDigest);
 
@@ -432,7 +409,6 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
-            _testCommitmentAliceBob.sharedSecretKey,
             _testCommitmentAliceBob.zkProof
         );
 
@@ -450,7 +426,6 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.decayStartTimestamp,
             _testCommitmentAliceBob.decayEndTimestamp,
             _testCommitmentAliceBob.bidSignature,
-            _testCommitmentAliceBob.sharedSecretKey,
             _testCommitmentAliceBob.zkProof
         );
 
@@ -466,7 +441,6 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.bidDigest,
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
-            _testCommitmentAliceBob.sharedSecretKey,
             _testCommitmentAliceBob.zkProof
         );
     }
@@ -484,18 +458,10 @@ contract PreconfManagerTest is Test {
             c.zkProof
         );
 
-        bytes memory sharedSecretKey = abi.encodePacked(keccak256("0xsecret"));
-
         bytes32 preConfHash = preconfManager.getPreConfHash(
-            c.txnHash,
-            c.revertingTxHashes,
-            c.bidAmt,
-            c.blockNumber,
-            c.decayStartTimestamp,
-            c.decayEndTimestamp,
             bidHash,
             c.bidSignature,
-            sharedSecretKey
+            c.zkProof
         );
 
         (, bool isSettled, , , , , , , , , ,) = preconfManager
@@ -516,8 +482,7 @@ contract PreconfManagerTest is Test {
         bytes memory bidSignature,
         bytes memory commitmentSignature,
         uint64 dispatchTimestamp,
-        bytes memory sharedSecretKey,
-        uint256[] memory zkProof
+        uint256[] memory zkproof
     )
         public
         returns (
@@ -531,21 +496,13 @@ contract PreconfManagerTest is Test {
             blockNumber,
             decayStartTimestamp,
             decayEndTimestamp,
-            zkProof
-            // bidderPKx,
-            // bidderPKy
+            zkproof
         );
 
         bytes32 commitmentDigest = preconfManager.getPreConfHash(
-            txnHash,
-            revertingTxHashes,
-            bidAmt,
-            blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp,
             bidHash,
             bidSignature,
-            sharedSecretKey
+            zkproof
         );
         vm.deal(committer, 11 ether);
         vm.startPrank(committer);
@@ -576,8 +533,7 @@ contract PreconfManagerTest is Test {
         uint64 decayStartTimestamp,
         uint64 decayEndTimestamp,
         bytes memory bidSignature,
-        bytes memory sharedSecretKey,
-        uint256[] memory zkProof
+        uint256[] memory zkproof
     ) public returns (bytes32) {
         vm.prank(msgSender);
         bytes32 commitmentIndex = preconfManager.openCommitment(
@@ -589,8 +545,7 @@ contract PreconfManagerTest is Test {
             decayStartTimestamp,
             decayEndTimestamp,
             bidSignature,
-            sharedSecretKey,
-            zkProof
+            zkproof
         );
 
         return commitmentIndex;
@@ -607,8 +562,7 @@ contract PreconfManagerTest is Test {
         bytes32 bidHash,
         bytes memory bidSignature,
         bytes memory commitmentSignature,
-        bytes memory sharedSecretKey,
-        uint256[] memory zkProof
+        uint256[] memory zkproof
     ) public view {
         PreconfManager.OpenedCommitment memory commitment = preconfManager
             .getCommitment(index);
@@ -624,15 +578,14 @@ contract PreconfManagerTest is Test {
                 bidHash: bidHash,
                 bidSignature: bidSignature,
                 commitmentSignature: commitmentSignature,
-                sharedSecretKey: sharedSecretKey,
-                zkProof: zkProof
+                zkProof: zkproof
             });
 
-        // (, address committerAddress) = preconfManager.verifyPreConfCommitment(
-        //     commitmentParams
-        // );
+        (, address committerAddress) = preconfManager.verifyPreConfCommitment(
+            commitmentParams
+        );
 
-        // assertNotEq(committerAddress, address(0));
+        assertNotEq(committerAddress, address(0));
         assertEq(
             commitment.bidAmt,
             bidAmt,
@@ -643,16 +596,11 @@ contract PreconfManagerTest is Test {
             blockNumber,
             "Stored blockNumber should match input blockNumber"
         );
-        // assertEq(
-        //     commitment.txnHash,
-        //     txnHash,
-        //     "Stored txnHash should match input txnHash"
-        // );
-        // assertEq(
-        //     commitment.bidSignature,
-        //     bidSignature,
-        //     "Stored bidSignature should match input bidSignature"
-        // );
+        assertEq(
+            commitment.txnHash,
+            txnHash,
+            "Stored txnHash should match input txnHash"
+        );
         assertEq(
             commitment.commitmentSignature,
             commitmentSignature,
@@ -683,7 +631,6 @@ contract PreconfManagerTest is Test {
             _testCommitmentAliceBob.bidSignature,
             _testCommitmentAliceBob.commitmentSignature,
             _testCommitmentAliceBob.dispatchTimestamp,
-            _testCommitmentAliceBob.sharedSecretKey,
             _testCommitmentAliceBob.zkProof
         );
         PreconfManager.UnopenedCommitment
@@ -715,17 +662,9 @@ contract PreconfManagerTest is Test {
             bytes32 bidHash = verifyCommitmentNotUsed(_testCommitmentAliceBob);
 
             bytes32 preConfHash = preconfManager.getPreConfHash(
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
-                _testCommitmentAliceBob.bidAmt,
-                _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.decayStartTimestamp,
-                _testCommitmentAliceBob.decayEndTimestamp,
                 bidHash,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey
-                // _testCommitmentAliceBob.bidderPKx,
-                // _testCommitmentAliceBob.bidderPKy
+                _testCommitmentAliceBob.zkProof
             );
 
             // Verify that the commitment has not been set before
@@ -745,7 +684,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
-                _testCommitmentAliceBob.sharedSecretKey,
                 _testCommitmentAliceBob.zkProof
             );
             providerRegistry.setPreconfManager(address(preconfManager));
@@ -762,7 +700,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey,
                 _testCommitmentAliceBob.zkProof
             );
             uint256 oneHundredPercent = providerRegistry.ONE_HUNDRED_PERCENT();
@@ -803,15 +740,9 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob
             );
             bytes32 preConfHash = preconfManager.getPreConfHash(
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
-                _testCommitmentAliceBob.bidAmt,
-                _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.decayStartTimestamp,
-                _testCommitmentAliceBob.decayEndTimestamp,
                 bidHash,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.zkProof
             );
 
             // Verify that the commitment has not been used before
@@ -831,7 +762,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
-                _testCommitmentAliceBob.sharedSecretKey,
                 _testCommitmentAliceBob.zkProof
             );
             blockTracker.recordL1Block(
@@ -849,7 +779,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey,
                 _testCommitmentAliceBob.zkProof
             );
             vm.prank(oracleContract);
@@ -880,19 +809,11 @@ contract PreconfManagerTest is Test {
             // Step 1: Verify that the commitment has not been used before
             bytes32 bidHash = verifyCommitmentNotUsed(
                 _testCommitmentAliceBob
-                // _testCommitmentAliceBob.bidderPKx,
-                // _testCommitmentAliceBob.bidderPKy
             );
             bytes32 preConfHash = preconfManager.getPreConfHash(
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
-                _testCommitmentAliceBob.bidAmt,
-                _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.decayStartTimestamp,
-                _testCommitmentAliceBob.decayEndTimestamp,
                 bidHash,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey
+                _testCommitmentAliceBob.zkProof
             );
 
             // Verify that the commitment has not been used before
@@ -912,7 +833,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.bidSignature,
                 _testCommitmentAliceBob.commitmentSignature,
                 _testCommitmentAliceBob.dispatchTimestamp,
-                _testCommitmentAliceBob.sharedSecretKey,
                 _testCommitmentAliceBob.zkProof
             );
             blockTracker.recordL1Block(
@@ -930,7 +850,6 @@ contract PreconfManagerTest is Test {
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
                 _testCommitmentAliceBob.bidSignature,
-                _testCommitmentAliceBob.sharedSecretKey,
                 _testCommitmentAliceBob.zkProof
             );
             uint256 window = blockTracker.getCurrentWindow();
@@ -1092,7 +1011,6 @@ contract PreconfManagerTest is Test {
             testCommitment2.decayStartTimestamp,
             testCommitment2.decayEndTimestamp,
             testCommitment2.bidSignature,
-            testCommitment2.sharedSecretKey,
             testCommitment2.zkProof
         );
     }
@@ -1125,7 +1043,6 @@ contract PreconfManagerTest is Test {
                 testCommitment.bidSignature,
                 testCommitment.commitmentSignature,
                 testCommitment.dispatchTimestamp,
-                testCommitment.sharedSecretKey,
                 testCommitment.zkProof
             );
     }
@@ -1146,7 +1063,6 @@ contract PreconfManagerTest is Test {
                 testCommitment.decayStartTimestamp,
                 testCommitment.decayEndTimestamp,
                 testCommitment.bidSignature,
-                testCommitment.sharedSecretKey,
                 testCommitment.zkProof
             );
     }
@@ -1180,15 +1096,9 @@ contract PreconfManagerTest is Test {
 
         // Recompute commitmentDigest and commitmentSignature
         bytes32 commitmentDigest2 = preconfManager.getPreConfHash(
-            testCommitment2.txnHash,
-            testCommitment2.revertingTxHashes,
-            testCommitment2.bidAmt,
-            testCommitment2.blockNumber,
-            testCommitment2.decayStartTimestamp,
-            testCommitment2.decayEndTimestamp,
             bidHash2,
             testCommitment2.bidSignature,
-            testCommitment2.sharedSecretKey
+            testCommitment2.zkProof
         );
 
         testCommitment2.commitmentDigest = commitmentDigest2;

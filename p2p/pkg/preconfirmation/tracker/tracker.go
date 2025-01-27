@@ -79,7 +79,6 @@ type PreconfContract interface {
 		decayStartTimeStamp uint64,
 		decayEndTimeStamp uint64,
 		bidSignature []byte,
-		sharedSecretKey []byte,
 		zkProof []*big.Int,
 	) (*types.Transaction, error)
 }
@@ -420,15 +419,18 @@ func (t *Tracker) openCommitments(
 		pubB.X.BigInt(&bidderXBig)
 		pubB.Y.BigInt(&bidderYBig)
 
+		sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
+		if err != nil {
+			t.logger.Error("failed to parse shared secret C = B^a", "error", err)
+			continue
+		}
+
+		var sharedCXBig, sharedCYBig big.Int
+		sharedC.X.BigInt(&sharedCXBig)
+		sharedC.Y.BigInt(&sharedCYBig)
+
 		var zkProof []*big.Int
 		if t.peerType == p2p.PeerTypeProvider {
-
-			sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
-			if err != nil {
-				t.logger.Error("failed to parse shared secret C = B^a", "error", err)
-				continue
-			}
-
 			contextData := []byte("mev-commit opening, mainnet, v1.0")
 			proof, err := crypto.GenerateOptimizedProof(t.providerNikeSK, t.providerNikePK, pubB, sharedC, contextData)
 			if err != nil {
@@ -444,14 +446,10 @@ func (t *Tracker) openCommitments(
 			t.providerNikePK.X.BigInt(&providerXBig)
 			t.providerNikePK.Y.BigInt(&providerYBig)
 
-			var sharedCXBig, sharedCYBig big.Int
-			sharedC.X.BigInt(&sharedCXBig)
-			sharedC.Y.BigInt(&sharedCYBig)
-
 			zkProof = []*big.Int{&providerXBig, &providerYBig, &bidderXBig, &bidderYBig, &sharedCXBig, &sharedCYBig, &cBig, &zBig}
 		} else {
 			zeroInt := big.NewInt(0)
-			zkProof = []*big.Int{zeroInt, zeroInt, &bidderXBig, &bidderYBig, zeroInt, zeroInt, zeroInt, zeroInt}
+			zkProof = []*big.Int{zeroInt, zeroInt, &bidderXBig, &bidderYBig, &sharedCXBig, &sharedCYBig, zeroInt, zeroInt}
 		}
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
@@ -463,7 +461,6 @@ func (t *Tracker) openCommitments(
 			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
 			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
 			commitment.PreConfirmation.Bid.Signature,
-			commitment.PreConfirmation.SharedSecret,
 			zkProof,
 		)
 		if err != nil {

@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"crypto/sha256"
 	"errors"
 	"math/big"
 
@@ -118,11 +117,6 @@ func VerifyOptimizedProof(
 	T2p.Add(&T2p, &Cc)
 
 	// 2) c' = truncatedHash(ctx || A || B || C || T1' || T2')
-	// cPrime, err := computeTruncatedChallenge(pubA, pubB, sharedC, &T1p, &T2p, context)
-	// if err != nil {
-	// 	return err
-	// }
-
 	cPrime, err := ComputeZKChallenge(context, pubA, pubB, sharedC, &T1p, &T2p)
 	if err != nil {
 		return err
@@ -136,41 +130,6 @@ func VerifyOptimizedProof(
 }
 
 var BN254Mask253 = new(big.Int).Lsh(big.NewInt(1), 253) // 1 << 253
-
-// computeTruncatedChallenge is the same method used in both generation and verification:
-// it concatenates (A, B, C, T1, T2, context), does SHA-256, then truncates to BN254OrderBitLen bits.
-func computeTruncatedChallenge(
-	A, B, C, T1, T2 *bn254.G1Affine,
-	context []byte,
-) (fr.Element, error) {
-
-	bufA := A.RawBytes() // 64 bytes
-	bufB := B.RawBytes() // 64 bytes
-	bufC := C.RawBytes()
-	bufT1 := T1.RawBytes()
-	bufT2 := T2.RawBytes()
-
-	// build the preimage for hashing
-	preimage := append(context, bufA[:]...)
-	preimage = append(preimage, bufB[:]...)
-	preimage = append(preimage, bufC[:]...)
-	preimage = append(preimage, bufT1[:]...)
-	preimage = append(preimage, bufT2[:]...)
-
-	// compute sha256
-	hash := sha256.Sum256(preimage)
-	hashVal := new(big.Int).SetBytes(hash[:])
-
-	// bit truncation:  hashVal = hashVal mod 2^BN254OrderBitLen
-	maxVal := new(big.Int).Lsh(big.NewInt(1), BN254OrderBitLen) // 1 << 253
-	hashVal.Mod(hashVal, maxVal)
-
-	// convert to fr.Element
-	var c fr.Element
-	c.SetBigInt(hashVal)
-
-	return c, nil
-}
 
 func ComputeZKChallenge(
 	contextHash []byte,

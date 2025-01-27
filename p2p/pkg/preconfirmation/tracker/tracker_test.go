@@ -161,16 +161,12 @@ func TestTracker(t *testing.T) {
 		Committer:       common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
 		BidAmt:          amount,
 		BlockNumber:     uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
-		// BidHash:             common.BytesToHash(commitments[4].PreConfirmation.Bid.Digest),
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
 		DecayEndTimeStamp:   uint64(commitments[4].PreConfirmation.Bid.DecayEndTimestamp),
 		TxnHash:             commitments[4].PreConfirmation.Bid.TxHash,
 		RevertingTxHashes:   commitments[4].PreConfirmation.Bid.RevertingTxHashes,
 		CommitmentDigest:    common.BytesToHash(commitments[4].PreConfirmation.Digest),
-		// BidSignature:        commitments[4].PreConfirmation.Bid.Signature,
-		// CommitmentSignature: commitments[4].PreConfirmation.Signature,
 		DispatchTimestamp: uint64(1),
-		// SharedSecretKey:     commitments[4].PreConfirmation.SharedSecret,
 	})
 
 	if err != nil {
@@ -224,13 +220,6 @@ func TestTracker(t *testing.T) {
 				"expected bid signature %x, got %x",
 				c.PreConfirmation.Bid.Signature,
 				oc.bidSignature,
-			)
-		}
-		if !bytes.Equal(c.PreConfirmation.SharedSecret, oc.sharedSecretKey) {
-			t.Fatalf(
-				"expected shared secret key %x, got %x",
-				c.PreConfirmation.SharedSecret,
-				oc.sharedSecretKey,
 			)
 		}
 	}
@@ -293,13 +282,6 @@ func TestTracker(t *testing.T) {
 				"expected bid signature %x, got %x",
 				c.PreConfirmation.Bid.Signature,
 				oc.bidSignature,
-			)
-		}
-		if !bytes.Equal(c.PreConfirmation.SharedSecret, oc.sharedSecretKey) {
-			t.Fatalf(
-				"expected shared secret key %x, got %x",
-				c.PreConfirmation.SharedSecret,
-				oc.sharedSecretKey,
 			)
 		}
 	}
@@ -402,7 +384,6 @@ type openedCommitment struct {
 	decayStartTimeStamp      uint64
 	decayEndTimeStamp        uint64
 	bidSignature             []byte
-	sharedSecretKey          []byte
 	zkProof                  []*big.Int
 }
 
@@ -420,9 +401,9 @@ func (t *testPreconfContract) OpenCommitment(
 	decayStartTimeStamp uint64,
 	decayEndTimeStamp uint64,
 	bidSignature []byte,
-	sharedSecretKey []byte,
 	zkProof []*big.Int,
 ) (*types.Transaction, error) {
+
 	t.openedCommitments <- openedCommitment{
 		encryptedCommitmentIndex: encryptedCommitmentIndex,
 		bid:                      bid,
@@ -432,7 +413,6 @@ func (t *testPreconfContract) OpenCommitment(
 		decayStartTimeStamp:      decayStartTimeStamp,
 		decayEndTimeStamp:        decayEndTimeStamp,
 		bidSignature:             bidSignature,
-		sharedSecretKey:          sharedSecretKey,
 		zkProof:                  zkProof,
 	}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
@@ -498,16 +478,12 @@ func publishOpenedCommitment(
 		c.Committer,
 		c.BidAmt,
 		c.BlockNumber,
-		// c.BidHash,
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,
 		c.TxnHash,
 		c.RevertingTxHashes,
 		c.CommitmentDigest,
-		// c.BidSignature,
-		// c.CommitmentSignature,
 		c.DispatchTimestamp,
-		// c.SharedSecretKey,
 	)
 	if err != nil {
 		return err
