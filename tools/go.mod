@@ -11,6 +11,7 @@ require (
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/primev/mev-commit/x v0.0.1
+	github.com/primevprotocol/contracts-abi v0.2.3
 	github.com/urfave/cli/v2 v2.27.4
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.34.2
