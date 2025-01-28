@@ -675,6 +675,12 @@ jobs:
           to: 8080
     env:
 
+  backup: &backup_job
+    name: backup
+    template: backup.nomad.j2
+    env:
+      log-format: "json"
+
 profiles:
   ci:
     jobs:
@@ -737,6 +743,7 @@ profiles:
       - *mev_commit_oracle_job
       - *mev_commit_provider_emulator_node1_job
       - *datadog_agent_metrics_collector_job
+      - *backup_job
 
   mainnet:
     jobs:

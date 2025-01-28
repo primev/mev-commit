@@ -729,6 +729,10 @@
                 break
               fi
               ;;
+            null)
+              # This is a special case for periodic cron jobs.
+              break
+              ;;
             *)
               {% if env != 'devenv' %}
               break
