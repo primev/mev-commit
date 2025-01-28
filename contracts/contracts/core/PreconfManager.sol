@@ -49,9 +49,9 @@ contract PreconfManager is
     // zk proof related contstants
     bytes32 public constant ZK_CONTEXT_HASH =
         keccak256("mev-commit opening, mainnet, v1.0");
-    uint256 constant GX = 1;
-    uint256 constant GY = 2;
-    uint256 constant BN254_MASK_253 = (1 << 253) - 1;
+    uint256 private constant _GX = 1;
+    uint256 private constant _GY = 2;
+    uint256 private constant _BN254_MASK_253 = (1 << 253) - 1;
 
     /**
      * @dev Makes sure transaction sender is oracle contract
@@ -246,11 +246,7 @@ contract PreconfManager is
             TxnHashAlreadyProcessed(txnHash, bidderAddress)
         );
 
-        bytes32 commitmentDigest = getPreConfHash(
-            bHash,
-            bidSignature,
-            zkProof
-        );
+        bytes32 commitmentDigest = getPreConfHash(bHash, bidSignature, zkProof);
 
         UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
             unopenedCommitmentIndex
@@ -327,32 +323,8 @@ contract PreconfManager is
 
         processedTxnHashes[txnHashBidderBlockNumber] = true;
 
-        emitOpenedCommitmentStored(commitmentIndex, newCommitment);
+        _emitOpenedCommitmentStored(commitmentIndex, newCommitment);
         return commitmentIndex;
-    }
-
-    /**
-     * @dev Emit OpenedCommitmentStored event
-     * @param commitmentIndex The index of the stored commitment
-     * @param newCommitment The commitment to be stored
-     */
-    function emitOpenedCommitmentStored(
-        bytes32 commitmentIndex,
-        OpenedCommitment memory newCommitment
-    ) internal {
-        emit OpenedCommitmentStored(
-            commitmentIndex,
-            newCommitment.bidder,
-            newCommitment.committer,
-            newCommitment.bidAmt,
-            newCommitment.blockNumber,
-            newCommitment.decayStartTimeStamp,
-            newCommitment.decayEndTimeStamp,
-            newCommitment.txnHash,
-            newCommitment.revertingTxHashes,
-            newCommitment.commitmentDigest,
-            newCommitment.dispatchTimestamp
-        );
     }
 
     /**
@@ -660,6 +632,30 @@ contract PreconfManager is
             );
     }
 
+    /**
+     * @dev Emit OpenedCommitmentStored event
+     * @param commitmentIndex The index of the stored commitment
+     * @param newCommitment The commitment to be stored
+     */
+    function _emitOpenedCommitmentStored(
+        bytes32 commitmentIndex,
+        OpenedCommitment memory newCommitment
+    ) internal {
+        emit OpenedCommitmentStored(
+            commitmentIndex,
+            newCommitment.bidder,
+            newCommitment.committer,
+            newCommitment.bidAmt,
+            newCommitment.blockNumber,
+            newCommitment.decayStartTimeStamp,
+            newCommitment.decayEndTimeStamp,
+            newCommitment.txnHash,
+            newCommitment.revertingTxHashes,
+            newCommitment.commitmentDigest,
+            newCommitment.dispatchTimestamp
+        );
+    }
+
     // solhint-disable-next-line no-empty-blocks
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
@@ -667,11 +663,7 @@ contract PreconfManager is
         CommitmentParams calldata params
     ) internal view returns (bytes32) {
         return
-            getPreConfHash(
-                params.bidHash,
-                params.bidSignature,
-                params.zkProof
-            );
+            getPreConfHash(params.bidHash, params.bidSignature, params.zkProof);
     }
 
     /**
@@ -686,26 +678,26 @@ contract PreconfManager is
         uint256[] calldata zkProof
     ) internal view returns (bool) {
         // 1. Recompute a = g^z * (providerPub)^c
-        (uint256 gzX, uint256 gzY) = BN128._ecMul(GX, GY, zkProof[7]);
-        (uint256 AcX, uint256 AcY) = BN128._ecMul(
+        (uint256 gzX, uint256 gzY) = BN128._ecMul(_GX, _GY, zkProof[7]);
+        (uint256 acX, uint256 acY) = BN128._ecMul(
             zkProof[0],
             zkProof[1],
             zkProof[6]
         );
-        (uint256 aX, uint256 aY) = BN128._ecAdd(gzX, gzY, AcX, AcY);
+        (uint256 aX, uint256 aY) = BN128._ecAdd(gzX, gzY, acX, acY);
 
         // 2. Recompute a' = B^z * C^c
-        (uint256 BzX, uint256 BzY) = BN128._ecMul(
+        (uint256 bzX, uint256 bzY) = BN128._ecMul(
             zkProof[2],
             zkProof[3],
             zkProof[7]
         );
-        (uint256 CcX, uint256 CcY) = BN128._ecMul(
+        (uint256 ccX, uint256 ccY) = BN128._ecMul(
             zkProof[4],
             zkProof[5],
             zkProof[6]
         );
-        (uint256 aX2, uint256 aY2) = BN128._ecAdd(BzX, BzY, CcX, CcY);
+        (uint256 aX2, uint256 aY2) = BN128._ecAdd(bzX, bzY, ccX, ccY);
 
         // 3. Recompute c' by hashing the context + all relevant points
         bytes32 computedChallenge = keccak256(
@@ -726,7 +718,7 @@ contract PreconfManager is
 
         // Compare the numeric value of computedChallenge vs the given c
         uint256 computedChallengeInt = uint256(computedChallenge) &
-            BN254_MASK_253;
+            _BN254_MASK_253;
         return (computedChallengeInt == zkProof[6]);
     }
 }

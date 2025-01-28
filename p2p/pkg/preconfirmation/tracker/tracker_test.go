@@ -156,17 +156,17 @@ func TestTracker(t *testing.T) {
 	}
 	// this commitment should not be opened again
 	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerOpenedCommitmentStored{
-		CommitmentIndex: common.HexToHash(fmt.Sprintf("0x%x", 5)),
-		Bidder:          common.HexToAddress("0x1234"),
-		Committer:       common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
-		BidAmt:          amount,
-		BlockNumber:     uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
+		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
+		Bidder:              common.HexToAddress("0x1234"),
+		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
+		BidAmt:              amount,
+		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
 		DecayEndTimeStamp:   uint64(commitments[4].PreConfirmation.Bid.DecayEndTimestamp),
 		TxnHash:             commitments[4].PreConfirmation.Bid.TxHash,
 		RevertingTxHashes:   commitments[4].PreConfirmation.Bid.RevertingTxHashes,
 		CommitmentDigest:    common.BytesToHash(commitments[4].PreConfirmation.Digest),
-		DispatchTimestamp: uint64(1),
+		DispatchTimestamp:   uint64(1),
 	})
 
 	if err != nil {
