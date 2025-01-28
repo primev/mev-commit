@@ -5,6 +5,59 @@ The MEV-Commit Points System rewards validators for participating in the network
 
 ![image](https://github.com/user-attachments/assets/1f53ebbc-fac8-4264-b921-64f593c2f61f)
 
+# MEV-Commit Points System
+
+## Points Configuration
+
+```sql
+-- Configure points parameters
+CREATE TABLE points_config (
+    config_id SERIAL PRIMARY KEY,
+    base_rate DECIMAL(36,18) NOT NULL,
+    signup_bonus DECIMAL(36,18) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Configure multiplier tiers
+CREATE TABLE multiplier_tiers (
+    tier_id SERIAL PRIMARY KEY,
+    min_days INTEGER NOT NULL,
+    max_days INTEGER,
+    multiplier DECIMAL(5,2) NOT NULL
+);
+```
+
+## Example Configuration
+These values are configurable and can be adjusted:
+
+```sql
+-- Points configuration
+INSERT INTO points_config (base_rate, signup_bonus) VALUES (100, 1000);
+
+-- Multiplier tiers
+INSERT INTO multiplier_tiers (min_days, max_days, multiplier) VALUES
+    (0, 30, 1.0),
+    (31, 60, 1.5),
+    (61, 90, 2.0),
+    (91, 180, 3.0),
+    (181, NULL, 4.0);
+```
+
+## Points Structure
+- Signup bonus: Configurable (example: 1000 points on first opt-in)
+- Base rate: Configurable (example: 100 points per day)
+- Points increase with continuous participation
+- Opting out resets multiplier to 1.0x
+
+## Example Using Sample Configuration
+1. First opt-in: 1,000 points (signup_bonus)
+2. Days 1-30: 3,000 points (100 × 30)
+3. Days 31-60: 4,500 points (150 × 30)
+4. Days 61-90: 6,000 points (200 × 30)
+5. Days 91-180: 27,000 points (300 × 90)
+6. Days 181+: 400 points per day
+
+Note: if we change the configuration, we can update the total points earned for each operator, the important part is we keep the timeline of participation of each pubkey and which operator was tied to adding and removing the pubkey.
 
 ## Scale Context
 The system needs to handle between 100,000 to 1 million validator public keys. At this scale, we need a robust way to track validator status changes, especially since validators can opt back in without generating detectable events. We'll begin with a polling-based approach while working toward an event-driven system.
@@ -43,14 +96,6 @@ flowchart TB
 ## Data Model
 
 ```sql
--- Configure reward tiers
-CREATE TABLE multiplier_tiers (
-    tier_id SERIAL PRIMARY KEY,
-    min_days INTEGER NOT NULL,
-    max_days INTEGER,
-    multiplier DECIMAL(5,2) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Track operators
 CREATE TABLE operators (
@@ -72,6 +117,29 @@ CREATE TABLE historic_timeseries (
     PRIMARY KEY (operator_address, pubkey, opted_in_time)
 ) PARTITION BY RANGE (opted_in_time);
 ```
+
+## Important Questions & Considerations
+
+### Multiple Operator Signups for Same Pubkey
+
+**Question:** How should we handle cases where:
+1. Operator A signs up a validator pubkey
+2. Operator A opts out the validator
+3. Operator B signs up the same validator pubkey
+
+This scenario raises several important points to consider:
+
+1. **Signup Bonus Exploitation**
+   - If we allow this pattern, operators could potentially game the system by:
+     - Having one operator opt out
+     - Having another operator sign up the same validator
+     - Collecting multiple signup bonuses for the same validator
+   
+2. **Potential Mitigations**
+   - Track signup history per pubkey, not just per operator
+   - Only award signup bonus once per pubkey lifetime
+   - Add cooldown period before a previously opted-out pubkey can earn points again
+
 
 ## Status Checking Process
 
