@@ -235,7 +235,7 @@ func TestFixedPublicKeys(t *testing.T) {
 	skB.SetOne() // b=1
 
 	// The "public keys" are all (1,2). We won't even call GenerateKeyPairBN254,
-	// because we are forcing them. In your proof.go, (1,2) is used as the generator.
+	// because we are forcing them. In zkproof.go, (1,2) is used as the generator.
 	// So A=(1,2), B=(1,2), C=(1,2).
 	pubA := makeAffinePoint(1, 2)
 	pubB := makeAffinePoint(1, 2)
@@ -258,7 +258,7 @@ func TestFixedPublicKeys(t *testing.T) {
 			fmt.Println("SUCCESS: ephemeral proof with k =", kVal)
 			fmt.Printf(" c = %s\n", proof.C.String())
 			fmt.Printf(" z = %s\n", proof.Z.String())
-			fmt.Println("So your zkProof array is: [1, 2, 1, 2, 1, 2, c, z] => ")
+			fmt.Println("So zkProof array is: [1, 2, 1, 2, 1, 2, c, z] => ")
 			fmt.Printf("  [1, 2, 1, 2, 1, 2, %s, %s]\n", proof.C.String(), proof.Z.String())
 			foundAny = true
 			break

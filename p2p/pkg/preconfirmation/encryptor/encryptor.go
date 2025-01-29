@@ -326,9 +326,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "bidderPKy", Type: *bidStructType.TupleElems[8]},
 	}
 
-	var pkXBigInt, pkYBigInt big.Int
-	bidderPK.X.BigInt(&pkXBigInt)
-	bidderPK.Y.BigInt(&pkYBigInt)
+	pkXBigInt, pkYBigInt := p2pcrypto.AffineToBigIntXY(bidderPK)
 
 	// Encode the bid struct using ABI encoding
 	encodedBid, err := bidStructArguments.Pack(
@@ -371,9 +369,7 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation, sharedKey *bn254.G1A
 	}
 	signatureHash := crypto.Keccak256Hash(c.Bid.Signature)
 
-	var sharedKeyXBigInt, sharedKeyYBigInt big.Int
-	sharedKey.X.BigInt(&sharedKeyXBigInt)
-	sharedKey.Y.BigInt(&sharedKeyYBigInt)
+	sharedKeyXBigInt, sharedKeyYBigInt := p2pcrypto.AffineToBigIntXY(sharedKey)
 
 	preConfStructType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "EIP712CommitmentTypeHash", Type: "bytes32"},

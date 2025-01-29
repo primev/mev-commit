@@ -2,7 +2,6 @@ package libp2p
 
 import (
 	"crypto/rand"
-	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
@@ -26,7 +25,6 @@ func getOrSetProviderKeys(store Store) (*p2p.Keys, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("nikePublicKey: ", nikePublicKey)
 	eciesPublicKey, err := getOrSetECIESPublicKey(store)
 	if err != nil {
 		return nil, err

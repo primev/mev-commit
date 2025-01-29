@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -50,17 +51,61 @@ func BN254PublicKeyToBytes(pub *bn254.G1Affine) []byte {
 }
 
 func BN254PublicKeyFromBytes(data []byte) (*bn254.G1Affine, error) {
-	var pub bn254.G1Affine
+	// 1) Check total length strictly
+	if len(data) != bn254.SizeOfG1AffineUncompressed {
+		return nil, fmt.Errorf("invalid G1 bytes: expected %d bytes, got %d",
+			bn254.SizeOfG1AffineUncompressed, len(data))
+	}
 
-	// G1Affine.SetBytes returns (int, error).
-	// For uncompressed, we expect 96 consumed bytes if successful.
+	var pub bn254.G1Affine
 	consumed, err := pub.SetBytes(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("SetBytes error: %w", err)
 	}
+
+	// 2) Ensure exactly 96 bytes were consumed
 	if consumed != bn254.SizeOfG1AffineUncompressed {
-		return nil, fmt.Errorf("unexpected consumed bytes. got=%d want=%d", consumed, bn254.SizeOfG1AffineUncompressed)
+		return nil, fmt.Errorf("unexpected consumed bytes. got=%d want=%d",
+			consumed, bn254.SizeOfG1AffineUncompressed)
+	}
+
+	// 3) Optionally disallow the identity point
+	//    Some ECDH setups consider the identity to be invalid as a public key.
+	//    If pub is the identity, pub.IsInfinity() will be true.
+	if pub.IsInfinity() {
+		return nil, fmt.Errorf("invalid G1 point: found point at infinity")
+	}
+
+	// 4) Optional: Check that the point is on the curve
+	if !pub.IsOnCurve() {
+		return nil, fmt.Errorf("invalid G1 point: not on curve")
 	}
 
 	return &pub, nil
+}
+
+// BN254PrivateKeyToBytes flattens a BN254 fr.Element into 32 bytes (big-endian regular form).
+func BN254PrivateKeyToBytes(sk *fr.Element) []byte {
+	// sk.Bytes() => returns [32]byte in big-endian *regular* (non-Montgomery) form
+	arr := sk.Bytes()
+	return arr[:]
+}
+
+// BN254PrivateKeyFromBytes interprets data as a 32-byte big-endian integer,
+// sets the fr.Element (into Montgomery form internally), and returns it.
+func BN254PrivateKeyFromBytes(data []byte) (*fr.Element, error) {
+	if len(data) != 32 {
+		return nil, errors.New("invalid BN254 private key length (must be 32 bytes)")
+	}
+	var sk fr.Element
+	// SetBytes interprets data as big-endian and puts it in Montgomery form internally
+	sk.SetBytes(data)
+	return &sk, nil
+}
+
+func AffineToBigIntXY(point *bn254.G1Affine) (big.Int, big.Int) {
+	var x, y big.Int
+	point.X.BigInt(&x)
+	point.Y.BigInt(&y)
+	return x, y
 }

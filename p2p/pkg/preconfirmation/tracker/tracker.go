@@ -409,48 +409,12 @@ func (t *Tracker) openCommitments(
 			continue
 		}
 
-		pubB, err := crypto.BN254PublicKeyFromBytes(commitment.Bid.NikePublicKey)
+		zkProof, err := t.generateZKProof(commitment, []byte("mev-commit opening, mainnet, v1.0"))
 		if err != nil {
-			t.logger.Error("failed to parse bidder pubkey B", "error", err)
+			t.logger.Error("failed to generate ZK proof", "error", err)
 			continue
 		}
 
-		var bidderXBig, bidderYBig big.Int
-		pubB.X.BigInt(&bidderXBig)
-		pubB.Y.BigInt(&bidderYBig)
-
-		sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
-		if err != nil {
-			t.logger.Error("failed to parse shared secret C = B^a", "error", err)
-			continue
-		}
-
-		var sharedCXBig, sharedCYBig big.Int
-		sharedC.X.BigInt(&sharedCXBig)
-		sharedC.Y.BigInt(&sharedCYBig)
-
-		var zkProof []*big.Int
-		if t.peerType == p2p.PeerTypeProvider {
-			contextData := []byte("mev-commit opening, mainnet, v1.0")
-			proof, err := crypto.GenerateOptimizedProof(t.providerNikeSK, t.providerNikePK, pubB, sharedC, contextData)
-			if err != nil {
-				t.logger.Error("failed to generate ZK proof for openCommitment", "error", err)
-				continue
-			}
-
-			var cBig, zBig big.Int
-			proof.C.BigInt(&cBig)
-			proof.Z.BigInt(&zBig)
-
-			var providerXBig, providerYBig big.Int
-			t.providerNikePK.X.BigInt(&providerXBig)
-			t.providerNikePK.Y.BigInt(&providerYBig)
-
-			zkProof = []*big.Int{&providerXBig, &providerYBig, &bidderXBig, &bidderYBig, &sharedCXBig, &sharedCYBig, &cBig, &zBig}
-		} else {
-			zeroInt := big.NewInt(0)
-			zkProof = []*big.Int{zeroInt, zeroInt, &bidderXBig, &bidderYBig, &sharedCXBig, &sharedCYBig, zeroInt, zeroInt}
-		}
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
 			commitmentIdx,
@@ -562,4 +526,79 @@ func (t *Tracker) handleOpenedCommitmentStored(
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
 	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.BidAmt.String(), cs.CommitmentDigest)
+}
+
+func (t *Tracker) generateZKProof(
+	commitment *store.EncryptedPreConfirmationWithDecrypted,
+	contextData []byte,
+) ([]*big.Int, error) {
+	pubB, err := crypto.BN254PublicKeyFromBytes(commitment.Bid.NikePublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse bidder pubkey B: %w", err)
+	}
+
+	sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse shared secret C: %w", err)
+	}
+
+	bidderX, bidderY := crypto.AffineToBigIntXY(pubB)
+	sharedX, sharedY := crypto.AffineToBigIntXY(sharedC)
+
+	if t.peerType == p2p.PeerTypeProvider {
+		return t.generateProviderProof(pubB, sharedC, bidderX, bidderY, sharedX, sharedY, contextData)
+	}
+
+	return t.generateBidderProof(bidderX, bidderY, sharedX, sharedY), nil
+}
+
+func (t *Tracker) generateProviderProof(
+	pubB *bn254.G1Affine,
+	sharedC *bn254.G1Affine,
+	bidderX, bidderY, sharedX, sharedY big.Int,
+	contextData []byte,
+) ([]*big.Int, error) {
+	proof, err := crypto.GenerateOptimizedProof(
+		t.providerNikeSK,
+		t.providerNikePK,
+		pubB,
+		sharedC,
+		contextData,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate optimized proof: %w", err)
+	}
+
+	var cBig, zBig big.Int
+	proof.C.BigInt(&cBig)
+	proof.Z.BigInt(&zBig)
+
+	providerX, providerY := crypto.AffineToBigIntXY(t.providerNikePK)
+
+	return []*big.Int{
+		&providerX,
+		&providerY,
+		&bidderX,
+		&bidderY,
+		&sharedX,
+		&sharedY,
+		&cBig,
+		&zBig,
+	}, nil
+}
+
+func (t *Tracker) generateBidderProof(
+	bidderX, bidderY, sharedX, sharedY big.Int,
+) []*big.Int {
+	zeroInt := big.NewInt(0)
+	return []*big.Int{
+		zeroInt,
+		zeroInt,
+		&bidderX,
+		&bidderY,
+		&sharedX,
+		&sharedY,
+		zeroInt,
+		zeroInt,
+	}
 }

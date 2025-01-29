@@ -95,30 +95,11 @@ func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
 	return eciesPrivateKeyFromBytes(val), nil
 }
 
-// bn254PrivateKeyToBytes flattens a BN254 fr.Element into 32 bytes (big-endian regular form).
-func bn254PrivateKeyToBytes(sk *fr.Element) []byte {
-	// sk.Bytes() => returns [32]byte in big-endian *regular* (non-Montgomery) form
-	arr := sk.Bytes()
-	return arr[:]
-}
-
-// bn254PrivateKeyFromBytes interprets data as a 32-byte big-endian integer,
-// sets the fr.Element (into Montgomery form internally), and returns it.
-func bn254PrivateKeyFromBytes(data []byte) (*fr.Element, error) {
-	if len(data) != 32 {
-		return nil, errors.New("invalid BN254 private key length (must be 32 bytes)")
-	}
-	var sk fr.Element
-	// SetBytes interprets data as big-endian and puts it in Montgomery form internally
-	sk.SetBytes(data)
-	return &sk, nil
-}
-
 func (s *Store) SetBN254PrivateKey(sk *fr.Element) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	raw := bn254PrivateKeyToBytes(sk)
+	raw := p2pcrypto.BN254PrivateKeyToBytes(sk)
 	return s.st.Put(bn254PrivateKeyNS, raw)
 }
 
@@ -134,7 +115,7 @@ func (s *Store) GetBN254PrivateKey() (*fr.Element, error) {
 		return nil, err
 	}
 
-	return bn254PrivateKeyFromBytes(raw)
+	return p2pcrypto.BN254PrivateKeyFromBytes(raw)
 }
 
 func (s *Store) SetBN254PublicKey(pub *bn254.G1Affine) error {
