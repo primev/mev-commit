@@ -41,7 +41,10 @@ func GenerateOptimizedProof(
 
 	// 1) sample random k
 	var k fr.Element
-	k.SetRandom() // uniformly random in [0, p-1]
+	_, err := k.SetRandom() // uniformly random in [0, p-1]
+	if err != nil {
+		return Proof{}, err
+	}
 	var kBigInt big.Int
 	k.BigInt(&kBigInt)
 

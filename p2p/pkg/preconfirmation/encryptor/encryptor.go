@@ -94,9 +94,13 @@ func (e *encryptor) ConstructEncryptedBid(
 	var (
 		sk *fr.Element
 		pk *bn254.G1Affine
+		err error
 	)
 	if bid.NikePublicKey == nil {
-		sk, pk = p2pcrypto.GenerateKeyPairBN254()
+		sk, pk, err = p2pcrypto.GenerateKeyPairBN254()
+		if err != nil {
+			return nil, nil, err
+		}
 		bid.NikePublicKey = p2pcrypto.BN254PublicKeyToBytes(pk)
 	}
 	bidHash, err := GetBidHash(bid, e.domainSeparatorBidHash)

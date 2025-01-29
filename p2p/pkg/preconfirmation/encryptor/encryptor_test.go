@@ -118,7 +118,7 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		psk, ppk := p2pcrypto.GenerateKeyPairBN254()
+		psk, ppk, err := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -444,7 +444,10 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	providerNikePrivateKey, providerNikePublicKey := p2pcrypto.GenerateKeyPairBN254()
+	providerNikePrivateKey, providerNikePublicKey, err := p2pcrypto.GenerateKeyPairBN254()
+	if err != nil {
+		b.Fatal(err)
+	}
 	err = providerStore.SetBN254PrivateKey(providerNikePrivateKey)
 	if err != nil {
 		b.Fatal(err)

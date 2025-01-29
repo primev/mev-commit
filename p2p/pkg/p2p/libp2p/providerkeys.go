@@ -63,7 +63,10 @@ func getOrSetECDHPublicKey(store Store) (*bn254.G1Affine, error) {
 	}
 
 	if pk == nil {
-		sk, pk := p2pcrypto.GenerateKeyPairBN254()
+		sk, pk, err := p2pcrypto.GenerateKeyPairBN254()
+		if err != nil {
+			return nil, err
+		}
 		err = store.SetBN254PrivateKey(sk)
 		if err != nil {
 			return nil, err

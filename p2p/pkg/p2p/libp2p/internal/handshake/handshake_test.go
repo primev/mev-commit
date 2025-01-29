@@ -58,7 +58,10 @@ func TestHandshake(t *testing.T) {
 		address2 := common.HexToAddress("0x2")
 		ks2 := mockkeysigner.NewMockKeySigner(privKey2, address2)
 		store1 := keysstore.New(inmemstorage.New())
-		sk1, pk1 := p2pcrypto.GenerateKeyPairBN254()
+		sk1, pk1, err := p2pcrypto.GenerateKeyPairBN254()
+		if err != nil {
+			t.Fatal(err)
+		}
 		err = store1.SetBN254PrivateKey(sk1)
 		if err != nil {
 			t.Fatal(err)
@@ -94,7 +97,7 @@ func TestHandshake(t *testing.T) {
 			t.Fatal(err)
 		}
 		store2 := keysstore.New(inmemstorage.New())
-		sk2, pk2 := p2pcrypto.GenerateKeyPairBN254()
+		sk2, pk2, err := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}

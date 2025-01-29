@@ -70,7 +70,10 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sk, pk := p2pcrypto.GenerateKeyPairBN254()
+	sk, pk, err := p2pcrypto.GenerateKeyPairBN254()
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = providerStore.SetBN254PrivateKey(sk)
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +174,10 @@ func TestKeyExchange_Whitelist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sk, pk := p2pcrypto.GenerateKeyPairBN254()
+	sk, pk, err := p2pcrypto.GenerateKeyPairBN254()
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = providerStore.SetBN254PrivateKey(sk)
 	if err != nil {
 		t.Fatal(err)

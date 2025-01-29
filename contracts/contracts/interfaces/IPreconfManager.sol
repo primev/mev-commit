@@ -9,7 +9,7 @@ interface IPreconfManager {
     /// @dev Struct for all the information around preconfirmations commitment
     struct OpenedCommitment {
         address bidder;
-        bool isSettled;
+        bool isSettled; // Flag to check if the commitment is settled with slashing or rewarding
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
@@ -93,7 +93,7 @@ interface IPreconfManager {
     /// @dev Event to log successful update of the block tracker
     event BlockTrackerUpdated(address indexed newBlockTracker);
 
-    /// @dev Error if provider zk proof is invalid 
+    /// @dev Error if provider zk proof is invalid
     error ProviderZKProofInvalid(address sender);
 
     /// @dev Error if sender is not oracle contract

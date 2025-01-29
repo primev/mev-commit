@@ -140,8 +140,10 @@ func TestPreconfBidSubmission(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, nikePublicKey := p2pcrypto.GenerateKeyPairBN254()
-
+		_, nikePublicKey, err := p2pcrypto.GenerateKeyPairBN254()
+		if err != nil {
+			t.Fatal(err)
+		}
 		server := p2p.Peer{
 			EthAddress: common.HexToAddress("0x2"),
 			Type:       p2p.PeerTypeProvider,

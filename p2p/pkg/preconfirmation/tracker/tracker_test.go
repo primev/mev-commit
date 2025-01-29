@@ -60,7 +60,10 @@ func TestTracker(t *testing.T) {
 		openedCommitments: make(chan openedCommitment, 10),
 	}
 
-	sk, pk := crypto.GenerateKeyPairBN254()
+	sk, pk, err := crypto.GenerateKeyPairBN254()
+	if err != nil {
+		t.Fatal(err)
+	}
 	tracker := preconftracker.NewTracker(
 		p2p.PeerTypeBidder,
 		common.HexToAddress("0x1234"),
@@ -100,7 +103,10 @@ func TestTracker(t *testing.T) {
 	for i := 1; i <= 10; i++ {
 		digest := common.HexToHash(fmt.Sprintf("0x%x", i))
 
-		_, pkBid := crypto.GenerateKeyPairBN254()
+		_, pkBid, err := crypto.GenerateKeyPairBN254()
+		if err != nil {
+			t.Fatal(err)
+		}
 		sharedKey := crypto.DeriveSharedKey(sk, pkBid)
 		commitments = append(commitments, &store.EncryptedPreConfirmationWithDecrypted{
 			EncryptedPreConfirmation: &preconfpb.EncryptedPreConfirmation{
@@ -331,8 +337,10 @@ func TestTrackerIgnoreOldBlocks(t *testing.T) {
 		openedCommitments: make(chan openedCommitment, 10),
 	}
 
-	sk, pk := crypto.GenerateKeyPairBN254()
-
+	sk, pk, err := crypto.GenerateKeyPairBN254()
+	if err != nil {
+		t.Fatal(err)
+	}
 	tracker := preconftracker.NewTracker(
 		p2p.PeerTypeProvider,
 		common.HexToAddress("0x1234"),

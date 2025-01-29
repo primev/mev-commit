@@ -6,9 +6,15 @@ import (
 
 func TestECDHKeyMatching(t *testing.T) {
 	// Party A keypair
-	skA, pkA := GenerateKeyPairBN254()
+	skA, pkA, err := GenerateKeyPairBN254()
+	if err != nil {
+		t.Error(err)
+	}
 	// Party B keypair
-	skB, pkB := GenerateKeyPairBN254()
+	skB, pkB, err := GenerateKeyPairBN254()
+	if err != nil {
+		t.Error(err)
+	}
 	// A -> B: pkA;  B -> A: pkB
 	// A computes shared = pkB^skA
 	sharedA := DeriveSharedKey(skA, pkB)
