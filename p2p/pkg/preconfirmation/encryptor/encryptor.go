@@ -371,14 +371,9 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation, sharedKey *bn254.G1A
 	}
 	signatureHash := crypto.Keccak256Hash(c.Bid.Signature)
 
-	bidderPK, err := p2pcrypto.BN254PublicKeyFromBytes(c.Bid.NikePublicKey)
-	if err != nil {
-		return common.Hash{}, err
-	}
-
 	var sharedKeyXBigInt, sharedKeyYBigInt big.Int
-	bidderPK.X.BigInt(&sharedKeyXBigInt)
-	bidderPK.Y.BigInt(&sharedKeyYBigInt)
+	sharedKey.X.BigInt(&sharedKeyXBigInt)
+	sharedKey.Y.BigInt(&sharedKeyYBigInt)
 
 	preConfStructType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "EIP712CommitmentTypeHash", Type: "bytes32"},
