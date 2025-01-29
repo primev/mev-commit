@@ -23,7 +23,6 @@ func TestGenerateAndVerify(t *testing.T) {
 
 	// 2) Compute A = g^a, B = g^b
 	//    and then C = B^a
-	//    bn254.Generators() => we want the g1 generator
 	var g1Aff bn254.G1Affine
 	g1Aff.X.SetOne()
 	g1Aff.Y.SetUint64(2)
@@ -241,7 +240,6 @@ func TestFixedPublicKeys(t *testing.T) {
 	pubB := makeAffinePoint(1, 2)
 	sharedC := makeAffinePoint(1, 2)
 
-	// This context is typically hashed in with T1, T2
 	context := []byte("mev-commit opening 31337")
 
 	foundAny := false
@@ -306,7 +304,7 @@ func generateProofWithFixedK(
 	// T2 = B^k = (1,2)^k
 	T2.ScalarMultiplication(pubB, &kBig)
 
-	// (2) c = truncatedHash(pubA, pubB, sharedC, T1, T2, context)
+	// (2) compute truncated zk challenge c
 	c, err := crypto.ComputeZKChallenge(context, pubA, pubB, sharedC, &T1, &T2)
 	if err != nil {
 		return proof, false

@@ -48,10 +48,7 @@ func GenerateOptimizedProof(
 	}
 
 	// 2) T1 = g^k, T2 = B^k
-	//    Using the built-in generator from gnark-crypto
 	var G bn254.G1Affine
-	// G.SetOne() // G is the conventional generator for bn254
-	// var g1Aff bn254.G1Affine
 	G.X.SetOne()
 	G.Y.SetUint64(2)
 
@@ -83,7 +80,7 @@ func GenerateOptimizedProof(
 //	T1' = g^z · A^c
 //	T2' = B^z · C^c
 //	c'  = TruncatedHash(ctx || A || B || C || T1' || T2')
-//	accept iff c' == proof.C
+//	accept if c' == proof.C
 func VerifyOptimizedProof(
 	proof Proof,
 	pubA, // = g^a
