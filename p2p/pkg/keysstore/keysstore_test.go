@@ -90,7 +90,7 @@ func TestNikePublicKey(t *testing.T) {
 	// Generate Nike key pair
 	_, pk, err := p2pcrypto.GenerateKeyPairBN254()
 	assert.NoError(t, err)
-	
+
 	// Set and get Nike public key
 	err = store.SetBN254PublicKey(pk)
 	assert.NoError(t, err)

@@ -136,16 +136,7 @@ var BN254Mask253 = new(big.Int).Lsh(big.NewInt(1), 253) // 1 << 253
 
 func ComputeZKChallenge(
 	contextHash []byte,
-	providerPub *bn254.G1Affine,
-	bidPub *bn254.G1Affine,
-	sharedSec *bn254.G1Affine,
-	a *bn254.G1Affine,
-	a2 *bn254.G1Affine,
-	// providerPubX, providerPubY *big.Int,
-	// bidPubX, bidPubY *big.Int,
-	// sharedSecX, sharedSecY *big.Int,
-	// aX, aY *big.Int,
-	// aX2, aY2 *big.Int,
+	providerPub, bidPub, sharedSec, a, a2 *bn254.G1Affine,
 ) (fr.Element, error) {
 	ctxHash := crypto.Keccak256Hash(contextHash)
 	ctxHashBytes := ctxHash.Bytes()

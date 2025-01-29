@@ -92,8 +92,8 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, ErrMissingRequiredFields
 	}
 	var (
-		sk *fr.Element
-		pk *bn254.G1Affine
+		sk  *fr.Element
+		pk  *bn254.G1Affine
 		err error
 	)
 	if bid.NikePublicKey == nil {
