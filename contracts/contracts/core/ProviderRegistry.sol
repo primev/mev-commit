@@ -101,7 +101,8 @@ contract ProviderRegistry is
         uint256 amt,
         address provider,
         address payable bidder,
-        uint256 residualBidPercentAfterDecay
+        uint256 residualBidPercentAfterDecay,
+        bytes32 commitmentDigest
     ) external nonReentrant onlyPreconfManager whenNotPaused {
         uint256 residualAmt = (amt * residualBidPercentAfterDecay) / ONE_HUNDRED_PERCENT;
         uint256 penaltyFee = (residualAmt * feePercent) / ONE_HUNDRED_PERCENT;
@@ -117,6 +118,7 @@ contract ProviderRegistry is
         providerStakes[provider] -= residualAmt + penaltyFee;
 
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
+        emit FeePayout.FundsAccumulatedForTreasury(commitmentDigest, penaltyFee, penaltyFeeTracker.accumulatedAmount, penaltyFeeTracker.recipient, bidder, provider);
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
@@ -126,7 +128,7 @@ contract ProviderRegistry is
             bidderSlashedAmount[bidder] += residualAmt;
         }
 
-        emit FundsSlashed(provider, residualAmt + penaltyFee);
+        emit FundsSlashed(provider, residualAmt + penaltyFee, commitmentDigest);
     }
 
     /**

@@ -17,6 +17,16 @@ library FeePayout {
     /// @dev Event emitted when fees are transferred to the recipient.
     event FeeTransfer(uint256 amount, address indexed recipient);
 
+    /// @dev Event emitted when funds are accumulated for the treasury during commitment resolution
+    event FundsAccumulatedForTreasury(
+        bytes32 indexed commitmentDigest,
+        uint256 amount,
+        uint256 totalAccumulated,
+        address recipient,
+        address indexed bidder,
+        address indexed provider
+    );
+
     error FeeRecipientIsZero();
     error PayoutPeriodMustBePositive();
     error TransferToRecipientFailed();

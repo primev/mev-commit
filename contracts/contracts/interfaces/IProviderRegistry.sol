@@ -10,7 +10,7 @@ interface IProviderRegistry {
     event FundsDeposited(address indexed provider, uint256 amount);
 
     /// @dev Event emitted when funds are slashed
-    event FundsSlashed(address indexed provider, uint256 amount);
+    event FundsSlashed(address indexed provider, uint256 amount, bytes32 indexed commitmentDigest);
 
     /// @dev Event emitted when withdrawal is requested
     event Unstake(address indexed provider, uint256 timestamp);
@@ -82,7 +82,8 @@ interface IProviderRegistry {
         uint256 amt,
         address provider,
         address payable bidder,
-        uint256 residualBidPercentAfterDecay
+        uint256 residualBidPercentAfterDecay,
+        bytes32 commitmentDigest
     ) external;
 
     function addVerifiedBLSKey(bytes calldata blsPublicKey, bytes calldata signature) external;
