@@ -93,7 +93,7 @@ job "{{ job.name }}" {
       {% endfor %}
 
       artifact {
-        source = "https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz"
+        source = "https://nodejs.org/dist/v20.18.2/node-v20.18.2-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz"
         options {
           archive = false
         }
@@ -161,7 +161,7 @@ job "{{ job.name }}" {
 
           tar \
             --extract \
-            --file local/node-v18.20.4-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz \
+            --file local/node-v20.18.2-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz \
             --directory /usr/local \
             --strip-components=1
 
