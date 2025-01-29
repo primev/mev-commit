@@ -813,12 +813,6 @@ contract OracleTest is Test {
         bidSignature = abi.encodePacked(r, s, v);
 
         bytes32 commitmentDigest = preconfManager.getPreConfHash(
-            // txnHash,
-            // revertingTxHashes,
-            // bid,
-            // blockNumber,
-            // decayStartTimestamp,
-            // decayEndTimestamp,
             bidHash,
             bidSignature,
             zkproof

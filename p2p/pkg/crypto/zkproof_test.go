@@ -15,8 +15,11 @@ import (
 func TestGenerateAndVerify(t *testing.T) {
 	// 1) Generate secret a, b ∈ [0, p-1]
 	var a, b fr.Element
-	a.SetRandom()
-	b.SetRandom()
+	_, err := a.SetRandom()
+	require.NoError(t, err, "failed to set random a")
+
+	_, err = b.SetRandom()
+	require.NoError(t, err, "failed to set random b")
 
 	// 2) Compute A = g^a, B = g^b
 	//    and then C = B^a
@@ -54,8 +57,10 @@ func TestGenerateAndVerify(t *testing.T) {
 // TestProofTamperedC tries changing the proof.C to ensure it fails.
 func TestProofTamperedC(t *testing.T) {
 	var a, b fr.Element
-	a.SetRandom()
-	b.SetRandom()
+	_, err := a.SetRandom()
+	require.NoError(t, err, "failed to set random a")
+	_, err = b.SetRandom()
+	require.NoError(t, err, "failed to set random b")
 
 	// Setup A, B, C same as above
 	var g1Aff bn254.G1Affine
@@ -91,8 +96,10 @@ func TestProofTamperedC(t *testing.T) {
 // TestProofTamperedZ tries changing the proof.Z to ensure it fails.
 func TestProofTamperedZ(t *testing.T) {
 	var a, b fr.Element
-	a.SetRandom()
-	b.SetRandom()
+	_, err := a.SetRandom()
+	require.NoError(t, err, "failed to set random a")
+	_, err = b.SetRandom()
+	require.NoError(t, err, "failed to set random b")
 
 	// Setup A, B, C
 	var g1Aff bn254.G1Affine
@@ -127,8 +134,10 @@ func TestProofTamperedZ(t *testing.T) {
 // TestProofTamperedContext tries changing the context to ensure it fails.
 func TestProofTamperedContext(t *testing.T) {
 	var a, b fr.Element
-	a.SetRandom()
-	b.SetRandom()
+	_, err := a.SetRandom()
+	require.NoError(t, err, "failed to set random a")
+	_, err = b.SetRandom()
+	require.NoError(t, err, "failed to set random b")
 
 	// Setup A, B, C
 	var g1Aff bn254.G1Affine
@@ -162,7 +171,8 @@ func TestEdgeCases(t *testing.T) {
 	var a fr.Element
 	a.SetZero() // secret key is zero
 	var b fr.Element
-	b.SetRandom()
+	_, err := b.SetRandom()
+	require.NoError(t, err, "failed to set random b")
 
 	var g1Aff bn254.G1Affine
 	g1Aff.X.SetOne()
@@ -193,8 +203,10 @@ func TestEdgeCases(t *testing.T) {
 	// optional: do repeated random pairs
 	for i := 0; i < 3; i++ {
 		var a2, b2 fr.Element
-		a2.SetRandom()
-		b2.SetRandom()
+		_, err = a2.SetRandom()
+		require.NoError(t, err, "failed to set random a2")
+		_, err = b2.SetRandom()
+		require.NoError(t, err, "failed to set random b2")
 
 		var A2, B2, C2 bn254.G1Affine
 		var a2Big, b2Big big.Int
