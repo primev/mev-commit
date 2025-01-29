@@ -242,7 +242,7 @@ func TestFixedPublicKeys(t *testing.T) {
 	sharedC := makeAffinePoint(1, 2)
 
 	// This context is typically hashed in with T1, T2
-	context := []byte("mev-commit opening, mainnet, v1.0")
+	context := []byte("mev-commit opening 31337")
 
 	foundAny := false
 	for kVal := 1; kVal <= 30; kVal++ {

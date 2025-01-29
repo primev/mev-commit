@@ -2,12 +2,11 @@ package crypto
 
 import (
 	"errors"
-	"io"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
-	"golang.org/x/crypto/sha3"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // For BN254, p ~ 2^254, so let l = 253 bits
@@ -135,58 +134,49 @@ func VerifyOptimizedProof(
 //  2. truncate to 253 bits
 //  3. parse as fr.Element
 func ComputeZKChallenge(
-	context []byte,
-	pubA, pubB, sharedC, a1, a2 *bn254.G1Affine,
+	contextHash []byte,
+	providerPub, bidPub, sharedSec, a, a2 *bn254.G1Affine,
 ) (fr.Element, error) {
-	keccak := sha3.New256()
+	ctxHash := crypto.Keccak256Hash(contextHash)
+	ctxHashBytes := ctxHash.Bytes()
 
-	// 1) Write context
-	_, _ = keccak.Write(context)
+	providerPubX, providerPubY := AffineToBigIntXY(providerPub)
+	bidPubX, bidPubY := AffineToBigIntXY(bidPub)
+	sharedSecX, sharedSecY := AffineToBigIntXY(sharedSec)
+	aX, aY := AffineToBigIntXY(a)
+	aX2, aY2 := AffineToBigIntXY(a2)
 
-	// 2) Write pubA, pubB, sharedC, a1, a2 as 2 x 32 bytes each (X, Y)
-	if err := writeAffine(keccak, pubA); err != nil {
-		return fr.Element{}, err
-	}
-	if err := writeAffine(keccak, pubB); err != nil {
-		return fr.Element{}, err
-	}
-	if err := writeAffine(keccak, sharedC); err != nil {
-		return fr.Element{}, err
-	}
-	if err := writeAffine(keccak, a1); err != nil {
-		return fr.Element{}, err
-	}
-	if err := writeAffine(keccak, a2); err != nil {
-		return fr.Element{}, err
-	}
+	// 1) Flatten in the same order as abi.encodePacked.
+	//    We'll manually append each big.Int as 32-byte big-endian,
+	//    then the final keccak256 is your computedChallenge.
+	var buf []byte
 
-	// Finalize
-	hashBytes := keccak.Sum(nil)
+	// a) ZK_CONTEXT_HASH is already 32 bytes
+	buf = append(buf, ctxHashBytes[:]...)
 
-	// Convert to big.Int, truncate to 253 bits
-	hashVal := new(big.Int).SetBytes(hashBytes)
+	// b) For each big.Int, we 0-pad to 32 bytes big-endian
+	buf = append(buf, leftPad32(&providerPubX)...)
+	buf = append(buf, leftPad32(&providerPubY)...)
+	buf = append(buf, leftPad32(&bidPubX)...)
+	buf = append(buf, leftPad32(&bidPubY)...)
+	buf = append(buf, leftPad32(&sharedSecX)...)
+	buf = append(buf, leftPad32(&sharedSecY)...)
+	buf = append(buf, leftPad32(&aX)...)
+	buf = append(buf, leftPad32(&aY)...)
+	buf = append(buf, leftPad32(&aX2)...)
+	buf = append(buf, leftPad32(&aY2)...)
+
+	// 2) keccak256
+	hash := crypto.Keccak256Hash(buf)
+	hashVal := new(big.Int).SetBytes(hash.Bytes())
+
+	// 3) bitmask to 253 bits
 	hashVal.Mod(hashVal, BN254Mask253)
 
-	// Convert into fr.Element
+	// 4) return as fr.Element
 	var challenge fr.Element
 	challenge.SetBigInt(hashVal)
 	return challenge, nil
-}
-
-// writeAffine serializes (X,Y) of a bn254.G1Affine in 32-byte big-endian each.
-func writeAffine(w io.Writer, p *bn254.G1Affine) error {
-	xInt, yInt := AffineToBigIntXY(p)
-
-	xBytes := leftPad32(&xInt)
-	if err := writeAll(w, xBytes); err != nil {
-		return err
-	}
-
-	yBytes := leftPad32(&yInt)
-	if err := writeAll(w, yBytes); err != nil {
-		return err
-	}
-	return nil
 }
 
 // leftPad32 serializes the big.Int as a 32-byte, big-endian slice.
@@ -195,16 +185,4 @@ func leftPad32(x *big.Int) []byte {
 	tmp := x.Bytes()
 	copy(buf[32-len(tmp):], tmp)
 	return buf
-}
-
-// writeAll is like io.WriteFull, ensures we either write all data or return an error.
-func writeAll(w io.Writer, data []byte) error {
-	n, err := w.Write(data)
-	if err != nil {
-		return err
-	}
-	if n < len(data) {
-		return io.ErrShortWrite
-	}
-	return nil
 }

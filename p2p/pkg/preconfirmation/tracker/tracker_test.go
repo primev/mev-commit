@@ -65,6 +65,7 @@ func TestTracker(t *testing.T) {
 		t.Fatal(err)
 	}
 	tracker := preconftracker.NewTracker(
+		big.NewInt(5),
 		p2p.PeerTypeBidder,
 		common.HexToAddress("0x1234"),
 		evtMgr,
@@ -342,6 +343,7 @@ func TestTrackerIgnoreOldBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	tracker := preconftracker.NewTracker(
+		big.NewInt(5),
 		p2p.PeerTypeProvider,
 		common.HexToAddress("0x1234"),
 		evtMgr,

@@ -31,6 +31,7 @@ const (
 )
 
 type Tracker struct {
+	ctxChainIDData  []byte
 	peerType        p2p.PeerType
 	self            common.Address
 	evtMgr          events.EventManager
@@ -84,6 +85,7 @@ type PreconfContract interface {
 }
 
 func NewTracker(
+	chainID *big.Int,
 	peerType p2p.PeerType,
 	self common.Address,
 	evtMgr events.EventManager,
@@ -96,6 +98,7 @@ func NewTracker(
 	logger *slog.Logger,
 ) *Tracker {
 	return &Tracker{
+		ctxChainIDData:  []byte(fmt.Sprintf("mev-commit opening %s", chainID.String())),
 		peerType:        peerType,
 		self:            self,
 		evtMgr:          evtMgr,

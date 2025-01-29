@@ -13,6 +13,7 @@ import {PreconfManagerStorage} from "./PreconfManagerStorage.sol";
 import {WindowFromBlockNumber} from "../utils/WindowFromBlockNumber.sol";
 import {Errors} from "../utils/Errors.sol";
 import {BN128} from "../utils/BN128.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title PreconfManager - A contract for managing preconfirmation commitments and bids.
@@ -47,8 +48,7 @@ contract PreconfManager is
     bytes public constant HEXCHARS = "0123456789abcdef";
 
     // zk proof related contstants
-    bytes32 public constant ZK_CONTEXT_HASH =
-        keccak256("mev-commit opening, mainnet, v1.0");
+    bytes32 public zkContextHash;
     uint256 private constant _GX = 1;
     uint256 private constant _GY = 2;
     uint256 private constant _BN254_MASK_253 = (1 << 253) - 1;
@@ -112,6 +112,10 @@ contract PreconfManager is
                 chainId,
                 address(this)
             )
+        );
+
+        zkContextHash = keccak256(
+            abi.encodePacked("mev-commit opening ", Strings.toString(chainId))
         );
     }
 
@@ -702,7 +706,7 @@ contract PreconfManager is
         // 3. Recompute c' by hashing the context + all relevant points
         bytes32 computedChallenge = keccak256(
             abi.encodePacked(
-                ZK_CONTEXT_HASH,
+                zkContextHash,
                 zkProof[0],
                 zkProof[1],
                 zkProof[2],

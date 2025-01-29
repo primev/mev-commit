@@ -396,6 +396,7 @@ func NewNode(opts *Options) (*Node, error) {
 			}
 		}
 		tracker := preconftracker.NewTracker(
+			chainID,
 			peerType,
 			opts.KeySigner.GetAddress(),
 			evtMgr,
