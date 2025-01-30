@@ -41,7 +41,6 @@ func GenerateOptimizedProof(
 	context []byte,
 ) (Proof, error) {
 	// 1) sample random k in [0, p-1]
-	// You can also use fr.Element.SetRandom, but let's demonstrate an explicit random read.
 	var k fr.Element
 	if _, err := k.SetRandom(); err != nil {
 		return Proof{}, err
