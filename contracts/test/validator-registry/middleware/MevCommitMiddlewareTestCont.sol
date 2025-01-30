@@ -55,12 +55,22 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mockDelegator1.setType(networkRestakeDelegatorType);
         mockDelegator2.setType(networkRestakeDelegatorType);
 
+        vm.prank(address(mockDelegator1));
+        delegatorFactoryMock.register();
+        vm.prank(address(mockDelegator2));
+        delegatorFactoryMock.register();
+
         uint64 instantSlasherType = 0;
         uint64 vetoSlasherType = 1;
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
         uint256 vetoDuration = 5 hours;
         MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware));
+
+        vm.prank(address(mockSlasher1));
+        slasherFactoryMock.register();
+        vm.prank(address(mockSlasher2));
+        slasherFactoryMock.register();
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
@@ -136,12 +146,22 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         mockDelegator1.setType(networkRestakeDelegatorType);
         mockDelegator2.setType(networkRestakeDelegatorType);
 
+        vm.prank(address(mockDelegator1));
+        delegatorFactoryMock.register();
+        vm.prank(address(mockDelegator2));
+        delegatorFactoryMock.register();
+
         uint64 instantSlasherType = 0;
         uint64 vetoSlasherType = 1;
 
         MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
         uint256 vetoDuration = 5 hours;
         MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware));
+
+        vm.prank(address(mockSlasher1));
+        slasherFactoryMock.register();
+        vm.prank(address(mockSlasher2));
+        slasherFactoryMock.register();
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));

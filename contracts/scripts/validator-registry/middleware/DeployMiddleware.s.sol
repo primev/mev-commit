@@ -11,15 +11,18 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {INetworkRegistry} from "symbiotic-core/interfaces/INetworkRegistry.sol";
-import {SymbioticHoleskyDevnetConsts} from "./ReleaseAddrConsts.s.sol";
+import {SymbioticHoleskyDevnetConsts, SymbioticMainnetConsts} from "./ReleaseAddrConsts.s.sol";
 import {IBaseDelegator} from "symbiotic-core/interfaces/delegator/IBaseDelegator.sol";
 import {INetworkMiddlewareService} from "symbiotic-core/interfaces/service/INetworkMiddlewareService.sol";
+import {MainnetConstants} from "../../MainnetConstants.sol";
 
 contract BaseDeploy is Script {
     function deployMevCommitMiddleware(
         IRegistry networkRegistry,
         IRegistry operatorRegistry,
         IRegistry vaultFactory,
+        IRegistry delegatorFactory,
+        IRegistry slasherFactory,
         IRegistry burnerRouterFactory,
         address network,
         uint256 slashPeriodSeconds,
@@ -35,6 +38,8 @@ contract BaseDeploy is Script {
                 networkRegistry, 
                 operatorRegistry, 
                 vaultFactory, 
+                delegatorFactory,
+                slasherFactory,
                 burnerRouterFactory,
                 network, 
                 slashPeriodSeconds,
@@ -51,11 +56,51 @@ contract BaseDeploy is Script {
     }
 }
 
+contract DeployMainnet is BaseDeploy {
+    IRegistry constant public NETWORK_REGISTRY = IRegistry(SymbioticMainnetConsts.NETWORK_REGISTRY);
+    IRegistry constant public OPERATOR_REGISTRY = IRegistry(SymbioticMainnetConsts.OPERATOR_REGISTRY);
+    IRegistry constant public VAULT_FACTORY = IRegistry(SymbioticMainnetConsts.VAULT_FACTORY);
+    IRegistry constant public DELEGATOR_FACTORY = IRegistry(SymbioticMainnetConsts.DELEGATOR_FACTORY);
+    IRegistry constant public SLASHER_FACTORY = IRegistry(SymbioticMainnetConsts.SLASHER_FACTORY);
+    IRegistry constant public BURNER_ROUTER_FACTORY = IRegistry(SymbioticMainnetConsts.BURNER_ROUTER_FACTORY);
+
+    address constant public OWNER = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    address constant public NETWORK = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    uint256 constant public SLASH_PERIOD_SECONDS = 1 days;
+    address constant public SLASH_ORACLE = MainnetConstants.PRIMEV_TEAM_MULTISIG;
+    address constant public SLASH_RECEIVER = MainnetConstants.COMMITMENT_HOLDINGS_MULTISIG;
+    uint256 constant public MIN_BURNER_ROUTER_DELAY = 2 days;
+
+    function run() external {
+        require(block.chainid == 1, "must deploy on mainnet");
+        vm.startBroadcast();
+
+        deployMevCommitMiddleware(
+            NETWORK_REGISTRY, 
+            OPERATOR_REGISTRY, 
+            VAULT_FACTORY, 
+            DELEGATOR_FACTORY,
+            SLASHER_FACTORY,
+            BURNER_ROUTER_FACTORY,
+            NETWORK, 
+            SLASH_PERIOD_SECONDS, 
+            SLASH_ORACLE, 
+            SLASH_RECEIVER,
+            MIN_BURNER_ROUTER_DELAY,
+            OWNER
+        );
+
+        vm.stopBroadcast();
+    }
+}
+
 contract DeployHolesky is BaseDeploy {
 
     IRegistry constant public NETWORK_REGISTRY = IRegistry(SymbioticHoleskyDevnetConsts.NETWORK_REGISTRY);
     IRegistry constant public OPERATOR_REGISTRY = IRegistry(SymbioticHoleskyDevnetConsts.OPERATOR_REGISTRY);
     IRegistry constant public VAULT_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.VAULT_FACTORY);
+    IRegistry constant public DELEGATOR_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.DELEGATOR_FACTORY);
+    IRegistry constant public SLASHER_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.SLASHER_FACTORY);
     IRegistry constant public BURNER_ROUTER_FACTORY = IRegistry(SymbioticHoleskyDevnetConsts.BURNER_ROUTER_FACTORY);
 
     // On Holesky, use dev keystore account. On mainnet these will be the primev multisig.
@@ -85,6 +130,8 @@ contract DeployHolesky is BaseDeploy {
             NETWORK_REGISTRY, 
             OPERATOR_REGISTRY, 
             VAULT_FACTORY, 
+            DELEGATOR_FACTORY,
+            SLASHER_FACTORY,
             BURNER_ROUTER_FACTORY,
             NETWORK, 
             SLASH_PERIOD_SECONDS, 

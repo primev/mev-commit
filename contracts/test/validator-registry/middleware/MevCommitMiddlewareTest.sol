@@ -23,6 +23,8 @@ contract MevCommitMiddlewareTest is Test {
     RegistryMock public networkRegistryMock;
     RegistryMock public operatorRegistryMock;
     RegistryMock public vaultFactoryMock;
+    RegistryMock public delegatorFactoryMock;
+    RegistryMock public slasherFactoryMock;
     RegistryMock public burnerRouterFactoryMock;
     address public network;
     uint256 public slashPeriodSeconds;
@@ -76,6 +78,8 @@ contract MevCommitMiddlewareTest is Test {
         networkRegistryMock = new RegistryMock();
         operatorRegistryMock = new RegistryMock();
         vaultFactoryMock = new RegistryMock();
+        delegatorFactoryMock = new RegistryMock();
+        slasherFactoryMock = new RegistryMock();
         burnerRouterFactoryMock = new RegistryMock();
 
         network = vm.addr(0x1);
@@ -95,6 +99,8 @@ contract MevCommitMiddlewareTest is Test {
                 IRegistry(networkRegistryMock), 
                 IRegistry(operatorRegistryMock), 
                 IRegistry(vaultFactoryMock), 
+                IRegistry(delegatorFactoryMock),
+                IRegistry(slasherFactoryMock),
                 IRegistry(burnerRouterFactoryMock),
                 network, 
                 slashPeriodSeconds,
@@ -580,6 +586,17 @@ contract MevCommitMiddlewareTest is Test {
 
         vm.prank(owner);
         vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.DelegatorNotEntity.selector, address(mockDelegator1), address(delegatorFactoryMock))
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        vm.prank(address(mockDelegator1));
+        delegatorFactoryMock.register();
+        vm.prank(address(mockDelegator2));
+        delegatorFactoryMock.register();
+
+        vm.prank(owner);
+        vm.expectRevert(
             abi.encodeWithSelector(IMevCommitMiddleware.UnknownDelegatorType.selector, vault1, 15)
         );
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
@@ -613,6 +630,17 @@ contract MevCommitMiddlewareTest is Test {
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMevCommitMiddleware.SlasherNotEntity.selector, address(mockSlasher1), address(slasherFactoryMock))
+        );
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        vm.prank(address(mockSlasher1));
+        slasherFactoryMock.register();
+        vm.prank(address(mockSlasher2));
+        slasherFactoryMock.register();
 
         vm.prank(owner);
         vm.expectRevert(

@@ -343,7 +343,7 @@ func (u *Updater) handleOpenedCommitment(
 		return err
 	}
 	// Compute the decay percentage
-	decayPercentage := u.computeDecayPercentage(
+	residualPercentage := u.computeResidualAfterDecay(
 		update.DecayStartTimeStamp,
 		update.DecayEndTimeStamp,
 		update.DispatchTimestamp,
@@ -382,7 +382,7 @@ func (u *Updater) handleOpenedCommitment(
 				ctx,
 				update,
 				SettlementTypeSlash,
-				decayPercentage,
+				residualPercentage,
 				winner.Window,
 			)
 		}
@@ -392,7 +392,7 @@ func (u *Updater) handleOpenedCommitment(
 		ctx,
 		update,
 		SettlementTypeReward,
-		decayPercentage,
+		residualPercentage,
 		winner.Window,
 	)
 }
@@ -401,7 +401,7 @@ func (u *Updater) settle(
 	ctx context.Context,
 	update *preconf.PreconfmanagerOpenedCommitmentStored,
 	settlementType SettlementType,
-	decayPercentage int64,
+	residualPercentage *big.Int,
 	window int64,
 ) error {
 	commitmentPostingTxn, err := u.oracle.ProcessBuilderCommitmentForBlockNumber(
@@ -409,7 +409,7 @@ func (u *Updater) settle(
 		big.NewInt(0).SetUint64(update.BlockNumber),
 		update.Committer,
 		settlementType == SettlementTypeSlash,
-		big.NewInt(decayPercentage),
+		residualPercentage,
 	)
 	if err != nil {
 		u.logger.Error(
@@ -426,14 +426,14 @@ func (u *Updater) settle(
 		"settlementType", settlementType,
 		"txnHash", commitmentPostingTxn.Hash().Hex(),
 		"nonce", commitmentPostingTxn.Nonce(),
-		"decayPercentage", decayPercentage,
+		"residualPercentage", residualPercentage,
 	)
 	u.metrics.LastSentNonce.Set(float64(commitmentPostingTxn.Nonce()))
 	return u.addSettlement(
 		ctx,
 		update,
 		settlementType,
-		decayPercentage,
+		residualPercentage.Int64(),
 		window,
 		commitmentPostingTxn.Hash().Bytes(),
 		commitmentPostingTxn.Nonce(),
@@ -582,10 +582,10 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 // computeDecayPercentage takes startTimestamp, endTimestamp, commitTimestamp and computes a linear decay percentage
 // The computation does not care what format the timestamps are in, as long as they are consistent
 // (e.g they could be unix or unixMili timestamps)
-func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTimestamp uint64) int64 {
+func (u *Updater) computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uint64) *big.Int {
 	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
 		u.logger.Debug("timestamp out of range", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
-		return 0
+		return big.NewInt(0)
 	}
 
 	// Calculate the total time in seconds
@@ -594,10 +594,12 @@ func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTim
 	timePassed := commitTimestamp - startTimestamp
 	// Calculate the decay percentage
 	decayPercentage := float64(timePassed) / float64(totalTime)
+	// Residual value
+	residual := 1 - decayPercentage
 
-	decayPercentageRound := int64(math.Round(decayPercentage * ONE_HUNDRED_PERCENT))
-	if decayPercentageRound > ONE_HUNDRED_PERCENT {
-		decayPercentageRound = ONE_HUNDRED_PERCENT
+	residualPercentageRound := math.Round(residual * ONE_HUNDRED_PERCENT)
+	if residualPercentageRound > ONE_HUNDRED_PERCENT {
+		residualPercentageRound = ONE_HUNDRED_PERCENT
 	}
 	u.logger.Debug("decay information",
 		"startTimestamp", startTimestamp,
@@ -606,6 +608,7 @@ func (u *Updater) computeDecayPercentage(startTimestamp, endTimestamp, commitTim
 		"totalTime", totalTime,
 		"timePassed", timePassed,
 		"decayPercentage", decayPercentage,
+		"residual", residual,
 	)
-	return decayPercentageRound
+	return big.NewInt(int64(residualPercentageRound))
 }
