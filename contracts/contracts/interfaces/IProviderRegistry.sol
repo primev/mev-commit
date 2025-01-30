@@ -44,7 +44,8 @@ interface IProviderRegistry {
         address indexed provider,
         uint256 providerStake,
         uint256 residualAmount,
-        uint256 penaltyFee
+        uint256 penaltyFee,
+        uint256 slashAmount
     );
 
     /// @dev Event emitted when transfer to bidder fails
@@ -80,6 +81,7 @@ interface IProviderRegistry {
 
     function slash(
         uint256 amt,
+        uint256 slashAmount,
         address provider,
         address payable bidder,
         uint256 residualBidPercentAfterDecay

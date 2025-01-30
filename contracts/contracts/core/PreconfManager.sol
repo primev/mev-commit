@@ -411,6 +411,7 @@ contract PreconfManager is
 
         providerRegistry.slash(
             commitment.bidAmt,
+            commitment.slashAmount,
             commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
