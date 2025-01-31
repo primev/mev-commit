@@ -105,6 +105,7 @@ func TestTracker(t *testing.T) {
 				Bid: &preconfpb.Bid{
 					TxHash:              common.HexToHash(fmt.Sprintf("0x%x", i)).String(),
 					BidAmount:           "1000",
+					SlashAmount:         "0",
 					BlockNumber:         getBlockNum(i),
 					DecayStartTimestamp: 1,
 					DecayEndTimestamp:   2,
@@ -148,12 +149,17 @@ func TestTracker(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to parse bid amount %s", commitments[4].PreConfirmation.Bid.BidAmount)
 	}
+	slashAmount, ok := new(big.Int).SetString(commitments[4].PreConfirmation.Bid.SlashAmount, 10)
+	if !ok {
+		t.Fatalf("failed to parse slash amount %s", commitments[4].PreConfirmation.Bid.SlashAmount)
+	}
 	// this commitment should not be opened again
 	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerOpenedCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
 		BidAmt:              amount,
+		SlashAmount:         slashAmount,
 		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
 		BidHash:             common.BytesToHash(commitments[4].PreConfirmation.Bid.Digest),
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
@@ -388,6 +394,7 @@ type openedCommitment struct {
 	blockNumber              uint64
 	txnHash                  string
 	revertingTxHashes        string
+	slashAmount              *big.Int
 	decayStartTimeStamp      uint64
 	decayEndTimeStamp        uint64
 	bidSignature             []byte
@@ -400,26 +407,28 @@ type testPreconfContract struct {
 
 func (t *testPreconfContract) OpenCommitment(
 	_ *bind.TransactOpts,
-	encryptedCommitmentIndex [32]byte,
-	bid *big.Int,
-	blockNumber uint64,
-	txnHash string,
-	revertingTxHashes string,
-	decayStartTimeStamp uint64,
-	decayEndTimeStamp uint64,
-	bidSignature []byte,
-	sharedSecretKey []byte,
+	params preconf.IPreconfManagerOpenCommitmentParams,
+	// encryptedCommitmentIndex [32]byte,
+	// bid *big.Int,
+	// blockNumber uint64,
+	// txnHash string,
+	// revertingTxHashes string,
+	// decayStartTimeStamp uint64,
+	// decayEndTimeStamp uint64,
+	// bidSignature []byte,
+	// sharedSecretKey []byte,
 ) (*types.Transaction, error) {
 	t.openedCommitments <- openedCommitment{
-		encryptedCommitmentIndex: encryptedCommitmentIndex,
-		bid:                      bid,
-		blockNumber:              blockNumber,
-		txnHash:                  txnHash,
-		revertingTxHashes:        revertingTxHashes,
-		decayStartTimeStamp:      decayStartTimeStamp,
-		decayEndTimeStamp:        decayEndTimeStamp,
-		bidSignature:             bidSignature,
-		sharedSecretKey:          sharedSecretKey,
+		encryptedCommitmentIndex: params.UnopenedCommitmentIndex,
+		bid:                      params.BidAmt,
+		blockNumber:              params.BlockNumber,
+		txnHash:                  params.TxnHash,
+		revertingTxHashes:        params.RevertingTxHashes,
+		slashAmount:              params.SlashAmount,
+		decayStartTimeStamp:      params.DecayStartTimeStamp,
+		decayEndTimeStamp:        params.DecayEndTimeStamp,
+		bidSignature:             params.BidSignature,
+		sharedSecretKey:          params.SharedSecretKey,
 	}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }
@@ -487,6 +496,7 @@ func publishOpenedCommitment(
 		c.BidHash,
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,
+		c.SlashAmount,
 		c.TxnHash,
 		c.RevertingTxHashes,
 		c.CommitmentDigest,

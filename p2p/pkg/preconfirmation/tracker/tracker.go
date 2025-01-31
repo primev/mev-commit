@@ -63,18 +63,25 @@ type CommitmentStore interface {
 	BlockWinners() ([]*store.BlockWinner, error)
 }
 
+// type PreconfContract interface {
+// 	OpenCommitment(
+// 		opts *bind.TransactOpts,
+// 		encryptedCommitmentIndex [32]byte,
+// 		bidAmt *big.Int,
+// 		blockNumber uint64,
+// 		txnHash string,
+// 		revertingTxHashes string,
+// 		decayStartTimeStamp uint64,
+// 		decayEndTimeStamp uint64,
+// 		bidSignature []byte,
+// 		sharedSecretKey []byte,
+// 	) (*types.Transaction, error)
+// }
+
 type PreconfContract interface {
 	OpenCommitment(
 		opts *bind.TransactOpts,
-		encryptedCommitmentIndex [32]byte,
-		bidAmt *big.Int,
-		blockNumber uint64,
-		txnHash string,
-		revertingTxHashes string,
-		decayStartTimeStamp uint64,
-		decayEndTimeStamp uint64,
-		bidSignature []byte,
-		sharedSecretKey []byte,
+		params preconfcommstore.IPreconfManagerOpenCommitmentParams,
 	) (*types.Transaction, error)
 }
 
@@ -394,24 +401,45 @@ func (t *Tracker) openCommitments(
 			continue
 		}
 
+		slashAmount, ok := new(big.Int).SetString(commitment.Bid.SlashAmount, 10)
+		if !ok {
+			t.logger.Error("failed to parse slash amount", "slashAmount", commitment.Bid.SlashAmount)
+			continue
+		}
+
 		opts, err := t.optsGetter(ctx)
 		if err != nil {
 			t.logger.Error("failed to get transact opts", "error", err)
 			continue
 		}
 
+		// txn, err := t.preconfContract.OpenCommitment(
+		// 	opts,
+		// 	commitmentIdx,
+		// 	bidAmt,
+		// 	uint64(commitment.PreConfirmation.Bid.BlockNumber),
+		// 	commitment.PreConfirmation.Bid.TxHash,
+		// 	commitment.PreConfirmation.Bid.RevertingTxHashes,
+		// 	uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
+		// 	uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
+		// 	commitment.PreConfirmation.Bid.Signature,
+		// 	commitment.PreConfirmation.SharedSecret,
+		// )
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
-			commitmentIdx,
-			bidAmt,
-			uint64(commitment.PreConfirmation.Bid.BlockNumber),
-			commitment.PreConfirmation.Bid.TxHash,
-			commitment.PreConfirmation.Bid.RevertingTxHashes,
-			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
-			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
-			commitment.PreConfirmation.Bid.Signature,
-			commitment.PreConfirmation.SharedSecret,
-		)
+			preconfcommstore.IPreconfManagerOpenCommitmentParams{
+				UnopenedCommitmentIndex: commitmentIdx,
+				BidAmt:                  bidAmt,
+				BlockNumber:             uint64(commitment.PreConfirmation.Bid.BlockNumber),
+				TxnHash:                 commitment.PreConfirmation.Bid.TxHash,
+				RevertingTxHashes:       commitment.PreConfirmation.Bid.RevertingTxHashes,
+				DecayStartTimeStamp:     uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
+				DecayEndTimeStamp:       uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
+				SlashAmount:             slashAmount,
+				BidSignature:            commitment.PreConfirmation.Bid.Signature,
+				SharedSecretKey:         commitment.PreConfirmation.SharedSecret,
+			})
+
 		if err != nil {
 			t.logger.Error("failed to open commitment", "error", err)
 			continue

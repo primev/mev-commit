@@ -188,6 +188,11 @@
         "name": "_decayEndTimeStamp",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "_slashAmount",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -239,6 +244,11 @@
             "name": "decayEndTimeStamp",
             "type": "uint64",
             "internalType": "uint64"
+          },
+          {
+            "name": "slashAmount",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "dispatchTimestamp",
@@ -328,6 +338,11 @@
             "name": "decayEndTimeStamp",
             "type": "uint64",
             "internalType": "uint64"
+          },
+          {
+            "name": "slashAmount",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "dispatchTimestamp",
@@ -424,6 +439,11 @@
         "name": "_decayEndTimeStamp",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "_slashAmount",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "_bidHash",
@@ -640,49 +660,61 @@
     "name": "openCommitment",
     "inputs": [
       {
-        "name": "unopenedCommitmentIndex",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "bidAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "sharedSecretKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct IPreconfManager.OpenCommitmentParams",
+        "components": [
+          {
+            "name": "unopenedCommitmentIndex",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "bidAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "decayStartTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayEndTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "slashAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "bidSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "sharedSecretKey",
+            "type": "bytes",
+            "internalType": "bytes"
+          }
+        ]
       }
     ],
     "outputs": [
@@ -729,6 +761,11 @@
         "name": "decayEndTimeStamp",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "slashAmount",
+        "type": "uint256",
+        "internalType": "uint256"
       },
       {
         "name": "dispatchTimestamp",
@@ -1090,6 +1127,11 @@
         "internalType": "uint64"
       },
       {
+        "name": "slashAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "txnHash",
         "type": "string",
         "internalType": "string"
@@ -1157,6 +1199,11 @@
             "name": "decayEndTimeStamp",
             "type": "uint64",
             "internalType": "uint64"
+          },
+          {
+            "name": "slashAmount",
+            "type": "uint256",
+            "internalType": "uint256"
           },
           {
             "name": "bidHash",
@@ -1298,6 +1345,12 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      },
+      {
+        "name": "slashAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "txnHash",
@@ -1447,6 +1500,12 @@
         "name": "bidAmt",
         "type": "uint256",
         "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "slashAmount",
+        "type": "uint256",
+        "indexed": false,
         "internalType": "uint256"
       },
       {

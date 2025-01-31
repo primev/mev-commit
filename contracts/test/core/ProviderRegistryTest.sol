@@ -35,7 +35,8 @@ contract ProviderRegistryTest is Test {
         address indexed provider,
         uint256 providerStake,
         uint256 residualAmt,
-        uint256 penaltyFee
+        uint256 penaltyFee,
+        uint256 slashAmount
     );
 
     function setUp() public {
@@ -308,7 +309,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(address(this));
 
         vm.expectEmit(true, true, true, true);
-        emit InsufficientFundsToSlash(provider, 2 ether, 3 ether, 0.3 ether);
+        emit InsufficientFundsToSlash(provider, 2 ether, 3 ether, 0.3 ether, 0);
         providerRegistry.slash(3 ether, 0, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
@@ -328,7 +329,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(address(this));
 
         vm.expectEmit(true, true, true, true);
-        emit InsufficientFundsToSlash(provider, 3 ether, 3 ether, 0.3 ether);
+        emit InsufficientFundsToSlash(provider, 3 ether, 3 ether, 0.3 ether, 0);
         providerRegistry.slash(3 ether, 0, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0);
@@ -348,7 +349,7 @@ contract ProviderRegistryTest is Test {
         vm.prank(address(this));
 
         vm.expectEmit(true, true, true, true);
-        emit InsufficientFundsToSlash(provider, 3.1 ether, 3 ether, 0.3 ether);
+        emit InsufficientFundsToSlash(provider, 3.1 ether, 3 ether, 0.3 ether, 0);
         providerRegistry.slash(3 ether, 0, provider, payable(bidder), providerRegistry.ONE_HUNDRED_PERCENT());
 
         assertEq(providerRegistry.getAccumulatedPenaltyFee(), 0.1 ether);

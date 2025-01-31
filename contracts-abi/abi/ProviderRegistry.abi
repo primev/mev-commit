@@ -576,6 +576,11 @@
         "internalType": "uint256"
       },
       {
+        "name": "slashAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
         "name": "provider",
         "type": "address",
         "internalType": "address"
@@ -879,6 +884,12 @@
       },
       {
         "name": "penaltyFee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "slashAmount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
