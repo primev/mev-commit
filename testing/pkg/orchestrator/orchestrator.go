@@ -19,6 +19,7 @@ import (
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
+	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
@@ -51,6 +52,7 @@ type Node interface {
 
 	EthAddress() string
 	DebugAPI() debugapiv1.DebugServiceClient
+	NotificationsAPI() notificationsapiv1.NotificationsClient
 }
 
 type Provider interface {
@@ -94,6 +96,10 @@ func (n *node) EthAddress() string {
 
 func (n *node) DebugAPI() debugapiv1.DebugServiceClient {
 	return debugapiv1.NewDebugServiceClient(n.conn)
+}
+
+func (n *node) NotificationsAPI() notificationsapiv1.NotificationsClient {
+	return notificationsapiv1.NewNotificationsClient(n.conn)
 }
 
 func (n *node) ProviderAPI() providerapiv1.ProviderClient {

@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package notificationsapi.v1;
+
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Notifications API";
+    version: "1.0.0-alpha";
+    license: {
+      name: "Business Source License 1.1";
+      url: "https://github.com/primev/mev-commit/blob/main/LICENSE";
+    };
+  };
+};
+
+service Notifications {
+    // Subscribe
+    //
+    // Subscribe to notifications for given topics. The client will receive
+    // notifications for the topics it has subscribed to. The client can
+    // subscribe to multiple topics.
+    rpc Subscribe(SubscribeRequest) returns (stream Notification) {
+        option (google.api.http) = {
+            post: "/v1/subscribe";
+            body: "*";
+        };
+    }
+};
+
+message SubscribeRequest {
+    // Topics to subscribe to
+    repeated string topics = 1;
+};
+
+message Notification {
+    // Topic of the notification
+    string topic = 1;
+    // Message of the notification
+    google.protobuf.Struct value = 2;
+};
