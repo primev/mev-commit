@@ -287,9 +287,9 @@ message Bid {
     json_schema: {
       title: "Bid message"
       description: "Unsigned bid message from bidders to the bidder mev-commit node."
-      required: ["amount", "block_number", "decay_start_timestamp", "decay_end_timestamp"]
+      required: ["amount", "block_number", "decay_start_timestamp", "decay_end_timestamp", "slash_amount"]
     }
-    example: "{\"tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"block_number\": 123456, \"decay_start_timestamp\": 1630000000, \"decay_end_timestamp\": 1630000000, \"reverting_tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\"]}"
+    example: "{\"tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\", \"71c1348f2d7ff7e814f9c3617983703435ea7446de420aeac488bf1de35737e8\"], \"amount\": \"1000000000000000000\", \"block_number\": 123456, \"decay_start_timestamp\": 1630000000, \"decay_end_timestamp\": 1630000000, \"reverting_tx_hashes\": [\"fe4cb47db3630551beedfbd02a71ecc69fd59758e2ba699606e2d5c74284ffa7\"], \"slash_amount\": \"500000000000000000\"}"
   };
   repeated string tx_hashes = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Hex string encoding of the hashes of the transactions that the bidder wants to include in the block."
@@ -342,6 +342,14 @@ message Bid {
       message: "raw_transactions must be an array of valid raw transactions.",
       expression: "this.all(r, r.matches('^(0x)?[a-fA-F0-9]*$'))"
   }];
+  string slash_amount = 8 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing."
+    pattern: "[0-9]+"
+  }, (buf.validate.field).cel = {
+      id: "slash_amount",
+      message: "slash_amount must be a valid integer.",
+      expression: "this.matches('^[0-9]+$') && uint(this) >= 0"
+  }];
 };
 
 message Commitment {
@@ -381,5 +389,8 @@ message Commitment {
   }];
   repeated string reverting_tx_hashes = 12 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
     description: "Optional array of tx hashes that are allowed to revert or be discarded."
+  }];
+  string slash_amount = 13 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+    description: "Amount of ETH that will be slashed from the provider if they fail to include the transaction."
   }];
 };

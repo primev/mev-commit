@@ -447,6 +447,7 @@ func TestSendBid(t *testing.T) {
 		blockNum            int64
 		decayStartTimestamp int64
 		decayEndTimestamp   int64
+		slashAmount         string
 		err                 string
 	}
 
@@ -458,6 +459,7 @@ func TestSendBid(t *testing.T) {
 			blockNum:            1,
 			decayStartTimestamp: 10,
 			decayEndTimestamp:   20,
+			slashAmount:         "0",
 			err:                 "tx_hashes must be a valid array of transaction hashes",
 		},
 		{
@@ -467,6 +469,7 @@ func TestSendBid(t *testing.T) {
 			blockNum:            1,
 			decayStartTimestamp: 10,
 			decayEndTimestamp:   20,
+			slashAmount:         "0",
 			err:                 "empty bid",
 		},
 		{
@@ -476,6 +479,7 @@ func TestSendBid(t *testing.T) {
 			blockNum:            1,
 			decayStartTimestamp: 10,
 			decayEndTimestamp:   20,
+			slashAmount:         "0",
 			err:                 "amount must be a valid integer",
 		},
 		{
@@ -485,6 +489,7 @@ func TestSendBid(t *testing.T) {
 			blockNum:            0,
 			decayStartTimestamp: 10,
 			decayEndTimestamp:   20,
+			slashAmount:         "0",
 			err:                 "block_number must be a valid integer",
 		},
 		{
@@ -494,6 +499,7 @@ func TestSendBid(t *testing.T) {
 			blockNum:            1,
 			decayStartTimestamp: 10,
 			decayEndTimestamp:   20,
+			slashAmount:         "0",
 			err:                 "",
 		},
 		{
@@ -503,6 +509,7 @@ func TestSendBid(t *testing.T) {
 			blockNum:            1,
 			decayStartTimestamp: 10,
 			decayEndTimestamp:   20,
+			slashAmount:         "0",
 			err:                 "",
 		},
 	} {
@@ -514,6 +521,7 @@ func TestSendBid(t *testing.T) {
 				DecayStartTimestamp: tc.decayStartTimestamp,
 				DecayEndTimestamp:   tc.decayEndTimestamp,
 				RevertingTxHashes:   []string{},
+				SlashAmount:         tc.slashAmount,
 			})
 			if err != nil {
 				t.Fatalf("error sending bid: %v", err)
