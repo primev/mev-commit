@@ -438,6 +438,14 @@ var (
 		Value:    10,
 		Category: categoryEthRPC,
 	})
+
+	optionNotificationsBuffer = altsrc.NewIntFlag(&cli.IntFlag{
+		Name:     "notifications-buffer-capacity",
+		Usage:    "Buffer capacity for notifications",
+		EnvVars:  []string{"MEV_COMMIT_NOTIFICATIONS_BUFFER"},
+		Value:    100,
+		Category: categoryGlobal,
+	})
 )
 
 func main() {
@@ -481,6 +489,8 @@ func main() {
 		optionOTelCollectorEndpointURL,
 		optionBidderBidTimeout,
 		optionProviderDecisionTimeout,
+		optionNotificationsBuffer,
+		optionLaggardMode,
 	}
 
 	app := &cli.App{
@@ -660,6 +670,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		LaggardMode:              big.NewInt(int64(c.Int(optionLaggardMode.Name))),
 		BidderBidTimeout:         c.Duration(optionBidderBidTimeout.Name),
 		ProviderDecisionTimeout:  c.Duration(optionProviderDecisionTimeout.Name),
+		NotificationsBufferCap:   c.Int(optionNotificationsBuffer.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
