@@ -1,0 +1,85 @@
+swagger: "2.0"
+info:
+  title: Notifications API
+  version: 1.0.0-alpha
+  license:
+    name: Business Source License 1.1
+    url: https://github.com/primev/mev-commit/blob/main/LICENSE
+consumes:
+  - application/json
+produces:
+  - application/json
+paths:
+  /v1/subscribe:
+    post:
+      summary: Subscribe
+      description: |-
+        Subscribe to notifications for given topics. The client will receive
+        notifications for the topics it has subscribed to. The client can
+        subscribe to multiple topics.
+      operationId: Notifications_Subscribe
+      responses:
+        "200":
+          description: A successful response.(streaming responses)
+          schema:
+            type: object
+            properties:
+              result:
+                $ref: '#/definitions/v1Notification'
+              error:
+                $ref: '#/definitions/googlerpcStatus'
+            title: Stream result of v1Notification
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/v1SubscribeRequest'
+definitions:
+  googlerpcStatus:
+    type: object
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+      details:
+        type: array
+        items:
+          type: object
+          $ref: '#/definitions/protobufAny'
+  protobufAny:
+    type: object
+    properties:
+      '@type':
+        type: string
+    additionalProperties: {}
+  protobufNullValue:
+    type: string
+    description: |-
+      `NullValue` is a singleton enumeration to represent the null value for the
+      `Value` type union.
+
+      The JSON representation for `NullValue` is JSON `null`.
+  v1Notification:
+    type: object
+    properties:
+      topic:
+        type: string
+        title: Topic of the notification
+      value:
+        type: object
+        title: Message of the notification
+  v1SubscribeRequest:
+    type: object
+    properties:
+      topics:
+        type: array
+        items:
+          type: string
+        title: Topics to subscribe to

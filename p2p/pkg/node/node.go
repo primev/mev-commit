@@ -27,6 +27,7 @@ import (
 	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
+	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
@@ -39,6 +40,7 @@ import (
 	"github.com/primev/mev-commit/p2p/pkg/discovery"
 	"github.com/primev/mev-commit/p2p/pkg/keyexchange"
 	"github.com/primev/mev-commit/p2p/pkg/keysstore"
+	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/p2p/libp2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
@@ -47,6 +49,7 @@ import (
 	preconftracker "github.com/primev/mev-commit/p2p/pkg/preconfirmation/tracker"
 	bidderapi "github.com/primev/mev-commit/p2p/pkg/rpc/bidder"
 	debugapi "github.com/primev/mev-commit/p2p/pkg/rpc/debug"
+	notificationsapi "github.com/primev/mev-commit/p2p/pkg/rpc/notifications"
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
@@ -104,12 +107,12 @@ type Options struct {
 	LaggardMode              *big.Int
 	BidderBidTimeout         time.Duration
 	ProviderDecisionTimeout  time.Duration
+	NotificationsBufferCap   int
 }
 
 type Node struct {
-	cancelFunc  context.CancelFunc
-	closers     []io.Closer
-	autoDeposit *autodepositor.AutoDepositTracker
+	cancelFunc context.CancelFunc
+	closers    []io.Closer
 }
 
 func NewNode(opts *Options) (*Node, error) {
@@ -288,7 +291,16 @@ func NewNode(opts *Options) (*Node, error) {
 	}
 	nd.closers = append(nd.closers, p2pSvc)
 
-	topo := topology.New(p2pSvc, opts.Logger.With("component", "topology"))
+	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
+	nd.closers = append(
+		nd.closers,
+		ioCloserFunc(func() error {
+			notificationsSvc.Shutdown()
+			return nil
+		}),
+	)
+
+	topo := topology.New(p2pSvc, notificationsSvc, opts.Logger.With("component", "topology"))
 	disc := discovery.New(topo, p2pSvc, opts.Logger.With("component", "discovery_protocol"))
 	nd.closers = append(nd.closers, disc)
 
@@ -339,6 +351,15 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 
 	debugapiv1.RegisterDebugServiceServer(grpcServer, debugService)
+
+	notificationsRPCService := notificationsapi.NewService(
+		notificationsSvc,
+		opts.Logger.With("component", "notifications"),
+	)
+
+	notificationsapiv1.RegisterNotificationsServer(grpcServer, notificationsRPCService)
+
+	var autoDeposit *autodepositor.AutoDepositTracker
 
 	if opts.PeerType != p2p.PeerTypeBootnode.String() {
 		validator, err := protovalidate.New()
@@ -535,7 +556,7 @@ func NewNode(opts *Options) (*Node, error) {
 
 			autodepositorStore := autodepositorstore.New(store)
 
-			autoDeposit := autodepositor.New(
+			autoDeposit = autodepositor.New(
 				evtMgr,
 				bidderRegistry,
 				blockTrackerSession,
@@ -545,7 +566,13 @@ func NewNode(opts *Options) (*Node, error) {
 				opts.Logger.With("component", "auto_deposit_tracker"),
 			)
 
-			nd.autoDeposit = autoDeposit
+			nd.closers = append(
+				nd.closers,
+				ioCloserFunc(func() error {
+					_, err := autoDeposit.Stop()
+					return err
+				}),
+			)
 
 			bidderAPI := bidderapi.NewService(
 				opts.KeySigner.GetAddress(),
@@ -574,14 +601,18 @@ func NewNode(opts *Options) (*Node, error) {
 				signer.New(),
 				opts.ProviderWhitelist,
 			)
-			topo.SubscribePeer(func(p p2p.Peer) {
-				if p.Type == p2p.PeerTypeProvider {
-					err = keyexchange.SendTimestampMessage()
-					if err != nil {
-						opts.Logger.Error("failed to send timestamp message", "error", err)
+			go func() {
+				sub := notificationsSvc.Subscribe(notifications.TopicPeerConnected)
+				for p := range sub {
+					peerType, ok := p.Value()["type"].(string)
+					if ok && peerType == p2p.PeerTypeProvider.String() {
+						err = keyexchange.SendTimestampMessage()
+						if err != nil {
+							opts.Logger.Error("failed to send timestamp message", "error", err)
+						}
 					}
 				}
-			})
+			}()
 
 			srv.RegisterMetricsCollectors(bidderAPI.Metrics()...)
 		}
@@ -597,8 +628,8 @@ func NewNode(opts *Options) (*Node, error) {
 		nd.closers = append(nd.closers, channelCloserFunc(closeChan))
 	}
 
-	if opts.PeerType == p2p.PeerTypeBidder.String() && opts.AutodepositAmount != nil {
-		err = nd.autoDeposit.Start(ctx, nil, opts.AutodepositAmount)
+	if opts.AutodepositAmount != nil && autoDeposit != nil {
+		err = autoDeposit.Start(ctx, nil, opts.AutodepositAmount)
 		if err != nil {
 			opts.Logger.Error("failed to start auto deposit tracker", "error", err)
 			return nil, errors.Join(err, nd.Close())
@@ -670,6 +701,12 @@ func NewNode(opts *Options) (*Node, error) {
 	err = debugapiv1.RegisterDebugServiceHandler(handlerCtx, gatewayMux, grpcConn)
 	if err != nil {
 		opts.Logger.Error("failed to register debug handler", "err", err)
+		return nil, errors.Join(err, nd.Close())
+	}
+
+	err = notificationsapiv1.RegisterNotificationsHandler(handlerCtx, gatewayMux, grpcConn)
+	if err != nil {
+		opts.Logger.Error("failed to register notifications handler", "err", err)
 		return nil, errors.Join(err, nd.Close())
 	}
 
@@ -774,10 +811,6 @@ func (n *Node) Close() error {
 	}
 
 	var err error
-	if n.autoDeposit != nil {
-		_, err = n.autoDeposit.Stop()
-	}
-
 	for _, c := range n.closers {
 		err = errors.Join(err, c.Close())
 	}
@@ -818,6 +851,12 @@ func (c channelCloser) Close() error {
 	case <-time.After(5 * time.Second):
 		return errors.New("timeout waiting for channel to close")
 	}
+}
+
+type ioCloserFunc func() error
+
+func (f ioCloserFunc) Close() error {
+	return f()
 }
 
 type PublisherStartable interface {
