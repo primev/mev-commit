@@ -24,7 +24,7 @@ var (
 		Name:    "ethereum-rpc-url",
 		Usage:   "URL of the Ethereum RPC server",
 		EnvVars: []string{"POINTS_ETH_RPC_URL"},
-		Value:   "wss://eth-holesky.g.alchemy.com/v2/0DDo7YeieNEucZX3jieFfzmzOCGTKAgp",
+		Value:   "https://eth-holesky.g.alchemy.com/v2/0DDo7YeieNEucZX3jieFfzmzOCGTKAgp",
 	}
 )
 
@@ -144,7 +144,7 @@ func main() {
 			defer sub.Unsubscribe()
 
 			pointsService := &PointsService{block: 2146241}
-			publisher := publisher.NewWSPublisher(
+			publisher := publisher.NewHTTPPublisher(
 				pointsService,
 				logger,
 				ethClient,

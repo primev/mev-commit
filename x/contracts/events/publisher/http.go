@@ -63,7 +63,6 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
-
 		for {
 			select {
 			case <-ctx.Done():
@@ -76,29 +75,43 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 				}
 
 				if blockNumber > lastBlock {
-					q := ethereum.FilterQuery{
-						FromBlock: big.NewInt(int64(lastBlock + 1)),
-						ToBlock:   big.NewInt(int64(blockNumber)),
-						Addresses: contracts,
+					startBlock := lastBlock + 1
+					success := true
+
+					for startBlock <= blockNumber {
+						endBlock := startBlock + 5000 - 1
+						if endBlock > blockNumber {
+							endBlock = blockNumber
+						}
+
+						q := ethereum.FilterQuery{
+							FromBlock: big.NewInt(int64(startBlock)),
+							ToBlock:   big.NewInt(int64(endBlock)),
+							Addresses: contracts,
+						}
+
+						logs, err := h.evmClient.FilterLogs(ctx, q)
+						if err != nil {
+							h.logger.Warn("failed to filter logs", "error", err)
+							success = false
+							break
+						}
+
+						for _, logMsg := range logs {
+							h.subscriber.PublishLogEvent(ctx, logMsg)
+						}
+
+						h.logger.Debug("processed logs", "from", startBlock, "to", endBlock, "count", len(logs))
+						startBlock = endBlock + 1
 					}
 
-					logs, err := h.evmClient.FilterLogs(ctx, q)
-					if err != nil {
-						h.logger.Warn("failed to filter logs", "error", err)
-						continue
+					if success {
+						if err := h.progressStore.SetLastBlock(blockNumber); err != nil {
+							h.logger.Error("failed to set last block", "error", err)
+							return
+						}
+						lastBlock = blockNumber
 					}
-
-					for _, logMsg := range logs {
-						// process log
-						h.subscriber.PublishLogEvent(ctx, logMsg)
-					}
-
-					if err := h.progressStore.SetLastBlock(blockNumber); err != nil {
-						h.logger.Error("failed to set last block", "error", err)
-						return
-					}
-					h.logger.Debug("processed logs", "from", lastBlock+1, "to", blockNumber, "count", len(logs))
-					lastBlock = blockNumber
 				}
 			}
 		}
