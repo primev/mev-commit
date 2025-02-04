@@ -47,7 +47,7 @@ func (s *Store) SetAESKey(bidder common.Address, key []byte) error {
 	return s.st.Put(bidderAesKey(bidder), key)
 }
 
-func (s *Store) GetAESKey(bidder common.Address) ([]byte, error) {
+func (s *Store) AESKey(bidder common.Address) ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -81,7 +81,7 @@ func (s *Store) SetECIESPrivateKey(key *ecies.PrivateKey) error {
 	return s.st.Put(eciesPrivateKeyNS, eciesPrivateKeyToBytes(key))
 }
 
-func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
+func (s *Store) ECIESPrivateKey() (*ecies.PrivateKey, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -103,7 +103,7 @@ func (s *Store) SetBN254PrivateKey(sk *fr.Element) error {
 	return s.st.Put(bn254PrivateKeyNS, raw)
 }
 
-func (s *Store) GetBN254PrivateKey() (*fr.Element, error) {
+func (s *Store) BN254PrivateKey() (*fr.Element, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -126,7 +126,7 @@ func (s *Store) SetBN254PublicKey(pub *bn254.G1Affine) error {
 	return s.st.Put(bn254PublicKeyNS, raw)
 }
 
-func (s *Store) GetBN254PublicKey() (*bn254.G1Affine, error) {
+func (s *Store) BN254PublicKey() (*bn254.G1Affine, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

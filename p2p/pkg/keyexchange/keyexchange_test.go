@@ -128,11 +128,11 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("timed out")
 		}
-		providerAesKey, err := providerStore.GetAESKey(bidderPeer.EthAddress)
+		providerAesKey, err := providerStore.AESKey(bidderPeer.EthAddress)
 		if err != nil {
 			t.Fatal(err)
 		}
-		bidderAesKey, err := bidderStore.GetAESKey(bidderPeer.EthAddress)
+		bidderAesKey, err := bidderStore.AESKey(bidderPeer.EthAddress)
 		if err != nil {
 			t.Fatal(err)
 		}

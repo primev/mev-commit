@@ -36,8 +36,8 @@ var (
 )
 
 type Store interface {
-	GetAESKey(common.Address) ([]byte, error)
-	GetBN254PrivateKey() (*fr.Element, error)
+	AESKey(common.Address) ([]byte, error)
+	BN254PrivateKey() (*fr.Element, error)
 }
 
 type encryptor struct {
@@ -53,11 +53,11 @@ type encryptor struct {
 func NewEncryptor(ks keysigner.KeySigner, store Store, chainID *big.Int, preconfContract string) (*encryptor, error) {
 	address := ks.GetAddress()
 	// those keys are set up during the libp2p.New initialization.
-	aesKey, err := store.GetAESKey(address)
+	aesKey, err := store.AESKey(address)
 	if err != nil {
 		return nil, err
 	}
-	nikePrvKey, err := store.GetBN254PrivateKey()
+	nikePrvKey, err := store.BN254PrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +186,7 @@ func (e *encryptor) VerifyBid(bid *preconfpb.Bid) (*common.Address, error) {
 }
 
 func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.EncryptedBid) (*preconfpb.Bid, error) {
-	aesKey, err := e.store.GetAESKey(bidderAddress)
+	aesKey, err := e.store.AESKey(bidderAddress)
 	if err != nil {
 		return nil, err
 	}

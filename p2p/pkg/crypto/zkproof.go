@@ -145,7 +145,8 @@ func ComputeZKChallenge(
 	// 1) Flatten in the same order as abi.encodePacked.
 	//    We'll manually append each big.Int as 32-byte big-endian,
 	//    then the final keccak256 is your computedChallenge.
-	var buf []byte
+	// Preallocate the buffer: 32 bytes for context hash + 10 * 32 bytes for the coordinates = 352 bytes.
+	buf := make([]byte, 0, 352)
 
 	// a) ZK_CONTEXT_HASH is already 32 bytes
 	buf = append(buf, ctxHashBytes[:]...)

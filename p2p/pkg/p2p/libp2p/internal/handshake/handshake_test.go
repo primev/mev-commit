@@ -160,7 +160,7 @@ func TestHandshake(t *testing.T) {
 				t.Errorf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 				return
 			}
-			bn254pk, err := store2.GetBN254PublicKey()
+			bn254pk, err := store2.BN254PublicKey()
 			if err != nil {
 				t.Error(err)
 				return
@@ -169,7 +169,7 @@ func TestHandshake(t *testing.T) {
 				t.Errorf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), p2pcrypto.BN254PublicKeyToBytes(bn254pk))
 				return
 			}
-			prvKey2, err := store2.GetECIESPrivateKey()
+			prvKey2, err := store2.ECIESPrivateKey()
 			if err != nil {
 				t.Error(err)
 				return
@@ -191,14 +191,14 @@ func TestHandshake(t *testing.T) {
 		if p.Type != p2p.PeerTypeProvider {
 			t.Fatalf("expected peer type %s, got %s", p2p.PeerTypeProvider, p.Type)
 		}
-		bn254pk, err := store1.GetBN254PublicKey()
+		bn254pk, err := store1.BN254PublicKey()
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !p.Keys.NIKEPublicKey.Equal(bn254pk) {
 			t.Fatalf("expected nike pk %s, got %s", p.Keys.NIKEPublicKey.Bytes(), p2pcrypto.BN254PublicKeyToBytes(bn254pk))
 		}
-		prvKey1, err = store1.GetECIESPrivateKey()
+		prvKey1, err = store1.ECIESPrivateKey()
 		if err != nil {
 			t.Fatal(err)
 		}

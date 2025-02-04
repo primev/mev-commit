@@ -13,11 +13,11 @@ import (
 
 type Store interface {
 	SetECIESPrivateKey(*ecies.PrivateKey) error
-	GetECIESPrivateKey() (*ecies.PrivateKey, error)
+	ECIESPrivateKey() (*ecies.PrivateKey, error)
 	SetBN254PrivateKey(*fr.Element) error
-	GetBN254PrivateKey() (*fr.Element, error)
+	BN254PrivateKey() (*fr.Element, error)
 	SetBN254PublicKey(*bn254.G1Affine) error
-	GetBN254PublicKey() (*bn254.G1Affine, error)
+	BN254PublicKey() (*bn254.G1Affine, error)
 }
 
 func getOrSetProviderKeys(store Store) (*p2p.Keys, error) {
@@ -37,7 +37,7 @@ func getOrSetProviderKeys(store Store) (*p2p.Keys, error) {
 }
 
 func getOrSetECIESPublicKey(store Store) (*ecies.PublicKey, error) {
-	prvKey, err := store.GetECIESPrivateKey()
+	prvKey, err := store.ECIESPrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func getOrSetECIESPublicKey(store Store) (*ecies.PublicKey, error) {
 }
 
 func getOrSetECDHPublicKey(store Store) (*bn254.G1Affine, error) {
-	pk, err := store.GetBN254PublicKey()
+	pk, err := store.BN254PublicKey()
 	if err != nil {
 		return nil, err
 	}

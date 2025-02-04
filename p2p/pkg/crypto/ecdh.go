@@ -60,7 +60,7 @@ func BN254PublicKeyFromBytes(data []byte) (*bn254.G1Affine, error) {
 	var pub bn254.G1Affine
 	consumed, err := pub.SetBytes(data)
 	if err != nil {
-		return nil, fmt.Errorf("SetBytes error: %w", err)
+		return nil, fmt.Errorf("failed to parse G1 point: %w", err)
 	}
 
 	// 2) Ensure exactly 96 bytes were consumed

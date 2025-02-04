@@ -405,12 +405,12 @@ func NewNode(opts *Options) (*Node, error) {
 			sk *fr.Element
 		)
 		if peerType == p2p.PeerTypeProvider {
-			pk, err = keysStore.GetBN254PublicKey()
+			pk, err = keysStore.BN254PublicKey()
 			if err != nil {
 				opts.Logger.Error("failed to get bn254 public key", "error", err)
 				return nil, err
 			}
-			sk, err = keysStore.GetBN254PrivateKey()
+			sk, err = keysStore.BN254PrivateKey()
 			if err != nil {
 				opts.Logger.Error("failed to get bn254 secret key", "error", err)
 				return nil, err
