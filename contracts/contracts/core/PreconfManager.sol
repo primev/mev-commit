@@ -47,7 +47,7 @@ contract PreconfManager is
     // Hex characters
     bytes public constant HEXCHARS = "0123456789abcdef";
 
-    // zk proof related contstants
+    // zk proof related variables
     bytes32 public zkContextHash;
     uint256 private constant _GX = 1;
     uint256 private constant _GY = 2;
