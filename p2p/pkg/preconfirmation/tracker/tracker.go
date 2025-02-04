@@ -412,7 +412,7 @@ func (t *Tracker) openCommitments(
 			continue
 		}
 
-		zkProof, err := t.generateZKProof(commitment, []byte("mev-commit opening, mainnet, v1.0"))
+		zkProof, err := t.generateZKProof(commitment)
 		if err != nil {
 			t.logger.Error("failed to generate ZK proof", "error", err)
 			continue
@@ -533,7 +533,6 @@ func (t *Tracker) handleOpenedCommitmentStored(
 
 func (t *Tracker) generateZKProof(
 	commitment *store.EncryptedPreConfirmationWithDecrypted,
-	contextData []byte,
 ) ([]*big.Int, error) {
 	pubB, err := crypto.BN254PublicKeyFromBytes(commitment.Bid.NikePublicKey)
 	if err != nil {
@@ -549,7 +548,7 @@ func (t *Tracker) generateZKProof(
 	sharedX, sharedY := crypto.AffineToBigIntXY(sharedC)
 
 	if t.peerType == p2p.PeerTypeProvider {
-		return t.generateProviderProof(pubB, sharedC, bidderX, bidderY, sharedX, sharedY, contextData)
+		return t.generateProviderProof(pubB, sharedC, bidderX, bidderY, sharedX, sharedY)
 	}
 
 	return t.generateBidderProof(bidderX, bidderY, sharedX, sharedY), nil
@@ -559,14 +558,13 @@ func (t *Tracker) generateProviderProof(
 	pubB *bn254.G1Affine,
 	sharedC *bn254.G1Affine,
 	bidderX, bidderY, sharedX, sharedY big.Int,
-	contextData []byte,
 ) ([]*big.Int, error) {
 	proof, err := crypto.GenerateOptimizedProof(
 		t.providerNikeSK,
 		t.providerNikePK,
 		pubB,
 		sharedC,
-		contextData,
+		t.ctxChainIDData,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate optimized proof: %w", err)
