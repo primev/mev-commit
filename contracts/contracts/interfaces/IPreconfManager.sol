@@ -188,7 +188,9 @@ interface IPreconfManager {
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
      * @param bidSignature The signature of the bid.
-     * @param zkProof The zk proof.
+     * @param zkProof The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
+     * the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
+     * the challenge (zkProof[6]), and the response (zkProof[7]).
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
