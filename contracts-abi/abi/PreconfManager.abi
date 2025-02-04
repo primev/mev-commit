@@ -1617,6 +1617,11 @@
         "name": "sender",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },

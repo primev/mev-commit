@@ -19,7 +19,7 @@ func GenerateKeyPairBN254() (sk *fr.Element, pk *bn254.G1Affine, err error) {
 		return nil, nil, fmt.Errorf("failed to generate random secret: %w", err)
 	}
 
-	// 2) Retrieve the G1 generator (1,2) from the bn254 package
+	// 2) Set the G1 generator (1,2) (same is used in PreconfManager.sol)
 	var g1Aff bn254.G1Affine
 	g1Aff.X.SetOne()
 	g1Aff.Y.SetUint64(2)

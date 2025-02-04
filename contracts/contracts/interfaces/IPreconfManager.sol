@@ -94,7 +94,7 @@ interface IPreconfManager {
     event BlockTrackerUpdated(address indexed newBlockTracker);
 
     /// @dev Error if provider zk proof is invalid
-    error ProviderZKProofInvalid(address sender);
+    error ProviderZKProofInvalid(address sender, bytes32 commitmentDigest);
 
     /// @dev Error if sender is not oracle contract
     error SenderIsNotOracleContract(address sender, address oracleContract);

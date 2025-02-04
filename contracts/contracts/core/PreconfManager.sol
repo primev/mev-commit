@@ -280,7 +280,7 @@ contract PreconfManager is
         if (msg.sender == winner) {
             require(
                 _verifyZKProof(zkProof),
-                ProviderZKProofInvalid(msg.sender)
+                ProviderZKProofInvalid(msg.sender, commitmentDigest)
             );
         }
 
@@ -676,30 +676,31 @@ contract PreconfManager is
      *  (2) sharedSecret = bidPub^sk
      * using the non-interactive challenge c = H(...).
      *
-     * The proof is {c, z}, plus we have inputs {providerPub, bidPub, sharedSecret}.
+     * The proof is {c, z}(zkProof[6,7]), plus we have inputs
+     * {providerPub(zkProof[0,1]), bidPub(zkProof[2,3]), sharedSecret(zkProof[4,5])}.
      */
     function _verifyZKProof(
         uint256[] calldata zkProof
     ) internal view returns (bool) {
         // 1. Recompute a = g^z * (providerPub)^c
-        (uint256 gzX, uint256 gzY) = BN128._ecMul(_GX, _GY, zkProof[7]);
+        (uint256 gzX, uint256 gzY) = BN128._ecMul(_GX, _GY, zkProof[7]); // zkProof[7] = z
         (uint256 acX, uint256 acY) = BN128._ecMul(
-            zkProof[0],
-            zkProof[1],
-            zkProof[6]
+            zkProof[0], // zkProof[0] = providerPubX
+            zkProof[1], // zkProof[1] = providerPubY
+            zkProof[6] // zkProof[6] = c
         );
         (uint256 aX, uint256 aY) = BN128._ecAdd(gzX, gzY, acX, acY);
 
         // 2. Recompute a' = B^z * C^c
         (uint256 bzX, uint256 bzY) = BN128._ecMul(
-            zkProof[2],
-            zkProof[3],
-            zkProof[7]
+            zkProof[2], // zkProof[2] = bidPubX
+            zkProof[3], // zkProof[3] = bidPubY
+            zkProof[7] // zkProof[7] = z
         );
         (uint256 ccX, uint256 ccY) = BN128._ecMul(
-            zkProof[4],
-            zkProof[5],
-            zkProof[6]
+            zkProof[4], // zkProof[4] = sharedSecretX
+            zkProof[5], // zkProof[5] = sharedSecretY
+            zkProof[6] // zkProof[6] = c
         );
         (uint256 aX2, uint256 aY2) = BN128._ecAdd(bzX, bzY, ccX, ccY);
 
@@ -707,12 +708,12 @@ contract PreconfManager is
         bytes32 computedChallenge = keccak256(
             abi.encodePacked(
                 zkContextHash,
-                zkProof[0],
-                zkProof[1],
-                zkProof[2],
-                zkProof[3],
-                zkProof[4],
-                zkProof[5],
+                zkProof[0], // providerPubX
+                zkProof[1], // providerPubY
+                zkProof[2], // bidPubX
+                zkProof[3], // bidPubY
+                zkProof[4], // sharedSecretX
+                zkProof[5], // sharedSecretY
                 aX,
                 aY,
                 aX2,
@@ -723,6 +724,6 @@ contract PreconfManager is
         // Compare the numeric value of computedChallenge vs the given c
         uint256 computedChallengeInt = uint256(computedChallenge) &
             _BN254_MASK_253;
-        return (computedChallengeInt == zkProof[6]);
+        return (computedChallengeInt == zkProof[6]); // zkProof[6] = c
     }
 }
