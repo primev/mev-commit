@@ -47,6 +47,8 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 	go func() {
 		defer close(doneChan)
 
+		w.logger.Info("starting to listen to events")
+
 		lastBlock, err := w.progressStore.LastBlock()
 		if err != nil {
 			w.logger.Error("failed to get last block", "error", err)
@@ -68,6 +70,7 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 
 			logChan := make(chan types.Log)
 
+			w.logger.Info("subscribing to logs", "query", q)
 			sub, err := w.evmClient.SubscribeFilterLogs(ctx, q, logChan)
 			if err != nil {
 				// retry after 5 seconds
@@ -89,6 +92,7 @@ func (w *wsPublisher) Start(ctx context.Context, contracts ...common.Address) <-
 					time.Sleep(5 * time.Second)
 					break PROCESSING
 				case logMsg := <-logChan:
+					w.logger.Info("received log", "log", logMsg)
 					// process log
 					w.subscriber.PublishLogEvent(ctx, logMsg)
 

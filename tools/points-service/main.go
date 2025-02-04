@@ -24,28 +24,7 @@ var (
 		Name:    "ethereum-rpc-url",
 		Usage:   "URL of the Ethereum RPC server",
 		EnvVars: []string{"POINTS_ETH_RPC_URL"},
-		Value:   "wss://ethereum.callstaticrpc.com",
-	}
-
-	optionDBURL = &cli.StringFlag{
-		Name:    "db-url",
-		Usage:   "PostgreSQL database URL",
-		EnvVars: []string{"POINTS_DB_URL"},
-		Value:   "postgres://localhost:5432/points?sslmode=disable",
-	}
-
-	optionHTTPPort = &cli.IntFlag{
-		Name:    "http-port",
-		Usage:   "port for the HTTP server",
-		EnvVars: []string{"POINTS_HTTP_PORT"},
-		Value:   8080,
-	}
-
-	optionPollingInterval = &cli.IntFlag{
-		Name:    "polling-interval",
-		Usage:   "interval in seconds between validator status polls",
-		EnvVars: []string{"POINTS_POLLING_INTERVAL"},
-		Value:   60,
+		Value:   "wss://eth-holesky.g.alchemy.com/v2/0DDo7YeieNEucZX3jieFfzmzOCGTKAgp",
 	}
 )
 
@@ -71,9 +50,6 @@ func main() {
 		Usage: "MEV Commit Points Service",
 		Flags: []cli.Flag{
 			optionRPCURL,
-			optionDBURL,
-			optionHTTPPort,
-			optionPollingInterval,
 		},
 		Action: func(c *cli.Context) error {
 			// Initialize logger
@@ -99,21 +75,18 @@ func main() {
 
 			listener := events.NewListener(logger, contractABIs...)
 
-			publisher := publisher.NewWSPublisher(
-				&PointsService{block: 0},
-				logger,
-				ethClient,
-				listener,
-			)
+			// contracts := []common.Address{
+			// 	// TODO: fill this out
+			// 	common.HexToAddress("0xBc77233855e3274E1903771675Eb71E602D9DC2e"), // AVS
+			// 	common.HexToAddress("0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9"), // Vanilla Registry
+			// 	common.HexToAddress("0x21fD239311B050bbeE7F32850d99ADc224761382"), // Symbiotic
+			// }
 
-			contracts := []common.Address{
-				// TODO: fill this out
-				common.HexToAddress("0xBc77233855e3274E1903771675Eb71E602D9DC2e"), // AVS
-				common.HexToAddress("0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9"), // Vanilla Registry
-				common.HexToAddress("0x21fD239311B050bbeE7F32850d99ADc224761382"), // Symbiotic
+			testnetcontracts := []common.Address{
+				common.HexToAddress("0xEDEDB8ed37A43Fd399108A44646B85b780D85DD4"), // AVS
+				common.HexToAddress("0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf"), // Vanilla Registry
+				common.HexToAddress("0x79FeCD427e5A3e5f1a40895A0AC20A6a50C95393"), // Symbiotic
 			}
-
-			done := publisher.Start(context.Background(), contracts...)
 
 			handlers := []events.EventHandler{
 				// Vanilla Registry handler
@@ -152,16 +125,16 @@ func main() {
 						)
 					},
 				),
-				// events.NewEventHandler(
-				// 	"LSTRestakerRegistered",
-				// 	func(upd *avs.MevcommitavsLSTRestakerRegistered) {
-				// 		logger.Info("AVS LSTRestakerRegistered event",
-				// 			"pubkey", common.Bytes2Hex(upd.ChosenValidator),
-				// 			"numChosen", upd.NumChosen.String(),
-				// 			"lstRestaker", upd.LstRestaker.Hex(),
-				// 		)
-				// 	},
-				// ),
+				events.NewEventHandler(
+					"LSTRestakerRegistered",
+					func(upd *avs.MevcommitavsLSTRestakerRegistered) {
+						logger.Info("AVS LSTRestakerRegistered event",
+							"pubkey", common.Bytes2Hex(upd.ChosenValidator),
+							"numChosen", upd.NumChosen.String(),
+							"lstRestaker", upd.LstRestaker.Hex(),
+						)
+					},
+				),
 			}
 
 			sub, err := listener.Subscribe(handlers...)
@@ -170,13 +143,22 @@ func main() {
 			}
 			defer sub.Unsubscribe()
 
+			pointsService := &PointsService{block: 2146241}
+			publisher := publisher.NewWSPublisher(
+				pointsService,
+				logger,
+				ethClient,
+				listener,
+			)
+
+			done := publisher.Start(context.Background(), testnetcontracts...)
+
 			// Monitor subscription errors
 			go func() {
 				for err := range sub.Err() {
 					logger.Error("subscription error", "error", err)
 				}
 			}()
-			listener.Subscribe()
 
 			<-done
 
