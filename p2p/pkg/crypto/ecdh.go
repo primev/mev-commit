@@ -65,7 +65,7 @@ func BN254PublicKeyFromBytes(data []byte) (*bn254.G1Affine, error) {
 
 	// 2) Ensure exactly 96 bytes were consumed
 	if consumed != bn254.SizeOfG1AffineUncompressed {
-		return nil, fmt.Errorf("unexpected consumed bytes. got=%d want=%d",
+		return nil, fmt.Errorf("invalid G1 point: expected %d bytes, got %d",
 			consumed, bn254.SizeOfG1AffineUncompressed)
 	}
 
