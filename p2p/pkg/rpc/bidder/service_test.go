@@ -62,6 +62,7 @@ func (s *testSender) SendBid(
 			Bid: &preconfpb.Bid{
 				TxHash:              b.TxHash,
 				BidAmount:           b.BidAmount,
+				SlashAmount:         b.SlashAmount,
 				BlockNumber:         b.BlockNumber,
 				DecayStartTimestamp: b.DecayStartTimestamp,
 				DecayEndTimestamp:   b.DecayEndTimestamp,

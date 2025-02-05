@@ -221,6 +221,10 @@ definitions:
         items:
           type: string
         description: Optional array of RLP encoded raw signed transaction payloads that the bidder wants to include in the block.
+      slashAmount:
+        type: string
+        description: Amount of ETH that will be slashed from the provider if they fail to include the transaction. If zero, the decayed bid amount is used for slashing.
+        pattern: '[0-9]+'
     description: Signed bid message from bidders to the provider.
     title: Bid message
     required:

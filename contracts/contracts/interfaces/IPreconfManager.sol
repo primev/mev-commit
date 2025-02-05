@@ -16,6 +16,7 @@ interface IPreconfManager {
         uint64 dispatchTimestamp;
         address committer;
         uint256 bidAmt;
+        uint256 slashAmt;
         bytes32 commitmentDigest;
         bytes commitmentSignature;
         string txnHash;
@@ -27,6 +28,7 @@ interface IPreconfManager {
         string txnHash;
         string revertingTxHashes;
         uint256 bidAmt;
+        uint256 slashAmt;
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
@@ -51,6 +53,7 @@ interface IPreconfManager {
         address bidder,
         address committer,
         uint256 bidAmt,
+        uint256 slashAmt,
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
@@ -188,6 +191,7 @@ interface IPreconfManager {
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
      * @param bidSignature The signature of the bid.
+     * @param slashAmt The amount to be slashed.
      * @param zkProof The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
      * the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
      * the challenge (zkProof[6]), and the response (zkProof[7]).
@@ -202,6 +206,7 @@ interface IPreconfManager {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
+        uint256 slashAmt,
         uint256[] calldata zkProof
     ) external returns (bytes32 commitmentIndex);
 
@@ -273,6 +278,7 @@ interface IPreconfManager {
      * @param _blockNumber The block number.
      * @param _decayStartTimeStamp The start time of the decay.
      * @param _decayEndTimeStamp The end time of the decay.
+     * @param _slashAmt The amount to be slashed.
      * @return The computed bid hash.
      */
     function getBidHash(
@@ -282,6 +288,7 @@ interface IPreconfManager {
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
+        uint256 _slashAmt,
         uint256[] calldata zkProof
     ) external view returns (bytes32);
 
@@ -307,6 +314,7 @@ interface IPreconfManager {
      * @param txnHash The transaction hash.
      * @param revertingTxHashes The reverting transaction hashes.
      * @param bidSignature The bid signature.
+     * @param slashAmt The amount to be slashed.
      * @return messageDigest The computed bid hash.
      * @return recoveredAddress The address recovered from the bid signature.
      */
@@ -318,6 +326,7 @@ interface IPreconfManager {
         string memory txnHash,
         string memory revertingTxHashes,
         bytes calldata bidSignature,
+        uint256 slashAmt,
         uint256[] calldata zkProof
     ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
