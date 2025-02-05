@@ -2,12 +2,13 @@ package preconfirmation
 
 import (
 	"context"
-	"crypto/ecdh"
 	"errors"
 	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -73,13 +74,13 @@ type PreconfContract interface {
 }
 
 type Encryptor interface {
-	ConstructEncryptedBid(bid *preconfpb.Bid) (*preconfpb.EncryptedBid, *ecdh.PrivateKey, error)
+	ConstructEncryptedBid(bid *preconfpb.Bid) (*preconfpb.EncryptedBid, *fr.Element, error)
 	ConstructEncryptedPreConfirmation(*preconfpb.Bid) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error)
 	VerifyBid(*preconfpb.Bid) (*common.Address, error)
 	VerifyEncryptedPreConfirmation(
 		bid *preconfpb.Bid,
-		providerNikePK *ecdh.PublicKey,
-		bidderNikeSC *ecdh.PrivateKey,
+		providerNikePK *bn254.G1Affine,
+		bidderNikeSC *fr.Element,
 		c *preconfpb.EncryptedPreConfirmation,
 	) ([]byte, *common.Address, error)
 	DecryptBidData(common.Address, *preconfpb.EncryptedBid) (*preconfpb.Bid, error)

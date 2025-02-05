@@ -16,11 +16,8 @@ interface IPreconfManager {
         uint64 dispatchTimestamp;
         address committer;
         uint256 bidAmt;
-        bytes32 bidHash;
         bytes32 commitmentDigest;
-        bytes bidSignature;
         bytes commitmentSignature;
-        bytes sharedSecretKey;
         string txnHash;
         string revertingTxHashes;
     }
@@ -36,7 +33,7 @@ interface IPreconfManager {
         bytes32 bidHash;
         bytes bidSignature;
         bytes commitmentSignature;
-        bytes sharedSecretKey;
+        uint256[] zkProof;
     }
 
     /// @dev Struct for all the information around unopened preconfirmations commitment
@@ -55,16 +52,12 @@ interface IPreconfManager {
         address committer,
         uint256 bidAmt,
         uint64 blockNumber,
-        bytes32 bidHash,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         string txnHash,
         string revertingTxHashes,
         bytes32 commitmentDigest,
-        bytes bidSignature,
-        bytes commitmentSignature,
-        uint64 dispatchTimestamp,
-        bytes sharedSecretKey
+        uint64 dispatchTimestamp
     );
 
     /// @dev Event to log successful unopened commitment storage
@@ -100,6 +93,9 @@ interface IPreconfManager {
     /// @dev Event to log successful update of the block tracker
     event BlockTrackerUpdated(address indexed newBlockTracker);
 
+    /// @dev Error if provider zk proof is invalid
+    error ProviderZKProofInvalid(address sender, bytes32 commitmentDigest);
+
     /// @dev Error if sender is not oracle contract
     error SenderIsNotOracleContract(address sender, address oracleContract);
 
@@ -113,13 +109,20 @@ interface IPreconfManager {
     error CommitmentAlreadyOpened(bytes32 commitmentIndex);
 
     /// @dev Error if commitment index is invalid
-    error InvalidCommitmentDigest(bytes32 commitmentDigest, bytes32 computedDigest);
+    error InvalidCommitmentDigest(
+        bytes32 commitmentDigest,
+        bytes32 computedDigest
+    );
 
     /// @dev Error if commitment is not by the winner
     error WinnerIsNotCommitter(address committer, address winner);
 
     /// @dev Error if commitment is not opened by the committer or the bidder
-    error UnauthorizedOpenCommitment(address committer, address bidder, address sender);
+    error UnauthorizedOpenCommitment(
+        address committer,
+        address bidder,
+        address sender
+    );
 
     /// @dev Error if encrypted commitment is sent by the committer
     error SenderIsNotCommitter(address expected, address actual);
@@ -185,7 +188,9 @@ interface IPreconfManager {
      * @param decayStartTimeStamp The start time of the decay.
      * @param decayEndTimeStamp The end time of the decay.
      * @param bidSignature The signature of the bid.
-     * @param sharedSecretKey The shared secret key.
+     * @param zkProof The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
+     * the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
+     * the challenge (zkProof[6]), and the response (zkProof[7]).
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
@@ -197,7 +202,7 @@ interface IPreconfManager {
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
-        bytes memory sharedSecretKey
+        uint256[] calldata zkProof
     ) external returns (bytes32 commitmentIndex);
 
     /**
@@ -276,32 +281,21 @@ interface IPreconfManager {
         uint256 _bidAmt,
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp
+        uint64 _decayEndTimeStamp,
+        uint256[] calldata zkProof
     ) external view returns (bytes32);
 
     /**
      * @dev Computes the pre-confirmation hash for a given set of parameters.
-     * @param _txnHash The transaction hash.
-     * @param _revertingTxHashes The reverting transaction hashes.
-     * @param _bidAmt The bid amount.
-     * @param _blockNumber The block number.
-     * @param _decayStartTimeStamp The start time of the decay.
-     * @param _decayEndTimeStamp The end time of the decay.
      * @param _bidHash The bid hash.
      * @param _bidSignature The bid signature.
-     * @param _sharedSecretKey The shared secret key.
+     * @param _zkProof The zk proof.
      * @return The computed pre-confirmation hash.
      */
     function getPreConfHash(
-        string memory _txnHash,
-        string memory _revertingTxHashes,
-        uint256 _bidAmt,
-        uint64 _blockNumber,
-        uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp,
         bytes32 _bidHash,
         bytes memory _bidSignature,
-        bytes memory _sharedSecretKey
+        uint256[] calldata _zkProof
     ) external view returns (bytes32);
 
     /**
@@ -323,7 +317,8 @@ interface IPreconfManager {
         uint64 decayEndTimeStamp,
         string memory txnHash,
         string memory revertingTxHashes,
-        bytes calldata bidSignature
+        bytes calldata bidSignature,
+        uint256[] calldata zkProof
     ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
     /**
@@ -333,7 +328,7 @@ interface IPreconfManager {
      * @return committerAddress The address of the committer recovered from the commitment signature.
      */
     function verifyPreConfCommitment(
-        CommitmentParams memory params
+        CommitmentParams calldata params
     ) external view returns (bytes32 preConfHash, address committerAddress);
 
     /**

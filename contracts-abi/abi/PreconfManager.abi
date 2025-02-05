@@ -188,6 +188,11 @@
         "name": "_decayEndTimeStamp",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "_zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -256,27 +261,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "bidHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
             "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
           },
           {
-            "name": "bidSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
             "name": "commitmentSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "sharedSecretKey",
             "type": "bytes",
             "internalType": "bytes"
           },
@@ -345,27 +335,12 @@
             "internalType": "uint256"
           },
           {
-            "name": "bidHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
             "name": "commitmentDigest",
             "type": "bytes32",
             "internalType": "bytes32"
           },
           {
-            "name": "bidSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
             "name": "commitmentSignature",
-            "type": "bytes",
-            "internalType": "bytes"
-          },
-          {
-            "name": "sharedSecretKey",
             "type": "bytes",
             "internalType": "bytes"
           },
@@ -396,36 +371,6 @@
     "name": "getPreConfHash",
     "inputs": [
       {
-        "name": "_txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "_revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "_bidAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
         "name": "_bidHash",
         "type": "bytes32",
         "internalType": "bytes32"
@@ -436,9 +381,9 @@
         "internalType": "bytes"
       },
       {
-        "name": "_sharedSecretKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "_zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -680,9 +625,9 @@
         "internalType": "bytes"
       },
       {
-        "name": "sharedSecretKey",
-        "type": "bytes",
-        "internalType": "bytes"
+        "name": "zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -746,27 +691,12 @@
         "internalType": "uint256"
       },
       {
-        "name": "bidHash",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
         "name": "commitmentDigest",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
         "name": "commitmentSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "sharedSecretKey",
         "type": "bytes",
         "internalType": "bytes"
       },
@@ -1103,6 +1033,11 @@
         "name": "bidSignature",
         "type": "bytes",
         "internalType": "bytes"
+      },
+      {
+        "name": "zkProof",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
@@ -1174,9 +1109,9 @@
             "internalType": "bytes"
           },
           {
-            "name": "sharedSecretKey",
-            "type": "bytes",
-            "internalType": "bytes"
+            "name": "zkProof",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
           }
         ]
       }
@@ -1191,6 +1126,19 @@
         "name": "committerAddress",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "zkContextHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -1282,12 +1230,6 @@
         "internalType": "uint64"
       },
       {
-        "name": "bidHash",
-        "type": "bytes32",
-        "indexed": false,
-        "internalType": "bytes32"
-      },
-      {
         "name": "decayStartTimeStamp",
         "type": "uint64",
         "indexed": false,
@@ -1318,28 +1260,10 @@
         "internalType": "bytes32"
       },
       {
-        "name": "bidSignature",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
-        "name": "commitmentSignature",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
-      },
-      {
         "name": "dispatchTimestamp",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
-      },
-      {
-        "name": "sharedSecretKey",
-        "type": "bytes",
-        "indexed": false,
-        "internalType": "bytes"
       }
     ],
     "anonymous": false
@@ -1534,6 +1458,16 @@
   },
   {
     "type": "error",
+    "name": "BN128AddFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BN128MulFailed",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "CommitmentAlreadyOpened",
     "inputs": [
       {
@@ -1672,6 +1606,22 @@
         "name": "account",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ProviderZKProofInvalid",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "commitmentDigest",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },

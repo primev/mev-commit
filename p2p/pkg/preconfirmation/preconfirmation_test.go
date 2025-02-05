@@ -2,7 +2,6 @@ package preconfirmation_test
 
 import (
 	"context"
-	"crypto/ecdh"
 	"crypto/rand"
 	"io"
 	"log/slog"
@@ -10,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	p2ptest "github.com/primev/mev-commit/p2p/pkg/p2p/testing"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation"
@@ -38,14 +40,14 @@ type testEncryptor struct {
 	encryptedBid             *preconfpb.EncryptedBid
 	bid                      *preconfpb.Bid
 	encryptedPreConfirmation *preconfpb.EncryptedPreConfirmation
-	nikePrivateKey           *ecdh.PrivateKey
+	nikePrivateKey           *fr.Element
 	preConfirmation          *preconfpb.PreConfirmation
 	sharedSecretKey          []byte
 	bidSigner                common.Address
 	preConfirmationSigner    common.Address
 }
 
-func (t *testEncryptor) ConstructEncryptedBid(_ *preconfpb.Bid) (*preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
+func (t *testEncryptor) ConstructEncryptedBid(_ *preconfpb.Bid) (*preconfpb.EncryptedBid, *fr.Element, error) {
 	return t.encryptedBid, t.nikePrivateKey, nil
 }
 
@@ -67,8 +69,8 @@ func (t *testEncryptor) DecryptBidData(_ common.Address, _ *preconfpb.EncryptedB
 
 func (t *testEncryptor) VerifyEncryptedPreConfirmation(
 	_ *preconfpb.Bid,
-	_ *ecdh.PublicKey,
-	_ *ecdh.PrivateKey,
+	_ *bn254.G1Affine,
+	_ *fr.Element,
 	_ *preconfpb.EncryptedPreConfirmation,
 ) ([]byte, *common.Address, error) {
 	return t.sharedSecretKey, &t.preConfirmationSigner, nil
@@ -138,17 +140,16 @@ func TestPreconfBidSubmission(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+		_, nikePublicKey, err := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}
-
 		server := p2p.Peer{
 			EthAddress: common.HexToAddress("0x2"),
 			Type:       p2p.PeerTypeProvider,
 			Keys: &p2p.Keys{
 				PKEPublicKey:  &encryptionPrivateKey.PublicKey,
-				NIKEPublicKey: nikePrivateKey.PublicKey(),
+				NIKEPublicKey: nikePublicKey,
 			},
 		}
 
