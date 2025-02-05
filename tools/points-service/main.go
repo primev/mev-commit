@@ -17,6 +17,8 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/urfave/cli/v2"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
@@ -27,6 +29,51 @@ var (
 		Value:   "https://eth-holesky.g.alchemy.com/v2/0DDo7YeieNEucZX3jieFfzmzOCGTKAgp",
 	}
 )
+
+var (
+	optionDBPath = &cli.StringFlag{
+		Name:    "db-path",
+		Usage:   "Path to SQLite database file",
+		EnvVars: []string{"POINTS_DB_PATH"},
+		Value:   "points.db",
+	}
+)
+
+func initDB(logger *slog.Logger) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", "./points.db")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+	// Create tables if they don't exist
+	result, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			block_number INTEGER,
+			tx_hash TEXT,
+			event_type TEXT,
+			address TEXT,
+			points_delta INTEGER,
+			timestamp INTEGER,
+			pubkey TEXT NOT NULL,
+			vault_address TEXT,
+			pubkey_poster_address TEXT NOT NULL,
+			opted_in BOOLEAN DEFAULT TRUE,
+			registry_type TEXT CHECK (registry_type IN ('vanilla', 'symbiotic', 'eigenlayer'))
+		);
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create tables: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		logger.Warn("failed to get rows affected", "error", err)
+	}
+	logger.Debug("database tables created/verified", "rows_affected", rows)
+	logger.Info("database created", slog.String("path", "./points.db"))
+
+	return db, nil
+}
 
 type PointsService struct {
 	logger    *slog.Logger
@@ -55,13 +102,20 @@ func main() {
 			// Initialize logger
 			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-			// // Connect to database
-			// db, err := sql.Open("postgres", c.String(optionDBURL.Name))
-			// if err != nil {
-			// 	return fmt.Errorf("failed to connect to database: %w", err)
-			// }
-			// defer db.Close()
+			// Connect to database
+			db, err := initDB(logger)
+			if err != nil {
+				return fmt.Errorf("failed to connect to database: %w", err)
+			}
+			defer db.Close()
 
+			// Verify database is accessible by running a test query
+			var count int
+			err = db.QueryRow("SELECT COUNT(*) FROM events").Scan(&count)
+			if err != nil {
+				return fmt.Errorf("failed to query database: %w", err)
+			}
+			logger.Info("database connection verified", "events_count", count)
 			// Connect to Ethereum client
 			ethClient, err := ethclient.Dial(c.String(optionRPCURL.Name))
 			if err != nil {
@@ -88,51 +142,111 @@ func main() {
 				common.HexToAddress("0x79FeCD427e5A3e5f1a40895A0AC20A6a50C95393"), // Symbiotic
 			}
 
+			// TODO(@ckartik): we'll need to make sure when we store into the DB, that we're not storing with a new address for same pubkey
+			// if a pubkey exists in the DB, and we see an event with a different address putting in pubkey, we should reject it.
 			handlers := []events.EventHandler{
 				// Vanilla Registry handler
 				events.NewEventHandler(
 					"Staked",
-					func(upd *vanillaregistry.Validatorregistryv1Staked) {
-						logger.Info("Vanilla Registry Staked event",
-							"sender", upd.MsgSender.Hex(),
-							"withdrawalAddress", upd.WithdrawalAddress.Hex(),
-							"pubkey", common.Bytes2Hex(upd.ValBLSPubKey),
-							"amount", upd.Amount.String(),
+					func(upd *vanillaregistry.Validatorregistryv1Staked, blockNumber uint64) {
+						_, err := db.Exec(`
+							INSERT INTO events (
+								pubkey,
+								pubkey_poster_address,
+								event_type,
+								block_number,
+								opted_in,
+								registry_type
+							) VALUES (?, ?, ?, ?, ?, ?)`,
+							common.Bytes2Hex(upd.ValBLSPubKey),
+							upd.MsgSender.Hex(),
+							"Staked",
+							blockNumber,
+							true,
+							"vanilla",
 						)
+						if err != nil {
+							logger.Error("failed to insert Staked event", "error", err)
+						}
 					},
 				),
 
 				// Middleware Registry handler
 				events.NewEventHandler(
 					"ValRecordAdded",
-					func(upd *middleware.MevcommitmiddlewareValRecordAdded) {
-						logger.Info("Middleware ValRecordAdded event",
-							"pubkey", common.Bytes2Hex(upd.BlsPubkey),
-							"operator", upd.Operator.Hex(),
-							"vault", upd.Vault.Hex(),
-							"position", upd.Position.String(),
+					func(upd *middleware.MevcommitmiddlewareValRecordAdded, blockNumber uint64) {
+						_, err := db.Exec(`
+							INSERT INTO events (
+								pubkey,
+								pubkey_poster_address,
+								vault_address,
+								event_type,
+								block_number,
+								opted_in,
+								registry_type
+							) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+							common.Bytes2Hex(upd.BlsPubkey),
+							upd.Operator.Hex(),
+							upd.Vault.Hex(),
+							"ValRecordAdded",
+							blockNumber,
+							true,
+							"symbiotic",
 						)
+						if err != nil {
+							logger.Error("failed to insert ValRecordAdded event", "error", err)
+						}
 					},
 				),
 
 				// AVS Registry handlers
 				events.NewEventHandler(
 					"ValidatorRegistered",
-					func(upd *avs.MevcommitavsValidatorRegistered) {
-						logger.Info("AVS ValidatorRegistered event",
-							"pubkey", common.Bytes2Hex(upd.ValidatorPubKey),
-							"podOwner", upd.PodOwner.Hex(),
+					func(upd *avs.MevcommitavsValidatorRegistered, blockNumber uint64) {
+						_, err := db.Exec(`
+							INSERT INTO events (
+								pubkey,
+								pubkey_poster_address,
+								event_type,
+								block_number,
+								opted_in,
+								registry_type
+							) VALUES (?, ?, ?, ?, ?, ?)`,
+							common.Bytes2Hex(upd.ValidatorPubKey),
+							upd.PodOwner.Hex(),
+							"ValidatorRegistered",
+							blockNumber,
+							true,
+							"eigenlayer",
 						)
+						if err != nil {
+							logger.Error("failed to insert ValidatorRegistered event", "error", err)
+						}
 					},
 				),
+
 				events.NewEventHandler(
 					"LSTRestakerRegistered",
-					func(upd *avs.MevcommitavsLSTRestakerRegistered) {
-						logger.Info("AVS LSTRestakerRegistered event",
-							"pubkey", common.Bytes2Hex(upd.ChosenValidator),
-							"numChosen", upd.NumChosen.String(),
-							"lstRestaker", upd.LstRestaker.Hex(),
+					func(upd *avs.MevcommitavsLSTRestakerRegistered, blockNumber uint64) {
+						_, err := db.Exec(`
+							INSERT INTO events (
+								pubkey,
+								pubkey_poster_address,
+								event_type,
+								block_number,
+								opted_in,
+								registry_type
+							) VALUES (?, ?, ?, ?, ?, ?)`,
+							common.Bytes2Hex(upd.ChosenValidator),
+							upd.LstRestaker.Hex(),
+							"LSTRestakerRegistered",
+							upd.Raw.BlockNumber,
+							true,
+							"eigenlayer",
 						)
+						if err != nil {
+							logger.Error("failed to insert LSTRestakerRegistered event", "error", err)
+						}
 					},
 				),
 			}

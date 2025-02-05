@@ -14,10 +14,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// HasRawLog is an optional interface you can implement on your event struct
+// so we can store log metadata (e.g., block number) after unpacking.
+type HasRawLog interface {
+	SetRawLog(types.Log)
+}
+
 // EventHandler is a stand-in for the generic event handlers that are used to subscribe
 // to events. It is useful to describe the generic event handlers using this interface
-// so that they can be referenced in the EventManager. Currently the only use of this
-// is in the package which is why the methods are unexported.
+// so that they can be referenced in the EventManager.
 type EventHandler interface {
 	eventName() string
 	handle(types.Log) error
@@ -27,7 +32,7 @@ type EventHandler interface {
 
 // eventHandler is a generic implementation of EventHandler for type-safe event handling.
 type eventHandler[T any] struct {
-	handler  func(*T)
+	handler  func(*T, uint64)
 	name     string
 	topicID  common.Hash
 	contract *abi.ABI
@@ -36,7 +41,7 @@ type eventHandler[T any] struct {
 // NewEventHandler creates a new EventHandler for the given event name from the known contracts.
 // The handler function is called when an event is received. The event
 // handler should be used to subscribe to events using the EventManager.
-func NewEventHandler[T any](name string, handler func(*T)) EventHandler {
+func NewEventHandler[T any](name string, handler func(*T, uint64)) EventHandler {
 	return &eventHandler[T]{
 		handler: handler,
 		name:    name,
@@ -57,12 +62,15 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 		return fmt.Errorf("contract not set")
 	}
 
+	// Ensure this log's first topic matches the event's topicID
 	if !bytes.Equal(log.Topics[0].Bytes(), h.topicID.Bytes()) {
 		return nil
 	}
 
+	// Create a new instance of T (your event struct)
 	obj := new(T)
 
+	// Unpack non-indexed data
 	if len(log.Data) > 0 {
 		err := h.contract.UnpackIntoInterface(obj, h.name, log.Data)
 		if err != nil {
@@ -70,13 +78,13 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 		}
 	}
 
+	// Unpack indexed fields
 	var indexed abi.Arguments
 	for _, arg := range h.contract.Events[h.name].Inputs {
 		if arg.Indexed {
 			indexed = append(indexed, arg)
 		}
 	}
-
 	if len(indexed) > 0 {
 		err := abi.ParseTopics(obj, indexed, log.Topics[1:])
 		if err != nil {
@@ -84,7 +92,9 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 		}
 	}
 
-	h.handler(obj)
+	// Finally, run the user-provided handler logic
+	h.handler(obj, log.BlockNumber)
+
 	return nil
 }
 
@@ -159,12 +169,14 @@ func (l *Listener) Subscribe(ev ...EventHandler) (Subscription, error) {
 		return nil, fmt.Errorf("no events provided")
 	}
 
+	// Match each event with an ABI in our loaded contracts
 	for _, event := range ev {
 		found := false
 		for _, c := range l.contracts {
 			for _, e := range c.Events {
 				if e.Name == event.eventName() {
 					event.setTopicAndContract(e.ID, c)
+
 					found = true
 					break
 				}
@@ -189,6 +201,7 @@ func (l *Listener) Subscribe(ev ...EventHandler) (Subscription, error) {
 		},
 	}
 
+	// Store the events in our subscriber map
 	for _, event := range ev {
 		l.subscribers[event.topic()] = append(l.subscribers[event.topic()], &storedEvent{
 			evt:   event,
@@ -235,6 +248,7 @@ func (l *Listener) PublishLogEvent(ctx context.Context, log types.Log) {
 					WithLabelValues(ev.evt.eventName()).
 					Set(float64(time.Since(start)))
 			}(time.Now())
+
 			if err := ev.evt.handle(log); err != nil {
 				l.logger.Error("failed to handle log", "error", err)
 				select {
