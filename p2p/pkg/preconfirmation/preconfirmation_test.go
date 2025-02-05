@@ -156,6 +156,7 @@ func TestPreconfBidSubmission(t *testing.T) {
 		bid := &preconfpb.Bid{
 			TxHash:              "test",
 			BidAmount:           "10",
+			SlashAmount:         "0",
 			BlockNumber:         10,
 			DecayStartTimestamp: time.Now().UnixMilli() - 10000*time.Millisecond.Milliseconds(),
 			DecayEndTimestamp:   time.Now().UnixMilli(),

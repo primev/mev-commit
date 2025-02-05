@@ -37,7 +37,7 @@ contract PreconfManager is
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 bidderPKx,uint256 bidderPKy)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy)"
         );
 
     // EIP-712 domain separator
@@ -212,6 +212,7 @@ contract PreconfManager is
      * @param decayStartTimeStamp The start time of the decay
      * @param decayEndTimeStamp The end time of the decay
      * @param bidSignature The signature of the bid
+     * @param slashAmt The slash amount
      * @param zkProof The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
      * the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
      * the challenge (zkProof[6]), and the response (zkProof[7]).
@@ -226,33 +227,27 @@ contract PreconfManager is
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
         bytes calldata bidSignature,
+        uint256 slashAmt,
         uint256[] calldata zkProof
     ) public whenNotPaused returns (bytes32 commitmentIndex) {
         if (decayStartTimeStamp >= decayEndTimeStamp) {
             revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
         }
 
-        (bytes32 bHash, address bidderAddress) = verifyBid(
-            bidAmt,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            txnHash,
-            revertingTxHashes,
-            bidSignature,
-            zkProof
-        );
-
-        bytes32 txnHashBidderBlockNumber = keccak256(
-            abi.encode(txnHash, bidderAddress, blockNumber)
-        );
-
-        require(
-            processedTxnHashes[txnHashBidderBlockNumber] == false,
-            TxnHashAlreadyProcessed(txnHash, bidderAddress)
-        );
-
-        bytes32 commitmentDigest = getPreConfHash(bHash, bidSignature, zkProof);
+        (
+            address bidderAddress,
+            bytes32 commitmentDigest
+        ) = _getBidderAddressAndCommitmentDigest(
+                bidAmt,
+                blockNumber,
+                decayStartTimeStamp,
+                decayEndTimeStamp,
+                txnHash,
+                revertingTxHashes,
+                bidSignature,
+                slashAmt,
+                zkProof
+            );
 
         UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
             unopenedCommitmentIndex
@@ -303,6 +298,7 @@ contract PreconfManager is
             unopenedCommitment.dispatchTimestamp,
             committerAddress,
             bidAmt,
+            slashAmt,
             commitmentDigest,
             unopenedCommitment.commitmentSignature,
             txnHash,
@@ -326,8 +322,6 @@ contract PreconfManager is
         unopenedCommitment.isOpened = true;
 
         ++commitmentsCount[committerAddress];
-
-        processedTxnHashes[txnHashBidderBlockNumber] = true;
 
         _emitOpenedCommitmentStored(commitmentIndex, newCommitment);
         return commitmentIndex;
@@ -417,6 +411,7 @@ contract PreconfManager is
 
         providerRegistry.slash(
             commitment.bidAmt,
+            commitment.slashAmt,
             commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
@@ -490,17 +485,6 @@ contract PreconfManager is
         return unopenedCommitments[commitmentIndex];
     }
 
-    /**
-     * @dev Gives digest to be signed for bids
-     * @param _txnHash transaction Hash.
-     * @param _bidAmt bid amount.
-     * @param _blockNumber block number
-     * @param _revertingTxHashes reverting transaction hashes.
-     * @param _decayStartTimeStamp decay start time.
-     * @param _decayEndTimeStamp decay end time.
-     * @param _zkProof zk proof with bidder public key.
-     * @return digest it returns a digest that can be used for signing bids
-     */
     function getBidHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
@@ -508,6 +492,7 @@ contract PreconfManager is
         uint64 _blockNumber,
         uint64 _decayStartTimeStamp,
         uint64 _decayEndTimeStamp,
+        uint256 _slashAmt,
         uint256[] calldata _zkProof
     ) public view returns (bytes32) {
         return
@@ -522,6 +507,7 @@ contract PreconfManager is
                         _blockNumber,
                         _decayStartTimeStamp,
                         _decayEndTimeStamp,
+                        _slashAmt,
                         _zkProof[2], // _bidderPKx,
                         _zkProof[3] // _bidderPKy
                     )
@@ -565,6 +551,7 @@ contract PreconfManager is
      * @param txnHash transaction Hash.
      * @param revertingTxHashes reverting transaction hashes.
      * @param bidSignature bid signature.
+     * @param slashAmt slash amount.
      * @param zkProof zk proof.
      * @return messageDigest returns the bid hash for given bid info.
      * @return recoveredAddress the address from the bid hash.
@@ -577,6 +564,7 @@ contract PreconfManager is
         string memory txnHash,
         string memory revertingTxHashes,
         bytes calldata bidSignature,
+        uint256 slashAmt,
         uint256[] calldata zkProof
     ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
@@ -586,6 +574,7 @@ contract PreconfManager is
             blockNumber,
             decayStartTimeStamp,
             decayEndTimeStamp,
+            slashAmt,
             zkProof
         );
         recoveredAddress = messageDigest.recover(bidSignature);
@@ -652,6 +641,7 @@ contract PreconfManager is
             newCommitment.bidder,
             newCommitment.committer,
             newCommitment.bidAmt,
+            newCommitment.slashAmt,
             newCommitment.blockNumber,
             newCommitment.decayStartTimeStamp,
             newCommitment.decayEndTimeStamp,
@@ -660,6 +650,45 @@ contract PreconfManager is
             newCommitment.commitmentDigest,
             newCommitment.dispatchTimestamp
         );
+    }
+
+    function _getBidderAddressAndCommitmentDigest(
+        uint256 bidAmt,
+        uint64 blockNumber,
+        uint64 decayStartTimeStamp,
+        uint64 decayEndTimeStamp,
+        string memory txnHash,
+        string memory revertingTxHashes,
+        bytes calldata bidSignature,
+        uint256 slashAmt,
+        uint256[] calldata zkProof
+    ) private returns (address, bytes32) {
+        (bytes32 bHash, address bidderAddress) = verifyBid(
+            bidAmt,
+            blockNumber,
+            decayStartTimeStamp,
+            decayEndTimeStamp,
+            txnHash,
+            revertingTxHashes,
+            bidSignature,
+            slashAmt,
+            zkProof
+        );
+
+        bytes32 txnHashBidderBlockNumber = keccak256(
+            abi.encode(txnHash, bidderAddress, blockNumber)
+        );
+
+        require(
+            processedTxnHashes[txnHashBidderBlockNumber] == false,
+            TxnHashAlreadyProcessed(txnHash, bidderAddress)
+        );
+
+        processedTxnHashes[txnHashBidderBlockNumber] = true;
+
+        bytes32 commitmentDigest = getPreConfHash(bHash, bidSignature, zkProof);
+
+        return (bidderAddress, commitmentDigest);
     }
 
     // solhint-disable-next-line no-empty-blocks

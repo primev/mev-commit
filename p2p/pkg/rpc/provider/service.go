@@ -107,6 +107,7 @@ func (s *Service) ProcessBid(
 	bidMsg := &providerapiv1.Bid{
 		TxHashes:            strings.Split(bid.TxHash, ","),
 		BidAmount:           bid.BidAmount,
+		SlashAmount:         bid.SlashAmount,
 		BlockNumber:         bid.BlockNumber,
 		BidDigest:           bid.Digest,
 		DecayStartTimestamp: bid.DecayStartTimestamp,

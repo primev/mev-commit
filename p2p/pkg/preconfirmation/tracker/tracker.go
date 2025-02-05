@@ -80,6 +80,7 @@ type PreconfContract interface {
 		decayStartTimeStamp uint64,
 		decayEndTimeStamp uint64,
 		bidSignature []byte,
+		slashAmt *big.Int,
 		zkProof []*big.Int,
 	) (*types.Transaction, error)
 }
@@ -406,6 +407,12 @@ func (t *Tracker) openCommitments(
 			continue
 		}
 
+		slashAmt, ok := new(big.Int).SetString(commitment.Bid.SlashAmount, 10)
+		if !ok {
+			t.logger.Error("failed to parse slash amount", "slashAmount", commitment.Bid.SlashAmount)
+			continue
+		}
+
 		opts, err := t.optsGetter(ctx)
 		if err != nil {
 			t.logger.Error("failed to get transact opts", "error", err)
@@ -428,6 +435,7 @@ func (t *Tracker) openCommitments(
 			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
 			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
 			commitment.PreConfirmation.Bid.Signature,
+			slashAmt,
 			zkProof,
 		)
 		if err != nil {

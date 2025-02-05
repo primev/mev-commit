@@ -27,11 +27,12 @@ var (
 	ErrMissingRequiredFields        = errors.New("missing required fields")
 	ErrNoAesKeyFound                = errors.New("no AES key found for bidder")
 	ErrInvalidBidAmt                = errors.New("invalid bid amount")
+	ErrInvalidSlashAmt              = errors.New("invalid slash amount")
 	ErrBidNotFound                  = errors.New("bid not found")
 )
 
 var (
-	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 bidderPKx,uint256 bidderPKy)"))
+	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy)"))
 	EIP712CommitmentTypeHash = crypto.Keccak256Hash([]byte("OpenedCommitment(bytes32 bidHash,string signature,uint256 sharedKeyX,uint256 sharedKeyY)"))
 )
 
@@ -291,6 +292,10 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 	if !ok {
 		return common.Hash{}, ErrInvalidBidAmt
 	}
+	slashAmt, ok := big.NewInt(0).SetString(bid.SlashAmount, 10)
+	if !ok {
+		return common.Hash{}, ErrInvalidSlashAmt
+	}
 
 	txnHashHash := crypto.Keccak256Hash([]byte(bid.TxHash))
 	revertingTxHashesHash := crypto.Keccak256Hash([]byte(bid.RevertingTxHashes))
@@ -306,6 +311,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: "uint64"},
 		{Name: "decayStartTimestamp", Type: "uint64"},
 		{Name: "decayEndTimestamp", Type: "uint64"},
+		{Name: "slashAmt", Type: "uint256"},
 		{Name: "bidderPKx", Type: "uint256"},
 		{Name: "bidderPKy", Type: "uint256"},
 	})
@@ -322,8 +328,9 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: *bidStructType.TupleElems[4]},
 		{Name: "decayStartTimestamp", Type: *bidStructType.TupleElems[5]},
 		{Name: "decayEndTimestamp", Type: *bidStructType.TupleElems[6]},
-		{Name: "bidderPKx", Type: *bidStructType.TupleElems[7]},
-		{Name: "bidderPKy", Type: *bidStructType.TupleElems[8]},
+		{Name: "slashAmt", Type: *bidStructType.TupleElems[7]},
+		{Name: "bidderPKx", Type: *bidStructType.TupleElems[8]},
+		{Name: "bidderPKy", Type: *bidStructType.TupleElems[9]},
 	}
 
 	pkXBigInt, pkYBigInt := p2pcrypto.AffineToBigIntXY(bidderPK)
@@ -337,6 +344,7 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		uint64(bid.BlockNumber),
 		uint64(bid.DecayStartTimestamp),
 		uint64(bid.DecayEndTimestamp),
+		slashAmt,
 		&pkXBigInt,
 		&pkYBigInt,
 	)
