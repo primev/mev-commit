@@ -1,22 +1,26 @@
 package keysstore
 
 import (
-	"crypto/ecdh"
 	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
 )
 
 const (
 	aesKeysNS         = "aes/"
 	eciesPrivateKeyNS = "ecies/"
-	nikePrivateKeyNS  = "nike/"
+	bn254PrivateKeyNS = "bn254-sk/"
+	bn254PublicKeyNS  = "bn254-pk/"
 )
 
 var (
@@ -43,7 +47,7 @@ func (s *Store) SetAESKey(bidder common.Address, key []byte) error {
 	return s.st.Put(bidderAesKey(bidder), key)
 }
 
-func (s *Store) GetAESKey(bidder common.Address) ([]byte, error) {
+func (s *Store) AESKey(bidder common.Address) ([]byte, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -77,7 +81,7 @@ func (s *Store) SetECIESPrivateKey(key *ecies.PrivateKey) error {
 	return s.st.Put(eciesPrivateKeyNS, eciesPrivateKeyToBytes(key))
 }
 
-func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
+func (s *Store) ECIESPrivateKey() (*ecies.PrivateKey, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -88,30 +92,22 @@ func (s *Store) GetECIESPrivateKey() (*ecies.PrivateKey, error) {
 	case err != nil:
 		return nil, err
 	}
-
 	return eciesPrivateKeyFromBytes(val), nil
 }
 
-func ecdhPrivateKeyToBytes(priv *ecdh.PrivateKey) []byte {
-	return priv.Bytes()
-}
-
-func ecdhPrivateKeyFromBytes(data []byte) (*ecdh.PrivateKey, error) {
-	return ecdh.P256().NewPrivateKey(data)
-}
-
-func (s *Store) SetNikePrivateKey(key *ecdh.PrivateKey) error {
+func (s *Store) SetBN254PrivateKey(sk *fr.Element) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.st.Put(nikePrivateKeyNS, ecdhPrivateKeyToBytes(key))
+	raw := p2pcrypto.BN254PrivateKeyToBytes(sk)
+	return s.st.Put(bn254PrivateKeyNS, raw)
 }
 
-func (s *Store) GetNikePrivateKey() (*ecdh.PrivateKey, error) {
+func (s *Store) BN254PrivateKey() (*fr.Element, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	val, err := s.st.Get(nikePrivateKeyNS)
+	raw, err := s.st.Get(bn254PrivateKeyNS)
 	switch {
 	case errors.Is(err, storage.ErrKeyNotFound):
 		return nil, nil
@@ -119,5 +115,28 @@ func (s *Store) GetNikePrivateKey() (*ecdh.PrivateKey, error) {
 		return nil, err
 	}
 
-	return ecdhPrivateKeyFromBytes(val)
+	return p2pcrypto.BN254PrivateKeyFromBytes(raw)
+}
+
+func (s *Store) SetBN254PublicKey(pub *bn254.G1Affine) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	raw := p2pcrypto.BN254PublicKeyToBytes(pub) // 96 bytes uncompressed
+	return s.st.Put(bn254PublicKeyNS, raw)
+}
+
+func (s *Store) BN254PublicKey() (*bn254.G1Affine, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	raw, err := s.st.Get(bn254PublicKeyNS)
+	switch {
+	case errors.Is(err, storage.ErrKeyNotFound):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+
+	return p2pcrypto.BN254PublicKeyFromBytes(raw)
 }

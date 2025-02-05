@@ -1,7 +1,6 @@
 package preconfencryptor_test
 
 import (
-	"crypto/ecdh"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	preconfpb "github.com/primev/mev-commit/p2p/gen/go/preconfirmation/v1"
@@ -118,11 +118,15 @@ func TestBids(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+		psk, ppk, err := p2pcrypto.GenerateKeyPairBN254()
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+		err = providerStore.SetBN254PrivateKey(psk)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = providerStore.SetBN254PublicKey(ppk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -157,7 +161,7 @@ func TestBids(t *testing.T) {
 
 		_, address, err := bidderEncryptor.VerifyEncryptedPreConfirmation(
 			bid,
-			providerNikePrivateKey.PublicKey(),
+			ppk,
 			nikePrivateKey,
 			encryptedPreConfirmation,
 		)
@@ -173,6 +177,11 @@ func TestHashing(t *testing.T) {
 	t.Parallel()
 
 	t.Run("bid", func(t *testing.T) {
+		var pk bn254.G1Affine
+		pk.X.SetInt64(1)
+		pk.Y.SetInt64(2)
+		nikePublicKey := p2pcrypto.BN254PublicKeyToBytes(&pk)
+
 		bid := &preconfpb.Bid{
 			TxHash:              "0xkartik",
 			RevertingTxHashes:   "0xkartik",
@@ -180,6 +189,7 @@ func TestHashing(t *testing.T) {
 			BlockNumber:         2,
 			DecayStartTimestamp: 10,
 			DecayEndTimestamp:   20,
+			NikePublicKey:       nikePublicKey,
 		}
 
 		preconfAddr := common.HexToAddress("0xA4AD4f68d0b91CFD19687c881e50f3A00242828c")
@@ -195,7 +205,7 @@ func TestHashing(t *testing.T) {
 
 		hashStr := hex.EncodeToString(hash)
 		// This hash is sourced from the solidity contract to ensure interoperability
-		expHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
+		expHash := "520eacb6555b9bfb82c1b0f04b5969c0b4cb277a030f62aa6cab3f7dec011b75"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -223,8 +233,8 @@ func TestHashing(t *testing.T) {
 	})
 
 	t.Run("preConfirmation", func(t *testing.T) {
-		bidHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
-		bidSignature := "5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b"
+		bidHash := "520eacb6555b9bfb82c1b0f04b5969c0b4cb277a030f62aa6cab3f7dec011b75"
+		bidSignature := "1193ce788e005ddad9c98f7d3d191eb0b17c0f28e735c736061e233f6b6abf5e5603091b91e4c395d4d5efd52b33720e392e79d3d7f3c735e2c45faef861ea0c1c"
 
 		bidHashBytes, err := hex.DecodeString(bidHash)
 		if err != nil {
@@ -235,6 +245,11 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 
+		var pk bn254.G1Affine
+		pk.X.SetInt64(1)
+		pk.Y.SetInt64(2)
+		nikePublicKey := p2pcrypto.BN254PublicKeyToBytes(&pk)
+
 		bid := &preconfpb.Bid{
 			TxHash:              "0xkartik",
 			RevertingTxHashes:   "0xkartik",
@@ -244,13 +259,17 @@ func TestHashing(t *testing.T) {
 			DecayEndTimestamp:   20,
 			Digest:              bidHashBytes,
 			Signature:           bidSigBytes,
+			NikePublicKey:       nikePublicKey,
 		}
 
-		sharedSecretBytes := []byte("0xsecret")
+		var sharedKey bn254.G1Affine
+		sharedKey.X.SetUint64(1)
+		sharedKey.Y.SetUint64(2)
 
+		sharedKeyBytes := p2pcrypto.BN254PublicKeyToBytes(&sharedKey)
 		preConfirmation := &preconfpb.PreConfirmation{
 			Bid:          bid,
-			SharedSecret: sharedSecretBytes,
+			SharedSecret: sharedKeyBytes,
 		}
 
 		chainID := big.NewInt(31337)
@@ -260,12 +279,12 @@ func TestHashing(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		hash, err := preconfencryptor.GetPreConfirmationHash(preConfirmation, domainSeparatorPreConfHash)
+		hash, err := preconfencryptor.GetPreConfirmationHash(preConfirmation, &sharedKey, domainSeparatorPreConfHash)
 		if err != nil {
 			t.Fatal(err)
 		}
 		hashStr := hex.EncodeToString(hash)
-		expHash := "a7f6241be0c5055f054fcbe03d98a1920f0ab874039474401323d8d95930a076"
+		expHash := "8cca321f795582fe855dc47cd5e83d4747ce13ffc23747ca68b19f2147fe985f"
 		if hashStr != expHash {
 			t.Fatalf("hash mismatch: %s != %s", hashStr, expHash)
 		}
@@ -288,8 +307,8 @@ func TestHashing(t *testing.T) {
 func TestVerify(t *testing.T) {
 	t.Parallel()
 
-	bidSig := "5cd1f790192a0ab79661c48f39e77937a6de537ccf6b428682583d13d30294cb113cea12822f821c064c9db918667bf74490535b35b4ef4f28f5d67b133ec22e1b"
-	bidHash := "447b1a7d708774aa54989ab576b576242ae7fd8a37d4e8f33f0eee751bc72edf"
+	bidSig := "1193ce788e005ddad9c98f7d3d191eb0b17c0f28e735c736061e233f6b6abf5e5603091b91e4c395d4d5efd52b33720e392e79d3d7f3c735e2c45faef861ea0c1c"
+	bidHash := "520eacb6555b9bfb82c1b0f04b5969c0b4cb277a030f62aa6cab3f7dec011b75"
 
 	bidHashBytes, err := hex.DecodeString(bidHash)
 	if err != nil {
@@ -425,11 +444,15 @@ func BenchmarkConstructEncryptedPreConfirmation(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	providerNikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	providerNikePrivateKey, providerNikePublicKey, err := p2pcrypto.GenerateKeyPairBN254()
 	if err != nil {
 		b.Fatal(err)
 	}
-	err = providerStore.SetNikePrivateKey(providerNikePrivateKey)
+	err = providerStore.SetBN254PrivateKey(providerNikePrivateKey)
+	if err != nil {
+		b.Fatal(err)
+	}
+	err = providerStore.SetBN254PublicKey(providerNikePublicKey)
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -28,10 +28,13 @@ contract OracleTest is Test {
     TestCommitment internal _testCommitmentAliceBob;
     uint64 public dispatchTimestampTesting;
     bytes public sharedSecretKey;
-    bytes public constant validBLSPubkey = hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
+    uint256[] public zkProof;
+    bytes public constant validBLSPubkey =
+        hex"80000cddeec66a800e00b0ccbb62f12298073603f5209e812abbac7e870482e488dd1bbe533a9d44497ba8b756e1e82b";
     bytes[] public validBLSPubkeys = [validBLSPubkey];
-    bytes public dummyBLSSignature = hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
-    uint256 public constant withdrawalDelay = 24 hours ; // 24 hours
+    bytes public dummyBLSSignature =
+        hex"bbbbbbbbb1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2";
+    uint256 public constant withdrawalDelay = 24 hours; // 24 hours
     uint256 public constant protocolFeePayoutPeriodBlocks = 100;
     struct TestCommitment {
         uint64 bid;
@@ -44,6 +47,7 @@ contract OracleTest is Test {
         bytes bidSignature;
         bytes commitmentSignature;
         uint64 dispatchTimestamp;
+        uint256[] zkProof;
     }
 
     // Events to match against
@@ -68,6 +72,16 @@ contract OracleTest is Test {
         testNumber = 2;
         testNumber2 = 2;
         sharedSecretKey = bytes("0xsecret");
+        zkProof = new uint256[](8);
+        zkProof[0] = 1;
+        zkProof[1] = 2;
+        zkProof[2] = 1;
+        zkProof[3] = 2;
+        zkProof[4] = 1;
+        zkProof[5] = 2;
+        zkProof[6] = 6086978054802466984342546804805639539210350900596926314244208215637076231818;
+        zkProof[7] = 15801264817036808237903858940451635549338013499819108029453995970938732263800;
+
         _testCommitmentAliceBob = TestCommitment(
             2,
             2,
@@ -78,7 +92,8 @@ contract OracleTest is Test {
             0x54c118e537dd7cf63b5388a5fc8322f0286a978265d0338b108a8ca9d155dccc,
             hex"876c1216c232828be9fabb14981c8788cebdf6ed66e563c4a2ccc82a577d052543207aeeb158a32d8977736797ae250c63ef69a82cd85b727da21e20d030fb311b",
             hex"ec0f11f77a9e96bb9c2345f031a5d12dca8d01de8a2e957cf635be14802f9ad01c6183688f0c2672639e90cc2dce0662d9bea3337306ca7d4b56dd80326aaa231b",
-            1000
+            1000,
+            zkProof
         );
 
         feePercent = 10 * 1e16; // 10%
@@ -89,7 +104,14 @@ contract OracleTest is Test {
             "ProviderRegistry.sol",
             abi.encodeCall(
                 ProviderRegistry.initialize,
-                (minStake, feeRecipient, feePercent, address(this), withdrawalDelay, protocolFeePayoutPeriodBlocks)
+                (
+                    minStake,
+                    feeRecipient,
+                    feePercent,
+                    address(this),
+                    withdrawalDelay,
+                    protocolFeePayoutPeriodBlocks
+                )
             )
         );
         providerRegistry = ProviderRegistry(payable(proxy));
@@ -98,7 +120,10 @@ contract OracleTest is Test {
 
         address blockTrackerProxy = Upgrades.deployUUPSProxy(
             "BlockTracker.sol",
-            abi.encodeCall(BlockTracker.initialize, (ownerInstance, ownerInstance))
+            abi.encodeCall(
+                BlockTracker.initialize,
+                (ownerInstance, ownerInstance)
+            )
         );
         blockTracker = BlockTracker(payable(blockTrackerProxy));
 
@@ -171,7 +196,9 @@ contract OracleTest is Test {
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
+        uint64 blockNumber = uint64(
+            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
+        );
         uint64 bid = 2;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
@@ -186,7 +213,10 @@ contract OracleTest is Test {
         vm.startPrank(provider);
         providerRegistry.registerAndStake{value: 250 ether}();
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
 
         vm.stopPrank();
@@ -199,7 +229,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
@@ -223,7 +254,9 @@ contract OracleTest is Test {
             memory txn = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d08";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
+        uint64 blockNumber = uint64(
+            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
+        );
         uint64 bid = 200;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
@@ -238,7 +271,10 @@ contract OracleTest is Test {
         vm.startPrank(provider);
         providerRegistry.registerAndStake{value: 250 ether}();
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
 
         vm.stopPrank();
@@ -251,7 +287,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
@@ -279,7 +316,9 @@ contract OracleTest is Test {
             memory txn2 = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d09";
         string
             memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
+        uint64 blockNumber = uint64(
+            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
+        );
         uint64 bid = 100;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
@@ -296,7 +335,10 @@ contract OracleTest is Test {
         vm.startPrank(provider);
         providerRegistry.registerAndStake{value: 250 ether}();
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
 
         vm.stopPrank();
@@ -309,7 +351,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
         bytes32 index2 = constructAndStoreCommitment(
             bid,
@@ -319,7 +362,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
@@ -344,10 +388,15 @@ contract OracleTest is Test {
             50 * providerRegistry.PRECISION()
         );
         vm.stopPrank();
-        assertEq(providerRegistry.getProviderStake(provider), 250 ether - ((bid*110)/100));
+        assertEq(
+            providerRegistry.getProviderStake(provider),
+            250 ether - ((bid * 110) / 100)
+        );
         assertEq(
             bidderRegistry.getProviderAmount(provider),
-            (((bid * (providerRegistry.ONE_HUNDRED_PERCENT() - feePercent)) / providerRegistry.ONE_HUNDRED_PERCENT()) * residualAfterDecay) / 100
+            (((bid * (providerRegistry.ONE_HUNDRED_PERCENT() - feePercent)) /
+                providerRegistry.ONE_HUNDRED_PERCENT()) * residualAfterDecay) /
+                100
         );
     }
 
@@ -368,7 +417,9 @@ contract OracleTest is Test {
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
 
         vm.deal(bidder, 200000 ether);
-        uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(blockNumber);
+        uint256 window = WindowFromBlockNumber.getWindowFromBlockNumber(
+            blockNumber
+        );
         vm.startPrank(bidder);
         bidderRegistry.depositForWindow{value: 250 ether}(window);
         vm.stopPrank();
@@ -377,7 +428,10 @@ contract OracleTest is Test {
         vm.startPrank(provider);
         providerRegistry.registerAndStake{value: 250 ether}();
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
 
         vm.stopPrank();
@@ -390,7 +444,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
         bytes32 index2 = constructAndStoreCommitment(
             bid,
@@ -400,7 +455,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
         bytes32 index3 = constructAndStoreCommitment(
             bid,
@@ -410,7 +466,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
         bytes32 index4 = constructAndStoreCommitment(
             bid,
@@ -420,7 +477,8 @@ contract OracleTest is Test {
             bidderPk,
             providerPk,
             provider,
-            dispatchTimestampTesting
+            dispatchTimestampTesting,
+            zkProof
         );
 
         vm.startPrank(address(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3));
@@ -462,7 +520,10 @@ contract OracleTest is Test {
             bidderRegistry.ONE_HUNDRED_PERCENT()
         );
         vm.stopPrank();
-        assertEq(providerRegistry.getProviderStake(provider), 250 ether - bid * 4);
+        assertEq(
+            providerRegistry.getProviderStake(provider),
+            250 ether - bid * 4
+        );
         assertEq(bidderRegistry.getProviderAmount(provider), 0);
     }
 
@@ -480,8 +541,11 @@ contract OracleTest is Test {
         txnHashes[
             3
         ] = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d11";
-        string memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
-        uint64 blockNumber = uint64(WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2);
+        string
+            memory revertingTxHashes = "0x6d9c53ad81249775f8c082b11ac293b2e19194ff791bd1c4fd37683310e90d12";
+        uint64 blockNumber = uint64(
+            WindowFromBlockNumber.BLOCKS_PER_WINDOW + 2
+        );
         uint64 bid = 5;
         (address bidder, uint256 bidderPk) = makeAddrAndKey("alice");
         (address provider, uint256 providerPk) = makeAddrAndKey("kartik");
@@ -496,7 +560,10 @@ contract OracleTest is Test {
         vm.startPrank(provider);
         providerRegistry.registerAndStake{value: 250 ether}();
         for (uint256 i = 0; i < validBLSPubkeys.length; i++) {
-            providerRegistry.addVerifiedBLSKey(validBLSPubkeys[i], dummyBLSSignature);
+            providerRegistry.addVerifiedBLSKey(
+                validBLSPubkeys[i],
+                dummyBLSSignature
+            );
         }
 
         vm.stopPrank();
@@ -519,7 +586,8 @@ contract OracleTest is Test {
                 20,
                 bidderPk,
                 providerPk,
-                dispatchTimestampTesting
+                dispatchTimestampTesting,
+                zkProof
             );
         }
 
@@ -539,7 +607,7 @@ contract OracleTest is Test {
                 10,
                 20,
                 bidSignatures[i],
-                sharedSecretKey
+                zkProof
             );
             vm.stopPrank();
         }
@@ -568,25 +636,27 @@ contract OracleTest is Test {
         uint256 bidderPk,
         uint256 signerPk,
         address provider,
-        uint64 dispatchTimestamp
+        uint64 dispatchTimestamp,
+        uint256[] memory zkproof
     ) public returns (bytes32 commitmentIndex) {
-        bytes32 bidHash = getBidHash(txnHash, revertingTxHashes, bid, blockNumber);
-        bytes memory bidSignature = getBidSignature(bidderPk, bidHash);
-        
-        bytes32 commitmentDigest = getCommitmentDigest(
+        bytes32 bidHash = getBidHash(
             txnHash,
             revertingTxHashes,
             bid,
             blockNumber,
+            zkproof
+        );
+        bytes memory bidSignature = getBidSignature(bidderPk, bidHash);
+
+        bytes32 commitmentDigest = getCommitmentDigest(
             bidHash,
             bidSignature
         );
-        
+
         bytes memory commitmentSignature = getCommitmentSignature(
             signerPk,
             commitmentDigest
         );
-        
 
         bytes32 unopenedCommitmentIndex = storeUnopenedCommitment(
             provider,
@@ -603,7 +673,8 @@ contract OracleTest is Test {
             blockNumber,
             txnHash,
             revertingTxHashes,
-            bidSignature
+            bidSignature,
+            zkProof
         );
         return commitmentIndex;
     }
@@ -612,7 +683,8 @@ contract OracleTest is Test {
         string memory txnHash,
         string memory revertingTxHashes,
         uint64 bid,
-        uint64 blockNumber
+        uint64 blockNumber,
+        uint256[] memory zkproof
     ) public view returns (bytes32) {
         return
             preconfManager.getBidHash(
@@ -621,7 +693,8 @@ contract OracleTest is Test {
                 bid,
                 blockNumber,
                 10,
-                20
+                20,
+                zkproof
             );
     }
 
@@ -634,24 +707,14 @@ contract OracleTest is Test {
     }
 
     function getCommitmentDigest(
-        string memory txnHash,
-        string memory revertingTxHashes,
-        uint64 bid,
-        uint64 blockNumber,
         bytes32 bidHash,
         bytes memory bidSignature
     ) public view returns (bytes32) {
         return
             preconfManager.getPreConfHash(
-                txnHash,
-                revertingTxHashes,
-                bid,
-                blockNumber,
-                10,
-                20,
                 bidHash,
                 bidSignature,
-                sharedSecretKey
+                zkProof
             );
     }
 
@@ -680,7 +743,10 @@ contract OracleTest is Test {
         return unopenedCommitmentIndex;
     }
 
-    function recordBlockData(bytes memory blsPubKey, uint64 blockNumber) public {
+    function recordBlockData(
+        bytes memory blsPubKey,
+        uint64 blockNumber
+    ) public {
         vm.startPrank(0x6d503Fd50142C7C469C7c6B64794B55bfa6883f3);
 
         blockTracker.recordL1Block(blockNumber, blsPubKey);
@@ -694,7 +760,8 @@ contract OracleTest is Test {
         uint64 blockNumber,
         string memory txnHash,
         string memory revertingTxHashes,
-        bytes memory bidSignature
+        bytes memory bidSignature,
+        uint256[] memory zkproof
     ) public returns (bytes32) {
         vm.startPrank(provider);
         bytes32 commitmentIndex = preconfManager.openCommitment(
@@ -706,7 +773,7 @@ contract OracleTest is Test {
             10,
             20,
             bidSignature,
-            sharedSecretKey
+            zkproof
         );
         vm.stopPrank();
         return commitmentIndex;
@@ -722,7 +789,8 @@ contract OracleTest is Test {
         uint64 decayEndTimestamp,
         uint256 bidderPk,
         uint256 signerPk,
-        uint64 dispatchTimestamp
+        uint64 dispatchTimestamp,
+        uint256[] memory zkproof
     )
         public
         returns (
@@ -737,22 +805,17 @@ contract OracleTest is Test {
             bid,
             blockNumber,
             decayStartTimestamp,
-            decayEndTimestamp
+            decayEndTimestamp,
+            zkproof
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
         bidSignature = abi.encodePacked(r, s, v);
 
         bytes32 commitmentDigest = preconfManager.getPreConfHash(
-            txnHash,
-            revertingTxHashes,
-            bid,
-            blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp,
             bidHash,
             bidSignature,
-            sharedSecretKey
+            zkproof
         );
 
         (v, r, s) = vm.sign(signerPk, commitmentDigest);

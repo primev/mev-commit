@@ -47,6 +47,6 @@ type Topology interface {
 
 type Store interface {
 	SetAESKey(common.Address, []byte) error
-	GetAESKey(common.Address) ([]byte, error)
-	GetECIESPrivateKey() (*ecies.PrivateKey, error)
+	AESKey(common.Address) ([]byte, error)
+	ECIESPrivateKey() (*ecies.PrivateKey, error)
 }

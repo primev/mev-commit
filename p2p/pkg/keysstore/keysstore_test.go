@@ -1,13 +1,13 @@
 package keysstore_test
 
 import (
-	"crypto/ecdh"
 	"crypto/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
+	p2pcrypto "github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/keysstore"
 	inmem "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	"github.com/stretchr/testify/assert"
@@ -23,13 +23,13 @@ func TestAESKey(t *testing.T) {
 	err := store.SetAESKey(bidder, expectedKey)
 	assert.NoError(t, err)
 
-	retrievedKey, err := store.GetAESKey(bidder)
+	retrievedKey, err := store.AESKey(bidder)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedKey, retrievedKey)
 
 	// Get non-existent AES key
 	nonExistentBidder := common.HexToAddress("0x2")
-	retrievedKey, err = store.GetAESKey(nonExistentBidder)
+	retrievedKey, err = store.AESKey(nonExistentBidder)
 	assert.NoError(t, err)
 	assert.Nil(t, retrievedKey)
 }
@@ -39,7 +39,7 @@ func TestECIESPrivateKey(t *testing.T) {
 	store := keysstore.New(st)
 
 	// Get non-existent ECIES private key
-	retrievedKey, err := store.GetECIESPrivateKey()
+	retrievedKey, err := store.ECIESPrivateKey()
 	assert.NoError(t, err)
 	assert.Nil(t, retrievedKey)
 
@@ -51,7 +51,7 @@ func TestECIESPrivateKey(t *testing.T) {
 	err = store.SetECIESPrivateKey(privateKeyECIES)
 	assert.NoError(t, err)
 
-	retrievedKey, err = store.GetECIESPrivateKey()
+	retrievedKey, err = store.ECIESPrivateKey()
 	assert.NoError(t, err)
 	assert.Equal(t, privateKeyECIES.D, retrievedKey.D)
 }
@@ -61,19 +61,41 @@ func TestNikePrivateKey(t *testing.T) {
 	store := keysstore.New(st)
 
 	// Get non-existent Nike private key
-	retrievedKey, err := store.GetNikePrivateKey()
+	retrievedKey, err := store.BN254PrivateKey()
 	assert.NoError(t, err)
 	assert.Nil(t, retrievedKey)
 
 	// Generate Nike private key
-	privateKeyNike, err := ecdh.P256().GenerateKey(rand.Reader)
+	sk, _, err := p2pcrypto.GenerateKeyPairBN254()
 	assert.NoError(t, err)
 
 	// Set and get Nike private key
-	err = store.SetNikePrivateKey(privateKeyNike)
+	err = store.SetBN254PrivateKey(sk)
 	assert.NoError(t, err)
 
-	retrievedKey, err = store.GetNikePrivateKey()
+	retrievedKey, err = store.BN254PrivateKey()
 	assert.NoError(t, err)
-	assert.Equal(t, privateKeyNike.Bytes(), retrievedKey.Bytes())
+	assert.Equal(t, sk.Bytes(), retrievedKey.Bytes())
+}
+
+func TestNikePublicKey(t *testing.T) {
+	st := inmem.New()
+	store := keysstore.New(st)
+
+	// Get non-existent Nike public key
+	retrievedKey, err := store.BN254PublicKey()
+	assert.NoError(t, err)
+	assert.Nil(t, retrievedKey)
+
+	// Generate Nike key pair
+	_, pk, err := p2pcrypto.GenerateKeyPairBN254()
+	assert.NoError(t, err)
+
+	// Set and get Nike public key
+	err = store.SetBN254PublicKey(pk)
+	assert.NoError(t, err)
+
+	retrievedKey, err = store.BN254PublicKey()
+	assert.NoError(t, err)
+	assert.Equal(t, pk.Bytes(), retrievedKey.Bytes())
 }
