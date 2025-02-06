@@ -11,6 +11,7 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {WindowFromBlockNumber} from "../../contracts/utils/WindowFromBlockNumber.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {MockBLSVerify} from "../precompiles/BLSVerifyPreCompileMockTest.sol";
+import {IPreconfManager} from "../../contracts/interfaces/IPreconfManager.sol";
 
 contract OracleTest is Test {
     using ECDSA for bytes32;
@@ -627,16 +628,18 @@ contract OracleTest is Test {
             vm.startPrank(provider);
             // Open the commitment with the two extra decay parameters.
             preconfManager.openCommitment(
-                commitments[i],
-                bid,
-                blockNumber,
-                txnHashes[i],
-                revertingTxHashes,
-                10, // decayStartTimeStamp
-                20, // decayEndTimeStamp
-                bidSignatures[i],
-                slashAmt,
-                zkProof
+                IPreconfManager.OpenCommitmentParams(
+                    commitments[i],
+                    bid,
+                    blockNumber,
+                    txnHashes[i],
+                    revertingTxHashes,
+                    10, // decayStartTimeStamp
+                    20, // decayEndTimeStamp
+                    bidSignatures[i],
+                    slashAmt,
+                    zkProof
+                )
             );
             vm.stopPrank();
         }
@@ -706,14 +709,18 @@ contract OracleTest is Test {
         )
     {
         bytes32 bidHash = preconfManager.getBidHash(
-            params.txnHash,
-            params.revertingTxHashes,
-            params.bid,
-            params.blockNumber,
-            params.decayStartTimestamp,
-            params.decayEndTimestamp,
-            params.slashAmt,
-            params.zkProof
+            IPreconfManager.OpenCommitmentParams(
+                hex"",
+                params.bid,
+                params.blockNumber,
+                params.txnHash,
+                params.revertingTxHashes,
+                params.decayStartTimestamp,
+                params.decayEndTimestamp,
+                hex"",
+                params.slashAmt,
+                params.zkProof
+            )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(params.bidderPk, bidHash);
         bidSignature = abi.encodePacked(r, s, v);
@@ -744,14 +751,18 @@ contract OracleTest is Test {
     ) public view returns (bytes32) {
         return
             preconfManager.getBidHash(
-                txnHash,
-                revertingTxHashes,
-                bid,
-                blockNumber,
-                10,
-                20,
-                slashAmt,
-                zkproof
+                IPreconfManager.OpenCommitmentParams(
+                    hex"",
+                    bid,
+                    blockNumber,
+                    txnHash,
+                    revertingTxHashes,
+                    10,
+                    20,
+                    hex"",
+                    slashAmt,
+                    zkproof
+                )
             );
     }
 
@@ -817,16 +828,18 @@ contract OracleTest is Test {
     ) public returns (bytes32) {
         vm.startPrank(provider);
         bytes32 commitmentIndex = preconfManager.openCommitment(
-            unopenedCommitmentIndex,
-            bid,
-            blockNumber,
-            txnHash,
-            revertingTxHashes,
-            10, // decayStartTimeStamp
-            20, // decayEndTimeStamp
-            bidSignature,
-            slashAmt,
-            zkproof
+            IPreconfManager.OpenCommitmentParams(
+                unopenedCommitmentIndex,
+                bid,
+                blockNumber,
+                txnHash,
+                revertingTxHashes,
+                10, // decayStartTimeStamp
+                20, // decayEndTimeStamp
+                bidSignature,
+                slashAmt,
+                zkproof
+            )
         );
         vm.stopPrank();
         return commitmentIndex;

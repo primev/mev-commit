@@ -414,29 +414,20 @@ type testPreconfContract struct {
 
 func (t *testPreconfContract) OpenCommitment(
 	_ *bind.TransactOpts,
-	encryptedCommitmentIndex [32]byte,
-	bid *big.Int,
-	blockNumber uint64,
-	txnHash string,
-	revertingTxHashes string,
-	decayStartTimeStamp uint64,
-	decayEndTimeStamp uint64,
-	bidSignature []byte,
-	slashAmt *big.Int,
-	zkProof []*big.Int,
+	params preconf.IPreconfManagerOpenCommitmentParams,
 ) (*types.Transaction, error) {
 
 	t.openedCommitments <- openedCommitment{
-		encryptedCommitmentIndex: encryptedCommitmentIndex,
-		bid:                      bid,
-		blockNumber:              blockNumber,
-		txnHash:                  txnHash,
-		revertingTxHashes:        revertingTxHashes,
-		decayStartTimeStamp:      decayStartTimeStamp,
-		decayEndTimeStamp:        decayEndTimeStamp,
-		bidSignature:             bidSignature,
-		slashAmt:                 slashAmt,
-		zkProof:                  zkProof,
+		encryptedCommitmentIndex: params.UnopenedCommitmentIndex,
+		bid:                      params.BidAmt,
+		blockNumber:              params.BlockNumber,
+		txnHash:                  params.TxnHash,
+		revertingTxHashes:        params.RevertingTxHashes,
+		decayStartTimeStamp:      params.DecayStartTimeStamp,
+		decayEndTimeStamp:        params.DecayEndTimeStamp,
+		bidSignature:             params.BidSignature,
+		slashAmt:                 params.SlashAmt,
+		zkProof:                  params.ZkProof,
 	}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }

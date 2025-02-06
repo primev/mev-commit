@@ -179,14 +179,18 @@ contract PreconfManagerTest is Test {
 
         // Step 2: Calculate the bid hash using the getBidHash function
         bytes32 bidHash = preconfManager.getBidHash(
-            testCommitment.txnHash,
-            testCommitment.revertingTxHashes,
-            testCommitment.bidAmt,
-            testCommitment.blockNumber,
-            testCommitment.decayStartTimeStamp,
-            testCommitment.decayEndTimeStamp,
-            testCommitment.slashAmt,
-            testCommitment.zkProof
+            IPreconfManager.OpenCommitmentParams(
+                hex"",
+                testCommitment.bidAmt,
+                testCommitment.blockNumber,
+                testCommitment.txnHash,
+                testCommitment.revertingTxHashes,
+                testCommitment.decayStartTimeStamp,
+                testCommitment.decayEndTimeStamp,
+                hex"",
+                testCommitment.slashAmt,
+                testCommitment.zkProof
+            )
         );
 
         // Add a alice private key and console log the key
@@ -356,14 +360,18 @@ contract PreconfManagerTest is Test {
 
     function test_GetBidHash2() public view {
         bytes32 bidHash = preconfManager.getBidHash(
-            _testCommitmentAliceBob.txnHash,
-            _testCommitmentAliceBob.revertingTxHashes,
-            _testCommitmentAliceBob.bidAmt,
-            _testCommitmentAliceBob.blockNumber,
-            _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp,
-            _testCommitmentAliceBob.slashAmt,
-            _testCommitmentAliceBob.zkProof
+            IPreconfManager.OpenCommitmentParams(
+                hex"",
+                _testCommitmentAliceBob.bidAmt,
+                _testCommitmentAliceBob.blockNumber,
+                _testCommitmentAliceBob.txnHash,
+                _testCommitmentAliceBob.revertingTxHashes,
+                _testCommitmentAliceBob.decayStartTimestamp,
+                _testCommitmentAliceBob.decayEndTimestamp,
+                hex"",
+                _testCommitmentAliceBob.slashAmt,
+                _testCommitmentAliceBob.zkProof
+            )
         );
         assertEq(bidHash, _testCommitmentAliceBob.bidDigest);
     }
@@ -372,14 +380,18 @@ contract PreconfManagerTest is Test {
         (, uint256 bidderPk) = makeAddrAndKey("alice");
 
         bytes32 bidHash = preconfManager.getBidHash(
-            _testCommitmentAliceBob.txnHash,
-            _testCommitmentAliceBob.revertingTxHashes,
-            _testCommitmentAliceBob.bidAmt,
-            _testCommitmentAliceBob.blockNumber,
-            _testCommitmentAliceBob.decayStartTimestamp,
-            _testCommitmentAliceBob.decayEndTimestamp,
-            _testCommitmentAliceBob.slashAmt,
-            _testCommitmentAliceBob.zkProof
+            IPreconfManager.OpenCommitmentParams(
+                hex"",
+                _testCommitmentAliceBob.bidAmt,
+                _testCommitmentAliceBob.blockNumber,
+                _testCommitmentAliceBob.txnHash,
+                _testCommitmentAliceBob.revertingTxHashes,
+                _testCommitmentAliceBob.decayStartTimestamp,
+                _testCommitmentAliceBob.decayEndTimestamp,
+                hex"",
+                _testCommitmentAliceBob.slashAmt,
+                _testCommitmentAliceBob.zkProof
+            )
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(bidderPk, bidHash);
@@ -465,14 +477,18 @@ contract PreconfManagerTest is Test {
         TestCommitment memory c
     ) public view returns (bytes32) {
         bytes32 bidHash = preconfManager.getBidHash(
-            c.txnHash,
-            c.revertingTxHashes,
-            c.bidAmt,
-            c.blockNumber,
-            c.decayStartTimestamp,
-            c.decayEndTimestamp,
-            c.slashAmt,
-            c.zkProof
+            IPreconfManager.OpenCommitmentParams(
+                hex"",
+                c.bidAmt,
+                c.blockNumber,
+                c.txnHash,
+                c.revertingTxHashes,
+                c.decayStartTimestamp,
+                c.decayEndTimestamp,
+                hex"",
+                c.slashAmt,
+                c.zkProof
+            )
         );
 
         bytes32 preConfHash = preconfManager.getPreConfHash(
@@ -503,14 +519,18 @@ contract PreconfManagerTest is Test {
         uint256[] memory zkproof
     ) public returns (bytes32) {
         bytes32 bidHash = preconfManager.getBidHash(
-            txnHash,
-            revertingTxHashes,
-            bidAmt,
-            blockNumber,
-            decayStartTimestamp,
-            decayEndTimestamp,
-            slashAmt,
-            zkproof
+            IPreconfManager.OpenCommitmentParams(
+                hex"",
+                bidAmt,
+                blockNumber,
+                txnHash,
+                revertingTxHashes,
+                decayStartTimestamp,
+                decayEndTimestamp,
+                hex"",
+                slashAmt,
+                zkproof
+            )
         );
 
         bytes32 commitmentDigest = preconfManager.getPreConfHash(
@@ -552,16 +572,18 @@ contract PreconfManagerTest is Test {
     ) public returns (bytes32) {
         vm.prank(msgSender);
         bytes32 commitmentIndex = preconfManager.openCommitment(
-            unopenedCommitmentIndex,
-            bidAmt,
-            blockNumber,
-            txnHash,
-            revertingTxHashes,
-            decayStartTimestamp,
-            decayEndTimestamp,
-            bidSignature,
-            slashAmt,
-            zkproof
+            IPreconfManager.OpenCommitmentParams(
+                unopenedCommitmentIndex,
+                bidAmt,
+                blockNumber,
+                txnHash,
+                revertingTxHashes,
+                decayStartTimestamp,
+                decayEndTimestamp,
+                bidSignature,
+                slashAmt,
+                zkproof
+            )
         );
 
         return commitmentIndex;
@@ -1024,16 +1046,18 @@ contract PreconfManagerTest is Test {
         );
 
         preconfManager.openCommitment(
-            unopenedIndex2,
-            testCommitment2.bidAmt,
-            testCommitment2.blockNumber,
-            testCommitment2.txnHash,
-            testCommitment2.revertingTxHashes,
-            testCommitment2.decayStartTimestamp,
-            testCommitment2.decayEndTimestamp,
-            testCommitment2.bidSignature,
-            testCommitment2.slashAmt,
-            testCommitment2.zkProof
+            IPreconfManager.OpenCommitmentParams(
+                unopenedIndex2,
+                testCommitment2.bidAmt,
+                testCommitment2.blockNumber,
+                testCommitment2.txnHash,
+                testCommitment2.revertingTxHashes,
+                testCommitment2.decayStartTimestamp,
+                testCommitment2.decayEndTimestamp,
+                testCommitment2.bidSignature,
+                testCommitment2.slashAmt,
+                testCommitment2.zkProof
+            )
         );
     }
 
@@ -1106,14 +1130,18 @@ contract PreconfManagerTest is Test {
 
         // Recompute bidHash and bidSignature
         bytes32 bidHash2 = preconfManager.getBidHash(
-            testCommitment2.txnHash,
-            testCommitment2.revertingTxHashes,
-            testCommitment2.bidAmt,
-            testCommitment2.blockNumber,
-            testCommitment2.decayStartTimestamp,
-            testCommitment2.decayEndTimestamp,
-            testCommitment2.slashAmt,
-            testCommitment2.zkProof
+            IPreconfManager.OpenCommitmentParams(
+                hex"",
+                testCommitment2.bidAmt,
+                testCommitment2.blockNumber,
+                testCommitment2.txnHash,
+                testCommitment2.revertingTxHashes,
+                testCommitment2.decayStartTimestamp,
+                testCommitment2.decayEndTimestamp,
+                hex"",
+                testCommitment2.slashAmt,
+                testCommitment2.zkProof
+            )
         );
 
         testCommitment2.bidDigest = bidHash2;

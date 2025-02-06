@@ -160,44 +160,61 @@
     "name": "getBidHash",
     "inputs": [
       {
-        "name": "_txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "_revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "_bidAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "_slashAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "_zkProof",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct IPreconfManager.OpenCommitmentParams",
+        "components": [
+          {
+            "name": "unopenedCommitmentIndex",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "bidAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "decayStartTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayEndTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "bidSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "slashAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "zkProof",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
       }
     ],
     "outputs": [
@@ -600,54 +617,61 @@
     "name": "openCommitment",
     "inputs": [
       {
-        "name": "unopenedCommitmentIndex",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "bidAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "slashAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "zkProof",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct IPreconfManager.OpenCommitmentParams",
+        "components": [
+          {
+            "name": "unopenedCommitmentIndex",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "bidAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "decayStartTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayEndTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "bidSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "slashAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "zkProof",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
       }
     ],
     "outputs": [
@@ -1025,49 +1049,61 @@
     "name": "verifyBid",
     "inputs": [
       {
-        "name": "bidAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "blockNumber",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayStartTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "decayEndTimeStamp",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "txnHash",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "revertingTxHashes",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "bidSignature",
-        "type": "bytes",
-        "internalType": "bytes"
-      },
-      {
-        "name": "slashAmt",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "zkProof",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
+        "name": "params",
+        "type": "tuple",
+        "internalType": "struct IPreconfManager.OpenCommitmentParams",
+        "components": [
+          {
+            "name": "unopenedCommitmentIndex",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "bidAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "blockNumber",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "txnHash",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "revertingTxHashes",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "decayStartTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "decayEndTimeStamp",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "bidSignature",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "slashAmt",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "zkProof",
+            "type": "uint256[]",
+            "internalType": "uint256[]"
+          }
+        ]
       }
     ],
     "outputs": [

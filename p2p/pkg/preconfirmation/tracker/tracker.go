@@ -72,16 +72,7 @@ type CommitmentStore interface {
 type PreconfContract interface {
 	OpenCommitment(
 		opts *bind.TransactOpts,
-		encryptedCommitmentIndex [32]byte,
-		bidAmt *big.Int,
-		blockNumber uint64,
-		txnHash string,
-		revertingTxHashes string,
-		decayStartTimeStamp uint64,
-		decayEndTimeStamp uint64,
-		bidSignature []byte,
-		slashAmt *big.Int,
-		zkProof []*big.Int,
+		params preconfcommstore.IPreconfManagerOpenCommitmentParams,
 	) (*types.Transaction, error)
 }
 
@@ -427,16 +418,18 @@ func (t *Tracker) openCommitments(
 
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
-			commitmentIdx,
-			bidAmt,
-			uint64(commitment.PreConfirmation.Bid.BlockNumber),
-			commitment.PreConfirmation.Bid.TxHash,
-			commitment.PreConfirmation.Bid.RevertingTxHashes,
-			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
-			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
-			commitment.PreConfirmation.Bid.Signature,
-			slashAmt,
-			zkProof,
+			preconfcommstore.IPreconfManagerOpenCommitmentParams{
+				UnopenedCommitmentIndex: commitmentIdx,
+				BidAmt:                  bidAmt,
+				BlockNumber:             uint64(commitment.PreConfirmation.Bid.BlockNumber),
+				TxnHash:                 commitment.PreConfirmation.Bid.TxHash,
+				RevertingTxHashes:       commitment.PreConfirmation.Bid.RevertingTxHashes,
+				DecayStartTimeStamp:     uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
+				DecayEndTimeStamp:       uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
+				BidSignature:            commitment.PreConfirmation.Bid.Signature,
+				SlashAmt:                slashAmt,
+				ZkProof:                 zkProof,
+			},
 		)
 		if err != nil {
 			t.logger.Error("failed to open commitment", "error", err)
