@@ -639,31 +639,6 @@ contract PreconfManager is
     }
 
     /**
-     * @dev Emit OpenedCommitmentStored event
-     * @param commitmentIndex The index of the stored commitment
-     * @param newCommitment The commitment to be stored
-     */
-    function _emitOpenedCommitmentStored(
-        bytes32 commitmentIndex,
-        OpenedCommitment memory newCommitment
-    ) internal {
-        emit OpenedCommitmentStored(
-            commitmentIndex,
-            newCommitment.bidder,
-            newCommitment.committer,
-            newCommitment.bidAmt,
-            newCommitment.slashAmt,
-            newCommitment.blockNumber,
-            newCommitment.decayStartTimeStamp,
-            newCommitment.decayEndTimeStamp,
-            newCommitment.txnHash,
-            newCommitment.revertingTxHashes,
-            newCommitment.commitmentDigest,
-            newCommitment.dispatchTimestamp
-        );
-    }
-
-    /**
      * @dev Get the bidder address and commitment digest for a bid.
      * @dev This function also marks the txnHashBidderBlockNumber as processed.
      * @param bidAmt The bid amount.
@@ -688,7 +663,7 @@ contract PreconfManager is
         bytes calldata bidSignature,
         uint256 slashAmt,
         uint256[] calldata zkProof
-    ) private returns (address, bytes32) {
+    ) internal returns (address, bytes32) {
         (bytes32 bHash, address bidderAddress) = verifyBid(
             bidAmt,
             blockNumber,
@@ -715,6 +690,31 @@ contract PreconfManager is
         bytes32 commitmentDigest = getPreConfHash(bHash, bidSignature, zkProof);
 
         return (bidderAddress, commitmentDigest);
+    }
+
+    /**
+     * @dev Emit OpenedCommitmentStored event
+     * @param commitmentIndex The index of the stored commitment
+     * @param newCommitment The commitment to be stored
+     */
+    function _emitOpenedCommitmentStored(
+        bytes32 commitmentIndex,
+        OpenedCommitment memory newCommitment
+    ) internal {
+        emit OpenedCommitmentStored(
+            commitmentIndex,
+            newCommitment.bidder,
+            newCommitment.committer,
+            newCommitment.bidAmt,
+            newCommitment.slashAmt,
+            newCommitment.blockNumber,
+            newCommitment.decayStartTimeStamp,
+            newCommitment.decayEndTimeStamp,
+            newCommitment.txnHash,
+            newCommitment.revertingTxHashes,
+            newCommitment.commitmentDigest,
+            newCommitment.dispatchTimestamp
+        );
     }
 
     // solhint-disable-next-line no-empty-blocks

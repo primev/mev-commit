@@ -22,6 +22,7 @@ library BN128 {
         // Inputs are 4 * 32 bytes = x1, y1, x2, y2
         // Output is 2 * 32 bytes = (x3, y3)
         bool success;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             // free memory pointer
             let memPtr := mload(0x40)
@@ -50,6 +51,7 @@ library BN128 {
         uint256 scalar
     ) internal view returns (uint256 x2, uint256 y2) {
         bool success;
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             let memPtr := mload(0x40)
             mstore(memPtr, x1)
