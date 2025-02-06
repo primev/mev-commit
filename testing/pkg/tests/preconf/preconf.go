@@ -402,10 +402,12 @@ DONE:
 					}
 					residualBidPercent := computeResidualAfterDecay(uint64(pc.DecayStartTimestamp), uint64(pc.DecayEndTimestamp), uint64(pc.DispatchTimestamp))
 					bidAmt, _ := new(big.Int).SetString(entry.Bid.Amount, 10)
+					slashAmt, _ := new(big.Int).SetString(entry.Bid.SlashAmount, 10)
 					residualBidAmt := new(big.Int).Mul(residualBidPercent, bidAmt)
 					residualBidAmt.Div(residualBidAmt, big.NewInt(ONE_HUNDRED_PERCENT))
-					if fr.(*bidderregistry.BidderregistryFundsRewarded).Amount.Cmp(residualBidAmt) != 0 {
-						logger.Error("residual bid amount mismatch", "entry", entry, "expected", residualBidAmt, "actual", fr.(*bidderregistry.BidderregistryFundsRewarded).Amount)
+					bidderPortion := new(big.Int).Add(residualBidAmt, slashAmt)
+					if fr.(*bidderregistry.BidderregistryFundsRewarded).Amount.Cmp(bidderPortion) != 0 {
+						logger.Error("residual bid amount mismatch", "entry", entry, "expected", bidderPortion, "actual", fr.(*bidderregistry.BidderregistryFundsRewarded).Amount)
 						return fmt.Errorf("residual bid amount mismatch")
 					}
 				}
@@ -504,6 +506,8 @@ func getRandomBid(
 	shouldSlash := rand.Intn(100) < 10 && !sendPayload
 	// amount between 5M and 6M
 	amount := 5_000_000 + rand.Intn(1_000_000)
+	// slash amount between 10000 and 100000
+	slashAmount := 10_000 + rand.Intn(100_000)
 
 	if shouldSlash {
 		if len(txHashes) > 1 {
@@ -527,6 +531,7 @@ func getRandomBid(
 	bid := &BidEntry{
 		Bid: &bidderapiv1.Bid{
 			Amount:              fmt.Sprintf("%d", amount),
+			SlashAmount:         fmt.Sprintf("%d", slashAmount),
 			BlockNumber:         int64(blkNum),
 			DecayStartTimestamp: time.Now().UnixMilli(),
 			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
