@@ -41,13 +41,13 @@ interface IPreconfManager {
     struct OpenCommitmentParams {
         bytes32 unopenedCommitmentIndex; // The index of the unopened commitment
         uint256 bidAmt; // The bid amount
+        uint256 slashAmt; // The amount to be slashed
         uint64 blockNumber; // The block number
-        string txnHash; // The transaction hash
-        string revertingTxHashes;  // The reverting transaction hashes
         uint64 decayStartTimeStamp; // The start time of the decay
         uint64 decayEndTimeStamp; // The end time of the decay
+        string txnHash; // The transaction hash
+        string revertingTxHashes; // The reverting transaction hashes
         bytes bidSignature; // The signature of the bid
-        uint256 slashAmt; // The amount to be slashed
         // The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
         // the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
         // the challenge (zkProof[6]), and the response (zkProof[7])

@@ -257,7 +257,7 @@ contract PreconfManager is
         if (msg.sender == winner) {
             require(
                 _verifyZKProof(params.zkProof),
-                "Provider ZK proof verification failed"
+                "ZK proof verification failed"
             );
         }
 
@@ -300,7 +300,7 @@ contract PreconfManager is
         unopenedCommitment.isOpened = true;
 
         // Increment the count of commitments for the committer
-        commitmentsCount[committerAddress]++;
+        ++commitmentsCount[committerAddress];
 
         // Emit an event indicating that the opened commitment has been stored
         _emitOpenedCommitmentStored(commitmentIndex, newCommitment);

@@ -182,13 +182,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 hex"",
                 testCommitment.bidAmt,
+                testCommitment.slashAmt,
                 testCommitment.blockNumber,
-                testCommitment.txnHash,
-                testCommitment.revertingTxHashes,
                 testCommitment.decayStartTimeStamp,
                 testCommitment.decayEndTimeStamp,
+                testCommitment.txnHash,
+                testCommitment.revertingTxHashes,
                 hex"",
-                testCommitment.slashAmt,
                 testCommitment.zkProof
             )
         );
@@ -363,13 +363,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 hex"",
                 _testCommitmentAliceBob.bidAmt,
+                _testCommitmentAliceBob.slashAmt,
                 _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
+                _testCommitmentAliceBob.txnHash,
+                _testCommitmentAliceBob.revertingTxHashes,
                 hex"",
-                _testCommitmentAliceBob.slashAmt,
                 _testCommitmentAliceBob.zkProof
             )
         );
@@ -383,13 +383,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 hex"",
                 _testCommitmentAliceBob.bidAmt,
+                _testCommitmentAliceBob.slashAmt,
                 _testCommitmentAliceBob.blockNumber,
-                _testCommitmentAliceBob.txnHash,
-                _testCommitmentAliceBob.revertingTxHashes,
                 _testCommitmentAliceBob.decayStartTimestamp,
                 _testCommitmentAliceBob.decayEndTimestamp,
+                _testCommitmentAliceBob.txnHash,
+                _testCommitmentAliceBob.revertingTxHashes,
                 hex"",
-                _testCommitmentAliceBob.slashAmt,
                 _testCommitmentAliceBob.zkProof
             )
         );
@@ -480,13 +480,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 hex"",
                 c.bidAmt,
+                c.slashAmt,
                 c.blockNumber,
-                c.txnHash,
-                c.revertingTxHashes,
                 c.decayStartTimestamp,
                 c.decayEndTimestamp,
+                c.txnHash,
+                c.revertingTxHashes,
                 hex"",
-                c.slashAmt,
                 c.zkProof
             )
         );
@@ -522,13 +522,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 hex"",
                 bidAmt,
+                slashAmt,
                 blockNumber,
-                txnHash,
-                revertingTxHashes,
                 decayStartTimestamp,
                 decayEndTimestamp,
+                txnHash,
+                revertingTxHashes,
                 hex"",
-                slashAmt,
                 zkproof
             )
         );
@@ -575,13 +575,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 unopenedCommitmentIndex,
                 bidAmt,
+                slashAmt,
                 blockNumber,
-                txnHash,
-                revertingTxHashes,
                 decayStartTimestamp,
                 decayEndTimestamp,
+                txnHash,
+                revertingTxHashes,
                 bidSignature,
-                slashAmt,
                 zkproof
             )
         );
@@ -1049,13 +1049,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 unopenedIndex2,
                 testCommitment2.bidAmt,
+                testCommitment2.slashAmt,
                 testCommitment2.blockNumber,
-                testCommitment2.txnHash,
-                testCommitment2.revertingTxHashes,
                 testCommitment2.decayStartTimestamp,
                 testCommitment2.decayEndTimestamp,
+                testCommitment2.txnHash,
+                testCommitment2.revertingTxHashes,
                 testCommitment2.bidSignature,
-                testCommitment2.slashAmt,
                 testCommitment2.zkProof
             )
         );
@@ -1133,13 +1133,13 @@ contract PreconfManagerTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 hex"",
                 testCommitment2.bidAmt,
+                testCommitment2.slashAmt,
                 testCommitment2.blockNumber,
-                testCommitment2.txnHash,
-                testCommitment2.revertingTxHashes,
                 testCommitment2.decayStartTimestamp,
                 testCommitment2.decayEndTimestamp,
+                testCommitment2.txnHash,
+                testCommitment2.revertingTxHashes,
                 hex"",
-                testCommitment2.slashAmt,
                 testCommitment2.zkProof
             )
         );

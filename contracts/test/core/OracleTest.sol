@@ -631,13 +631,13 @@ contract OracleTest is Test {
                 IPreconfManager.OpenCommitmentParams(
                     commitments[i],
                     bid,
+                    slashAmt,
                     blockNumber,
-                    txnHashes[i],
-                    revertingTxHashes,
                     10, // decayStartTimeStamp
                     20, // decayEndTimeStamp
+                    txnHashes[i],
+                    revertingTxHashes,
                     bidSignatures[i],
-                    slashAmt,
                     zkProof
                 )
             );
@@ -712,13 +712,13 @@ contract OracleTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 hex"",
                 params.bid,
+                params.slashAmt,
                 params.blockNumber,
-                params.txnHash,
-                params.revertingTxHashes,
                 params.decayStartTimestamp,
                 params.decayEndTimestamp,
+                params.txnHash,
+                params.revertingTxHashes,
                 hex"",
-                params.slashAmt,
                 params.zkProof
             )
         );
@@ -754,13 +754,13 @@ contract OracleTest is Test {
                 IPreconfManager.OpenCommitmentParams(
                     hex"",
                     bid,
+                    slashAmt,
                     blockNumber,
-                    txnHash,
-                    revertingTxHashes,
                     10,
                     20,
+                    txnHash,
+                    revertingTxHashes,
                     hex"",
-                    slashAmt,
                     zkproof
                 )
             );
@@ -831,13 +831,13 @@ contract OracleTest is Test {
             IPreconfManager.OpenCommitmentParams(
                 unopenedCommitmentIndex,
                 bid,
+                slashAmt,
                 blockNumber,
-                txnHash,
-                revertingTxHashes,
                 10, // decayStartTimeStamp
                 20, // decayEndTimeStamp
+                txnHash,
+                revertingTxHashes,
                 bidSignature,
-                slashAmt,
                 zkproof
             )
         );
