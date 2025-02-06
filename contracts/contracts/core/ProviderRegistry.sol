@@ -155,7 +155,7 @@ contract ProviderRegistry is
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        if (!bidder.send(bidderPortion)) {
+        if (!payable(bidder).send(bidderPortion)) {
             emit TransferToBidderFailed(bidder, bidderPortion);
             bidderSlashedAmount[bidder] += bidderPortion;
         }

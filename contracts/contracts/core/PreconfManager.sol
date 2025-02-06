@@ -485,6 +485,17 @@ contract PreconfManager is
         return unopenedCommitments[commitmentIndex];
     }
 
+    /**
+     * @dev Gives digest to be signed for bids
+     * @param _txnHash transaction Hash.
+     * @param _bidAmt bid amount.
+     * @param _blockNumber block number
+     * @param _revertingTxHashes reverting transaction hashes.
+     * @param _decayStartTimeStamp decay start time.
+     * @param _decayEndTimeStamp decay end time.
+     * @param _zkProof zk proof with bidder public key.
+     * @return digest it returns a digest that can be used for signing bids
+     */
     function getBidHash(
         string memory _txnHash,
         string memory _revertingTxHashes,
@@ -652,6 +663,21 @@ contract PreconfManager is
         );
     }
 
+    /**
+     * @dev Get the bidder address and commitment digest for a bid.
+     * @dev This function also marks the txnHashBidderBlockNumber as processed.
+     * @param bidAmt The bid amount.
+     * @param blockNumber The block number.
+     * @param decayStartTimeStamp The start time of the decay.
+     * @param decayEndTimeStamp The end time of the decay.
+     * @param txnHash The transaction hash.
+     * @param revertingTxHashes The reverting transaction hashes.
+     * @param bidSignature The signature of the bid.
+     * @param slashAmt The slash amount.
+     * @param zkProof The zk proof array
+     * @return bidderAddress The address of the bidder.
+     * @return commitmentDigest The digest of the commitment.
+     */
     function _getBidderAddressAndCommitmentDigest(
         uint256 bidAmt,
         uint64 blockNumber,
