@@ -58,11 +58,13 @@ func initDB(logger *slog.Logger) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
+	// Add "vault" column for storing vault address
 	_, err = db.Exec(`
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pubkey TEXT NOT NULL,
         adder TEXT NOT NULL,
+        vault TEXT,                             -- new vault column
         registry_type TEXT CHECK (registry_type IN ('vanilla', 'symbiotic', 'eigenlayer')),
         event_type TEXT,
         opted_in_block BIGINT NOT NULL,
@@ -96,7 +98,7 @@ func computePointsForMonths(blocksActive int64) int64 {
 		// clamp if user is beyond the last entry
 		fullMonths = int64(len(monthlyIncrements))
 	}
-	// monthlyIncrements is cumulative, so for fullMonths=2 => monthlyIncrements[1] (i.e. 1800)
+	// monthlyIncrements is cumulative, so for fullMonths=2 => monthlyIncrements[1]
 	return monthlyIncrements[fullMonths-1]
 }
 
@@ -133,6 +135,7 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) error {
 		return err
 	}
 	defer rows.Close()
+
 	// Count rows first
 	var count int
 	countErr := tx.QueryRow("SELECT COUNT(*) FROM events WHERE opted_out_block IS NULL").Scan(&count)
@@ -229,6 +232,7 @@ type PointsService struct {
 func (ps *PointsService) LastBlock() (uint64, error) {
 	return ps.block, nil
 }
+
 func (ps *PointsService) SetLastBlock(block uint64) error {
 	ps.block = block
 	return nil
@@ -254,15 +258,47 @@ func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, e
 
 	_, err = db.Exec(`
         INSERT INTO events (
-            pubkey, adder, registry_type, event_type, 
+            pubkey, adder, vault, registry_type, event_type, 
             opted_in_block, opted_out_block, points_accumulated
-        ) VALUES (?, ?, ?, ?, ?, NULL, 0)
+        ) VALUES (?, ?, NULL, ?, ?, ?, NULL, 0)
     `, pubkey, adder, registryType, eventType, inBlock)
 	if err != nil {
 		logger.Warn("insertOptIn likely already inserted", "error", err)
 	} else {
 		logger.Info("inserted opt-in interval",
 			"pubkey", pubkey, "block", inBlock, "event_type", eventType, "adder", adder)
+	}
+}
+
+// Insert new row for ValRecordAdded (symbiotic) with vault
+// This is the same pattern, but we store vault explicitly
+func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vault, registryType, eventType string, inBlock uint64) {
+	rwLock.RLock()
+	defer rwLock.RUnlock()
+
+	var existingAdder string
+	err := db.QueryRow(`
+        SELECT adder FROM events
+        WHERE pubkey = ? AND opted_out_block IS NULL
+    `, pubkey).Scan(&existingAdder)
+
+	if err == nil && existingAdder != "" && existingAdder != adder {
+		logger.Warn("pubkey already opted in by a different adder",
+			"pubkey", pubkey, "existing_adder", existingAdder, "new_adder", adder)
+		return
+	}
+
+	_, err = db.Exec(`
+        INSERT INTO events (
+            pubkey, adder, vault, registry_type, event_type, 
+            opted_in_block, opted_out_block, points_accumulated
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, 0)
+    `, pubkey, adder, vault, registryType, eventType, inBlock)
+	if err != nil {
+		logger.Warn("insertOptInWithVault likely already inserted", "error", err)
+	} else {
+		logger.Info("inserted opt-in interval WITH vault",
+			"pubkey", pubkey, "adder", adder, "vault", vault, "block", inBlock, "event_type", eventType)
 	}
 }
 
@@ -331,6 +367,19 @@ func main() {
 				common.HexToAddress("0x79FeCD427e5A3e5f1a40895A0AC20A6a50C95393"), // Symbiotic
 			}
 
+			// Start the publisher
+			ps := &PointsService{
+				logger:    logger,
+				db:        db,
+				ethClient: ethClient,
+				block:     2146241, // example block
+			}
+			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
+			done := pub.Start(context.Background())
+			for _, addr := range testnetContracts {
+				pub.AddContract(addr)
+			}
+
 			// 5. Define event handlers
 			handlers := []events.EventHandler{
 				// Vanilla Staked (opt-in)
@@ -351,13 +400,15 @@ func main() {
 						insertOptOut(db, logger, pubkey, adder, "Unstaked", blockNumber)
 					},
 				),
-				// Symbiotic: ValRecordAdded (opt-in)
+				// Symbiotic: ValRecordAdded (opt-in) w/ vault
 				events.NewEventHandler(
 					"ValRecordAdded",
 					func(ev *middleware.MevcommitmiddlewareValRecordAdded, blockNumber uint64) {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
 						adder := ev.Operator.Hex()
-						insertOptIn(db, logger, pubkey, adder, "symbiotic", "ValRecordAdded", blockNumber)
+						vault := ev.Vault.Hex() // store vault
+						pub.AddContract(ev.Vault)
+						insertOptInWithVault(db, logger, pubkey, adder, vault, "symbiotic", "ValRecordAdded", blockNumber)
 					},
 				),
 				// AVS: ValidatorRegistered (opt-in)
@@ -393,7 +444,7 @@ func main() {
 					"VaultDeregistered",
 					func(ev *middleware.MevcommitmiddlewareVaultDeregistered, blockNumber uint64) {
 						vaultAddr := ev.Vault.Hex()
-						// If no 'vault' column, you'd do a different approach.
+						// We'll handle existing rows with the matching vault
 						rows, err := db.Query(`
                             SELECT pubkey, adder
                             FROM events
@@ -475,19 +526,6 @@ func main() {
 
 			// 7. Start daily routine to recompute points
 			StartPointsRoutine(db, logger, 24*time.Hour, ethClient)
-
-			// Start the publisher
-			ps := &PointsService{
-				logger:    logger,
-				db:        db,
-				ethClient: ethClient,
-				block:     2146241, // example block
-			}
-			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
-			done := pub.Start(context.Background(), testnetContracts...)
-
-			// // 7. Start daily routine to recompute points
-			// StartPointsRoutine(db, logger, 24*time.Hour, ethClient)
 
 			// watch for subscription errors
 			go func() {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -11,13 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-// EVMClient is an interface for interacting with an Ethereum client for event subscription.
 type EVMClient interface {
 	BlockNumber(ctx context.Context) (uint64, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 }
 
-// ProgressStore is an interface for storing the last block number processed by the event listener.
 type ProgressStore interface {
 	LastBlock() (uint64, error)
 	SetLastBlock(block uint64) error
@@ -32,25 +31,55 @@ type httpPublisher struct {
 	logger        *slog.Logger
 	evmClient     EVMClient
 	subscriber    Subscriber
+
+	mu        sync.RWMutex
+	contracts []common.Address
 }
 
-func NewHTTPPublisher(progressStore ProgressStore, logger *slog.Logger, evmClient EVMClient, subscriber Subscriber) *httpPublisher {
+func NewHTTPPublisher(
+	progressStore ProgressStore,
+	logger *slog.Logger,
+	evmClient EVMClient,
+	subscriber Subscriber,
+) *httpPublisher {
 	return &httpPublisher{
 		progressStore: progressStore,
 		logger:        logger,
 		evmClient:     evmClient,
 		subscriber:    subscriber,
+		// contracts can be empty initially
+		contracts: make([]common.Address, 0),
 	}
 }
 
-func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) <-chan struct{} {
-	doneChan := make(chan struct{})
-
-	if len(contracts) == 0 {
-		h.logger.Error("no contracts to listen to")
-		close(doneChan)
-		return doneChan
+// AddContract appends a new contract address to the set we listen on.
+func (h *httpPublisher) AddContract(addr common.Address) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, c := range h.contracts {
+		if c == addr {
+			h.logger.Info("contract address already tracked", "address", addr.Hex())
+			return
+		}
 	}
+
+	h.contracts = append(h.contracts, addr)
+	h.logger.Info("added new contract address", "address", addr.Hex())
+}
+
+// getContracts safely returns a *copy* of the slice to avoid concurrent modification issues.
+func (h *httpPublisher) getContracts() []common.Address {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	copied := make([]common.Address, len(h.contracts))
+	copy(copied, h.contracts)
+	return copied
+}
+
+// Start begins the main subscription loop
+func (h *httpPublisher) Start(ctx context.Context) <-chan struct{} {
+	doneChan := make(chan struct{})
 
 	go func() {
 		defer close(doneChan)
@@ -63,6 +92,7 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -78,6 +108,18 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 					startBlock := lastBlock + 1
 					success := true
 
+					// fetch current contract list
+					addresses := h.getContracts()
+					if len(addresses) == 0 {
+						// If we have no addresses, just update lastBlock & continue
+						if err := h.progressStore.SetLastBlock(blockNumber); err != nil {
+							h.logger.Error("failed to set last block", "error", err)
+							return
+						}
+						lastBlock = blockNumber
+						continue
+					}
+
 					for startBlock <= blockNumber {
 						endBlock := startBlock + 5000 - 1
 						if endBlock > blockNumber {
@@ -87,7 +129,7 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 						q := ethereum.FilterQuery{
 							FromBlock: big.NewInt(int64(startBlock)),
 							ToBlock:   big.NewInt(int64(endBlock)),
-							Addresses: contracts,
+							Addresses: addresses,
 						}
 
 						logs, err := h.evmClient.FilterLogs(ctx, q)
@@ -101,7 +143,11 @@ func (h *httpPublisher) Start(ctx context.Context, contracts ...common.Address) 
 							h.subscriber.PublishLogEvent(ctx, logMsg)
 						}
 
-						h.logger.Debug("processed logs", "from", startBlock, "to", endBlock, "count", len(logs))
+						h.logger.Debug("processed logs",
+							"from", startBlock,
+							"to", endBlock,
+							"count", len(logs),
+							"addresses", len(addresses))
 						startBlock = endBlock + 1
 					}
 
