@@ -23,87 +23,103 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// For block-based monthly logic, assume ~216000 blocks per 30-day month.
-const blocksInOneMonth = 216000
-
-// rwLock protects access to the points database
-var rwLock sync.RWMutex
-
-// monthlyIncrements: the *cumulative* point totals at each full month.
-var monthlyIncrements = []int64{
-	1000,  // end of Month 1 => total 1000
-	1800,  // end of Month 2 => total 1800
-	2500,  // end of Month 3 => total 2500
-	3500,  // end of Month 4 => total 3500
-	5000,  // end of Month 5 => total 5000
-	10000, // end of Month 6 => total 10000
-}
-
 var (
+	blocksInOneMonth = int64(216000)
+
+	monthlyIncrements = []int64{
+		1000,
+		1800,
+		2500,
+		3500,
+		5000,
+		10000,
+	}
+
+	rwLock sync.RWMutex
+
+	// --------------------------------------
+	// Top-level queries for clarity
+	// --------------------------------------
+	createTableEventsQuery = `
+    CREATE TABLE IF NOT EXISTS events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pubkey TEXT NOT NULL,
+        adder TEXT NOT NULL,
+        vault TEXT,
+        registry_type TEXT CHECK (registry_type IN ('vanilla', 'symbiotic', 'eigenlayer')),
+        event_type TEXT,
+        opted_in_block BIGINT NOT NULL,
+        opted_out_block BIGINT,
+        points_accumulated BIGINT DEFAULT 0,
+        UNIQUE(pubkey, adder, opted_in_block)
+    );
+    `
+	selectActiveRowsQuery = `
+        SELECT id, opted_in_block
+        FROM events
+        WHERE opted_out_block IS NULL
+    `
+	updatePointsQuery = `
+            UPDATE events
+            SET points_accumulated = ?
+            WHERE id = ?
+        `
+	countActiveRowsQuery = `
+            SELECT COUNT(*) FROM events
+            WHERE opted_out_block IS NULL
+        `
+
 	optionRPCURL = &cli.StringFlag{
 		Name:    "ethereum-rpc-url",
 		Usage:   "URL of the Ethereum RPC server",
 		EnvVars: []string{"POINTS_ETH_RPC_URL"},
 		Value:   "https://eth-holesky.g.alchemy.com/v2/0DDo7YeieNEucZX3jieFfzmzOCGTKAgp",
 	}
+
+	// Add a flag for DB path:
+	optionDBPath = &cli.StringFlag{
+		Name:    "db-path",
+		Usage:   "Path to the sqlite3 database file",
+		EnvVars: []string{"POINTS_DB_PATH"},
+		Value:   "./points.db",
+	}
 )
 
 // --------------------------------------
-//   1) CREATE/INIT DB
+//  1. CREATE/INIT DB
+//
 // --------------------------------------
-
-func initDB(logger *slog.Logger) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "./points.db")
+func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Add "vault" column for storing vault address
-	_, err = db.Exec(`
-    CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        pubkey TEXT NOT NULL,
-        adder TEXT NOT NULL,
-        vault TEXT,                             -- new vault column
-        registry_type TEXT CHECK (registry_type IN ('vanilla', 'symbiotic', 'eigenlayer')),
-        event_type TEXT,
-        opted_in_block BIGINT NOT NULL,
-        opted_out_block BIGINT,  -- null if still opted in
-        points_accumulated BIGINT DEFAULT 0,
-        UNIQUE(pubkey, adder, opted_in_block)
-    );
-    `)
-	if err != nil {
+	if _, err := db.Exec(createTableEventsQuery); err != nil {
 		return nil, fmt.Errorf("failed to create events table: %w", err)
 	}
 
-	logger.Info("database setup complete", slog.String("path", "./points.db"))
+	logger.Info("database setup complete", slog.String("path", dbPath))
 	return db, nil
 }
 
 // --------------------------------------
-//   2) POINTS COMPUTATION LOGIC
+//  2. POINTS COMPUTATION LOGIC
+//
 // --------------------------------------
-
-// computePointsForMonths returns a final total if the validator has completed
-// M full months (0-based). If partial month => no increment for that month.
 func computePointsForMonths(blocksActive int64) int64 {
-	// number of fully completed months
 	fullMonths := blocksActive / blocksInOneMonth
 	if fullMonths < 1 {
-		// no full month completed => 0
 		return 0
 	}
 	if fullMonths > int64(len(monthlyIncrements)) {
-		// clamp if user is beyond the last entry
 		fullMonths = int64(len(monthlyIncrements))
 	}
-	// monthlyIncrements is cumulative, so for fullMonths=2 => monthlyIncrements[1]
 	return monthlyIncrements[fullMonths-1]
 }
 
-// updatePoints locks the DB in a transaction and recomputes points for each active row.
-func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) error {
+// Return an error properly via named return value
+func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr error) {
 	rwLock.Lock()
 	defer rwLock.Unlock()
 
@@ -111,69 +127,54 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) error {
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
+
 	defer func() {
 		if p := recover(); p != nil {
 			_ = tx.Rollback()
 			panic(p)
-		} else if err != nil {
+		} else if retErr != nil {
 			_ = tx.Rollback()
 		} else {
-			commitErr := tx.Commit()
-			if commitErr != nil {
+			if commitErr := tx.Commit(); commitErr != nil {
 				logger.Error("failed to commit transaction", "error", commitErr)
+				retErr = commitErr
 			}
 		}
 	}()
 
-	rows, queryErr := tx.Query(`
-        SELECT id, opted_in_block
-        FROM events
-        WHERE opted_out_block IS NULL
-    `)
+	rows, queryErr := tx.Query(selectActiveRowsQuery)
 	if queryErr != nil {
-		err = fmt.Errorf("failed to query events for points: %w", queryErr)
-		return err
+		return fmt.Errorf("failed to query events for points: %w", queryErr)
 	}
 	defer rows.Close()
 
-	// Count rows first
 	var count int
-	countErr := tx.QueryRow("SELECT COUNT(*) FROM events WHERE opted_out_block IS NULL").Scan(&count)
-	if countErr != nil {
-		logger.Error("failed to count active validators", "error", countErr)
+	if err := tx.QueryRow(countActiveRowsQuery).Scan(&count); err != nil {
+		logger.Error("failed to count active validators", "error", err)
 	}
-	logger.Info("updating points",
-		"current_block", currentBlock,
-		"active_validators", count)
+
+	logger.Info("updating points", "current_block", currentBlock, "active_validators", count)
 
 	for rows.Next() {
 		var id int64
 		var inBlock uint64
-		if scanErr := rows.Scan(&id, &inBlock); scanErr != nil {
-			logger.Error("scan error", "error", scanErr)
+		if err := rows.Scan(&id, &inBlock); err != nil {
+			logger.Error("scan error", "error", err)
 			continue
 		}
-
-		var blocksActive int64
+		blocksActive := int64(0)
 		if currentBlock > inBlock {
 			blocksActive = int64(currentBlock - inBlock)
 		}
 		totalPoints := computePointsForMonths(blocksActive)
-
-		_, updErr := tx.Exec(`
-            UPDATE events
-            SET points_accumulated = ?
-            WHERE id = ?
-        `, totalPoints, id)
-		if updErr != nil {
+		if _, updErr := tx.Exec(updatePointsQuery, totalPoints, id); updErr != nil {
 			logger.Error("failed to update points", "error", updErr, "id", id)
 		}
 	}
 	if rowsErr := rows.Err(); rowsErr != nil {
-		err = fmt.Errorf("rows iteration error: %w", rowsErr)
+		return fmt.Errorf("rows iteration error: %w", rowsErr)
 	}
-
-	return err
+	return nil
 }
 
 // StartPointsRoutine spawns a background goroutine that runs every 'interval'
@@ -333,7 +334,7 @@ func main() {
 			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 			// 1. Connect to DB
-			db, err := initDB(logger)
+			db, err := initDB(logger, c.String(optionDBPath.Name))
 			if err != nil {
 				return fmt.Errorf("failed to connect to database: %w", err)
 			}
