@@ -140,10 +140,12 @@ jobs:
       - name: Install Required Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
+          wget https://launchpad.net/~ethereum/+archive/ubuntu/ethereum/+files/bootnode_1.14.7+build30063+mantic_amd64.deb
+          sudo dpkg -i bootnode_1.14.7+build30063+mantic_amd64.deb
           echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
-          sudo add-apt-repository --yes ppa:ethereum/ethereum
           sudo apt-get update
-          sudo apt-get install --yes goreleaser ethereum
+          sudo apt-get install -f
+          sudo apt-get install --yes goreleaser
           sudo snap install remarshal
           python3 -m venv primevenv
           source primevenv/bin/activate
