@@ -5,16 +5,19 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	avs "github.com/primev/mev-commit/contracts-abi/clients/MevCommitAVS"
 	middleware "github.com/primev/mev-commit/contracts-abi/clients/MevCommitMiddleware"
+	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	vanillaregistry "github.com/primev/mev-commit/contracts-abi/clients/VanillaRegistry"
 	vault "github.com/primev/mev-commit/contracts-abi/clients/Vault"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -498,26 +501,73 @@ func main() {
 				events.NewEventHandler(
 					"OnSlash",
 					func(ev *vault.VaultOnSlash) {
-						vaultAddr := ev.Raw.Address
-						logger.Info("vault slashed", "vault", vaultAddr, "block", ev.Raw.BlockNumber)
-						// rows, err := db.Query(`
-						//     SELECT pubkey, adder
-						//     FROM events
-						//     WHERE vault = ? AND opted_out_block IS NULL
-						// `, vaultAddr)
-						// if err != nil {
-						// 	logger.Error("failed to query for vault", "error", err)
-						// 	return
-						// }
-						// defer rows.Close()
-						// for rows.Next() {
-						// 	var pubkey, adder string
-						// 	if err := rows.Scan(&pubkey, &adder); err != nil {
-						// 		logger.Error("scan error", "error", err)
-						// 		continue
-						// 	}
-						// 	insertOptOut(db, logger, pubkey, adder, "VaultSlashed", blockNumber)
-						// }
+						vaultAddr := ev.Raw.Address.Hex()
+						rows, err := db.Query(`
+						SELECT pubkey
+						FROM events
+						WHERE vault = ? AND opted_out_block IS NULL
+						`, vaultAddr)
+						if err != nil {
+							logger.Error("failed to query pubkeys for vault", "vault", vaultAddr, "error", err)
+							return
+						}
+						defer rows.Close()
+
+						// 2. Store them in a slice
+						var pubkeys [][]byte
+						for rows.Next() {
+							var pubkeyHex string
+							if err := rows.Scan(&pubkeyHex); err != nil {
+								logger.Error("scan pubkey error", "error", err)
+								continue
+							}
+							pubkeys = append(pubkeys, common.FromHex(pubkeyHex)) // convert hex to []byte
+						}
+
+						// The block we'll check is onSlashEventBlock + 1
+						checkBlockNum := ev.Raw.BlockNumber + 1
+
+						go func(pubkeys [][]byte, checkBlock uint64) {
+							// Wait for the chain to reach block+1, or poll for it:
+							// (Simplest approach is just loop until the block is available)
+							for {
+								tipBlock, err := ethClient.BlockNumber(context.Background())
+								if err != nil {
+									time.Sleep(time.Second * 2)
+									continue
+								}
+								if tipBlock >= checkBlock {
+									break
+								}
+								time.Sleep(time.Second * 2)
+							}
+
+							// 2. Prepare the contract address and create a Caller
+							routerAddr := common.HexToAddress("0x251Fbc993f58cBfDA8Ad7b0278084F915aCE7fc3")
+							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
+							if err != nil {
+								panic(fmt.Sprintf("failed to create router caller: %v", err))
+							}
+							// 3. Query router contract at block+1
+							callOpts := &bind.CallOpts{BlockNumber: big.NewInt(int64(checkBlock))}
+							optInStatuses, err := routerCaller.AreValidatorsOptedIn(callOpts, pubkeys)
+							if err != nil {
+								logger.Error("failed areValidatorsOptedIn", "error", err)
+								return
+							}
+
+							// 4. For each pubkey, if none of the three boolean flags are true, set them “optedOut”
+							for i, status := range optInStatuses {
+								if !status.IsVanillaOptedIn && !status.IsAvsOptedIn && !status.IsMiddlewareOptedIn {
+									pubkeyHex := common.Bytes2Hex(pubkeys[i])
+									logger.Info("validator is no longer opted in by any registry",
+										"pubkey", pubkeyHex, "block", checkBlock,
+									)
+									// Now mark in DB as optedOut
+									insertOptOut(db, logger, pubkeyHex, "??adder??", "OnSlashAutoOptOut", checkBlock)
+								}
+							}
+						}(pubkeys, checkBlockNum)
 					},
 				),
 			}
