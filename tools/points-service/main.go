@@ -310,9 +310,9 @@ func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType stri
 
 	_, err := db.Exec(`
         UPDATE events
-        SET opted_out_block = ?, event_type = ?
+        SET opted_out_block = ?
         WHERE pubkey = ? AND adder = ? AND opted_out_block IS NULL
-    `, outBlock, eventType, pubkey, adder)
+    `, outBlock, pubkey, adder)
 	if err != nil {
 		logger.Error("failed to opt-out", "error", err, "pubkey", pubkey)
 	} else {
@@ -503,7 +503,7 @@ func main() {
 					func(ev *vault.VaultOnSlash) {
 						vaultAddr := ev.Raw.Address.Hex()
 						rows, err := db.Query(`
-						SELECT pubkey
+						SELECT pubkey, adder
 						FROM events
 						WHERE vault = ? AND opted_out_block IS NULL
 						`, vaultAddr)
@@ -515,13 +515,15 @@ func main() {
 
 						// 2. Store them in a slice
 						var pubkeys [][]byte
+						var adders []string
 						for rows.Next() {
-							var pubkeyHex string
-							if err := rows.Scan(&pubkeyHex); err != nil {
+							var pubkeyHex, adderHex string
+							if err := rows.Scan(&pubkeyHex, &adderHex); err != nil {
 								logger.Error("scan pubkey error", "error", err)
 								continue
 							}
 							pubkeys = append(pubkeys, common.FromHex(pubkeyHex)) // convert hex to []byte
+							adders = append(adders, adderHex)
 						}
 
 						// The block we'll check is onSlashEventBlock + 1
@@ -558,13 +560,13 @@ func main() {
 
 							// 4. For each pubkey, if none of the three boolean flags are true, set them “optedOut”
 							for i, status := range optInStatuses {
-								if !status.IsVanillaOptedIn && !status.IsAvsOptedIn && !status.IsMiddlewareOptedIn {
+								if !status.IsMiddlewareOptedIn {
 									pubkeyHex := common.Bytes2Hex(pubkeys[i])
 									logger.Info("validator is no longer opted in by any registry",
 										"pubkey", pubkeyHex, "block", checkBlock,
 									)
 									// Now mark in DB as optedOut
-									insertOptOut(db, logger, pubkeyHex, "??adder??", "OnSlashAutoOptOut", checkBlock)
+									insertOptOut(db, logger, pubkeyHex, adders[i], "OnSlashAutoOptOut", checkBlock)
 								}
 							}
 						}(pubkeys, checkBlockNum)
