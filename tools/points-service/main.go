@@ -7,8 +7,10 @@ import (
 	"log/slog"
 	"math/big"
 	"os"
+	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -55,7 +57,6 @@ var (
         UNIQUE(pubkey, adder, opted_in_block)
     );`
 
-	// New table for storing the last processed block:
 	createTableLastBlockQuery = `
     CREATE TABLE IF NOT EXISTS last_processed_block (
         id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -99,11 +100,9 @@ func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	// Create main events table
 	if _, err := db.Exec(createTableEventsQuery); err != nil {
 		return nil, fmt.Errorf("failed to create events table: %w", err)
 	}
-	// Create table for last processed block
 	if _, err := db.Exec(createTableLastBlockQuery); err != nil {
 		return nil, fmt.Errorf("failed to create last_processed_block table: %w", err)
 	}
@@ -181,7 +180,8 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 	return nil
 }
 
-func StartPointsRoutine(db *sql.DB, logger *slog.Logger, interval time.Duration, ethClient *ethclient.Client) {
+// Modified to accept a context for clean shutdown.
+func StartPointsRoutine(db *sql.DB, logger *slog.Logger, interval time.Duration, ethClient *ethclient.Client, ctx context.Context) {
 	logger.Info("Starting initial points accrual run")
 	latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
 	if err != nil {
@@ -198,18 +198,24 @@ func StartPointsRoutine(db *sql.DB, logger *slog.Logger, interval time.Duration,
 	ticker := time.NewTicker(interval)
 	go func() {
 		defer ticker.Stop()
-		for range ticker.C {
-			logger.Info("Starting points accrual run")
-			latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
-			if err != nil {
-				logger.Error("cannot fetch latest block", "error", err)
-				continue
-			}
-			currBlockNum := latestBlock.NumberU64()
-			if err := updatePoints(db, logger, currBlockNum); err != nil {
-				logger.Error("points accrual run failed", "error", err)
-			} else {
-				logger.Info("points accrual run completed successfully")
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Info("points accrual routine shutting down")
+				return
+			case <-ticker.C:
+				logger.Info("Starting points accrual run")
+				latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
+				if err != nil {
+					logger.Error("cannot fetch latest block", "error", err)
+					continue
+				}
+				currBlockNum := latestBlock.NumberU64()
+				if err := updatePoints(db, logger, currBlockNum); err != nil {
+					logger.Error("points accrual run failed", "error", err)
+				} else {
+					logger.Info("points accrual run completed successfully")
+				}
 			}
 		}
 	}()
@@ -329,6 +335,18 @@ func main() {
 		Action: func(c *cli.Context) error {
 			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
+			// Handle signals for clean shutdown
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			signalChan := make(chan os.Signal, 1)
+			signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+			go func() {
+				<-signalChan
+				logger.Info("received termination signal, shutting down")
+				cancel()
+			}()
+
 			// 1. Connect to DB
 			db, err := initDB(logger, c.String(optionDBPath.Name))
 			if err != nil {
@@ -370,7 +388,10 @@ func main() {
 				ethClient: ethClient,
 			}
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
-			done := pub.Start(context.Background())
+
+			// Start the publisher with our cancellation context
+			done := pub.Start(ctx)
+
 			for _, addr := range testnetContracts {
 				pub.AddContract(addr)
 			}
@@ -513,7 +534,6 @@ func main() {
 						}
 						defer rows.Close()
 
-						// 2. Store them in a slice
 						var pubkeys [][]byte
 						var adders []string
 						for rows.Next() {
@@ -522,16 +542,12 @@ func main() {
 								logger.Error("scan pubkey error", "error", err)
 								continue
 							}
-							pubkeys = append(pubkeys, common.FromHex(pubkeyHex)) // convert hex to []byte
+							pubkeys = append(pubkeys, common.FromHex(pubkeyHex))
 							adders = append(adders, adderHex)
 						}
 
-						// The block we'll check is onSlashEventBlock + 1
 						checkBlockNum := ev.Raw.BlockNumber + 1
-
 						go func(pubkeys [][]byte, checkBlock uint64) {
-							// Wait for the chain to reach block+1, or poll for it:
-							// (Simplest approach is just loop until the block is available)
 							for {
 								tipBlock, err := ethClient.BlockNumber(context.Background())
 								if err != nil {
@@ -543,29 +559,23 @@ func main() {
 								}
 								time.Sleep(time.Second * 2)
 							}
-
-							// 2. Prepare the contract address and create a Caller
 							routerAddr := common.HexToAddress("0x251Fbc993f58cBfDA8Ad7b0278084F915aCE7fc3")
 							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
 							if err != nil {
 								panic(fmt.Sprintf("failed to create router caller: %v", err))
 							}
-							// 3. Query router contract at block+1
 							callOpts := &bind.CallOpts{BlockNumber: big.NewInt(int64(checkBlock))}
 							optInStatuses, err := routerCaller.AreValidatorsOptedIn(callOpts, pubkeys)
 							if err != nil {
 								logger.Error("failed areValidatorsOptedIn", "error", err)
 								return
 							}
-
-							// 4. For each pubkey, if none of the three boolean flags are true, set them “optedOut”
 							for i, status := range optInStatuses {
 								if !status.IsMiddlewareOptedIn {
 									pubkeyHex := common.Bytes2Hex(pubkeys[i])
 									logger.Info("validator is no longer opted in by any registry",
 										"pubkey", pubkeyHex, "block", checkBlock,
 									)
-									// Now mark in DB as optedOut
 									insertOptOut(db, logger, pubkeyHex, adders[i], "OnSlashAutoOptOut", checkBlock)
 								}
 							}
@@ -580,16 +590,25 @@ func main() {
 			}
 			defer sub.Unsubscribe()
 
-			// 7. Start daily routine
-			StartPointsRoutine(db, logger, 24*time.Hour, ethClient)
+			// 7. Start daily routine (using our context)
+			StartPointsRoutine(db, logger, 24*time.Hour, ethClient, ctx)
 
+			// Handle subscription errors in a separate goroutine
 			go func() {
 				for err := range sub.Err() {
 					logger.Error("subscription error", "error", err)
 				}
 			}()
 
-			<-done
+			// Block until publisher is done or context is canceled
+			select {
+			case <-ctx.Done():
+				logger.Info("context canceled, shutting down")
+			case <-done:
+				logger.Info("publisher done channel closed")
+			}
+
+			logger.Info("graceful shutdown complete")
 			return nil
 		},
 	}
