@@ -46,9 +46,19 @@ extract_and_save_abi "$BASE_DIR/out/MevCommitMiddleware.sol/MevCommitMiddleware.
 
 echo "ABI files extracted successfully."
 
+GO_CODE_BASE_DIR="./clients"
 
 ABI_DIR="./abi"
-GO_CODE_BASE_DIR="./clients"
+# Create external-abi directory
+EXTERNAL_ABI_DIR="./external-abi"
+mkdir -p "$EXTERNAL_ABI_DIR"
+
+# Download the Vault.json
+curl -o "$EXTERNAL_ABI_DIR/vault.json" \
+  "https://raw.githubusercontent.com/symbioticfi/core/main/out/Vault.sol/Vault.json"
+
+# Extract the ABI
+jq -r '.abi' "$EXTERNAL_ABI_DIR/vault.json" > "$ABI_DIR/vault.abi"
 
 # Create the Go code base directory if it doesn't exist
 mkdir -p "$GO_CODE_BASE_DIR"
@@ -94,5 +104,11 @@ generate_go_code "$ABI_DIR/MevCommitAVS.abi" "MevCommitAVS" "mevcommitavs"
 generate_go_code "$ABI_DIR/ValidatorOptInRouter.abi" "ValidatorOptInRouter" "validatoroptinrouter"
 
 generate_go_code "$ABI_DIR/MevCommitMiddleware.abi" "MevCommitMiddleware" "mevcommitmiddleware"
+
+
+# Generate Go code (assuming you have a generate_go_code function)
+generate_go_code "$ABI_DIR/vault.abi" "Vault" "vault"
+
+echo "External ABI downloaded and processed successfully."
 
 echo "Go code generated successfully in separate folders."
