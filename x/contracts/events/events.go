@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sync"
 	"time"
 
@@ -13,12 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-// HasRawLog is an optional interface you can implement on your event struct
-// so we can store log metadata (e.g., block number) after unpacking.
-type HasRawLog interface {
-	SetRawLog(types.Log)
-}
 
 // EventHandler is a stand-in for the generic event handlers that are used to subscribe
 // to events. It is useful to describe the generic event handlers using this interface
@@ -32,7 +27,7 @@ type EventHandler interface {
 
 // eventHandler is a generic implementation of EventHandler for type-safe event handling.
 type eventHandler[T any] struct {
-	handler  func(*T, uint64)
+	handler  func(*T)
 	name     string
 	topicID  common.Hash
 	contract *abi.ABI
@@ -41,7 +36,7 @@ type eventHandler[T any] struct {
 // NewEventHandler creates a new EventHandler for the given event name from the known contracts.
 // The handler function is called when an event is received. The event
 // handler should be used to subscribe to events using the EventManager.
-func NewEventHandler[T any](name string, handler func(*T, uint64)) EventHandler {
+func NewEventHandler[T any](name string, handler func(*T)) EventHandler {
 	return &eventHandler[T]{
 		handler: handler,
 		name:    name,
@@ -92,8 +87,14 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 		}
 	}
 
+	v := reflect.ValueOf(obj).Elem()
+	if rawField := v.FieldByName("Raw"); rawField.IsValid() && rawField.CanSet() &&
+		rawField.Type() == reflect.TypeOf(types.Log{}) {
+		rawField.Set(reflect.ValueOf(log))
+	}
+
 	// Finally, run the user-provided handler logic
-	h.handler(obj, log.BlockNumber)
+	h.handler(obj)
 
 	return nil
 }

@@ -16,6 +16,7 @@ import (
 	avs "github.com/primev/mev-commit/contracts-abi/clients/MevCommitAVS"
 	middleware "github.com/primev/mev-commit/contracts-abi/clients/MevCommitMiddleware"
 	vanillaregistry "github.com/primev/mev-commit/contracts-abi/clients/VanillaRegistry"
+	vault "github.com/primev/mev-commit/contracts-abi/clients/Vault"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/urfave/cli/v2"
@@ -57,7 +58,7 @@ var (
         id INTEGER PRIMARY KEY CHECK (id = 1),
         last_block BIGINT NOT NULL
     );
-    INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, 0);
+    INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, 2146240);
     `
 
 	selectActiveRowsQuery = `
@@ -374,57 +375,63 @@ func main() {
 			handlers := []events.EventHandler{
 				events.NewEventHandler(
 					"Staked",
-					func(ev *vanillaregistry.Validatorregistryv1Staked, blockNumber uint64) {
+					func(ev *vanillaregistry.Validatorregistryv1Staked) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
-						insertOptIn(db, logger, pubkey, adder, "vanilla", "Staked", blockNumber)
+						insertOptIn(db, logger, pubkey, adder, "vanilla", "Staked", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"Unstaked",
-					func(ev *vanillaregistry.Validatorregistryv1Unstaked, blockNumber uint64) {
+					func(ev *vanillaregistry.Validatorregistryv1Unstaked) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
-						insertOptOut(db, logger, pubkey, adder, "Unstaked", blockNumber)
+						insertOptOut(db, logger, pubkey, adder, "Unstaked", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValRecordAdded",
-					func(ev *middleware.MevcommitmiddlewareValRecordAdded, blockNumber uint64) {
+					func(ev *middleware.MevcommitmiddlewareValRecordAdded) {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
 						adder := ev.Operator.Hex()
 						vault := ev.Vault.Hex()
 						pub.AddContract(ev.Vault)
-						insertOptInWithVault(db, logger, pubkey, adder, vault, "symbiotic", "ValRecordAdded", blockNumber)
+						logger.Info("raw log data",
+							"block_number", ev.Raw.BlockNumber,
+							"tx_hash", ev.Raw.TxHash.Hex(),
+							"block_hash", ev.Raw.BlockHash.Hex(),
+							"log_index", ev.Raw.Index,
+							"tx_index", ev.Raw.TxIndex)
+						insertOptInWithVault(db, logger, pubkey, adder, vault, "symbiotic", "ValRecordAdded", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValidatorRegistered",
-					func(ev *avs.MevcommitavsValidatorRegistered, blockNumber uint64) {
+					func(ev *avs.MevcommitavsValidatorRegistered) {
 						pubkey := common.Bytes2Hex(ev.ValidatorPubKey)
 						adder := ev.PodOwner.Hex()
-						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "ValidatorRegistered", blockNumber)
+						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "ValidatorRegistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"LSTRestakerRegistered",
-					func(ev *avs.MevcommitavsLSTRestakerRegistered, blockNumber uint64) {
+					func(ev *avs.MevcommitavsLSTRestakerRegistered) {
 						pubkey := common.Bytes2Hex(ev.ChosenValidator)
 						adder := ev.LstRestaker.Hex()
-						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "LSTRestakerRegistered", blockNumber)
+						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "LSTRestakerRegistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValidatorDeregistered",
-					func(evt *avs.MevcommitavsValidatorDeregistered, blockNumber uint64) {
-						pubkeyHex := common.Bytes2Hex(evt.ValidatorPubKey)
-						adderHex := evt.PodOwner.Hex()
-						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistered", blockNumber)
+					func(ev *avs.MevcommitavsValidatorDeregistered) {
+						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
+						adderHex := ev.PodOwner.Hex()
+						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"VaultDeregistered",
-					func(ev *middleware.MevcommitmiddlewareVaultDeregistered, blockNumber uint64) {
+					func(ev *middleware.MevcommitmiddlewareVaultDeregistered) {
 						vaultAddr := ev.Vault.Hex()
 						rows, err := db.Query(`
                             SELECT pubkey, adder
@@ -442,13 +449,13 @@ func main() {
 								logger.Error("scan error", "error", err)
 								continue
 							}
-							insertOptOut(db, logger, pubkey, adder, "VaultDeregistered", blockNumber)
+							insertOptOut(db, logger, pubkey, adder, "VaultDeregistered", ev.Raw.BlockNumber)
 						}
 					},
 				),
 				events.NewEventHandler(
 					"OperatorDeregistered",
-					func(ev *middleware.MevcommitmiddlewareOperatorDeregistered, blockNumber uint64) {
+					func(ev *middleware.MevcommitmiddlewareOperatorDeregistered) {
 						operatorAddr := ev.Operator.Hex()
 						rows, err := db.Query(`
                             SELECT pubkey
@@ -466,13 +473,13 @@ func main() {
 								logger.Error("scan error", "error", err)
 								continue
 							}
-							insertOptOut(db, logger, pubkey, operatorAddr, "OperatorDeregistered", blockNumber)
+							insertOptOut(db, logger, pubkey, operatorAddr, "OperatorDeregistered", ev.Raw.BlockNumber)
 						}
 					},
 				),
 				events.NewEventHandler(
 					"ValRecordDeleted",
-					func(ev *middleware.MevcommitmiddlewareValRecordDeleted, blockNumber uint64) {
+					func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
 						pubkeyHex := common.Bytes2Hex(ev.BlsPubkey)
 						var adderHex string
 						err := db.QueryRow(`
@@ -485,7 +492,32 @@ func main() {
 							logger.Error("failed to find active adder", "error", err, "pubkey", pubkeyHex)
 							return
 						}
-						insertOptOut(db, logger, pubkeyHex, adderHex, "ValRecordDeleted", blockNumber)
+						insertOptOut(db, logger, pubkeyHex, adderHex, "ValRecordDeleted", ev.Raw.BlockNumber)
+					},
+				),
+				events.NewEventHandler(
+					"OnSlash",
+					func(ev *vault.VaultOnSlash) {
+						vaultAddr := ev.Raw.Address
+						logger.Info("vault slashed", "vault", vaultAddr, "block", ev.Raw.BlockNumber)
+						// rows, err := db.Query(`
+						//     SELECT pubkey, adder
+						//     FROM events
+						//     WHERE vault = ? AND opted_out_block IS NULL
+						// `, vaultAddr)
+						// if err != nil {
+						// 	logger.Error("failed to query for vault", "error", err)
+						// 	return
+						// }
+						// defer rows.Close()
+						// for rows.Next() {
+						// 	var pubkey, adder string
+						// 	if err := rows.Scan(&pubkey, &adder); err != nil {
+						// 		logger.Error("scan error", "error", err)
+						// 		continue
+						// 	}
+						// 	insertOptOut(db, logger, pubkey, adder, "VaultSlashed", blockNumber)
+						// }
 					},
 				),
 			}
@@ -529,5 +561,9 @@ func getContractABIs() ([]*abi.ABI, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []*abi.ABI{&symbioticABI, &vanillaRegistryABI, &avsABI}, nil
+	vaultABI, err := abi.JSON(strings.NewReader(vault.VaultABI))
+	if err != nil {
+		return nil, err
+	}
+	return []*abi.ABI{&symbioticABI, &vanillaRegistryABI, &avsABI, &vaultABI}, nil
 }
