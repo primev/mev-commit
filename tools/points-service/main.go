@@ -185,42 +185,33 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 	return nil
 }
 
-// Modified to accept a context for clean shutdown.
-func StartPointsRoutine(db *sql.DB, logger *slog.Logger, interval time.Duration, ethClient *ethclient.Client, ctx context.Context) {
-	logger.Info("Starting initial points accrual run")
-	latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
-	if err != nil {
-		logger.Error("cannot fetch latest block", "error", err)
-	} else {
-		currBlockNum := latestBlock.NumberU64()
-		if err := updatePoints(db, logger, currBlockNum); err != nil {
-			logger.Error("initial points accrual run failed", "error", err)
-		} else {
-			logger.Info("initial points accrual run completed successfully")
-		}
-	}
-
+func StartPointsRoutine(ctx context.Context, db *sql.DB, logger *slog.Logger, interval time.Duration, ethClient *ethclient.Client) {
 	ticker := time.NewTicker(interval)
+
 	go func() {
 		defer ticker.Stop()
 		for {
-			select {
-			case <-ctx.Done():
-				logger.Info("points accrual routine shutting down")
-				return
-			case <-ticker.C:
-				logger.Info("Starting points accrual run")
-				latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
-				if err != nil {
-					logger.Error("cannot fetch latest block", "error", err)
-					continue
-				}
+			// Perform the accrual run
+			logger.Info("Starting points accrual run")
+			latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
+			if err != nil {
+				logger.Error("cannot fetch latest block", "error", err)
+			} else {
 				currBlockNum := latestBlock.NumberU64()
 				if err := updatePoints(db, logger, currBlockNum); err != nil {
 					logger.Error("points accrual run failed", "error", err)
 				} else {
 					logger.Info("points accrual run completed successfully")
 				}
+			}
+
+			// Wait for either ticker or cancellation
+			select {
+			case <-ctx.Done():
+				logger.Info("points accrual routine shutting down")
+				return
+			case <-ticker.C:
+				// Loop continues
 			}
 		}
 	}()
@@ -596,7 +587,7 @@ func main() {
 			defer sub.Unsubscribe()
 
 			// 7. Start daily routine (using our context)
-			StartPointsRoutine(db, logger, 24*time.Hour, ethClient, ctx)
+			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient)
 
 			pointsAPI := NewPointsAPI(logger, db, ps)
 
