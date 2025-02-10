@@ -95,6 +95,24 @@ var (
 		EnvVars: []string{"POINTS_DB_PATH"},
 		Value:   "./points.db",
 	}
+
+	optinRouterAddress = &cli.StringFlag{
+		Name:    "router-address",
+		Usage:   "Address of the ValidatorOptInRouter contract",
+		EnvVars: []string{"POINTS_ROUTER_ADDRESS"},
+		Value:   config.HoleskyContracts.ValidatorOptInRouter,
+	}
+
+	optionContractAddresses = &cli.StringSliceFlag{
+		Name:    "contract-addresses",
+		Usage:   "Addresses of the contracts to watch",
+		EnvVars: []string{"POINTS_CONTRACT_ADDRESSES"},
+		Value: cli.NewStringSlice(
+			config.HoleskyContracts.VanillaRegistry,
+			config.HoleskyContracts.MevCommitAVS,
+			config.HoleskyContracts.MevCommitMiddleware,
+		),
+	}
 )
 
 func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
@@ -192,7 +210,6 @@ func StartPointsRoutine(ctx context.Context, db *sql.DB, logger *slog.Logger, in
 	go func() {
 		defer ticker.Stop()
 		for {
-			// Perform the accrual run
 			logger.Info("Starting points accrual run")
 			latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
 			if err != nil {
@@ -206,19 +223,16 @@ func StartPointsRoutine(ctx context.Context, db *sql.DB, logger *slog.Logger, in
 				}
 			}
 
-			// Wait for either ticker or cancellation
 			select {
 			case <-ctx.Done():
 				logger.Info("points accrual routine shutting down")
 				return
 			case <-ticker.C:
-				// Loop continues
 			}
 		}
 	}()
 }
 
-// PointsService now fetches/stores last block in DB
 type PointsService struct {
 	logger    *slog.Logger
 	db        *sql.DB
@@ -328,11 +342,14 @@ func main() {
 	app := &cli.App{
 		Name:  "mev-commit-points",
 		Usage: "MEV Commit Points Service",
-		Flags: []cli.Flag{optionRPCURL, optionDBPath},
+		Flags: []cli.Flag{
+			optionRPCURL,
+			optionDBPath,
+			optionContractAddresses, // Include our new flag
+		},
 		Action: func(c *cli.Context) error {
 			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-			// Handle signals for clean shutdown
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
@@ -344,14 +361,12 @@ func main() {
 				cancel()
 			}()
 
-			// 1. Connect to DB
 			db, err := initDB(logger, c.String(optionDBPath.Name))
 			if err != nil {
 				return fmt.Errorf("failed to connect to database: %w", err)
 			}
 			defer db.Close()
 
-			// 2. Quick test
 			var rowCount int
 			err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&rowCount)
 			if err != nil {
@@ -359,26 +374,16 @@ func main() {
 			}
 			logger.Info("database reachable", "validator_records_count", rowCount)
 
-			// 3. Ethereum client
 			ethClient, err := ethclient.Dial(c.String(optionRPCURL.Name))
 			if err != nil {
 				return fmt.Errorf("failed to connect to Ethereum node: %w", err)
 			}
 
-			// 4. Load ABIs
 			contractABIs, err := getContractABIs()
 			if err != nil {
 				return fmt.Errorf("failed to get contract ABIs: %w", err)
 			}
 			listener := events.NewListener(logger, contractABIs...)
-
-			// Example addresses
-			testnetContracts := []common.Address{
-				common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter),
-				common.HexToAddress(config.HoleskyContracts.VanillaRegistry),
-				common.HexToAddress(config.HoleskyContracts.MevCommitAVS),
-				common.HexToAddress(config.HoleskyContracts.MevCommitMiddleware),
-			}
 
 			ps := &PointsService{
 				logger:    logger,
@@ -386,11 +391,14 @@ func main() {
 				ethClient: ethClient,
 			}
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
-
-			// Start the publisher with our cancellation context
 			done := pub.Start(ctx)
 
-			for _, addr := range testnetContracts {
+			// Get the contract addresses from CLI and add them to the publisher
+			var contractAddresses []common.Address
+			for _, addrStr := range c.StringSlice(optionContractAddresses.Name) {
+				contractAddresses = append(contractAddresses, common.HexToAddress(addrStr))
+			}
+			for _, addr := range contractAddresses {
 				pub.AddContract(addr)
 			}
 
@@ -418,12 +426,6 @@ func main() {
 						adder := ev.Operator.Hex()
 						vaultAddr := ev.Vault.Hex()
 						pub.AddContract(ev.Vault)
-						logger.Info("raw log data",
-							"block_number", ev.Raw.BlockNumber,
-							"tx_hash", ev.Raw.TxHash.Hex(),
-							"block_hash", ev.Raw.BlockHash.Hex(),
-							"log_index", ev.Raw.Index,
-							"tx_index", ev.Raw.TxIndex)
 						insertOptInWithVault(db, logger, pubkey, adder, vaultAddr, "symbiotic", "ValRecordAdded", ev.Raw.BlockNumber)
 					},
 				),
@@ -557,7 +559,7 @@ func main() {
 								}
 								time.Sleep(time.Second * 2)
 							}
-							routerAddr := common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter)
+							routerAddr := common.HexToAddress(c.String(optinRouterAddress.Name))
 							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
 							if err != nil {
 								panic(fmt.Sprintf("failed to create router caller: %v", err))
@@ -588,25 +590,21 @@ func main() {
 			}
 			defer sub.Unsubscribe()
 
-			// 7. Start daily routine (using our context)
 			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient)
 
 			pointsAPI := NewPointsAPI(logger, db, ps)
-
 			go func() {
 				if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
 					logger.Error("API server error", "error", err)
 				}
 			}()
 
-			// Handle subscription errors in a separate goroutine
 			go func() {
 				for err := range sub.Err() {
 					logger.Error("subscription error", "error", err)
 				}
 			}()
 
-			// Block until publisher is done or context is canceled
 			select {
 			case <-ctx.Done():
 				logger.Info("context canceled, shutting down")
