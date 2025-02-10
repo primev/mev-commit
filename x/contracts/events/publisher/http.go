@@ -52,19 +52,26 @@ func NewHTTPPublisher(
 	}
 }
 
-// AddContract appends a new contract address to the set we listen on.
-func (h *httpPublisher) AddContract(addr common.Address) {
+// AddContract appends new contract addresses to the set we listen on.
+func (h *httpPublisher) AddContracts(addr ...common.Address) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for _, c := range h.contracts {
-		if c == addr {
-			h.logger.Info("contract address already tracked", "address", addr.Hex())
-			return
+
+	for _, newAddr := range addr {
+		alreadyTracked := false
+		for _, c := range h.contracts {
+			if c == newAddr {
+				h.logger.Info("contract address already tracked", "address", newAddr.Hex())
+				alreadyTracked = true
+				break
+			}
+		}
+
+		if !alreadyTracked {
+			h.contracts = append(h.contracts, newAddr)
+			h.logger.Info("added new contract address", "address", newAddr.Hex())
 		}
 	}
-
-	h.contracts = append(h.contracts, addr)
-	h.logger.Info("added new contract address", "address", addr.Hex())
 }
 
 // getContracts safely returns a *copy* of the slice to avoid concurrent modification issues.

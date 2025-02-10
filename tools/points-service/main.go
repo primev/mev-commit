@@ -382,25 +382,22 @@ func main() {
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
 			done := pub.Start(ctx)
 			// Get the contract addresses from CLI and add them to the publisher
-			var contractAddresses []string
+			var contractAddresses []common.Address
 
 			if c.Bool(optionMainnet.Name) {
-				contractAddresses = []string{
-					config.EthereumContracts.VanillaRegistry,
-					config.EthereumContracts.MevCommitAVS,
-					config.EthereumContracts.MevCommitMiddleware,
+				contractAddresses = []common.Address{
+					common.HexToAddress(config.EthereumContracts.VanillaRegistry),
+					common.HexToAddress(config.EthereumContracts.MevCommitAVS),
+					common.HexToAddress(config.EthereumContracts.MevCommitMiddleware),
 				}
 			} else {
-				contractAddresses = []string{
-					config.HoleskyContracts.VanillaRegistry,
-					config.HoleskyContracts.MevCommitAVS,
-					config.HoleskyContracts.MevCommitMiddleware,
+				contractAddresses = []common.Address{
+					common.HexToAddress(config.HoleskyContracts.VanillaRegistry),
+					common.HexToAddress(config.HoleskyContracts.MevCommitAVS),
+					common.HexToAddress(config.HoleskyContracts.MevCommitMiddleware),
 				}
 			}
-
-			for _, addrStr := range contractAddresses {
-				pub.AddContract(common.HexToAddress(addrStr))
-			}
+			pub.AddContracts(contractAddresses...)
 
 			handlers := []events.EventHandler{
 				events.NewEventHandler(
@@ -425,7 +422,7 @@ func main() {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
 						adder := ev.Operator.Hex()
 						vaultAddr := ev.Vault.Hex()
-						pub.AddContract(ev.Vault)
+						pub.AddContracts(ev.Vault)
 						insertOptInWithVault(db, logger, pubkey, adder, vaultAddr, "symbiotic", "ValRecordAdded", ev.Raw.BlockNumber)
 					},
 				),
