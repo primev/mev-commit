@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -133,14 +134,18 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 
 	defer func() {
 		if p := recover(); p != nil {
-			_ = tx.Rollback()
+			if rerr := tx.Rollback(); rerr != nil {
+				retErr = errors.Join(retErr, rerr)
+			}
 			panic(p)
 		} else if retErr != nil {
-			_ = tx.Rollback()
+			if rerr := tx.Rollback(); rerr != nil {
+				retErr = errors.Join(retErr, rerr)
+			}
 		} else {
 			if commitErr := tx.Commit(); commitErr != nil {
 				logger.Error("failed to commit transaction", "error", commitErr)
-				retErr = commitErr
+				retErr = errors.Join(retErr, commitErr)
 			}
 		}
 	}()
