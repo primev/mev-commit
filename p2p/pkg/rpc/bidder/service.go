@@ -171,11 +171,16 @@ func (s *Service) SendBid(
 		txnsStr = strBuilder.String()
 	}
 
+	if bid.SlashAmount == "" {
+		bid.SlashAmount = "0"
+	}
+
 	respC, err := s.sender.SendBid(
 		ctx,
 		&preconfirmationv1.Bid{
 			TxHash:              txnsStr,
 			BidAmount:           bid.Amount,
+			SlashAmount:         bid.SlashAmount,
 			BlockNumber:         bid.BlockNumber,
 			DecayStartTimestamp: bid.DecayStartTimestamp,
 			DecayEndTimestamp:   bid.DecayEndTimestamp,
@@ -193,6 +198,7 @@ func (s *Service) SendBid(
 		err := srv.Send(&bidderapiv1.Commitment{
 			TxHashes:             strings.Split(b.TxHash, ","),
 			BidAmount:            b.BidAmount,
+			SlashAmount:          b.SlashAmount,
 			BlockNumber:          b.BlockNumber,
 			ReceivedBidDigest:    hex.EncodeToString(b.Digest),
 			ReceivedBidSignature: hex.EncodeToString(b.Signature),
