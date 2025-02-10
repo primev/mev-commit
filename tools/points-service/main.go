@@ -593,6 +593,14 @@ func main() {
 			// 7. Start daily routine (using our context)
 			StartPointsRoutine(db, logger, 24*time.Hour, ethClient, ctx)
 
+			pointsAPI := NewPointsAPI(logger, db, ps)
+
+			go func() {
+				if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
+					logger.Error("API server error", "error", err)
+				}
+			}()
+
 			// Handle subscription errors in a separate goroutine
 			go func() {
 				for err := range sub.Err() {
