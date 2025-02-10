@@ -44,8 +44,8 @@ var (
 
 	rwLock sync.RWMutex
 
-	createTableEventsQuery = `
-    CREATE TABLE IF NOT EXISTS events (
+	createTableValidatorRecordsQuery = `
+    CREATE TABLE IF NOT EXISTS validator_records (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         pubkey TEXT NOT NULL,
         adder TEXT NOT NULL,
@@ -66,18 +66,18 @@ var (
     INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, 2146240);
     `
 
-	selectActiveRowsQuery = `
+	selectActiveValidatorRecordsQuery = `
         SELECT id, opted_in_block
-        FROM events
+        FROM validator_records
         WHERE opted_out_block IS NULL
     `
-	updatePointsQuery = `
-            UPDATE events
+	updatePointsValidatorRecordsQuery = `
+            UPDATE validator_records
             SET points_accumulated = ?
             WHERE id = ?
         `
-	countActiveRowsQuery = `
-            SELECT COUNT(*) FROM events
+	countActiveValidatorRecordsQuery = `
+            SELECT COUNT(*) FROM validator_records
             WHERE opted_out_block IS NULL
         `
 
@@ -101,8 +101,8 @@ func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	if _, err := db.Exec(createTableEventsQuery); err != nil {
-		return nil, fmt.Errorf("failed to create events table: %w", err)
+	if _, err := db.Exec(createTableValidatorRecordsQuery); err != nil {
+		return nil, fmt.Errorf("failed to create validator_records table: %w", err)
 	}
 	if _, err := db.Exec(createTableLastBlockQuery); err != nil {
 		return nil, fmt.Errorf("failed to create last_processed_block table: %w", err)
@@ -150,14 +150,14 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 		}
 	}()
 
-	rows, queryErr := tx.Query(selectActiveRowsQuery)
+	rows, queryErr := tx.Query(selectActiveValidatorRecordsQuery)
 	if queryErr != nil {
-		return fmt.Errorf("failed to query events for points: %w", queryErr)
+		return fmt.Errorf("failed to query validator_records for points: %w", queryErr)
 	}
 	defer rows.Close()
 
 	var count int
-	if err := tx.QueryRow(countActiveRowsQuery).Scan(&count); err != nil {
+	if err := tx.QueryRow(countActiveValidatorRecordsQuery).Scan(&count); err != nil {
 		logger.Error("failed to count active validators", "error", err)
 	}
 
@@ -175,7 +175,7 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 			blocksActive = int64(currentBlock - inBlock)
 		}
 		totalPoints := computePointsForMonths(blocksActive)
-		if _, updErr := tx.Exec(updatePointsQuery, totalPoints, id); updErr != nil {
+		if _, updErr := tx.Exec(updatePointsValidatorRecordsQuery, totalPoints, id); updErr != nil {
 			logger.Error("failed to update points", "error", updErr, "id", id)
 		}
 	}
@@ -261,7 +261,7 @@ func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, e
 
 	var existingAdder string
 	err := db.QueryRow(`
-        SELECT adder FROM events
+        SELECT adder FROM validator_records
         WHERE pubkey = ? AND opted_out_block IS NULL
     `, pubkey).Scan(&existingAdder)
 
@@ -272,7 +272,7 @@ func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, e
 	}
 
 	_, err = db.Exec(`
-        INSERT INTO events (
+        INSERT INTO validator_records (
             pubkey, adder, vault, registry_type, event_type, 
             opted_in_block, opted_out_block, points_accumulated
         ) VALUES (?, ?, NULL, ?, ?, ?, NULL, 0)
@@ -285,13 +285,13 @@ func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, e
 	}
 }
 
-func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vault, registryType, eventType string, inBlock uint64) {
+func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vaultAddr, registryType, eventType string, inBlock uint64) {
 	rwLock.RLock()
 	defer rwLock.RUnlock()
 
 	var existingAdder string
 	err := db.QueryRow(`
-        SELECT adder FROM events
+        SELECT adder FROM validator_records
         WHERE pubkey = ? AND opted_out_block IS NULL
     `, pubkey).Scan(&existingAdder)
 
@@ -302,16 +302,16 @@ func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vault,
 	}
 
 	_, err = db.Exec(`
-        INSERT INTO events (
+        INSERT INTO validator_records (
             pubkey, adder, vault, registry_type, event_type, 
             opted_in_block, opted_out_block, points_accumulated
         ) VALUES (?, ?, ?, ?, ?, ?, NULL, 0)
-    `, pubkey, adder, vault, registryType, eventType, inBlock)
+    `, pubkey, adder, vaultAddr, registryType, eventType, inBlock)
 	if err != nil {
 		logger.Warn("insertOptInWithVault likely already inserted", "error", err)
 	} else {
 		logger.Info("inserted opt-in interval WITH vault",
-			"pubkey", pubkey, "adder", adder, "vault", vault, "block", inBlock, "event_type", eventType)
+			"pubkey", pubkey, "adder", adder, "vault", vaultAddr, "block", inBlock, "event_type", eventType)
 	}
 }
 
@@ -320,7 +320,7 @@ func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType stri
 	defer rwLock.RUnlock()
 
 	_, err := db.Exec(`
-        UPDATE events
+        UPDATE validator_records
         SET opted_out_block = ?
         WHERE pubkey = ? AND adder = ? AND opted_out_block IS NULL
     `, outBlock, pubkey, adder)
@@ -361,11 +361,11 @@ func main() {
 
 			// 2. Quick test
 			var rowCount int
-			err = db.QueryRow("SELECT COUNT(*) FROM events").Scan(&rowCount)
+			err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&rowCount)
 			if err != nil {
-				return fmt.Errorf("failed to query events: %w", err)
+				return fmt.Errorf("failed to query validator_records: %w", err)
 			}
-			logger.Info("database reachable", "events_count", rowCount)
+			logger.Info("database reachable", "validator_records_count", rowCount)
 
 			// 3. Ethereum client
 			ethClient, err := ethclient.Dial(c.String(optionRPCURL.Name))
@@ -423,7 +423,7 @@ func main() {
 					func(ev *middleware.MevcommitmiddlewareValRecordAdded) {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
 						adder := ev.Operator.Hex()
-						vault := ev.Vault.Hex()
+						vaultAddr := ev.Vault.Hex()
 						pub.AddContract(ev.Vault)
 						logger.Info("raw log data",
 							"block_number", ev.Raw.BlockNumber,
@@ -431,7 +431,7 @@ func main() {
 							"block_hash", ev.Raw.BlockHash.Hex(),
 							"log_index", ev.Raw.Index,
 							"tx_index", ev.Raw.TxIndex)
-						insertOptInWithVault(db, logger, pubkey, adder, vault, "symbiotic", "ValRecordAdded", ev.Raw.BlockNumber)
+						insertOptInWithVault(db, logger, pubkey, adder, vaultAddr, "symbiotic", "ValRecordAdded", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
@@ -464,7 +464,7 @@ func main() {
 						vaultAddr := ev.Vault.Hex()
 						rows, err := db.Query(`
                             SELECT pubkey, adder
-                            FROM events
+                            FROM validator_records
                             WHERE vault = ? AND opted_out_block IS NULL
                         `, vaultAddr)
 						if err != nil {
@@ -488,7 +488,7 @@ func main() {
 						operatorAddr := ev.Operator.Hex()
 						rows, err := db.Query(`
                             SELECT pubkey
-                            FROM events
+                            FROM validator_records
                             WHERE adder = ? AND opted_out_block IS NULL
                         `, operatorAddr)
 						if err != nil {
@@ -513,7 +513,7 @@ func main() {
 						var adderHex string
 						err := db.QueryRow(`
                             SELECT adder 
-                            FROM events
+                            FROM validator_records
                             WHERE pubkey = ? AND opted_out_block IS NULL
                             LIMIT 1
                         `, pubkeyHex).Scan(&adderHex)
@@ -530,7 +530,7 @@ func main() {
 						vaultAddr := ev.Raw.Address.Hex()
 						rows, err := db.Query(`
 						SELECT pubkey, adder
-						FROM events
+						FROM validator_records
 						WHERE vault = ? AND opted_out_block IS NULL
 						`, vaultAddr)
 						if err != nil {

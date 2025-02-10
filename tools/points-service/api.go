@@ -92,10 +92,10 @@ func (p *PointsAPI) GetPointsForAddress(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Example DB logic: gather points from the 'events' table
+	// Example DB logic: gather points from the 'validator_records' table
 	rows, err := p.db.Query(`
 		SELECT vault, registry_type, points_accumulated
-		FROM events
+		FROM validator_records
 		WHERE (pubkey = ? OR adder = ?)
 		  AND opted_in_block <= ?
 		  AND (opted_out_block IS NULL OR opted_out_block > ?)
@@ -162,7 +162,7 @@ func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) 
 		       COUNT(DISTINCT CASE WHEN registry_type = 'vanilla' THEN pubkey END) as stakers,
 		       COUNT(DISTINCT CASE WHEN registry_type = 'symbiotic' THEN pubkey END) as networks,
 		       COUNT(DISTINCT CASE WHEN registry_type = 'eigenlayer' THEN pubkey END) as operators
-		FROM events
+		FROM validator_records
 		WHERE opted_in_block <= ?
 		  AND (opted_out_block IS NULL OR opted_out_block > ?)
 	`
@@ -232,7 +232,7 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 	// Build query and args
 	query := `
 		SELECT pubkey, adder, vault, registry_type, points_accumulated
-		FROM events
+		FROM validator_records
 		WHERE opted_in_block <= ?
 		  AND (opted_out_block IS NULL OR opted_out_block > ?)
 	`
