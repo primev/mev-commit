@@ -23,6 +23,7 @@ import (
 	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	vanillaregistry "github.com/primev/mev-commit/contracts-abi/clients/VanillaRegistry"
 	vault "github.com/primev/mev-commit/contracts-abi/clients/Vault"
+	config "github.com/primev/mev-commit/contracts-abi/config"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/urfave/cli/v2"
@@ -373,9 +374,10 @@ func main() {
 
 			// Example addresses
 			testnetContracts := []common.Address{
-				common.HexToAddress("0xEDEDB8ed37A43Fd399108A44646B85b780D85DD4"),
-				common.HexToAddress("0x87D5F694fAD0b6C8aaBCa96277DE09451E277Bcf"),
-				common.HexToAddress("0x79FeCD427e5A3e5f1a40895A0AC20A6a50C95393"),
+				common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter),
+				common.HexToAddress(config.HoleskyContracts.VanillaRegistry),
+				common.HexToAddress(config.HoleskyContracts.MevCommitAVS),
+				common.HexToAddress(config.HoleskyContracts.MevCommitMiddleware),
 			}
 
 			ps := &PointsService{
@@ -555,7 +557,7 @@ func main() {
 								}
 								time.Sleep(time.Second * 2)
 							}
-							routerAddr := common.HexToAddress("0x251Fbc993f58cBfDA8Ad7b0278084F915aCE7fc3")
+							routerAddr := common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter)
 							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
 							if err != nil {
 								panic(fmt.Sprintf("failed to create router caller: %v", err))
