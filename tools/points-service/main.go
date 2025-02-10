@@ -96,22 +96,11 @@ var (
 		Value:   "./points.db",
 	}
 
-	optinRouterAddress = &cli.StringFlag{
-		Name:    "router-address",
-		Usage:   "Address of the ValidatorOptInRouter contract",
-		EnvVars: []string{"POINTS_ROUTER_ADDRESS"},
-		Value:   config.HoleskyContracts.ValidatorOptInRouter,
-	}
-
-	optionContractAddresses = &cli.StringSliceFlag{
-		Name:    "contract-addresses",
-		Usage:   "Addresses of the contracts to watch",
-		EnvVars: []string{"POINTS_CONTRACT_ADDRESSES"},
-		Value: cli.NewStringSlice(
-			config.HoleskyContracts.VanillaRegistry,
-			config.HoleskyContracts.MevCommitAVS,
-			config.HoleskyContracts.MevCommitMiddleware,
-		),
+	optionMainnet = &cli.BoolFlag{
+		Name:    "mainnet",
+		Usage:   "Use mainnet contracts",
+		EnvVars: []string{"POINTS_MAINNET"},
+		Value:   false,
 	}
 )
 
@@ -345,7 +334,7 @@ func main() {
 		Flags: []cli.Flag{
 			optionRPCURL,
 			optionDBPath,
-			optionContractAddresses, // Include our new flag
+			optionMainnet,
 		},
 		Action: func(c *cli.Context) error {
 			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -392,14 +381,25 @@ func main() {
 			}
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
 			done := pub.Start(ctx)
-
 			// Get the contract addresses from CLI and add them to the publisher
-			var contractAddresses []common.Address
-			for _, addrStr := range c.StringSlice(optionContractAddresses.Name) {
-				contractAddresses = append(contractAddresses, common.HexToAddress(addrStr))
+			var contractAddresses []string
+
+			if c.Bool(optionMainnet.Name) {
+				contractAddresses = []string{
+					config.EthereumContracts.VanillaRegistry,
+					config.EthereumContracts.MevCommitAVS,
+					config.EthereumContracts.MevCommitMiddleware,
+				}
+			} else {
+				contractAddresses = []string{
+					config.HoleskyContracts.VanillaRegistry,
+					config.HoleskyContracts.MevCommitAVS,
+					config.HoleskyContracts.MevCommitMiddleware,
+				}
 			}
-			for _, addr := range contractAddresses {
-				pub.AddContract(addr)
+
+			for _, addrStr := range contractAddresses {
+				pub.AddContract(common.HexToAddress(addrStr))
 			}
 
 			handlers := []events.EventHandler{
@@ -559,7 +559,13 @@ func main() {
 								}
 								time.Sleep(time.Second * 2)
 							}
-							routerAddr := common.HexToAddress(c.String(optinRouterAddress.Name))
+
+							var routerAddr common.Address
+							if c.Bool(optionMainnet.Name) {
+								routerAddr = common.HexToAddress(config.EthereumContracts.ValidatorOptInRouter)
+							} else {
+								routerAddr = common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter)
+							}
 							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
 							if err != nil {
 								panic(fmt.Sprintf("failed to create router caller: %v", err))
