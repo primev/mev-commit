@@ -12,27 +12,21 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// PointsAPI holds references needed to handle API requests
 type PointsAPI struct {
 	logger *slog.Logger
 	db     *sql.DB
 	ps     *PointsService
 }
 
-// NewPointsAPI creates a new PointsAPI instance
 func NewPointsAPI(logger *slog.Logger, db *sql.DB, ps *PointsService) *PointsAPI {
 	return &PointsAPI{logger: logger, db: db, ps: ps}
 }
 
-// StartAPIServer starts the HTTP server with all routes
 func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 	r := mux.NewRouter()
-
-	// Define routes
 	r.HandleFunc("/health", p.HealthCheck).Methods("GET")
 	r.HandleFunc("/last_block", p.GetLastBlock).Methods("GET")
 	r.HandleFunc("/{receiver_type}/{receiver_address}", p.RecomputePointsForAddress).Methods("GET")
-
 	r.HandleFunc("/stats", p.GetTotalPointsStats).Methods("GET")
 	r.HandleFunc("/all", p.GetAllPoints).Methods("GET")
 
@@ -41,7 +35,6 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 		Handler: r,
 	}
 
-	// Graceful shutdown
 	go func() {
 		<-ctx.Done()
 		if err := srv.Shutdown(context.Background()); err != nil {
@@ -56,10 +49,7 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 	return nil
 }
 
-// HealthCheck endpoint checks if the API is "healthy"
-// GET /health
 func (p *PointsAPI) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	// Ensure both the points routine and event subscription are running
 	if !p.ps.IsPointsRoutineRunning() {
 		http.Error(w, "Points routine not running", http.StatusServiceUnavailable)
 		return
@@ -68,13 +58,10 @@ func (p *PointsAPI) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Event subscription not active", http.StatusServiceUnavailable)
 		return
 	}
-
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK\n"))
 }
 
-// GetLastBlock returns the last processed block number
-// GET /last_block
 func (p *PointsAPI) GetLastBlock(w http.ResponseWriter, r *http.Request) {
 	block, err := p.ps.LastBlock()
 	if err != nil {
@@ -85,10 +72,6 @@ func (p *PointsAPI) GetLastBlock(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp, http.StatusOK)
 }
 
-// RecomputePointsForAddress recalculates points for the given address at a specific block,
-// but aggregates the total points into a single value rather than an array.
-//
-// GET /{receiver_type}/{receiver_address}?block_number=...
 func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	receiverType := vars["receiver_type"]
@@ -105,7 +88,6 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// If not "operator", return zero points in a valid response.
 	if receiverType != "operator" {
 		resp := map[string]interface{}{
 			"address":      receiverAddr,
@@ -117,59 +99,9 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Only query records where registry_type = 'symbiotic' for operators.
-	rows, err := p.db.Query(`
-		SELECT vault, registry_type, opted_in_block, opted_out_block
-		FROM validator_records
-		WHERE registry_type = 'symbiotic'
-		  AND (pubkey = ? OR adder = ?)
-		  AND opted_in_block <= ?
-	`, receiverAddr, receiverAddr, blockNum)
+	totalPoints, err := p.calculatePointsForSymbioticOperator(receiverAddr, blockNum)
 	if err != nil {
 		http.Error(w, "DB query failed", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var totalPoints int64
-	for rows.Next() {
-		var (
-			vaultAddr     string
-			regType       string
-			optedInBlock  uint64
-			optedOutBlock sql.NullInt64
-		)
-		if scanErr := rows.Scan(&vaultAddr, &regType, &optedInBlock, &optedOutBlock); scanErr != nil {
-			p.logger.Error("scan error", "error", scanErr)
-			continue
-		}
-
-		// Determine the effective end block for points accrual.
-		effectiveEnd := blockNum
-		if optedOutBlock.Valid && optedOutBlock.Int64 <= int64(blockNum) {
-			effectiveEnd = uint64(optedOutBlock.Int64)
-		}
-
-		var blocksActive int64
-		if effectiveEnd > optedInBlock {
-			blocksActive = int64(effectiveEnd - optedInBlock)
-		}
-		if blocksActive < 0 {
-			blocksActive = 0
-		}
-
-		// Recompute ephemeral points for this record.
-		recomputedPoints, optedOutPoints := computePointsForMonths(blocksActive)
-		if optedOutBlock.Valid {
-			totalPoints += optedOutPoints
-		} else {
-			totalPoints += recomputedPoints
-		}
-	}
-
-	// If no rows matched, return 404.
-	if rowsErr := rows.Err(); rowsErr != nil {
-		http.Error(w, "DB iteration error", http.StatusInternalServerError)
 		return
 	}
 	if totalPoints == 0 {
@@ -186,13 +118,58 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 	writeJSON(w, resp, http.StatusOK)
 }
 
-// GetPointsForAddress returns points for a specific address and block number
-// GET /{receiver_type}/{receiver_address}?block_number=...
-func (p *PointsAPI) GetPointsForAddress(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	receiverType := vars["receiver_type"]
-	receiverAddr := vars["receiver_address"]
+func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blockNum uint64) (int64, error) {
+	rows, err := p.db.Query(`
+		SELECT vault, registry_type, opted_in_block, opted_out_block
+		FROM validator_records
+		WHERE registry_type = 'symbiotic'
+		  AND (pubkey = ? OR adder = ?)
+		  AND opted_in_block <= ?
+	`, receiverAddr, receiverAddr, blockNum)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
 
+	var totalPoints int64
+	for rows.Next() {
+		var (
+			vaultAddr     string
+			regType       string
+			optedInBlock  uint64
+			optedOutBlock sql.NullInt64
+		)
+		if scanErr := rows.Scan(&vaultAddr, &regType, &optedInBlock, &optedOutBlock); scanErr != nil {
+			p.logger.Error("scan error", "error", scanErr)
+			continue
+		}
+
+		effectiveEnd := blockNum
+		if optedOutBlock.Valid && optedOutBlock.Int64 <= int64(blockNum) {
+			effectiveEnd = uint64(optedOutBlock.Int64)
+		}
+
+		var blocksActive int64
+		if effectiveEnd > optedInBlock {
+			blocksActive = int64(effectiveEnd - optedInBlock)
+		}
+		if blocksActive < 0 {
+			blocksActive = 0
+		}
+
+		recomputedPoints, optedOutPoints := computePointsForMonths(blocksActive)
+		if optedOutBlock.Valid {
+			totalPoints += optedOutPoints
+		} else {
+			totalPoints += recomputedPoints
+		}
+	}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return 0, rowsErr
+	}
+	return totalPoints, nil
+}
+func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) {
 	blockNumStr := r.URL.Query().Get("block_number")
 	if blockNumStr == "" {
 		http.Error(w, "block_number query param is required", http.StatusBadRequest)
@@ -205,113 +182,68 @@ func (p *PointsAPI) GetPointsForAddress(w http.ResponseWriter, r *http.Request) 
 	}
 
 	rows, err := p.db.Query(`
-		SELECT vault, registry_type, points_accumulated
+		SELECT adder, opted_in_block, opted_out_block
 		FROM validator_records
-		WHERE (pubkey = ? OR adder = ?)
+		WHERE registry_type = 'symbiotic'
 		  AND opted_in_block <= ?
-		  AND (opted_out_block IS NULL OR opted_out_block > ?)
-	`, receiverAddr, receiverAddr, blockNum, blockNum)
+	`, blockNum)
 	if err != nil {
 		http.Error(w, "DB query failed", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-	var pointsArray []map[string]interface{}
+	var totalPoints int64
+	operatorSet := make(map[string]struct{})
+
 	for rows.Next() {
-		var vaultAddr, registryType string
-		var pointsAccumulated int64
-		if scanErr := rows.Scan(&vaultAddr, &registryType, &pointsAccumulated); scanErr != nil {
+		var (
+			adder         string
+			optedInBlock  uint64
+			optedOutBlock sql.NullInt64
+		)
+		if scanErr := rows.Scan(&adder, &optedInBlock, &optedOutBlock); scanErr != nil {
 			p.logger.Error("scan error", "error", scanErr)
 			continue
 		}
-		pItem := map[string]interface{}{
-			"points": float64(pointsAccumulated),
+
+		operatorSet[adder] = struct{}{}
+
+		effectiveEnd := blockNum
+		if optedOutBlock.Valid && optedOutBlock.Int64 <= int64(blockNum) {
+			effectiveEnd = uint64(optedOutBlock.Int64)
 		}
-		if registryType == "vanilla" || registryType == "eigenlayer" {
-			pItem["network_address"] = registryType
-			pItem["vault_address"] = vaultAddr
+
+		var blocksActive int64
+		if effectiveEnd > optedInBlock {
+			blocksActive = int64(effectiveEnd - optedInBlock)
+		}
+		if blocksActive < 0 {
+			blocksActive = 0
+		}
+
+		recomputedPoints, optedOutPoints := computePointsForMonths(blocksActive)
+		if optedOutBlock.Valid {
+			totalPoints += optedOutPoints
 		} else {
-			pItem["network_address"] = ""
-			pItem["vault_address"] = vaultAddr
+			totalPoints += recomputedPoints
 		}
-		pointsArray = append(pointsArray, pItem)
 	}
-	if len(pointsArray) == 0 {
-		http.Error(w, "no points data found for address", http.StatusNotFound)
+
+	if err := rows.Err(); err != nil {
+		http.Error(w, "DB iteration error", http.StatusInternalServerError)
 		return
 	}
 
 	resp := map[string]interface{}{
-		"address":      receiverAddr,
-		"receiver":     receiverType,
-		"block_number": blockNum,
-		"points":       pointsArray,
+		"total_points": totalPoints,
+		"stakers":      0,
+		"networks":     0,
+		"operators":    len(operatorSet),
 	}
 	writeJSON(w, resp, http.StatusOK)
 }
 
-// GetTotalPointsStats returns aggregated points stats for a given block
-// GET /stats?receiver_type=...&block_number=...
-func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) {
-	blockNumStr := r.URL.Query().Get("block_number")
-	if blockNumStr == "" {
-		http.Error(w, "block_number query param is required", http.StatusBadRequest)
-		return
-	}
-	blockNum, err := strconv.ParseUint(blockNumStr, 10, 64)
-	if err != nil || blockNum == 0 {
-		http.Error(w, "invalid block_number parameter", http.StatusBadRequest)
-		return
-	}
-	receiverType := r.URL.Query().Get("receiver_type")
-
-	// Filter by registry_type if given
-	query := `
-		SELECT SUM(points_accumulated), 
-		       COUNT(DISTINCT CASE WHEN registry_type = 'vanilla' THEN pubkey END) as stakers,
-		       COUNT(DISTINCT CASE WHEN registry_type = 'symbiotic' THEN pubkey END) as networks,
-		       COUNT(DISTINCT CASE WHEN registry_type = 'eigenlayer' THEN pubkey END) as operators
-		FROM validator_records
-		WHERE opted_in_block <= ?
-		  AND (opted_out_block IS NULL OR opted_out_block > ?)
-	`
-	args := []interface{}{blockNum, blockNum}
-	if receiverType != "" {
-
-		var rt string
-		switch receiverType {
-		case "staker":
-			rt = "vanilla"
-		case "network":
-			rt = "symbiotic"
-		case "operator":
-			rt = "eigenlayer"
-		default:
-			http.Error(w, "invalid receiver_type", http.StatusBadRequest)
-			return
-		}
-		query += " AND registry_type = ?"
-		args = append(args, rt)
-	}
-
-	var totalPoints, stakers, networks, operators sql.NullInt64
-	err = p.db.QueryRow(query, args...).Scan(&totalPoints, &stakers, &networks, &operators)
-	if err != nil {
-		http.Error(w, "DB query failed", http.StatusInternalServerError)
-		return
-	}
-	resp := map[string]interface{}{
-		"total_points": totalPoints.Int64,
-		"stakers":      stakers.Int64,
-		"networks":     networks.Int64,
-		"operators":    operators.Int64,
-	}
-	writeJSON(w, resp, http.StatusOK)
-}
-
-// GetAllPoints returns paginated list of all points for the specified block
-// GET /all?offset=...&limit=...&receiver_type=...&block_number=...
 func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 	offsetStr := r.URL.Query().Get("offset")
 	limitStr := r.URL.Query().Get("limit")
@@ -337,39 +269,24 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid block_number", http.StatusBadRequest)
 		return
 	}
+
 	receiverType := r.URL.Query().Get("receiver_type")
-
-	// Build query and args
-	query := `
-		SELECT pubkey, adder, vault, registry_type, points_accumulated
-		FROM validator_records
-		WHERE opted_in_block <= ?
-		  AND (opted_out_block IS NULL OR opted_out_block > ?)
-	`
-	args := []interface{}{blockNum, blockNum}
-
-	if receiverType != "" {
-
-		var rt string
-		switch receiverType {
-		case "staker":
-			rt = "vanilla"
-		case "network":
-			rt = "symbiotic"
-		case "operator":
-			rt = "eigenlayer"
-		default:
-			http.Error(w, "invalid receiver_type", http.StatusBadRequest)
-			return
-		}
-		query += " AND registry_type = ?"
-		args = append(args, rt)
+	// If receiver_type is not "operator", return empty array
+	if receiverType != "operator" && receiverType != "" {
+		writeJSON(w, []interface{}{}, http.StatusOK)
+		return
 	}
 
-	query += " LIMIT ? OFFSET ?"
-	args = append(args, limit, offset)
-
-	rows, err := p.db.Query(query, args...)
+	query := `
+		SELECT DISTINCT adder, vault
+		FROM validator_records
+		WHERE registry_type = 'symbiotic'
+		  AND opted_in_block <= ?
+		  AND (opted_out_block IS NULL OR opted_out_block > ?)
+		ORDER BY adder
+		LIMIT ? OFFSET ?
+	`
+	rows, err := p.db.Query(query, blockNum, blockNum, limit, offset)
 	if err != nil {
 		http.Error(w, "DB query failed", http.StatusInternalServerError)
 		return
@@ -378,44 +295,36 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 
 	var result []map[string]interface{}
 	for rows.Next() {
-		var pubkey, adder, vault, registryType string
-		var points int64
-		if scanErr := rows.Scan(&pubkey, &adder, &vault, &registryType, &points); scanErr != nil {
+		var operatorAddr, vaultAddr string
+		if scanErr := rows.Scan(&operatorAddr, &vaultAddr); scanErr != nil {
 			p.logger.Error("scan error", "error", scanErr)
 			continue
 		}
 
-		var receiver string
-		switch registryType {
-		case "vanilla":
-			receiver = "staker"
-		case "symbiotic":
-			receiver = "network"
-		case "eigenlayer":
-			receiver = "operator"
-		default:
-			receiver = "unknown"
+		// Calculate aggregated points for this operator address
+		totalPoints, calcErr := p.calculatePointsForSymbioticOperator(operatorAddr, blockNum)
+		if calcErr != nil {
+			p.logger.Error("failed to compute points", "address", operatorAddr, "error", calcErr)
+			continue
 		}
 
-		item := map[string]interface{}{
-			"address":      pubkey,
-			"receiver":     receiver,
-			"block_number": blockNum,
-			"network_address": func() string {
-				if registryType == "vanilla" || registryType == "eigenlayer" {
-					return registryType
-				}
-				return ""
-			}(),
-			"vault_address": vault,
-			"points":        float64(points),
-		}
-		result = append(result, item)
+		result = append(result, map[string]interface{}{
+			"address":         operatorAddr,
+			"receiver":        "operator",
+			"block_number":    blockNum,
+			"network_address": "0x9101eda106A443A0fA82375936D0D1680D5a64F5",
+			"vault_address":   vaultAddr,
+			"points":          float64(totalPoints),
+		})
 	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "DB iteration error", http.StatusInternalServerError)
+		return
+	}
+
 	writeJSON(w, result, http.StatusOK)
 }
 
-// Helper to write JSON responses
 func writeJSON(w http.ResponseWriter, data interface{}, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

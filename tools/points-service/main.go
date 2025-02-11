@@ -130,13 +130,13 @@ func computePointsForMonths(blocksActive int64) (int64, int64) {
 	// -------------------------
 	// Define partial totals per month for each chunk
 	// chunk1Partial covers Months 1–6 (up to 10k)
-	chunk1Partial := []int64{1000, 2270, 3800, 5600, 7670, 10000}
+	chunk1Partial := []int64{10000, 22700, 38000, 56000, 76700, 100000}
 
 	// chunk2Partial covers Months 7–12 (goes from 12k up to 30k)
-	chunk2Partial := []int64{12000, 14540, 17600, 21200, 25340, 30000}
+	chunk2Partial := []int64{120000, 145400, 176000, 212000, 253400, 300000}
 
 	// chunk3Partial covers Months 13–18 (goes from 34k up to 70k)
-	chunk3Partial := []int64{34000, 39080, 45200, 52400, 60680, 70000}
+	chunk3Partial := []int64{340000, 390800, 452000, 524000, 606800, 700000}
 
 	// -------------------------
 	// Handle Months 1–6
@@ -144,7 +144,7 @@ func computePointsForMonths(blocksActive int64) (int64, int64) {
 		totalPoints := chunk1Partial[months-1]
 		// Fallback if they opt out before completing 6 months:
 		//   => revert to 1,000 points per each full month
-		fallbackPoints := months * 1000
+		fallbackPoints := months * 10000
 		return totalPoints, fallbackPoints
 	}
 
@@ -158,7 +158,7 @@ func computePointsForMonths(blocksActive int64) (int64, int64) {
 		//   => keep chunk #1's total (10k) plus 1,000 for each partial month in chunk #2
 		//   => if they *have* completed chunk #2 (month=12), fallback = 30k
 		if months < 12 {
-			fallbackPoints := chunk1Partial[5] + (months-6)*1000
+			fallbackPoints := chunk1Partial[5] + (months-6)*10000
 			return totalPoints, fallbackPoints
 		} else {
 			// Exactly month 12 => chunk2 is fully complete
@@ -177,7 +177,7 @@ func computePointsForMonths(blocksActive int64) (int64, int64) {
 		//   => keep chunk #2's total (30k) plus 1,000 for each partial month in chunk #3
 		//   => if they *have* completed chunk #3 (month=18), fallback = 70k
 		if months < 18 {
-			fallbackPoints := chunk2Partial[5] + (months-12)*1000
+			fallbackPoints := chunk2Partial[5] + (months-12)*10000
 			return totalPoints, fallbackPoints
 		} else {
 			// Exactly month 18 => chunk3 is fully complete
@@ -188,7 +188,7 @@ func computePointsForMonths(blocksActive int64) (int64, int64) {
 
 	// -------------------------
 	// Beyond 18 months: cap at chunk #3 completion (70k).
-	return 70000, 70000
+	return 700000, 700000
 }
 
 // updatePoints calculates new points (including the fallback preSixMonthPoints) for all active records.
