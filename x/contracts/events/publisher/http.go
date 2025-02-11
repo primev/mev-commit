@@ -85,7 +85,9 @@ func (h *httpPublisher) getContracts() []common.Address {
 }
 
 // Start begins the main subscription loop
-func (h *httpPublisher) Start(ctx context.Context) <-chan struct{} {
+func (h *httpPublisher) Start(ctx context.Context, contractAddr ...common.Address) <-chan struct{} {
+	h.AddContracts(contractAddr...)
+
 	doneChan := make(chan struct{})
 
 	go func() {
