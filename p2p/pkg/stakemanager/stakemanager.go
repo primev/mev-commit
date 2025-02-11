@@ -260,7 +260,7 @@ func (sm *StakeManager) Start(ctx context.Context) <-chan struct{} {
 	return doneChan
 }
 
-func (sm *StakeManager) GetStake(provider common.Address) (*big.Int, error) {
+func (sm *StakeManager) GetStake(ctx context.Context, provider common.Address) (*big.Int, error) {
 	sm.stakeMu.RLock()
 	_, found := sm.unstakeReqs.Get(provider)
 	sm.stakeMu.RUnlock()
@@ -273,7 +273,8 @@ func (sm *StakeManager) GetStake(provider common.Address) (*big.Int, error) {
 	sm.stakeMu.RUnlock()
 	if !found {
 		stake, err := sm.providerRegistry.GetProviderStake(&bind.CallOpts{
-			From: sm.owner,
+			From:    sm.owner,
+			Context: ctx,
 		}, provider)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get provider stake: %w", err)
@@ -296,8 +297,8 @@ func (sm *StakeManager) MinStake() *big.Int {
 	return new(big.Int).Set(sm.minStake.Load())
 }
 
-func (sm *StakeManager) CheckProviderRegistered(provider common.Address) bool {
-	stake, err := sm.GetStake(provider)
+func (sm *StakeManager) CheckProviderRegistered(ctx context.Context, provider common.Address) bool {
+	stake, err := sm.GetStake(ctx, provider)
 	if err != nil {
 		sm.logger.Error("failed to get provider stake", "error", err)
 		return false
