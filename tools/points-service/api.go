@@ -119,6 +119,24 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 }
 
 func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blockNum uint64) (int64, error) {
+
+	// Get count of unique pubkeys for this operator
+	var uniquePubkeys int
+	err := p.db.QueryRow(`
+		SELECT COUNT(DISTINCT pubkey)
+		FROM validator_records
+		WHERE registry_type = 'symbiotic'
+		  AND adder = ?
+		  AND opted_in_block <= ?
+	`, receiverAddr, blockNum).Scan(&uniquePubkeys)
+	if err != nil {
+		p.logger.Error("failed to get unique pubkey count", "error", err)
+		return 0, err
+	}
+
+	// Sign-up Bonus of 1000
+	totalPoints := int64(uniquePubkeys) * 1000
+
 	rows, err := p.db.Query(`
 		SELECT vault, registry_type, opted_in_block, opted_out_block
 		FROM validator_records
@@ -131,7 +149,6 @@ func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blo
 	}
 	defer rows.Close()
 
-	var totalPoints int64
 	for rows.Next() {
 		var (
 			vaultAddr     string
