@@ -7,8 +7,12 @@ import (
 type Topic string
 
 const (
-	TopicPeerConnected    Topic = "peer_connected"
-	TopicPeerDisconnected Topic = "peer_disconnected"
+	TopicPeerConnected        Topic = "peer_connected"
+	TopicPeerDisconnected     Topic = "peer_disconnected"
+	TopicProviderRegistered   Topic = "provider_registered"
+	TopicProviderDeposit      Topic = "provider_deposit"
+	TopicProviderSlashed      Topic = "provider_slashed"
+	TopicProviderDeregistered Topic = "provider_deregistered"
 )
 
 func IsTopicValid(topic Topic) bool {
