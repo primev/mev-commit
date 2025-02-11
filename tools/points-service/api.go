@@ -31,7 +31,8 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 	// Define routes
 	r.HandleFunc("/health", p.HealthCheck).Methods("GET")
 	r.HandleFunc("/last_block", p.GetLastBlock).Methods("GET")
-	r.HandleFunc("/{receiver_type}/{receiver_address}", p.GetPointsForAddress).Methods("GET")
+	r.HandleFunc("/{receiver_type}/{receiver_address}", p.RecomputePointsForAddress).Methods("GET")
+
 	r.HandleFunc("/stats", p.GetTotalPointsStats).Methods("GET")
 	r.HandleFunc("/all", p.GetAllPoints).Methods("GET")
 
@@ -81,6 +82,105 @@ func (p *PointsAPI) GetLastBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]uint64{"last_block_number": block}
+	writeJSON(w, resp, http.StatusOK)
+}
+
+// RecomputePointsForAddress recalculates points for the given address at a specific block,
+// but aggregates the total points into a single value rather than an array.
+//
+// GET /{receiver_type}/{receiver_address}?block_number=...
+func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	receiverType := vars["receiver_type"]
+	receiverAddr := vars["receiver_address"]
+
+	blockNumStr := r.URL.Query().Get("block_number")
+	if blockNumStr == "" {
+		http.Error(w, "block_number query param is required", http.StatusBadRequest)
+		return
+	}
+	blockNum, err := strconv.ParseUint(blockNumStr, 10, 64)
+	if err != nil || blockNum == 0 {
+		http.Error(w, "invalid block_number parameter", http.StatusBadRequest)
+		return
+	}
+
+	// If not "operator", return zero points in a valid response.
+	if receiverType != "operator" {
+		resp := map[string]interface{}{
+			"address":      receiverAddr,
+			"receiver":     receiverType,
+			"block_number": blockNum,
+			"points":       float64(0),
+		}
+		writeJSON(w, resp, http.StatusOK)
+		return
+	}
+
+	// Only query records where registry_type = 'symbiotic' for operators.
+	rows, err := p.db.Query(`
+		SELECT vault, registry_type, opted_in_block, opted_out_block
+		FROM validator_records
+		WHERE registry_type = 'symbiotic'
+		  AND (pubkey = ? OR adder = ?)
+		  AND opted_in_block <= ?
+	`, receiverAddr, receiverAddr, blockNum)
+	if err != nil {
+		http.Error(w, "DB query failed", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var totalPoints int64
+	for rows.Next() {
+		var (
+			vaultAddr     string
+			regType       string
+			optedInBlock  uint64
+			optedOutBlock sql.NullInt64
+		)
+		if scanErr := rows.Scan(&vaultAddr, &regType, &optedInBlock, &optedOutBlock); scanErr != nil {
+			p.logger.Error("scan error", "error", scanErr)
+			continue
+		}
+
+		// Determine the effective end block for points accrual.
+		effectiveEnd := blockNum
+		if optedOutBlock.Valid && optedOutBlock.Int64 <= int64(blockNum) {
+			effectiveEnd = uint64(optedOutBlock.Int64)
+		}
+
+		var blocksActive int64
+		if effectiveEnd > optedInBlock {
+			blocksActive = int64(effectiveEnd - optedInBlock)
+		}
+		if blocksActive < 0 {
+			blocksActive = 0
+		}
+
+		// Recompute ephemeral points for this record.
+		recomputedPoints := computePointsForMonths(blocksActive)
+		totalPoints += recomputedPoints
+	}
+
+	// If no rows matched, return 404.
+	if rowsErr := rows.Err(); rowsErr != nil {
+		http.Error(w, "DB iteration error", http.StatusInternalServerError)
+		return
+	}
+	if totalPoints == 0 {
+		// you can interpret zero as "not found" or simply
+		// as zero points if the user had no records
+		http.Error(w, "no points data found for address", http.StatusNotFound)
+		return
+	}
+
+	resp := map[string]interface{}{
+		"address":      receiverAddr,
+		"receiver":     receiverType,
+		"block_number": blockNum,
+		"points":       float64(totalPoints),
+	}
 	writeJSON(w, resp, http.StatusOK)
 }
 
