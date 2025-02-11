@@ -48,7 +48,7 @@ var (
         opted_in_block BIGINT NOT NULL,
         opted_out_block BIGINT,
         points_accumulated BIGINT DEFAULT 0,
-		pre_six_month_points BIGINT DEFAULT 0,
+		pre_cliff_points BIGINT DEFAULT 0,
         UNIQUE(pubkey, adder, opted_in_block)
     );`
 
@@ -69,7 +69,7 @@ var (
 	// Now we also set the new column
 	updatePointsValidatorRecordsQuery = `
             UPDATE validator_records
-            SET points_accumulated = ?, pre_six_month_points = ?
+            SET points_accumulated = ?, pre_cliff_points = ?
             WHERE id = ?
         `
 

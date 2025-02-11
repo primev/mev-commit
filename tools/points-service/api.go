@@ -30,6 +30,9 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 	r.HandleFunc("/stats", p.GetTotalPointsStats).Methods("GET")
 	r.HandleFunc("/all", p.GetAllPoints).Methods("GET")
 
+	// Personal API
+	r.HandleFunc("/{address}", p.GetAnyPointsForAddress).Methods("GET")
+
 	srv := &http.Server{
 		Addr:    addr,
 		Handler: r,
@@ -348,4 +351,51 @@ func writeJSON(w http.ResponseWriter, data interface{}, status int) {
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		log.Printf("failed to encode JSON: %v", err)
 	}
+}
+
+// GetAnyPointsForAddress sums up points for the given address:
+//   - points_accumulated if `opted_out_block` is NULL
+//   - pre_six_month_points if `opted_out_block` is NOT NULL
+func (p *PointsAPI) GetAnyPointsForAddress(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	adder := vars["address"]
+
+	// Summation query uses a CASE expression for each record
+	const q = `
+        SELECT COALESCE(
+          SUM(
+            CASE WHEN opted_out_block IS NULL 
+                 THEN points_accumulated 
+                 ELSE pre_cliff_points 
+            END
+          ), 
+        0)
+        FROM validator_records
+        WHERE adder = ?
+    `
+	var totalPoints int64
+	if err := p.db.QueryRow(q, adder).Scan(&totalPoints); err != nil {
+		http.Error(w, "Database query failed", http.StatusInternalServerError)
+		p.logger.Error("GetAnyPointsForAddress query error", "error", err)
+		return
+	}
+
+	// Get count of unique pubkeys for this address and multiply by 1000
+	var pubkeyBonus int64
+	const pubkeyQuery = `
+		SELECT COUNT(DISTINCT pubkey) * 1000 
+		FROM validator_records 
+		WHERE adder = ?`
+	if err := p.db.QueryRow(pubkeyQuery, adder).Scan(&pubkeyBonus); err != nil {
+		http.Error(w, "Database query failed", http.StatusInternalServerError)
+		p.logger.Error("GetAnyPointsForAddress pubkey bonus query error", "error", err)
+		return
+	}
+	totalPoints += pubkeyBonus
+
+	resp := map[string]interface{}{
+		"address":      adder,
+		"total_points": totalPoints,
+	}
+	writeJSON(w, resp, http.StatusOK)
 }
