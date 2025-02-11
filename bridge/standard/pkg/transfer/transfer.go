@@ -76,6 +76,10 @@ func NewTransferToSettlement(
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial settlement rpc: %s", err)
 	}
+	settlementChainID, err := settlementClient.ChainID(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get settlement chain id: %s", err)
+	}
 	initialBlock, err := settlementClient.BlockNumber(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get initial block: %s", err)
@@ -83,6 +87,13 @@ func NewTransferToSettlement(
 	settlementFilterer, err := settlementgateway.NewSettlementgatewayFilterer(settlementContractAddr, settlementClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create settlement filterer: %s", err)
+	}
+
+	if err := validateChainIDs(
+		l1ChainID,         // src
+		settlementChainID, // dest
+	); err != nil {
+		return nil, fmt.Errorf("invalid chain ids: %s", err)
 	}
 
 	return &Transfer{
@@ -110,6 +121,10 @@ func NewTransferToL1(
 	l1Client, err := ethclient.Dial(l1RPCUrl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial l1 rpc: %s", err)
+	}
+	l1ChainID, err := l1Client.ChainID(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get l1 chain id: %s", err)
 	}
 	initialBlock, err := l1Client.BlockNumber(context.Background())
 	if err != nil {
@@ -143,6 +158,13 @@ func NewTransferToL1(
 		return nil, fmt.Errorf("failed to create settlement filterer: %s", err)
 	}
 
+	if err := validateChainIDs(
+		settlementChainID, // src
+		l1ChainID,         // dest
+	); err != nil {
+		return nil, fmt.Errorf("invalid chain ids: %s", err)
+	}
+
 	return &Transfer{
 		amount:           amount,
 		destAddress:      destAddress,
@@ -154,6 +176,24 @@ func NewTransferToL1(
 		destInitialBlock: initialBlock,
 		destFilterer:     &L1Filterer{l1Filterer},
 	}, nil
+}
+
+func validateChainIDs(srcChainID *big.Int, destChainID *big.Int) error {
+	allowedPairs := map[int64]int64{
+		1:     8855,  // mainnet -> mainnet mev-commit
+		8855:  1,     // mainnet mev-commit -> mainnet
+		17000: 17864, // holesky -> testnet mev-commit
+		17864: 17000, // testnet mev-commit -> holesky
+	}
+	expectedDest, ok := allowedPairs[srcChainID.Int64()]
+	if !ok {
+		return fmt.Errorf("source chain ID %d not recognized. Options are: %v", srcChainID.Int64(), allowedPairs)
+	}
+	if expectedDest != destChainID.Int64() {
+		return fmt.Errorf("invalid destination chain ID %d for source %d. Expected is %d",
+			destChainID.Int64(), srcChainID.Int64(), expectedDest)
+	}
+	return nil
 }
 
 func (t *Transfer) Do(ctx context.Context) <-chan TransferStatus {
