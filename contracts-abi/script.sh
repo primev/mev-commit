@@ -55,7 +55,7 @@ mkdir -p "$EXTERNAL_ABI_DIR"
 
 # Download the Vault.json
 curl -o "$EXTERNAL_ABI_DIR/vault.json" \
-  "https://raw.githubusercontent.com/symbioticfi/core/main/out/Vault.sol/Vault.json"
+  "https://raw.githubusercontent.com/symbioticfi/core/3b6add23921d89dc364458b94e1c35bfb6736e27/out/Vault.sol/Vault.json"
 
 # Extract the ABI
 jq -r '.abi' "$EXTERNAL_ABI_DIR/vault.json" > "$ABI_DIR/vault.abi"
