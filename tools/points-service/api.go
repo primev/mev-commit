@@ -169,8 +169,6 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if totalPoints == 0 {
-		// you can interpret zero as "not found" or simply
-		// as zero points if the user had no records
 		http.Error(w, "no points data found for address", http.StatusNotFound)
 		return
 	}
@@ -202,7 +200,6 @@ func (p *PointsAPI) GetPointsForAddress(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Example DB logic: gather points from the 'validator_records' table
 	rows, err := p.db.Query(`
 		SELECT vault, registry_type, points_accumulated
 		FROM validator_records
@@ -224,7 +221,6 @@ func (p *PointsAPI) GetPointsForAddress(w http.ResponseWriter, r *http.Request) 
 			p.logger.Error("scan error", "error", scanErr)
 			continue
 		}
-		// For demonstration, map registryType to "network_address"/"vault_address" usage
 		pItem := map[string]interface{}{
 			"points": float64(pointsAccumulated),
 		}
@@ -278,7 +274,7 @@ func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) 
 	`
 	args := []interface{}{blockNum, blockNum}
 	if receiverType != "" {
-		// Minimal mapping from external "staker"/"network"/"operator" to our internal registry_type
+
 		var rt string
 		switch receiverType {
 		case "staker":
@@ -349,7 +345,7 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 	args := []interface{}{blockNum, blockNum}
 
 	if receiverType != "" {
-		// Minimal mapping from external "staker"/"network"/"operator" to our internal registry_type
+
 		var rt string
 		switch receiverType {
 		case "staker":
@@ -385,7 +381,6 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Convert internal registry_type -> external "receiver"
 		var receiver string
 		switch registryType {
 		case "vanilla":
@@ -399,7 +394,7 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 		}
 
 		item := map[string]interface{}{
-			"address":      pubkey, // or adder, depending on your usage
+			"address":      pubkey,
 			"receiver":     receiver,
 			"block_number": blockNum,
 			"network_address": func() string {
