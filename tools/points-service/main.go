@@ -31,18 +31,10 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// ~216000 blocks is roughly one month on Ethereum (~2s block time)
+var blocksInOneMonth = int64(216000)
+
 var (
-	blocksInOneMonth = int64(216000)
-
-	monthlyIncrements = []int64{
-		1000,
-		1800,
-		2500,
-		3500,
-		5000,
-		10000,
-	}
-
 	rwLock sync.RWMutex
 
 	createTableValidatorRecordsQuery = `
@@ -56,6 +48,7 @@ var (
         opted_in_block BIGINT NOT NULL,
         opted_out_block BIGINT,
         points_accumulated BIGINT DEFAULT 0,
+		pre_six_month_points BIGINT DEFAULT 0,
         UNIQUE(pubkey, adder, opted_in_block)
     );`
 
@@ -72,11 +65,14 @@ var (
         FROM validator_records
         WHERE opted_out_block IS NULL
     `
+
+	// Now we also set the new column
 	updatePointsValidatorRecordsQuery = `
             UPDATE validator_records
-            SET points_accumulated = ?
+            SET points_accumulated = ?, pre_six_month_points = ?
             WHERE id = ?
         `
+
 	countActiveValidatorRecordsQuery = `
             SELECT COUNT(*) FROM validator_records
             WHERE opted_out_block IS NULL
@@ -104,11 +100,13 @@ var (
 	}
 )
 
+// initDB initializes the database, creates tables if needed, and alters the schema for the new field.
 func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
 	if _, err := db.Exec(createTableValidatorRecordsQuery); err != nil {
 		return nil, fmt.Errorf("failed to create validator_records table: %w", err)
 	}
@@ -120,17 +118,80 @@ func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-func computePointsForMonths(blocksActive int64) int64 {
-	fullMonths := blocksActive / blocksInOneMonth
-	if fullMonths < 1 {
-		return 0
+func computePointsForMonths(blocksActive int64) (int64, int64) {
+	// Convert from blocks to full months (truncate partial months).
+	months := blocksActive / blocksInOneMonth
+
+	// If they haven't completed 1 full month, zero for both.
+	if months < 1 {
+		return 0, 0
 	}
-	if fullMonths > int64(len(monthlyIncrements)) {
-		fullMonths = int64(len(monthlyIncrements))
+
+	// -------------------------
+	// Define partial totals per month for each chunk
+	// chunk1Partial covers Months 1–6 (up to 10k)
+	chunk1Partial := []int64{1000, 2270, 3800, 5600, 7670, 10000}
+
+	// chunk2Partial covers Months 7–12 (goes from 12k up to 30k)
+	chunk2Partial := []int64{12000, 14540, 17600, 21200, 25340, 30000}
+
+	// chunk3Partial covers Months 13–18 (goes from 34k up to 70k)
+	chunk3Partial := []int64{34000, 39080, 45200, 52400, 60680, 70000}
+
+	// -------------------------
+	// Handle Months 1–6
+	if months <= 6 {
+		totalPoints := chunk1Partial[months-1]
+		// Fallback if they opt out before completing 6 months:
+		//   => revert to 1,000 points per each full month
+		fallbackPoints := months * 1000
+		return totalPoints, fallbackPoints
 	}
-	return monthlyIncrements[fullMonths-1]
+
+	// -------------------------
+	// Handle Months 7–12
+	if months <= 12 {
+		// Index into chunk2Partial (month7 = chunk2Partial[0], …, month12 = chunk2Partial[5])
+		totalPoints := chunk2Partial[months-7]
+
+		// Fallback if they haven't completed chunk #2:
+		//   => keep chunk #1's total (10k) plus 1,000 for each partial month in chunk #2
+		//   => if they *have* completed chunk #2 (month=12), fallback = 30k
+		if months < 12 {
+			fallbackPoints := chunk1Partial[5] + (months-6)*1000
+			return totalPoints, fallbackPoints
+		} else {
+			// Exactly month 12 => chunk2 is fully complete
+			fallbackPoints := chunk2Partial[5] // 30,000
+			return totalPoints, fallbackPoints
+		}
+	}
+
+	// -------------------------
+	// Handle Months 13–18
+	if months <= 18 {
+		// Index into chunk3Partial (month13 = chunk3Partial[0], …, month18 = chunk3Partial[5])
+		totalPoints := chunk3Partial[months-13]
+
+		// Fallback if they haven't completed chunk #3:
+		//   => keep chunk #2's total (30k) plus 1,000 for each partial month in chunk #3
+		//   => if they *have* completed chunk #3 (month=18), fallback = 70k
+		if months < 18 {
+			fallbackPoints := chunk2Partial[5] + (months-12)*1000
+			return totalPoints, fallbackPoints
+		} else {
+			// Exactly month 18 => chunk3 is fully complete
+			fallbackPoints := chunk3Partial[5] // 70,000
+			return totalPoints, fallbackPoints
+		}
+	}
+
+	// -------------------------
+	// Beyond 18 months: cap at chunk #3 completion (70k).
+	return 70000, 70000
 }
 
+// updatePoints calculates new points (including the fallback preSixMonthPoints) for all active records.
 func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr error) {
 	rwLock.Lock()
 	defer rwLock.Unlock()
@@ -182,8 +243,9 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 		if currentBlock > inBlock {
 			blocksActive = int64(currentBlock - inBlock)
 		}
-		totalPoints := computePointsForMonths(blocksActive)
-		if _, updErr := tx.Exec(updatePointsValidatorRecordsQuery, totalPoints, id); updErr != nil {
+
+		totalPoints, preSixMonthPoints := computePointsForMonths(blocksActive)
+		if _, updErr := tx.Exec(updatePointsValidatorRecordsQuery, totalPoints, preSixMonthPoints, id); updErr != nil {
 			logger.Error("failed to update points", "error", updErr, "id", id)
 		}
 	}
@@ -612,7 +674,7 @@ func main() {
 							callOpts := &bind.CallOpts{BlockNumber: big.NewInt(int64(checkBlock))}
 							optInStatuses, err := routerCaller.AreValidatorsOptedIn(callOpts, pubkeys)
 							if err != nil {
-								logger.Error("failed areValidatorsOptedIn", "error", err)
+								logger.Error("failed AreValidatorsOptedIn", "error", err)
 								return
 							}
 							for i, status := range optInStatuses {
@@ -647,7 +709,7 @@ func main() {
 				}
 			}()
 
-			// Start the points accrual routine
+			// Start the points accrual routine (once every 24 hours)
 			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient, ps)
 
 			pointsAPI := NewPointsAPI(logger, db, ps)

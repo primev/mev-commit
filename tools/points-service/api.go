@@ -159,8 +159,12 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 		}
 
 		// Recompute ephemeral points for this record.
-		recomputedPoints := computePointsForMonths(blocksActive)
-		totalPoints += recomputedPoints
+		recomputedPoints, optedOutPoints := computePointsForMonths(blocksActive)
+		if optedOutBlock.Valid {
+			totalPoints += optedOutPoints
+		} else {
+			totalPoints += recomputedPoints
+		}
 	}
 
 	// If no rows matched, return 404.
