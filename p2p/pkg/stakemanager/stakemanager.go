@@ -35,11 +35,11 @@ type StakeManager struct {
 }
 
 func NewStakeManager(
+	logger *slog.Logger,
 	owner common.Address,
 	evtMgr events.EventManager,
 	providerRegistry ProviderRegistryContract,
 	notifier notifications.Notifier,
-	logger *slog.Logger,
 ) (*StakeManager, error) {
 	minStake, err := providerRegistry.MinStake(&bind.CallOpts{
 		From: owner,
@@ -55,18 +55,17 @@ func NewStakeManager(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create unstake requests cache: %w", err)
 	}
-	var minStakePtr atomic.Pointer[big.Int]
-	minStakePtr.Store(minStake)
-	return &StakeManager{
+	sm := &StakeManager{
 		providerRegistry: providerRegistry,
 		evtMgr:           evtMgr,
 		logger:           logger,
 		owner:            owner,
 		stakes:           stakes,
 		unstakeReqs:      unstakeReqs,
-		minStake:         minStakePtr,
 		notifier:         notifier,
-	}, nil
+	}
+	sm.minStake.Store(minStake)
+	return sm, nil
 }
 
 func (sm *StakeManager) Start(ctx context.Context) <-chan struct{} {
@@ -74,19 +73,19 @@ func (sm *StakeManager) Start(ctx context.Context) <-chan struct{} {
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
-	ch1 := make(chan *providerregistry.ProviderregistryProviderRegistered)
+	ch1 := make(chan *providerregistry.ProviderregistryProviderRegistered, 10)
 	ev1 := events.NewChannelEventHandler(egCtx, "ProviderRegistered", ch1)
 
-	ch2 := make(chan *providerregistry.ProviderregistryFundsSlashed)
+	ch2 := make(chan *providerregistry.ProviderregistryFundsSlashed, 10)
 	ev2 := events.NewChannelEventHandler(egCtx, "FundsSlashed", ch2)
 
-	ch3 := make(chan *providerregistry.ProviderregistryFundsDeposited)
+	ch3 := make(chan *providerregistry.ProviderregistryFundsDeposited, 10)
 	ev3 := events.NewChannelEventHandler(egCtx, "FundsDeposited", ch3)
 
-	ch4 := make(chan *providerregistry.ProviderregistryUnstake)
+	ch4 := make(chan *providerregistry.ProviderregistryUnstake, 10)
 	ev4 := events.NewChannelEventHandler(egCtx, "Unstake", ch4)
 
-	ch5 := make(chan *providerregistry.ProviderregistryMinStakeUpdated)
+	ch5 := make(chan *providerregistry.ProviderregistryMinStakeUpdated, 10)
 	ev5 := events.NewChannelEventHandler(egCtx, "MinStakeUpdated", ch5)
 
 	sub, err := sm.evtMgr.Subscribe(ev1, ev2, ev3, ev4, ev5)
@@ -291,9 +290,6 @@ func (sm *StakeManager) GetStake(ctx context.Context, provider common.Address) (
 }
 
 func (sm *StakeManager) MinStake() *big.Int {
-	sm.stakeMu.RLock()
-	defer sm.stakeMu.RUnlock()
-
 	return new(big.Int).Set(sm.minStake.Load())
 }
 

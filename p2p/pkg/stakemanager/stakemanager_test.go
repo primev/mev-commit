@@ -74,11 +74,11 @@ func TestStakeManager(t *testing.T) {
 	)
 
 	stakeMgr, err := stakemanager.NewStakeManager(
+		util.NewTestLogger(os.Stdout),
 		owner,
 		evtMgr,
 		providerRegistry,
 		notifier,
-		util.NewTestLogger(os.Stdout),
 	)
 	if err != nil {
 		t.Fatalf("failed to create stake manager: %v", err)
@@ -107,13 +107,16 @@ func TestStakeManager(t *testing.T) {
 		t.Errorf("provider should be registered")
 	}
 
-	publishMinStakeUpdated(
+	err = publishMinStakeUpdated(
 		evtMgr,
 		&prABI,
 		providerregistry.ProviderregistryMinStakeUpdated{
 			NewMinStake: big.NewInt(20),
 		},
 	)
+	if err != nil {
+		t.Fatalf("failed to publish min stake updated: %v", err)
+	}
 
 	start := time.Now()
 	for stakeMgr.MinStake().Cmp(big.NewInt(20)) != 0 {
@@ -124,7 +127,7 @@ func TestStakeManager(t *testing.T) {
 	}
 
 	for addr, stake := range providerStakes {
-		publishProviderRegistered(
+		err = publishProviderRegistered(
 			evtMgr,
 			&prABI,
 			providerregistry.ProviderregistryProviderRegistered{
@@ -132,6 +135,9 @@ func TestStakeManager(t *testing.T) {
 				StakedAmount: stake,
 			},
 		)
+		if err != nil {
+			t.Fatalf("failed to publish provider registered: %v", err)
+		}
 	}
 
 	count := 0
@@ -147,7 +153,7 @@ func TestStakeManager(t *testing.T) {
 
 	for addr, stake := range providerStakes {
 		providerStakes[addr] = new(big.Int).Sub(stake, big.NewInt(10))
-		publishFundsSlashed(
+		err = publishFundsSlashed(
 			evtMgr,
 			&prABI,
 			providerregistry.ProviderregistryFundsSlashed{
@@ -155,6 +161,9 @@ func TestStakeManager(t *testing.T) {
 				Amount:   big.NewInt(10),
 			},
 		)
+		if err != nil {
+			t.Fatalf("failed to publish funds slashed: %v", err)
+		}
 	}
 
 	count = 0
@@ -177,7 +186,7 @@ func TestStakeManager(t *testing.T) {
 
 	for addr, stake := range providerStakes {
 		providerStakes[addr] = new(big.Int).Add(stake, big.NewInt(10))
-		publishFundsDeposited(
+		err = publishFundsDeposited(
 			evtMgr,
 			&prABI,
 			providerregistry.ProviderregistryFundsDeposited{
@@ -185,6 +194,9 @@ func TestStakeManager(t *testing.T) {
 				Amount:   big.NewInt(10),
 			},
 		)
+		if err != nil {
+			t.Fatalf("failed to publish funds deposited: %v", err)
+		}
 	}
 
 	count = 0
@@ -211,7 +223,7 @@ func TestStakeManager(t *testing.T) {
 		}
 	}
 
-	publishUnstake(
+	err = publishUnstake(
 		evtMgr,
 		&prABI,
 		providerregistry.ProviderregistryUnstake{
@@ -219,6 +231,9 @@ func TestStakeManager(t *testing.T) {
 			Timestamp: big.NewInt(0),
 		},
 	)
+	if err != nil {
+		t.Fatalf("failed to publish unstake: %v", err)
+	}
 
 	e := <-notifier.evt
 	if e.Topic() != notifications.TopicProviderDeregistered {
