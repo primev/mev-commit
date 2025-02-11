@@ -62,7 +62,9 @@ func (p *PointsAPI) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK\n"))
+	if _, err := w.Write([]byte("OK\n")); err != nil {
+		p.logger.Error("failed to write response", "error", err)
+	}
 }
 
 func (p *PointsAPI) GetLastBlock(w http.ResponseWriter, r *http.Request) {
