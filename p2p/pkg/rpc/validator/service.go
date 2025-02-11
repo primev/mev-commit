@@ -286,7 +286,7 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
 	}
 }
 
-// StartEpochCron starts a background job that fetches and processes an epoch every 384 seconds.
+// Start starts a background job that fetches and processes an epoch every 384 seconds.
 // (384 seconds is the duration of an epoch)
 func (s *Service) Start(ctx context.Context) <-chan struct{} {
 	doneChan := make(chan struct{})
