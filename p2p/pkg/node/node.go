@@ -327,11 +327,11 @@ func NewNode(opts *Options) (*Node, error) {
 	)
 
 	stakeMgr, err := stakemanager.NewStakeManager(
+		opts.Logger.With("component", "stakemanager"),
 		opts.KeySigner.GetAddress(),
 		evtMgr,
 		providerRegistry,
 		notificationsSvc,
-		opts.Logger.With("component", "stakemanager"),
 	)
 	if err != nil {
 		opts.Logger.Error("failed to create stake manager", "error", err)
