@@ -7,6 +7,7 @@ toolchain go1.23.0
 require (
 	github.com/cloudflare/circl v1.5.0
 	github.com/ethereum/go-ethereum v1.14.11
+	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/primev/mev-commit/contracts-abi v0.0.1
@@ -43,7 +44,6 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
 	github.com/holiman/uint256 v1.3.1 // indirect
