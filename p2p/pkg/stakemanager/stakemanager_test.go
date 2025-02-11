@@ -94,7 +94,7 @@ func TestStakeManager(t *testing.T) {
 	}
 
 	// Simulates getting the value from the contract
-	stake, err := stakeMgr.GetStake(common.HexToAddress("0x456"))
+	stake, err := stakeMgr.GetStake(context.Background(), common.HexToAddress("0x456"))
 	if err != nil {
 		t.Fatalf("failed to get stake: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestStakeManager(t *testing.T) {
 		t.Errorf("unexpected stake: %v", stake)
 	}
 
-	if !stakeMgr.CheckProviderRegistered(common.HexToAddress("0x456")) {
+	if !stakeMgr.CheckProviderRegistered(context.Background(), common.HexToAddress("0x456")) {
 		t.Errorf("provider should be registered")
 	}
 
@@ -163,7 +163,7 @@ func TestStakeManager(t *testing.T) {
 			count++
 		}
 		addr := common.HexToAddress(e.Value()["provider"].(string))
-		stake, err := stakeMgr.GetStake(addr)
+		stake, err := stakeMgr.GetStake(context.Background(), addr)
 		if err != nil {
 			t.Fatalf("failed to get stake: %v", err)
 		}
@@ -193,7 +193,7 @@ func TestStakeManager(t *testing.T) {
 			count++
 		}
 		addr := common.HexToAddress(e.Value()["provider"].(string))
-		stake, err := stakeMgr.GetStake(addr)
+		stake, err := stakeMgr.GetStake(context.Background(), addr)
 		if err != nil {
 			t.Fatalf("failed to get stake: %v", err)
 		}
@@ -206,7 +206,7 @@ func TestStakeManager(t *testing.T) {
 	}
 
 	for addr, _ := range providerStakes {
-		if !stakeMgr.CheckProviderRegistered(addr) {
+		if !stakeMgr.CheckProviderRegistered(context.Background(), addr) {
 			t.Errorf("provider should be registered")
 		}
 	}
@@ -225,7 +225,7 @@ func TestStakeManager(t *testing.T) {
 		t.Errorf("unexpected notification: %v", e)
 	}
 
-	if stakeMgr.CheckProviderRegistered(common.HexToAddress("0x456")) {
+	if stakeMgr.CheckProviderRegistered(context.Background(), common.HexToAddress("0x456")) {
 		t.Errorf("provider should not be registered")
 	}
 
