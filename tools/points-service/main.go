@@ -193,11 +193,21 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 	return nil
 }
 
-func StartPointsRoutine(ctx context.Context, db *sql.DB, logger *slog.Logger, interval time.Duration, ethClient *ethclient.Client) {
+// StartPointsRoutine periodically accrues points
+func StartPointsRoutine(
+	ctx context.Context,
+	db *sql.DB,
+	logger *slog.Logger,
+	interval time.Duration,
+	ethClient *ethclient.Client,
+	ps *PointsService,
+) {
 	ticker := time.NewTicker(interval)
+	ps.SetPointsRoutineRunning(true)
 
 	go func() {
 		defer ticker.Stop()
+		defer ps.SetPointsRoutineRunning(false)
 		for {
 			logger.Info("Starting points accrual run")
 			latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
@@ -222,10 +232,14 @@ func StartPointsRoutine(ctx context.Context, db *sql.DB, logger *slog.Logger, in
 	}()
 }
 
+// PointsService tracks DB, client, plus routine/subscription state
 type PointsService struct {
-	logger    *slog.Logger
-	db        *sql.DB
-	ethClient *ethclient.Client
+	logger                  *slog.Logger
+	db                      *sql.DB
+	ethClient               *ethclient.Client
+	mu                      sync.RWMutex
+	pointsRoutineRunning    bool
+	eventSubscriptionActive bool
 }
 
 func (ps *PointsService) LastBlock() (uint64, error) {
@@ -248,6 +262,34 @@ func (ps *PointsService) SetLastBlock(block uint64) error {
         WHERE id = 1
     `, block)
 	return err
+}
+
+// SetPointsRoutineRunning toggles the points routine status
+func (ps *PointsService) SetPointsRoutineRunning(running bool) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.pointsRoutineRunning = running
+}
+
+// IsPointsRoutineRunning returns the points routine status
+func (ps *PointsService) IsPointsRoutineRunning() bool {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+	return ps.pointsRoutineRunning
+}
+
+// SetSubscriptionActive toggles the event subscription status
+func (ps *PointsService) SetSubscriptionActive(active bool) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+	ps.eventSubscriptionActive = active
+}
+
+// IsSubscriptionActive returns the event subscription status
+func (ps *PointsService) IsSubscriptionActive() bool {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+	return ps.eventSubscriptionActive
 }
 
 func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, eventType string, inBlock uint64) {
@@ -381,9 +423,9 @@ func main() {
 			}
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
 			done := pub.Start(ctx)
+
 			// Get the contract addresses from CLI and add them to the publisher
 			var contractAddresses []common.Address
-
 			if c.Bool(optionMainnet.Name) {
 				contractAddresses = []common.Address{
 					common.HexToAddress(config.EthereumContracts.VanillaRegistry),
@@ -587,24 +629,31 @@ func main() {
 				),
 			}
 
+			// Subscribe to events
 			sub, err := listener.Subscribe(handlers...)
 			if err != nil {
 				return fmt.Errorf("subscribe error: %w", err)
 			}
 			defer sub.Unsubscribe()
 
-			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient)
+			// Mark subscription active on success
+			ps.SetSubscriptionActive(true)
+
+			go func() {
+				for err := range sub.Err() {
+					// If subscription encounters an error, mark inactive
+					ps.SetSubscriptionActive(false)
+					logger.Error("subscription error", "error", err)
+				}
+			}()
+
+			// Start the points accrual routine
+			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient, ps)
 
 			pointsAPI := NewPointsAPI(logger, db, ps)
 			go func() {
 				if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
 					logger.Error("API server error", "error", err)
-				}
-			}()
-
-			go func() {
-				for err := range sub.Err() {
-					logger.Error("subscription error", "error", err)
 				}
 			}()
 

@@ -55,11 +55,21 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 	return nil
 }
 
-// HealthCheck endpoint checks if the API is alive
+// HealthCheck endpoint checks if the API is "healthy"
 // GET /health
 func (p *PointsAPI) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	// Simple 200 OK if running
+	// Ensure both the points routine and event subscription are running
+	if !p.ps.IsPointsRoutineRunning() {
+		http.Error(w, "Points routine not running", http.StatusServiceUnavailable)
+		return
+	}
+	if !p.ps.IsSubscriptionActive() {
+		http.Error(w, "Event subscription not active", http.StatusServiceUnavailable)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK\n"))
 }
 
 // GetLastBlock returns the last processed block number
@@ -120,7 +130,7 @@ func (p *PointsAPI) GetPointsForAddress(w http.ResponseWriter, r *http.Request) 
 		}
 		if registryType == "vanilla" || registryType == "eigenlayer" {
 			pItem["network_address"] = registryType
-			pItem["vault_address"] = vaultAddr // might be empty
+			pItem["vault_address"] = vaultAddr
 		} else {
 			pItem["network_address"] = ""
 			pItem["vault_address"] = vaultAddr
