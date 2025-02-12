@@ -357,7 +357,7 @@ func writeJSON(w http.ResponseWriter, data interface{}, status int) {
 
 // GetAnyPointsForAddress sums up points for the given address:
 //   - points_accumulated if `opted_out_block` is NULL
-//   - pre_six_month_points if `opted_out_block` is NOT NULL
+//   - pre_cliff_points if `opted_out_block` is NOT NULL
 func (p *PointsAPI) GetAnyPointsForAddress(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	adder := vars["address"]
