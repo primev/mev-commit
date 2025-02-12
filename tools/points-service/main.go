@@ -541,6 +541,14 @@ func main() {
 					},
 				),
 				events.NewEventHandler(
+					"StakeWithdrawn",
+					func(ev *vanillaregistry.Validatorregistryv1StakeWithdrawn) {
+						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
+						adder := ev.MsgSender.Hex()
+						insertOptOut(db, logger, pubkey, adder, "StakeWithdrawn", ev.Raw.BlockNumber)
+					},
+				),
+				events.NewEventHandler(
 					"ValRecordAdded",
 					func(ev *middleware.MevcommitmiddlewareValRecordAdded) {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
@@ -572,6 +580,22 @@ func main() {
 						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
 						adderHex := ev.PodOwner.Hex()
 						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistered", ev.Raw.BlockNumber)
+					},
+				),
+				events.NewEventHandler(
+					"ValidatorDeregistrationRequested",
+					func(ev *avs.MevcommitavsValidatorDeregistrationRequested) {
+						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
+						adderHex := ev.PodOwner.Hex()
+						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
+					},
+				),
+				events.NewEventHandler(
+					"ValRecordDeleted",
+					func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
+						pubkey := common.Bytes2Hex(ev.BlsPubkey)
+						adder := ev.MsgSender.Hex()
+						insertOptOut(db, logger, pubkey, adder, "ValRecordDeleted", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
