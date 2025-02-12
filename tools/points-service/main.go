@@ -35,48 +35,47 @@ import (
 var blocksInOneMonth = int64(216000)
 
 var (
-	rwLock sync.RWMutex
-
+	rwLock                           sync.RWMutex
 	createTableValidatorRecordsQuery = `
-    CREATE TABLE IF NOT EXISTS validator_records (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        pubkey TEXT NOT NULL,
-        adder TEXT NOT NULL,
-        vault TEXT,
-        registry_type TEXT CHECK (registry_type IN ('vanilla', 'symbiotic', 'eigenlayer')),
-        event_type TEXT,
-        opted_in_block BIGINT NOT NULL,
-        opted_out_block BIGINT,
-        points_accumulated BIGINT DEFAULT 0,
+	CREATE TABLE IF NOT EXISTS validator_records (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		pubkey TEXT NOT NULL,
+		adder TEXT NOT NULL,
+		vault TEXT,
+		registry_type TEXT CHECK (registry_type IN ('vanilla', 'symbiotic', 'eigenlayer')),
+		event_type TEXT,
+		opted_in_block BIGINT NOT NULL,
+		opted_out_block BIGINT,
+		points_accumulated BIGINT DEFAULT 0,
 		pre_cliff_points BIGINT DEFAULT 0,
-        UNIQUE(pubkey, adder, opted_in_block)
-    );`
+		UNIQUE(pubkey, adder, opted_in_block)
+	);`
 
 	createTableLastBlockQuery = `
-    CREATE TABLE IF NOT EXISTS last_processed_block (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        last_block BIGINT NOT NULL
-    );
-    INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, 2146240);
-    `
+	CREATE TABLE IF NOT EXISTS last_processed_block (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		last_block BIGINT NOT NULL
+	);
+	INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, 2146240);
+	`
 
 	selectActiveValidatorRecordsQuery = `
-        SELECT id, opted_in_block
-        FROM validator_records
-        WHERE opted_out_block IS NULL
-    `
+	SELECT id, opted_in_block
+	FROM validator_records
+	WHERE opted_out_block IS NULL
+	`
 
 	// Now we also set the new column
 	updatePointsValidatorRecordsQuery = `
-            UPDATE validator_records
-            SET points_accumulated = ?, pre_cliff_points = ?
-            WHERE id = ?
-        `
+	UPDATE validator_records
+	SET points_accumulated = ?, pre_cliff_points = ?
+	WHERE id = ?
+	`
 
 	countActiveValidatorRecordsQuery = `
-            SELECT COUNT(*) FROM validator_records
-            WHERE opted_out_block IS NULL
-        `
+	SELECT COUNT(*) FROM validator_records
+	WHERE opted_out_block IS NULL
+	`
 
 	optionRPCURL = &cli.StringFlag{
 		Name:    "ethereum-rpc-url",
