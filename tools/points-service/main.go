@@ -134,8 +134,8 @@ func computePointsForMonths(blocksActive int64) (int64, int64) {
 	// chunk2Partial covers Months 7–12 (goes from 12k up to 30k)
 	chunk2Partial := []int64{120000, 145400, 176000, 212000, 253400, 300000}
 
-	// chunk3Partial covers Months 13–18 (goes from 34k up to 70k)
-	chunk3Partial := []int64{340000, 390800, 452000, 524000, 606800, 700000}
+	// chunk3Partial covers Months 13–18 (goes from 320k up to 500k)
+	chunk3Partial := []int64{320000, 360000, 400000, 440000, 470000, 500000}
 
 	// -------------------------
 	// Handle Months 1–6
@@ -187,7 +187,7 @@ func computePointsForMonths(blocksActive int64) (int64, int64) {
 
 	// -------------------------
 	// Beyond 18 months: cap at chunk #3 completion (70k).
-	return 700000, 700000
+	return 500000, 500000
 }
 
 // updatePoints calculates new points (including the fallback preSixMonthPoints) for all active records.
