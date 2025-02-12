@@ -16,6 +16,7 @@ interface IPreconfManager {
         uint64 dispatchTimestamp;
         address committer;
         uint256 bidAmt;
+        uint256 slashAmt;
         bytes32 commitmentDigest;
         bytes commitmentSignature;
         string txnHash;
@@ -27,12 +28,29 @@ interface IPreconfManager {
         string txnHash;
         string revertingTxHashes;
         uint256 bidAmt;
+        uint256 slashAmt;
         uint64 blockNumber;
         uint64 decayStartTimeStamp;
         uint64 decayEndTimeStamp;
         bytes32 bidHash;
         bytes bidSignature;
         bytes commitmentSignature;
+        uint256[] zkProof;
+    }
+
+    struct OpenCommitmentParams {
+        bytes32 unopenedCommitmentIndex; // The index of the unopened commitment
+        uint256 bidAmt; // The bid amount
+        uint256 slashAmt; // The amount to be slashed
+        uint64 blockNumber; // The block number
+        uint64 decayStartTimeStamp; // The start time of the decay
+        uint64 decayEndTimeStamp; // The end time of the decay
+        string txnHash; // The transaction hash
+        string revertingTxHashes; // The reverting transaction hashes
+        bytes bidSignature; // The signature of the bid
+        // The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
+        // the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
+        // the challenge (zkProof[6]), and the response (zkProof[7])
         uint256[] zkProof;
     }
 
@@ -51,6 +69,7 @@ interface IPreconfManager {
         address bidder,
         address committer,
         uint256 bidAmt,
+        uint256 slashAmt,
         uint64 blockNumber,
         uint64 decayStartTimeStamp,
         uint64 decayEndTimeStamp,
@@ -180,29 +199,11 @@ interface IPreconfManager {
 
     /**
      * @dev Opens a commitment.
-     * @param unopenedCommitmentIndex The index of the unopened commitment.
-     * @param bidAmt The bid amount.
-     * @param blockNumber The block number.
-     * @param txnHash The transaction hash.
-     * @param revertingTxHashes The reverting transaction hashes.
-     * @param decayStartTimeStamp The start time of the decay.
-     * @param decayEndTimeStamp The end time of the decay.
-     * @param bidSignature The signature of the bid.
-     * @param zkProof The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
-     * the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
-     * the challenge (zkProof[6]), and the response (zkProof[7]).
+     * @param params The commitment params associated with the commitment.
      * @return commitmentIndex The index of the stored commitment.
      */
     function openCommitment(
-        bytes32 unopenedCommitmentIndex,
-        uint256 bidAmt,
-        uint64 blockNumber,
-        string memory txnHash,
-        string memory revertingTxHashes,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        bytes calldata bidSignature,
-        uint256[] calldata zkProof
+        OpenCommitmentParams calldata params
     ) external returns (bytes32 commitmentIndex);
 
     /**
@@ -267,22 +268,11 @@ interface IPreconfManager {
 
     /**
      * @dev Computes the bid hash for a given set of parameters.
-     * @param _txnHash The transaction hash.
-     * @param _revertingTxHashes The reverting transaction hashes.
-     * @param _bidAmt The bid amount.
-     * @param _blockNumber The block number.
-     * @param _decayStartTimeStamp The start time of the decay.
-     * @param _decayEndTimeStamp The end time of the decay.
+     * @param params The open commitment params associated with the commitment.
      * @return The computed bid hash.
      */
     function getBidHash(
-        string memory _txnHash,
-        string memory _revertingTxHashes,
-        uint256 _bidAmt,
-        uint64 _blockNumber,
-        uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp,
-        uint256[] calldata zkProof
+        OpenCommitmentParams calldata params
     ) external view returns (bytes32);
 
     /**
@@ -300,25 +290,12 @@ interface IPreconfManager {
 
     /**
      * @dev Verifies a bid by computing the hash and recovering the signer's address.
-     * @param bid The bid amount.
-     * @param blockNumber The block number.
-     * @param decayStartTimeStamp The start time of the decay.
-     * @param decayEndTimeStamp The end time of the decay.
-     * @param txnHash The transaction hash.
-     * @param revertingTxHashes The reverting transaction hashes.
-     * @param bidSignature The bid signature.
+     * @param params The open commitment params associated with the commitment.
      * @return messageDigest The computed bid hash.
      * @return recoveredAddress The address recovered from the bid signature.
      */
     function verifyBid(
-        uint256 bid,
-        uint64 blockNumber,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        string memory txnHash,
-        string memory revertingTxHashes,
-        bytes calldata bidSignature,
-        uint256[] calldata zkProof
+        OpenCommitmentParams calldata params
     ) external view returns (bytes32 messageDigest, address recoveredAddress);
 
     /**

@@ -118,6 +118,7 @@ func TestTracker(t *testing.T) {
 				Bid: &preconfpb.Bid{
 					TxHash:              common.HexToHash(fmt.Sprintf("0x%x", i)).String(),
 					BidAmount:           "1000",
+					SlashAmount:         "0",
 					BlockNumber:         getBlockNum(i),
 					DecayStartTimestamp: 1,
 					DecayEndTimestamp:   2,
@@ -161,12 +162,18 @@ func TestTracker(t *testing.T) {
 	if !ok {
 		t.Fatalf("failed to parse bid amount %s", commitments[4].PreConfirmation.Bid.BidAmount)
 	}
+	slashAmt, ok := new(big.Int).SetString(commitments[4].PreConfirmation.Bid.SlashAmount, 10)
+	if !ok {
+		t.Fatalf("failed to parse slash amount %s", commitments[4].PreConfirmation.Bid.SlashAmount)
+	}
+
 	// this commitment should not be opened again
 	err = publishOpenedCommitment(evtMgr, &pcABI, preconf.PreconfmanagerOpenedCommitmentStored{
 		CommitmentIndex:     common.HexToHash(fmt.Sprintf("0x%x", 5)),
 		Bidder:              common.HexToAddress("0x1234"),
 		Committer:           common.BytesToAddress(commitments[4].PreConfirmation.ProviderAddress),
 		BidAmt:              amount,
+		SlashAmt:            slashAmt,
 		BlockNumber:         uint64(commitments[4].PreConfirmation.Bid.BlockNumber),
 		DecayStartTimeStamp: uint64(commitments[4].PreConfirmation.Bid.DecayStartTimestamp),
 		DecayEndTimeStamp:   uint64(commitments[4].PreConfirmation.Bid.DecayEndTimestamp),
@@ -205,6 +212,9 @@ func TestTracker(t *testing.T) {
 		}
 		if c.PreConfirmation.Bid.BidAmount != oc.bid.String() {
 			t.Fatalf("expected bid %s, got %d", c.PreConfirmation.Bid.BidAmount, oc.bid)
+		}
+		if c.PreConfirmation.Bid.SlashAmount != oc.slashAmt.String() {
+			t.Fatalf("expected slash amount %s, got %d", c.PreConfirmation.Bid.SlashAmount, oc.slashAmt)
 		}
 		if c.PreConfirmation.Bid.BlockNumber != int64(oc.blockNumber) {
 			t.Fatalf("expected block number %d, got %d", c.PreConfirmation.Bid.BlockNumber, oc.blockNumber)
@@ -394,6 +404,7 @@ type openedCommitment struct {
 	decayStartTimeStamp      uint64
 	decayEndTimeStamp        uint64
 	bidSignature             []byte
+	slashAmt                 *big.Int
 	zkProof                  []*big.Int
 }
 
@@ -403,27 +414,20 @@ type testPreconfContract struct {
 
 func (t *testPreconfContract) OpenCommitment(
 	_ *bind.TransactOpts,
-	encryptedCommitmentIndex [32]byte,
-	bid *big.Int,
-	blockNumber uint64,
-	txnHash string,
-	revertingTxHashes string,
-	decayStartTimeStamp uint64,
-	decayEndTimeStamp uint64,
-	bidSignature []byte,
-	zkProof []*big.Int,
+	params preconf.IPreconfManagerOpenCommitmentParams,
 ) (*types.Transaction, error) {
 
 	t.openedCommitments <- openedCommitment{
-		encryptedCommitmentIndex: encryptedCommitmentIndex,
-		bid:                      bid,
-		blockNumber:              blockNumber,
-		txnHash:                  txnHash,
-		revertingTxHashes:        revertingTxHashes,
-		decayStartTimeStamp:      decayStartTimeStamp,
-		decayEndTimeStamp:        decayEndTimeStamp,
-		bidSignature:             bidSignature,
-		zkProof:                  zkProof,
+		encryptedCommitmentIndex: params.UnopenedCommitmentIndex,
+		bid:                      params.BidAmt,
+		blockNumber:              params.BlockNumber,
+		txnHash:                  params.TxnHash,
+		revertingTxHashes:        params.RevertingTxHashes,
+		decayStartTimeStamp:      params.DecayStartTimeStamp,
+		decayEndTimeStamp:        params.DecayEndTimeStamp,
+		bidSignature:             params.BidSignature,
+		slashAmt:                 params.SlashAmt,
+		zkProof:                  params.ZkProof,
 	}
 	return types.NewTransaction(0, common.Address{}, nil, 0, nil, nil), nil
 }
@@ -487,6 +491,7 @@ func publishOpenedCommitment(
 		c.Bidder,
 		c.Committer,
 		c.BidAmt,
+		c.SlashAmt,
 		c.BlockNumber,
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,

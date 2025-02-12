@@ -37,7 +37,7 @@ contract PreconfManager is
     /// @dev EIP-712 Type Hash for preconfirmation bid
     bytes32 public constant EIP712_BID_TYPEHASH =
         keccak256(
-            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 bidderPKx,uint256 bidderPKy)"
+            "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy)"
         );
 
     // EIP-712 domain separator
@@ -203,63 +203,35 @@ contract PreconfManager is
     }
 
     /**
-     * @dev Open a commitment
-     * @param unopenedCommitmentIndex The index of the unopened commitment
-     * @param bidAmt The bid amount
-     * @param blockNumber The block number
-     * @param txnHash The transaction hash
-     * @param revertingTxHashes The reverting transaction hashes
-     * @param decayStartTimeStamp The start time of the decay
-     * @param decayEndTimeStamp The end time of the decay
-     * @param bidSignature The signature of the bid
-     * @param zkProof The zk proof array which contains the public key of the provider (zkProof[0], zkProof[1]),
-     * the public key of the bidder (zkProof[2], zkProof[3]), the shared key (zkProof[4], zkProof[5]),
-     * the challenge (zkProof[6]), and the response (zkProof[7]).
-     * @return commitmentIndex The index of the stored commitment
+     * @dev Open a commitment by providing a single struct with all the necessary parameters.
+     * @param params A struct containing all parameters required to open the commitment.
+     * @return commitmentIndex The index (or identifier) of the stored commitment.
      */
     function openCommitment(
-        bytes32 unopenedCommitmentIndex,
-        uint256 bidAmt,
-        uint64 blockNumber,
-        string memory txnHash,
-        string memory revertingTxHashes,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        bytes calldata bidSignature,
-        uint256[] calldata zkProof
-    ) public whenNotPaused returns (bytes32 commitmentIndex) {
-        if (decayStartTimeStamp >= decayEndTimeStamp) {
-            revert InvalidDecayTime(decayStartTimeStamp, decayEndTimeStamp);
+        OpenCommitmentParams calldata params
+    ) external whenNotPaused returns (bytes32 commitmentIndex) {
+        // Check that the decay period is valid
+        if (params.decayStartTimeStamp >= params.decayEndTimeStamp) {
+            revert InvalidDecayTime(
+                params.decayStartTimeStamp,
+                params.decayEndTimeStamp
+            );
         }
 
-        (bytes32 bHash, address bidderAddress) = verifyBid(
-            bidAmt,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            txnHash,
-            revertingTxHashes,
-            bidSignature,
-            zkProof
-        );
-
-        bytes32 txnHashBidderBlockNumber = keccak256(
-            abi.encode(txnHash, bidderAddress, blockNumber)
-        );
-
-        require(
-            processedTxnHashes[txnHashBidderBlockNumber] == false,
-            TxnHashAlreadyProcessed(txnHash, bidderAddress)
-        );
-
-        bytes32 commitmentDigest = getPreConfHash(bHash, bidSignature, zkProof);
+        // Retrieve bidder address and compute commitment digest based on the provided parameters
+        (
+            address bidderAddress,
+            bytes32 commitmentDigest
+        ) = _getBidderAddressAndCommitmentDigest(
+                params
+            );
 
         UnopenedCommitment storage unopenedCommitment = unopenedCommitments[
-            unopenedCommitmentIndex
+            params.unopenedCommitmentIndex
         ];
 
         if (unopenedCommitment.isOpened) {
-            revert CommitmentAlreadyOpened(unopenedCommitmentIndex);
+            revert CommitmentAlreadyOpened(params.unopenedCommitmentIndex);
         }
 
         if (unopenedCommitment.commitmentDigest != commitmentDigest) {
@@ -269,23 +241,27 @@ contract PreconfManager is
             );
         }
 
+        // Recover the committer address using the commitment signature
         address committerAddress = commitmentDigest.recover(
             unopenedCommitment.commitmentSignature
         );
 
-        address winner = blockTracker.getBlockWinner(blockNumber);
+        // Get the winner for the given block number
+        address winner = blockTracker.getBlockWinner(params.blockNumber);
 
         if (winner != committerAddress) {
             revert WinnerIsNotCommitter(committerAddress, winner);
         }
 
+        // If the sender is the winner, verify the zero-knowledge proof
         if (msg.sender == winner) {
             require(
-                _verifyZKProof(zkProof),
-                ProviderZKProofInvalid(msg.sender, commitmentDigest)
+                _verifyZKProof(params.zkProof),
+                "ZK proof verification failed"
             );
         }
 
+        // Check if the sender is authorized (either the winner or the bidder)
         if (msg.sender != winner && msg.sender != bidderAddress) {
             revert UnauthorizedOpenCommitment(
                 committerAddress,
@@ -297,39 +273,38 @@ contract PreconfManager is
         OpenedCommitment memory newCommitment = OpenedCommitment(
             bidderAddress,
             false,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
+            params.blockNumber,
+            params.decayStartTimeStamp,
+            params.decayEndTimeStamp,
             unopenedCommitment.dispatchTimestamp,
             committerAddress,
-            bidAmt,
+            params.bidAmt,
+            params.slashAmt,
             commitmentDigest,
             unopenedCommitment.commitmentSignature,
-            txnHash,
-            revertingTxHashes
+            params.txnHash,
+            params.revertingTxHashes
         );
 
         commitmentIndex = getOpenedCommitmentIndex(newCommitment);
 
         uint256 updatedBidAmt = bidderRegistry.openBid(
             commitmentDigest,
-            bidAmt,
+            params.bidAmt,
             bidderAddress,
-            blockNumber
+            params.blockNumber
         );
-
         newCommitment.bidAmt = updatedBidAmt;
 
-        // Store the new commitment
         openedCommitments[commitmentIndex] = newCommitment;
-        // Mark the unopened commitment as opened
         unopenedCommitment.isOpened = true;
 
+        // Increment the count of commitments for the committer
         ++commitmentsCount[committerAddress];
 
-        processedTxnHashes[txnHashBidderBlockNumber] = true;
-
+        // Emit an event indicating that the opened commitment has been stored
         _emitOpenedCommitmentStored(commitmentIndex, newCommitment);
+
         return commitmentIndex;
     }
 
@@ -417,6 +392,7 @@ contract PreconfManager is
 
         providerRegistry.slash(
             commitment.bidAmt,
+            commitment.slashAmt,
             commitment.committer,
             payable(commitment.bidder),
             residualBidPercentAfterDecay
@@ -492,23 +468,11 @@ contract PreconfManager is
 
     /**
      * @dev Gives digest to be signed for bids
-     * @param _txnHash transaction Hash.
-     * @param _bidAmt bid amount.
-     * @param _blockNumber block number
-     * @param _revertingTxHashes reverting transaction hashes.
-     * @param _decayStartTimeStamp decay start time.
-     * @param _decayEndTimeStamp decay end time.
-     * @param _zkProof zk proof with bidder public key.
+     * @param params The commitment params associated with the commitment.
      * @return digest it returns a digest that can be used for signing bids
      */
     function getBidHash(
-        string memory _txnHash,
-        string memory _revertingTxHashes,
-        uint256 _bidAmt,
-        uint64 _blockNumber,
-        uint64 _decayStartTimeStamp,
-        uint64 _decayEndTimeStamp,
-        uint256[] calldata _zkProof
+        OpenCommitmentParams calldata params
     ) public view returns (bytes32) {
         return
             ECDSA.toTypedDataHash(
@@ -516,14 +480,15 @@ contract PreconfManager is
                 keccak256(
                     abi.encode(
                         EIP712_BID_TYPEHASH,
-                        keccak256(bytes(_txnHash)),
-                        keccak256(bytes(_revertingTxHashes)),
-                        _bidAmt,
-                        _blockNumber,
-                        _decayStartTimeStamp,
-                        _decayEndTimeStamp,
-                        _zkProof[2], // _bidderPKx,
-                        _zkProof[3] // _bidderPKy
+                        keccak256(bytes(params.txnHash)),
+                        keccak256(bytes(params.revertingTxHashes)),
+                        params.bidAmt,
+                        params.blockNumber,
+                        params.decayStartTimeStamp,
+                        params.decayEndTimeStamp,
+                        params.slashAmt,
+                        params.zkProof[2], // _bidderPKx,
+                        params.zkProof[3] // _bidderPKy
                     )
                 )
             );
@@ -558,37 +523,17 @@ contract PreconfManager is
 
     /**
      * @dev Internal function to verify a bid
-     * @param bidAmt bid amount.
-     * @param blockNumber block number.
-     * @param decayStartTimeStamp decay start time.
-     * @param decayEndTimeStamp decay end time.
-     * @param txnHash transaction Hash.
-     * @param revertingTxHashes reverting transaction hashes.
-     * @param bidSignature bid signature.
-     * @param zkProof zk proof.
+     * @param params The commitment params associated with the commitment.
      * @return messageDigest returns the bid hash for given bid info.
      * @return recoveredAddress the address from the bid hash.
      */
     function verifyBid(
-        uint256 bidAmt,
-        uint64 blockNumber,
-        uint64 decayStartTimeStamp,
-        uint64 decayEndTimeStamp,
-        string memory txnHash,
-        string memory revertingTxHashes,
-        bytes calldata bidSignature,
-        uint256[] calldata zkProof
+        OpenCommitmentParams calldata params
     ) public view returns (bytes32 messageDigest, address recoveredAddress) {
         messageDigest = getBidHash(
-            txnHash,
-            revertingTxHashes,
-            bidAmt,
-            blockNumber,
-            decayStartTimeStamp,
-            decayEndTimeStamp,
-            zkProof
+            params
         );
-        recoveredAddress = messageDigest.recover(bidSignature);
+        recoveredAddress = messageDigest.recover(params.bidSignature);
     }
 
     /**
@@ -639,6 +584,36 @@ contract PreconfManager is
     }
 
     /**
+     * @dev Get the bidder address and commitment digest for a bid.
+     * @dev This function also marks the txnHashBidderBlockNumber as processed.
+     * @param params The commitment params associated with the commitment.
+     * @return bidderAddress The address of the bidder.
+     * @return commitmentDigest The digest of the commitment.
+     */
+    function _getBidderAddressAndCommitmentDigest(
+        OpenCommitmentParams calldata params
+    ) internal returns (address, bytes32) {
+        (bytes32 bHash, address bidderAddress) = verifyBid(
+            params
+        );
+
+        bytes32 txnHashBidderBlockNumber = keccak256(
+            abi.encode(params.txnHash, bidderAddress, params.blockNumber)
+        );
+
+        require(
+            processedTxnHashes[txnHashBidderBlockNumber] == false,
+            TxnHashAlreadyProcessed(params.txnHash, bidderAddress)
+        );
+
+        processedTxnHashes[txnHashBidderBlockNumber] = true;
+
+        bytes32 commitmentDigest = getPreConfHash(bHash, params.bidSignature, params.zkProof);
+
+        return (bidderAddress, commitmentDigest);
+    }
+
+    /**
      * @dev Emit OpenedCommitmentStored event
      * @param commitmentIndex The index of the stored commitment
      * @param newCommitment The commitment to be stored
@@ -652,6 +627,7 @@ contract PreconfManager is
             newCommitment.bidder,
             newCommitment.committer,
             newCommitment.bidAmt,
+            newCommitment.slashAmt,
             newCommitment.blockNumber,
             newCommitment.decayStartTimeStamp,
             newCommitment.decayEndTimeStamp,
