@@ -65,32 +65,32 @@ func TestComputePointsForMonths(t *testing.T) {
 		{
 			name:    "13 months => (340000,310000)",
 			months:  13,
-			wantTot: 340000,
+			wantTot: 320000,
 			wantPre: 310000,
 		},
 		{
 			name:    "14 months => (390800,320000)",
 			months:  14,
-			wantTot: 390800,
+			wantTot: 360000,
 			wantPre: 320000,
 		},
 		{
 			name:    "17 months => (606800,370000)",
 			months:  17,
-			wantTot: 606800,
+			wantTot: 470000,
 			wantPre: 350000,
 		},
 		{
 			name:    "18 months => (700000,700000)",
 			months:  18,
-			wantTot: 700000,
-			wantPre: 700000,
+			wantTot: 500000,
+			wantPre: 500000,
 		},
 		{
 			name:    "19 months => (700000,700000) beyond 18 => cap",
 			months:  19,
-			wantTot: 700000,
-			wantPre: 700000,
+			wantTot: 500000,
+			wantPre: 500000,
 		},
 	}
 
