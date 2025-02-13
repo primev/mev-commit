@@ -101,7 +101,7 @@ var (
 		Name:    "start-block",
 		Usage:   "Block number to start processing from",
 		EnvVars: []string{"POINTS_START_BLOCK"},
-		Value:   21730337,
+		Value:   21344601,
 	}
 )
 
