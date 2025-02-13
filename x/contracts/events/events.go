@@ -103,6 +103,15 @@ func (h *eventHandler[T]) topic() common.Hash {
 	return h.topicID
 }
 
+func NewChannelEventHandler[T any](ctx context.Context, name string, ch chan<- *T) EventHandler {
+	return NewEventHandler(name, func(obj *T) {
+		select {
+		case <-ctx.Done():
+		case ch <- obj:
+		}
+	})
+}
+
 // EventManager is an interface for subscribing to contract events. The EventHandler callback
 // is called when an event is received. The Subscription returned by the Subscribe
 // method can be used to unsubscribe from the event and also to receive any errors

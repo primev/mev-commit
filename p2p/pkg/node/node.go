@@ -55,6 +55,7 @@ import (
 	providerapi "github.com/primev/mev-commit/p2p/pkg/rpc/provider"
 	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
 	"github.com/primev/mev-commit/p2p/pkg/signer"
+	"github.com/primev/mev-commit/p2p/pkg/stakemanager"
 	"github.com/primev/mev-commit/p2p/pkg/storage"
 	inmem "github.com/primev/mev-commit/p2p/pkg/storage/inmem"
 	pebblestorage "github.com/primev/mev-commit/p2p/pkg/storage/pebble"
@@ -271,14 +272,32 @@ func NewNode(opts *Options) (*Node, error) {
 
 	keysStore := keysstore.New(store)
 
+	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
+	nd.closers = append(
+		nd.closers,
+		ioCloserFunc(func() error {
+			notificationsSvc.Shutdown()
+			return nil
+		}),
+	)
+
+	stakeMgr, err := stakemanager.NewStakeManager(
+		opts.Logger.With("component", "stakemanager"),
+		opts.KeySigner.GetAddress(),
+		evtMgr,
+		providerRegistry,
+		notificationsSvc,
+	)
+	if err != nil {
+		opts.Logger.Error("failed to create stake manager", "error", err)
+		return nil, errors.Join(err, nd.Close())
+	}
+
 	p2pSvc, err := libp2p.New(&libp2p.Options{
-		KeySigner: opts.KeySigner,
-		Secret:    opts.Secret,
-		PeerType:  peerType,
-		Register: &providerStakeChecker{
-			providerRegistry: providerRegistry,
-			from:             opts.KeySigner.GetAddress(),
-		},
+		KeySigner:      opts.KeySigner,
+		Secret:         opts.Secret,
+		PeerType:       peerType,
+		Register:       stakeMgr,
 		Store:          keysStore,
 		Logger:         opts.Logger.With("component", "p2p"),
 		ListenPort:     opts.P2PPort,
@@ -292,15 +311,6 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 	nd.closers = append(nd.closers, p2pSvc)
-
-	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
-	nd.closers = append(
-		nd.closers,
-		ioCloserFunc(func() error {
-			notificationsSvc.Shutdown()
-			return nil
-		}),
-	)
 
 	topo := topology.New(p2pSvc, notificationsSvc, opts.Logger.With("component", "topology"))
 	disc := discovery.New(topo, p2pSvc, opts.Logger.With("component", "discovery_protocol"))
@@ -897,30 +907,6 @@ type StartableFunc func(ctx context.Context) <-chan struct{}
 
 func (f StartableFunc) Start(ctx context.Context) <-chan struct{} {
 	return f(ctx)
-}
-
-type providerStakeChecker struct {
-	providerRegistry *providerregistry.Providerregistry
-	from             common.Address
-}
-
-func (p *providerStakeChecker) CheckProviderRegistered(ctx context.Context, provider common.Address) bool {
-	callOpts := &bind.CallOpts{
-		From:    p.from,
-		Context: ctx,
-	}
-
-	minStake, err := p.providerRegistry.MinStake(callOpts)
-	if err != nil {
-		return false
-	}
-
-	stake, err := p.providerRegistry.GetProviderStake(callOpts, provider)
-	if err != nil {
-		return false
-	}
-
-	return stake.Cmp(minStake) >= 0
 }
 
 type progressStore struct {
