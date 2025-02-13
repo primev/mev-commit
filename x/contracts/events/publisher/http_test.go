@@ -42,16 +42,11 @@ func TestHTTPPublisher(t *testing.T) {
 	}
 
 	publisher := publisher.NewHTTPPublisher(progressStore, logger, evmClient, subscriber)
-	noContractsDone := publisher.Start(context.Background())
-	select {
-	case <-noContractsDone:
-	case <-time.After(1 * time.Second):
-		t.Error("timed out waiting for doneChan")
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	doneChan := publisher.Start(ctx, common.Address{})
+	publisher.AddContracts(common.HexToAddress("0x1"))
 
 	evmClient.SetBlockNumber(1)
 	select {
@@ -62,6 +57,7 @@ func TestHTTPPublisher(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Error("timed out waiting for log")
 	}
+	publisher.AddContracts(common.HexToAddress("0x2"))
 
 	evmClient.SetBlockNumber(2)
 	select {

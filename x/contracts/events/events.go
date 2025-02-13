@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sync"
 	"time"
 
@@ -16,8 +17,7 @@ import (
 
 // EventHandler is a stand-in for the generic event handlers that are used to subscribe
 // to events. It is useful to describe the generic event handlers using this interface
-// so that they can be referenced in the EventManager. Currently the only use of this
-// is in the package which is why the methods are unexported.
+// so that they can be referenced in the EventManager.
 type EventHandler interface {
 	eventName() string
 	handle(types.Log) error
@@ -57,12 +57,15 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 		return fmt.Errorf("contract not set")
 	}
 
+	// Ensure this log's first topic matches the event's topicID
 	if !bytes.Equal(log.Topics[0].Bytes(), h.topicID.Bytes()) {
 		return nil
 	}
 
+	// Create a new instance of T (your event struct)
 	obj := new(T)
 
+	// Unpack non-indexed data
 	if len(log.Data) > 0 {
 		err := h.contract.UnpackIntoInterface(obj, h.name, log.Data)
 		if err != nil {
@@ -70,13 +73,13 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 		}
 	}
 
+	// Unpack indexed fields
 	var indexed abi.Arguments
 	for _, arg := range h.contract.Events[h.name].Inputs {
 		if arg.Indexed {
 			indexed = append(indexed, arg)
 		}
 	}
-
 	if len(indexed) > 0 {
 		err := abi.ParseTopics(obj, indexed, log.Topics[1:])
 		if err != nil {
@@ -84,7 +87,15 @@ func (h *eventHandler[T]) handle(log types.Log) error {
 		}
 	}
 
+	v := reflect.ValueOf(obj).Elem()
+	if rawField := v.FieldByName("Raw"); rawField.IsValid() && rawField.CanSet() &&
+		rawField.Type() == reflect.TypeOf(types.Log{}) {
+		rawField.Set(reflect.ValueOf(log))
+	}
+
+	// Finally, run the user-provided handler logic
 	h.handler(obj)
+
 	return nil
 }
 
@@ -159,12 +170,14 @@ func (l *Listener) Subscribe(ev ...EventHandler) (Subscription, error) {
 		return nil, fmt.Errorf("no events provided")
 	}
 
+	// Match each event with an ABI in our loaded contracts
 	for _, event := range ev {
 		found := false
 		for _, c := range l.contracts {
 			for _, e := range c.Events {
 				if e.Name == event.eventName() {
 					event.setTopicAndContract(e.ID, c)
+
 					found = true
 					break
 				}
@@ -189,6 +202,7 @@ func (l *Listener) Subscribe(ev ...EventHandler) (Subscription, error) {
 		},
 	}
 
+	// Store the events in our subscriber map
 	for _, event := range ev {
 		l.subscribers[event.topic()] = append(l.subscribers[event.topic()], &storedEvent{
 			evt:   event,
@@ -235,6 +249,7 @@ func (l *Listener) PublishLogEvent(ctx context.Context, log types.Log) {
 					WithLabelValues(ev.evt.eventName()).
 					Set(float64(time.Since(start)))
 			}(time.Now())
+
 			if err := ev.evt.handle(log); err != nil {
 				l.logger.Error("failed to handle log", "error", err)
 				select {
