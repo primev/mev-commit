@@ -472,7 +472,7 @@ func NewNode(opts *Options) (*Node, error) {
 			}, nil
 		}
 
-		validatorAPI, err := validatorapi.NewService(
+		validatorAPI := validatorapi.NewService(
 			opts.BeaconAPIURL,
 			validatorRouterCaller,
 			opts.Logger.With("component", "validatorapi"),

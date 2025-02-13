@@ -50,8 +50,8 @@ func NewService(
 	logger *slog.Logger,
 	optsGetter func() (*bind.CallOpts, error),
 	notifier notifications.Notifier,
-) (*Service, error) {
-	s := &Service{
+) *Service {
+	return &Service{
 		apiURL:          apiURL,
 		validatorRouter: validatorRouter,
 		logger:          logger,
@@ -59,14 +59,6 @@ func NewService(
 		optsGetter:      optsGetter,
 		notifier:        notifier,
 	}
-	genesisTime, err := s.fetchGenesisTime(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch genesis time: %w", err)
-	}
-	s.genesisTime = genesisTime
-	s.logger.Info("fetched genesis time", "genesis_time", genesisTime)
-
-	return s, nil
 }
 
 type FinalityCheckpointsResponse struct {
@@ -290,6 +282,16 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
 // (384 seconds is the duration of an epoch)
 func (s *Service) Start(ctx context.Context) <-chan struct{} {
 	doneChan := make(chan struct{})
+
+	genesisTime, err := s.fetchGenesisTime(ctx)
+	if err != nil {
+		s.logger.Error("failed to fetch genesis time", "error", err)
+		close(doneChan)
+		return doneChan
+	}
+	s.genesisTime = genesisTime
+	s.logger.Info("initialized genesis time", "genesis_time", s.genesisTime)
+
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {

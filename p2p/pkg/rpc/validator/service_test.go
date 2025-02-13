@@ -1,4 +1,4 @@
-package validatorapi
+package validatorapi_test
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/notifications"
+	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -59,15 +60,6 @@ func (m *MockNotifier) Notify(n *notifications.Notification) {
 	m.NotifyCh <- n
 }
 
-// --- Override timing globals for tests ---
-func init() {
-	SlotDuration = 100 * time.Millisecond
-	EpochSlots = 4
-	EpochDuration = SlotDuration * time.Duration(EpochSlots) // 400ms
-	NotifyOffset = 10 * time.Millisecond
-	FetchOffset = 20 * time.Millisecond
-}
-
 func TestGetValidators(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -99,10 +91,7 @@ func TestGetValidators(t *testing.T) {
 	optsGetter := func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-	service, err := NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	resp, err := service.GetValidators(ctx, req)
@@ -135,14 +124,11 @@ func TestGetValidators_HTTPError(t *testing.T) {
 	mockValidatorRouter := &MockValidatorRouterContract{}
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-	service, err := NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
-	if err != nil {
-		t.Fatalf("expected no error during initialization, got %v", err)
-	}
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
 
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
-	_, err = service.GetValidators(ctx, req)
+	_, err := service.GetValidators(ctx, req)
 	if err == nil || status.Code(err) != codes.Internal {
 		t.Fatalf("expected internal error, got %v", err)
 	}
@@ -180,10 +166,7 @@ func TestGetValidators_EpochZero(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	ctx := context.Background()
-	service, err := NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 0}
 	resp, err := service.GetValidators(ctx, req)
@@ -218,12 +201,10 @@ func TestNewService_FetchGenesisTime(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 
-	svc, err := NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	svc := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
+	svc.Start(context.Background())
 
-	val := svc.genesisTime
+	val := svc.GenesisTime()
 	expected := time.Unix(1672531200, 0)
 	if !val.Equal(expected) {
 		t.Errorf("expected genesis time %v, got %v", expected, val)
@@ -233,23 +214,16 @@ func TestNewService_FetchGenesisTime(t *testing.T) {
 func TestScheduleNotificationForSlot(t *testing.T) {
 	mockNotifier := NewMockNotifier()
 	now := time.Now()
-	genesisTime := now.Add(100*time.Millisecond + NotifyOffset - SlotDuration)
-	svc := &Service{
-		apiURL:          "http://dummy",
-		validatorRouter: nil,
-		logger:          util.NewTestLogger(os.Stdout),
-		metrics:         newMetrics(),
-		optsGetter:      func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil },
-		notifier:        mockNotifier,
-		genesisTime:     genesisTime,
-	}
+	genesisTime := now.Add(100*time.Millisecond + validatorapi.NotifyOffset - validatorapi.SlotDuration)
+	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier)
+	svc.SetGenesisTime(genesisTime)
 
 	slotInfo := &validatorapiv1.SlotInfo{
 		BLSKey:    "0x1234",
 		IsOptedIn: true,
 	}
 
-	svc.scheduleNotificationForSlot(1, 1, slotInfo)
+	svc.ScheduleNotificationForSlot(1, 1, slotInfo)
 
 	select {
 	case n := <-mockNotifier.NotifyCh:
@@ -304,15 +278,12 @@ func TestProcessEpoch(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	ctx := context.Background()
 
-	svc, err := NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier)
-	if err != nil {
-		t.Fatalf("failed to create service: %v", err)
-	}
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier)
 
 	now := time.Now()
-	svc.genesisTime = now.Add(100*time.Millisecond + NotifyOffset - SlotDuration)
+	svc.SetGenesisTime(now.Add(100*time.Millisecond + validatorapi.NotifyOffset - validatorapi.SlotDuration))
 
-	svc.processEpoch(ctx, 10)
+	svc.SetProcessEpoch(ctx, 10)
 
 	select {
 	case n := <-mockNotifier.NotifyCh:
@@ -332,20 +303,20 @@ func TestProcessEpoch(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
+	validatorapi.SetTestTimings(100*time.Millisecond, 4, 10*time.Millisecond, 20*time.Millisecond)
 	mux := http.NewServeMux()
+	// Return the current Unix timestamp (truncated to seconds) as genesis time.
 	mux.HandleFunc("/eth/v1/beacon/genesis", func(w http.ResponseWriter, r *http.Request) {
+		now := time.Now() // Use current time so that s.genesisTime is nearly "now".
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
+		// Truncated to whole seconds.
+		fmt.Fprintf(w, `{"data":{"genesis_time":"%d"}}`, now.Unix())
 	})
+	// For any proposer duties request, always return a duty with slot "50".
+	// (This ensures that the notification is scheduled for
 	mux.HandleFunc("/eth/v1/validator/duties/proposer/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		// Return a duty with slot "4"
-		fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"4"}]}`)
-	})
-	mux.HandleFunc("/eth/v1/beacon/states/head/finality_checkpoints", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// Return values so that current epoch becomes 0.
-		fmt.Fprint(w, `{"data":{"previous_justified":{"epoch":"0"},"current_justified":{"epoch":"0"},"finalized":{"epoch":"0"}}}`)
+		fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"50"}]}`)
 	})
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -357,38 +328,59 @@ func TestStart(t *testing.T) {
 			},
 		},
 	}
+
 	optsGetter := func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }
-	mockNotifier := NewMockNotifier()
+	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier)
+
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	svc, err := NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier)
-	if err != nil {
-		t.Fatalf("failed to create service: %v", err)
-	}
-
-	// Set genesisTime so that currentEpoch becomes 0 and nextEpoch = 1.
-	svc.genesisTime = time.Now().Add(-350 * time.Millisecond)
-
-	// Start the epoch cron job using the new Start method.
 	doneChan := svc.Start(ctx)
 
-	// Expect that within 2 seconds, a notification for slot "4" is published.
+	// Wait for the notification.
+	// With a slot of 50 and SlotDuration = 100ms, the notification is scheduled for roughly 5s after s.genesisTime.
+	// Hence we wait up to 7 seconds.
 	select {
-	case n := <-mockNotifier.NotifyCh:
+	case n := <-notifier.NotifyCh:
 		if n == nil {
 			t.Fatal("expected notification, got nil")
 		}
-		slotVal, ok := n.Value()["slot"]
-		if !ok || slotVal != uint64(4) {
-			t.Errorf("expected slot 4, got %v", n.Value()["slot"])
+		val := n.Value()
+		// We expect the duty returned by the proposer duties endpoint (with slot "50") to be used.
+		slotVal, ok := val["slot"]
+		if !ok {
+			t.Fatal("notification missing slot")
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timeout waiting for notification from Start")
+		if slotVal != uint64(50) {
+			t.Errorf("expected slot 50, got %v", slotVal)
+		}
+		blsKeyVal, ok := val["bls_key"]
+		if !ok {
+			t.Fatal("notification missing bls_key")
+		}
+		if blsKeyVal != "0x1234567890abcdef" {
+			t.Errorf("expected bls_key 0x1234567890abcdef, got %v", blsKeyVal)
+		}
+		epochVal, ok := val["epoch"]
+		if !ok {
+			t.Fatal("notification missing epoch")
+		}
+		// We may not know the exact epoch number but it should be > 0.
+		if ep, ok := epochVal.(uint64); !ok || ep == 0 {
+			t.Errorf("expected epoch > 0, got %v", epochVal)
+		}
+	case <-time.After(7 * time.Second):
+		t.Fatal("timeout waiting for notification")
 	}
 
-	// Cancel context and wait for the cron job to finish.
 	cancel()
-	<-doneChan
+	select {
+	case <-doneChan:
+		// Service stopped gracefully.
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for service to stop")
+	}
 }
