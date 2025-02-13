@@ -14,4 +14,5 @@ var EthereumContracts = L1Contracts{
 	VanillaRegistry:      "0x47afdcB2B089C16CEe354811EA1Bbe0DB7c335E9",
 	MevCommitAVS:         "0xBc77233855e3274E1903771675Eb71E602D9DC2e",
 	L1Gateway:            "0xDBf24cafF1470a6D08bF2FF2c6875bafC60Cf881",
+	MevCommitMiddleware:  "0x21fD239311B050bbeE7F32850d99ADc224761382",
 }
