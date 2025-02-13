@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -398,13 +400,32 @@ func NewNode(opts *Options) (*Node, error) {
 			return nil, err
 		}
 
+		var (
+			pk *bn254.G1Affine
+			sk *fr.Element
+		)
+		if peerType == p2p.PeerTypeProvider {
+			pk, err = keysStore.BN254PublicKey()
+			if err != nil {
+				opts.Logger.Error("failed to get bn254 public key", "error", err)
+				return nil, err
+			}
+			sk, err = keysStore.BN254PrivateKey()
+			if err != nil {
+				opts.Logger.Error("failed to get bn254 secret key", "error", err)
+				return nil, err
+			}
+		}
 		tracker := preconftracker.NewTracker(
+			chainID,
 			peerType,
 			opts.KeySigner.GetAddress(),
 			evtMgr,
 			preconfstore.New(store),
 			commitmentDA,
 			txmonitor.NewEVMHelperWithLogger(contractRPC, opts.Logger.With("component", "evm_helper"), contracts),
+			pk,
+			sk,
 			optsGetter,
 			opts.Logger.With("component", "tracker"),
 		)

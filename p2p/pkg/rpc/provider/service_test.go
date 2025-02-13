@@ -313,6 +313,7 @@ func TestBidHandling(t *testing.T) {
 					}, ",", // join with comma
 				),
 				BidAmount:           "1000000000000000000",
+				SlashAmount:         "0",
 				BlockNumber:         1,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
@@ -327,6 +328,7 @@ func TestBidHandling(t *testing.T) {
 			bid: &preconfpb.Bid{
 				TxHash:              common.HexToHash("0x00003").Hex()[2:], // remove 0x
 				BidAmount:           "1000000000000000000",
+				SlashAmount:         "0",
 				BlockNumber:         1,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
@@ -341,6 +343,7 @@ func TestBidHandling(t *testing.T) {
 			bid: &preconfpb.Bid{
 				TxHash:              common.HexToHash("0x00003").Hex()[2:], // remove 0x
 				BidAmount:           "1000000000000000000",
+				SlashAmount:         "0",
 				BlockNumber:         1,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
@@ -356,6 +359,7 @@ func TestBidHandling(t *testing.T) {
 			bid: &preconfpb.Bid{
 				TxHash:              "asdf",
 				BidAmount:           "1000000000000000000",
+				SlashAmount:         "0",
 				BlockNumber:         1,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
@@ -370,6 +374,7 @@ func TestBidHandling(t *testing.T) {
 			bid: &preconfpb.Bid{
 				TxHash:              common.HexToHash("0x00004").Hex()[2:], // remove 0x
 				BidAmount:           "0000000000000000000",
+				SlashAmount:         "0",
 				BlockNumber:         1,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
@@ -384,6 +389,7 @@ func TestBidHandling(t *testing.T) {
 			bid: &preconfpb.Bid{
 				TxHash:              common.HexToHash("0x00004").Hex()[2:], // remove 0x
 				BidAmount:           "1000000000000000000",
+				SlashAmount:         "0",
 				BlockNumber:         0,
 				Digest:              []byte("digest"),
 				Signature:           []byte("signature"),
@@ -421,6 +427,9 @@ func TestBidHandling(t *testing.T) {
 					}
 					if bid.BidAmount != tc.bid.BidAmount {
 						t.Errorf("expected bid amount to be %v, got %v", tc.bid.BidAmount, bid.BidAmount)
+					}
+					if bid.SlashAmount != tc.bid.SlashAmount {
+						t.Errorf("expected slash amount to be %v, got %v", tc.bid.SlashAmount, bid.SlashAmount)
 					}
 					if bid.BlockNumber != tc.bid.BlockNumber {
 						t.Errorf("expected block number to be %v, got %v", tc.bid.BlockNumber, bid.BlockNumber)

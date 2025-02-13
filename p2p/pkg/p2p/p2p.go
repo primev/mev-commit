@@ -2,12 +2,12 @@ package p2p
 
 import (
 	"context"
-	"crypto/ecdh"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/primev/mev-commit/p2p/pkg/crypto"
@@ -61,7 +61,7 @@ var (
 
 type Keys struct {
 	PKEPublicKey  *ecies.PublicKey
-	NIKEPublicKey *ecdh.PublicKey
+	NIKEPublicKey *bn254.G1Affine
 }
 
 type jsonKeys struct {
@@ -73,8 +73,8 @@ func (k *Keys) MarshalJSON() ([]byte, error) {
 	ppk := crypto.SerializeEciesPublicKey(k.PKEPublicKey)
 	pkePublicKeyB64 := base64.StdEncoding.EncodeToString(ppk)
 
-	npk := k.NIKEPublicKey.Bytes()
-	nikePublicKeyB64 := base64.StdEncoding.EncodeToString(npk)
+	npk := k.NIKEPublicKey.RawBytes()
+	nikePublicKeyB64 := base64.StdEncoding.EncodeToString(npk[:])
 
 	return json.Marshal(jsonKeys{
 		PKEPublicKey:  pkePublicKeyB64,
@@ -102,14 +102,12 @@ func (k *Keys) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	nikePublicKey, err := ecdh.P256().NewPublicKey(nikePublicKeyBytes)
+
+	k.PKEPublicKey = pkePublicKey
+	k.NIKEPublicKey, err = crypto.BN254PublicKeyFromBytes(nikePublicKeyBytes)
 	if err != nil {
 		return err
 	}
-
-	k.PKEPublicKey = pkePublicKey
-	k.NIKEPublicKey = nikePublicKey
-
 	return nil
 }
 

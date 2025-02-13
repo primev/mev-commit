@@ -126,14 +126,13 @@ func TestUpdater(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -169,15 +168,14 @@ func TestUpdater(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
@@ -392,14 +390,13 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -435,15 +432,14 @@ func TestUpdaterRevertedTxns(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
@@ -665,14 +661,13 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   strings.TrimPrefix(txn.Hash().Hex(), "0x"),
-			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		if i%2 == 0 {
@@ -708,15 +703,14 @@ func TestUpdaterRevertedTxnsWithRevertingHashes(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   bundle,
-			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 		unopenedCommitments = append(unopenedCommitments, unopenedCommitment)
 		commitments = append(commitments, commitment)
@@ -934,15 +928,14 @@ func TestUpdaterBundlesFailure(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			TxnHash:             bundle,
 			BlockNumber:         5,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
 			RevertingTxHashes:   "",
-			SharedSecretKey:     []byte("shared_secret_key"),
 		}
 
 		commitments = append(commitments, commitment)
@@ -1128,11 +1121,11 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 			CommitmentIndex:     idxBytes,
 			Committer:           builderAddr,
 			BidAmt:              big.NewInt(10),
+			SlashAmt:            big.NewInt(0),
 			TxnHash:             strings.TrimPrefix(txn.Hash().Hex(), "0x"),
 			RevertingTxHashes:   "",
 			BlockNumber:         blockNum,
 			CommitmentDigest:    common.HexToHash(fmt.Sprintf("0x%02d", i)),
-			CommitmentSignature: []byte("signature"),
 			DecayStartTimeStamp: uint64(startTimestamp.UnixMilli()),
 			DecayEndTimeStamp:   uint64(endTimestamp.UnixMilli()),
 			DispatchTimestamp:   uint64(midTimestamp.UnixMilli()),
@@ -1489,17 +1482,14 @@ func publishOpenedCommitment(
 		c.Bidder,
 		c.Committer,
 		c.BidAmt,
+		c.SlashAmt,
 		c.BlockNumber,
-		c.BidHash,
 		c.DecayStartTimeStamp,
 		c.DecayEndTimeStamp,
 		c.TxnHash,
 		c.RevertingTxHashes,
 		c.CommitmentDigest,
-		c.BidSignature,
-		c.CommitmentSignature,
 		c.DispatchTimestamp,
-		c.SharedSecretKey,
 	)
 	if err != nil {
 		return err
