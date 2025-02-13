@@ -80,7 +80,7 @@ var (
 		Name:    "ethereum-rpc-url",
 		Usage:   "URL of the Ethereum RPC server",
 		EnvVars: []string{"POINTS_ETH_RPC_URL"},
-		Value:   "https://eth-mainnet.g.alchemy.com/v2/0DDo7YeieNEucZX3jieFfzmzOCGTKAgp",
+		Value:   "https://eth.llamarpc.com",
 	}
 
 	optionDBPath = &cli.StringFlag{
@@ -101,7 +101,7 @@ var (
 		Name:    "start-block",
 		Usage:   "Block number to start processing from",
 		EnvVars: []string{"POINTS_START_BLOCK"},
-		Value:   21344601,
+		Value:   21344601, // This was selected because this is when the first contract is deployed, that we are tracking.
 	}
 )
 
