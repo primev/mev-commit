@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,6 +27,7 @@ import (
 	config "github.com/primev/mev-commit/contracts-abi/config"
 	"github.com/primev/mev-commit/x/contracts/events"
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
+	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -102,6 +104,46 @@ var (
 		Usage:   "Block number to start processing from",
 		EnvVars: []string{"POINTS_START_BLOCK"},
 		Value:   21344601, // This was selected because this is when the first contract is deployed, that we are tracking.
+	}
+
+	optionLogFmt = &cli.StringFlag{
+		Name:    "log-fmt",
+		Usage:   "log format to use, options are 'text' or 'json'",
+		EnvVars: []string{"POINTS_LOG_FMT"},
+		Value:   "text",
+		Action: func(ctx *cli.Context, s string) error {
+			if !slices.Contains([]string{"text", "json"}, s) {
+				return fmt.Errorf("invalid log-fmt, expecting 'text' or 'json'")
+			}
+			return nil
+		},
+	}
+
+	optionLogLevel = &cli.StringFlag{
+		Name:    "log-level",
+		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
+		EnvVars: []string{"POINTS_LOG_LEVEL"},
+		Value:   "info",
+		Action: func(ctx *cli.Context, s string) error {
+			if !slices.Contains([]string{"debug", "info", "warn", "error"}, s) {
+				return fmt.Errorf("invalid log-level, expecting 'debug', 'info', 'warn', 'error'")
+			}
+			return nil
+		},
+	}
+
+	optionLogTags = &cli.StringFlag{
+		Name:    "log-tags",
+		Usage:   "log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
+		EnvVars: []string{"POINTS_LOG_TAGS"},
+		Action: func(ctx *cli.Context, s string) error {
+			for i, p := range strings.Split(s, ",") {
+				if len(strings.Split(p, ":")) != 2 {
+					return fmt.Errorf("invalid log-tags at index %d, expecting <name:value>", i)
+				}
+			}
+			return nil
+		},
 	}
 )
 
@@ -466,11 +508,22 @@ func main() {
 			optionDBPath,
 			optionMainnet,
 			optionStartBlock,
+			optionLogFmt,
+			optionLogLevel,
+			optionLogTags,
 		},
 		Action: func(c *cli.Context) error {
-			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+			logger, err := util.NewLogger(
+				c.String(optionLogLevel.Name),
+				c.String(optionLogFmt.Name),
+				c.String(optionLogTags.Name),
+				c.App.Writer,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to create logger: %w", err)
+			}
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(c.Context)
 			defer cancel()
 
 			signalChan := make(chan os.Signal, 1)
