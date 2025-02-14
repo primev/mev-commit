@@ -290,12 +290,32 @@ func TestProcessEpoch(t *testing.T) {
 		if n == nil {
 			t.Fatal("expected notification, got nil")
 		}
-		slotVal, ok := n.Value()["slot"]
-		if !ok {
-			t.Fatal("expected slot in notification value")
-		}
-		if slotVal != uint64(1) {
-			t.Errorf("expected slot 1, got %v", slotVal)
+		if n.Topic() == notifications.TopicValidatorOptedIn {
+			slotVal, ok := n.Value()["slot"]
+			if !ok {
+				t.Fatal("expected slot in notification value")
+			}
+			if slotVal != uint64(1) {
+				t.Errorf("expected slot 1, got %v", slotVal)
+			}
+		} else if n.Topic() == notifications.TopicEpochValidatorsOptedIn {
+			slotsVal, ok := n.Value()["slots"]
+			if !ok {
+				t.Fatal("expected slots in notification value")
+			}
+			slotsSlice, ok := slotsVal.([]map[string]interface{})
+			if !ok {
+				t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
+			}
+			if len(slotsSlice) != 1 {
+				t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
+			}
+			slotData := slotsSlice[0]
+			if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(1) {
+				t.Fatalf("expected slot 1, got %v", slotVal)
+			}
+		} else {
+			t.Fatalf("unexpected notification topic: %s", n.Topic())
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for notification from processEpoch")
@@ -348,29 +368,47 @@ func TestStart(t *testing.T) {
 		if n == nil {
 			t.Fatal("expected notification, got nil")
 		}
-		val := n.Value()
-		// We expect the duty returned by the proposer duties endpoint (with slot "50") to be used.
-		slotVal, ok := val["slot"]
-		if !ok {
-			t.Fatal("notification missing slot")
-		}
-		if slotVal != uint64(50) {
-			t.Errorf("expected slot 50, got %v", slotVal)
-		}
-		blsKeyVal, ok := val["bls_key"]
-		if !ok {
-			t.Fatal("notification missing bls_key")
-		}
-		if blsKeyVal != "0x1234567890abcdef" {
-			t.Errorf("expected bls_key 0x1234567890abcdef, got %v", blsKeyVal)
-		}
-		epochVal, ok := val["epoch"]
-		if !ok {
-			t.Fatal("notification missing epoch")
-		}
-		// We may not know the exact epoch number but it should be > 0.
-		if ep, ok := epochVal.(uint64); !ok || ep == 0 {
-			t.Errorf("expected epoch > 0, got %v", epochVal)
+		if n.Topic() == notifications.TopicValidatorOptedIn {
+			val := n.Value()
+			// We expect the duty returned by the proposer duties endpoint (with slot "50") to be used.
+			slotVal, ok := val["slot"]
+			if !ok {
+				t.Fatal("notification missing slot")
+			}
+			if slotVal != uint64(50) {
+				t.Errorf("expected slot 50, got %v", slotVal)
+			}
+			blsKeyVal, ok := val["bls_key"]
+			if !ok {
+				t.Fatal("notification missing bls_key")
+			}
+			if blsKeyVal != "0x1234567890abcdef" {
+				t.Errorf("expected bls_key 0x1234567890abcdef, got %v", blsKeyVal)
+			}
+			epochVal, ok := val["epoch"]
+			if !ok {
+				t.Fatal("notification missing epoch")
+			}
+			// We may not know the exact epoch number but it should be > 0.
+			if ep, ok := epochVal.(uint64); !ok || ep == 0 {
+				t.Errorf("expected epoch > 0, got %v", epochVal)
+			}
+		} else if n.Topic() == notifications.TopicEpochValidatorsOptedIn {
+			slotsVal, ok := n.Value()["slots"]
+			if !ok {
+				t.Fatal("expected slots in notification value")
+			}
+			slotsSlice, ok := slotsVal.([]map[string]interface{})
+			if !ok {
+				t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
+			}
+			if len(slotsSlice) != 1 {
+				t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
+			}
+			slotData := slotsSlice[0]
+			if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(50) {
+				t.Fatalf("expected slot 50, got %v", slotVal)
+			}
 		}
 	case <-time.After(7 * time.Second):
 		t.Fatal("timeout waiting for notification")

@@ -271,10 +271,30 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
 		return
 	}
 
+	optedInSlots := make([]map[string]interface{}, 0)
 	for slot, info := range validators {
 		if info.IsOptedIn {
 			s.scheduleNotificationForSlot(epoch, slot, info)
+			optedInSlots = append(optedInSlots, map[string]interface{}{
+				"slot":    slot,
+				"bls_key": info.BLSKey,
+			})
 		}
+	}
+
+	// Send epoch-level notification if there are any opted-in validators
+	if len(optedInSlots) > 0 {
+		notif := notifications.NewNotification(
+			notifications.TopicEpochValidatorsOptedIn,
+			map[string]any{
+				"epoch": epoch,
+				"slots": optedInSlots,
+			},
+		)
+		s.notifier.Notify(notif)
+		s.logger.Info("sent notification for epoch with opted in validators",
+			"epoch", epoch,
+			"slot_count", len(optedInSlots))
 	}
 }
 
