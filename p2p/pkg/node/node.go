@@ -477,9 +477,20 @@ func NewNode(opts *Options) (*Node, error) {
 			validatorRouterCaller,
 			opts.Logger.With("component", "validatorapi"),
 			callOptsGetter,
+			notificationsSvc,
 		)
+		if err != nil {
+			opts.Logger.Error("failed to create validator api", "error", err)
+			return nil, err
+		}
 		validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
-
+		startables = append(
+			startables,
+			StartableObjWithDesc{
+				Desc:      "validators",
+				Startable: validatorAPI,
+			},
+		)
 		blocksPerWindow := bpwBigInt.Uint64()
 
 		switch opts.PeerType {
