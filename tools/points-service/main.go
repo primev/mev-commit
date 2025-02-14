@@ -56,7 +56,6 @@ var (
 		id INTEGER PRIMARY KEY CHECK (id = 1),
 		last_block BIGINT NOT NULL
 	);
-	INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, 2146240);
 	`
 
 	selectActiveValidatorRecordsQuery = `
@@ -81,7 +80,7 @@ var (
 		Name:    "ethereum-rpc-url",
 		Usage:   "URL of the Ethereum RPC server",
 		EnvVars: []string{"POINTS_ETH_RPC_URL"},
-		Value:   "https://eth-holesky.g.alchemy.com/v2/0DDo7YeieNEucZX3jieFfzmzOCGTKAgp",
+		Value:   "https://eth.llamarpc.com",
 	}
 
 	optionDBPath = &cli.StringFlag{
@@ -95,7 +94,14 @@ var (
 		Name:    "mainnet",
 		Usage:   "Use mainnet contracts",
 		EnvVars: []string{"POINTS_MAINNET"},
-		Value:   false,
+		Value:   true,
+	}
+
+	optionStartBlock = &cli.Int64Flag{
+		Name:    "start-block",
+		Usage:   "Block number to start processing from",
+		EnvVars: []string{"POINTS_START_BLOCK"},
+		Value:   21344601, // This was selected because this is when the first contract is deployed, that we are tracking.
 	}
 )
 
@@ -459,6 +465,7 @@ func main() {
 			optionRPCURL,
 			optionDBPath,
 			optionMainnet,
+			optionStartBlock,
 		},
 		Action: func(c *cli.Context) error {
 			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -479,6 +486,11 @@ func main() {
 				return fmt.Errorf("failed to connect to database: %w", err)
 			}
 			defer db.Close()
+
+			_, err = db.Exec(`INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, ?)`, c.Int64(optionStartBlock.Name))
+			if err != nil {
+				return fmt.Errorf("failed to insert initial block: %w", err)
+			}
 
 			var rowCount int
 			err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&rowCount)
@@ -503,6 +515,7 @@ func main() {
 				db:        db,
 				ethClient: ethClient,
 			}
+
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
 			done := pub.Start(ctx)
 

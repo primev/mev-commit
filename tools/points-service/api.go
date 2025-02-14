@@ -23,15 +23,15 @@ func NewPointsAPI(logger *slog.Logger, db *sql.DB, ps *PointsService) *PointsAPI
 }
 
 func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
-	r := http.NewServeMux()
-	r.HandleFunc("GET /health", p.HealthCheck)
-	r.HandleFunc("GET /last_block", p.GetLastBlock)
-	r.HandleFunc("GET /{receiver_type}/{receiver_address}", p.RecomputePointsForAddress)
-	r.HandleFunc("GET /stats", p.GetTotalPointsStats)
-	r.HandleFunc("GET /all", p.GetAllPoints)
+	r := mux.NewRouter()
+	r.HandleFunc("/health", p.HealthCheck).Methods("GET")
+	r.HandleFunc("/last_block", p.GetLastBlock).Methods("GET")
+	r.HandleFunc("/{receiver_type}/{receiver_address}", p.RecomputePointsForAddress).Methods("GET")
+	r.HandleFunc("/stats", p.GetTotalPointsStats).Methods("GET")
+	r.HandleFunc("/all", p.GetAllPoints).Methods("GET")
 
 	// Personal API
-	r.HandleFunc("GET /{address}", p.GetAnyPointsForAddress)
+	r.HandleFunc("/{address}", p.GetAnyPointsForAddress).Methods("GET")
 
 	srv := &http.Server{
 		Addr:    addr,
