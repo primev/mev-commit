@@ -751,7 +751,7 @@ func main() {
 				}
 			}()
 
-			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient, ps)
+			StartPointsRoutine(ctx, db, logger, 30*time.Minute, ethClient, ps)
 
 			pointsAPI := NewPointsAPI(logger, db, ps)
 			go func() {
