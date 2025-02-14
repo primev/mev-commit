@@ -5,20 +5,17 @@ dist: /tmp/dist/points-service
 
 builds:
   - env:
-      - CGO_ENABLED=1
-      - CC=x86_64-linux-musl-gcc
+      - CGO_ENABLED=0
     goos:
       - linux
     goarch:
       - amd64
+      - arm64
     dir: ./tools/points-service
     binary: "{{ .ProjectName }}"
     flags:
       - -v
       - -trimpath
-      - -tags=sqlite3
-    ldflags:
-      - -extldflags "-static"
 
 archives:
   - format: tar.gz
