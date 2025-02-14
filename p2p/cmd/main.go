@@ -384,7 +384,7 @@ var (
 		Name:     "gas-fee-cap",
 		Usage:    "Use predefined gas fee cap for transactions",
 		EnvVars:  []string{"MEV_COMMIT_GAS_FEE_CAP"},
-		Value:    "10000", // 0,00001 gWEI
+		Value:    "60000000", // 0.06 gWEI
 		Category: categoryGlobal,
 	})
 
