@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	_ "github.com/lib/pq"
 	avs "github.com/primev/mev-commit/contracts-abi/clients/MevCommitAVS"
 	middleware "github.com/primev/mev-commit/contracts-abi/clients/MevCommitMiddleware"
 	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
@@ -29,8 +30,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
-
-	_ "github.com/lib/pq" // Postgres driver
+	"github.com/urfave/cli/v2/altsrc"
 )
 
 // ~216000 blocks is roughly one month on Ethereum (~2s block time)
@@ -84,12 +84,39 @@ var (
 		Value:   "https://eth.llamarpc.com",
 	}
 
-	// Interpret this as a PostgreSQL DSN/connection string instead of a file path
-	optionDBPath = &cli.StringFlag{
-		Name:    "db-path",
-		Usage:   "Postgres DSN (connection string)",
-		EnvVars: []string{"POINTS_DB_PATH"},
-		Value:   "postgres://postgres:postgres@localhost:5432/points_db?sslmode=disable",
+	optionPgHost = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "pg-host",
+		Usage:   "PostgreSQL host",
+		EnvVars: []string{"POINTS_PG_HOST"},
+		Value:   "localhost",
+	})
+
+	optionPgPort = &cli.IntFlag{
+		Name:    "pg-port",
+		Usage:   "PostgreSQL port",
+		EnvVars: []string{"POINTS_PG_PORT"},
+		Value:   5432,
+	}
+
+	optionPgUser = &cli.StringFlag{
+		Name:    "pg-user",
+		Usage:   "PostgreSQL user",
+		EnvVars: []string{"POINTS_PG_USER"},
+		Value:   "postgres",
+	}
+
+	optionPgPassword = &cli.StringFlag{
+		Name:    "pg-password",
+		Usage:   "PostgreSQL password",
+		EnvVars: []string{"POINTS_PG_PASSWORD"},
+		Value:   "postgres",
+	}
+
+	optionPgDbname = &cli.StringFlag{
+		Name:    "pg-dbname",
+		Usage:   "PostgreSQL database name",
+		EnvVars: []string{"POINTS_PG_DBNAME"},
+		Value:   "mev_oracle",
 	}
 
 	optionMainnet = &cli.BoolFlag{
@@ -148,9 +175,8 @@ var (
 )
 
 // initDB initializes the database, creates tables if needed, and ensures schema is in place.
-func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
-	// dbPath here is treated as a DSN for Postgres
-	db, err := sql.Open("postgres", dbPath)
+func initDB(logger *slog.Logger, dsn string) (*sql.DB, error) {
+	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -162,7 +188,7 @@ func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to create last_processed_block table: %w", err)
 	}
 
-	logger.Info("database setup complete", slog.String("path", dbPath))
+	logger.Info("database setup complete", slog.String("dsn", dsn))
 	return db, nil
 }
 
@@ -437,7 +463,11 @@ func main() {
 		Usage: "MEV Commit Points Service",
 		Flags: []cli.Flag{
 			optionRPCURL,
-			optionDBPath,
+			optionPgHost,
+			optionPgPort,
+			optionPgUser,
+			optionPgPassword,
+			optionPgDbname,
 			optionMainnet,
 			optionStartBlock,
 			optionLogFmt,
@@ -466,7 +496,15 @@ func main() {
 				cancel()
 			}()
 
-			db, err := initDB(logger, c.String(optionDBPath.Name))
+			dsn := fmt.Sprintf(
+				"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+				c.String(optionPgHost.Name),
+				c.Int(optionPgPort.Name),
+				c.String(optionPgUser.Name),
+				c.String(optionPgPassword.Name),
+				c.String(optionPgDbname.Name),
+			)
+			db, err := initDB(logger, dsn)
 			if err != nil {
 				return fmt.Errorf("failed to connect to database: %w", err)
 			}
