@@ -29,6 +29,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2/altsrc"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -118,6 +119,13 @@ var (
 			return nil
 		},
 	}
+
+	optionPointsAPIAuthToken = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "points-api-auth-token",
+		Usage:   "Authorization token for the points service",
+		EnvVars: []string{"POINTS_API_AUTH_TOKEN"},
+		Value:   "points-service-api-key",
+	})
 
 	optionLogLevel = &cli.StringFlag{
 		Name:    "log-level",
@@ -511,6 +519,7 @@ func main() {
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
+			optionPointsAPIAuthToken,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -819,10 +828,10 @@ func main() {
 				}
 			}()
 
-			// Start the points accrual routine (once every 24 hours)
-			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient, ps)
+			// Start the points accrual routine (once every 30 minutes)
+			StartPointsRoutine(ctx, db, logger, 30*time.Minute, ethClient, ps)
 
-			pointsAPI := NewPointsAPI(logger, db, ps)
+			pointsAPI := NewPointsAPI(logger, db, ps, c.String(optionPointsAPIAuthToken.Name))
 			go func() {
 				if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
 					logger.Error("API server error", "error", err)
