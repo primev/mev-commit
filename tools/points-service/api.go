@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -16,10 +17,11 @@ type PointsAPI struct {
 	logger *slog.Logger
 	db     *sql.DB
 	ps     *PointsService
+	token  string
 }
 
-func NewPointsAPI(logger *slog.Logger, db *sql.DB, ps *PointsService) *PointsAPI {
-	return &PointsAPI{logger: logger, db: db, ps: ps}
+func NewPointsAPI(logger *slog.Logger, db *sql.DB, ps *PointsService, token string) *PointsAPI {
+	return &PointsAPI{logger: logger, db: db, ps: ps, token: token}
 }
 
 func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
@@ -32,6 +34,9 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 
 	// Personal API
 	r.HandleFunc("/{address}", p.GetAnyPointsForAddress).Methods("GET")
+
+	// Authenticated POST endpoint for manually adding points entry
+	r.HandleFunc("/admin", p.AddPointsEntry).Methods("POST")
 
 	srv := &http.Server{
 		Addr:    addr,
@@ -50,6 +55,68 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 		return err
 	}
 	return nil
+}
+
+func (p *PointsAPI) AddPointsEntry(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header missing", http.StatusUnauthorized)
+		return
+	}
+
+	// Expected format "Bearer <token>"
+	headerToken, found := strings.CutPrefix(authHeader, "Bearer ")
+	if !found {
+		http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+		return
+	}
+
+	if headerToken != p.token {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse JSON request body
+	var req struct {
+		Pubkey   string  `json:"pubkey"`
+		Adder    string  `json:"adder"`
+		Points   int64   `json:"points"`
+		InBlock  uint64  `json:"in_block"`
+		OutBlock *uint64 `json:"out_block,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Basic validation
+	if req.Pubkey == "" || req.Adder == "" || req.Points < 0 || req.InBlock == 0 {
+		http.Error(w, "Missing or invalid required fields", http.StatusBadRequest)
+		return
+	}
+
+	// Insert record
+	_, err := p.db.Exec(`
+		INSERT INTO validator_records (
+			pubkey, adder, points_accumulated, opted_in_block, opted_out_block
+		) VALUES (?, ?, ?, ?, ?)
+	`, req.Pubkey, req.Adder, req.Points, req.InBlock, req.OutBlock)
+
+	if err != nil {
+		p.logger.Error("failed to insert points entry", "error", err)
+		http.Error(w, "Failed to insert points entry", http.StatusInternalServerError)
+		return
+	}
+
+	p.logger.Info("manually added points entry",
+		"pubkey", req.Pubkey,
+		"adder", req.Adder,
+		"points", req.Points,
+		"in_block", req.InBlock)
+
+	resp := map[string]string{"status": "success"}
+	writeJSON(w, resp, http.StatusOK)
 }
 
 func (p *PointsAPI) HealthCheck(w http.ResponseWriter, r *http.Request) {

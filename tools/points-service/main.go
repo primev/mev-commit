@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	avs "github.com/primev/mev-commit/contracts-abi/clients/MevCommitAVS"
 	middleware "github.com/primev/mev-commit/contracts-abi/clients/MevCommitMiddleware"
@@ -30,6 +29,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2/altsrc"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -67,6 +67,7 @@ var (
 	WHERE opted_out_block IS NULL
 	`
 
+	// Now we also set the new column
 	updatePointsValidatorRecordsQuery = `
 	UPDATE validator_records
 	SET points_accumulated = ?, pre_cliff_points = ?
@@ -103,7 +104,7 @@ var (
 		Name:    "start-block",
 		Usage:   "Block number to start processing from",
 		EnvVars: []string{"POINTS_START_BLOCK"},
-		Value:   21344601, // earliest relevant contract block
+		Value:   21344601, // This was selected because this is when the first contract is deployed, that we are tracking.
 	}
 
 	optionLogFmt = &cli.StringFlag{
@@ -118,6 +119,13 @@ var (
 			return nil
 		},
 	}
+
+	optionPointsAPIAuthToken = altsrc.NewStringFlag(&cli.StringFlag{
+		Name:    "points-api-auth-token",
+		Usage:   "Authorization token for the points service",
+		EnvVars: []string{"POINTS_API_AUTH_TOKEN"},
+		Value:   "points-service-api-key",
+	})
 
 	optionLogLevel = &cli.StringFlag{
 		Name:    "log-level",
@@ -134,7 +142,7 @@ var (
 
 	optionLogTags = &cli.StringFlag{
 		Name:    "log-tags",
-		Usage:   "comma-separated list of <name:value> pairs inserted into each log line",
+		Usage:   "log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
 		EnvVars: []string{"POINTS_LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
 			for i, p := range strings.Split(s, ",") {
@@ -147,7 +155,7 @@ var (
 	}
 )
 
-// initDB initializes the database, creates tables if needed.
+// initDB initializes the database, creates tables if needed, and alters the schema for the new field.
 func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -165,93 +173,101 @@ func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-// computePointsForMonths now includes partial‐month interpolation for total points,
-// and a piecewise step logic for the fallback/pre‐cliff points (to match the existing tests).
 func computePointsForMonths(blocksActive int64) (int64, int64) {
-	if blocksActive <= 0 {
+	// Convert from blocks to full months (truncate partial months).
+	months := blocksActive / blocksInOneMonth
+
+	// If they haven't completed 1 full month, zero for both.
+	if months < 1 {
 		return 0, 0
 	}
-	months := float64(blocksActive) / float64(blocksInOneMonth)
+	chunk1Partial := []int64{
+		1000,
+		2270,
+		3800,
+		5600,
+		7670,
+		10000,
+	}
 
-	// 1) Compute total points (partial months linearly):
-	totalPts := totalPointsPartial(months)
+	// Months 7–12
+	chunk2Partial := []int64{
+		11983,
+		14506,
+		17570,
+		21173,
+		25317,
+		30000,
+	}
 
-	// 2) Compute fallback / "pre_cliff_points" with the piecewise logic from tests:
-	preCliff := fallbackPointsPartial(months)
+	// Months 13–18
+	chunk3Partial := []int64{
+		34683,
+		39367,
+		44050,
+		48734,
+		53417,
+		58100,
+	}
 
-	return totalPts, preCliff
+	// -------------------------
+	// Handle Months 1–6
+	if months < 6 {
+		totalPoints := chunk1Partial[months-1]
+		// Fallback if they opt out before completing 6 months:
+		//   => revert to 1,000 points per each full month
+		fallbackPoints := months * 1000
+		return totalPoints, fallbackPoints
+	}
+
+	if months == 6 {
+		return 10000, 10000
+	}
+
+	// -------------------------
+	// Handle Months 7–12
+	if months <= 12 {
+		// Index into chunk2Partial (month7 = chunk2Partial[0], …, month12 = chunk2Partial[5])
+		totalPoints := chunk2Partial[months-7]
+
+		// Fallback if they haven't completed chunk #2:
+		//   => keep chunk #1's total (10k) plus 1,000 for each partial month in chunk #2
+		//   => if they *have* completed chunk #2 (month=12), fallback = 30k
+		if months < 12 {
+			fallbackPoints := chunk1Partial[5] + (months-6)*1000
+			return totalPoints, fallbackPoints
+		} else {
+			// Exactly month 12 => chunk2 is fully complete
+			fallbackPoints := chunk2Partial[5] // 30,000
+			return totalPoints, fallbackPoints
+		}
+	}
+
+	// -------------------------
+	// Handle Months 13–18
+	if months <= 18 {
+		// Index into chunk3Partial (month13 = chunk3Partial[0], …, month18 = chunk3Partial[5])
+		totalPoints := chunk3Partial[months-13]
+
+		// Fallback if they haven't completed chunk #3:
+		//   => keep chunk #2's total (30k) plus 1,000 for each partial month in chunk #3
+		//   => if they *have* completed chunk #3 (month=18), fallback = 70k
+		if months < 18 {
+			fallbackPoints := chunk2Partial[5] + (months-12)*1000
+			return totalPoints, fallbackPoints
+		} else {
+			// Exactly month 18 => chunk3 is fully complete
+			fallbackPoints := chunk3Partial[5] // 70,000
+			return totalPoints, fallbackPoints
+		}
+	}
+
+	// -------------------------
+	// Beyond 18 months: cap at chunk #3 completion (70k).
+	return 58100, 58100
 }
 
-// totalPointsPartial does linear interpolation between known integer‐month values up to 18 months.
-func totalPointsPartial(m float64) int64 {
-	// Discrete values for months = 0..18:
-	// index => pointsAtMonth[index]
-	pointsAtMonth := []float64{
-		0,     // month 0
-		1000,  // month 1
-		2270,  // month 2
-		3800,  // month 3
-		5600,  // month 4
-		7670,  // month 5
-		10000, // month 6
-		11983, // month 7
-		14506, // month 8
-		17570, // month 9
-		21173, // month 10
-		25317, // month 11
-		30000, // month 12
-		34683, // month 13
-		39367, // month 14
-		44050, // month 15
-		48734, // month 16
-		53417, // month 17
-		58100, // month 18
-	}
-
-	if m <= 0 {
-		return 0
-	}
-	if m >= 18 {
-		return int64(pointsAtMonth[18]) // cap at final chunk
-	}
-
-	// Linear interpolation between integer months:
-	i := int64(m) // floor
-	f := m - float64(i)
-	base := pointsAtMonth[i]
-	next := pointsAtMonth[i+1]
-	val := base + f*(next-base)
-
-	return int64(val) // truncated
-}
-
-func fallbackPointsPartial(m float64) int64 {
-	if m < 0 {
-		return 0
-	}
-	fullMonths := int64(m) // floor of m
-
-	switch {
-	case m < 1:
-		return 0
-	case fullMonths < 6:
-		return fullMonths * 1000
-	case fullMonths == 6:
-		return 10000
-	case fullMonths < 12:
-		return 10000 + (fullMonths-6)*1000
-	case fullMonths == 12:
-		return 30000
-	case fullMonths < 18:
-		return 30000 + (fullMonths-12)*1000
-	case fullMonths == 18:
-		return 58100
-	default: // fullMonths > 18
-		return 58100
-	}
-}
-
-// updatePoints calculates new points (including fallback/preSixMonthPoints) for all active records.
+// updatePoints calculates new points (including the fallback preSixMonthPoints) for all active records.
 func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr error) {
 	rwLock.Lock()
 	defer rwLock.Unlock()
@@ -491,20 +507,6 @@ func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType stri
 	}
 }
 
-func getMsgSenderFromTxnHash(ethClient *ethclient.Client, txHash common.Hash) (common.Address, error) {
-	tx, _, err := ethClient.TransactionByHash(context.Background(), txHash)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get transaction: %w", err)
-	}
-
-	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get sender: %w", err)
-	}
-
-	return from, nil
-}
-
 func main() {
 	app := &cli.App{
 		Name:  "mev-commit-points",
@@ -517,6 +519,7 @@ func main() {
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
+			optionPointsAPIAuthToken,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -578,7 +581,7 @@ func main() {
 			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
 			done := pub.Start(ctx)
 
-			// Choose contracts from mainnet vs Holesky
+			// Get the contract addresses from CLI and add them to the publisher
 			var contractAddresses []common.Address
 			if c.Bool(optionMainnet.Name) {
 				contractAddresses = []common.Address{
@@ -598,7 +601,7 @@ func main() {
 			handlers := []events.EventHandler{
 				events.NewEventHandler(
 					"Staked",
-					func(ev *vanillaregistry.VanillaregistryStaked) {
+					func(ev *vanillaregistry.Validatorregistryv1Staked) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
 						insertOptIn(db, logger, pubkey, adder, "vanilla", "Staked", ev.Raw.BlockNumber)
@@ -606,7 +609,7 @@ func main() {
 				),
 				events.NewEventHandler(
 					"Unstaked",
-					func(ev *vanillaregistry.VanillaregistryUnstaked) {
+					func(ev *vanillaregistry.Validatorregistryv1Unstaked) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
 						insertOptOut(db, logger, pubkey, adder, "Unstaked", ev.Raw.BlockNumber)
@@ -614,7 +617,7 @@ func main() {
 				),
 				events.NewEventHandler(
 					"StakeWithdrawn",
-					func(ev *vanillaregistry.VanillaregistryStakeWithdrawn) {
+					func(ev *vanillaregistry.Validatorregistryv1StakeWithdrawn) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
 						insertOptOut(db, logger, pubkey, adder, "StakeWithdrawn", ev.Raw.BlockNumber)
@@ -634,60 +637,40 @@ func main() {
 					"ValidatorRegistered",
 					func(ev *avs.MevcommitavsValidatorRegistered) {
 						pubkey := common.Bytes2Hex(ev.ValidatorPubKey)
-						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
-						if err != nil {
-							logger.Error("failed to get msg sender", "error", err)
-							return
-						}
-						insertOptIn(db, logger, pubkey, adder.Hex(), "eigenlayer", "ValidatorRegistered", ev.Raw.BlockNumber)
+						adder := ev.PodOwner.Hex()
+						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "ValidatorRegistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"LSTRestakerRegistered",
 					func(ev *avs.MevcommitavsLSTRestakerRegistered) {
 						pubkey := common.Bytes2Hex(ev.ChosenValidator)
-						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
-						if err != nil {
-							logger.Error("failed to get msg sender", "error", err)
-							return
-						}
-						insertOptIn(db, logger, pubkey, adder.Hex(), "eigenlayer", "LSTRestakerRegistered", ev.Raw.BlockNumber)
+						adder := ev.LstRestaker.Hex()
+						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "LSTRestakerRegistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValidatorDeregistered",
 					func(ev *avs.MevcommitavsValidatorDeregistered) {
 						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
-						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
-						if err != nil {
-							logger.Error("failed to get msg sender", "error", err)
-							return
-						}
-						insertOptOut(db, logger, pubkeyHex, adder.Hex(), "ValidatorDeregistered", ev.Raw.BlockNumber)
+						adderHex := ev.PodOwner.Hex()
+						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValidatorDeregistrationRequested",
 					func(ev *avs.MevcommitavsValidatorDeregistrationRequested) {
 						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
-						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
-						if err != nil {
-							logger.Error("failed to get msg sender", "error", err)
-							return
-						}
-						insertOptOut(db, logger, pubkeyHex, adder.Hex(), "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
+						adderHex := ev.PodOwner.Hex()
+						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValRecordDeleted",
 					func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
-						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
-						if err != nil {
-							logger.Error("failed to get msg sender", "error", err)
-							return
-						}
-						insertOptOut(db, logger, pubkey, adder.Hex(), "ValRecordDeleted", ev.Raw.BlockNumber)
+						adder := ev.MsgSender.Hex()
+						insertOptOut(db, logger, pubkey, adder, "ValRecordDeleted", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
@@ -834,18 +817,21 @@ func main() {
 			}
 			defer sub.Unsubscribe()
 
+			// Mark subscription active on success
 			ps.SetSubscriptionActive(true)
 
 			go func() {
 				for err := range sub.Err() {
+					// If subscription encounters an error, mark inactive
+					ps.SetSubscriptionActive(false)
 					logger.Error("subscription error", "error", err)
 				}
 			}()
 
-			// Start the points accrual routine
-			StartPointsRoutine(ctx, db, logger, 10*time.Minute, ethClient, ps)
+			// Start the points accrual routine (once every 30 minutes)
+			StartPointsRoutine(ctx, db, logger, 30*time.Minute, ethClient, ps)
 
-			pointsAPI := NewPointsAPI(logger, db, ps)
+			pointsAPI := NewPointsAPI(logger, db, ps, c.String(optionPointsAPIAuthToken.Name))
 			go func() {
 				if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
 					logger.Error("API server error", "error", err)
@@ -875,7 +861,7 @@ func getContractABIs() ([]*abi.ABI, error) {
 	if err != nil {
 		return nil, err
 	}
-	vanillaRegistryABI, err := abi.JSON(strings.NewReader(vanillaregistry.VanillaregistryABI))
+	vanillaRegistryABI, err := abi.JSON(strings.NewReader(vanillaregistry.Validatorregistryv1ABI))
 	if err != nil {
 		return nil, err
 	}
