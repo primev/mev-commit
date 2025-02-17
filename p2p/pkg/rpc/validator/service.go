@@ -324,8 +324,16 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 			nextEpochStart := s.genesisTime.Add(time.Duration(nextEpoch) * EpochDuration)
 			fetchTime := nextEpochStart.Add(-FetchOffset)
 			delay := time.Until(fetchTime)
+			// If the delay is negative, it means we are in time, when we already fetched the next epoch,
+			// but we are still in the current epoch for fetchOffset time, so we should wait for the next epoch.
 			if delay < 0 {
-				delay = 0
+				select {
+				case <-egCtx.Done():
+					s.logger.Info("epoch cron job stopped")
+					return nil
+				case <-time.After(FetchOffset):
+					continue
+				}
 			}
 
 			s.logger.Info("scheduling epoch fetch", "upcoming_epoch", nextEpoch, "fetch_in", delay, "fetch_time", fetchTime)
