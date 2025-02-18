@@ -256,7 +256,7 @@ func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *v
 	})
 }
 
-func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
+func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime int64) {
 	s.logger.Info("processing epoch", "epoch", epoch)
 
 	dutiesResp, err := s.fetchProposerDuties(ctx, epoch)
@@ -287,8 +287,9 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
 		notif := notifications.NewNotification(
 			notifications.TopicEpochValidatorsOptedIn,
 			map[string]any{
-				"epoch": epoch,
-				"slots": optedInSlots,
+				"epoch":            epoch,
+				"epoch_start_time": epochTime,
+				"slots":            optedInSlots,
 			},
 		)
 		s.notifier.Notify(notif)
@@ -324,8 +325,16 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 			nextEpochStart := s.genesisTime.Add(time.Duration(nextEpoch) * EpochDuration)
 			fetchTime := nextEpochStart.Add(-FetchOffset)
 			delay := time.Until(fetchTime)
+			// If the delay is negative, it means we are in time, when we already fetched the next epoch,
+			// but we are still in the current epoch for fetchOffset time, so we should wait for the next epoch.
 			if delay < 0 {
-				delay = 0
+				select {
+				case <-egCtx.Done():
+					s.logger.Info("epoch cron job stopped")
+					return nil
+				case <-time.After(FetchOffset):
+					continue
+				}
 			}
 
 			s.logger.Info("scheduling epoch fetch", "upcoming_epoch", nextEpoch, "fetch_in", delay, "fetch_time", fetchTime)
@@ -338,7 +347,7 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 			}
 
 			s.logger.Info("fetching upcoming epoch", "epoch", nextEpoch)
-			s.processEpoch(egCtx, nextEpoch)
+			s.processEpoch(egCtx, nextEpoch, nextEpochStart.Unix())
 		}
 	})
 
