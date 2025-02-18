@@ -256,7 +256,7 @@ func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *v
 	})
 }
 
-func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
+func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime int64) {
 	s.logger.Info("processing epoch", "epoch", epoch)
 
 	dutiesResp, err := s.fetchProposerDuties(ctx, epoch)
@@ -287,8 +287,9 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
 		notif := notifications.NewNotification(
 			notifications.TopicEpochValidatorsOptedIn,
 			map[string]any{
-				"epoch": epoch,
-				"slots": optedInSlots,
+				"epoch":            epoch,
+				"epoch_start_time": epochTime,
+				"slots":            optedInSlots,
 			},
 		)
 		s.notifier.Notify(notif)
@@ -346,7 +347,7 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 			}
 
 			s.logger.Info("fetching upcoming epoch", "epoch", nextEpoch)
-			s.processEpoch(egCtx, nextEpoch)
+			s.processEpoch(egCtx, nextEpoch, nextEpochStart.Unix())
 		}
 	})
 

@@ -283,7 +283,7 @@ func TestProcessEpoch(t *testing.T) {
 	now := time.Now()
 	svc.SetGenesisTime(now.Add(100*time.Millisecond + validatorapi.NotifyOffset - validatorapi.SlotDuration))
 
-	svc.SetProcessEpoch(ctx, 10)
+	svc.SetProcessEpoch(ctx, 10, time.Now().Unix())
 
 	select {
 	case n := <-mockNotifier.NotifyCh:
