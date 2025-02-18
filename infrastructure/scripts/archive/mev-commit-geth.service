@@ -1,0 +1,17 @@
+[Unit]
+Description=MEV Commit Geth Archive Node
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/mainenv
+ExecStart=/home/ubuntu/mainenv/archive-node.sh
+
+Restart=always
+RestartSec=10
+
+StandardOutput=append:/home/ubuntu/mainenv/mev-commit-geth.log
+StandardError=append:/home/ubuntu/mainenv/mev-commit-geth.err.log
+
+[Install]
+WantedBy=multi-user.target

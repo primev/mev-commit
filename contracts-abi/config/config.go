@@ -13,5 +13,6 @@ type L1Contracts struct {
 	ValidatorOptInRouter string
 	VanillaRegistry      string
 	MevCommitAVS         string
+	MevCommitMiddleware  string
 	L1Gateway            string
 }

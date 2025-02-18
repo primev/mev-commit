@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/primev/mev-commit/bridge/standard/pkg/gwcontract"
 	l1gateway "github.com/primev/mev-commit/contracts-abi/clients/L1Gateway"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -180,7 +181,13 @@ func TestGateway(t *testing.T) {
 			}
 			select {
 			case tr := <-tChan:
-				if diff := cmp.Diff(transfers[idx], tr, cmp.AllowUnexported(big.Int{})); diff != "" {
+
+				if diff := cmp.Diff(
+					transfers[idx],
+					tr,
+					cmpopts.IgnoreFields(l1gateway.L1gatewayTransferInitiated{}, "Raw"),
+					cmp.AllowUnexported(big.Int{}),
+				); diff != "" {
 					t.Errorf("unexpected transfer at index %d (-want +got):\n%s", idx, diff)
 				}
 				idx++

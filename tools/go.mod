@@ -7,7 +7,9 @@ toolchain go1.23.0
 require (
 	github.com/cloudflare/circl v1.5.0
 	github.com/ethereum/go-ethereum v1.14.11
+	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/mattn/go-sqlite3 v1.14.24
 	github.com/primev/mev-commit/contracts-abi v0.0.1
 	github.com/primev/mev-commit/p2p v0.0.1
 	github.com/primev/mev-commit/x v0.0.1
