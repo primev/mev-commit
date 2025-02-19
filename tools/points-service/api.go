@@ -93,6 +93,7 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Only "operator" returns actual data; otherwise, we just return 0
 	if receiverType != "operator" {
 		resp := map[string]interface{}{
 			"address":      receiverAddr,
@@ -124,30 +125,29 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 }
 
 func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blockNum uint64) (int64, error) {
-
-	// Get count of unique pubkeys for this operator
+	// Count of unique pubkeys
 	var uniquePubkeys int
 	err := p.db.QueryRow(`
 		SELECT COUNT(DISTINCT pubkey)
 		FROM validator_records
 		WHERE registry_type = 'symbiotic'
-		  AND adder = ?
-		  AND opted_in_block <= ?
+		  AND adder = $1
+		  AND opted_in_block <= $2
 	`, receiverAddr, blockNum).Scan(&uniquePubkeys)
 	if err != nil {
 		p.logger.Error("failed to get unique pubkey count", "error", err)
 		return 0, err
 	}
 
-	// Sign-up Bonus of 1000
+	// Sign-up Bonus of 1000 each
 	totalPoints := int64(uniquePubkeys) * 1000
 
 	rows, err := p.db.Query(`
 		SELECT vault, registry_type, opted_in_block, opted_out_block
 		FROM validator_records
 		WHERE registry_type = 'symbiotic'
-		  AND (pubkey = ? OR adder = ?)
-		  AND opted_in_block <= ?
+		  AND (pubkey = $1 OR adder = $2)
+		  AND opted_in_block <= $3
 	`, receiverAddr, receiverAddr, blockNum)
 	if err != nil {
 		return 0, err
@@ -191,6 +191,7 @@ func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blo
 	}
 	return totalPoints, nil
 }
+
 func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) {
 	blockNumStr := r.URL.Query().Get("block_number")
 	if blockNumStr == "" {
@@ -207,7 +208,7 @@ func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) 
 		SELECT adder, opted_in_block, opted_out_block
 		FROM validator_records
 		WHERE registry_type = 'symbiotic'
-		  AND opted_in_block <= ?
+		  AND opted_in_block <= $1
 	`, blockNum)
 	if err != nil {
 		http.Error(w, "DB query failed", http.StatusInternalServerError)
@@ -303,10 +304,10 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 		SELECT DISTINCT adder, vault
 		FROM validator_records
 		WHERE registry_type = 'symbiotic'
-		  AND opted_in_block <= ?
-		  AND (opted_out_block IS NULL OR opted_out_block > ?)
+		  AND opted_in_block <= $1
+		  AND (opted_out_block IS NULL OR opted_out_block > $2)
 		ORDER BY adder
-		LIMIT ? OFFSET ?
+		LIMIT $3 OFFSET $4
 	`
 	rows, err := p.db.Query(query, blockNum, blockNum, limit, offset)
 	if err != nil {
@@ -373,7 +374,7 @@ func (p *PointsAPI) GetAnyPointsForAddress(w http.ResponseWriter, r *http.Reques
           ), 
         0)
         FROM validator_records
-        WHERE adder = ?
+        WHERE adder = $1
     `
 	var totalPoints int64
 	if err := p.db.QueryRow(q, adder).Scan(&totalPoints); err != nil {
@@ -387,7 +388,8 @@ func (p *PointsAPI) GetAnyPointsForAddress(w http.ResponseWriter, r *http.Reques
 	const pubkeyQuery = `
 		SELECT COUNT(DISTINCT pubkey) * 1000 
 		FROM validator_records 
-		WHERE adder = ?`
+		WHERE adder = $1
+	`
 	if err := p.db.QueryRow(pubkeyQuery, adder).Scan(&pubkeyBonus); err != nil {
 		http.Error(w, "Database query failed", http.StatusInternalServerError)
 		p.logger.Error("GetAnyPointsForAddress pubkey bonus query error", "error", err)
