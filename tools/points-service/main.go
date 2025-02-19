@@ -1,5 +1,3 @@
-// main.go
-
 package main
 
 import (
@@ -17,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -166,72 +165,46 @@ func initDB(logger *slog.Logger, dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-// computePointsForMonths now includes partial‐month interpolation for total points,
-// and a piecewise step logic for the fallback/pre‐cliff points (to match the existing tests).
+// ~~~ Points Calculation Logic ~~~
+
+// computePointsForMonths includes partial‐month interpolation for total points,
+// plus the fallback step logic for pre-cliff points.
 func computePointsForMonths(blocksActive int64) (int64, int64) {
 	if blocksActive <= 0 {
 		return 0, 0
 	}
 	months := float64(blocksActive) / float64(blocksInOneMonth)
 
-	// 1) Compute total points (partial months linearly):
 	totalPts := totalPointsPartial(months)
-
-	// 2) Compute fallback / "pre_cliff_points" with the piecewise logic from tests:
 	preCliff := fallbackPointsPartial(months)
-
 	return totalPts, preCliff
 }
 
-// totalPointsPartial does linear interpolation between known integer‐month values up to 18 months.
 func totalPointsPartial(m float64) int64 {
-	// Discrete values for months = 0..18:
-	// index => pointsAtMonth[index]
 	pointsAtMonth := []float64{
-		0,     // month 0
-		1000,  // month 1
-		2270,  // month 2
-		3800,  // month 3
-		5600,  // month 4
-		7670,  // month 5
-		10000, // month 6
-		11983, // month 7
-		14506, // month 8
-		17570, // month 9
-		21173, // month 10
-		25317, // month 11
-		30000, // month 12
-		34683, // month 13
-		39367, // month 14
-		44050, // month 15
-		48734, // month 16
-		53417, // month 17
-		58100, // month 18
+		0, 1000, 2270, 3800, 5600, 7670, 10000,
+		11983, 14506, 17570, 21173, 25317,
+		30000, 34683, 39367, 44050, 48734, 53417, 58100,
 	}
-
 	if m <= 0 {
 		return 0
 	}
 	if m >= 18 {
 		return int64(pointsAtMonth[18]) // cap at final chunk
 	}
-
-	// Linear interpolation between integer months:
-	i := int64(m) // floor
+	i := int64(m)
 	f := m - float64(i)
 	base := pointsAtMonth[i]
 	next := pointsAtMonth[i+1]
 	val := base + f*(next-base)
-
-	return int64(val) // truncated
+	return int64(val)
 }
 
 func fallbackPointsPartial(m float64) int64 {
 	if m < 0 {
 		return 0
 	}
-	fullMonths := int64(m) // floor of m
-
+	fullMonths := int64(m)
 	switch {
 	case m < 1:
 		return 0
@@ -247,12 +220,14 @@ func fallbackPointsPartial(m float64) int64 {
 		return 30000 + (fullMonths-12)*1000
 	case fullMonths == 18:
 		return 58100
-	default: // fullMonths > 18
+	default:
 		return 58100
 	}
 }
 
-// updatePoints calculates new points (including fallback/preSixMonthPoints) for all active records.
+// ~~~ DB Updater ~~~
+
+// updatePoints calculates new points (including fallback) for all active records.
 func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr error) {
 	rwLock.Lock()
 	defer rwLock.Unlock()
@@ -316,13 +291,14 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 	return nil
 }
 
-// StartPointsRoutine periodically accrues points
+// ~~~ Routine ~~~
+
 func StartPointsRoutine(
 	ctx context.Context,
 	db *sql.DB,
 	logger *slog.Logger,
 	interval time.Duration,
-	ethClient *ethclient.Client,
+	evmClient publisher.EVMClient,
 	ps *PointsService,
 ) {
 	ticker := time.NewTicker(interval)
@@ -333,12 +309,11 @@ func StartPointsRoutine(
 		defer ps.SetPointsRoutineRunning(false)
 		for {
 			logger.Info("Starting points accrual run")
-			latestBlock, err := ethClient.BlockByNumber(context.Background(), nil)
+			latestBlockNum, err := evmClient.BlockNumber(context.Background())
 			if err != nil {
 				logger.Error("cannot fetch latest block", "error", err)
 			} else {
-				currBlockNum := latestBlock.NumberU64()
-				if err := updatePoints(db, logger, currBlockNum); err != nil {
+				if err := updatePoints(db, logger, latestBlockNum); err != nil {
 					logger.Error("points accrual run failed", "error", err)
 				} else {
 					logger.Info("points accrual run completed successfully")
@@ -355,11 +330,11 @@ func StartPointsRoutine(
 	}()
 }
 
-// PointsService tracks DB, client, plus routine/subscription state
+// ~~~ PointsService ~~~
+
 type PointsService struct {
 	logger                  *slog.Logger
 	db                      *sql.DB
-	ethClient               *ethclient.Client
 	mu                      sync.RWMutex
 	pointsRoutineRunning    bool
 	eventSubscriptionActive bool
@@ -368,8 +343,8 @@ type PointsService struct {
 func (ps *PointsService) LastBlock() (uint64, error) {
 	var blk uint64
 	err := ps.db.QueryRow(`
-        SELECT last_block 
-        FROM last_processed_block 
+        SELECT last_block
+        FROM last_processed_block
         WHERE id = 1
     `).Scan(&blk)
 	if err != nil {
@@ -380,35 +355,31 @@ func (ps *PointsService) LastBlock() (uint64, error) {
 
 func (ps *PointsService) SetLastBlock(block uint64) error {
 	_, err := ps.db.Exec(`
-        UPDATE last_processed_block 
-        SET last_block = ? 
+        UPDATE last_processed_block
+        SET last_block = ?
         WHERE id = 1
     `, block)
 	return err
 }
 
-// SetPointsRoutineRunning toggles the points routine status
 func (ps *PointsService) SetPointsRoutineRunning(running bool) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	ps.pointsRoutineRunning = running
 }
 
-// IsPointsRoutineRunning returns the points routine status
 func (ps *PointsService) IsPointsRoutineRunning() bool {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
 	return ps.pointsRoutineRunning
 }
 
-// SetSubscriptionActive toggles the event subscription status
 func (ps *PointsService) SetSubscriptionActive(active bool) {
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 	ps.eventSubscriptionActive = active
 }
 
-// IsSubscriptionActive returns the event subscription status
 func (ps *PointsService) IsSubscriptionActive() bool {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
@@ -433,7 +404,7 @@ func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, e
 
 	_, err = db.Exec(`
         INSERT INTO validator_records (
-            pubkey, adder, vault, registry_type, event_type, 
+            pubkey, adder, vault, registry_type, event_type,
             opted_in_block, opted_out_block, points_accumulated
         ) VALUES (?, ?, NULL, ?, ?, ?, NULL, 0)
     `, pubkey, adder, registryType, eventType, inBlock)
@@ -463,7 +434,7 @@ func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vaultA
 
 	_, err = db.Exec(`
         INSERT INTO validator_records (
-            pubkey, adder, vault, registry_type, event_type, 
+            pubkey, adder, vault, registry_type, event_type,
             opted_in_block, opted_out_block, points_accumulated
         ) VALUES (?, ?, ?, ?, ?, ?, NULL, 0)
     `, pubkey, adder, vaultAddr, registryType, eventType, inBlock)
@@ -492,6 +463,334 @@ func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType stri
 	}
 }
 
+type EVMCaller interface {
+	publisher.EVMClient
+	CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error)
+}
+
+// This function is the core logic that can accept either a real ethclient.Client or a mock EVMClient.
+func runAppWithClient(c *cli.Context, evmClient EVMCaller) error {
+	logger, err := util.NewLogger(
+		c.String(optionLogLevel.Name),
+		c.String(optionLogFmt.Name),
+		c.String(optionLogTags.Name),
+		c.App.Writer,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create logger: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(c.Context)
+	defer cancel()
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChan
+		logger.Info("received termination signal, shutting down")
+		cancel()
+	}()
+
+	db, err := initDB(logger, c.String(optionDBPath.Name))
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, ?)`, c.Int64(optionStartBlock.Name))
+	if err != nil {
+		return fmt.Errorf("failed to insert initial block: %w", err)
+	}
+
+	var rowCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&rowCount)
+	if err != nil {
+		return fmt.Errorf("failed to query validator_records: %w", err)
+	}
+	logger.Info("database reachable", "validator_records_count", rowCount)
+
+	contractABIs, err := getContractABIs()
+	if err != nil {
+		return fmt.Errorf("failed to get contract ABIs: %w", err)
+	}
+
+	// Create the listener
+	listener := events.NewListener(logger, contractABIs...)
+
+	ps := &PointsService{
+		logger: logger,
+		db:     db,
+	}
+
+	// Pass the evmClient into the publisher
+	pub := publisher.NewHTTPPublisher(ps, logger, evmClient, listener)
+	done := pub.Start(ctx)
+
+	var contractAddresses []common.Address
+	if c.Bool(optionMainnet.Name) {
+		contractAddresses = []common.Address{
+			common.HexToAddress(config.EthereumContracts.VanillaRegistry),
+			common.HexToAddress(config.EthereumContracts.MevCommitAVS),
+			common.HexToAddress(config.EthereumContracts.MevCommitMiddleware),
+		}
+	} else {
+		contractAddresses = []common.Address{
+			common.HexToAddress(config.HoleskyContracts.VanillaRegistry),
+			common.HexToAddress(config.HoleskyContracts.MevCommitAVS),
+			common.HexToAddress(config.HoleskyContracts.MevCommitMiddleware),
+		}
+	}
+	pub.AddContracts(contractAddresses...)
+
+	handlers := []events.EventHandler{
+		events.NewEventHandler(
+			"Staked",
+			func(ev *vanillaregistry.Validatorregistryv1Staked) {
+				pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
+				adder := ev.MsgSender.Hex()
+				insertOptIn(db, logger, pubkey, adder, "vanilla", "Staked", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"Unstaked",
+			func(ev *vanillaregistry.Validatorregistryv1Unstaked) {
+				pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
+				adder := ev.MsgSender.Hex()
+				insertOptOut(db, logger, pubkey, adder, "Unstaked", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"StakeWithdrawn",
+			func(ev *vanillaregistry.Validatorregistryv1StakeWithdrawn) {
+				pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
+				adder := ev.MsgSender.Hex()
+				insertOptOut(db, logger, pubkey, adder, "StakeWithdrawn", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"ValRecordAdded",
+			func(ev *middleware.MevcommitmiddlewareValRecordAdded) {
+				pubkey := common.Bytes2Hex(ev.BlsPubkey)
+				adder := ev.Operator.Hex()
+				vaultAddr := ev.Vault.Hex()
+				pub.AddContracts(ev.Vault)
+				insertOptInWithVault(db, logger, pubkey, adder, vaultAddr, "symbiotic", "ValRecordAdded", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"ValidatorRegistered",
+			func(ev *avs.MevcommitavsValidatorRegistered) {
+				pubkey := common.Bytes2Hex(ev.ValidatorPubKey)
+				adder := ev.PodOwner.Hex()
+				insertOptIn(db, logger, pubkey, adder, "eigenlayer", "ValidatorRegistered", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"LSTRestakerRegistered",
+			func(ev *avs.MevcommitavsLSTRestakerRegistered) {
+				pubkey := common.Bytes2Hex(ev.ChosenValidator)
+				adder := ev.LstRestaker.Hex()
+				insertOptIn(db, logger, pubkey, adder, "eigenlayer", "LSTRestakerRegistered", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"ValidatorDeregistered",
+			func(ev *avs.MevcommitavsValidatorDeregistered) {
+				pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
+				adderHex := ev.PodOwner.Hex()
+				insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistered", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"ValidatorDeregistrationRequested",
+			func(ev *avs.MevcommitavsValidatorDeregistrationRequested) {
+				pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
+				adderHex := ev.PodOwner.Hex()
+				insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"ValRecordDeleted",
+			func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
+				pubkey := common.Bytes2Hex(ev.BlsPubkey)
+				adder := ev.MsgSender.Hex()
+				insertOptOut(db, logger, pubkey, adder, "ValRecordDeleted", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"VaultDeregistered",
+			func(ev *middleware.MevcommitmiddlewareVaultDeregistered) {
+				vaultAddr := ev.Vault.Hex()
+				rows, err := db.Query(`
+					SELECT pubkey, adder
+					FROM validator_records
+					WHERE vault = ? AND opted_out_block IS NULL
+				`, vaultAddr)
+				if err != nil {
+					logger.Error("failed to query for vault", "error", err)
+					return
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var pubkey, adder string
+					if err := rows.Scan(&pubkey, &adder); err != nil {
+						logger.Error("scan error", "error", err)
+						continue
+					}
+					insertOptOut(db, logger, pubkey, adder, "VaultDeregistered", ev.Raw.BlockNumber)
+				}
+			},
+		),
+		events.NewEventHandler(
+			"OperatorDeregistered",
+			func(ev *middleware.MevcommitmiddlewareOperatorDeregistered) {
+				operatorAddr := ev.Operator.Hex()
+				rows, err := db.Query(`
+					SELECT pubkey
+					FROM validator_records
+					WHERE adder = ? AND opted_out_block IS NULL
+				`, operatorAddr)
+				if err != nil {
+					logger.Error("failed to query for operator", "error", err)
+					return
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var pubkey string
+					if err := rows.Scan(&pubkey); err != nil {
+						logger.Error("scan error", "error", err)
+						continue
+					}
+					insertOptOut(db, logger, pubkey, operatorAddr, "OperatorDeregistered", ev.Raw.BlockNumber)
+				}
+			},
+		),
+		events.NewEventHandler(
+			"ValRecordDeleted",
+			func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
+				pubkeyHex := common.Bytes2Hex(ev.BlsPubkey)
+				var adderHex string
+				err := db.QueryRow(`
+					SELECT adder
+					FROM validator_records
+					WHERE pubkey = ? AND opted_out_block IS NULL
+					LIMIT 1
+				`, pubkeyHex).Scan(&adderHex)
+				if err != nil {
+					logger.Error("failed to find active adder", "error", err, "pubkey", pubkeyHex)
+					return
+				}
+				insertOptOut(db, logger, pubkeyHex, adderHex, "ValRecordDeleted", ev.Raw.BlockNumber)
+			},
+		),
+		events.NewEventHandler(
+			"OnSlash",
+			func(ev *vault.VaultOnSlash) {
+				vaultAddr := ev.Raw.Address.Hex()
+				rows, err := db.Query(`
+				SELECT pubkey, adder
+				FROM validator_records
+				WHERE vault = ? AND opted_out_block IS NULL
+				`, vaultAddr)
+				if err != nil {
+					logger.Error("failed to query pubkeys for vault", "vault", vaultAddr, "error", err)
+					return
+				}
+				defer rows.Close()
+
+				var pubkeys [][]byte
+				var adders []string
+				for rows.Next() {
+					var pubkeyHex, adderHex string
+					if err := rows.Scan(&pubkeyHex, &adderHex); err != nil {
+						logger.Error("scan pubkey error", "error", err)
+						continue
+					}
+					pubkeys = append(pubkeys, common.FromHex(pubkeyHex))
+					adders = append(adders, adderHex)
+				}
+
+				checkBlockNum := ev.Raw.BlockNumber + 1
+				go func(pubkeys [][]byte, checkBlock uint64) {
+					for {
+						tipBlock, err := evmClient.BlockNumber(context.Background())
+						if err != nil {
+							time.Sleep(time.Second * 2)
+							continue
+						}
+						if tipBlock >= checkBlock {
+							break
+						}
+						time.Sleep(time.Second * 2)
+					}
+
+					var routerAddr common.Address
+					if c.Bool(optionMainnet.Name) {
+						routerAddr = common.HexToAddress(config.EthereumContracts.ValidatorOptInRouter)
+					} else {
+						routerAddr = common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter)
+					}
+					routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, evmClient)
+					if err != nil {
+						panic(fmt.Sprintf("failed to create router caller: %v", err))
+					}
+					callOpts := &bind.CallOpts{BlockNumber: big.NewInt(int64(checkBlock))}
+					optInStatuses, err := routerCaller.AreValidatorsOptedIn(callOpts, pubkeys)
+					if err != nil {
+						logger.Error("failed AreValidatorsOptedIn", "error", err)
+						return
+					}
+					for i, status := range optInStatuses {
+						if !status.IsMiddlewareOptedIn {
+							pubkeyHex := common.Bytes2Hex(pubkeys[i])
+							logger.Info("validator is no longer opted in by any registry",
+								"pubkey", pubkeyHex, "block", checkBlock,
+							)
+							insertOptOut(db, logger, pubkeyHex, adders[i], "OnSlashAutoOptOut", checkBlock)
+						}
+					}
+				}(pubkeys, checkBlockNum)
+			},
+		),
+	}
+
+	sub, err := listener.Subscribe(handlers...)
+	if err != nil {
+		return fmt.Errorf("subscribe error: %w", err)
+	}
+	defer sub.Unsubscribe()
+
+	ps.SetSubscriptionActive(true)
+	go func() {
+		for err := range sub.Err() {
+			ps.SetSubscriptionActive(false)
+			logger.Error("subscription error", "error", err)
+		}
+	}()
+
+	// Start the points accrual routine (once every 24 hours)
+	StartPointsRoutine(ctx, db, logger, 24*time.Hour, evmClient, ps)
+
+	pointsAPI := NewPointsAPI(logger, db, ps)
+	go func() {
+		if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
+			logger.Error("API server error", "error", err)
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		logger.Info("context canceled, shutting down")
+	case <-done:
+		logger.Info("publisher done channel closed")
+	}
+
+	logger.Info("graceful shutdown complete")
+	return nil
+}
+
+// main remains minimal and calls runAppWithClient with the real ethclient.Client
 func main() {
 	app := &cli.App{
 		Name:  "mev-commit-points",
@@ -506,329 +805,12 @@ func main() {
 			optionLogTags,
 		},
 		Action: func(c *cli.Context) error {
-			logger, err := util.NewLogger(
-				c.String(optionLogLevel.Name),
-				c.String(optionLogFmt.Name),
-				c.String(optionLogTags.Name),
-				c.App.Writer,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to create logger: %w", err)
-			}
-
-			ctx, cancel := context.WithCancel(c.Context)
-			defer cancel()
-
-			signalChan := make(chan os.Signal, 1)
-			signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-			go func() {
-				<-signalChan
-				logger.Info("received termination signal, shutting down")
-				cancel()
-			}()
-
-			db, err := initDB(logger, c.String(optionDBPath.Name))
-			if err != nil {
-				return fmt.Errorf("failed to connect to database: %w", err)
-			}
-			defer db.Close()
-
-			_, err = db.Exec(`INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, ?)`, c.Int64(optionStartBlock.Name))
-			if err != nil {
-				return fmt.Errorf("failed to insert initial block: %w", err)
-			}
-
-			var rowCount int
-			err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&rowCount)
-			if err != nil {
-				return fmt.Errorf("failed to query validator_records: %w", err)
-			}
-			logger.Info("database reachable", "validator_records_count", rowCount)
-
-			ethClient, err := ethclient.Dial(c.String(optionRPCURL.Name))
+			// Real chain
+			realClient, err := ethclient.Dial(c.String(optionRPCURL.Name))
 			if err != nil {
 				return fmt.Errorf("failed to connect to Ethereum node: %w", err)
 			}
-
-			contractABIs, err := getContractABIs()
-			if err != nil {
-				return fmt.Errorf("failed to get contract ABIs: %w", err)
-			}
-			listener := events.NewListener(logger, contractABIs...)
-
-			ps := &PointsService{
-				logger:    logger,
-				db:        db,
-				ethClient: ethClient,
-			}
-
-			pub := publisher.NewHTTPPublisher(ps, logger, ethClient, listener)
-			done := pub.Start(ctx)
-
-			// Choose contracts from mainnet vs Holesky
-			var contractAddresses []common.Address
-			if c.Bool(optionMainnet.Name) {
-				contractAddresses = []common.Address{
-					common.HexToAddress(config.EthereumContracts.VanillaRegistry),
-					common.HexToAddress(config.EthereumContracts.MevCommitAVS),
-					common.HexToAddress(config.EthereumContracts.MevCommitMiddleware),
-				}
-			} else {
-				contractAddresses = []common.Address{
-					common.HexToAddress(config.HoleskyContracts.VanillaRegistry),
-					common.HexToAddress(config.HoleskyContracts.MevCommitAVS),
-					common.HexToAddress(config.HoleskyContracts.MevCommitMiddleware),
-				}
-			}
-			pub.AddContracts(contractAddresses...)
-
-			handlers := []events.EventHandler{
-				events.NewEventHandler(
-					"Staked",
-					func(ev *vanillaregistry.Validatorregistryv1Staked) {
-						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
-						adder := ev.MsgSender.Hex()
-						insertOptIn(db, logger, pubkey, adder, "vanilla", "Staked", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"Unstaked",
-					func(ev *vanillaregistry.Validatorregistryv1Unstaked) {
-						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
-						adder := ev.MsgSender.Hex()
-						insertOptOut(db, logger, pubkey, adder, "Unstaked", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"StakeWithdrawn",
-					func(ev *vanillaregistry.Validatorregistryv1StakeWithdrawn) {
-						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
-						adder := ev.MsgSender.Hex()
-						insertOptOut(db, logger, pubkey, adder, "StakeWithdrawn", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"ValRecordAdded",
-					func(ev *middleware.MevcommitmiddlewareValRecordAdded) {
-						pubkey := common.Bytes2Hex(ev.BlsPubkey)
-						adder := ev.Operator.Hex()
-						vaultAddr := ev.Vault.Hex()
-						pub.AddContracts(ev.Vault)
-						insertOptInWithVault(db, logger, pubkey, adder, vaultAddr, "symbiotic", "ValRecordAdded", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"ValidatorRegistered",
-					func(ev *avs.MevcommitavsValidatorRegistered) {
-						pubkey := common.Bytes2Hex(ev.ValidatorPubKey)
-						adder := ev.PodOwner.Hex()
-						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "ValidatorRegistered", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"LSTRestakerRegistered",
-					func(ev *avs.MevcommitavsLSTRestakerRegistered) {
-						pubkey := common.Bytes2Hex(ev.ChosenValidator)
-						adder := ev.LstRestaker.Hex()
-						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "LSTRestakerRegistered", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"ValidatorDeregistered",
-					func(ev *avs.MevcommitavsValidatorDeregistered) {
-						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
-						adderHex := ev.PodOwner.Hex()
-						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistered", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"ValidatorDeregistrationRequested",
-					func(ev *avs.MevcommitavsValidatorDeregistrationRequested) {
-						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
-						adderHex := ev.PodOwner.Hex()
-						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"ValRecordDeleted",
-					func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
-						pubkey := common.Bytes2Hex(ev.BlsPubkey)
-						adder := ev.MsgSender.Hex()
-						insertOptOut(db, logger, pubkey, adder, "ValRecordDeleted", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"VaultDeregistered",
-					func(ev *middleware.MevcommitmiddlewareVaultDeregistered) {
-						vaultAddr := ev.Vault.Hex()
-						rows, err := db.Query(`
-                            SELECT pubkey, adder
-                            FROM validator_records
-                            WHERE vault = ? AND opted_out_block IS NULL
-                        `, vaultAddr)
-						if err != nil {
-							logger.Error("failed to query for vault", "error", err)
-							return
-						}
-						defer rows.Close()
-						for rows.Next() {
-							var pubkey, adder string
-							if err := rows.Scan(&pubkey, &adder); err != nil {
-								logger.Error("scan error", "error", err)
-								continue
-							}
-							insertOptOut(db, logger, pubkey, adder, "VaultDeregistered", ev.Raw.BlockNumber)
-						}
-					},
-				),
-				events.NewEventHandler(
-					"OperatorDeregistered",
-					func(ev *middleware.MevcommitmiddlewareOperatorDeregistered) {
-						operatorAddr := ev.Operator.Hex()
-						rows, err := db.Query(`
-                            SELECT pubkey
-                            FROM validator_records
-                            WHERE adder = ? AND opted_out_block IS NULL
-                        `, operatorAddr)
-						if err != nil {
-							logger.Error("failed to query for operator", "error", err)
-							return
-						}
-						defer rows.Close()
-						for rows.Next() {
-							var pubkey string
-							if err := rows.Scan(&pubkey); err != nil {
-								logger.Error("scan error", "error", err)
-								continue
-							}
-							insertOptOut(db, logger, pubkey, operatorAddr, "OperatorDeregistered", ev.Raw.BlockNumber)
-						}
-					},
-				),
-				events.NewEventHandler(
-					"ValRecordDeleted",
-					func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
-						pubkeyHex := common.Bytes2Hex(ev.BlsPubkey)
-						var adderHex string
-						err := db.QueryRow(`
-                            SELECT adder 
-                            FROM validator_records
-                            WHERE pubkey = ? AND opted_out_block IS NULL
-                            LIMIT 1
-                        `, pubkeyHex).Scan(&adderHex)
-						if err != nil {
-							logger.Error("failed to find active adder", "error", err, "pubkey", pubkeyHex)
-							return
-						}
-						insertOptOut(db, logger, pubkeyHex, adderHex, "ValRecordDeleted", ev.Raw.BlockNumber)
-					},
-				),
-				events.NewEventHandler(
-					"OnSlash",
-					func(ev *vault.VaultOnSlash) {
-						vaultAddr := ev.Raw.Address.Hex()
-						rows, err := db.Query(`
-						SELECT pubkey, adder
-						FROM validator_records
-						WHERE vault = ? AND opted_out_block IS NULL
-						`, vaultAddr)
-						if err != nil {
-							logger.Error("failed to query pubkeys for vault", "vault", vaultAddr, "error", err)
-							return
-						}
-						defer rows.Close()
-
-						var pubkeys [][]byte
-						var adders []string
-						for rows.Next() {
-							var pubkeyHex, adderHex string
-							if err := rows.Scan(&pubkeyHex, &adderHex); err != nil {
-								logger.Error("scan pubkey error", "error", err)
-								continue
-							}
-							pubkeys = append(pubkeys, common.FromHex(pubkeyHex))
-							adders = append(adders, adderHex)
-						}
-
-						checkBlockNum := ev.Raw.BlockNumber + 1
-						go func(pubkeys [][]byte, checkBlock uint64) {
-							for {
-								tipBlock, err := ethClient.BlockNumber(context.Background())
-								if err != nil {
-									time.Sleep(time.Second * 2)
-									continue
-								}
-								if tipBlock >= checkBlock {
-									break
-								}
-								time.Sleep(time.Second * 2)
-							}
-
-							var routerAddr common.Address
-							if c.Bool(optionMainnet.Name) {
-								routerAddr = common.HexToAddress(config.EthereumContracts.ValidatorOptInRouter)
-							} else {
-								routerAddr = common.HexToAddress(config.HoleskyContracts.ValidatorOptInRouter)
-							}
-							routerCaller, err := validatoroptinrouter.NewValidatoroptinrouterCaller(routerAddr, ethClient)
-							if err != nil {
-								panic(fmt.Sprintf("failed to create router caller: %v", err))
-							}
-							callOpts := &bind.CallOpts{BlockNumber: big.NewInt(int64(checkBlock))}
-							optInStatuses, err := routerCaller.AreValidatorsOptedIn(callOpts, pubkeys)
-							if err != nil {
-								logger.Error("failed AreValidatorsOptedIn", "error", err)
-								return
-							}
-							for i, status := range optInStatuses {
-								if !status.IsMiddlewareOptedIn {
-									pubkeyHex := common.Bytes2Hex(pubkeys[i])
-									logger.Info("validator is no longer opted in by any registry",
-										"pubkey", pubkeyHex, "block", checkBlock,
-									)
-									insertOptOut(db, logger, pubkeyHex, adders[i], "OnSlashAutoOptOut", checkBlock)
-								}
-							}
-						}(pubkeys, checkBlockNum)
-					},
-				),
-			}
-
-			// Subscribe to events
-			sub, err := listener.Subscribe(handlers...)
-			if err != nil {
-				return fmt.Errorf("subscribe error: %w", err)
-			}
-			defer sub.Unsubscribe()
-
-			ps.SetSubscriptionActive(true)
-
-			go func() {
-				for err := range sub.Err() {
-					ps.SetSubscriptionActive(false)
-					logger.Error("subscription error", "error", err)
-				}
-			}()
-
-			// Start the points accrual routine (once every 24 hours)
-			StartPointsRoutine(ctx, db, logger, 24*time.Hour, ethClient, ps)
-
-			pointsAPI := NewPointsAPI(logger, db, ps)
-			go func() {
-				if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
-					logger.Error("API server error", "error", err)
-				}
-			}()
-
-			select {
-			case <-ctx.Done():
-				logger.Info("context canceled, shutting down")
-			case <-done:
-				logger.Info("publisher done channel closed")
-			}
-
-			logger.Info("graceful shutdown complete")
-			return nil
+			return runAppWithClient(c, realClient)
 		},
 	}
 
