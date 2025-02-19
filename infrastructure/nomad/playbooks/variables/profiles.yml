@@ -566,7 +566,6 @@ jobs:
     ports:
       - metrics:
           to: 8080
-          static: 8181
     env:
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
