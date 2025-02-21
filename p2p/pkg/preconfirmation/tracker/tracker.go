@@ -9,12 +9,15 @@ import (
 	"slices"
 	"time"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderregistry "github.com/primev/mev-commit/contracts-abi/clients/BidderRegistry"
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	preconfcommstore "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
+	"github.com/primev/mev-commit/p2p/pkg/crypto"
 	"github.com/primev/mev-commit/p2p/pkg/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/preconfirmation/store"
 	"github.com/primev/mev-commit/x/contracts/events"
@@ -28,11 +31,14 @@ const (
 )
 
 type Tracker struct {
+	ctxChainIDData  []byte
 	peerType        p2p.PeerType
 	self            common.Address
 	evtMgr          events.EventManager
 	store           CommitmentStore
 	preconfContract PreconfContract
+	providerNikePK  *bn254.G1Affine
+	providerNikeSK  *fr.Element
 	receiptGetter   txmonitor.BatchReceiptGetter
 	optsGetter      OptsGetter
 	newL1Blocks     chan *blocktracker.BlocktrackerNewL1Block
@@ -66,29 +72,25 @@ type CommitmentStore interface {
 type PreconfContract interface {
 	OpenCommitment(
 		opts *bind.TransactOpts,
-		encryptedCommitmentIndex [32]byte,
-		bidAmt *big.Int,
-		blockNumber uint64,
-		txnHash string,
-		revertingTxHashes string,
-		decayStartTimeStamp uint64,
-		decayEndTimeStamp uint64,
-		bidSignature []byte,
-		sharedSecretKey []byte,
+		params preconfcommstore.IPreconfManagerOpenCommitmentParams,
 	) (*types.Transaction, error)
 }
 
 func NewTracker(
+	chainID *big.Int,
 	peerType p2p.PeerType,
 	self common.Address,
 	evtMgr events.EventManager,
 	store CommitmentStore,
 	preconfContract PreconfContract,
 	receiptGetter txmonitor.BatchReceiptGetter,
+	providerNikePublicKey *bn254.G1Affine,
+	providerNikeSecretKey *fr.Element,
 	optsGetter OptsGetter,
 	logger *slog.Logger,
 ) *Tracker {
 	return &Tracker{
+		ctxChainIDData:  []byte(fmt.Sprintf("mev-commit opening %s", chainID.String())),
 		peerType:        peerType,
 		self:            self,
 		evtMgr:          evtMgr,
@@ -96,6 +98,8 @@ func NewTracker(
 		preconfContract: preconfContract,
 		receiptGetter:   receiptGetter,
 		optsGetter:      optsGetter,
+		providerNikePK:  providerNikePublicKey,
+		providerNikeSK:  providerNikeSecretKey,
 		newL1Blocks:     make(chan *blocktracker.BlocktrackerNewL1Block),
 		unopenedCmts:    make(chan *preconfcommstore.PreconfmanagerUnopenedCommitmentStored),
 		commitments:     make(chan *preconfcommstore.PreconfmanagerOpenedCommitmentStored),
@@ -394,23 +398,38 @@ func (t *Tracker) openCommitments(
 			continue
 		}
 
+		slashAmt, ok := new(big.Int).SetString(commitment.Bid.SlashAmount, 10)
+		if !ok {
+			t.logger.Error("failed to parse slash amount", "slashAmount", commitment.Bid.SlashAmount)
+			continue
+		}
+
 		opts, err := t.optsGetter(ctx)
 		if err != nil {
 			t.logger.Error("failed to get transact opts", "error", err)
 			continue
 		}
 
+		zkProof, err := t.generateZKProof(commitment)
+		if err != nil {
+			t.logger.Error("failed to generate ZK proof", "error", err)
+			continue
+		}
+
 		txn, err := t.preconfContract.OpenCommitment(
 			opts,
-			commitmentIdx,
-			bidAmt,
-			uint64(commitment.PreConfirmation.Bid.BlockNumber),
-			commitment.PreConfirmation.Bid.TxHash,
-			commitment.PreConfirmation.Bid.RevertingTxHashes,
-			uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
-			uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
-			commitment.PreConfirmation.Bid.Signature,
-			commitment.PreConfirmation.SharedSecret,
+			preconfcommstore.IPreconfManagerOpenCommitmentParams{
+				UnopenedCommitmentIndex: commitmentIdx,
+				BidAmt:                  bidAmt,
+				BlockNumber:             uint64(commitment.PreConfirmation.Bid.BlockNumber),
+				TxnHash:                 commitment.PreConfirmation.Bid.TxHash,
+				RevertingTxHashes:       commitment.PreConfirmation.Bid.RevertingTxHashes,
+				DecayStartTimeStamp:     uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
+				DecayEndTimeStamp:       uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
+				BidSignature:            commitment.PreConfirmation.Bid.Signature,
+				SlashAmt:                slashAmt,
+				ZkProof:                 zkProof,
+			},
 		)
 		if err != nil {
 			t.logger.Error("failed to open commitment", "error", err)
@@ -511,4 +530,77 @@ func (t *Tracker) handleOpenedCommitmentStored(
 	// In case of bidders this event keeps track of the commitments already opened
 	// by the provider.
 	return t.store.DeleteCommitmentByDigest(int64(cs.BlockNumber), cs.BidAmt.String(), cs.CommitmentDigest)
+}
+
+func (t *Tracker) generateZKProof(
+	commitment *store.EncryptedPreConfirmationWithDecrypted,
+) ([]*big.Int, error) {
+	pubB, err := crypto.BN254PublicKeyFromBytes(commitment.Bid.NikePublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse bidder pubkey B: %w", err)
+	}
+
+	sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse shared secret C: %w", err)
+	}
+
+	bidderX, bidderY := crypto.AffineToBigIntXY(pubB)
+	sharedX, sharedY := crypto.AffineToBigIntXY(sharedC)
+
+	if t.peerType == p2p.PeerTypeProvider {
+		return t.generateProviderProof(pubB, sharedC, bidderX, bidderY, sharedX, sharedY)
+	}
+
+	return t.generateBidderProof(bidderX, bidderY, sharedX, sharedY), nil
+}
+
+func (t *Tracker) generateProviderProof(
+	pubB *bn254.G1Affine,
+	sharedC *bn254.G1Affine,
+	bidderX, bidderY, sharedX, sharedY big.Int,
+) ([]*big.Int, error) {
+	proof, err := crypto.GenerateOptimizedProof(
+		t.providerNikeSK,
+		t.providerNikePK,
+		pubB,
+		sharedC,
+		t.ctxChainIDData,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate optimized proof: %w", err)
+	}
+
+	var cBig, zBig big.Int
+	proof.C.BigInt(&cBig)
+	proof.Z.BigInt(&zBig)
+
+	providerX, providerY := crypto.AffineToBigIntXY(t.providerNikePK)
+
+	return []*big.Int{
+		&providerX,
+		&providerY,
+		&bidderX,
+		&bidderY,
+		&sharedX,
+		&sharedY,
+		&cBig,
+		&zBig,
+	}, nil
+}
+
+func (t *Tracker) generateBidderProof(
+	bidderX, bidderY, sharedX, sharedY big.Int,
+) []*big.Int {
+	zeroInt := big.NewInt(0)
+	return []*big.Int{
+		zeroInt,
+		zeroInt,
+		&bidderX,
+		&bidderY,
+		&sharedX,
+		&sharedY,
+		zeroInt,
+		zeroInt,
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"math/rand"
 	"reflect"
@@ -23,6 +24,7 @@ import (
 	blocktracker "github.com/primev/mev-commit/contracts-abi/clients/BlockTracker"
 	oracle "github.com/primev/mev-commit/contracts-abi/clients/Oracle"
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
+	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	providerapiv1 "github.com/primev/mev-commit/p2p/gen/go/providerapi/v1"
 	"github.com/primev/mev-commit/testing/pkg/orchestrator"
@@ -57,6 +59,10 @@ var (
 
 	fundsRewardedKey = func(cmtDigest []byte) string {
 		return fmt.Sprintf("frw/%s", string(cmtDigest))
+	}
+
+	fundsSlashedKey = func(providerAddr common.Address, amount *big.Int) string {
+		return fmt.Sprintf("fs/%s/%s", providerAddr, amount)
 	}
 
 	blkKey = func(bNo uint64) string {
@@ -129,6 +135,13 @@ func RunPreconf(ctx context.Context, cluster orchestrator.Orchestrator, _ any) e
 			func(c *bidderregistry.BidderregistryFundsRewarded) {
 				logger.Info("Rewarded funds", "digest", hex.EncodeToString(c.CommitmentDigest[:]))
 				store.Insert(fundsRewardedKey(c.CommitmentDigest[:]), c)
+			},
+		),
+		events.NewEventHandler(
+			"FundsSlashed",
+			func(c *providerregistry.ProviderregistryFundsSlashed) {
+				logger.Info("Funds slashed", "provider", c.Provider, "amount", c.Amount)
+				store.Insert(fundsSlashedKey(c.Provider, c.Amount), c)
 			},
 		),
 		events.NewEventHandler(
@@ -378,6 +391,12 @@ DONE:
 					)
 					return fmt.Errorf("settlement not found")
 				}
+				residualBidPercent := computeResidualAfterDecay(uint64(pc.DecayStartTimestamp), uint64(pc.DecayEndTimestamp), uint64(pc.DispatchTimestamp))
+				bidAmt, _ := new(big.Int).SetString(entry.Bid.Amount, 10)
+				slashAmount, _ := new(big.Int).SetString(entry.Bid.SlashAmount, 10)
+				residualBidAmt := new(big.Int).Mul(residualBidPercent, bidAmt)
+				residualBidAmt.Div(residualBidAmt, big.NewInt(ONE_HUNDRED_PERCENT))
+
 				if entry.ShouldSlash {
 					if !pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
 						logger.Error("Provider should be slashed", "entry", entry)
@@ -388,15 +407,31 @@ DONE:
 						logger.Error("Funds not retrieved", "entry", entry)
 						return fmt.Errorf("funds not retrieved")
 					}
+
+					bidderPortion := new(big.Int).Add(residualBidAmt, slashAmount)
+					penaltyFee := new(big.Int).Mul(residualBidAmt, big.NewInt(FEE_PERCENT))
+					penaltyFee.Div(penaltyFee, big.NewInt(ONE_HUNDRED_PERCENT))
+
+					totalSlash := new(big.Int).Add(bidderPortion, penaltyFee)
+
+					_, ok = store.Get(fundsSlashedKey(common.BytesToAddress(providerAddr), totalSlash))
+					if !ok {
+						logger.Error("Funds not slashed", "entry", entry, "total", totalSlash, "penaltyFee", penaltyFee, "bidderPortion", bidderPortion)
+						return fmt.Errorf("funds not slashed")
+					}
 				} else {
 					if pcmt.(*oracle.OracleCommitmentProcessed).IsSlash {
 						logger.Error("Provider should not be slashed", "entry", entry)
 						return fmt.Errorf("provider should not be slashed")
 					}
-					_, ok := store.Get(fundsRewardedKey(cmtDigest))
+					fr, ok := store.Get(fundsRewardedKey(cmtDigest))
 					if !ok {
 						logger.Error("Funds not rewarded", "entry", entry)
 						return fmt.Errorf("funds not rewarded")
+					}
+					if fr.(*bidderregistry.BidderregistryFundsRewarded).Amount.Cmp(residualBidAmt) != 0 {
+						logger.Error("residual bid amount mismatch", "entry", entry, "expected", residualBidAmt, "actual", fr.(*bidderregistry.BidderregistryFundsRewarded).Amount)
+						return fmt.Errorf("residual bid amount mismatch")
 					}
 				}
 			}
@@ -494,6 +529,8 @@ func getRandomBid(
 	shouldSlash := rand.Intn(100) < 10 && !sendPayload
 	// amount between 5M and 6M
 	amount := 5_000_000 + rand.Intn(1_000_000)
+	// slash amount between 10000 and 100000
+	slashAmount := 10_000 + rand.Intn(100_000)
 
 	if shouldSlash {
 		if len(txHashes) > 1 {
@@ -517,6 +554,7 @@ func getRandomBid(
 	bid := &BidEntry{
 		Bid: &bidderapiv1.Bid{
 			Amount:              fmt.Sprintf("%d", amount),
+			SlashAmount:         fmt.Sprintf("%d", slashAmount),
 			BlockNumber:         int64(blkNum),
 			DecayStartTimestamp: time.Now().UnixMilli(),
 			DecayEndTimestamp:   time.Now().Add(5 * time.Second).UnixMilli(),
@@ -568,4 +606,28 @@ func getRevertingTxns(
 	}
 
 	return revertingTxns, nil
+}
+
+const (
+	PRECISION           = 1e16
+	ONE_HUNDRED_PERCENT = 100 * PRECISION
+	FEE_PERCENT         = 5 * PRECISION
+)
+
+func computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uint64) *big.Int {
+	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
+		return big.NewInt(0)
+	}
+
+	totalTime := endTimestamp - startTimestamp
+	timePassed := commitTimestamp - startTimestamp
+	decayPercentage := float64(timePassed) / float64(totalTime)
+	residual := 1 - decayPercentage
+
+	residualPercentageRound := math.Round(residual * ONE_HUNDRED_PERCENT)
+	if residualPercentageRound > ONE_HUNDRED_PERCENT {
+		residualPercentageRound = ONE_HUNDRED_PERCENT
+	}
+
+	return big.NewInt(int64(residualPercentageRound))
 }

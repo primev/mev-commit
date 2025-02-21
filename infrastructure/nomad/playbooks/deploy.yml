@@ -426,7 +426,7 @@
           echo "Error: No static nodes found."
           exit 1
         fi
-        cat "${STATIC_NODES}" | remarshal --if json --of toml - > "{{ dist_dir }}/config_{{ environments[env].version }}.toml"
+        cat "${STATIC_NODES}" | remarshal --if json --of toml - > "{{ dist_dir }}/config_{{ env }}-{{ environments[env].version }}.toml"
       args:
         executable: bash
       delegate_to: localhost
@@ -480,7 +480,11 @@
             echo "${ALLOC}" | jq --arg address "0x${ADDRESS}" '
               . + {
                 ($address): {
+                    {% if profile == 'mainnet' %}
+                    "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE4E51B291D10AFFFFF"
+                    {% else %}
                     "balance": "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD4A51000FDA0FFFF"
+                    {% endif %}
                 }
               }
             '
@@ -535,7 +539,7 @@
           "extradata": "${EXTRADATA}"
         }
         EOH
-        ) | jq -c '.' > "{{ dist_dir }}/genesis_{{ environments[env].version }}.json"
+        ) | jq -c '.' > "{{ dist_dir }}/genesis_{{ env }}-{{ environments[env].version }}.json"
       args:
         executable: bash
       delegate_to: localhost

@@ -267,7 +267,7 @@ func (ke *KeyExchange) decryptMessage(ekmWithSignature *keyexchangepb.EKMWithSig
 		return nil, nil, fmt.Errorf("failed to unmarshal message: %w", err)
 	}
 
-	prvKey, err := ke.store.GetECIESPrivateKey()
+	prvKey, err := ke.store.ECIESPrivateKey()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get ECIES private key: %w", err)
 	}

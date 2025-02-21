@@ -72,6 +72,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         IRegistry _networkRegistry,
         IRegistry _operatorRegistry,
         IRegistry _vaultFactory,
+        IRegistry _delegatorFactory,
+        IRegistry _slasherFactory,
         IRegistry _burnerRouterFactory,
         address _network,
         uint256 _slashPeriodSeconds,
@@ -83,6 +85,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _setNetworkRegistry(_networkRegistry);
         _setOperatorRegistry(_operatorRegistry);
         _setVaultFactory(_vaultFactory);
+        _setDelegatorFactory(_delegatorFactory);
+        _setSlasherFactory(_slasherFactory);
         _setBurnerRouterFactory(_burnerRouterFactory);
         _setNetwork(_network);
         _setSlashPeriodSeconds(_slashPeriodSeconds);
@@ -295,6 +299,16 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     /// @dev Sets the vault factory, restricted to contract owner.
     function setVaultFactory(IRegistry _vaultFactory) external onlyOwner {
         _setVaultFactory(_vaultFactory);
+    }
+
+    /// @dev Sets the delegator factory, restricted to contract owner.
+    function setDelegatorFactory(IRegistry _delegatorFactory) external onlyOwner {
+        _setDelegatorFactory(_delegatorFactory);
+    }
+
+    /// @dev Sets the slasher factory, restricted to contract owner.
+    function setSlasherFactory(IRegistry _slasherFactory) external onlyOwner {
+        _setSlasherFactory(_slasherFactory);
     }
 
     /// @dev Sets the burner router factory, restricted to contract owner.
@@ -622,6 +636,20 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         emit VaultFactorySet(address(_vaultFactory));
     }
 
+    /// @dev Internal function to set the delegator factory.
+    function _setDelegatorFactory(IRegistry _delegatorFactory) internal {
+        require(_delegatorFactory != IRegistry(address(0)), ZeroAddressNotAllowed());
+        delegatorFactory = _delegatorFactory;
+        emit DelegatorFactorySet(address(_delegatorFactory));
+    }
+
+    /// @dev Internal function to set the slasher factory.
+    function _setSlasherFactory(IRegistry _slasherFactory) internal {
+        require(_slasherFactory != IRegistry(address(0)), ZeroAddressNotAllowed());
+        slasherFactory = _slasherFactory;
+        emit SlasherFactorySet(address(_slasherFactory));
+    }
+
     /// @dev Internal function to set the burner router factory.
     function _setBurnerRouterFactory(IRegistry _burnerRouterFactory) internal {
         require(_burnerRouterFactory != IRegistry(address(0)), ZeroAddressNotAllowed());
@@ -670,12 +698,16 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function _validateVaultParams(address vault, uint256 slashPeriodSeconds) internal view {
-        IEntity delegator = IEntity(IVault(vault).delegator());
-        if (delegator.TYPE() == _FULL_RESTAKE_DELEGATOR_TYPE) {
+        address delegator = IVault(vault).delegator();
+
+        require(delegatorFactory.isEntity(delegator), DelegatorNotEntity(delegator, address(delegatorFactory)));
+
+        uint256 delegatorType = IEntity(delegator).TYPE();
+        if (delegatorType == _FULL_RESTAKE_DELEGATOR_TYPE) {
             revert FullRestakeDelegatorNotSupported(vault);
         // Only two delegator types are supported, network-restake and operator-specific.
-        } else if (delegator.TYPE() != _NETWORK_RESTAKE_DELEGATOR_TYPE && delegator.TYPE() != _OPERATOR_SPECIFIC_DELEGATOR_TYPE) {
-            revert UnknownDelegatorType(vault, delegator.TYPE());
+        } else if (delegatorType != _NETWORK_RESTAKE_DELEGATOR_TYPE && delegatorType != _OPERATOR_SPECIFIC_DELEGATOR_TYPE) {
+            revert UnknownDelegatorType(vault, delegatorType);
         }
 
         IVaultStorage vaultContract = IVaultStorage(vault);
@@ -683,6 +715,9 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
         address slasher = IVault(vault).slasher();
         require(slasher != address(0), SlasherNotSetForVault(vault));
+
+        require(slasherFactory.isEntity(slasher), SlasherNotEntity(slasher, address(slasherFactory)));
+
         uint256 slasherType = IEntity(slasher).TYPE();
         if (slasherType == _VETO_SLASHER_TYPE) {
             IVetoSlasher vetoSlasher = IVetoSlasher(slasher);

@@ -2,7 +2,6 @@ package keyexchange_test
 
 import (
 	"bytes"
-	"crypto/ecdh"
 	"crypto/rand"
 	"errors"
 	"io"
@@ -71,12 +70,15 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	sk, pk, err := p2pcrypto.GenerateKeyPairBN254()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	err = providerStore.SetNikePrivateKey(nikePrivateKey)
+	err = providerStore.SetBN254PrivateKey(sk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = providerStore.SetBN254PublicKey(pk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +86,7 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 	providerPeer := p2p.Peer{
 		EthAddress: ks.GetAddress(),
 		Type:       p2p.PeerTypeProvider,
-		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: nikePrivateKey.PublicKey()},
+		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: pk},
 	}
 	topo1 := &testTopology{peers: []p2p.Peer{providerPeer}}
 	topo2 := &testTopology{peers: []p2p.Peer{bidderPeer}}
@@ -126,11 +128,11 @@ func TestKeyExchange_SendAndHandleTimestampMessage(t *testing.T) {
 		if time.Since(start) > 5*time.Second {
 			t.Fatal("timed out")
 		}
-		providerAesKey, err := providerStore.GetAESKey(bidderPeer.EthAddress)
+		providerAesKey, err := providerStore.AESKey(bidderPeer.EthAddress)
 		if err != nil {
 			t.Fatal(err)
 		}
-		bidderAesKey, err := bidderStore.GetAESKey(bidderPeer.EthAddress)
+		bidderAesKey, err := bidderStore.AESKey(bidderPeer.EthAddress)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -172,12 +174,15 @@ func TestKeyExchange_Whitelist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
+	sk, pk, err := p2pcrypto.GenerateKeyPairBN254()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	err = providerStore.SetNikePrivateKey(nikePrivateKey)
+	err = providerStore.SetBN254PrivateKey(sk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = providerStore.SetBN254PublicKey(pk)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +190,7 @@ func TestKeyExchange_Whitelist(t *testing.T) {
 	providerPeer := p2p.Peer{
 		EthAddress: ks.GetAddress(),
 		Type:       p2p.PeerTypeProvider,
-		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: nikePrivateKey.PublicKey()},
+		Keys:       &p2p.Keys{PKEPublicKey: &encryptionPrivateKey.PublicKey, NIKEPublicKey: pk},
 	}
 	topo1 := &testTopology{peers: []p2p.Peer{providerPeer}}
 	topo2 := &testTopology{peers: []p2p.Peer{bidderPeer}}

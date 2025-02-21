@@ -3,7 +3,8 @@ name: releaser
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+      - 'v*.*.*-rc*'
 
 permissions:
   contents: write

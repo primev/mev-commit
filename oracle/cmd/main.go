@@ -124,35 +124,35 @@ var (
 		Name:    "oracle-contract-addr",
 		Usage:   "address of the oracle contract",
 		EnvVars: []string{"MEV_ORACLE_ORACLE_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.Oracle,
+		Value:   contracts.MevCommitChainContracts.Oracle,
 	})
 
 	optionPreconfContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "preconf-contract-addr",
 		Usage:   "address of the preconf contract",
 		EnvVars: []string{"MEV_ORACLE_PRECONF_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.PreconfManager,
+		Value:   contracts.MevCommitChainContracts.PreconfManager,
 	})
 
 	optionBlockTrackerContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "blocktracker-contract-addr",
 		Usage:   "address of the block tracker contract",
 		EnvVars: []string{"MEV_ORACLE_BLOCKTRACKER_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.BlockTracker,
+		Value:   contracts.MevCommitChainContracts.BlockTracker,
 	})
 
 	optionBidderRegistryContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "bidder-registry-contract-addr",
 		Usage:   "address of the bidder registry contract",
 		EnvVars: []string{"MEV_ORACLE_BIDDERREGISTRY_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.BidderRegistry,
+		Value:   contracts.MevCommitChainContracts.BidderRegistry,
 	})
 
 	optionProviderRegistryContractAddr = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "provider-registry-contract-addr",
 		Usage:   "address of the provider registry contract",
 		EnvVars: []string{"MEV_ORACLE_PROVIDERREGISTRY_CONTRACT_ADDR"},
-		Value:   contracts.TestnetContracts.ProviderRegistry,
+		Value:   contracts.MevCommitChainContracts.ProviderRegistry,
 	})
 
 	optionPgHost = altsrc.NewStringFlag(&cli.StringFlag{
@@ -234,14 +234,14 @@ var (
 		Name:    "gas-tip-cap",
 		Usage:   "Use predefined gas tip cap for transactions",
 		EnvVars: []string{"MEV_COMMIT_GAS_TIP_CAP"},
-		Value:   "1000000000", // 1 gWEI
+		Value:   "50000000", // 0.05 gWEI
 	})
 
 	optionGasFeeCap = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "gas-fee-cap",
 		Usage:   "Use predefined gas fee cap for transactions",
 		EnvVars: []string{"MEV_COMMIT_GAS_FEE_CAP"},
-		Value:   "2000000000", // 2 gWEI
+		Value:   "60000000", // 0.06 gWEI
 	})
 
 	optionRelayUrls = altsrc.NewStringSliceFlag(&cli.StringSliceFlag{
@@ -249,10 +249,10 @@ var (
 		Usage:   "URLs for relay",
 		EnvVars: []string{"MEV_ORACLE_RELAY_URLS"},
 		Value: cli.NewStringSlice(
-			"https://holesky.aestus.live",
-			"https://boost-relay-holesky.flashbots.net",
-			"https://bloxroute.holesky.blxrbdn.com",
-			"https://holesky.titanrelay.xyz",
+			"https://mainnet.aestus.live",
+			"https://mainnet.titanrelay.xyz",
+			"https://bloxroute.max-profit.blxrbdn.com",
+			"https://boost-relay.flashbots.net",
 		),
 	})
 )

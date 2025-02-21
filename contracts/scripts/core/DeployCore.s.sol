@@ -14,19 +14,18 @@ import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
 import {BlockTracker} from "../../contracts/core/BlockTracker.sol";
 import {console} from "forge-std/console.sol";
 
-contract DeployTestnet is Script {
+contract DeployCore is Script {
 
     // Amount of ETH to initially fund the oracle account on L1 chain.
-    uint256 public constant ORACLE_INITIAL_FUNDING = 1 ether;
+    uint256 public constant ORACLE_INITIAL_FUNDING = 0.5 ether;
     uint256 public constant PERCENT_MULTIPLIER = 1e16;
     
     error FailedToSendETHToOracle(address addr);
 
     function run() external {
-        require(block.chainid == 17864, "chainID not 17864 (testnet env)");
         vm.startBroadcast();
 
-        uint256 minStake = 1 ether;
+        uint256 minStake = 10 ether;
         address protocolFeeRecipient = address(
             0xfA0B0f5d298d28EFE4d35641724141ef19C05684 // Placeholder for now, L1 preconf.eth address
         );

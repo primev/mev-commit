@@ -2,12 +2,12 @@ package preconfencryptor
 
 import (
 	"bytes"
-	"crypto/ecdh"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
 
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -27,24 +27,25 @@ var (
 	ErrMissingRequiredFields        = errors.New("missing required fields")
 	ErrNoAesKeyFound                = errors.New("no AES key found for bidder")
 	ErrInvalidBidAmt                = errors.New("invalid bid amount")
+	ErrInvalidSlashAmt              = errors.New("invalid slash amount")
 	ErrBidNotFound                  = errors.New("bid not found")
 )
 
 var (
-	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp)"))
-	EIP712CommitmentTypeHash = crypto.Keccak256Hash([]byte("OpenedCommitment(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,bytes32 bidHash,string signature,string sharedSecretKey)"))
+	EIP712BidTypeHash        = crypto.Keccak256Hash([]byte("PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy)"))
+	EIP712CommitmentTypeHash = crypto.Keccak256Hash([]byte("OpenedCommitment(bytes32 bidHash,string signature,uint256 sharedKeyX,uint256 sharedKeyY)"))
 )
 
 type Store interface {
-	GetAESKey(common.Address) ([]byte, error)
-	GetNikePrivateKey() (*ecdh.PrivateKey, error)
+	AESKey(common.Address) ([]byte, error)
+	BN254PrivateKey() (*fr.Element, error)
 }
 
 type encryptor struct {
 	keySigner                  keysigner.KeySigner
-	address                    []byte           // set for the provider
-	nikePrvKey                 *ecdh.PrivateKey // set for the provider
-	aesKey                     []byte           // set for the bidder
+	address                    []byte      // set for the provider
+	nikePrvKey                 *fr.Element // set for the provider
+	aesKey                     []byte      // set for the bidder
 	store                      Store
 	domainSeparatorBidHash     common.Hash // Precomputed domain separator for bids
 	domainSeparatorPreConfHash common.Hash // Precomputed domain separator for pre-confirmations
@@ -53,11 +54,11 @@ type encryptor struct {
 func NewEncryptor(ks keysigner.KeySigner, store Store, chainID *big.Int, preconfContract string) (*encryptor, error) {
 	address := ks.GetAddress()
 	// those keys are set up during the libp2p.New initialization.
-	aesKey, err := store.GetAESKey(address)
+	aesKey, err := store.AESKey(address)
 	if err != nil {
 		return nil, err
 	}
-	nikePrvKey, err := store.GetNikePrivateKey()
+	nikePrvKey, err := store.BN254PrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -87,10 +88,21 @@ func NewEncryptor(ks keysigner.KeySigner, store Store, chainID *big.Int, preconf
 
 func (e *encryptor) ConstructEncryptedBid(
 	bid *preconfpb.Bid,
-) (*preconfpb.EncryptedBid, *ecdh.PrivateKey, error) {
+) (*preconfpb.EncryptedBid, *fr.Element, error) {
 	if bid.TxHash == "" || bid.BidAmount == "" || bid.BlockNumber == 0 {
 		return nil, nil, ErrMissingRequiredFields
 	}
+	var (
+		sk  *fr.Element
+		pk  *bn254.G1Affine
+		err error
+	)
+
+	sk, pk, err = p2pcrypto.GenerateKeyPairBN254()
+	if err != nil {
+		return nil, nil, err
+	}
+	bid.NikePublicKey = p2pcrypto.BN254PublicKeyToBytes(pk)
 
 	bidHash, err := GetBidHash(bid, e.domainSeparatorBidHash)
 	if err != nil {
@@ -102,14 +114,8 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	nikePrivateKey, err := ecdh.P256().GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	transformSignatureVValue(sig)
 
-	bid.NikePublicKey = nikePrivateKey.PublicKey().Bytes()
 	bid.Digest = bidHash
 	bid.Signature = sig
 
@@ -123,29 +129,26 @@ func (e *encryptor) ConstructEncryptedBid(
 		return nil, nil, err
 	}
 
-	return &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, nikePrivateKey, nil
+	return &preconfpb.EncryptedBid{Ciphertext: encryptedBidData}, sk, nil
 }
 
 func (e *encryptor) ConstructEncryptedPreConfirmation(
 	bid *preconfpb.Bid,
 ) (*preconfpb.PreConfirmation, *preconfpb.EncryptedPreConfirmation, error) {
-	bidDataPublicKey, err := ecdh.Curve.NewPublicKey(ecdh.P256(), bid.NikePublicKey)
+	bidDataPublicKey, err := p2pcrypto.BN254PublicKeyFromBytes(bid.NikePublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	sharedSecretProviderSk, err := e.nikePrvKey.ECDH(bidDataPublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
+	sharedKeyProvider := p2pcrypto.DeriveSharedKey(e.nikePrvKey, bidDataPublicKey)
 
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:             bid,
-		SharedSecret:    sharedSecretProviderSk,
+		SharedSecret:    p2pcrypto.BN254PublicKeyToBytes(sharedKeyProvider),
 		ProviderAddress: e.address,
 	}
 
-	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation, e.domainSeparatorPreConfHash)
+	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation, sharedKeyProvider, e.domainSeparatorPreConfHash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -184,7 +187,7 @@ func (e *encryptor) VerifyBid(bid *preconfpb.Bid) (*common.Address, error) {
 }
 
 func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.EncryptedBid) (*preconfpb.Bid, error) {
-	aesKey, err := e.store.GetAESKey(bidderAddress)
+	aesKey, err := e.store.AESKey(bidderAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -208,25 +211,23 @@ func (e *encryptor) DecryptBidData(bidderAddress common.Address, bid *preconfpb.
 // that signed the preconfirmation.
 func (e *encryptor) VerifyEncryptedPreConfirmation(
 	bid *preconfpb.Bid,
-	providerNikePK *ecdh.PublicKey,
-	bidderNikeSC *ecdh.PrivateKey,
+	providerNikePK *bn254.G1Affine,
+	bidderNikeSC *fr.Element,
 	c *preconfpb.EncryptedPreConfirmation,
 ) ([]byte, *common.Address, error) {
 	if c.Signature == nil {
 		return nil, nil, ErrMissingHashSignature
 	}
 
-	sharedSecredBidderSk, err := bidderNikeSC.ECDH(providerNikePK)
-	if err != nil {
-		return nil, nil, err
-	}
+	sharedKeyBidder := p2pcrypto.DeriveSharedKey(bidderNikeSC, providerNikePK)
+	sharedKeyBidderBytes := p2pcrypto.BN254PublicKeyToBytes(sharedKeyBidder)
 
 	preConfirmation := &preconfpb.PreConfirmation{
 		Bid:          bid,
-		SharedSecret: sharedSecredBidderSk,
+		SharedSecret: sharedKeyBidderBytes,
 	}
 
-	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation, e.domainSeparatorPreConfHash)
+	preConfirmationHash, err := GetPreConfirmationHash(preConfirmation, sharedKeyBidder, e.domainSeparatorPreConfHash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -236,7 +237,7 @@ func (e *encryptor) VerifyEncryptedPreConfirmation(
 		return nil, nil, err
 	}
 
-	return sharedSecredBidderSk, address, nil
+	return sharedKeyBidderBytes, address, nil
 }
 
 func eipVerify(
@@ -291,10 +292,17 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 	if !ok {
 		return common.Hash{}, ErrInvalidBidAmt
 	}
+	slashAmt, ok := big.NewInt(0).SetString(bid.SlashAmount, 10)
+	if !ok {
+		return common.Hash{}, ErrInvalidSlashAmt
+	}
 
 	txnHashHash := crypto.Keccak256Hash([]byte(bid.TxHash))
 	revertingTxHashesHash := crypto.Keccak256Hash([]byte(bid.RevertingTxHashes))
-
+	bidderPK, err := p2pcrypto.BN254PublicKeyFromBytes(bid.NikePublicKey)
+	if err != nil {
+		return common.Hash{}, err
+	}
 	bidStructType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "EIP712BidTypeHash", Type: "bytes32"},
 		{Name: "txnHash", Type: "bytes32"},
@@ -303,6 +311,9 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: "uint64"},
 		{Name: "decayStartTimestamp", Type: "uint64"},
 		{Name: "decayEndTimestamp", Type: "uint64"},
+		{Name: "slashAmt", Type: "uint256"},
+		{Name: "bidderPKx", Type: "uint256"},
+		{Name: "bidderPKy", Type: "uint256"},
 	})
 	if err != nil {
 		return common.Hash{}, err
@@ -317,7 +328,12 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		{Name: "blockNumber", Type: *bidStructType.TupleElems[4]},
 		{Name: "decayStartTimestamp", Type: *bidStructType.TupleElems[5]},
 		{Name: "decayEndTimestamp", Type: *bidStructType.TupleElems[6]},
+		{Name: "slashAmt", Type: *bidStructType.TupleElems[7]},
+		{Name: "bidderPKx", Type: *bidStructType.TupleElems[8]},
+		{Name: "bidderPKy", Type: *bidStructType.TupleElems[9]},
 	}
+
+	pkXBigInt, pkYBigInt := p2pcrypto.AffineToBigIntXY(bidderPK)
 
 	// Encode the bid struct using ABI encoding
 	encodedBid, err := bidStructArguments.Pack(
@@ -328,6 +344,9 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 		uint64(bid.BlockNumber),
 		uint64(bid.DecayStartTimestamp),
 		uint64(bid.DecayEndTimestamp),
+		slashAmt,
+		&pkXBigInt,
+		&pkYBigInt,
 	)
 	if err != nil {
 		return common.Hash{}, err
@@ -339,9 +358,9 @@ func computeBidStructHash(bid *preconfpb.Bid) (common.Hash, error) {
 
 // GetPreConfirmationHash returns the hash of the preconfirmation message. This is done manually to match the
 // Solidity implementation. If the types change, this will need to be updated.
-func GetPreConfirmationHash(c *preconfpb.PreConfirmation, domainSeparatorHash common.Hash) ([]byte, error) {
+func GetPreConfirmationHash(c *preconfpb.PreConfirmation, sharedKey *bn254.G1Affine, domainSeparatorHash common.Hash) ([]byte, error) {
 	// Compute the struct hash
-	structHash, err := computePreConfStructHash(c)
+	structHash, err := computePreConfStructHash(c, sharedKey)
 	if err != nil {
 		return nil, err
 	}
@@ -351,32 +370,21 @@ func GetPreConfirmationHash(c *preconfpb.PreConfirmation, domainSeparatorHash co
 	return eip712Hash, nil
 }
 
-func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error) {
-	bidAmt, ok := big.NewInt(0).SetString(c.Bid.BidAmount, 10)
-	if !ok {
-		return common.Hash{}, ErrInvalidBidAmt
-	}
-
-	txnHashHash := crypto.Keccak256Hash([]byte(c.Bid.TxHash))
-	revertingTxHashesHash := crypto.Keccak256Hash([]byte(c.Bid.RevertingTxHashes))
+func computePreConfStructHash(c *preconfpb.PreConfirmation, sharedKey *bn254.G1Affine) (common.Hash, error) {
 	bidDigestHash, err := toBytes32(c.Bid.Digest)
 	if err != nil {
 		return common.Hash{}, err
 	}
 	signatureHash := crypto.Keccak256Hash(c.Bid.Signature)
-	sharedSecretHash := crypto.Keccak256Hash(c.SharedSecret)
+
+	sharedKeyXBigInt, sharedKeyYBigInt := p2pcrypto.AffineToBigIntXY(sharedKey)
 
 	preConfStructType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "EIP712CommitmentTypeHash", Type: "bytes32"},
-		{Name: "txnHash", Type: "bytes32"},
-		{Name: "revertingTxHashes", Type: "bytes32"},
-		{Name: "bidAmt", Type: "uint256"},
-		{Name: "blockNumber", Type: "uint64"},
-		{Name: "decayStartTimestamp", Type: "uint64"},
-		{Name: "decayEndTimestamp", Type: "uint64"},
 		{Name: "bidDigest", Type: "bytes32"},
 		{Name: "signature", Type: "bytes32"},
-		{Name: "sharedSecret", Type: "bytes32"},
+		{Name: "sharedKeyX", Type: "uint256"},
+		{Name: "sharedKeyY", Type: "uint256"},
 	})
 	if err != nil {
 		return common.Hash{}, err
@@ -385,29 +393,19 @@ func computePreConfStructHash(c *preconfpb.PreConfirmation) (common.Hash, error)
 	// Create the arguments array
 	preConfStructArguments := abi.Arguments{
 		{Name: "EIP712CommitmentTypeHash", Type: *preConfStructType.TupleElems[0]},
-		{Name: "txnHash", Type: *preConfStructType.TupleElems[1]},
-		{Name: "revertingTxHashes", Type: *preConfStructType.TupleElems[2]},
-		{Name: "bidAmt", Type: *preConfStructType.TupleElems[3]},
-		{Name: "blockNumber", Type: *preConfStructType.TupleElems[4]},
-		{Name: "decayStartTimestamp", Type: *preConfStructType.TupleElems[5]},
-		{Name: "decayEndTimestamp", Type: *preConfStructType.TupleElems[6]},
-		{Name: "bidDigest", Type: *preConfStructType.TupleElems[7]},
-		{Name: "signature", Type: *preConfStructType.TupleElems[8]},
-		{Name: "sharedSecret", Type: *preConfStructType.TupleElems[9]},
+		{Name: "bidDigest", Type: *preConfStructType.TupleElems[1]},
+		{Name: "signature", Type: *preConfStructType.TupleElems[2]},
+		{Name: "sharedKeyX", Type: *preConfStructType.TupleElems[3]},
+		{Name: "sharedKeyY", Type: *preConfStructType.TupleElems[4]},
 	}
 
 	// Encode the pre-confirmation struct using ABI encoding
 	encodedPreConf, err := preConfStructArguments.Pack(
 		EIP712CommitmentTypeHash,
-		txnHashHash,
-		revertingTxHashesHash,
-		bidAmt,
-		uint64(c.Bid.BlockNumber),
-		uint64(c.Bid.DecayStartTimestamp),
-		uint64(c.Bid.DecayEndTimestamp),
 		bidDigestHash,
 		signatureHash,
-		sharedSecretHash,
+		&sharedKeyXBigInt,
+		&sharedKeyYBigInt,
 	)
 	if err != nil {
 		return common.Hash{}, err

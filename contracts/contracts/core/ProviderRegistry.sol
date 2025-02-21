@@ -12,7 +12,6 @@ import {FeePayout} from "../utils/FeePayout.sol";
 import {Errors} from "../utils/Errors.sol";
 
 /// @title Provider Registry
-/// @author Kartik Chopra
 /// @notice This contract is for provider registry and staking.
 contract ProviderRegistry is
     IProviderRegistry,
@@ -26,7 +25,10 @@ contract ProviderRegistry is
      * @dev Modifier to restrict a function to only be callable by the preconf manager.
      */
     modifier onlyPreconfManager() {
-        require(msg.sender == preconfManager, NotPreconfContract(msg.sender, preconfManager));
+        require(
+            msg.sender == preconfManager,
+            NotPreconfContract(msg.sender, preconfManager)
+        );
         _;
     }
 
@@ -47,7 +49,11 @@ contract ProviderRegistry is
         uint256 _withdrawalDelay,
         uint256 _penaltyFeePayoutPeriodBlocks
     ) external initializer {
-        FeePayout.init(penaltyFeeTracker, _penaltyFeeRecipient, _penaltyFeePayoutPeriodBlocks);
+        FeePayout.init(
+            penaltyFeeTracker,
+            _penaltyFeeRecipient,
+            _penaltyFeePayoutPeriodBlocks
+        );
         minStake = _minStake;
         feePercent = _feePercent;
         withdrawalDelay = _withdrawalDelay;
@@ -93,41 +99,68 @@ contract ProviderRegistry is
      * @dev Slash funds from the provider and send the slashed amount to the bidder.
      * @dev reenterancy not necessary but still putting here for precaution.
      * @dev Note we slash the funds taking into account the residual bid percent after decay.
-     * @param amt The amount to slash from the provider's stake.
+     * @param amt The amount of bid to slash from the provider's stake .
+     * @param slashAmt The amount to slash from the provider's stake.
      * @param provider The address of the provider.
      * @param bidder The address to transfer the slashed funds to.
      * @param residualBidPercentAfterDecay The residual bid percent after decay.
      */
     function slash(
         uint256 amt,
+        uint256 slashAmt,
         address provider,
         address payable bidder,
         uint256 residualBidPercentAfterDecay
     ) external nonReentrant onlyPreconfManager whenNotPaused {
-        uint256 residualAmt = (amt * residualBidPercentAfterDecay) / ONE_HUNDRED_PERCENT;
+        uint256 residualAmt = (amt * residualBidPercentAfterDecay) /
+            ONE_HUNDRED_PERCENT;
+
         uint256 penaltyFee = (residualAmt * feePercent) / ONE_HUNDRED_PERCENT;
+        uint256 bidderPortion = residualAmt + slashAmt;
+        uint256 totalSlash = bidderPortion + penaltyFee;
         uint256 providerStake = providerStakes[provider];
 
-        if (providerStake < residualAmt + penaltyFee) {
-            emit InsufficientFundsToSlash(provider, providerStake, residualAmt, penaltyFee);
-            if (providerStake < residualAmt) {
-                residualAmt = providerStake;
-            }
-            penaltyFee = providerStake - residualAmt;
-        }
-        providerStakes[provider] -= residualAmt + penaltyFee;
+        if (providerStake < totalSlash) {
+            emit InsufficientFundsToSlash(
+                provider,
+                providerStake,
+                residualAmt,
+                penaltyFee,
+                slashAmt
+            );
 
+            uint256 leftover = providerStake;
+
+            if (leftover < bidderPortion) {
+                bidderPortion = leftover;
+                leftover = 0;
+                penaltyFee = 0;
+            } else {
+                leftover -= bidderPortion;
+                if (leftover < penaltyFee) {
+                    penaltyFee = leftover;
+                    leftover = 0;
+                } else {
+                    leftover -= penaltyFee;
+                }
+            }
+
+            totalSlash = bidderPortion + penaltyFee;
+        }
+
+        providerStakes[provider] = providerStake - totalSlash;
         penaltyFeeTracker.accumulatedAmount += penaltyFee;
+
         if (FeePayout.isPayoutDue(penaltyFeeTracker)) {
             FeePayout.transferToRecipient(penaltyFeeTracker);
         }
 
-        if (!payable(bidder).send(residualAmt)) {
-            emit TransferToBidderFailed(bidder, residualAmt);
-            bidderSlashedAmount[bidder] += residualAmt;
+        if (!payable(bidder).send(bidderPortion)) {
+            emit TransferToBidderFailed(bidder, bidderPortion);
+            bidderSlashedAmount[bidder] += bidderPortion;
         }
 
-        emit FundsSlashed(provider, residualAmt + penaltyFee);
+        emit FundsSlashed(provider, totalSlash);
     }
 
     /**
@@ -159,7 +192,7 @@ contract ProviderRegistry is
     }
 
     /// @dev Sets the withdrawal delay. Can only be called by the owner.
-    /// @param _withdrawalDelay The new withdrawal delay in milliseconds 
+    /// @param _withdrawalDelay The new withdrawal delay in milliseconds
     /// as mev-commit chain is running with milliseconds.
     function setWithdrawalDelay(uint256 _withdrawalDelay) external onlyOwner {
         withdrawalDelay = _withdrawalDelay;
@@ -171,19 +204,26 @@ contract ProviderRegistry is
      * @dev onlyOwner restriction
      * @param newFeeRecipient The address of the new penalty fee recipient
      */
-    function setNewPenaltyFeeRecipient(address newFeeRecipient) external onlyOwner {
+    function setNewPenaltyFeeRecipient(
+        address newFeeRecipient
+    ) external onlyOwner {
         penaltyFeeTracker.recipient = newFeeRecipient;
         emit PenaltyFeeRecipientUpdated(newFeeRecipient);
     }
 
     /// @dev Sets the fee payout period in blocks
     /// @param _feePayoutPeriodBlocks The new fee payout period in blocks
-    function setFeePayoutPeriodBlocks(uint256 _feePayoutPeriodBlocks) external onlyOwner {
+    function setFeePayoutPeriodBlocks(
+        uint256 _feePayoutPeriodBlocks
+    ) external onlyOwner {
         penaltyFeeTracker.payoutPeriodBlocks = _feePayoutPeriodBlocks;
         emit FeePayoutPeriodBlocksUpdated(_feePayoutPeriodBlocks);
     }
 
-    function overrideAddBLSKey(address provider, bytes calldata blsPublicKey) external onlyOwner {
+    function overrideAddBLSKey(
+        address provider,
+        bytes calldata blsPublicKey
+    ) external onlyOwner {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
         eoaToBlsPubkeys[provider].push(blsPublicKey);
         blockBuilderBLSKeyToAddress[blsPublicKey] = provider;
@@ -192,16 +232,28 @@ contract ProviderRegistry is
     /// @dev Requests unstake of the staked amount.
     function unstake() external whenNotPaused {
         require(providerStakes[msg.sender] != 0, NoStakeToWithdraw(msg.sender));
-        require(withdrawalRequests[msg.sender] == 0, UnstakeRequestExists(msg.sender));
+        require(
+            withdrawalRequests[msg.sender] == 0,
+            UnstakeRequestExists(msg.sender)
+        );
         withdrawalRequests[msg.sender] = block.timestamp;
         emit Unstake(msg.sender, block.timestamp);
     }
 
     /// @dev Completes the withdrawal of the staked amount.
     function withdraw() external nonReentrant whenNotPaused {
-        require(withdrawalRequests[msg.sender] != 0, NoUnstakeRequest(msg.sender));
-        require(block.timestamp >= withdrawalRequests[msg.sender] + withdrawalDelay,
-            DelayNotPassed(withdrawalRequests[msg.sender], withdrawalDelay, block.timestamp));
+        require(
+            withdrawalRequests[msg.sender] != 0,
+            NoUnstakeRequest(msg.sender)
+        );
+        require(
+            block.timestamp >= withdrawalRequests[msg.sender] + withdrawalDelay,
+            DelayNotPassed(
+                withdrawalRequests[msg.sender],
+                withdrawalDelay,
+                block.timestamp
+            )
+        );
 
         uint256 providerStake = providerStakes[msg.sender];
         providerStakes[msg.sender] = 0;
@@ -213,7 +265,13 @@ contract ProviderRegistry is
             payable(preconfManager)
         ).commitmentsCount(msg.sender);
 
-        require(providerPendingCommitmentsCount == 0, ProviderCommitmentsPending(msg.sender, providerPendingCommitmentsCount));
+        require(
+            providerPendingCommitmentsCount == 0,
+            ProviderCommitmentsPending(
+                msg.sender,
+                providerPendingCommitmentsCount
+            )
+        );
 
         (bool success, ) = msg.sender.call{value: providerStake}("");
         require(success, StakeTransferFailed(msg.sender, providerStake));
@@ -224,8 +282,11 @@ contract ProviderRegistry is
     /**
      * @dev Allows the bidder to withdraw the slashed amount.
      */
-    function withdrawSlashedAmount() external nonReentrant whenNotPaused() {
-        require(bidderSlashedAmount[msg.sender] != 0, BidderAmountIsZero(msg.sender));
+    function withdrawSlashedAmount() external nonReentrant whenNotPaused {
+        require(
+            bidderSlashedAmount[msg.sender] != 0,
+            BidderAmountIsZero(msg.sender)
+        );
         uint256 amount = bidderSlashedAmount[msg.sender];
         bidderSlashedAmount[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: amount}("");
@@ -246,9 +307,14 @@ contract ProviderRegistry is
         address provider = msg.sender;
 
         require(providerRegistered[provider], ProviderNotRegistered(provider));
-        require(blsPublicKey.length == 48, PublicKeyLengthInvalid(48, blsPublicKey.length));
-        require(signature.length == 96, SignatureLengthInvalid(96, signature.length));
-
+        require(
+            blsPublicKey.length == 48,
+            PublicKeyLengthInvalid(48, blsPublicKey.length)
+        );
+        require(
+            signature.length == 96,
+            SignatureLengthInvalid(96, signature.length)
+        );
 
         bytes32 message = keccak256(abi.encodePacked(provider));
 
@@ -286,17 +352,23 @@ contract ProviderRegistry is
      * @param provider The address of the provider.
      * @return The staked amount for the provider.
      */
-    function getProviderStake(address provider) external view returns (uint256) {
+    function getProviderStake(
+        address provider
+    ) external view returns (uint256) {
         return providerStakes[provider];
     }
 
-        /// @dev Returns the BLS public keys corresponding to a provider's staked EOA address.
-    function getBLSKeys(address provider) external view returns (bytes[] memory) {
+    /// @dev Returns the BLS public keys corresponding to a provider's staked EOA address.
+    function getBLSKeys(
+        address provider
+    ) external view returns (bytes[] memory) {
         return eoaToBlsPubkeys[provider];
     }
 
     /// @dev Returns the EOA address corresponding to a provider's BLS public key.
-    function getEoaFromBLSKey(bytes calldata blsKey) external view returns (address) {
+    function getEoaFromBLSKey(
+        bytes calldata blsKey
+    ) external view returns (address) {
         return blockBuilderBLSKeyToAddress[blsKey];
     }
 
@@ -314,20 +386,27 @@ contract ProviderRegistry is
     }
 
     /**
-    * @dev Register and stake on behalf of a provider.
-    * @param provider Address of the provider.
-    */
-    function delegateRegisterAndStake(address provider) public payable whenNotPaused onlyOwner {
+     * @dev Register and stake on behalf of a provider.
+     * @param provider Address of the provider.
+     */
+    function delegateRegisterAndStake(
+        address provider
+    ) public payable whenNotPaused onlyOwner {
         _registerAndStake(provider);
     }
 
     /// @dev Ensure the provider's balance is greater than minStake and no pending withdrawal
     function isProviderValid(address provider) public view {
         uint256 providerStake = providerStakes[provider];
-        require(providerStake >= minStake, InsufficientStake(providerStake, minStake));
-        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
+        require(
+            providerStake >= minStake,
+            InsufficientStake(providerStake, minStake)
+        );
+        require(
+            withdrawalRequests[provider] == 0,
+            PendingWithdrawalRequest(provider)
+        );
     }
-
 
     /**
      * @dev Verifies a BLS signature using the precompile
@@ -347,15 +426,11 @@ contract ProviderRegistry is
 
         // Concatenate inputs in required format:
         // [pubkey (48 bytes) | message (32 bytes) | signature (96 bytes)]
-        bytes memory input = bytes.concat(
-            pubKey,
-            message,
-            signature
-        );
+        bytes memory input = bytes.concat(pubKey, message, signature);
 
         // Call precompile
         (bool success, bytes memory result) = address(0xf0).staticcall(input);
-        
+
         // Check if call was successful
         if (!success) {
             return false;
@@ -367,13 +442,19 @@ contract ProviderRegistry is
 
     function _stake(address provider) internal {
         require(providerRegistered[provider], ProviderNotRegistered(provider));
-        require(withdrawalRequests[provider] == 0, PendingWithdrawalRequest(provider));
+        require(
+            withdrawalRequests[provider] == 0,
+            PendingWithdrawalRequest(provider)
+        );
         providerStakes[provider] += msg.value;
         emit FundsDeposited(provider, msg.value);
     }
 
     function _registerAndStake(address provider) internal {
-        require(!providerRegistered[provider], ProviderAlreadyRegistered(provider));
+        require(
+            !providerRegistered[provider],
+            ProviderAlreadyRegistered(provider)
+        );
         require(msg.value >= minStake, InsufficientStake(msg.value, minStake));
 
         providerStakes[provider] = msg.value;

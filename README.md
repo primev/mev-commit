@@ -1,12 +1,9 @@
 # mev-commit
 
 [![CI](https://github.com/primev/mev-commit/actions/workflows/ci.yml/badge.svg)](https://github.com/primev/mev-commit/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE.txt)
+[![License](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](LICENSE)
 
-
-Is P2P software that creates a network of execution providers and bidders.
-Bidders can broadcast bids to providers and receive commitments from them.
-A high throughput POA EVM chain settles the bids at the end of a block slot.
+Primev's mev-commit makes Ethereum FAST by enabling preconfirmations and new types of mev using an encrypted mempool, enhancing yield for opted-in validators.
 
 ## Documentation
 

@@ -48,10 +48,16 @@ job "{{ job.name }}" {
       {% endfor %}
     }
 
+    volume "data-volume" {
+      type = "host"
+      source = "data-volume"
+      read_only = false
+    }
+
     task "contracts" {
       driver = "exec"
 
-      {% if profile == 'testnet' %}
+      {% if profile == 'testnet' or profile == 'mainnet' %}
       resources {
         cpu = 4000
         memory = 2048
@@ -62,6 +68,12 @@ job "{{ job.name }}" {
         memory = 1024
       }
       {% endif %}
+
+      volume_mount {
+        volume = "data-volume"
+        destination = "/local/data"
+        read_only = false
+      }
 
       {% for port_name in job.ports[0] %}
       service {
@@ -81,7 +93,7 @@ job "{{ job.name }}" {
       {% endfor %}
 
       artifact {
-        source = "https://nodejs.org/dist/v18.20.4/node-v18.20.4-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz"
+        source = "https://nodejs.org/dist/v20.18.2/node-v20.18.2-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz"
         options {
           archive = false
         }
@@ -132,7 +144,12 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
-          {%- if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
+          if [ -f /local/data/www/contracts.json ]; then
+            exec python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/data/www
+            exit $?
+          fi
+
+          {% if job.artifacts | selectattr('keystores', 'defined') | list | length > 0 %}
           mkdir -p "${KEYSTORE_DIR}" > /dev/null 2>&1
           {%- raw %}
             {{- with secret "secret/data/mev-commit" }}
@@ -144,12 +161,14 @@ job "{{ job.name }}" {
 
           tar \
             --extract \
-            --file local/node-v18.20.4-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz \
+            --file local/node-v20.18.2-linux-{{ 'x64' if target_system_architecture == 'x86_64' else 'arm64' }}.tar.xz \
             --directory /usr/local \
             --strip-components=1
 
+          find local/contracts -type f -name "._*.sol" -exec rm -f {} +
           chmod +x local/foundry.sh && local/foundry.sh
-          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup && ${XDG_CONFIG_HOME}/.foundry/bin/foundryup -i nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          ${XDG_CONFIG_HOME}/.foundry/bin/foundryup -i nightly-e649e62f125244a3ef116be25dfdc81a2afbaf2a
           export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
           chmod +x ${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh
           echo ""
@@ -226,6 +245,10 @@ job "{{ job.name }}" {
           export RPC_URL="{{ job.env['l1_rpc_url'] }}"
           export CHAIN_ID="17000"
           export ETHERSCAN_API_KEY="{{ job.env['etherscan_api_key'] }}"
+          {% elif profile == 'mainnet' %}
+          export RPC_URL="{{ job.env['l1_rpc_url'] }}"
+          export CHAIN_ID="1"
+          export ETHERSCAN_API_KEY="{{ job.env['etherscan_api_key'] }}"
           {% endif %}
 
           {%- raw %}
@@ -244,7 +267,6 @@ job "{{ job.name }}" {
           echo '{{ .Data.data.bridge_relayer_keystore }}' > local/bridge_relayer_keystore
             {{ end }}
           {% endraw %}
-          export L1_OWNER_ADDRESS=${SENDER} #TODO: this should be a multisig address on mainnet.
 
           # --verify flag in entrypoint.sh only works when running forge script from the contracts directory.
           # Here we setup the environment variables to function when cd'ing into the contracts directory.
@@ -272,10 +294,10 @@ job "{{ job.name }}" {
 
           {%- endif %}
 
-          mkdir -p /local/www > /dev/null 2>&1
-          jq -s 'add' local/*_addresses.json > local/www/contracts.json
+          mkdir -p /local/data/www > /dev/null 2>&1
+          jq -s 'add' local/*_addresses.json > local/data/www/contracts.json
 
-          exec python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/www
+          exec python3 -m http.server {{ job.ports[0]['http']['static'] }} --directory /local/data/www
           # endtodo
         EOH
         destination = "local/run.sh"

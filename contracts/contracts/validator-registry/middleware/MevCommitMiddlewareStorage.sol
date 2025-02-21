@@ -34,6 +34,12 @@ abstract contract MevCommitMiddlewareStorage {
     /// @notice Symbiotic core vault factory.
     IRegistry public vaultFactory;
 
+    /// @notice Symbiotic core delegator factory.
+    IRegistry public delegatorFactory;
+
+    /// @notice Symbiotic core slasher factory.
+    IRegistry public slasherFactory;
+
     /// @notice Symbiotic core burner router factory.
     IRegistry public burnerRouterFactory;
 

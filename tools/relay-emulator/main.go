@@ -164,6 +164,11 @@ func main() {
 					return
 				}
 
+				if len(registeredKeys) == 0 {
+					http.Error(w, "No registered keys", http.StatusInternalServerError)
+					return
+				}
+
 				idx := int(blockNumber) % len(registeredKeys)
 				registeredLock.RLock()
 				key := registeredKeys[idx]
