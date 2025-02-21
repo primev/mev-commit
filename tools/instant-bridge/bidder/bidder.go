@@ -150,6 +150,7 @@ func parseEpochInfo(msg *notificationsapiv1.Notification) (*epochInfo, error) {
 			epoch.slots = append(epoch.slots, slotInfo{
 				slot:      uint64(slotIdx),
 				startTime: epoch.startTime.Add(time.Duration(idx) * slotDuration),
+				blsKey:    blsKey,
 			})
 		}
 	}
@@ -204,6 +205,10 @@ func (b *BidderClient) Bid(
 		DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
 		SlashAmount:         bridgeAmount.String(),
 	})
+	if err != nil {
+		b.logger.Error("failed to send bid", "error", err)
+		return err
+	}
 
 	commitments := make([]*bidderapiv1.Commitment, 0)
 	for {
