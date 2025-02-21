@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	epochNotificationTopic = "epoch"
+	epochNotificationTopic = "epoch_validators_opted_in"
 	slotDuration           = 12 * time.Second
 )
 
