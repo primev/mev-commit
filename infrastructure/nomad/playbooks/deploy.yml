@@ -611,7 +611,7 @@
           "alloc": ${ALLOC}
         }
         EOH
-        ) | jq -c '.' > "{{ dist_dir }}/genesis_pos_{{ environments[env].version }}.json"
+        ) | jq -c '.' > "{{ dist_dir }}/genesis_pos_{{ env }}-{{ environments[env].version }}.json"
       args:
         executable: bash
       delegate_to: localhost

@@ -75,20 +75,20 @@ job "{{ job.name }}" {
 
       {% if env != 'devenv' %}
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/config_{{ version }}.toml"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/config_{{ env }}-{{ version }}.toml"
       }
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_pos_{{ version }}.json"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/genesis_pos_{{ env }}-{{ version }}.json"
       }
       artifact {
         source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/mev-commit-go-ethereum_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% else %}
       artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/config_{{ version }}.toml"
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/config_{{env }}-{{ version }}.toml"
       }
       artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/genesis_pos_{{ version }}.json"
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/genesis_pos_{{ env }}-{{ version }}.json"
       }
       artifact {
         source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/mev-commit-go-ethereum_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
@@ -100,8 +100,8 @@ job "{{ job.name }}" {
           {%- raw %}
           GETH_DATA_DIR="/local/data/{% endraw %}{{ job.name }}{% raw %}/node-{{ env "NOMAD_ALLOC_INDEX" }}"
           {% endraw %}
-          GETH_CONFIG="local/config_{{ version }}.toml"
-          GENESIS_L1_PATH="local/genesis_pos_{{ version }}.json"
+          GETH_CONFIG="local/config_{{ env }}-{{ version }}.toml"
+          GENESIS_L1_PATH="local/genesis_pos_{{ env }}-{{ version }}.json"
           GETH_BIN_PATH="local/mev-commit-go-ethereum"
           NODE_IP="{{ job.env['ip'] }}"
           {% if job.env['type'] != 'signer' %}
