@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	avs "github.com/primev/mev-commit/contracts-abi/clients/MevCommitAVS"
 	middleware "github.com/primev/mev-commit/contracts-abi/clients/MevCommitMiddleware"
@@ -490,6 +491,20 @@ func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType stri
 	}
 }
 
+func getMsgSenderFromTxnHash(ethClient *ethclient.Client, txHash common.Hash) (common.Address, error) {
+	tx, _, err := ethClient.TransactionByHash(context.Background(), txHash)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get transaction: %w", err)
+	}
+
+	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get sender: %w", err)
+	}
+
+	return from, nil
+}
+
 func main() {
 	app := &cli.App{
 		Name:  "mev-commit-points",
@@ -619,40 +634,60 @@ func main() {
 					"ValidatorRegistered",
 					func(ev *avs.MevcommitavsValidatorRegistered) {
 						pubkey := common.Bytes2Hex(ev.ValidatorPubKey)
-						adder := ev.PodOwner.Hex()
-						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "ValidatorRegistered", ev.Raw.BlockNumber)
+						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
+						if err != nil {
+							logger.Error("failed to get msg sender", "error", err)
+							return
+						}
+						insertOptIn(db, logger, pubkey, adder.Hex(), "eigenlayer", "ValidatorRegistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"LSTRestakerRegistered",
 					func(ev *avs.MevcommitavsLSTRestakerRegistered) {
 						pubkey := common.Bytes2Hex(ev.ChosenValidator)
-						adder := ev.LstRestaker.Hex()
-						insertOptIn(db, logger, pubkey, adder, "eigenlayer", "LSTRestakerRegistered", ev.Raw.BlockNumber)
+						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
+						if err != nil {
+							logger.Error("failed to get msg sender", "error", err)
+							return
+						}
+						insertOptIn(db, logger, pubkey, adder.Hex(), "eigenlayer", "LSTRestakerRegistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValidatorDeregistered",
 					func(ev *avs.MevcommitavsValidatorDeregistered) {
 						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
-						adderHex := ev.PodOwner.Hex()
-						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistered", ev.Raw.BlockNumber)
+						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
+						if err != nil {
+							logger.Error("failed to get msg sender", "error", err)
+							return
+						}
+						insertOptOut(db, logger, pubkeyHex, adder.Hex(), "ValidatorDeregistered", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValidatorDeregistrationRequested",
 					func(ev *avs.MevcommitavsValidatorDeregistrationRequested) {
 						pubkeyHex := common.Bytes2Hex(ev.ValidatorPubKey)
-						adderHex := ev.PodOwner.Hex()
-						insertOptOut(db, logger, pubkeyHex, adderHex, "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
+						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
+						if err != nil {
+							logger.Error("failed to get msg sender", "error", err)
+							return
+						}
+						insertOptOut(db, logger, pubkeyHex, adder.Hex(), "ValidatorDeregistrationRequested", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
 					"ValRecordDeleted",
 					func(ev *middleware.MevcommitmiddlewareValRecordDeleted) {
 						pubkey := common.Bytes2Hex(ev.BlsPubkey)
-						adder := ev.MsgSender.Hex()
-						insertOptOut(db, logger, pubkey, adder, "ValRecordDeleted", ev.Raw.BlockNumber)
+						adder, err := getMsgSenderFromTxnHash(ethClient, ev.Raw.TxHash)
+						if err != nil {
+							logger.Error("failed to get msg sender", "error", err)
+							return
+						}
+						insertOptOut(db, logger, pubkey, adder.Hex(), "ValRecordDeleted", ev.Raw.BlockNumber)
 					},
 				),
 				events.NewEventHandler(
