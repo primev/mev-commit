@@ -80,7 +80,7 @@ func NewAPI(
 	a.mux.HandleFunc("GET /health", func(w http.ResponseWriter, req *http.Request) {
 		err := a.health.Health()
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusServiceUnavailable, err)
+			apiserver.WriteError(w, http.StatusServiceUnavailable, err)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -90,16 +90,18 @@ func NewAPI(
 	a.mux.HandleFunc("GET /estimate", func(w http.ResponseWriter, req *http.Request) {
 		estimation, err := a.bidder.Estimate()
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusInternalServerError, err)
+			apiserver.WriteError(w, http.StatusInternalServerError, err)
 			return
 		}
-		apiserver.WriteResponse(w, http.StatusOK, struct {
+		if err := apiserver.WriteResponse(w, http.StatusOK, struct {
 			Seconds int64  `json:"seconds"`
 			Cost    string `json:"cost"`
 		}{
 			Seconds: estimation,
 			Cost:    a.minServiceFee.String(),
-		})
+		}); err != nil {
+			a.logger.Error("failed to write response", "error", err)
+		}
 	})
 
 	a.mux.HandleFunc("GET /status", func(w http.ResponseWriter, req *http.Request) {
@@ -109,17 +111,17 @@ func NewAPI(
 
 		l1Balance, err := a.l1Client.BalanceAt(req.Context(), a.owner, nil)
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusInternalServerError, err)
+			apiserver.WriteError(w, http.StatusInternalServerError, err)
 			return
 		}
 
 		settlementBalance, err := a.settlementClient.BalanceAt(req.Context(), a.owner, nil)
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusInternalServerError, err)
+			apiserver.WriteError(w, http.StatusInternalServerError, err)
 			return
 		}
 
-		apiserver.WriteResponse(w, http.StatusOK, struct {
+		if err := apiserver.WriteResponse(w, http.StatusOK, struct {
 			BidsAttempted      int64  `json:"bidsAttempted"`
 			BidsSucceeded      int64  `json:"bidsSucceeded"`
 			TransfersAttempted int64  `json:"transfersAttempted"`
@@ -139,37 +141,39 @@ func NewAPI(
 			FeesAccumulated:    feesAccumulated.String(),
 			L1Balance:          l1Balance.String(),
 			SettlementBalance:  settlementBalance.String(),
-		})
+		}); err != nil {
+			a.logger.Error("failed to write response", "error", err)
+		}
 	})
 
 	a.mux.HandleFunc("POST /bid", func(w http.ResponseWriter, req *http.Request) {
 		b, err := apiserver.BindJSON[bid](w, req)
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusBadRequest, err)
+			apiserver.WriteError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		if b.RawTx == "" || b.BridgeAmount == "" {
-			apiserver.WriteResponse(w, http.StatusBadRequest, errors.New("missing fields"))
+			apiserver.WriteError(w, http.StatusBadRequest, errors.New("missing fields"))
 			return
 		}
 
 		tx, err := a.transferer.ValidateL1Tx(b.RawTx)
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusBadRequest, fmt.Errorf("invalid raw tx: %w", err))
+			apiserver.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid raw tx: %w", err))
 			return
 		}
 
 		bridgeAmt, ok := new(big.Int).SetString(b.BridgeAmount, 10)
 		if !ok {
-			apiserver.WriteResponse(w, http.StatusBadRequest, errors.New("invalid bridge amount"))
+			apiserver.WriteError(w, http.StatusBadRequest, errors.New("invalid bridge amount"))
 			return
 		}
 
 		minCost := new(big.Int).Add(bridgeAmt, a.minServiceFee)
 		if tx.Value().Cmp(minCost) < 0 {
 			diff := new(big.Int).Sub(minCost, tx.Value())
-			apiserver.WriteResponse(
+			apiserver.WriteError(
 				w,
 				http.StatusBadRequest,
 				fmt.Errorf("insufficient funds; short by %s", diff.String()),
@@ -184,7 +188,7 @@ func NewAPI(
 		if b.DestAddress == "" {
 			destAddr, err = a.transferer.Sender(tx)
 			if err != nil {
-				apiserver.WriteResponse(
+				apiserver.WriteError(
 					w,
 					http.StatusBadRequest,
 					fmt.Errorf("failed to identify sender: %w", err),
@@ -203,7 +207,7 @@ func NewAPI(
 			b.RawTx,
 		)
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusInternalServerError, err)
+			apiserver.WriteError(w, http.StatusInternalServerError, err)
 			return
 		}
 		a.status.bidsSucceeded.Add(1)
@@ -215,7 +219,7 @@ func NewAPI(
 			bridgeAmt,
 		)
 		if err != nil {
-			apiserver.WriteResponse(w, http.StatusInternalServerError, err)
+			apiserver.WriteError(w, http.StatusInternalServerError, err)
 			return
 		}
 		a.status.transfersSucceeded.Add(1)
@@ -223,11 +227,13 @@ func NewAPI(
 		a.status.bidAmountSpent.Store(new(big.Int).Add(a.status.bidAmountSpent.Load(), halfFee))
 		a.status.feesAccumulated.Store(new(big.Int).Add(a.status.feesAccumulated.Load(), halfFee))
 
-		apiserver.WriteResponse(w, http.StatusOK, struct {
+		if err := apiserver.WriteResponse(w, http.StatusOK, struct {
 			Message string `json:"message"`
 		}{
 			Message: "success",
-		})
+		}); err != nil {
+			a.logger.Error("failed to write response", "error", err)
+		}
 	})
 
 	return a

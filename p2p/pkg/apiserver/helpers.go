@@ -40,6 +40,10 @@ func WriteResponse(w http.ResponseWriter, code int, message any) error {
 	return nil
 }
 
+func WriteError(w http.ResponseWriter, code int, err error) {
+	_ = WriteResponse(w, code, err.Error())
+}
+
 // MethodHandler helper is used to wrap a handler and ensure that the request method
 // matches the given method. If the method does not match, a 405 is returned.
 func MethodHandler(method string, handler http.HandlerFunc) http.HandlerFunc {
