@@ -10,6 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
+	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
+	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 	"github.com/primev/mev-commit/tools/instant-bridge/accountsync"
 	"github.com/primev/mev-commit/tools/instant-bridge/api"
 	"github.com/primev/mev-commit/tools/instant-bridge/bidder"
@@ -18,10 +21,6 @@ import (
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
-
-	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
-	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 )
 
 type Config struct {
