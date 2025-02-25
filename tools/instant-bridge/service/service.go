@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"log/slog"
@@ -21,7 +22,7 @@ import (
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 type Config struct {
@@ -51,7 +52,9 @@ func New(config *Config) (*Service, error) {
 
 	conn, err := grpc.NewClient(
 		config.BidderRPC,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(credentials.NewTLS(
+			&tls.Config{InsecureSkipVerify: true},
+		)),
 	)
 	if err != nil {
 		return nil, err
