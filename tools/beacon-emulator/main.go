@@ -145,81 +145,115 @@ func main() {
 
 			mux := http.NewServeMux()
 
-			mux.HandleFunc("GET /eth/v1/validator/duties/proposer/{epoch}", func(w http.ResponseWriter, r *http.Request) {
-				epochStr := r.PathValue("epoch")
-				epoch, err := strconv.Atoi(epochStr)
-				if err != nil {
-					http.Error(w, "Invalid epoch", http.StatusBadRequest)
-					return
-				}
-
-				response := &ProposerDutiesResponse{
-					Data: make([]struct {
-						Pubkey string `json:"pubkey"`
-						Slot   string `json:"slot"`
-					}, len(registeredKeys)),
-				}
-
-				baseSlot := epoch * 32
-
-				for i, key := range registeredKeys {
-					response.Data[i] = struct {
-						Pubkey string `json:"pubkey"`
-						Slot   string `json:"slot"`
-					}{
-						Pubkey: key,
-						Slot:   fmt.Sprintf("%d", baseSlot+i),
+			mux.HandleFunc(
+				"GET /eth/v1/validator/duties/proposer/{epoch}",
+				func(w http.ResponseWriter, r *http.Request) {
+					epochStr := r.PathValue("epoch")
+					epoch, err := strconv.Atoi(epochStr)
+					if err != nil {
+						http.Error(w, "Invalid epoch", http.StatusBadRequest)
+						return
 					}
-				}
 
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(response); err != nil {
-					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-					return
-				}
+					response := &ProposerDutiesResponse{
+						Data: make([]struct {
+							Pubkey string `json:"pubkey"`
+							Slot   string `json:"slot"`
+						}, len(registeredKeys)),
+					}
 
-				w.WriteHeader(http.StatusOK)
-			})
+					baseSlot := epoch * 32
 
-			mux.Handle("GET /eth/v1/beacon/states/head/finality_checkpoints", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				response := &FinalityCheckpointsResponse{
-					Data: struct {
-						PreviousJustified struct {
-							Epoch string `json:"epoch"`
-						} `json:"previous_justified"`
-						CurrentJustified struct {
-							Epoch string `json:"epoch"`
-						} `json:"current_justified"`
-						Finalized struct {
-							Epoch string `json:"epoch"`
-						} `json:"finalized"`
+					for i, key := range registeredKeys {
+						response.Data[i] = struct {
+							Pubkey string `json:"pubkey"`
+							Slot   string `json:"slot"`
+						}{
+							Pubkey: key,
+							Slot:   fmt.Sprintf("%d", baseSlot+i),
+						}
+					}
+
+					w.Header().Set("Content-Type", "application/json")
+					if err := json.NewEncoder(w).Encode(response); err != nil {
+						http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+						return
+					}
+
+					w.WriteHeader(http.StatusOK)
+				},
+			)
+
+			mux.HandleFunc(
+				"GET /eth/v1/beacon/states/head/finality_checkpoints",
+				func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					response := &FinalityCheckpointsResponse{
+						Data: struct {
+							PreviousJustified struct {
+								Epoch string `json:"epoch"`
+							} `json:"previous_justified"`
+							CurrentJustified struct {
+								Epoch string `json:"epoch"`
+							} `json:"current_justified"`
+							Finalized struct {
+								Epoch string `json:"epoch"`
+							} `json:"finalized"`
+						}{
+							PreviousJustified: struct {
+								Epoch string `json:"epoch"`
+							}{
+								Epoch: "0",
+							},
+							CurrentJustified: struct {
+								Epoch string `json:"epoch"`
+							}{
+								Epoch: "0",
+							},
+							Finalized: struct {
+								Epoch string `json:"epoch"`
+							}{
+								Epoch: "0",
+							},
+						},
+					}
+
+					if err := json.NewEncoder(w).Encode(response); err != nil {
+						http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+						return
+					}
+
+					w.WriteHeader(http.StatusOK)
+				},
+			)
+
+			mux.HandleFunc(
+				"GET /eth/v1/beacon/genesis",
+				func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					if err := json.NewEncoder(w).Encode(struct {
+						Data struct {
+							GenesisTime          string `json:"genesis_time"`
+							GenesisValidatorRoot string `json:"genesis_validators_root"`
+							GenesisForkVersion   string `json:"genesis_fork_version"`
+						} `json:"data"`
 					}{
-						PreviousJustified: struct {
-							Epoch string `json:"epoch"`
+						Data: struct {
+							GenesisTime          string `json:"genesis_time"`
+							GenesisValidatorRoot string `json:"genesis_validators_root"`
+							GenesisForkVersion   string `json:"genesis_fork_version"`
 						}{
-							Epoch: "0",
+							GenesisTime:          "1695902400",
+							GenesisValidatorRoot: "0x9143aa7c615a7f7115e2b6aac319c03529df8242ae705fba9df39b79c59fa8b1",
+							GenesisForkVersion:   "0x01017000",
 						},
-						CurrentJustified: struct {
-							Epoch string `json:"epoch"`
-						}{
-							Epoch: "0",
-						},
-						Finalized: struct {
-							Epoch string `json:"epoch"`
-						}{
-							Epoch: "0",
-						},
-					},
-				}
-
-				if err := json.NewEncoder(w).Encode(response); err != nil {
-					http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-					return
-				}
-
-				w.WriteHeader(http.StatusOK)
-			}))
+					}); err != nil {
+						http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+						return
+					}
+					w.WriteHeader(http.StatusOK)
+				},
+			)
 
 			server := &http.Server{
 				Addr:    fmt.Sprintf(":%d", c.Int(optionHTTPPort.Name)),
