@@ -233,7 +233,6 @@ jobs:
     count: 1
     ports:
       - http:
-          static: 8090
           to: 8080
     env:
       log-level: "info"
@@ -908,6 +907,7 @@ profiles:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
       - *otel_collector_job
+      - *beacon_emulator_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
@@ -926,7 +926,6 @@ profiles:
       - *mev_commit_bidder_node1_job
       - *mev_commit_bidder_node1_funder_job
       - *mev_commit_faucet_job
-      - *beacon_emulator_job
       - *instant_bridge_job
       - *datadog_agent_metrics_collector_job
   archive:
