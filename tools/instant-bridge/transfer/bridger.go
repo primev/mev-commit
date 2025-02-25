@@ -58,6 +58,12 @@ func (b *Bridger) Start(ctx context.Context) <-chan struct{} {
 				return
 			case <-thresholdCrossed:
 				// Bridge funds
+				b.logger.Info(
+					"threshold crossed, bridging funds",
+					"threshold", b.threshold,
+					"topup", b.topup,
+					"address", b.config.Signer.GetAddress().Hex(),
+				)
 				tx, err := transfer.NewTransferToSettlement(
 					b.topup,
 					b.config.Signer.GetAddress(),
