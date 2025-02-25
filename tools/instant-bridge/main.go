@@ -55,7 +55,7 @@ var (
 	optionBidderRPCUrl = &cli.StringFlag{
 		Name:     "bidder-rpc-url",
 		Usage:    "URL for mev-commit bidder RPC",
-		EnvVars:  []string{"INSTANT_BRIDGE_SETTLEMENT_RPC_URL"},
+		EnvVars:  []string{"INSTANT_BRIDGE_BIDDER_RPC_URL"},
 		Required: true,
 	}
 
@@ -177,6 +177,7 @@ func main() {
 			optionGasTipCap,
 			optionGasFeeCap,
 			optionSettlementContractAddr,
+			optionAutoDepositAmount,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(

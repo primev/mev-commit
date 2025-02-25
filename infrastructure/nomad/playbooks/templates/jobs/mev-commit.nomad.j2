@@ -97,6 +97,11 @@ job "{{ job.name }}" {
           MEV_COMMIT_SETTLEMENT_WS_RPC_ENDPOINT="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          {{- range nomadService "beacon-emulator" }}
+            {{- if contains "http" .Tags }}
+          MEV_COMMIT_BEACON_API_URL="http://{{ .Address }}:{{ .Port }}"
+            {{- end }}
+          {{- end }}
           {% endraw %}
           MEV_COMMIT_PEER_TYPE="{{ job.env['type'] }}"
           MEV_COMMIT_HTTP_ADDR="{{ job.env.get('http-address', '0.0.0.0') }}"
