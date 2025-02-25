@@ -21,6 +21,7 @@ import (
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Config struct {
@@ -48,7 +49,10 @@ type Service struct {
 func New(config *Config) (*Service, error) {
 	s := &Service{}
 
-	conn, err := grpc.NewClient(config.BidderRPC)
+	conn, err := grpc.NewClient(
+		config.BidderRPC,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		return nil, err
 	}
