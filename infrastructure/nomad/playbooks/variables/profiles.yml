@@ -274,6 +274,7 @@ jobs:
             allocation: "{{ (true) if profile == 'stressnet-wl1' or profile == 'instant-bridge' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
+      beacon-emulator: *beacon_emulator_job
     count: 1
     ports:
       - metrics:
