@@ -95,7 +95,7 @@ job "{{ job.name }}" {
           {{- end }}
           {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
             {{- if contains "rpc" .Tags }}
-          INSTANT_BRIDGE_BIDDER_RPC_URL="http://{{ .Address }}:{{ .Port }}"
+          INSTANT_BRIDGE_BIDDER_RPC_URL="{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
           {% endraw %}
