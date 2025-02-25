@@ -1,4 +1,4 @@
-rersion: 1
+version: 1
 
 project_name: beacon-emulator
 dist: /tmp/dist/beacon-emulator
