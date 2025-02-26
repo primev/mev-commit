@@ -347,8 +347,8 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 			s.logger.Info(
 				"scheduling epoch fetch",
 				"upcoming_epoch", nextEpoch,
-				"fetch_in", delay,
-				"fetch_time", fetchTime,
+				"fetch_in", delay.String(),
+				"fetch_time", fetchTime.String(),
 			)
 			select {
 			case <-egCtx.Done():
