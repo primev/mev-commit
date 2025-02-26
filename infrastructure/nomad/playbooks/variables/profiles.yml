@@ -270,7 +270,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider1_keystore:
-            allocation: "{{ (true) if profile == 'stressnet-wl1' or profile == 'instant-bridge' else false }}"
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
       beacon-emulator: *beacon_emulator_job
@@ -300,7 +300,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider2_keystore:
-            allocation: "{{ (true) if profile == 'stressnet-wl1' or profile == 'instant-bridge' else false }}"
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
     count: 1
@@ -328,7 +328,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           provider3_keystore:
-            allocation: "{{ (true) if profile == 'stressnet-wl1' or profile == 'instant-bridge' else false }}"
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
     count: 1
@@ -406,7 +406,7 @@ jobs:
       - *p2p_artifact
       - keystores:
           bidder1_keystore:
-            allocation: "{{ (true) if profile == 'stressnet-wl1' or profile == 'instant-bridge' else false }}"
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     count: 1
     ports:
       - metrics:
@@ -597,7 +597,7 @@ jobs:
           name: oracle_register_provider_api_auth_token
       - keystores:
           oracle_keystore:
-            allocation: "{{ (true) if profile == 'stressnet-wl1' or profile == 'instant-bridge' else false }}"
+            allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       contracts_deployer: *contracts_deployer_job
     count: 1

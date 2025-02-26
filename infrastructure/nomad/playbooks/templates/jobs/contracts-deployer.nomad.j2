@@ -206,7 +206,7 @@ job "{{ job.name }}" {
 
           forge clean --root "${CONTRACT_REPO_ROOT_PATH}"
 
-          {%- if profile != 'stressnet-wl1' or profile != 'instant-bridge' %}
+          {%- if profile != 'stressnet-wl1' %}
 
           start_time=$(date +%s)
           export DEPLOY_TYPE="settlement-gateway"

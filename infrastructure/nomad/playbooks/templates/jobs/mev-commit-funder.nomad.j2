@@ -38,7 +38,7 @@ job "{{ job.name }}" {
           XDG_CONFIG_HOME="local/.config"
           KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
             {% endraw %}
-            {% if profile == 'stressnet-wl1' or profile == 'instant-bridge' %}
+            {% if profile == 'stressnet-wl1' %}
             {% raw %}
           KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
           KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_password }}{{ end }}"
@@ -78,7 +78,7 @@ job "{{ job.name }}" {
           {{- with secret "secret/data/mev-commit" }}
           KEYSTORE_FILE="${KEYSTORE_PATH}/${KEYSTORE_FILENAME}"
             {% endraw %}
-            {% if profile == 'stressnet-wl1' or profile == 'instant-bridge' %}
+            {% if profile == 'stressnet-wl1' %}
             {% raw %}
           echo '{{ .Data.data.{% endraw %}{{ job.target.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %} }}' > "${KEYSTORE_FILE}"
             {% endraw %}
@@ -102,7 +102,7 @@ job "{{ job.name }}" {
             --priority-gas-price 2000000000 \
             --gas-price 5000000000 \
               {%- endraw %}
-              {% if profile == 'stressnet-wl1' or profile == 'instant-bridge' %}
+              {% if profile == 'stressnet-wl1' %}
               {%- raw %}
             --value 1000ether \
               {%- endraw %}
