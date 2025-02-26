@@ -115,6 +115,7 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 			}
 
 			b.nextEpoch.Store(epoch)
+			b.logger.Info("next epoch info updated", "epoch", epoch.epoch)
 		}
 	}()
 	return done
