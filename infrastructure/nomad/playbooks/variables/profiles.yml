@@ -908,6 +908,8 @@ profiles:
       - *datadog_agent_logs_collector_job
       - *otel_collector_job
       - *beacon_emulator_job
+      - *mock_l1_job
+      - *l1_transactor_job
       - *mev_commit_geth_bootnode1_job
       - *mev_commit_geth_signer_node1_job
       - *mev_commit_geth_member_node_job
