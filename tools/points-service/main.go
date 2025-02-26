@@ -838,7 +838,6 @@ func main() {
 
 			go func() {
 				for err := range sub.Err() {
-					ps.SetSubscriptionActive(false)
 					logger.Error("subscription error", "error", err)
 				}
 			}()
