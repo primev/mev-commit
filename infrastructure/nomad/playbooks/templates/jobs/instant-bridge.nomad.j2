@@ -91,6 +91,7 @@ job "{{ job.name }}" {
           INSTANT_BRIDGE_BIDDER_RPC_URL="{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
+          XDG_CONFIG_HOME="local/.config"
           CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
           CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
@@ -136,6 +137,14 @@ job "{{ job.name }}" {
           {{- end }}
           {% endraw %}
 
+          chmod +x local/foundry.sh && local/foundry.sh
+          chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup
+          ${XDG_CONFIG_HOME}/.foundry/bin/foundryup 2>&1
+          if [ $? -ne 0 ]; then
+            echo "Failed to install foundry tools"
+            exit 1
+          fi
+          export PATH="${XDG_CONFIG_HOME}/.foundry/bin:$PATH"
           {%- raw %}
           {{- range nomadService "mock-l1" }}
             {{- if contains "ws" .Tags }}
