@@ -89,11 +89,6 @@ job "{{ job.name }}" {
           CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
           CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
-          {{- range nomadService "mock-l1" }}
-            {{- if contains "ws" .Tags }}
-          L1_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
-            {{- end }}
-          {{- end }}
           {% endraw %}
           INSTANT_BRIDGE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           CONTRACTS_PATH="local/contracts"
@@ -106,6 +101,8 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
+          #
+          set -x
 
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
