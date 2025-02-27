@@ -103,6 +103,8 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 
 			lastMsg = nowFunc()
 
+			b.logger.Info("received message", "msg", msg)
+
 			if msg.Topic != epochNotificationTopic {
 				b.logger.Error("unexpected topic", "topic", msg.Topic)
 				continue
