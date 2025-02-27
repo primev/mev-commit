@@ -92,7 +92,7 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           XDG_CONFIG_HOME="local/.config"
-          CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
+          CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deployer_keystore"
           CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
           CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
           {% endraw %}
@@ -117,6 +117,7 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
           mkdir -p "${CONTRACT_DEPLOYER_KEYSTORE_PATH}" > /dev/null 2>&1
+          mkdir -p "${INSTANT_BRIDGE_KEYSTORE_DIR}" > /dev/null 2>&1
             {{- with secret "secret/data/mev-commit" }}
           CONTRACT_DEPLOYER_KEYSTORE_FILE="${CONTRACT_DEPLOYER_KEYSTORE_PATH}/${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}"
           echo '{{ .Data.data.contract_deployer_keystore }}' > "${CONTRACT_DEPLOYER_KEYSTORE_FILE}"
