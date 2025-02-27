@@ -103,6 +103,7 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           {% endraw %}
+          MEV_COMMIT_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
           MEV_COMMIT_PEER_TYPE="{{ job.env['type'] }}"
           MEV_COMMIT_HTTP_ADDR="{{ job.env.get('http-address', '0.0.0.0') }}"
           MEV_COMMIT_RPC_ADDR="{{ job.env.get('rpc-address', '0.0.0.0') }}"

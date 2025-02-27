@@ -262,6 +262,7 @@ jobs:
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node1: &mev_commit_provider_node1_job
     name: mev-commit-provider-node1
@@ -292,6 +293,7 @@ jobs:
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node2: &mev_commit_provider_node2_job
     name: mev-commit-provider-node2
@@ -320,6 +322,7 @@ jobs:
       nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node3: &mev_commit_provider_node3_job
     name: mev-commit-provider-node3
@@ -348,6 +351,7 @@ jobs:
       nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node1_funder: &mev_commit_provider_node1_funder_job
     name: mev-commit-provider-node1-funder
@@ -424,6 +428,7 @@ jobs:
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node2: &mev_commit_bidder_node2_job
     name: mev-commit-bidder-node2
@@ -449,6 +454,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node3: &mev_commit_bidder_node3_job
     name: mev-commit-bidder-node3
@@ -474,6 +480,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node4: &mev_commit_bidder_node4_job
     name: mev-commit-bidder-node4
@@ -499,6 +506,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node5: &mev_commit_bidder_node5_job
     name: mev-commit-bidder-node5
@@ -524,6 +532,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node1_funder: &mev_commit_bidder_node1_funder_job
     name: mev-commit-bidder-node1-funder
