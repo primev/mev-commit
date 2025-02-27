@@ -129,6 +129,8 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
+          #
+          set -x
 
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
@@ -176,6 +178,9 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
           {% endraw %}
+
+          echo $MEV_COMMIT_L1_RPC_URL
+          echo $MEV_COMMIT_VALIDATOR_ROUTER_ADDR
 
           chmod +x local/mev-commit
           exec local/mev-commit
