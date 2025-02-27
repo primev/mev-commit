@@ -114,17 +114,10 @@ job "{{ job.name }}" {
             {{- with secret "secret/data/mev-commit" }}
           CONTRACT_DEPLOYER_KEYSTORE_FILE="${CONTRACT_DEPLOYER_KEYSTORE_PATH}/${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}"
           echo '{{ .Data.data.contract_deployer_keystore }}' > "${CONTRACT_DEPLOYER_KEYSTORE_FILE}"
+          INSTANT_BRIDGE_KEYSTORE_FILE="${INSTANT_BRIDGE_KEYSTORE_DIR}/${INSTANT_BRIDGE_KEYSTORE_FILENAME}"
+          echo '{{ .Data.data.instant_bridge_keystore }}' > "${INSTANT_BRIDGE_KEYSTORE_FILE}"
             {{ end }}
           {% endraw %}
-
-          if [ ! -d ${INSTANT_BRIDGE_KEYSTORE_DIR} ]; then
-            mkdir -p "${INSTANT_BRIDGE_KEYSTORE_DIR}" > /dev/null 2>&1
-            {%- raw %}
-              {{- with secret "secret/data/mev-commit" }}
-            echo '{{ .Data.data.instant_bridge_keystore }}' > "${INSTANT_BRIDGE_KEYSTORE_DIR}/${INSTANT_BRIDGE_KEYSTORE_FILENAME}"
-              {{ end }}
-            {% endraw %}
-          fi
 
           {% raw %}
           {{- range nomadService "contracts-deployer" }}
@@ -144,7 +137,7 @@ job "{{ job.name }}" {
           L1_RPC_URL="ws://{{ .Address}}:{{ .Port }}"
             {{- end }}
             {{- with secret "secret/data/mev-commit" }}
-          ADDRESS="$(cat "${INSTANT_BRIDGE_KEYSTORE_DIR}/${INSTANT_BRIDGE_KEYSTORE_FILENAME}" | jq -r '.address')"
+          ADDRESS="$(cat "${INSTANT_BRIDGE_KEYSTORE_FILE}" | jq -r '.address')"
             {{ end }}
           cast send \
             --keystore "${CONTRACT_DEPLOYER_KEYSTORE_FILE}" \
