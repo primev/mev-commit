@@ -279,9 +279,9 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime int6
 		return
 	}
 
-	optedInSlots := make([]map[string]interface{}, 0)
+	optedInSlots := make([]any, 0)
 	for slot, info := range validators {
-		optedInSlots = append(optedInSlots, map[string]interface{}{
+		optedInSlots = append(optedInSlots, map[string]any{
 			"slot":     slot,
 			"bls_key":  info.BLSKey,
 			"opted_in": info.IsOptedIn,
