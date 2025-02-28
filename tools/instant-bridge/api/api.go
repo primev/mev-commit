@@ -77,6 +77,10 @@ func NewAPI(
 		settlementClient: settlementClient,
 	}
 
+	a.status.bridgedAmount.Store(big.NewInt(0))
+	a.status.bidAmountSpent.Store(big.NewInt(0))
+	a.status.feesAccumulated.Store(big.NewInt(0))
+
 	a.mux.HandleFunc("GET /health", func(w http.ResponseWriter, req *http.Request) {
 		err := a.health.Health()
 		if err != nil {
