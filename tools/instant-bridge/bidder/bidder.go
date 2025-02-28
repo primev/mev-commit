@@ -103,7 +103,7 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 
 			lastMsg = nowFunc()
 
-			b.logger.Info("received message", "msg", msg)
+			b.logger.Debug("received message", "msg", msg)
 
 			if msg.Topic != epochNotificationTopic {
 				b.logger.Error("unexpected topic", "topic", msg.Topic)
@@ -140,22 +140,25 @@ func parseEpochInfo(msg *notificationsapiv1.Notification) (*epochInfo, error) {
 		epoch:     uint64(epochIdx),
 		startTime: time.Unix(int64(startTime), 0),
 	}
-	for idx, slot := range slots.Values {
+	baseSlot := epochIdx * 32
+	for _, slot := range slots.Values {
 		slotIdx := slot.GetStructValue().Fields["slot"].GetNumberValue()
 		if slotIdx == 0 {
 			return nil, errors.New("failed to parse slot index")
+		}
+		if slotIdx < baseSlot || slotIdx >= baseSlot+32 {
+			return nil, errors.New("slot index out of range")
 		}
 		blsKey := slot.GetStructValue().Fields["bls_key"].GetStringValue()
 		if blsKey == "" {
 			return nil, errors.New("failed to parse BLS key")
 		}
-		if slot.GetStructValue().Fields["opted_in"].GetBoolValue() {
-			epoch.slots = append(epoch.slots, slotInfo{
-				slot:      uint64(slotIdx),
-				startTime: epoch.startTime.Add(time.Duration(idx) * slotDuration),
-				blsKey:    blsKey,
-			})
-		}
+		idx := slotIdx - baseSlot
+		epoch.slots = append(epoch.slots, slotInfo{
+			slot:      uint64(slotIdx),
+			startTime: epoch.startTime.Add(time.Duration(idx) * slotDuration),
+			blsKey:    blsKey,
+		})
 	}
 
 	return epoch, nil

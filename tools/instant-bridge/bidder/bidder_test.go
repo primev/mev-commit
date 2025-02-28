@@ -159,13 +159,7 @@ func TestBidderClient(t *testing.T) {
 		"epoch_start_time": clock.Add(2 * time.Second).Unix(),
 		"slots": []any{
 			map[string]interface{}{
-				"slot":       1,
-				"start_time": clock.Add(2 * time.Second).Unix(),
-				"bls_key":    "key1",
-				"opted_in":   false,
-			},
-			map[string]interface{}{
-				"slot":       2,
+				"slot":       33,
 				"start_time": clock.Add(14 * time.Second).Unix(),
 				"bls_key":    "key2",
 				"opted_in":   true,
@@ -177,7 +171,7 @@ func TestBidderClient(t *testing.T) {
 	}
 
 	rpcServices.notificationChan <- &notificationsapiv1.Notification{
-		Topic: "epoch",
+		Topic: "epoch_validators_opted_in",
 		Value: nVal,
 	}
 

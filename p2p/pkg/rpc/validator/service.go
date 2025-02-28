@@ -225,7 +225,9 @@ func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uin
 			s.logger.Error("parsing slot number", "error", err)
 			continue
 		}
-		isOptedIn := areValidatorsOptedIn[i].IsVanillaOptedIn || areValidatorsOptedIn[i].IsAvsOptedIn || areValidatorsOptedIn[i].IsMiddlewareOptedIn
+		isOptedIn := areValidatorsOptedIn[i].IsVanillaOptedIn ||
+			areValidatorsOptedIn[i].IsAvsOptedIn ||
+			areValidatorsOptedIn[i].IsMiddlewareOptedIn
 		validators[slot] = &validatorapiv1.SlotInfo{
 			BLSKey:    duty.Pubkey,
 			IsOptedIn: isOptedIn,
@@ -281,16 +283,17 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime int6
 
 	optedInSlots := make([]any, 0)
 	for slot, info := range validators {
-		optedInSlots = append(optedInSlots, map[string]any{
-			"slot":     slot,
-			"bls_key":  info.BLSKey,
-			"opted_in": info.IsOptedIn,
-		})
 		if info.IsOptedIn {
+			optedInSlots = append(optedInSlots, map[string]any{
+				"slot":     slot,
+				"bls_key":  info.BLSKey,
+				"opted_in": info.IsOptedIn,
+			})
 			s.scheduleNotificationForSlot(epoch, slot, info)
 		}
 	}
 
+	// Send the notification even in case of no slots
 	notif := notifications.NewNotification(
 		notifications.TopicEpochValidatorsOptedIn,
 		map[string]any{

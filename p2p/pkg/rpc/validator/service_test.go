@@ -303,16 +303,19 @@ func TestProcessEpoch(t *testing.T) {
 			if !ok {
 				t.Fatal("expected slots in notification value")
 			}
-			slotsSlice, ok := slotsVal.([]map[string]interface{})
+			slotsSlice, ok := slotsVal.([]any)
 			if !ok {
 				t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
 			}
 			if len(slotsSlice) != 1 {
 				t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
 			}
-			slotData := slotsSlice[0]
-			if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(1) {
-				t.Fatalf("expected slot 1, got %v", slotVal)
+			if slotData, ok := slotsSlice[0].(map[string]interface{}); !ok {
+				t.Fatalf("expected slot data to be a map, got %T: %v", slotsSlice[0], slotsSlice[0])
+			} else {
+				if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(1) {
+					t.Fatalf("expected slot 1, got %v", slotVal)
+				}
 			}
 		} else {
 			t.Fatalf("unexpected notification topic: %s", n.Topic())
@@ -398,16 +401,19 @@ func TestStart(t *testing.T) {
 			if !ok {
 				t.Fatal("expected slots in notification value")
 			}
-			slotsSlice, ok := slotsVal.([]map[string]interface{})
+			slotsSlice, ok := slotsVal.([]any)
 			if !ok {
 				t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
 			}
 			if len(slotsSlice) != 1 {
 				t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
 			}
-			slotData := slotsSlice[0]
-			if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(50) {
-				t.Fatalf("expected slot 50, got %v", slotVal)
+			if slotData, ok := slotsSlice[0].(map[string]interface{}); !ok {
+				t.Fatalf("expected slot data to be a map, got %T: %v", slotsSlice[0], slotsSlice[0])
+			} else {
+				if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(50) {
+					t.Fatalf("expected slot 50, got %v", slotVal)
+				}
 			}
 		}
 	case <-time.After(7 * time.Second):
