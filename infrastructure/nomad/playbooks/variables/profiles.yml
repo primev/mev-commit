@@ -924,6 +924,7 @@ profiles:
       - *mev_commit_geth_member_node_job
       - *relay_emulator_job
       - *contracts_deployer_job
+      - *mev_commit_bridge_job
       - *mev_commit_dashboard_job
       - *mev_commit_bootnode1_job
       - *mev_commit_provider_node1_job
