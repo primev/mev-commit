@@ -511,8 +511,6 @@ func main() {
 					return fmt.Errorf("failed to send estimate request: %w", err)
 				}
 
-				defer resp.Body.Close()
-
 				if resp.StatusCode != http.StatusOK {
 					return fmt.Errorf("failed to get estimate: %s", resp.Status)
 				}
@@ -524,9 +522,11 @@ func main() {
 				}
 
 				var est estimation
-				if err := json.NewDecoder(req.Body).Decode(&est); err != nil {
+				if err := json.NewDecoder(resp.Body).Decode(&est); err != nil {
 					return fmt.Errorf("failed to decode estimate response: %w", err)
 				}
+
+				_ = resp.Body.Close()
 
 				costBInt, ok := new(big.Int).SetString(est.Cost, 10)
 				if !ok {

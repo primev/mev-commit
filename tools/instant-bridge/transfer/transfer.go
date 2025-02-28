@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
@@ -106,7 +105,7 @@ func (t *Transferer) ValidateL1Tx(rawTx string) (*types.Transaction, error) {
 	}
 
 	tx := new(types.Transaction)
-	if err := rlp.DecodeBytes(txBytes, tx); err != nil {
+	if err := tx.UnmarshalBinary(txBytes); err != nil {
 		t.logger.Error("failed to decode tx", "error", err)
 		return nil, err
 	}
