@@ -62,7 +62,11 @@ func New(config *Config) (*Service, error) {
 
 	s.closers = append(s.closers, conn)
 
-	l1RPCClient, err := ethwrapper.NewClient(config.Logger.With("module", "ethwrapper"), config.L1RPCUrls)
+	l1RPCClient, err := ethwrapper.NewClient(
+		config.Logger.With("module", "ethwrapper"),
+		config.L1RPCUrls,
+		ethwrapper.EthClientWithMaxRetries(5),
+	)
 	if err != nil {
 		return nil, err
 	}
