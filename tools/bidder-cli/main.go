@@ -539,7 +539,7 @@ func main() {
 
 				selected := confirmYN(
 					fmt.Sprintf(
-						"Bridge %s ETH to %s on MEV-COMMIT in %d seconds for %s ETH (Gas Cost %s wei)? (y/n)",
+						"Bridge %s ETH to %s on MEV-COMMIT in %d seconds for %s gWEI (Gas Cost %s wei)? (y/n)",
 						c.String(optionAmount.Name),
 						est.Destination,
 						est.Seconds,
