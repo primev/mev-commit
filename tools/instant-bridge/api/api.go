@@ -56,7 +56,7 @@ func NewAPI(
 	logger *slog.Logger,
 	port int,
 	health health.Health,
-	bidder *bidder.BidderClient,
+	bdr *bidder.BidderClient,
 	transferer *transfer.Transferer,
 	minServiceFee *big.Int,
 	owner common.Address,
@@ -69,7 +69,7 @@ func NewAPI(
 		port:             port,
 		status:           &status{},
 		health:           health,
-		bidder:           bidder,
+		bidder:           bdr,
 		transferer:       transferer,
 		minServiceFee:    minServiceFee,
 		owner:            owner,
@@ -94,11 +94,13 @@ func NewAPI(
 			return
 		}
 		if err := apiserver.WriteResponse(w, http.StatusOK, struct {
-			Seconds int64  `json:"seconds"`
-			Cost    string `json:"cost"`
+			Seconds     int64  `json:"seconds"`
+			Cost        string `json:"cost"`
+			Destination string `json:"destination"`
 		}{
-			Seconds: estimation,
-			Cost:    a.minServiceFee.String(),
+			Seconds:     estimation,
+			Cost:        a.minServiceFee.String(),
+			Destination: a.owner.Hex(),
 		}); err != nil {
 			a.logger.Error("failed to write response", "error", err)
 		}
@@ -200,7 +202,7 @@ func NewAPI(
 		}
 
 		a.status.bidsAttempted.Add(1)
-		err = a.bidder.Bid(
+		statusC, err := a.bidder.Bid(
 			req.Context(),
 			halfFee,
 			bridgeAmt,
@@ -210,6 +212,27 @@ func NewAPI(
 			apiserver.WriteError(w, http.StatusInternalServerError, err)
 			return
 		}
+
+		for status := range statusC {
+			switch {
+			case status.Type == bidder.BidStatusNoOfProviders:
+				a.logger.Info("no of providers", "count", status.Arg1)
+			case status.Type == bidder.BidStatusWaitSecs:
+				a.logger.Info("waiting for next slot", "seconds", status.Arg1)
+			case status.Type == bidder.BidStatusAttempted:
+				a.logger.Info("bid attempted", "block", status.Arg1)
+			case status.Type == bidder.BidStatusFailed:
+				apiserver.WriteError(
+					w,
+					http.StatusInternalServerError,
+					fmt.Errorf("bid failed: %s", status.Arg2),
+				)
+				return
+			case status.Type == bidder.BidStatusSucceeded:
+				break
+			}
+		}
+
 		a.status.bidsSucceeded.Add(1)
 
 		a.status.transfersAttempted.Add(1)

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -44,6 +45,7 @@ type BlockNumberGetter interface {
 
 type BidderClient struct {
 	logger              *slog.Logger
+	bigWg               sync.WaitGroup
 	bidderClient        bidderapiv1.BidderClient
 	topologyClient      debugapiv1.DebugServiceClient
 	notificationsClient notificationsapiv1.NotificationsClient
@@ -164,88 +166,128 @@ func parseEpochInfo(msg *notificationsapiv1.Notification) (*epochInfo, error) {
 	return epoch, nil
 }
 
+type BidStatusType int
+
+const (
+	BidStatusNoOfProviders BidStatusType = iota
+	BidStatusWaitSecs
+	BidStatusAttempted
+	BidStatusSucceeded
+	BidStatusFailed
+)
+
+type BidStatus struct {
+	Type BidStatusType
+	Arg1 int
+	Arg2 string
+}
+
 func (b *BidderClient) Bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 	bridgeAmount *big.Int,
 	rawTx string,
-) error {
+) (chan BidStatus, error) {
 	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get topology", "error", err)
-		return err
+		return nil, err
 	}
 
 	providers := topo.Topology.Fields["connected_providers"].GetListValue()
 	if providers == nil || len(providers.Values) == 0 {
-		return errors.New("no connected providers")
+		return nil, errors.New("no connected providers")
 	}
 
-	nextSlot, err := b.getNextSlot()
-	if err != nil {
-		return err
-	}
+	// Channel length chosen is 3 so that sending the bid is not blocked by the first
+	// status message.
+	res := make(chan BidStatus, 3)
+	b.bigWg.Add(1)
+	go func() {
+		defer close(res)
+		defer b.bigWg.Done()
 
-	bidTime := nextSlot.startTime.Add(-1 * time.Second)
-	wait := bidTime.Sub(nowFunc())
-	if wait > 0 {
-		b.logger.Info("waiting for next slot", "wait", wait)
-		select {
-		case <-time.After(wait):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+		res <- BidStatus{Type: BidStatusNoOfProviders, Arg1: len(providers.Values)}
 
-	blkNumber, err := b.blkNumberGetter.BlockNumber(ctx)
-	if err != nil {
-		b.logger.Error("failed to get block number", "error", err)
-		return err
-	}
-
-	pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
-		Amount:              bidAmount.String(),
-		BlockNumber:         int64(blkNumber + 1),
-		RawTransactions:     []string{rawTx},
-		DecayStartTimestamp: nowFunc().UnixMilli(),
-		DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
-		SlashAmount:         bridgeAmount.String(),
-	})
-	if err != nil {
-		b.logger.Error("failed to send bid", "error", err)
-		return err
-	}
-
-	commitments := make([]*bidderapiv1.Commitment, 0)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		msg, err := pc.Recv()
+		nextSlot, err := b.getNextSlot()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return err
+			b.logger.Error("failed to get next slot", "error", err)
+			res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+			return
 		}
 
-		commitments = append(commitments, msg)
-	}
+		bidTime := nextSlot.startTime.Add(-1 * time.Second)
+		wait := bidTime.Sub(nowFunc())
+		res <- BidStatus{Type: BidStatusWaitSecs, Arg1: int(wait.Seconds())}
 
-	if len(commitments) == len(providers.Values) {
-		b.logger.Info("all commitments received")
-	} else {
-		b.logger.Warn(
-			"not all commitments received",
-			"received", len(commitments),
-			"expected", len(providers.Values),
-		)
-	}
+		if wait > 0 {
+			b.logger.Info("waiting for next slot", "wait", wait)
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				res <- BidStatus{Type: BidStatusFailed, Arg2: ctx.Err().Error()}
+				return
+			}
+		}
 
-	return nil
+		blkNumber, err := b.blkNumberGetter.BlockNumber(ctx)
+		if err != nil {
+			b.logger.Error("failed to get block number", "error", err)
+			res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+			return
+		}
+
+		res <- BidStatus{Type: BidStatusAttempted, Arg1: int(blkNumber + 1)}
+
+		pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
+			Amount:              bidAmount.String(),
+			BlockNumber:         int64(blkNumber + 1),
+			RawTransactions:     []string{rawTx},
+			DecayStartTimestamp: nowFunc().UnixMilli(),
+			DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
+			SlashAmount:         bridgeAmount.String(),
+		})
+		if err != nil {
+			b.logger.Error("failed to send bid", "error", err)
+			res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+			return
+		}
+
+		commitments := make([]*bidderapiv1.Commitment, 0)
+		for {
+			select {
+			case <-ctx.Done():
+				res <- BidStatus{Type: BidStatusFailed, Arg2: ctx.Err().Error()}
+				return
+			default:
+			}
+
+			msg, err := pc.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				b.logger.Error("failed to receive commitment", "error", err)
+				res <- BidStatus{Type: BidStatusFailed, Arg2: err.Error()}
+				return
+			}
+
+			commitments = append(commitments, msg)
+		}
+
+		if len(commitments) == len(providers.Values) {
+			b.logger.Info("all commitments received")
+		} else {
+			b.logger.Warn(
+				"not all commitments received",
+				"received", len(commitments),
+				"expected", len(providers.Values),
+			)
+		}
+		res <- BidStatus{Type: BidStatusSucceeded, Arg1: len(commitments)}
+	}()
+
+	return res, nil
 }
 
 func (b *BidderClient) Estimate() (int64, error) {

@@ -195,7 +195,7 @@ func TestBidderClient(t *testing.T) {
 	_, _ = rand.Read(buf)
 	txString := hex.EncodeToString(buf)
 
-	err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
+	_, err = bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -204,34 +204,49 @@ func TestBidderClient(t *testing.T) {
 		Topology: topoVal,
 	}
 
-	errC := make(chan error)
-	go func() {
-		errC <- bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
-	}()
-
-	b := <-rpcServices.bidChan
-	if b.Amount != big.NewInt(1).String() {
-		t.Fatalf("expected amount 1, got %s", b.Amount)
-	}
-	if b.BlockNumber != 11 {
-		t.Fatalf("expected block number 11, got %d", b.BlockNumber)
-	}
-	if b.RawTransactions[0] != txString {
-		t.Fatalf("expected raw transaction %x, got %s", buf, b.RawTransactions[0])
-	}
-
-	rpcServices.commitmentChan <- &bidderapiv1.Commitment{
-		BlockNumber: 11,
-	}
-	rpcServices.commitmentChan <- &bidderapiv1.Commitment{
-		BlockNumber: 11,
-	}
-
-	close(rpcServices.commitmentChan)
-
-	err = <-errC
+	statusC, err := bidderClient.Bid(ctx, big.NewInt(1), big.NewInt(1), txString)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+WaitLoop:
+	for {
+		select {
+		case status := <-statusC:
+			switch {
+			case status.Type == bidder.BidStatusNoOfProviders:
+				if status.Arg1 != 2 {
+					t.Fatalf("expected 2 providers, got %d", status.Arg1)
+				}
+			case status.Type == bidder.BidStatusWaitSecs:
+				if status.Arg1 != 2 {
+					t.Fatalf("expected 2 seconds, got %d", status.Arg1)
+				}
+			case status.Type == bidder.BidStatusAttempted:
+				if status.Arg1 != 11 {
+					t.Fatalf("expected 11, got %d", status.Arg1)
+				}
+			case status.Type == bidder.BidStatusSucceeded:
+				break WaitLoop
+			}
+		case bid := <-rpcServices.bidChan:
+			if bid.Amount != big.NewInt(1).String() {
+				t.Fatalf("expected amount 1, got %s", bid.Amount)
+			}
+			if bid.BlockNumber != 11 {
+				t.Fatalf("expected block number 11, got %d", bid.BlockNumber)
+			}
+			if bid.RawTransactions[0] != txString {
+				t.Fatalf("expected raw transaction %x, got %s", buf, bid.RawTransactions[0])
+			}
+			rpcServices.commitmentChan <- &bidderapiv1.Commitment{
+				BlockNumber: 11,
+			}
+			rpcServices.commitmentChan <- &bidderapiv1.Commitment{
+				BlockNumber: 11,
+			}
+			close(rpcServices.commitmentChan)
+		}
 	}
 
 	cancel()
