@@ -56,6 +56,11 @@ job "{{ job.name }}" {
     task "instantbridge" {
       driver = "exec"
 
+      resources {
+        cpu = 4000
+        memory = 4096
+      }
+
       artifact {
         source = "https://foundry.paradigm.xyz"
         destination = "local/foundry.sh"
