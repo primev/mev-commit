@@ -45,25 +45,24 @@ job "{{ job.name }}" {
     }
     {% endfor %}
 
-    task "relay-emulator" {
+    task "beacon-emulator" {
       driver = "exec"
 
       {% if env != 'devenv' %}
       artifact {
-        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/relay-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "https://primev-infrastructure-artifacts.s3.us-west-2.amazonaws.com/beacon-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% else %}
       artifact {
-        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/relay-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
+        source = "http://{{ ansible_facts['default_ipv4']['address'] }}:1111/beacon-emulator_{{ version }}_Linux_{{ target_system_architecture }}.tar.gz"
       }
       {% endif %}
 
       template {
         data = <<-EOH
-          MOCK_RELAY_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
-          MOCK_RELAY_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
-          MOCK_RELAY_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
-          MOCK_RELAY_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
+          MOCK_BEACON_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
+          MOCK_BEACON_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          MOCK_BEACON_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
         EOH
         destination = "secrets/.env"
         env = true
@@ -80,8 +79,8 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
 
-          chmod +x local/relay-emulator
-          exec local/relay-emulator
+          chmod +x local/beacon-emulator
+          exec local/beacon-emulator
           {% endraw %}
         EOH
         destination = "local/run.sh"

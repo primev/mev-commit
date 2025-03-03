@@ -176,7 +176,10 @@ func (s *Service) fetchProposerDuties(ctx context.Context, epoch uint64) (*Propo
 			return nil, status.Errorf(codes.InvalidArgument, "Proposer duties were requested for a future epoch")
 		}
 
-		return nil, status.Errorf(codes.Internal, "unexpected status code: %v, response: %s", resp.StatusCode, bodyString)
+		return nil, status.Errorf(
+			codes.Internal,
+			"unexpected status code: %v, response: %s", resp.StatusCode, bodyString,
+		)
 	}
 	var dutiesResp ProposerDutiesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&dutiesResp); err != nil {
@@ -222,7 +225,9 @@ func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uin
 			s.logger.Error("parsing slot number", "error", err)
 			continue
 		}
-		isOptedIn := areValidatorsOptedIn[i].IsVanillaOptedIn || areValidatorsOptedIn[i].IsAvsOptedIn || areValidatorsOptedIn[i].IsMiddlewareOptedIn
+		isOptedIn := areValidatorsOptedIn[i].IsVanillaOptedIn ||
+			areValidatorsOptedIn[i].IsAvsOptedIn ||
+			areValidatorsOptedIn[i].IsMiddlewareOptedIn
 		validators[slot] = &validatorapiv1.SlotInfo{
 			BLSKey:    duty.Pubkey,
 			IsOptedIn: isOptedIn,
@@ -252,7 +257,12 @@ func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *v
 			},
 		)
 		s.notifier.Notify(notif)
-		s.logger.Info("sent notification for opted in validator", "epoch", epoch, "slot", slot, "bls_key", info.BLSKey)
+		s.logger.Info(
+			"sent notification for opted in validator",
+			"epoch", epoch,
+			"slot", slot,
+			"bls_key", info.BLSKey,
+		)
 	})
 }
 
@@ -271,32 +281,32 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime int6
 		return
 	}
 
-	optedInSlots := make([]map[string]interface{}, 0)
+	optedInSlots := make([]any, 0)
 	for slot, info := range validators {
 		if info.IsOptedIn {
-			s.scheduleNotificationForSlot(epoch, slot, info)
-			optedInSlots = append(optedInSlots, map[string]interface{}{
-				"slot":    slot,
-				"bls_key": info.BLSKey,
+			optedInSlots = append(optedInSlots, map[string]any{
+				"slot":     slot,
+				"bls_key":  info.BLSKey,
+				"opted_in": info.IsOptedIn,
 			})
+			s.scheduleNotificationForSlot(epoch, slot, info)
 		}
 	}
 
-	// Send epoch-level notification if there are any opted-in validators
-	if len(optedInSlots) > 0 {
-		notif := notifications.NewNotification(
-			notifications.TopicEpochValidatorsOptedIn,
-			map[string]any{
-				"epoch":            epoch,
-				"epoch_start_time": epochTime,
-				"slots":            optedInSlots,
-			},
-		)
-		s.notifier.Notify(notif)
-		s.logger.Info("sent notification for epoch with opted in validators",
-			"epoch", epoch,
-			"slot_count", len(optedInSlots))
-	}
+	// Send the notification even in case of no slots
+	notif := notifications.NewNotification(
+		notifications.TopicEpochValidatorsOptedIn,
+		map[string]any{
+			"epoch":            epoch,
+			"epoch_start_time": epochTime,
+			"slots":            optedInSlots,
+		},
+	)
+	s.notifier.Notify(notif)
+	s.logger.Info("sent notification for epoch with opted in validators",
+		"epoch", epoch,
+		"slot_count", len(optedInSlots),
+	)
 }
 
 // Start starts a background job that fetches and processes an epoch every 384 seconds.
@@ -337,7 +347,12 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 				}
 			}
 
-			s.logger.Info("scheduling epoch fetch", "upcoming_epoch", nextEpoch, "fetch_in", delay, "fetch_time", fetchTime)
+			s.logger.Info(
+				"scheduling epoch fetch",
+				"upcoming_epoch", nextEpoch,
+				"fetch_in", delay.String(),
+				"fetch_time", fetchTime.String(),
+			)
 			select {
 			case <-egCtx.Done():
 				s.logger.Info("epoch cron job stopped")
