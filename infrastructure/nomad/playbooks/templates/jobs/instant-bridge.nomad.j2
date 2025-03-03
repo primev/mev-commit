@@ -112,8 +112,6 @@ job "{{ job.name }}" {
       template {
         data = <<-EOH
           #!/usr/bin/env bash
-          #
-          set -x
 
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
