@@ -11,7 +11,7 @@ builds:
       - linux
     goarch:
       - amd64
-    dir: ./tools/points-service
+    dir: .
     binary: "{{ .ProjectName }}"
     flags:
       - -v
