@@ -33,6 +33,15 @@ artifacts:
   relay-emulator: &relay_emulator_artifact
     type: binary
     path: tools/relay-emulator
+  points-service: &points_service_artifact
+    type: binary
+    path: tools/points-service
+  beacon-emulator: &beacon_emulator_artifact
+    type: binary
+    path: tools/beacon-emulator
+  instant-bridge: &instant_bridge_artifact
+    type: binary
+    path: tools/instant-bridge
 
 jobs:
   artifacts: &artifacts_job
@@ -216,6 +225,18 @@ jobs:
       log-level: "info"
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
+  beacon-emulator: &beacon_emulator_job
+    name: beacon-emulator
+    template: beacon-emulator.nomad.j2
+    artifacts:
+      - *beacon_emulator_artifact
+    count: 1
+    ports:
+      - http:
+          to: 8080
+    env:
+      log-level: "info"
+
   mev_commit_bootnode1: &mev_commit_bootnode1_job
     name: mev-commit-bootnode1
     template: mev-commit.nomad.j2
@@ -241,6 +262,7 @@ jobs:
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node1: &mev_commit_provider_node1_job
     name: mev-commit-provider-node1
@@ -252,6 +274,7 @@ jobs:
             allocation: "{{ (true) if profile == 'stressnet-wl1' else false }}"
     dependencies:
       relay-emulator: *relay_emulator_job
+      beacon-emulator: *beacon_emulator_job
     count: 1
     ports:
       - metrics:
@@ -270,6 +293,7 @@ jobs:
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node2: &mev_commit_provider_node2_job
     name: mev-commit-provider-node2
@@ -298,6 +322,7 @@ jobs:
       nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node3: &mev_commit_provider_node3_job
     name: mev-commit-provider-node3
@@ -326,6 +351,7 @@ jobs:
       nat_address: "{{ ansible_facts['default_ipv4']['address'] }}"
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_provider_node1_funder: &mev_commit_provider_node1_funder_job
     name: mev-commit-provider-node1-funder
@@ -402,6 +428,7 @@ jobs:
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node2: &mev_commit_bidder_node2_job
     name: mev-commit-bidder-node2
@@ -427,6 +454,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node3: &mev_commit_bidder_node3_job
     name: mev-commit-bidder-node3
@@ -452,6 +480,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node4: &mev_commit_bidder_node4_job
     name: mev-commit-bidder-node4
@@ -477,6 +506,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node5: &mev_commit_bidder_node5_job
     name: mev-commit-bidder-node5
@@ -502,6 +532,7 @@ jobs:
       type: bidder
       tls_crt_file: "{{ tls_crt_file }}"
       tls_key_file: "{{ tls_key_file }}"
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
 
   mev_commit_bidder_node1_funder: &mev_commit_bidder_node1_funder_job
     name: mev-commit-bidder-node1-funder
@@ -673,6 +704,34 @@ jobs:
       - metrics:
           to: 8080
     env:
+
+  points-service: &points_service_job
+    name: points-service
+    template: points-service.nomad.j2
+    artifacts:
+      - *points_service_artifact
+    count: 1
+    ports:
+      - http:
+          to: 8080
+    env:
+      l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
+
+  instant_bridge: &instant_bridge_job
+    name: instant-bridge
+    template: instant-bridge.nomad.j2
+    artifacts:
+      - *instant_bridge_artifact
+      - keystores:
+          instant_bridge_keystore:
+    count: 1
+    target: *mev_commit_bidder_node1_job
+    ports:
+      - http:
+          to: 8080
+    env:
+      l1_chain_id: "{{ environments[env].chain_id }}"
+      l1_rpc_urls: "{{ resolved_l1_rpc_urls }}"
 
 profiles:
   ci:
@@ -850,6 +909,34 @@ profiles:
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
 
+  instant-bridge:
+    jobs:
+      - *artifacts_job
+      - *datadog_agent_logs_collector_job
+      - *otel_collector_job
+      - *beacon_emulator_job
+      - *mock_l1_job
+      - *l1_transactor_job
+      - *mev_commit_geth_bootnode1_job
+      - *mev_commit_geth_signer_node1_job
+      - *mev_commit_geth_member_node_job
+      - *relay_emulator_job
+      - *contracts_deployer_job
+      - *mev_commit_bridge_job
+      - *mev_commit_dashboard_job
+      - *mev_commit_bootnode1_job
+      - *mev_commit_provider_node1_job
+      - *mev_commit_provider_node1_funder_job
+      - *mev_commit_provider_node2_job
+      - *mev_commit_provider_node2_funder_job
+      - *mev_commit_provider_node3_job
+      - *mev_commit_provider_node3_funder_job
+      - *mev_commit_provider_emulator_nodes_job
+      - *mev_commit_oracle_job
+      - *mev_commit_bidder_node1_job
+      - *mev_commit_bidder_node1_funder_job
+      - *instant_bridge_job
+      - *datadog_agent_metrics_collector_job
   archive:
     jobs:
       - *artifacts_job

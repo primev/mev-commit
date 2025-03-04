@@ -429,6 +429,8 @@ func NewNode(opts *Options) (*Node, error) {
 			return nil, err
 		}
 
+		opts.Logger.Info("connected to L1 RPC", "url", opts.L1RPCURL)
+		opts.Logger.Info("validator router contract", "address", opts.ValidatorRouterContract)
 		validatorRouterCaller, err := validatorrouter.NewValidatoroptinrouterCaller(
 			common.HexToAddress(opts.ValidatorRouterContract),
 			l1ContractRPC,
