@@ -95,54 +95,76 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 
 	if receiverType != "operator" {
 		resp := map[string]interface{}{
-			"address":      receiverAddr,
-			"receiver":     receiverType,
-			"block_number": blockNum,
-			"points":       float64(0),
+			"receiver_address": receiverAddr,
+			"receiver_type":    receiverType,
+			"block_number":     blockNum,
+			"points":           float64(0),
 		}
 		writeJSON(w, resp, http.StatusOK)
 		return
 	}
 
-	totalPoints, err := p.calculatePointsForSymbioticOperator(receiverAddr, blockNum)
+	totalPoints, pointsByVault, err := p.calculatePointsForSymbioticOperator(receiverAddr, blockNum)
 	if err != nil {
 		http.Error(w, "DB query failed", http.StatusInternalServerError)
 		return
 	}
 	if totalPoints == 0 {
-		http.Error(w, "no points data found for address", http.StatusNotFound)
+		writeJSON(w, map[string]interface{}{
+			"receiver_address": receiverAddr,
+			"receiver_type":    receiverType,
+			"block_number":     blockNum,
+			"points":           []int{},
+		}, http.StatusBadRequest)
 		return
 	}
 
+	pointsByVaultList := []map[string]interface{}{}
+	for vault, points := range pointsByVault {
+		pointsByVaultList = append(pointsByVaultList, map[string]interface{}{
+			"vault_address": vault,
+			"points":        points,
+		})
+	}
+
 	resp := map[string]interface{}{
-		"address":      receiverAddr,
-		"receiver":     receiverType,
-		"block_number": blockNum,
-		"points":       float64(totalPoints),
+		"receiver_address": receiverAddr,
+		"receiver_type":    receiverType,
+		"block_number":     blockNum,
+		"points":           pointsByVaultList,
 	}
 	writeJSON(w, resp, http.StatusOK)
 }
 
-func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blockNum uint64) (int64, error) {
-
+func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blockNum uint64) (int64, map[string]int64, error) {
+	// list structure for a running sum of points based on vaults
+	pointsByVault := map[string]int64{}
 	// Get count of unique pubkeys for this operator
-	var uniquePubkeys int
-	err := p.db.QueryRow(`
-		SELECT COUNT(DISTINCT pubkey)
-		FROM validator_records
+	rows, err := p.db.Query(`
+		SELECT COUNT(DISTINCT pubkey) as count, vault
+		FROM validator_records 
 		WHERE registry_type = 'symbiotic'
 		  AND adder = ?
 		  AND opted_in_block <= ?
-	`, receiverAddr, blockNum).Scan(&uniquePubkeys)
+		GROUP BY vault
+	`, receiverAddr, blockNum)
 	if err != nil {
-		p.logger.Error("failed to get unique pubkey count", "error", err)
-		return 0, err
+		p.logger.Error("failed to get unique pubkey count by vault", "error", err)
+		return 0, nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var count int
+		var vault string
+		if err := rows.Scan(&count, &vault); err != nil {
+			p.logger.Error("failed to scan unique pubkey count by vault", "error", err)
+			continue
+		}
+		pointsByVault[vault] = int64(count) * 1000
 	}
 
-	// Sign-up Bonus of 1000
-	totalPoints := int64(uniquePubkeys) * 1000
-
-	rows, err := p.db.Query(`
+	rows, err = p.db.Query(`
 		SELECT vault, registry_type, opted_in_block, opted_out_block
 		FROM validator_records
 		WHERE registry_type = 'symbiotic'
@@ -150,7 +172,7 @@ func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blo
 		  AND opted_in_block <= ?
 	`, receiverAddr, receiverAddr, blockNum)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	defer rows.Close()
 
@@ -181,15 +203,21 @@ func (p *PointsAPI) calculatePointsForSymbioticOperator(receiverAddr string, blo
 
 		recomputedPoints, optedOutPoints := computePointsForMonths(blocksActive)
 		if optedOutBlock.Valid {
-			totalPoints += optedOutPoints
+			pointsByVault[vaultAddr] += int64(optedOutPoints)
 		} else {
-			totalPoints += recomputedPoints
+			pointsByVault[vaultAddr] += int64(recomputedPoints)
 		}
 	}
 	if rowsErr := rows.Err(); rowsErr != nil {
-		return 0, rowsErr
+		return 0, nil, rowsErr
 	}
-	return totalPoints, nil
+
+	totalPoints := int64(0)
+	for _, points := range pointsByVault {
+		totalPoints += points
+	}
+
+	return totalPoints, pointsByVault, nil
 }
 func (p *PointsAPI) GetTotalPointsStats(w http.ResponseWriter, r *http.Request) {
 	blockNumStr := r.URL.Query().Get("block_number")
@@ -324,19 +352,19 @@ func (p *PointsAPI) GetAllPoints(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Calculate aggregated points for this operator address
-		totalPoints, calcErr := p.calculatePointsForSymbioticOperator(operatorAddr, blockNum)
+		totalPoints, _, calcErr := p.calculatePointsForSymbioticOperator(operatorAddr, blockNum)
 		if calcErr != nil {
 			p.logger.Error("failed to compute points", "address", operatorAddr, "error", calcErr)
 			continue
 		}
 
 		result = append(result, map[string]interface{}{
-			"address":         operatorAddr,
-			"receiver":        "operator",
-			"block_number":    blockNum,
-			"network_address": "0x9101eda106A443A0fA82375936D0D1680D5a64F5",
-			"vault_address":   vaultAddr,
-			"points":          float64(totalPoints),
+			"receiver_address": operatorAddr,
+			"receiver_type":    "operator",
+			"block_number":     blockNum,
+			"network_address":  "0x9101eda106A443A0fA82375936D0D1680D5a64F5",
+			"vault_address":    vaultAddr,
+			"points":           float64(totalPoints),
 		})
 	}
 	if err := rows.Err(); err != nil {
