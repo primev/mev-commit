@@ -326,43 +326,30 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		// Loop until the context is canceled.
-		for {
-			now := time.Now()
-			elapsed := now.Sub(s.genesisTime)
-			currentEpoch := uint64(elapsed / EpochDuration)
-			nextEpoch := currentEpoch + 1
-			nextEpochStart := s.genesisTime.Add(time.Duration(nextEpoch) * EpochDuration)
-			fetchTime := nextEpochStart.Add(-FetchOffset)
-			delay := time.Until(fetchTime)
-			// If the delay is negative, it means we are in time, when we already fetched the next epoch,
-			// but we are still in the current epoch for fetchOffset time, so we should wait for the next epoch.
-			if delay < 0 {
-				select {
-				case <-egCtx.Done():
-					s.logger.Info("epoch cron job stopped")
-					return nil
-				case <-time.After(FetchOffset):
-					continue
-				}
-			}
+		tick := time.NewTicker(EpochDuration / 2)
+		defer tick.Stop()
 
-			s.logger.Info(
-				"scheduling epoch fetch",
-				"upcoming_epoch", nextEpoch,
-				"fetch_in", delay.String(),
-				"fetch_time", fetchTime.String(),
-			)
+		currentEpoch := uint64(time.Since(s.genesisTime) / EpochDuration)
+
+		for {
+			s.processEpoch(egCtx, currentEpoch, s.genesisTime.Add(time.Duration(currentEpoch)*EpochDuration).Unix())
 			select {
 			case <-egCtx.Done():
 				s.logger.Info("epoch cron job stopped")
 				return nil
-			case <-time.After(delay):
-				// Time expired: proceed to process next epoch.
+			case <-tick.C:
+				s.logger.Info("fetching current epoch")
+				calcEpoch := uint64(time.Since(s.genesisTime) / EpochDuration)
+				if calcEpoch == currentEpoch {
+					s.logger.Info("skipping epoch fetch, already processed", "epoch", currentEpoch)
+					delay := time.Until(s.genesisTime.Add(time.Duration(currentEpoch+1) * EpochDuration))
+					if delay > 0 {
+						s.logger.Info("waiting for epoch to start", "epoch", currentEpoch+1, "delay", delay.String())
+						tick.Reset(delay)
+					}
+				}
+				currentEpoch = calcEpoch
 			}
-
-			s.logger.Info("fetching upcoming epoch", "epoch", nextEpoch)
-			s.processEpoch(egCtx, nextEpoch, nextEpochStart.Unix())
 		}
 	})
 

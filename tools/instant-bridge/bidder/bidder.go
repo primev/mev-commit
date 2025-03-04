@@ -21,8 +21,8 @@ const (
 )
 
 var (
-	ErrNoEpochInfo       = errors.New("no epoch info available")
-	ErrNoSlotInNextEpoch = errors.New("no slot available in next epoch")
+	ErrNoEpochInfo          = errors.New("no epoch info available")
+	ErrNoSlotInCurrentEpoch = errors.New("no slot available in current epoch")
 )
 
 var nowFunc = time.Now
@@ -49,7 +49,7 @@ type BidderClient struct {
 	bidderClient        bidderapiv1.BidderClient
 	topologyClient      debugapiv1.DebugServiceClient
 	notificationsClient notificationsapiv1.NotificationsClient
-	nextEpoch           atomic.Pointer[epochInfo]
+	currentEpoch        atomic.Pointer[epochInfo]
 	blkNumberGetter     BlockNumberGetter
 }
 
@@ -118,8 +118,8 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 				continue
 			}
 
-			b.nextEpoch.Store(epoch)
-			b.logger.Info("next epoch info updated", "epoch", epoch.epoch)
+			b.currentEpoch.Store(epoch)
+			b.logger.Info("current epoch info updated", "epoch", epoch.epoch)
 		}
 	}()
 	return done
@@ -300,7 +300,7 @@ func (b *BidderClient) Estimate() (int64, error) {
 }
 
 func (b *BidderClient) getNextSlot() (slotInfo, error) {
-	epochInfo := b.nextEpoch.Load()
+	epochInfo := b.currentEpoch.Load()
 	if epochInfo == nil {
 		return slotInfo{}, ErrNoEpochInfo
 	}
@@ -312,5 +312,5 @@ func (b *BidderClient) getNextSlot() (slotInfo, error) {
 		}
 	}
 
-	return slotInfo{}, ErrNoSlotInNextEpoch
+	return slotInfo{}, ErrNoSlotInCurrentEpoch
 }
