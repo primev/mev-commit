@@ -117,6 +117,9 @@ job "{{ job.name }}" {
             {% if job.target_type == 'bidder' %}
             -rpc-addr "${EMULATOR_L1_RPC_URL}" \
             {% endif %}
+            {% if job.target_type == 'provider' and profile == 'instant-bridge' %}
+            -error-probability 0 \
+            {% endif %}
             -log-tags "${EMULATOR_LOG_TAGS}" \
             -log-fmt "${EMULATOR_LOG_FMT}" \
             -otel-collector-endpoint-url "${EMULATOR_OTEL_COLLECTOR_ENDPOINT_URL}" \

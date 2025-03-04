@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -131,6 +136,11 @@ var (
 		Name:  "tip-boost",
 		Usage: "tip boost %",
 		Value: 10,
+	}
+	optionBridgeURL = &cli.StringFlag{
+		Name:     "service-url",
+		Usage:    "URL of the Instant Bridge service",
+		Required: true,
 	}
 )
 
@@ -410,10 +420,235 @@ func main() {
 				}
 			},
 		},
+		{
+			Name:  "instant-bridge",
+			Usage: "Send an instant bridge request",
+			Flags: []cli.Flag{
+				optionBridgeURL,
+				optionL1RPCURL,
+				optionVerbose,
+				optionFrom,
+				optionTo,
+				optionAmount,
+			},
+			Action: func(c *cli.Context) error {
+				privateKey, err := crypto.HexToECDSA(c.String(optionFrom.Name))
+				if err != nil {
+					return fmt.Errorf("invalid private key: %w", err)
+				}
+
+				client, err := ethclient.Dial(c.String(optionL1RPCURL.Name))
+				if err != nil {
+					return fmt.Errorf("Failed to connect to the Ethereum client: %v", err)
+				}
+
+				if c.Bool(optionVerbose.Name) {
+					fmt.Fprintf(app.Writer, "connected to %s\n", c.String(optionL1RPCURL.Name))
+				}
+
+				// Get the public address of the sender
+				publicKey := privateKey.Public()
+				publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+				if !ok {
+					return fmt.Errorf("error casting public key to ECDSA")
+				}
+				fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+				if c.Bool(optionVerbose.Name) {
+					fmt.Fprintf(app.Writer, "from address: %s\n", fromAddress.Hex())
+				}
+
+				// Define transaction parameters
+				nonce, err := client.PendingNonceAt(c.Context, fromAddress)
+				if err != nil {
+					return fmt.Errorf("failed getting account nonce: %w", err)
+				}
+				if c.Bool(optionVerbose.Name) {
+					fmt.Fprintf(app.Writer, "nonce: %d\n", nonce)
+				}
+
+				gasLimit := uint64(21000) // basic gas limit for Ether transfer
+
+				head, err := client.HeaderByNumber(c.Context, nil)
+				if err != nil {
+					return fmt.Errorf("failed getting the latest block: %w", err)
+				}
+
+				tip, err := client.SuggestGasTipCap(c.Context)
+				if err != nil {
+					return fmt.Errorf("failed getting gas tip cap: %w", err)
+				}
+
+				feeCap := new(big.Int).Add(
+					tip,
+					new(big.Int).Mul(head.BaseFee, big.NewInt(basefeeWiggleMultiplier)),
+				)
+				if c.Bool(optionVerbose.Name) {
+					fmt.Fprintf(app.Writer, "tip: %s\n", tip.String())
+					fmt.Fprintf(app.Writer, "fee cap: %s\n", feeCap.String())
+				}
+
+				value, ok := big.NewInt(0).SetString(c.String(optionAmount.Name), 10)
+				if !ok {
+					return fmt.Errorf("invalid amount: %s", c.String(optionAmount.Name))
+				}
+
+				to := common.HexToAddress(c.String(optionTo.Name))
+				if c.Bool(optionVerbose.Name) {
+					fmt.Fprintf(app.Writer, "to address: %s\n", to.Hex())
+				}
+
+				req, err := http.NewRequest(
+					"GET",
+					fmt.Sprintf("%s/estimate", c.String(optionBridgeURL.Name)),
+					nil,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to create estimate request: %w", err)
+				}
+
+				resp, err := http.DefaultClient.Do(req)
+				if err != nil {
+					return fmt.Errorf("failed to send estimate request: %w", err)
+				}
+
+				if resp.StatusCode != http.StatusOK {
+					return fmt.Errorf("failed to get estimate: %s", resp.Status)
+				}
+
+				type estimation struct {
+					Seconds     int64  `json:"seconds"`
+					Cost        string `json:"cost"`
+					Destination string `json:"destination"`
+				}
+
+				var est estimation
+				if err := json.NewDecoder(resp.Body).Decode(&est); err != nil {
+					return fmt.Errorf("failed to decode estimate response: %w", err)
+				}
+
+				_ = resp.Body.Close()
+
+				costBInt, ok := new(big.Int).SetString(est.Cost, 10)
+				if !ok {
+					return fmt.Errorf("invalid cost: %s", est.Cost)
+				}
+
+				costInGW := new(big.Float).SetInt(costBInt)
+				costInGW = new(big.Float).Quo(costInGW, big.NewFloat(1e9))
+				costInGW.SetPrec(9)
+
+				selected := confirmYN(
+					fmt.Sprintf(
+						"Bridge %s ETH to %s on MEV-COMMIT in %d seconds for %s gWEI (Gas Cost %s wei)? (y/n)",
+						c.String(optionAmount.Name),
+						est.Destination,
+						est.Seconds,
+						costInGW.String(),
+						feeCap.String(),
+					),
+				)
+				if !selected {
+					return nil
+				}
+
+				serviceAddress := common.HexToAddress(est.Destination)
+
+				txData := &types.DynamicFeeTx{
+					To:        &serviceAddress,
+					Nonce:     nonce,
+					GasFeeCap: feeCap,
+					GasTipCap: tip,
+					Gas:       gasLimit,
+					Value:     new(big.Int).Add(value, costBInt),
+				}
+
+				tx := types.NewTx(txData)
+
+				chainID, err := client.ChainID(c.Context)
+				if err != nil {
+					return fmt.Errorf("failed to get chain ID: %w", err)
+				}
+
+				// Sign the transaction
+				signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainID), privateKey)
+				if err != nil {
+					return fmt.Errorf("failed to sign transaction payload: %w", err)
+				}
+
+				// Encode the transaction to a hex string
+				txHex, err := signedTx.MarshalBinary()
+				if err != nil {
+					return fmt.Errorf("failed to encode signed transaction payload: %w", err)
+				}
+				if c.Bool(optionVerbose.Name) {
+					fmt.Fprintf(app.Writer, "signed transaction: %s\n", hex.EncodeToString(txHex))
+				}
+
+				buf := new(bytes.Buffer)
+				if err := json.NewEncoder(buf).Encode(struct {
+					BridgeAmount string `json:"bridgeAmount"`
+					RawTx        string `json:"rawTx"`
+					DestAddress  string `json:"destAddress"`
+				}{
+					BridgeAmount: value.String(),
+					RawTx:        hex.EncodeToString(txHex),
+					DestAddress:  to.Hex(),
+				}); err != nil {
+					return fmt.Errorf("failed to encode bridge request: %w", err)
+				}
+
+				req, err = http.NewRequest(
+					"POST",
+					fmt.Sprintf("%s/bid", c.String(optionBridgeURL.Name)),
+					buf,
+				)
+				if err != nil {
+					return fmt.Errorf("failed to create bridge request: %w", err)
+				}
+
+				req.Header.Set("Content-Type", "application/json")
+				resp, err = http.DefaultClient.Do(req)
+				if err != nil {
+					return fmt.Errorf("failed to send bridge request: %w", err)
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					return fmt.Errorf("failed to bridge: %s", resp.Status)
+				}
+
+				fmt.Fprintf(
+					app.Writer,
+					"bridged %s ETH to %s on MEV-COMMIT\n",
+					c.String(optionAmount.Name),
+					est.Destination,
+				)
+				return nil
+			},
+		},
 	}
 
 	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Fprintf(app.Writer, "exited with error: %v\n", err)
 	}
+}
+
+// confirmYN prints a prompt with [y/N] and waits for user input from stdin.
+// Returns true if user responds "y"/"yes" (case-insensitive), false otherwise.
+func confirmYN(question string) bool {
+	fmt.Printf("%s [y/N]: ", question)
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		// If we fail to read, be safe and consider it a "no"
+		return false
+	}
+	response := strings.TrimSpace(strings.ToLower(input))
+
+	if response == "y" || response == "yes" {
+		return true
+	}
+	return false
 }
