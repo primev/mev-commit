@@ -108,7 +108,7 @@ contract DeployForMockL1 is Script {
                 currentBatchSize = totalKeys - i;
             }
             bytes[] memory batchKeys = new bytes[](currentBatchSize);
-            for (uint256 j = 0; j < currentBatchSize; j++) {
+            for (uint256 j = 0; j < currentBatchSize; ++j) {
                 batchKeys[j] = pubkeysToRegister[i + j];
             }
             uint256 batchStake = minStake * currentBatchSize;
