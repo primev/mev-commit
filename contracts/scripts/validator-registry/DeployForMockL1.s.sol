@@ -112,10 +112,6 @@ contract DeployForMockL1 is Script {
                 batchKeys[j] = pubkeysToRegister[i + j];
             }
             uint256 batchStake = minStake * currentBatchSize;
-            console.log("Staking batch", i / batchSize + 1);
-            console.log("with", currentBatchSize);
-            console.log("validators and batchStake", batchStake);
-            console.log("wei");
             vanillaRegistry.stake{value: batchStake}(batchKeys);
         }
         console.log("Successfully registered all validators");
