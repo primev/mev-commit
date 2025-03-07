@@ -192,12 +192,12 @@ job "{{ job.name }}" {
           export ORACLE_KEYSTORE_ADDRESS=$(jq -r '.address' local/oracle_keystore)
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
-            echo "Failed to deploy contracts!"
+            echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
             echo "${LOGS}"
             exit 1
           fi
           end_time=$(date +%s)
-          echo "Contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
+          echo "${DEPLOY_TYPE} contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
           echo "${LOGS}" \
           | sed -n '/{.*}/p' \
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
@@ -219,12 +219,12 @@ job "{{ job.name }}" {
           export RELAYER_ADDRESS=$(jq -r '.address' local/bridge_relayer_keystore)
           LOGS="$(${CONTRACT_REPO_ROOT_PATH}/entrypoint.sh)"
           if [ $? -ne 0 ]; then
-            echo "Failed to deploy contracts!"
+            echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
             echo "${LOGS}"
             exit 1
           fi
           end_time=$(date +%s)
-          echo "Contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
+          echo "${DEPLOY_TYPE} contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
           echo "${LOGS}" \
           | sed -n '/{.*}/p' \
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
@@ -267,21 +267,35 @@ job "{{ job.name }}" {
           export SCRIPT_PATH_PREFIX="scripts"
           export CONTRACT_REPO_ROOT_PATH="./"
           LOGS="$(./entrypoint.sh)"
+          if [ $? -ne 0 ]; then
+            echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
+            echo "${LOGS}"
+            exit 1
+          fi
+          end_time=$(date +%s)
+          echo "${DEPLOY_TYPE} contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
+          echo "${LOGS}" \
+          | sed -n '/{.*}/p' \
+          | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
+          | jq -c 'with_entries(select(.key | startswith("_") | not))' \
+          > local/${DEPLOY_TYPE}_addresses.json
 
           "${FORGE_BIN_PATH}" clean --root "${CONTRACT_REPO_ROOT_PATH}"
+          start_time=$(date +%s)
           export DEPLOY_TYPE="validator-registry"
+          echo "Deploying ${DEPLOY_TYPE} contracts..."
           LOGS="$(./entrypoint.sh)"
 
           # Now cd back to previous directory.
           cd ../../
 
           if [ $? -ne 0 ]; then
-            echo "Failed to deploy contracts!"
+            echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
             echo "${LOGS}"
             exit 1
           fi
           end_time=$(date +%s)
-          echo "Contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
+          echo "${DEPLOY_TYPE} contracts deployed successfully in: $(date -ud @$((end_time - start_time)) +'%H:%M:%S')."
           echo "${LOGS}" \
           | sed -n '/{.*}/p' \
           | jq -c 'reduce .logs[] as $item ({}; . + {($item | split(": ")[0]): ($item | split(": ")[1])})' \
