@@ -268,6 +268,7 @@ job "{{ job.name }}" {
           export CONTRACT_REPO_ROOT_PATH="./"
           LOGS="$(./entrypoint.sh)"
 
+          "${FORGE_BIN_PATH}" clean --root "${CONTRACT_REPO_ROOT_PATH}"
           export DEPLOY_TYPE="validator-registry"
           LOGS="$(./entrypoint.sh)"
 
