@@ -40,6 +40,7 @@ func request_Provider_ReceiveBids_0(ctx context.Context, marshaler runtime.Marsh
 		protoReq EmptyMessage
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	stream, err := client.ReceiveBids(ctx, &protoReq)
 	if err != nil {
 		return nil, metadata, err
@@ -101,6 +102,7 @@ func request_Provider_Stake_0(ctx context.Context, marshaler runtime.Marshaler, 
 		metadata runtime.ServerMetadata
 		err      error
 	)
+	io.Copy(io.Discard, req.Body)
 	val, ok := pathParams["amount"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "amount")
@@ -148,6 +150,7 @@ func request_Provider_GetStake_0(ctx context.Context, marshaler runtime.Marshale
 		protoReq EmptyMessage
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	msg, err := client.GetStake(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
@@ -166,6 +169,7 @@ func request_Provider_GetMinStake_0(ctx context.Context, marshaler runtime.Marsh
 		protoReq EmptyMessage
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	msg, err := client.GetMinStake(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
@@ -184,6 +188,7 @@ func request_Provider_WithdrawStake_0(ctx context.Context, marshaler runtime.Mar
 		protoReq EmptyMessage
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	msg, err := client.WithdrawStake(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
@@ -202,6 +207,7 @@ func request_Provider_Unstake_0(ctx context.Context, marshaler runtime.Marshaler
 		protoReq EmptyMessage
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	msg, err := client.Unstake(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }

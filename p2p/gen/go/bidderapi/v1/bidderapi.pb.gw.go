@@ -63,6 +63,7 @@ func request_Bidder_Deposit_0(ctx context.Context, marshaler runtime.Marshaler, 
 		metadata runtime.ServerMetadata
 		err      error
 	)
+	io.Copy(io.Discard, req.Body)
 	val, ok := pathParams["amount"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "amount")
@@ -113,6 +114,7 @@ func request_Bidder_AutoDeposit_0(ctx context.Context, marshaler runtime.Marshal
 		metadata runtime.ServerMetadata
 		err      error
 	)
+	io.Copy(io.Discard, req.Body)
 	val, ok := pathParams["amount"]
 	if !ok {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "amount")
@@ -162,6 +164,7 @@ func request_Bidder_CancelAutoDeposit_0(ctx context.Context, marshaler runtime.M
 		protoReq CancelAutoDepositRequest
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -192,6 +195,7 @@ func request_Bidder_AutoDepositStatus_0(ctx context.Context, marshaler runtime.M
 		protoReq EmptyMessage
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	msg, err := client.AutoDepositStatus(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 }
@@ -236,6 +240,7 @@ func request_Bidder_GetDeposit_0(ctx context.Context, marshaler runtime.Marshale
 		protoReq GetDepositRequest
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -268,6 +273,7 @@ func request_Bidder_Withdraw_0(ctx context.Context, marshaler runtime.Marshaler,
 		protoReq WithdrawRequest
 		metadata runtime.ServerMetadata
 	)
+	io.Copy(io.Discard, req.Body)
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
