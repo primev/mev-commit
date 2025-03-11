@@ -7,6 +7,7 @@ import {Script} from "forge-std/Script.sol";
 import {IVault} from "symbiotic-core/interfaces/vault/IVault.sol";
 import {IBurnerRouterFactory} from "symbiotic-burners/interfaces/router/IBurnerRouterFactory.sol";
 import {IBurnerRouter} from "symbiotic-burners/interfaces/router/IBurnerRouter.sol";
+import {MevCommitMiddlewareStorage} from "../../../contracts/validator-registry/middleware/MevCommitMiddlewareStorage.sol";
 
 contract VaultScript is Script {
 
@@ -20,9 +21,9 @@ contract VaultScript is Script {
     uint48 public constant EPOCH_DURATION = 2 days;
     address public constant VAULT_CONFIGURATOR = 0x29300b1d3150B4E2b12fE80BE72f365E200441EC;
     uint256 public constant DEPOSIT_LIMIT = 0;
-    uint64 public constant DELEGATOR_INDEX = 0; // Network restake delegator
+    uint64 public constant DELEGATOR_INDEX = MevCommitMiddlewareStorage._NETWORK_RESTAKE_DELEGATOR_TYPE;
     address public constant HOOK = 0x0000000000000000000000000000000000000000;
-    uint64 public constant SLASHER_INDEX = 0; // Instant slasher
+    uint64 public constant SLASHER_INDEX = MevCommitMiddlewareStorage._INSTANT_SLASHER_TYPE;
 
     function run() external {
         require(block.chainid == 1, "must deploy on mainnet");
