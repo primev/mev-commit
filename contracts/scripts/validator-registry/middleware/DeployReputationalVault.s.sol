@@ -64,10 +64,10 @@ contract VaultScript is Script {
             })
         );
 
-        uint256 roleHolders = 1;
-        address[] memory networkLimitSetRoleHolders = new address[](roleHolders);
-        address[] memory operatorNetworkSharesSetRoleHolders = new address[](roleHolders);
+        address[] memory networkLimitSetRoleHolders = new address[](1);
         networkLimitSetRoleHolders[0] = OWNER;
+
+        address[] memory operatorNetworkSharesSetRoleHolders = new address[](1);
         operatorNetworkSharesSetRoleHolders[0] = OWNER;
 
         bytes memory delegatorParams = abi.encode(
