@@ -7,7 +7,12 @@ import {Script} from "forge-std/Script.sol";
 import {IVault} from "symbiotic-core/interfaces/vault/IVault.sol";
 import {IBurnerRouterFactory} from "symbiotic-burners/interfaces/router/IBurnerRouterFactory.sol";
 import {IBurnerRouter} from "symbiotic-burners/interfaces/router/IBurnerRouter.sol";
-import {MevCommitMiddlewareStorage} from "../../../contracts/validator-registry/middleware/MevCommitMiddlewareStorage.sol";
+import {IVaultConfigurator} from "symbiotic-core/interfaces/IVaultConfigurator.sol";
+import {IBaseSlasher} from "symbiotic-core/interfaces/slasher/IBaseSlasher.sol";
+import {ISlasher} from "symbiotic-core/interfaces/slasher/ISlasher.sol";
+import {IBaseDelegator} from "symbiotic-core/interfaces/delegator/IBaseDelegator.sol";
+import {INetworkRestakeDelegator} from "symbiotic-core/interfaces/delegator/INetworkRestakeDelegator.sol";
+import {console} from "forge-std/console.sol";
 
 contract VaultScript is Script {
 
@@ -21,9 +26,9 @@ contract VaultScript is Script {
     uint48 public constant EPOCH_DURATION = 2 days;
     address public constant VAULT_CONFIGURATOR = 0x29300b1d3150B4E2b12fE80BE72f365E200441EC;
     uint256 public constant DEPOSIT_LIMIT = 0;
-    uint64 public constant DELEGATOR_INDEX = MevCommitMiddlewareStorage._NETWORK_RESTAKE_DELEGATOR_TYPE;
+    uint64 public constant DELEGATOR_INDEX = 0; // Network restake delegator
     address public constant HOOK = 0x0000000000000000000000000000000000000000;
-    uint64 public constant SLASHER_INDEX = MevCommitMiddlewareStorage._INSTANT_SLASHER_TYPE;
+    uint64 public constant SLASHER_INDEX = 0; // Instant slasher
 
     function run() external {
         require(block.chainid == 1, "must deploy on mainnet");
@@ -86,7 +91,7 @@ contract VaultScript is Script {
             ISlasher.InitParams({baseParams: IBaseSlasher.BaseParams({isBurnerHook: true})})
         );
 
-        (address vault_, address delegator_, address slasher_) = IVaultConfigurator(vaultConfigurator).create(
+        (address vault_, address delegator_, address slasher_) = IVaultConfigurator(VAULT_CONFIGURATOR).create(
             IVaultConfigurator.InitParams({
                 version: 1,
                 owner: OWNER,
