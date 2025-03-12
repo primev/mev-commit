@@ -267,6 +267,12 @@ job "{{ job.name }}" {
           export SCRIPT_PATH_PREFIX="scripts"
           export CONTRACT_REPO_ROOT_PATH="./"
           LOGS="$(./entrypoint.sh)"
+
+          TMP_CONTRACTS_DIR=$(pwd)
+
+          # Now cd back to previous directory.
+          cd ../../
+
           if [ $? -ne 0 ]; then
             echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
             echo "${LOGS}"
@@ -280,8 +286,6 @@ job "{{ job.name }}" {
           | jq -c 'with_entries(select(.key | startswith("_") | not))' \
           > local/${DEPLOY_TYPE}_addresses.json
 
-          "${FORGE_BIN_PATH}" clean --root "${CONTRACT_REPO_ROOT_PATH}"
-          
           # Only deploy validator-registry when beacon-emulator is running
           {%- raw %}
           BEACON_EMULATOR_RUNNING=false
@@ -292,10 +296,16 @@ job "{{ job.name }}" {
           
           if [ "$BEACON_EMULATOR_RUNNING" = true ]; then
           
+            cd "${TMP_CONTRACTS_DIR}"
+            "${FORGE_BIN_PATH}" clean --root "${CONTRACT_REPO_ROOT_PATH}"
+
             start_time=$(date +%s)
             export DEPLOY_TYPE="validator-registry"
             echo "Deploying ${DEPLOY_TYPE} contracts..."
             LOGS="$(./entrypoint.sh)"
+
+            # Now cd back to previous directory again.
+            cd ../../
 
             if [ $? -ne 0 ]; then
               echo "Failed to deploy ${DEPLOY_TYPE} contracts!"
@@ -315,9 +325,6 @@ job "{{ job.name }}" {
           fi
 
           {%- endif %}
-
-          # Now cd back to previous directory.
-          cd ../../
 
           mkdir -p /local/data/www > /dev/null 2>&1
           jq -s 'add' local/*_addresses.json > local/data/www/contracts.json
