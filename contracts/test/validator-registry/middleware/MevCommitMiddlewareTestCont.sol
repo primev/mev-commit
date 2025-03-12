@@ -10,8 +10,7 @@ import {MockInstantSlasher} from "./MockInstantSlasher.sol";
 import {MockDelegator} from "./MockDelegator.sol";
 import {MockBurnerRouter} from "./MockBurnerRouter.sol";
 import {MockVault} from "./MockVault.sol";
-import {IMevCommitMiddlewareV2} from "../../../contracts/interfaces/IMevCommitMiddlewareV2.sol";
-
+import {MevCommitMiddlewareV2} from "../../../contracts/validator-registry/middleware/MevCommitMiddlewareV2.sol";
 contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
     function setUp() public override {
@@ -1379,7 +1378,7 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
         // Should fail because burner hook is not set
         vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(IMevCommitMiddlewareV2.BurnerHookNotSetForVault.selector, address(vault1)));
+        vm.expectRevert(abi.encodeWithSelector(MevCommitMiddlewareV2.BurnerHookNotSetForVault.selector, address(vault1)));
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         mockSlasher1.setIsBurnerHook(true);

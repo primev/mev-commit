@@ -6,8 +6,8 @@ import {TimestampOccurrence} from "../../utils/Occurrence.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {IMevCommitMiddlewareV2} from "../../interfaces/IMevCommitMiddlewareV2.sol";
-import {MevCommitMiddlewareStorageV2} from "./MevCommitMiddlewareStorageV2.sol";
+import {IMevCommitMiddleware} from "../../interfaces/IMevCommitMiddleware.sol";
+import {MevCommitMiddlewareStorage} from "./MevCommitMiddlewareStorage.sol";
 import {EnumerableSet} from "../../utils/EnumerableSet.sol";
 import {IVault} from "symbiotic-core/interfaces/vault/IVault.sol";
 import {IVaultStorage} from "symbiotic-core/interfaces/vault/IVaultStorage.sol";
@@ -27,11 +27,13 @@ import {IBaseSlasher} from "symbiotic-core/interfaces/slasher/IBaseSlasher.sol";
 /// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
 /// at the risk of funds being slashed. 
 /// @custom:oz-upgrades-from MevCommitMiddleware
-contract MevCommitMiddlewareV2 is IMevCommitMiddlewareV2, MevCommitMiddlewareStorageV2,
+contract MevCommitMiddlewareV2 is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     using EnumerableSet for EnumerableSet.BytesSet;
     using Checkpoints for Checkpoints.Trace160;
+
+    error BurnerHookNotSetForVault(address vault);
 
     /// @notice Only the slash oracle account can call functions marked with this modifier.
     modifier onlySlashOracle() {
@@ -46,7 +48,7 @@ contract MevCommitMiddlewareV2 is IMevCommitMiddlewareV2, MevCommitMiddlewareSto
             bytes[] calldata innerArray = blsPubKeys[i];
             uint256 len2 = innerArray.length;
             for (uint256 j = 0; j < len2; ++j) {
-                require(innerArray[j].length == 48, IMevCommitMiddlewareV2.InvalidBLSPubKeyLength(
+                require(innerArray[j].length == 48, IMevCommitMiddleware.InvalidBLSPubKeyLength(
                     48, innerArray[j].length));
             }
         }
