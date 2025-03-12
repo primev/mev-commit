@@ -6,6 +6,7 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {IMevCommitMiddleware} from "../../../contracts/interfaces/IMevCommitMiddleware.sol";
 import {MevCommitMiddleware} from "../../../contracts/validator-registry/middleware/MevCommitMiddleware.sol";
+import {MevCommitMiddlewareV2} from "../../../contracts/validator-registry/middleware/MevCommitMiddlewareV2.sol";
 import {RegistryMock} from "./RegistryMock.sol";
 import {IRegistry} from "symbiotic-core/interfaces/common/IRegistry.sol";
 import {Upgrades} from "openzeppelin-foundry-upgrades/Upgrades.sol";
@@ -111,6 +112,14 @@ contract MevCommitMiddlewareTest is Test {
             ))
         );
         mevCommitMiddleware = MevCommitMiddleware(payable(proxy));
+
+        // deploy new implementation and upgrade
+        vm.prank(vm.addr(0x1119)); // Implementation can be deployed by anyone
+        MevCommitMiddlewareV2 newImplementation = new MevCommitMiddlewareV2();
+
+        bytes memory data = "";
+        vm.prank(owner);
+        mevCommitMiddleware.upgradeToAndCall(address(newImplementation), data);
 
         mockDelegator1 = new MockDelegator(15);
         mockDelegator2 = new MockDelegator(16);
@@ -625,8 +634,8 @@ contract MevCommitMiddlewareTest is Test {
         mevCommitMiddleware.registerVaults(vaults, slashAmounts);
 
         uint256 vetoDuration = 5 hours;
-        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration, mockDelegator1, address(mevCommitMiddleware));
-        MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88, mockDelegator2);
+        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration, mockDelegator1, address(mevCommitMiddleware), true);
+        MockInstantSlasher mockSlasher2 = new MockInstantSlasher(88, mockDelegator2, true);
 
         vault1.setSlasher(address(mockSlasher1));
         vault2.setSlasher(address(mockSlasher2));
