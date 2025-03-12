@@ -21,6 +21,7 @@ import {Errors} from "../../utils/Errors.sol";
 import {IVetoSlasher} from "symbiotic-core/interfaces/slasher/IVetoSlasher.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 import {IBurnerRouter} from "symbiotic-burners/interfaces/router/IBurnerRouter.sol";
+import {IBaseSlasher} from "symbiotic-core/interfaces/slasher/IBaseSlasher.sol";
 
 /// @notice This contracts serve as an entrypoint for L1 validators
 /// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
@@ -729,6 +730,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         } else if (slasherType != _INSTANT_SLASHER_TYPE) {
             revert UnknownSlasherType(vault, slasherType);
         }
+
+        require(IBaseSlasher(slasher).isBurnerHook(), BurnerHookNotSetForVault(vault));
 
         require(vaultEpochDurationSeconds > slashPeriodSeconds,
             InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));

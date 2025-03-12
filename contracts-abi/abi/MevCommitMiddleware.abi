@@ -1668,6 +1668,17 @@
   },
   {
     "type": "error",
+    "name": "BurnerHookNotSetForVault",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CaptureTimestampMustBeNonZero",
     "inputs": []
   },

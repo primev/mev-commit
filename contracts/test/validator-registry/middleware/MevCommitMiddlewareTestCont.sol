@@ -9,6 +9,7 @@ import {MockVetoSlasher} from "./MockVetoSlasher.sol";
 import {MockInstantSlasher} from "./MockInstantSlasher.sol";
 import {MockDelegator} from "./MockDelegator.sol";
 import {MockBurnerRouter} from "./MockBurnerRouter.sol";
+import {MockVault} from "./MockVault.sol";
 
 contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
 
@@ -63,9 +64,9 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint64 instantSlasherType = 0;
         uint64 vetoSlasherType = 1;
 
-        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
+        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1, true);
         uint256 vetoDuration = 5 hours;
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware));
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware), true);
 
         vm.prank(address(mockSlasher1));
         slasherFactoryMock.register();
@@ -154,9 +155,9 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         uint64 instantSlasherType = 0;
         uint64 vetoSlasherType = 1;
 
-        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1);
+        MockInstantSlasher mockSlasher1 = new MockInstantSlasher(instantSlasherType, mockDelegator1, true);
         uint256 vetoDuration = 5 hours;
-        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware));
+        MockVetoSlasher mockSlasher2 = new MockVetoSlasher(vetoSlasherType, address(0), vetoDuration, mockDelegator2, address(mevCommitMiddleware), true);
 
         vm.prank(address(mockSlasher1));
         slasherFactoryMock.register();
@@ -1329,6 +1330,63 @@ contract MevCommitMiddlewareTestCont is MevCommitMiddlewareTest {
         assertFalse(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
         mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
         assertTrue(mevCommitMiddleware.isValidatorOptedIn(sampleValPubkey1));
+    }
+
+    function test_burnerHookNotSetForVault() public {
+        address[] memory vaults = new address[](1);
+        vaults[0] = address(vault1);
+
+        uint160[] memory slashAmounts = new uint160[](1);
+        slashAmounts[0] = 15;
+
+        vm.prank(address(vault1));
+        vaultFactoryMock.register();
+
+        vm.prank(address(mockDelegator1));
+        delegatorFactoryMock.register();
+
+        uint64 fullRestakeDelegatorType = 1;
+        mockDelegator1.setType(fullRestakeDelegatorType);
+
+        uint64 networkRestakeDelegatorType = 0;
+        mockDelegator1.setType(networkRestakeDelegatorType);
+
+        uint256 vetoDuration = 5 hours;
+        bool isBurnerHookSet = false; // Important: burner hook is FALSE
+        MockVetoSlasher mockSlasher1 = new MockVetoSlasher(77, address(77), vetoDuration, mockDelegator1, address(mevCommitMiddleware), isBurnerHookSet);
+
+        vault1.setSlasher(address(mockSlasher1));
+
+        vm.prank(address(mockSlasher1));
+        slasherFactoryMock.register();
+
+        uint64 vetoSlasherType = 1;
+        mockSlasher1.setType(vetoSlasherType);
+        mockSlasher1.setResolver(address(0));
+
+        MockVault(vault1).setEpochDuration(157 hours);
+
+        mockBurnerRouter = new MockBurnerRouter(15 minutes);
+
+        vm.prank(address(mockBurnerRouter));
+        burnerRouterFactoryMock.register();
+
+        vault1.setBurner(address(mockBurnerRouter));
+
+        mockBurnerRouter.setNetworkReceiver(network, slashReceiver);
+        mockBurnerRouter.setDelay(3 days);
+
+        // Should fail because burner hook is not set
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(IMevCommitMiddleware.BurnerHookNotSetForVault.selector, address(vault1)));
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
+
+        mockSlasher1.setIsBurnerHook(true);
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit VaultRegistered(address(vault1), 15);
+        mevCommitMiddleware.registerVaults(vaults, slashAmounts);
     }
 
     function test_isValidatorOptedInBadKey() public view {
