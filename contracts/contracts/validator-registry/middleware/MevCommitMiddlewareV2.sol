@@ -21,17 +21,19 @@ import {Errors} from "../../utils/Errors.sol";
 import {IVetoSlasher} from "symbiotic-core/interfaces/slasher/IVetoSlasher.sol";
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 import {IBurnerRouter} from "symbiotic-burners/interfaces/router/IBurnerRouter.sol";
+import {IBaseSlasher} from "symbiotic-core/interfaces/slasher/IBaseSlasher.sol";
 
 /// @notice This contracts serve as an entrypoint for L1 validators
 /// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
 /// at the risk of funds being slashed. 
-///
-/// 3/11/2025: confirmed to match https://etherscan.io/address/0xf702bff15d6a62b1d78abb7eff65df6b6c0c2b34#code on mainnet
-contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
+/// @custom:oz-upgrades-from MevCommitMiddleware
+contract MevCommitMiddlewareV2 is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
     using EnumerableSet for EnumerableSet.BytesSet;
     using Checkpoints for Checkpoints.Trace160;
+
+    error BurnerHookNotSetForVault(address vault);
 
     /// @notice Only the slash oracle account can call functions marked with this modifier.
     modifier onlySlashOracle() {
@@ -731,6 +733,8 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         } else if (slasherType != _INSTANT_SLASHER_TYPE) {
             revert UnknownSlasherType(vault, slasherType);
         }
+
+        require(IBaseSlasher(slasher).isBurnerHook(), BurnerHookNotSetForVault(vault));
 
         require(vaultEpochDurationSeconds > slashPeriodSeconds,
             InvalidVaultEpochDuration(vault, vaultEpochDurationSeconds, slashPeriodSeconds));
