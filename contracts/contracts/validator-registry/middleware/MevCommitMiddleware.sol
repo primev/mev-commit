@@ -25,6 +25,8 @@ import {IBurnerRouter} from "symbiotic-burners/interfaces/router/IBurnerRouter.s
 /// @notice This contracts serve as an entrypoint for L1 validators
 /// to *opt-in* to mev-commit, ie. attest to the rules of mev-commit,
 /// at the risk of funds being slashed. 
+///
+/// 3/11/2025: confirmed to match https://etherscan.io/address/0xf702bff15d6a62b1d78abb7eff65df6b6c0c2b34#code on mainnet
 contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
 
