@@ -97,9 +97,11 @@ job "{{ job.name }}" {
             {{- end }}
           {{- end }}
           XDG_CONFIG_HOME="local/.config"
+          {{- range nomadService "mock-l1" }}
           CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deployer_keystore"
           CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
           CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
+          {{- end }}
           {% endraw %}
           INSTANT_BRIDGE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           CONTRACTS_PATH="local/contracts"
@@ -122,8 +124,10 @@ job "{{ job.name }}" {
           mkdir -p "${CONTRACT_DEPLOYER_KEYSTORE_PATH}" > /dev/null 2>&1
           mkdir -p "${INSTANT_BRIDGE_KEYSTORE_DIR}" > /dev/null 2>&1
             {{- with secret "secret/data/mev-commit" }}
+                {{- range nomadService "mock-l1" }}
           CONTRACT_DEPLOYER_KEYSTORE_FILE="${CONTRACT_DEPLOYER_KEYSTORE_PATH}/${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}"
           echo '{{ .Data.data.contract_deployer_keystore }}' > "${CONTRACT_DEPLOYER_KEYSTORE_FILE}"
+                {{- end }}
           INSTANT_BRIDGE_KEYSTORE_FILE="${INSTANT_BRIDGE_KEYSTORE_DIR}/${INSTANT_BRIDGE_KEYSTORE_FILENAME}"
           echo '{{ .Data.data.instant_bridge_keystore }}' > "${INSTANT_BRIDGE_KEYSTORE_FILE}"
             {{ end }}
