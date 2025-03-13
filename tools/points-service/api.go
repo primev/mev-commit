@@ -122,8 +122,9 @@ func (p *PointsAPI) RecomputePointsForAddress(w http.ResponseWriter, r *http.Req
 	pointsByVaultList := []map[string]interface{}{}
 	for vault, points := range pointsByVault {
 		pointsByVaultList = append(pointsByVaultList, map[string]interface{}{
-			"vault_address": vault,
-			"points":        points,
+			"vault_address":   vault,
+			"points":          points,
+			"network_address": "0x9101eda106A443A0fA82375936D0D1680D5a64F5",
 		})
 	}
 
