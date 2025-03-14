@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 /// @notice Relevant constants communicated by Symbiotic team as canonical mainnet addresses.
 /// @notice Last updated 1-14-2025
