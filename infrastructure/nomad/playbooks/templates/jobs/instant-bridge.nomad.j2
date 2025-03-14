@@ -98,11 +98,9 @@ job "{{ job.name }}" {
           {{- end }}
           XDG_CONFIG_HOME="local/.config"
           {{- range nomadService "mock-l1" }}
-            {{- with secret "secret/data/mev-commit" }}
           CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deployer_keystore"
-          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ .Data.data.contract_deployer_keystore_filename }}"
-          CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ .Data.data.contract_deployer_keystore_password }}"
-            {{- end }}
+          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
+          CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
           {{- end }}
           {% endraw %}
           INSTANT_BRIDGE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
