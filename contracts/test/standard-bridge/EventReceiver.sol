@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.28;
 
 contract EventReceiver {
     event Received(address indexed sender, uint256 amount);

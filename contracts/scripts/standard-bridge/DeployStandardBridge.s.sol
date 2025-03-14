@@ -3,7 +3,7 @@
 // solhint-disable no-console
 // solhint-disable one-contract-per-file
 
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {SettlementGateway} from "../../contracts/standard-bridge/SettlementGateway.sol";

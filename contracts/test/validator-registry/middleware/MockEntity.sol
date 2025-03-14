@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 contract MockEntity {
     uint64 private _type;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {Gateway} from "./Gateway.sol";
 import {IAllocator} from "../interfaces/IAllocator.sol";

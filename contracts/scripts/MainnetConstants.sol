@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSL 1.1
 
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 library MainnetConstants {
     /// @notice DO NOT assume this address is valid on any chain other than mainnet.

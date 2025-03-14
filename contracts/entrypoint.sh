@@ -35,7 +35,7 @@ if [ "${DEPLOY_TYPE}" = "core" ]; then
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \
         --sender "${SENDER}" \
-        --use 0.8.26 \
+        --use 0.8.28 \
         --broadcast \
         --json \
         --via-ir
@@ -51,7 +51,7 @@ elif [ "${DEPLOY_TYPE}" = "settlement-gateway" ]; then
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \
         --sender "${SENDER}" \
-        --use 0.8.26 \
+        --use 0.8.28 \
         --broadcast \
         --json \
         --via-ir
@@ -66,7 +66,7 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \
         --sender "${SENDER}" \
-        --use 0.8.26 \
+        --use 0.8.28 \
         --broadcast \
         --json \
         ${VERIFY_OPTION} \
@@ -83,7 +83,7 @@ elif [ "${DEPLOY_TYPE}" = "validator-registry" ]; then
         --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
         --password "${KEYSTORE_PASSWORD}" \
         --sender "${SENDER}" \
-        --use 0.8.26 \
+        --use 0.8.28 \
         --broadcast \
         --json \
         --via-ir

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 /// @dev Any storage variables defined in this contract must NOT override those defined in GatewayStorage.sol!
 contract L1GatewayStorage {
