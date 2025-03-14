@@ -13,7 +13,7 @@ on:
           - stressnet
           - stressnet-wl1
           - manual-test
-          - instant-bridge
+          - instant-bridge-test
         default: 'devnet'
       all_targets:
         description: 'All Arch & Os Targets'
