@@ -96,11 +96,16 @@ job "{{ job.name }}" {
           INSTANT_BRIDGE_BIDDER_RPC_URL="{{ .Address }}:{{ .Port }}"
             {{- end }}
           {{- end }}
-          XDG_CONFIG_HOME="local/.config"
-          CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deployer_keystore"
-          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_filename }}{{ end }}"
-          CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.contract_deployer_keystore_password }}{{ end }}"
           {% endraw %}
+          XDG_CONFIG_HOME="local/.config"
+          {% if profile == 'instant-bridge-test' %}
+          {%- raw %}
+          {{- $secret := secret "secret/data/mev-commit" }}
+          CONTRACT_DEPLOYER_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/deployer_keystore"
+          CONTRACT_DEPLOYER_KEYSTORE_FILENAME="{{ $secret.Data.data.contract_deployer_keystore_filename }}"
+          CONTRACT_DEPLOYER_KEYSTORE_PASSWORD="{{ $secret.Data.data.contract_deployer_keystore_password }}"
+          {% endraw %}
+          {% endif %}
           INSTANT_BRIDGE_L1_RPC_URLS="{{ job.env['l1_rpc_urls'] }}"
           CONTRACTS_PATH="local/contracts"
           ARTIFACT_OUT_PATH="local"
@@ -119,15 +124,21 @@ job "{{ job.name }}" {
           exec > >(nc {{ .Address }} {{ .Port }}) 2>&1
             {{ end }}
           {{- end }}
-          mkdir -p "${CONTRACT_DEPLOYER_KEYSTORE_PATH}" > /dev/null 2>&1
           mkdir -p "${INSTANT_BRIDGE_KEYSTORE_DIR}" > /dev/null 2>&1
             {{- with secret "secret/data/mev-commit" }}
-          CONTRACT_DEPLOYER_KEYSTORE_FILE="${CONTRACT_DEPLOYER_KEYSTORE_PATH}/${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}"
-          echo '{{ .Data.data.contract_deployer_keystore }}' > "${CONTRACT_DEPLOYER_KEYSTORE_FILE}"
           INSTANT_BRIDGE_KEYSTORE_FILE="${INSTANT_BRIDGE_KEYSTORE_DIR}/${INSTANT_BRIDGE_KEYSTORE_FILENAME}"
           echo '{{ .Data.data.instant_bridge_keystore }}' > "${INSTANT_BRIDGE_KEYSTORE_FILE}"
             {{ end }}
           {% endraw %}
+
+          {% if profile == 'instant-bridge-test' %}
+          mkdir -p "${CONTRACT_DEPLOYER_KEYSTORE_PATH}" > /dev/null 2>&1
+          CONTRACT_DEPLOYER_KEYSTORE_FILE="${CONTRACT_DEPLOYER_KEYSTORE_PATH}/${CONTRACT_DEPLOYER_KEYSTORE_FILENAME}"
+          {%- raw %}
+          {{- $secret := secret "secret/data/mev-commit" }}
+          echo '{{ $secret.Data.data.contract_deployer_keystore }}' > "${CONTRACT_DEPLOYER_KEYSTORE_FILE}"
+          {%- endraw %}
+          {% endif %}
 
           {% raw %}
           {{- range nomadService "contracts-deployer" }}
