@@ -52,7 +52,7 @@ func NewHTTPPublisher(
 	}
 }
 
-// AddContract appends new contract addresses to the set we listen on.
+// AddContracts appends new contract addresses to the set we listen on.
 func (h *httpPublisher) AddContracts(addr ...common.Address) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

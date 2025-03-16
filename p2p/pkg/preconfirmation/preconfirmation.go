@@ -252,7 +252,7 @@ func (p *Preconfirmation) SendBid(
 
 var ErrInvalidBidderTypeForBid = errors.New("invalid bidder type for bid")
 
-// handlebid is the function that is called when a bid is received
+// handleBid is the function that is called when a bid is received
 // It is meant to be used by the provider exclusively to read the bid value from the bidder.
 func (p *Preconfirmation) handleBid(
 	ctx context.Context,
