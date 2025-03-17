@@ -911,7 +911,7 @@ profiles:
       - *mev_commit_faucet_job
       - *datadog_agent_metrics_collector_job
 
-  instant-bridge:
+  instant-bridge-test:
     jobs:
       - *artifacts_job
       - *datadog_agent_logs_collector_job
@@ -939,6 +939,14 @@ profiles:
       - *mev_commit_bidder_node1_funder_job
       - *instant_bridge_job
       - *datadog_agent_metrics_collector_job
+
+  instant-bridge:
+    jobs:
+      - *artifacts_job
+      - *datadog_agent_logs_collector_job
+      - *mev_commit_bidder_node1_job
+      - *instant_bridge_job
+
   archive:
     jobs:
       - *artifacts_job
