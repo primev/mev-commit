@@ -20,11 +20,13 @@ otel_collector_endpoint_url=""
 genesis_file_url=""
 geth_bootnode_url=""
 oracle_relay_urls=""
+settlement_rpc_url=""
+contracts_json_url=""
 
 help() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--oracle-relay-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--oracle-relay-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--settlement-rpc-url <url>] [--contracts-json-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--environment <name=devenv>] [--debug]]"
     echo "$0 --help"
     echo
@@ -34,19 +36,21 @@ help() {
     echo "    --skip-certificates-setup    Skip the certificates installation and setup."
     echo "    --debug                      Enable debug mode for detailed output."
     echo
-    echo "  deploy [version=HEAD]                  Deploy the specified artifact version (a git commit hash or an existing AWS S3 tag). If not specified or set to HEAD, a local build is triggered."
-    echo "    --environment <name=devenv>          Specify the environment to use (default is devenv)."
-    echo "    --profile <name=devnet>              Specify the profile to use (default is devnet)."
+    echo "  deploy [version=HEAD]"
+    echo "    --environment <name=devenv>          Specify the environment (default is devenv)."
+    echo "    --profile <name=devnet>              Specify the profile (default is devnet)."
     echo "    --force-build-templates              Force the build of all job templates before deployment."
     echo "    --no-logs-collection                 Disable the collection of logs from deployed jobs."
     echo "    --datadog-key <key>                  Datadog API key, cannot be empty."
-    echo "    --l1-rpc-urls <urls>                 Comma separated list of L1 RPC URLs, cannot be empty."
-    echo "    --oracle-relay-urls <urls>           Comma separated list of Oracle Relay URLs, cannot be empty."
+    echo "    --l1-rpc-urls <urls>                 Comma-separated list of L1 RPC URLs, cannot be empty."
+    echo "    --oracle-relay-urls <urls>           Comma-separated list of Oracle Relay URLs, cannot be empty."
     echo "    --etherscan-api-key <key>            Etherscan API key, cannot be empty."
     echo "    --otel-collector-endpoint-url <url>  OpenTelemetry Collector Endpoint URL, cannot be empty."
     echo "    --genesis-file-url <url>             URL to the genesis file, cannot be empty."
     echo "    --geth-bootnode-url <url>            URL to the Geth bootnode, cannot be empty."
-    echo "    --release                            It will ignore the specified deployment version and use the current HEAD tag as the build version."
+    echo "    --settlement-rpc-url <url>           URL for the settlement RPC, cannot be empty."
+    echo "    --contracts-json-url <url>           URL to the contracts JSON file, cannot be empty."
+    echo "    --release                            Ignore the specified deployment version and use the current HEAD tag as the build version."
     echo "    --debug                              Enable debug mode for detailed output."
     echo
     echo "  destroy [--environment <name=devenv>] [--debug]"
@@ -65,7 +69,7 @@ help() {
 usage() {
     echo "Usage:"
     echo "$0 [init [--environment <name=devenv>] [--skip-certificates-setup] [--debug]]"
-    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--oracle-relay-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--release] [--debug]]"
+    echo "$0 [deploy [version=HEAD] [--environment <name=devenv>] [--profile <name=devnet>] [--force-build-templates] [--no-logs-collection] [--datadog-key <key>] [--l1-rpc-urls <urls>] [--oracle-relay-urls <urls>] [--etherscan-api-key <key>] [--otel-collector-endpoint-url <url>] [--genesis-file-url <url>] [--geth-bootnode-url <url>] [--settlement-rpc-url <url>] [--contracts-json-url <url>] [--release] [--debug]]"
     echo "$0 [destroy [--environment <name=devenv>] [--debug]]"
     echo "$0 --help"
     exit 1
@@ -205,7 +209,7 @@ parse_args() {
                         usage
                     fi
                 fi
-                if [[ $# -gt 0 && $1 == "--oracle-relay-urls" ]]; then  # Added flag
+                if [[ $# -gt 0 && $1 == "--oracle-relay-urls" ]]; then
                     if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                         oracle_relay_urls="$2"
                         shift 2
@@ -247,6 +251,26 @@ parse_args() {
                         shift 2
                     else
                         echo "Error: --geth-bootnode-url requires a value."
+                        usage
+                    fi
+                fi
+                # Added flag: settlement_rpc_url
+                if [[ $# -gt 0 && $1 == "--settlement-rpc-url" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        settlement_rpc_url="$2"
+                        shift 2
+                    else
+                        echo "Error: --settlement-rpc-url requires a value."
+                        usage
+                    fi
+                fi
+                # Added flag: contracts_json_url
+                if [[ $# -gt 0 && $1 == "--contracts-json-url" ]]; then
+                    if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
+                        contracts_json_url="$2"
+                        shift 2
+                    else
+                        echo "Error: --contracts-json-url requires a value."
                         usage
                     fi
                 fi
@@ -320,6 +344,8 @@ main() {
             [[ -n "${otel_collector_endpoint_url}" ]] && flags+=("--extra-vars" "otel_collector_endpoint_url=${otel_collector_endpoint_url}")
             [[ -n "${genesis_file_url}" ]] && flags+=("--extra-vars" "genesis_file_url=${genesis_file_url}")
             [[ -n "${geth_bootnode_url}" ]] && flags+=("--extra-vars" "geth_bootnode_url=${geth_bootnode_url}")
+            [[ -n "${settlement_rpc_url}" ]] && flags+=("--extra-vars" "settlement_rpc_url=${settlement_rpc_url}")
+            [[ -n "${contracts_json_url}" ]] && flags+=("--extra-vars" "contracts_json_url=${contracts_json_url}")
             [[ "${release_flag}" == true ]] && flags+=("--extra-vars" "release=true")
             ;;
         "${destroy_flag}")
