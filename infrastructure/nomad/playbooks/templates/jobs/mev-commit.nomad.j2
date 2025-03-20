@@ -176,11 +176,11 @@ job "{{ job.name }}" {
           export MEV_COMMIT_VALIDATOR_ROUTER_ADDR="0x251Fbc993f58cBfDA8Ad7b0278084F915aCE7fc3"
             {{ end }}
           {{- end }}
+          {% endraw %}
           {% if profile == 'testnet' %}
           export MEV_COMMIT_BEACON_API_URL="https://ethereum-holesky-beacon-api.publicnode.com"
           export MEV_COMMIT_VALIDATOR_ROUTER_ADDR="0x251Fbc993f58cBfDA8Ad7b0278084F915aCE7fc3"
           {% endif %}
-          {% endraw %}
 
           chmod +x local/mev-commit
           exec local/mev-commit

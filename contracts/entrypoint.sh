@@ -18,6 +18,8 @@ if [ -n "${ETHERSCAN_API_KEY}" ]; then
     VERIFY_OPTION="--verify"
 fi
 
+set -x
+
 if [ "${DEPLOY_TYPE}" = "core" ]; then
     if [ -z "$ORACLE_KEYSTORE_ADDRESS" ]; then
         echo "ORACLE_KEYSTORE_ADDRESS not specified"
