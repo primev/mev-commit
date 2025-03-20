@@ -604,6 +604,9 @@ func NewNode(opts *Options) (*Node, error) {
 				nd.closers,
 				ioCloserFunc(func() error {
 					_, err := autoDeposit.Stop()
+					if errors.Is(err, autodepositor.ErrNotRunning) {
+						return nil
+					}
 					return err
 				}),
 			)
@@ -845,8 +848,8 @@ func (n *Node) Close() error {
 	}
 
 	var err error
-	for _, c := range n.closers {
-		err = errors.Join(err, c.Close())
+	for i := len(n.closers) - 1; i >= 0; i-- {
+		err = errors.Join(err, n.closers[i].Close())
 	}
 
 	return err
