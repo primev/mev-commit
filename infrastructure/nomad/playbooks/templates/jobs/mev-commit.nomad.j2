@@ -166,7 +166,7 @@ job "{{ job.name }}" {
             {{ end }}
           {{- end }}
           CONTRACTS_FILE="/local/contracts.json"
-          curl -s -o "${CONTRACTS_FILE}" "${URL}"
+          curl -s -o "${CONTRACTS_FILE}" "${CONTRACTS_JSON_URL}"
           export MEV_COMMIT_PROVIDER_REGISTRY_ADDR="$(jq -r '.ProviderRegistry' ${CONTRACTS_FILE})"
           export MEV_COMMIT_BIDDER_REGISTRY_ADDR="$(jq -r '.BidderRegistry' ${CONTRACTS_FILE})"
           export MEV_COMMIT_BLOCK_TRACKER_ADDR="$(jq -r '.BlockTracker' ${CONTRACTS_FILE})"
