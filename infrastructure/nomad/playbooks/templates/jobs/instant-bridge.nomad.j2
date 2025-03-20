@@ -82,6 +82,7 @@ job "{{ job.name }}" {
           INSTANT_BRIDGE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
           INSTANT_BRIDGE_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           INSTANT_BRIDGE_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          CONTRACTS_JSON_URL="{{ job.env.get('contracts_json_url', '') }}"
           {%- raw %}
           INSTANT_BRIDGE_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           INSTANT_BRIDGE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.instant_bridge_keystore_filename }}{{ end }}"
@@ -142,7 +143,6 @@ job "{{ job.name }}" {
           {% endif %}
 
           {% raw %}
-          CONTRACTS_JSON_URL="{{ job.env.get('contracts_json_url', '') }}"
           {{- range nomadService "contracts-deployer" }}
             {{ if contains "http" .Tags }}
           CONTRACTS_JSON_URL="http://{{ .Address }}:{{ .Port }}/contracts.json"

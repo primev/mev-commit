@@ -85,6 +85,7 @@ job "{{ job.name }}" {
           MEV_COMMIT_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           MEV_COMMIT_LAGGARD_MODE="{{ job.env.get('laggard-mode', '10') }}"
           MEV_COMMIT_OTEL_COLLECTOR_ENDPOINT_URL="{{ job.env.get('otel_collector_endpoint_url', '') }}"
+          CONTRACTS_JSON_URL="{{ job.env.get('contracts_json_url', '') }}"
           {%- raw %}
           MEV_COMMIT_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           MEV_COMMIT_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
@@ -159,7 +160,6 @@ job "{{ job.name }}" {
           {% endif %}
 
           {% raw %}
-          CONTRACTS_JSON_URL={{ job.env.get('contracts_json_url', '') }}
           {{- range nomadService "contracts-deployer" }}
             {{ if contains "http" .Tags }}
           CONTRACTS_JSON_URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
