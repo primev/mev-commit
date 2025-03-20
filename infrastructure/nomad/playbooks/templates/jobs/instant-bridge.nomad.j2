@@ -83,11 +83,11 @@ job "{{ job.name }}" {
           INSTANT_BRIDGE_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           INSTANT_BRIDGE_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           CONTRACTS_JSON_URL="{{ job.env.get('contracts_json_url', '') }}"
+          INSTANT_BRIDGE_SETTLEMENT_RPC_URL="{{ job.env.get('settlement_rpc_url', '') }}"
           {%- raw %}
           INSTANT_BRIDGE_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           INSTANT_BRIDGE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.instant_bridge_keystore_filename }}{{ end }}"
           INSTANT_BRIDGE_KEYSTORE_PASSWORD="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.instant_bridge_keystore_password }}{{ end }}"
-          INSTANT_BRIDGE_SETTLEMENT_RPC_URL="{{ job.env['settlement_rpc_url'] }}"
           {{- range nomadService "mev-commit-geth-bootnode1" }}
             {{- if contains "http" .Tags }}
           INSTANT_BRIDGE_SETTLEMENT_RPC_URL="http://{{ .Address }}:{{ .Port }}"
