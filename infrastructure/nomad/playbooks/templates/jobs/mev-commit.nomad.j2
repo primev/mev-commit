@@ -158,7 +158,7 @@ job "{{ job.name }}" {
           {% endraw %}
           {% endif %}
 
-          CONTRACTS_JSON_URL={{ job.env['contracts-json-url'] }}
+          CONTRACTS_JSON_URL={{ job.env.get('contracts_json_url', '') }}
           {% raw %}
           {{- range nomadService "contracts-deployer" }}
             {{ if contains "http" .Tags }}
