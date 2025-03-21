@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"math/big"
+	"strings"
 	"time"
 
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
@@ -18,6 +20,7 @@ import (
 	"github.com/primev/mev-commit/x/keysigner"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Config struct {
@@ -39,14 +42,18 @@ type Service struct {
 func New(config *Config) (*Service, error) {
 	s := &Service{}
 
-	conn, err := grpc.NewClient(
-		config.BidderNodeRPC,
-		grpc.WithTransportCredentials(credentials.NewTLS(
+	opts := []grpc.DialOption{}
+	if strings.HasPrefix(config.BidderNodeRPC, "https://") {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(
 			&tls.Config{InsecureSkipVerify: true},
-		)),
-	)
+		)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.NewClient(config.BidderNodeRPC, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create gRPC connection: %w", err)
 	}
 
 	s.closers = append(s.closers, conn)
