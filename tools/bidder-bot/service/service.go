@@ -80,6 +80,22 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	if status == nil {
+		for i := 0; i < 5; i++ {
+			config.Logger.Debug("got empty auto deposit status, trying again", "attempt", i+1)
+			time.Sleep(10 * time.Second)
+			status, err = bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
+			if err != nil {
+				return nil, err
+			}
+			if status != nil {
+				break
+			}
+			if i == 4 {
+				return nil, errors.New("got empty auto deposit status")
+			}
+		}
+	}
 	config.Logger.Debug("got auto deposit status", "status", status)
 
 	if !status.IsAutodepositEnabled {
