@@ -56,6 +56,8 @@ type BidderClient struct {
 	currentEpoch        atomic.Pointer[epochInfo]
 	l1Client            L1Client
 	signer              keysigner.KeySigner
+	gasTipCap           *big.Int
+	gasFeeCap           *big.Int
 }
 
 func NewBidderClient(
@@ -65,6 +67,8 @@ func NewBidderClient(
 	notificationsClient notificationsapiv1.NotificationsClient,
 	l1Client L1Client,
 	signer keysigner.KeySigner,
+	gasTipCap *big.Int,
+	gasFeeCap *big.Int,
 ) *BidderClient {
 	return &BidderClient{
 		logger:              logger,
@@ -73,6 +77,8 @@ func NewBidderClient(
 		notificationsClient: notificationsClient,
 		l1Client:            l1Client,
 		signer:              signer,
+		gasTipCap:           gasTipCap,
+		gasFeeCap:           gasFeeCap,
 	}
 }
 

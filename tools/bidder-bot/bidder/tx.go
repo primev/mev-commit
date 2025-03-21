@@ -21,32 +21,19 @@ func (b *BidderClient) SelfETHTransfer() (*types.Transaction, error) {
 		return nil, err
 	}
 
-	header, err := b.l1Client.HeaderByNumber(ctx, nil)
-	if err != nil {
-		b.logger.Error("Failed to get latest block header", "error", err)
-		return nil, err
-	}
-
 	chainID, err := b.l1Client.ChainID(ctx)
 	if err != nil {
 		b.logger.Error("Failed to get network ID", "error", err)
 		return nil, err
 	}
 
-	baseFee := header.BaseFee
-	b.logger.Debug("using base fee", "baseFee", baseFee, "from blockNumber", header.Number)
-
-	// TODO, use existing priority fee patterns
-	priorityFee := big.NewInt(1)
-
-	maxFee := new(big.Int).Add(baseFee, priorityFee)
 	tx := types.NewTx(&types.DynamicFeeTx{
 		Nonce:     nonce,
 		To:        &address,
 		Value:     big.NewInt(7),
 		Gas:       1_000_000,
-		GasFeeCap: maxFee,
-		GasTipCap: priorityFee,
+		GasFeeCap: b.gasFeeCap, // TODO: sanity check fees here
+		GasTipCap: b.gasTipCap,
 	})
 
 	signedTx, err := b.signer.SignTx(tx, chainID)
