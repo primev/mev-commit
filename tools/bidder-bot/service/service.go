@@ -83,7 +83,8 @@ func New(config *Config) (*Service, error) {
 	config.Logger.Debug("got auto deposit status", "enabled", status.IsAutodepositEnabled)
 
 	if !status.IsAutodepositEnabled {
-		_, err := bidderCli.AutoDeposit(
+		config.Logger.Debug("enabling auto deposit")
+		resp, err := bidderCli.AutoDeposit(
 			context.Background(),
 			&bidderapiv1.DepositRequest{
 				Amount: config.AutoDepositAmount.String(),
@@ -92,6 +93,7 @@ func New(config *Config) (*Service, error) {
 		if err != nil {
 			return nil, err
 		}
+		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
 	}
 
 	bidderClient := bidder.NewBidderClient(
