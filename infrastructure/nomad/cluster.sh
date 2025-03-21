@@ -254,7 +254,6 @@ parse_args() {
                         usage
                     fi
                 fi
-                # Added flag: settlement_rpc_url
                 if [[ $# -gt 0 && $1 == "--settlement-rpc-url" ]]; then
                     if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                         settlement_rpc_url="$2"
@@ -264,7 +263,6 @@ parse_args() {
                         usage
                     fi
                 fi
-                # Added flag: contracts_json_url
                 if [[ $# -gt 0 && $1 == "--contracts-json-url" ]]; then
                     if [[ $# -gt 1 && ! $2 =~ ^-- ]]; then
                         contracts_json_url="$2"
