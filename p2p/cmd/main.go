@@ -391,7 +391,7 @@ var (
 	optionBeaconAPIURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "beacon-api-url",
 		Usage:    "URL of the beacon chain API",
-		Value:    "https://ethereum-holesky-beacon-api.publicnode.com",
+		Value:    "https://ethereum-beacon-api.publicnode.com",
 		EnvVars:  []string{"MEV_COMMIT_BEACON_API_URL"},
 		Category: categoryEthRPC,
 	})
