@@ -14,7 +14,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
-	"github.com/primev/mev-commit/tools/instant-bridge/bidder"
+	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
@@ -55,6 +55,7 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC connection: %w", err)
 	}
+	config.Logger.Debug("created gRPC connection", "address", config.BidderNodeRPC)
 
 	s.closers = append(s.closers, conn)
 
@@ -66,15 +67,20 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.Logger.Debug("created ethwrapper client", "urls", config.L1RPCUrls)
 
 	bidderCli := bidderapiv1.NewBidderClient(conn)
+	config.Logger.Debug("created bidder client")
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
+	config.Logger.Debug("created topology client")
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
+	config.Logger.Debug("created notifications client")
 
 	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
 	if err != nil {
 		return nil, err
 	}
+	config.Logger.Debug("got auto deposit status", "status", status)
 
 	if !status.IsAutodepositEnabled {
 		_, err := bidderCli.AutoDeposit(
