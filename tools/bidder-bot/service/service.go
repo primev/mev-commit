@@ -103,6 +103,8 @@ func New(config *Config) (*Service, error) {
 		notificationsCli,
 		l1RPCClient,
 		config.Signer,
+		config.GasTipCap,
+		config.GasFeeCap,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
