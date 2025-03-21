@@ -11,7 +11,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/primev/mev-commit/tools/instant-bridge/service"
+	"github.com/primev/mev-commit/tools/bidder-bot/service"
 	"github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -45,10 +45,10 @@ var (
 		Required: true,
 	}
 
-	optionBidderRPCUrl = &cli.StringFlag{
-		Name:     "bidder-rpc-url",
-		Usage:    "URL for mev-commit bidder RPC",
-		EnvVars:  []string{"BIDDER_RPC_URL"},
+	optionBidderNodeRPCUrl = &cli.StringFlag{
+		Name:     "bidder-node-rpc-url",
+		Usage:    "URL for mev-commit bidder node RPC",
+		EnvVars:  []string{"BIDDER_NODE_RPC_URL"},
 		Required: true,
 	}
 
@@ -76,7 +76,7 @@ var (
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
-		EnvVars: []string{"INSTANT_BRIDGE_LOG_FMT"},
+		EnvVars: []string{"LOG_FMT"},
 		Value:   "text",
 		Action: func(ctx *cli.Context, s string) error {
 			if !slices.Contains([]string{"text", "json"}, s) {
@@ -89,7 +89,7 @@ var (
 	optionLogLevel = &cli.StringFlag{
 		Name:    "log-level",
 		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
-		EnvVars: []string{"INSTANT_BRIDGE_LOG_LEVEL"},
+		EnvVars: []string{"LOG_LEVEL"},
 		Value:   "info",
 		Action: func(ctx *cli.Context, s string) error {
 			if !slices.Contains([]string{"debug", "info", "warn", "error"}, s) {
@@ -102,7 +102,7 @@ var (
 	optionLogTags = &cli.StringFlag{
 		Name:    "log-tags",
 		Usage:   "log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
-		EnvVars: []string{"INSTANT_BRIDGE_LOG_TAGS"},
+		EnvVars: []string{"LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
 			for i, p := range strings.Split(s, ",") {
 				if len(strings.Split(p, ":")) != 2 {
@@ -126,7 +126,7 @@ func main() {
 			optionKeystorePassword,
 			optionL1RPCUrls,
 			optionSettlementRPCUrl,
-			optionBidderRPCUrl,
+			optionBidderNodeRPCUrl,
 			optionGasTipCap,
 			optionGasFeeCap,
 			optionAutoDepositAmount,
@@ -174,7 +174,7 @@ func main() {
 				GasFeeCap:         gasFeeCap,
 				AutoDepositAmount: autoDepositAmount,
 				SettlementRPCUrl:  c.String(optionSettlementRPCUrl.Name),
-				BidderRPC:         c.String(optionBidderRPCUrl.Name),
+				BidderNodeRPC:     c.String(optionBidderNodeRPCUrl.Name),
 				L1RPCUrls:         c.StringSlice(optionL1RPCUrls.Name),
 				Signer:            signer,
 			}
