@@ -81,6 +81,7 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 			b.logger.Error("failed to subscribe to notifications", "error", err)
 			return
 		}
+		b.logger.Debug("subscribed to notifications", "topics", []string{epochNotificationTopic, validatorOptedInTopic})
 
 		if time.Since(lastMsg) > 15*time.Minute {
 			b.logger.Error("no messages received for 15 minutes, closing subscription")
