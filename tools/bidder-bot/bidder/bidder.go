@@ -2,7 +2,9 @@ package bidder
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
+	"io"
 	"log/slog"
 	"math/big"
 	"sync/atomic"
@@ -44,6 +46,7 @@ type epochInfo struct {
 type L1Client interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BlockNumber(ctx context.Context) (uint64, error)
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 }
@@ -226,7 +229,68 @@ func (b *BidderClient) Bid(
 		return err
 	}
 
-	b.logger.Info("SIMULATING BID", "tx", tx.Hash().Hex())
+	// TODO: sanity check tx serialization
+	txBytes, err := tx.MarshalBinary()
+	if err != nil {
+		b.logger.Error("failed to marshal transaction", "error", err)
+		return err
+	}
+	txString := hex.EncodeToString(txBytes)
+
+	blkNumber, err := b.l1Client.BlockNumber(ctx)
+	if err != nil {
+		b.logger.Error("failed to get block number", "error", err)
+		return err
+	}
+
+	pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
+		Amount:              bidAmount.String(),
+		BlockNumber:         int64(blkNumber + 1),
+		RawTransactions:     []string{txString},
+		DecayStartTimestamp: nowFunc().UnixMilli(),
+		DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
+		SlashAmount:         big.NewInt(0).String(), // TODO: determine slash amount
+	})
+	if err != nil {
+		b.logger.Error("failed to send bid", "error", err)
+		return err
+	}
+
+	commitments := make([]*bidderapiv1.Commitment, 0)
+
+	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		msg, err := pc.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			b.logger.Error("failed to receive commitment", "error", err)
+			return err
+		}
+
+		commitments = append(commitments, msg)
+
+		if len(commitments) == len(providers.Values) {
+			b.logger.Info("all commitments received")
+			return nil
+		} else {
+			b.logger.Warn(
+				"not all commitments received",
+				"received", len(commitments),
+				"expected", len(providers.Values),
+			)
+		}
+	}
+	b.logger.Info("bid succeeded, but not all commitments received", "commitments", len(commitments))
 
 	return nil
 }
