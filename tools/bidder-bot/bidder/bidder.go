@@ -8,9 +8,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/x/keysigner"
 )
 
 const (
@@ -38,8 +41,11 @@ type epochInfo struct {
 	slots     []slotInfo
 }
 
-type BlockNumberGetter interface {
-	BlockNumber(ctx context.Context) (uint64, error)
+type L1Client interface {
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+	ChainID(ctx context.Context) (*big.Int, error)
 }
 
 type BidderClient struct {
@@ -48,7 +54,8 @@ type BidderClient struct {
 	topologyClient      debugapiv1.DebugServiceClient
 	notificationsClient notificationsapiv1.NotificationsClient
 	currentEpoch        atomic.Pointer[epochInfo]
-	blkNumberGetter     BlockNumberGetter
+	l1Client            L1Client
+	signer              keysigner.KeySigner
 }
 
 func NewBidderClient(
@@ -56,14 +63,16 @@ func NewBidderClient(
 	bidderClient bidderapiv1.BidderClient,
 	topologyClient debugapiv1.DebugServiceClient,
 	notificationsClient notificationsapiv1.NotificationsClient,
-	blkNumberGetter BlockNumberGetter,
+	l1Client L1Client,
+	signer keysigner.KeySigner,
 ) *BidderClient {
 	return &BidderClient{
 		logger:              logger,
 		bidderClient:        bidderClient,
 		topologyClient:      topologyClient,
 		notificationsClient: notificationsClient,
-		blkNumberGetter:     blkNumberGetter,
+		l1Client:            l1Client,
+		signer:              signer,
 	}
 }
 
@@ -117,7 +126,11 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 
 			} else if msg.Topic == validatorOptedInTopic {
 				b.logger.Info("validator opted in", "msg", msg)
-				b.Bid(ctx, big.NewInt(1000000000000000000), "0x")
+				go func() {
+					if err := b.Bid(ctx, big.NewInt(1000000000000000000), "0x"); err != nil {
+						b.logger.Error("bid failed", "error", err)
+					}
+				}()
 
 			} else {
 				b.logger.Error("unexpected topic", "topic", msg.Topic)
@@ -201,7 +214,13 @@ func (b *BidderClient) Bid(
 		return errors.New("no connected providers")
 	}
 
-	b.logger.Info("SIMULATING BID")
+	tx, err := b.SelfETHTransfer()
+	if err != nil {
+		b.logger.Error("failed to create self ETH transfer transaction", "error", err)
+		return err
+	}
+
+	b.logger.Info("SIMULATING BID", "tx", tx.Hash().Hex())
 
 	return nil
 }

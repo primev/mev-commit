@@ -22,6 +22,8 @@ type EthClient interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error)
+	ChainID(ctx context.Context) (*big.Int, error)
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 }
 
 // errRetry is returned when retry maxRetries is exhausted.
@@ -246,4 +248,20 @@ func (c *Client) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]
 		}
 	}
 	return nil, fmt.Errorf("filter logs: %w: %w", errRetry, errs)
+}
+
+func (c *Client) ChainID(ctx context.Context) (*big.Int, error) {
+	rawClient := c.RawClient()
+	if rawClient == nil {
+		return nil, fmt.Errorf("no raw client")
+	}
+	return rawClient.ChainID(ctx)
+}
+
+func (c *Client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	rawClient := c.RawClient()
+	if rawClient == nil {
+		return 0, fmt.Errorf("no raw client")
+	}
+	return rawClient.PendingNonceAt(ctx, account)
 }

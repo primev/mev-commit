@@ -102,6 +102,7 @@ func New(config *Config) (*Service, error) {
 		topologyCli,
 		notificationsCli,
 		l1RPCClient,
+		config.Signer,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
