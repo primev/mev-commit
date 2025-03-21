@@ -82,6 +82,8 @@ job "{{ job.name }}" {
           INSTANT_BRIDGE_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
           INSTANT_BRIDGE_LOG_FMT="{{ job.env.get('log-format', 'json') }}"
           INSTANT_BRIDGE_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
+          CONTRACTS_JSON_URL="{{ job.env.get('contracts_json_url', '') }}"
+          INSTANT_BRIDGE_SETTLEMENT_RPC_URL="{{ job.env.get('settlement_rpc_url', '') }}"
           {%- raw %}
           INSTANT_BRIDGE_KEYSTORE_DIR="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           INSTANT_BRIDGE_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.instant_bridge_keystore_filename }}{{ end }}"
@@ -143,14 +145,14 @@ job "{{ job.name }}" {
           {% raw %}
           {{- range nomadService "contracts-deployer" }}
             {{ if contains "http" .Tags }}
-          URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
-          CONTRACTS_FILE="/local/contracts.json"
-          curl -s -o "${CONTRACTS_FILE}" "${URL}"
-          export INSTANT_BRIDGE_SETTLEMENT_CONTRACT_ADDR="$(jq -r '.SettlementGateway' ${CONTRACTS_FILE})"
-          export INSTANT_BRIDGE_L1_CONTRACT_ADDR="$(jq -r '.L1Gateway' ${CONTRACTS_FILE})"
+          CONTRACTS_JSON_URL="http://{{ .Address }}:{{ .Port }}/contracts.json"
             {{ end }}
           {{- end }}
           {% endraw %}
+          CONTRACTS_FILE="/local/contracts.json"
+          curl -s -o "${CONTRACTS_FILE}" "${CONTRACTS_JSON_URL}"
+          export INSTANT_BRIDGE_SETTLEMENT_CONTRACT_ADDR="$(jq -r '.SettlementGateway' ${CONTRACTS_FILE})"
+          export INSTANT_BRIDGE_L1_CONTRACT_ADDR="$(jq -r '.L1Gateway' ${CONTRACTS_FILE})"
 
           chmod +x local/foundry.sh && local/foundry.sh
           chmod +x ${XDG_CONFIG_HOME}/.foundry/bin/foundryup

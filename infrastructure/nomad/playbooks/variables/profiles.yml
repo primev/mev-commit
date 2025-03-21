@@ -429,6 +429,8 @@ jobs:
       tls_key_file: "{{ tls_key_file }}"
       otel_collector_endpoint_url: "{{ otel_collector_endpoint_url }}"
       l1_rpc_url: "{{ resolved_l1_rpc_urls.split(',')[0] }}"
+      settlement_rpc_url: "{{ settlement_rpc_url if settlement_rpc_url is defined else '' }}"
+      contracts_json_url: "{{ contracts_json_url if contracts_json_url is defined else '' }}"
 
   mev_commit_bidder_node2: &mev_commit_bidder_node2_job
     name: mev-commit-bidder-node2
@@ -733,6 +735,8 @@ jobs:
     env:
       l1_chain_id: "{{ environments[env].chain_id }}"
       l1_rpc_urls: "{{ resolved_l1_rpc_urls }}"
+      settlement_rpc_url: "{{ settlement_rpc_url if settlement_rpc_url is defined else '' }}"
+      contracts_json_url: "{{ contracts_json_url if contracts_json_url is defined else '' }}"
 
 profiles:
   ci:
