@@ -18,7 +18,7 @@ import (
 )
 
 type L1Client interface {
-	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockNumber(ctx context.Context) (uint64, error)
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
@@ -147,9 +147,10 @@ func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
 
 	address := b.signer.GetAddress()
 
-	nonce, err := b.l1Client.PendingNonceAt(ctx, address)
+	// Intentionally don't use pending nonce to avoid accumulating pending l1 txs
+	nonce, err := b.l1Client.NonceAt(ctx, address, nil)
 	if err != nil {
-		b.logger.Error("Failed to get pending nonce", "error", err)
+		b.logger.Error("Failed to get nonce", "error", err)
 		return nil, err
 	}
 

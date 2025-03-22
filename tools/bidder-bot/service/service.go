@@ -81,10 +81,10 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	config.Logger.Debug("got auto deposit status", "enabled", status.IsAutodepositEnabled)
+	config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
 
 	if !status.IsAutodepositEnabled {
-		config.Logger.Debug("enabling auto deposit")
+		config.Logger.Info("enabling auto deposit")
 		resp, err := bidderCli.AutoDeposit(
 			context.Background(),
 			&bidderapiv1.DepositRequest{

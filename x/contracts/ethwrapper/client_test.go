@@ -27,7 +27,6 @@ type ethClientMock struct {
 	nonceAtFn        func(context.Context, common.Address, *big.Int) (uint64, error)
 	filterLogsFn     func(context.Context, ethereum.FilterQuery) ([]types.Log, error)
 	chainIDFn        func(context.Context) (*big.Int, error)
-	pendingNonceAtFn func(context.Context, common.Address) (uint64, error)
 }
 
 func (m *ethClientMock) BlockNumber(ctx context.Context) (uint64, error) {
@@ -52,10 +51,6 @@ func (m *ethClientMock) FilterLogs(ctx context.Context, query ethereum.FilterQue
 
 func (m *ethClientMock) ChainID(ctx context.Context) (*big.Int, error) {
 	return m.chainIDFn(ctx)
-}
-
-func (m *ethClientMock) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	return m.pendingNonceAtFn(ctx, account)
 }
 
 func TestClient(t *testing.T) {
