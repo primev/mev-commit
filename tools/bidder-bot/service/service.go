@@ -97,7 +97,8 @@ func New(config *Config) (*Service, error) {
 		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
 	}
 
-	proposerChan := make(chan *notifier.UpcomingProposer)
+	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
+	proposerChan := make(chan *notifier.UpcomingProposer, 1)
 
 	notifier := notifier.NewNotifier(
 		config.Logger.With("module", "notifier"),
