@@ -70,13 +70,8 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 				return
 			case proposer := <-b.proposerChan:
 				b.logger.Debug("received upcoming proposer", "proposer", proposer)
-				signedTx, err := b.SelfETHTransfer()
-				if err != nil {
-					b.logger.Error("failed to create self ETH transfer transaction", "error", err)
-					continue
-				}
 				bidAmount := big.NewInt(5000000000000000) // 0.005 eth
-				pc, err := b.Bid(ctx, bidAmount, signedTx.Hash().Hex())
+				pc, err := b.Bid(ctx, bidAmount)
 				if err != nil {
 					b.logger.Error("bid failed", "error", err)
 					continue
@@ -95,7 +90,6 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 func (b *Bidder) Bid(
 	ctx context.Context,
 	bidAmount *big.Int,
-	rawTx string,
 ) (bidderapiv1.Bidder_SendBidClient, error) {
 
 	tx, err := b.SelfETHTransfer()
