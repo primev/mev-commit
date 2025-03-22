@@ -74,6 +74,7 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
+// TODO: unit tests for draining logic
 func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 	upcomingProposer, err := parseUpcomingProposer(msg)
 	if err != nil {
@@ -90,7 +91,6 @@ func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 		b.logger.Debug("sent upcoming proposer", "proposer", upcomingProposer)
 	default:
 		select {
-		// TODO: confirm draining logic is correct
 		case drainedProposer := <-b.proposerChan:
 			b.logger.Warn("drained buffered upcoming proposer", "drained_proposer", drainedProposer)
 		default:
