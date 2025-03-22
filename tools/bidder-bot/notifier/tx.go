@@ -1,4 +1,4 @@
-package bidder
+package notifier
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-func (b *BidderClient) SelfETHTransfer() (*types.Transaction, error) {
+func (b *Notifier) SelfETHTransfer() (*types.Transaction, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
