@@ -27,20 +27,20 @@ type ValidatorRouterContract interface {
 
 type Service struct {
 	validatorapiv1.UnimplementedValidatorServer
-	apiURL          string
-	validatorRouter ValidatorRouterContract
-	logger          *slog.Logger
-	metrics         *metrics
-	optsGetter      func() (*bind.CallOpts, error)
-	notifier        notifications.Notifier
-	genesisTime     time.Time
+	apiURL               string
+	validatorRouter      ValidatorRouterContract
+	logger               *slog.Logger
+	metrics              *metrics
+	optsGetter           func() (*bind.CallOpts, error)
+	notifier             notifications.Notifier
+	genesisTime          time.Time
+	proposerNotifyOffset time.Duration
 }
 
 var (
 	SlotDuration  = 12 * time.Second
 	EpochSlots    = 32
 	EpochDuration = SlotDuration * time.Duration(EpochSlots)
-	NotifyOffset  = 1 * time.Second
 	FetchOffset   = 2 * time.Second
 )
 
@@ -50,14 +50,16 @@ func NewService(
 	logger *slog.Logger,
 	optsGetter func() (*bind.CallOpts, error),
 	notifier notifications.Notifier,
+	proposerNotifyOffset time.Duration,
 ) *Service {
 	return &Service{
-		apiURL:          apiURL,
-		validatorRouter: validatorRouter,
-		logger:          logger,
-		metrics:         newMetrics(),
-		optsGetter:      optsGetter,
-		notifier:        notifier,
+		apiURL:               apiURL,
+		validatorRouter:      validatorRouter,
+		logger:               logger,
+		metrics:              newMetrics(),
+		optsGetter:           optsGetter,
+		notifier:             notifier,
+		proposerNotifyOffset: proposerNotifyOffset,
 	}
 }
 
@@ -239,7 +241,7 @@ func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uin
 
 func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *validatorapiv1.SlotInfo) {
 	slotStartTime := s.genesisTime.Add(time.Duration(slot) * SlotDuration)
-	notificationTime := slotStartTime.Add(-NotifyOffset)
+	notificationTime := slotStartTime.Add(-s.proposerNotifyOffset)
 
 	delay := time.Until(notificationTime)
 	if delay <= 0 {

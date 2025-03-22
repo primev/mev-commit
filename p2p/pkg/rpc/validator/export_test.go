@@ -8,6 +8,10 @@ import (
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 )
 
+var (
+	NotifyOffset = 1 * time.Second
+)
+
 // SetTestTimings sets the global timing variables for testing and returns a cleanup function
 // that restores the previous values.
 func SetTestTimings(slotDuration time.Duration, epochSlots int, notifyOffset, fetchOffset time.Duration) func() {
