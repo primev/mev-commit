@@ -1,4 +1,4 @@
-package bidder
+package notifier
 
 import (
 	"context"
@@ -36,8 +36,7 @@ type L1Client interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 }
 
-// new name
-type BidderClient struct {
+type Notifier struct {
 	logger              *slog.Logger
 	bidderClient        bidderapiv1.BidderClient
 	topologyClient      debugapiv1.DebugServiceClient
@@ -48,7 +47,7 @@ type BidderClient struct {
 	gasFeeCap           *big.Int
 }
 
-func NewBidderClient(
+func NewNotifier(
 	logger *slog.Logger,
 	bidderClient bidderapiv1.BidderClient,
 	topologyClient debugapiv1.DebugServiceClient,
@@ -57,8 +56,8 @@ func NewBidderClient(
 	signer keysigner.KeySigner,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
-) *BidderClient {
-	return &BidderClient{
+) *Notifier {
+	return &Notifier{
 		logger:              logger,
 		bidderClient:        bidderClient,
 		topologyClient:      topologyClient,
@@ -70,7 +69,7 @@ func NewBidderClient(
 	}
 }
 
-func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
+func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -127,7 +126,7 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (b *BidderClient) Bid(
+func (b *Notifier) Bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 	rawTx string,
