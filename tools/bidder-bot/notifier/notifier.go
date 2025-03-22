@@ -74,18 +74,23 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-// TODO: confirm draining logic
 func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 	upcomingProposer, err := parseUpcomingProposer(msg)
 	if err != nil {
 		b.logger.Error("failed to parse upcoming proposer", "error", err)
 		return err
 	}
+	lastUpcomingProposer := b.lastUpcomingProposer.Load()
+	if lastUpcomingProposer.Slot >= upcomingProposer.Slot {
+		b.logger.Warn("received duplicate or outdated proposer notification. Msg will be dropped", "slot", upcomingProposer.Slot)
+		return nil
+	}
 	select {
 	case b.proposerChan <- upcomingProposer:
 		b.logger.Debug("sent upcoming proposer", "proposer", upcomingProposer)
 	default:
 		select {
+		// TODO: confirm draining logic is correct
 		case drainedProposer := <-b.proposerChan:
 			b.logger.Warn("drained buffered upcoming proposer", "drained_proposer", drainedProposer)
 		default:
