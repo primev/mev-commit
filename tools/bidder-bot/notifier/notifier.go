@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
@@ -19,9 +20,10 @@ var (
 )
 
 type Notifier struct {
-	logger              *slog.Logger
-	notificationsClient notificationsapiv1.NotificationsClient
-	proposerChan        chan *UpcomingProposer
+	logger               *slog.Logger
+	notificationsClient  notificationsapiv1.NotificationsClient
+	proposerChan         chan *UpcomingProposer
+	lastUpcomingProposer atomic.Pointer[UpcomingProposer]
 }
 
 func NewNotifier(
@@ -41,7 +43,6 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		lastMsg := time.Now()
 	RESTART:
 		sub, err := b.notificationsClient.Subscribe(ctx, &notificationsapiv1.SubscribeRequest{
 			Topics: []string{upcomingProposerTopic},
@@ -51,13 +52,6 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 			return
 		}
 		b.logger.Info("subscribed to notifications", "topics", []string{upcomingProposerTopic})
-
-		// TODO: Address how plausible this is on mainnet with current opt-in numbers
-		if time.Since(lastMsg) > 1*time.Hour {
-			b.logger.Warn("no messages received for 1 hour, restarting subscription")
-			goto RESTART
-		}
-
 		for {
 			select {
 			case <-ctx.Done():
@@ -65,43 +59,49 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 				return
 			default:
 			}
-
 			msg, err := sub.Recv()
 			if err != nil {
 				b.logger.Error("failed to receive message", "error", err)
 				goto RESTART
 			}
-			lastMsg = time.Now()
 			b.logger.Info("received message", "topic", msg.Topic)
-
-			upcomingProposer, err := parseUpcomingProposer(msg)
-			if err != nil {
-				b.logger.Error("failed to parse upcoming proposer", "error", err)
-				continue
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case b.proposerChan <- upcomingProposer:
-				b.logger.Debug("sent upcoming proposer", "proposer", upcomingProposer)
-			default:
-				select {
-				case drainedProposer := <-b.proposerChan:
-					b.logger.Warn("drained buffered upcoming proposer", "drained_proposer", drainedProposer)
-				default:
-				}
-				b.proposerChan <- upcomingProposer
-				b.logger.Warn("sent upcoming proposer after draining buffer", "proposer", upcomingProposer)
+			if err := b.handleMsg(msg); err != nil {
+				b.logger.Error("failed to handle message", "error", err)
+				goto RESTART
 			}
 		}
 	}()
 	return done
 }
 
+// TODO: confirm draining logic
+func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
+	upcomingProposer, err := parseUpcomingProposer(msg)
+	if err != nil {
+		b.logger.Error("failed to parse upcoming proposer", "error", err)
+		return err
+	}
+	select {
+	case b.proposerChan <- upcomingProposer:
+		b.logger.Debug("sent upcoming proposer", "proposer", upcomingProposer)
+	default:
+		select {
+		case drainedProposer := <-b.proposerChan:
+			b.logger.Warn("drained buffered upcoming proposer", "drained_proposer", drainedProposer)
+		default:
+		}
+		b.proposerChan <- upcomingProposer
+		b.logger.Warn("sent upcoming proposer after draining buffer", "proposer", upcomingProposer)
+	}
+	b.lastUpcomingProposer.Store(upcomingProposer)
+	return nil
+}
+
 type UpcomingProposer struct {
-	BLSKey string
-	Epoch  uint64
-	Slot   uint64
+	BLSKey      string
+	Epoch       uint64
+	Slot        uint64
+	CreationUTC time.Time
 }
 
 func parseUpcomingProposer(msg *notificationsapiv1.Notification) (*UpcomingProposer, error) {
@@ -134,8 +134,9 @@ func parseUpcomingProposer(msg *notificationsapiv1.Notification) (*UpcomingPropo
 	}
 
 	return &UpcomingProposer{
-		BLSKey: blsKey,
-		Epoch:  uint64(epochVal),
-		Slot:   uint64(slotVal),
+		BLSKey:      blsKey,
+		Epoch:       uint64(epochVal),
+		Slot:        uint64(slotVal),
+		CreationUTC: time.Now(),
 	}, nil
 }
