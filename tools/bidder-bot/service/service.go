@@ -103,7 +103,7 @@ func New(config *Config) (*Service, error) {
 	notifier := notifier.NewNotifier(
 		config.Logger.With("module", "notifier"),
 		notificationsCli,
-		proposerChan, // send-only
+		proposerChan, // send-and-receive for draining capability
 	)
 
 	bidder := bidder.NewBidder(
