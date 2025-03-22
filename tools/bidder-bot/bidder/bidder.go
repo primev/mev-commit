@@ -130,7 +130,7 @@ func (b *Bidder) bid(
 		DecayEndTimestamp:   time.Now().Add(12 * time.Second).UnixMilli(),
 		RevertingTxHashes:   []string{},
 		RawTransactions:     []string{txString},
-		SlashAmount:         big.NewInt(0).String(), // TODO: determine slash amount
+		// Do not specify slash amount
 	})
 	if err != nil {
 		b.logger.Error("failed to send bid", "error", err)
