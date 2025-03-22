@@ -50,7 +50,7 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 			b.logger.Error("failed to subscribe to notifications", "error", err)
 			return
 		}
-		b.logger.Debug("subscribed to notifications", "topics", []string{upcomingProposerTopic})
+		b.logger.Info("subscribed to notifications", "topics", []string{upcomingProposerTopic})
 
 		// TODO: Address how plausible this is on mainnet with current opt-in numbers
 		if time.Since(lastMsg) > 1*time.Hour {
