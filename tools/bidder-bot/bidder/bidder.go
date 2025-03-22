@@ -244,11 +244,13 @@ func (b *BidderClient) Bid(
 	}
 
 	pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
+		TxHashes:            []string{},
 		Amount:              bidAmount.String(),
 		BlockNumber:         int64(blkNumber + 1),
-		RawTransactions:     []string{txString},
 		DecayStartTimestamp: nowFunc().UnixMilli(),
 		DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
+		RevertingTxHashes:   []string{},
+		RawTransactions:     []string{txString},
 		SlashAmount:         big.NewInt(0).String(), // TODO: determine slash amount
 	})
 	if err != nil {
