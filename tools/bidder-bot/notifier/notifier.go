@@ -81,7 +81,7 @@ func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 		return err
 	}
 	lastUpcomingProposer := b.lastUpcomingProposer.Load()
-	if lastUpcomingProposer.Slot >= upcomingProposer.Slot {
+	if lastUpcomingProposer != nil && lastUpcomingProposer.Slot >= upcomingProposer.Slot {
 		b.logger.Warn("received duplicate or outdated proposer notification. Msg will be dropped", "slot", upcomingProposer.Slot)
 		return nil
 	}
