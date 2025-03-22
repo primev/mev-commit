@@ -68,31 +68,41 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 			case <-ctx.Done():
 				b.logger.Info("bidder context done")
 				return
-			case proposer := <-b.proposerChan:
-				b.logger.Debug("received upcoming proposer", "proposer", proposer)
-				bidAmount := big.NewInt(5000000000000000) // 0.005 eth
-				pc, err := b.Bid(ctx, bidAmount)
-				if err != nil {
-					b.logger.Error("bid failed", "error", err)
-					continue
-				}
-				err = b.watchPendingBid(ctx, pc)
-				if err != nil {
-					b.logger.Error("bid failed", "error", err)
-					continue
-				}
+			case upcomingProposer := <-b.proposerChan:
+				b.logger.Debug("received upcoming proposer", "proposer", upcomingProposer)
+				b.handle(ctx, upcomingProposer)
 			}
 		}
 	}()
 	return done
 }
 
-func (b *Bidder) Bid(
+func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.UpcomingProposer) {
+
+	bidCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+
+	// TODO: sanity check upcoming proposer struct is for next slot
+
+	bidAmount := big.NewInt(5000000000000000) // 0.005 eth
+	pc, err := b.bid(bidCtx, bidAmount)
+	if err != nil {
+		b.logger.Error("bid failed", "error", err)
+		return
+	}
+
+	err = b.watchPendingBid(bidCtx, pc)
+	if err != nil {
+		b.logger.Error("bid failed", "error", err)
+	}
+}
+
+func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 ) (bidderapiv1.Bidder_SendBidClient, error) {
 
-	tx, err := b.SelfETHTransfer()
+	tx, err := b.selfETHTransfer()
 	if err != nil {
 		b.logger.Error("failed to create self ETH transfer transaction", "error", err)
 		return nil, err
@@ -130,7 +140,7 @@ func (b *Bidder) Bid(
 	return pc, nil
 }
 
-func (b *Bidder) SelfETHTransfer() (*types.Transaction, error) {
+func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -154,7 +164,7 @@ func (b *Bidder) SelfETHTransfer() (*types.Transaction, error) {
 		To:        &address,
 		Value:     big.NewInt(7),
 		Gas:       1_000_000,
-		GasFeeCap: b.gasFeeCap, // TODO: sanity check fees here
+		GasFeeCap: b.gasFeeCap, // TODO: sanity check fees here. Implement fee and/or bid amount bumps
 		GasTipCap: b.gasTipCap,
 	})
 
@@ -177,7 +187,6 @@ func (b *Bidder) SelfETHTransfer() (*types.Transaction, error) {
 // TODO: Also include db component here where restarted service still waits for pending bids to finalize before next bid.
 // TODO: tracking / metrics on # commitments, and if tx lands on L1.
 func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_SendBidClient) error {
-
 	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get topology", "error", err)
@@ -190,11 +199,6 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 	}
 
 	commitments := make([]*bidderapiv1.Commitment, 0)
-
-	// TODO: replace 12 second timeout with checking that the relevant L1 block is latest or finalized
-	ctx, cancel := context.WithTimeout(ctx, 12*time.Second)
-
-	defer cancel()
 
 	for {
 		select {
@@ -212,7 +216,7 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 			return err
 		}
 
-		// TODO: confirm commitment + timeout waiting logic
+		// TODO: confirm commitment + timeout waiting logic. Confirm Recv returns on context timeout due to SendBid accepting context.
 		commitments = append(commitments, msg)
 		b.logger.Debug("received commitment", "commitment", msg)
 
