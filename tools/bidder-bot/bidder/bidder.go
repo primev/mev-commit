@@ -214,6 +214,7 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 
 		// TODO: confirm commitment + timeout waiting logic
 		commitments = append(commitments, msg)
+		b.logger.Debug("received commitment", "commitment", msg)
 
 		if len(commitments) == len(providers.Values) {
 			b.logger.Info("all commitments received")
