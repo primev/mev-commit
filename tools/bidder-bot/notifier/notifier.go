@@ -21,13 +21,13 @@ var (
 type Notifier struct {
 	logger              *slog.Logger
 	notificationsClient notificationsapiv1.NotificationsClient
-	proposerChan        chan<- *UpcomingProposer
+	proposerChan        chan *UpcomingProposer
 }
 
 func NewNotifier(
 	logger *slog.Logger,
 	notificationsClient notificationsapiv1.NotificationsClient,
-	proposerChan chan<- *UpcomingProposer,
+	proposerChan chan *UpcomingProposer,
 ) *Notifier {
 	return &Notifier{
 		logger:              logger,
@@ -36,6 +36,7 @@ func NewNotifier(
 	}
 }
 
+// TODO: unit tests validating buffering logic with the bidder worker
 func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
@@ -79,10 +80,18 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 				continue
 			}
 			select {
-			case b.proposerChan <- upcomingProposer:
-				b.logger.Debug("sent upcoming proposer to bidder worker", "proposer", upcomingProposer)
 			case <-ctx.Done():
 				return
+			case b.proposerChan <- upcomingProposer:
+				b.logger.Debug("sent upcoming proposer", "proposer", upcomingProposer)
+			default:
+				select {
+				case drainedProposer := <-b.proposerChan:
+					b.logger.Warn("drained buffered upcoming proposer", "drained_proposer", drainedProposer)
+				default:
+				}
+				b.proposerChan <- upcomingProposer
+				b.logger.Warn("sent upcoming proposer after draining buffer", "proposer", upcomingProposer)
 			}
 		}
 	}()
