@@ -14,6 +14,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
 	notifier "github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
@@ -96,15 +97,23 @@ func New(config *Config) (*Service, error) {
 		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
 	}
 
+	proposerChan := make(chan *notifier.UpcomingProposer)
+
 	notifier := notifier.NewNotifier(
 		config.Logger.With("module", "notifier"),
+		notificationsCli,
+		proposerChan, // send-only
+	)
+
+	bidder := bidder.NewBidder(
+		config.Logger.With("module", "bidder"),
 		bidderCli,
 		topologyCli,
-		notificationsCli,
 		l1RPCClient,
 		config.Signer,
 		config.GasTipCap,
 		config.GasFeeCap,
+		proposerChan, // receive-only
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -113,8 +122,15 @@ func New(config *Config) (*Service, error) {
 	healthChecker := health.New()
 
 	notifierDone := notifier.Start(ctx)
+	bidderDone := bidder.Start(ctx)
+
 	healthChecker.Register(health.CloseChannelHealthCheck("NotifierService", notifierDone))
-	s.closers = append(s.closers, channelCloser(notifierDone))
+	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
+
+	s.closers = append(s.closers,
+		channelCloser(notifierDone),
+		channelCloser(bidderDone),
+	)
 
 	return s, nil
 }
