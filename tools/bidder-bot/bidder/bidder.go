@@ -218,7 +218,7 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 			return err
 		}
 
-		// TODO: improve commitment waiting logic
+		// TODO: confirm commitment + timeout waiting logic
 		commitments = append(commitments, msg)
 
 		if len(commitments) == len(providers.Values) {
