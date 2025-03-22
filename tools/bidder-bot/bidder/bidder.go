@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,29 +18,15 @@ import (
 )
 
 const (
-	epochNotificationTopic = "epoch_validators_opted_in"
-	validatorOptedInTopic  = "validator_opted_in"
-	slotDuration           = 12 * time.Second
+	upcomingProposerTopic = "validator_opted_in"
+	slotDuration          = 12 * time.Second
 )
 
 var (
-	ErrNoEpochInfo          = errors.New("no epoch info available")
-	ErrNoSlotInCurrentEpoch = errors.New("no slot available in current epoch")
+	ErrUnexpectedTopic = errors.New("unexpected msg topic")
 )
 
 var nowFunc = time.Now
-
-type slotInfo struct {
-	slot      uint64
-	startTime time.Time
-	blsKey    string
-}
-
-type epochInfo struct {
-	epoch     uint64
-	startTime time.Time
-	slots     []slotInfo
-}
 
 type L1Client interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
@@ -51,12 +36,12 @@ type L1Client interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 }
 
+// new name
 type BidderClient struct {
 	logger              *slog.Logger
 	bidderClient        bidderapiv1.BidderClient
 	topologyClient      debugapiv1.DebugServiceClient
 	notificationsClient notificationsapiv1.NotificationsClient
-	currentEpoch        atomic.Pointer[epochInfo]
 	l1Client            L1Client
 	signer              keysigner.KeySigner
 	gasTipCap           *big.Int
@@ -93,13 +78,13 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 		lastMsg := nowFunc()
 	RESTART:
 		sub, err := b.notificationsClient.Subscribe(ctx, &notificationsapiv1.SubscribeRequest{
-			Topics: []string{epochNotificationTopic, validatorOptedInTopic},
+			Topics: []string{upcomingProposerTopic},
 		})
 		if err != nil {
 			b.logger.Error("failed to subscribe to notifications", "error", err)
 			return
 		}
-		b.logger.Debug("subscribed to notifications", "topics", []string{epochNotificationTopic, validatorOptedInTopic})
+		b.logger.Debug("subscribed to notifications", "topics", []string{upcomingProposerTopic})
 
 		if time.Since(lastMsg) > 15*time.Minute {
 			b.logger.Error("no messages received for 15 minutes, closing subscription")
@@ -122,89 +107,24 @@ func (b *BidderClient) Start(ctx context.Context) <-chan struct{} {
 
 			lastMsg = nowFunc()
 
-			b.logger.Debug("received message", "msg", msg)
+			b.logger.Info("received message", "topic", msg.Topic)
 
-			if msg.Topic == epochNotificationTopic {
-				epoch, err := parseEpochInfo(msg)
-				if err != nil {
-					b.logger.Error("failed to parse epoch info", "error", err, "msg", msg)
-					continue
-				}
-				b.currentEpoch.Store(epoch)
-				b.logger.Info("current epoch info updated", "epoch", epoch.epoch)
-
-			} else if msg.Topic == validatorOptedInTopic {
-				b.logger.Info("validator opted in", "msg", msg)
-				go func() {
-					if err := b.Bid(ctx, big.NewInt(1000000000000000000), "0x"); err != nil {
-						b.logger.Error("bid failed", "error", err)
-					}
-				}()
-
-			} else {
-				b.logger.Error("unexpected topic", "topic", msg.Topic)
+			upcomingProposer, err := parseUpcomingProposer(msg)
+			if err != nil {
+				b.logger.Error("failed to parse upcoming proposer", "error", err)
 				continue
 			}
+			b.logger.Debug("upcoming proposer", "upcomingProposer", upcomingProposer)
+
+			// TODO: send upcoming proposer to different worker
+			go func() {
+				if err := b.Bid(ctx, big.NewInt(1000000000000000000), "0x"); err != nil {
+					b.logger.Error("bid failed", "error", err)
+				}
+			}()
 		}
 	}()
 	return done
-}
-
-func parseEpochInfo(msg *notificationsapiv1.Notification) (*epochInfo, error) {
-	epochIdx := msg.Value.Fields["epoch"].GetNumberValue()
-	if epochIdx == 0 {
-		return nil, errors.New("failed to parse epoch index")
-	}
-	startTime := msg.Value.Fields["epoch_start_time"].GetNumberValue()
-	if startTime == 0 {
-		return nil, errors.New("failed to parse start time")
-	}
-	slots := msg.Value.Fields["slots"].GetListValue()
-	if slots == nil {
-		return nil, errors.New("failed to parse slots")
-	}
-	epoch := &epochInfo{
-		epoch:     uint64(epochIdx),
-		startTime: time.Unix(int64(startTime), 0),
-	}
-	baseSlot := epochIdx * 32
-	for _, slot := range slots.Values {
-		slotIdx := slot.GetStructValue().Fields["slot"].GetNumberValue()
-		if slotIdx == 0 {
-			return nil, errors.New("failed to parse slot index")
-		}
-		if slotIdx < baseSlot || slotIdx >= baseSlot+32 {
-			return nil, errors.New("slot index out of range")
-		}
-		blsKey := slot.GetStructValue().Fields["bls_key"].GetStringValue()
-		if blsKey == "" {
-			return nil, errors.New("failed to parse BLS key")
-		}
-		idx := slotIdx - baseSlot
-		epoch.slots = append(epoch.slots, slotInfo{
-			slot:      uint64(slotIdx),
-			startTime: epoch.startTime.Add(time.Duration(idx) * slotDuration),
-			blsKey:    blsKey,
-		})
-	}
-
-	return epoch, nil
-}
-
-type BidStatusType int
-
-const (
-	BidStatusNoOfProviders BidStatusType = iota
-	BidStatusWaitSecs
-	BidStatusAttempted
-	BidStatusSucceeded
-	BidStatusFailed
-)
-
-type BidStatus struct {
-	Type BidStatusType
-	Arg1 int
-	Arg2 string
 }
 
 func (b *BidderClient) Bid(
@@ -295,4 +215,46 @@ func (b *BidderClient) Bid(
 	b.logger.Info("bid succeeded, but not all commitments received", "commitments", len(commitments))
 
 	return nil
+}
+
+func parseUpcomingProposer(msg *notificationsapiv1.Notification) (*upcomingProposer, error) {
+	if msg.Topic != upcomingProposerTopic {
+		return nil, ErrUnexpectedTopic
+	}
+
+	if msg == nil || msg.Value == nil {
+		return nil, errors.New("notification msg is nil")
+	}
+
+	fields := msg.Value.Fields
+	if fields == nil {
+		return nil, errors.New("notification value fields are nil")
+	}
+
+	blsKey := fields["bls_key"].GetStringValue()
+	if blsKey == "" {
+		return nil, errors.New("failed to parse BLS key")
+	}
+
+	epochVal := fields["epoch"].GetNumberValue()
+	if epochVal == 0 {
+		return nil, errors.New("failed to parse epoch")
+	}
+
+	slotVal := fields["slot"].GetNumberValue()
+	if slotVal == 0 {
+		return nil, errors.New("failed to parse slot")
+	}
+
+	return &upcomingProposer{
+		BLSKey: blsKey,
+		Epoch:  uint64(epochVal),
+		Slot:   uint64(slotVal),
+	}, nil
+}
+
+type upcomingProposer struct {
+	BLSKey string
+	Epoch  uint64
+	Slot   uint64
 }
