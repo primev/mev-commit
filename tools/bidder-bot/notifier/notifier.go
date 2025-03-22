@@ -45,6 +45,7 @@ type Notifier struct {
 	signer              keysigner.KeySigner
 	gasTipCap           *big.Int
 	gasFeeCap           *big.Int
+	proposerChan        chan<- *upcomingProposer
 }
 
 func NewNotifier(
@@ -56,6 +57,7 @@ func NewNotifier(
 	signer keysigner.KeySigner,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
+	proposerChan chan<- *upcomingProposer,
 ) *Notifier {
 	return &Notifier{
 		logger:              logger,
@@ -66,6 +68,7 @@ func NewNotifier(
 		signer:              signer,
 		gasTipCap:           gasTipCap,
 		gasFeeCap:           gasFeeCap,
+		proposerChan:        proposerChan,
 	}
 }
 
@@ -113,14 +116,13 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 				b.logger.Error("failed to parse upcoming proposer", "error", err)
 				continue
 			}
-			b.logger.Debug("upcoming proposer", "upcomingProposer", upcomingProposer)
 
-			// TODO: send upcoming proposer to different worker
-			go func() {
-				if err := b.Bid(ctx, big.NewInt(1000000000000000000), "0x"); err != nil {
-					b.logger.Error("bid failed", "error", err)
-				}
-			}()
+			select {
+			case b.proposerChan <- upcomingProposer:
+				b.logger.Debug("sent upcoming proposer to bidder worker", "proposer", upcomingProposer)
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 	return done
