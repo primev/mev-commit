@@ -108,6 +108,7 @@ type Options struct {
 	BidderBidTimeout         time.Duration
 	ProviderDecisionTimeout  time.Duration
 	NotificationsBufferCap   int
+	ProposerNotifyOffset     time.Duration
 }
 
 type Node struct {
@@ -459,6 +460,7 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.Logger.With("component", "validatorapi"),
 			callOptsGetter,
 			notificationsSvc,
+			opts.ProposerNotifyOffset,
 		)
 		if err != nil {
 			opts.Logger.Error("failed to create validator api", "error", err)
