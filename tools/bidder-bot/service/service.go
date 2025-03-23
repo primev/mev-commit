@@ -81,8 +81,6 @@ func New(config *Config) (*Service, error) {
 		return nil, err
 	}
 
-	// TODO: beacon client
-
 	bidderCli := bidderapiv1.NewBidderClient(conn)
 	config.Logger.Debug("created bidder client")
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
@@ -119,11 +117,16 @@ func New(config *Config) (*Service, error) {
 		proposerChan, // send-and-receive for draining capability
 	)
 
+	if len(config.BeaconApiUrls) == 0 {
+		return nil, fmt.Errorf("no beacon API URLs provided")
+	}
+
 	bidder := bidder.NewBidder(
 		config.Logger.With("module", "bidder"),
 		bidderCli,
 		topologyCli,
 		l1RPCClient,
+		config.BeaconApiUrls[0],
 		config.Signer,
 		config.GasTipCap,
 		config.GasFeeCap,

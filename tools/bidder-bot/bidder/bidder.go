@@ -30,6 +30,7 @@ type Bidder struct {
 	bidderClient   bidderapiv1.BidderClient
 	topologyClient debugapiv1.DebugServiceClient
 	l1Client       L1Client
+	beaconClient   *beaconClient
 	signer         keysigner.KeySigner
 	gasTipCap      *big.Int
 	gasFeeCap      *big.Int
@@ -42,17 +43,21 @@ func NewBidder(
 	bidderClient bidderapiv1.BidderClient,
 	topologyClient debugapiv1.DebugServiceClient,
 	l1Client L1Client,
+	beaconRPCUrl string,
 	signer keysigner.KeySigner,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
 	proposerChan <-chan *notifier.UpcomingProposer,
 ) *Bidder {
+	beaconClient := newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client"))
+
 	return &Bidder{
 		logger:         logger,
 		bidderClient:   bidderClient,
 		topologyClient: topologyClient,
 		l1Client:       l1Client,
+		beaconClient:   beaconClient,
 		signer:         signer,
 		gasTipCap:      gasTipCap,
 		gasFeeCap:      gasFeeCap,
@@ -81,13 +86,42 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.UpcomingProposer) {
-
 	bidCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
-	// TODO: sanity check upcoming proposer struct is for next slot
+	latestSlot, err := b.beaconClient.getLatestSlot(bidCtx)
+	if err != nil {
+		b.logger.Error("failed to get current beacon slot", "error", err)
+		return
+	}
+	if upcomingProposer.Slot != latestSlot+2 {
+		b.logger.Error("unexpected slot in upcoming proposer notification", "expected", latestSlot+2,
+			"upcoming_proposer_slot", upcomingProposer.Slot)
+		return
+	}
 
-	pc, err := b.bid(bidCtx, b.bidAmount)
+	latestBlockNum, err := b.beaconClient.getBlockNumForSlot(bidCtx, latestSlot)
+	if err != nil {
+		b.logger.Error("failed to get target block number", "error", err)
+		return
+	}
+	elLatestBlockNum, err := b.l1Client.BlockNumber(bidCtx)
+	if err != nil {
+		b.logger.Error("failed to get current block number", "error", err)
+		return
+	}
+	if latestBlockNum != elLatestBlockNum {
+		b.logger.Error("latest beacon block number does not match execution layer latest block number",
+			"beacon", latestBlockNum, "execution", elLatestBlockNum)
+		return
+	}
+
+	targetBlockNum := latestBlockNum + 2
+
+	b.logger.Info("preparing to bid", "latestSlot", latestSlot, "upcomingProposer slot", upcomingProposer.Slot,
+		"latestBlockNumber", latestBlockNum, "targetBlockNumber", targetBlockNum)
+
+	pc, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
@@ -102,6 +136,7 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
+	targetBlockNum uint64,
 ) (bidderapiv1.Bidder_SendBidClient, error) {
 
 	tx, err := b.selfETHTransfer()
@@ -118,16 +153,10 @@ func (b *Bidder) bid(
 	}
 	txString := hex.EncodeToString(txBytes)
 
-	blkNumber, err := b.l1Client.BlockNumber(ctx)
-	if err != nil {
-		b.logger.Error("failed to get block number", "error", err)
-		return nil, err
-	}
-
 	pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 		TxHashes:            []string{},
 		Amount:              bidAmount.String(),
-		BlockNumber:         int64(blkNumber + 1),
+		BlockNumber:         int64(targetBlockNum),
 		DecayStartTimestamp: time.Now().UnixMilli(),
 		DecayEndTimestamp:   time.Now().Add(12 * time.Second).UnixMilli(),
 		RevertingTxHashes:   []string{},
@@ -138,7 +167,7 @@ func (b *Bidder) bid(
 		b.logger.Error("failed to send bid", "error", err)
 		return nil, err
 	}
-	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "block_number", blkNumber+1)
+	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
 
 	return pc, nil
 }
