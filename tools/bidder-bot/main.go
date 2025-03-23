@@ -38,6 +38,13 @@ var (
 		Required: true,
 	}
 
+	optionBeaconApiUrls = &cli.StringSliceFlag{
+		Name:     "beacon-api-urls",
+		Usage:    "URLs for Beacon API endpoints",
+		EnvVars:  []string{"BEACON_API_URLS"},
+		Required: true,
+	}
+
 	optionSettlementRPCUrl = &cli.StringFlag{
 		Name:     "settlement-rpc-url",
 		Usage:    "URL for settlement RPC",
@@ -125,6 +132,7 @@ func main() {
 			optionKeystorePath,
 			optionKeystorePassword,
 			optionL1RPCUrls,
+			optionBeaconApiUrls,
 			optionSettlementRPCUrl,
 			optionBidderNodeRPCUrl,
 			optionGasTipCap,
@@ -176,8 +184,11 @@ func main() {
 				SettlementRPCUrl:  c.String(optionSettlementRPCUrl.Name),
 				BidderNodeRPC:     c.String(optionBidderNodeRPCUrl.Name),
 				L1RPCUrls:         c.StringSlice(optionL1RPCUrls.Name),
+				BeaconApiUrls:     c.StringSlice(optionBeaconApiUrls.Name),
 				Signer:            signer,
 			}
+
+			logger.Debug("service config", "config", config)
 
 			s, err := service.New(&config)
 			if err != nil {

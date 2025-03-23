@@ -30,6 +30,7 @@ type Config struct {
 	BidderNodeRPC     string
 	AutoDepositAmount *big.Int
 	L1RPCUrls         []string
+	BeaconApiUrls     []string
 	SettlementRPCUrl  string
 	GasTipCap         *big.Int
 	GasFeeCap         *big.Int
@@ -69,6 +70,17 @@ func New(config *Config) (*Service, error) {
 		return nil, err
 	}
 	config.Logger.Debug("created ethwrapper client", "urls", config.L1RPCUrls)
+
+	settlementRPCClient, err := ethwrapper.NewClient(
+		config.Logger.With("module", "ethwrapper"),
+		[]string{config.SettlementRPCUrl},
+		ethwrapper.EthClientWithMaxRetries(5),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: beacon client
 
 	bidderCli := bidderapiv1.NewBidderClient(conn)
 	config.Logger.Debug("created bidder client")
@@ -120,6 +132,8 @@ func New(config *Config) (*Service, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
+	err = s.checkBalances(config.Signer, l1RPCClient, settlementRPCClient)
+
 	healthChecker := health.New()
 
 	notifierDone := notifier.Start(ctx)
@@ -134,6 +148,26 @@ func New(config *Config) (*Service, error) {
 	)
 
 	return s, nil
+}
+
+func (s *Service) checkBalances(ctx context.Context, signer keysigner.KeySigner, l1RPCClient *ethwrapper.Client, settlementRPCClient *ethwrapper.Client) error {
+	l1Balance, err := l1RPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
+	if err != nil {
+		return err
+	}
+	zeroPointOneEth := big.NewInt(100000000000000000)
+	if l1Balance.Cmp(zeroPointOneEth) < 0 {
+		return fmt.Errorf("keystore account has less than 0.1 eth on L1")
+	}
+
+	settlementBalance, err := settlementRPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
+	if err != nil {
+		return err
+	}
+	if settlementBalance.Cmp(zeroPointOneEth) < 0 {
+		return fmt.Errorf("keystore account has less than 0.1 eth on mev-commit chain")
+	}
+	return nil
 }
 
 func (s *Service) Close() error {
