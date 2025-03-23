@@ -132,7 +132,10 @@ func New(config *Config) (*Service, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
-	err = s.checkBalances(config.Signer, l1RPCClient, settlementRPCClient)
+	err = s.checkBalances(ctx, config.Signer, l1RPCClient, settlementRPCClient)
+	if err != nil {
+		return nil, err
+	}
 
 	healthChecker := health.New()
 
