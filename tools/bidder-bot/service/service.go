@@ -34,6 +34,7 @@ type Config struct {
 	SettlementRPCUrl  string
 	GasTipCap         *big.Int
 	GasFeeCap         *big.Int
+	BidAmount         *big.Int
 }
 
 type Service struct {
@@ -126,6 +127,7 @@ func New(config *Config) (*Service, error) {
 		config.Signer,
 		config.GasTipCap,
 		config.GasFeeCap,
+		config.BidAmount,
 		proposerChan, // receive-only
 	)
 

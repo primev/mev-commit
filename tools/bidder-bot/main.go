@@ -66,6 +66,13 @@ var (
 		Value:   "100000000000000000", // 0.1 ETH
 	}
 
+	optionBidAmount = &cli.StringFlag{
+		Name:    "bid-amount",
+		Usage:   "amount to use for each bid",
+		EnvVars: []string{"BID_AMOUNT"},
+		Value:   "5000000000000000", // 0.005 ETH
+	}
+
 	optionGasTipCap = &cli.StringFlag{
 		Name:    "gas-tip-cap",
 		Usage:   "gas tip cap",
@@ -138,6 +145,7 @@ func main() {
 			optionGasTipCap,
 			optionGasFeeCap,
 			optionAutoDepositAmount,
+			optionBidAmount,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -165,6 +173,11 @@ func main() {
 				return fmt.Errorf("failed to parse auto-deposit-amount")
 			}
 
+			bidAmount, ok := new(big.Int).SetString(c.String(optionBidAmount.Name), 10)
+			if !ok {
+				return fmt.Errorf("failed to parse bid-amount")
+			}
+
 			signer, err := keysigner.NewKeystoreSigner(
 				c.String(optionKeystorePath.Name),
 				c.String(optionKeystorePassword.Name),
@@ -181,6 +194,7 @@ func main() {
 				GasTipCap:         gasTipCap,
 				GasFeeCap:         gasFeeCap,
 				AutoDepositAmount: autoDepositAmount,
+				BidAmount:         bidAmount,
 				SettlementRPCUrl:  c.String(optionSettlementRPCUrl.Name),
 				BidderNodeRPC:     c.String(optionBidderNodeRPCUrl.Name),
 				L1RPCUrls:         c.StringSlice(optionL1RPCUrls.Name),

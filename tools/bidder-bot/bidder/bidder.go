@@ -33,6 +33,7 @@ type Bidder struct {
 	signer         keysigner.KeySigner
 	gasTipCap      *big.Int
 	gasFeeCap      *big.Int
+	bidAmount      *big.Int
 	proposerChan   <-chan *notifier.UpcomingProposer
 }
 
@@ -44,6 +45,7 @@ func NewBidder(
 	signer keysigner.KeySigner,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
+	bidAmount *big.Int,
 	proposerChan <-chan *notifier.UpcomingProposer,
 ) *Bidder {
 	return &Bidder{
@@ -54,6 +56,7 @@ func NewBidder(
 		signer:         signer,
 		gasTipCap:      gasTipCap,
 		gasFeeCap:      gasFeeCap,
+		bidAmount:      bidAmount,
 		proposerChan:   proposerChan,
 	}
 }
@@ -84,8 +87,7 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 
 	// TODO: sanity check upcoming proposer struct is for next slot
 
-	bidAmount := big.NewInt(5000000000000000) // 0.005 eth
-	pc, err := b.bid(bidCtx, bidAmount)
+	pc, err := b.bid(bidCtx, b.bidAmount)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
@@ -211,7 +213,7 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 			return err
 		}
 
-		// TODO: confirm commitment + timeout waiting logic. Confirm Recv returns on context timeout due to SendBid accepting context.
+		// TODO: confirm commitment + timeout waiting logic.
 		commitments = append(commitments, msg)
 		b.logger.Debug("received commitment", "commitment", msg)
 
