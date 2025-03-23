@@ -136,6 +136,7 @@ func New(config *Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
 
 	healthChecker := health.New()
 
