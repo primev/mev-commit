@@ -180,12 +180,6 @@ func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
 	return signedTx, nil
 }
 
-// TODO: add logic where current bid cant send until the previous bid's block has been proposed as 'latest'.
-// This'd prevent any some nonce issues, but to cover all edge cases, we'd need to wait til previous
-// bid's relevant L1 block has been fully 'finalized', OR we've received commitments from all providers
-// for the previous bid's block.
-// Likely introduce a new go routine that handles 'pending bids' and monitors them till bid is finalized or failed.
-// TODO: Also include db component here where restarted service still waits for pending bids to finalize before next bid.
 // TODO: tracking / metrics on # commitments, and if tx lands on L1.
 func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_SendBidClient) error {
 	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
