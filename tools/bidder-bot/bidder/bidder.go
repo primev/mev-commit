@@ -138,6 +138,7 @@ func (b *Bidder) bid(
 		b.logger.Error("failed to send bid", "error", err)
 		return nil, err
 	}
+	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "block_number", blkNumber+1)
 
 	return pc, nil
 }
