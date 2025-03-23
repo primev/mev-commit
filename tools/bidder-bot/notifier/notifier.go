@@ -98,6 +98,7 @@ func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 		b.proposerChan <- upcomingProposer
 		b.logger.Warn("sent upcoming proposer after draining buffer", "proposer", upcomingProposer)
 	}
+	b.logger.Debug("updated lastUpcomingProposer", "proposer", upcomingProposer)
 	b.lastUpcomingProposer.Store(upcomingProposer)
 	return nil
 }
