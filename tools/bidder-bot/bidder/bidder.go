@@ -89,37 +89,22 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 	bidCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
-	latestSlot, err := b.beaconClient.getLatestSlot(bidCtx)
+	// Upcoming proposer slot hasn't started yet, so query block number for upcoming proposer slot - 2
+	upcomingSlotMinusTwo := upcomingProposer.Slot - 2
+	upcomingSlotMinusTwoBlockNum, err := b.beaconClient.getBlockNumForSlot(bidCtx, upcomingSlotMinusTwo)
 	if err != nil {
-		b.logger.Error("failed to get current beacon slot", "error", err)
-		return
-	}
-	if upcomingProposer.Slot != latestSlot+2 {
-		b.logger.Error("unexpected slot in upcoming proposer notification", "expected", latestSlot+2,
-			"upcoming_proposer_slot", upcomingProposer.Slot)
+		b.logger.Error("failed to get block number for upcoming proposer slot - 2", "error", err)
 		return
 	}
 
-	latestBlockNum, err := b.beaconClient.getBlockNumForSlot(bidCtx, latestSlot)
-	if err != nil {
-		b.logger.Error("failed to get target block number", "error", err)
-		return
-	}
-	elLatestBlockNum, err := b.l1Client.BlockNumber(bidCtx)
-	if err != nil {
-		b.logger.Error("failed to get current block number", "error", err)
-		return
-	}
-	if latestBlockNum != elLatestBlockNum {
-		b.logger.Error("latest beacon block number does not match execution layer latest block number",
-			"beacon", latestBlockNum, "execution", elLatestBlockNum)
-		return
+	// Assume the two slots before upcoming proposer slot are NOT missed
+	targetBlockNum := upcomingSlotMinusTwoBlockNum + 2
+
+	if b.logger.Enabled(bidCtx, slog.LevelDebug) {
+		b.logDebugInfo(bidCtx)
 	}
 
-	targetBlockNum := latestBlockNum + 2
-
-	b.logger.Info("preparing to bid", "latestSlot", latestSlot, "upcomingProposer slot", upcomingProposer.Slot,
-		"latestBlockNumber", latestBlockNum, "targetBlockNumber", targetBlockNum)
+	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
 
 	pc, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
@@ -259,4 +244,24 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 		}
 	}
 	return errors.New("bid timeout, not all commitments received")
+}
+
+func (b *Bidder) logDebugInfo(ctx context.Context) {
+	go func() {
+		latestSlot, err := b.beaconClient.getLatestSlot(ctx)
+		if err != nil {
+			b.logger.Error("failed to get current beacon slot", "error", err)
+		} else {
+			b.logger.Debug("current beacon slot", "slot", latestSlot)
+		}
+	}()
+
+	go func() {
+		elLatestBlockNum, err := b.l1Client.BlockNumber(ctx)
+		if err != nil {
+			b.logger.Error("failed to get current block number", "error", err)
+		} else {
+			b.logger.Debug("current execution layer block number", "block_number", elLatestBlockNum)
+		}
+	}()
 }
