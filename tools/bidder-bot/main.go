@@ -77,14 +77,14 @@ var (
 		Name:    "gas-tip-cap",
 		Usage:   "gas tip cap",
 		EnvVars: []string{"GAS_TIP_CAP"},
-		Value:   "50000000", // 0.05 gWEI
+		Value:   "15000000", // 0.015 gwei
 	}
 
 	optionGasFeeCap = &cli.StringFlag{
 		Name:    "gas-fee-cap",
 		Usage:   "gas fee cap",
 		EnvVars: []string{"GAS_FEE_CAP"},
-		Value:   "60000000", // 0.06 gWEI
+		Value:   "1000000000", // 1 gwei
 	}
 
 	optionLogFmt = &cli.StringFlag{

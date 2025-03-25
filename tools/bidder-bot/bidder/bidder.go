@@ -182,7 +182,7 @@ func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
 		To:        &address,
 		Value:     big.NewInt(7),
 		Gas:       1_000_000,
-		GasFeeCap: b.gasFeeCap, // TODO: sanity check fees here. Implement fee and/or bid amount bumps
+		GasFeeCap: b.gasFeeCap,
 		GasTipCap: b.gasTipCap,
 	})
 
