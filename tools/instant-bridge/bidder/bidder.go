@@ -245,7 +245,6 @@ func (b *BidderClient) Bid(
 			RawTransactions:     []string{rawTx},
 			DecayStartTimestamp: nowFunc().UnixMilli(),
 			DecayEndTimestamp:   nowFunc().Add(12 * time.Second).UnixMilli(),
-			SlashAmount:         bridgeAmount.String(),
 		})
 		if err != nil {
 			b.logger.Error("failed to send bid", "error", err)
