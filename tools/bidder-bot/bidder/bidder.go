@@ -106,16 +106,16 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 
 	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
 
-	pc, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
+	_, err = b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
 	}
 
-	err = b.watchPendingBid(bidCtx, pc)
-	if err != nil {
-		b.logger.Error("bid failed", "error", err)
-	}
+	// err = b.watchPendingBid(bidCtx, pc)
+	// if err != nil {
+	// 	b.logger.Error("bid failed", "error", err)
+	// }
 }
 
 func (b *Bidder) bid(
@@ -138,23 +138,26 @@ func (b *Bidder) bid(
 	}
 	txString := hex.EncodeToString(txBytes)
 
-	pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
-		TxHashes:            []string{},
-		Amount:              bidAmount.String(),
-		BlockNumber:         int64(targetBlockNum),
-		DecayStartTimestamp: time.Now().UnixMilli(),
-		DecayEndTimestamp:   time.Now().Add(12 * time.Second).UnixMilli(),
-		RevertingTxHashes:   []string{},
-		RawTransactions:     []string{txString},
-		// Do not specify slash amount
-	})
-	if err != nil {
-		b.logger.Error("failed to send bid", "error", err)
-		return nil, err
-	}
-	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
+	b.logger.Info("would have sent bid", "tx_string", txString, "tx_hash", tx.Hash().Hex(),
+		"amount", bidAmount.String(), "target_block_number", targetBlockNum)
 
-	return pc, nil
+	// pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
+	// 	TxHashes:            []string{},
+	// 	Amount:              bidAmount.String(),
+	// 	BlockNumber:         int64(targetBlockNum),
+	// 	DecayStartTimestamp: time.Now().UnixMilli(),
+	// 	DecayEndTimestamp:   time.Now().Add(12 * time.Second).UnixMilli(),
+	// 	RevertingTxHashes:   []string{},
+	// 	RawTransactions:     []string{txString},
+	// 	// Do not specify slash amount
+	// })
+	// if err != nil {
+	// 	b.logger.Error("failed to send bid", "error", err)
+	// 	return nil, err
+	// }
+	// b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
+
+	return nil, nil
 }
 
 func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {

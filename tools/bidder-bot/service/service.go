@@ -72,14 +72,14 @@ func New(config *Config) (*Service, error) {
 	}
 	config.Logger.Debug("created ethwrapper client", "urls", config.L1RPCUrls)
 
-	settlementRPCClient, err := ethwrapper.NewClient(
-		config.Logger.With("module", "ethwrapper"),
-		[]string{config.SettlementRPCUrl},
-		ethwrapper.EthClientWithMaxRetries(5),
-	)
-	if err != nil {
-		return nil, err
-	}
+	// settlementRPCClient, err := ethwrapper.NewClient(
+	// 	config.Logger.With("module", "ethwrapper"),
+	// 	[]string{config.SettlementRPCUrl},
+	// 	ethwrapper.EthClientWithMaxRetries(5),
+	// )
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	bidderCli := bidderapiv1.NewBidderClient(conn)
 	config.Logger.Debug("created bidder client")
@@ -94,19 +94,19 @@ func New(config *Config) (*Service, error) {
 	}
 	config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
 
-	if !status.IsAutodepositEnabled {
-		config.Logger.Info("enabling auto deposit")
-		resp, err := bidderCli.AutoDeposit(
-			context.Background(),
-			&bidderapiv1.DepositRequest{
-				Amount: config.AutoDepositAmount.String(),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
-	}
+	// if !status.IsAutodepositEnabled {
+	// 	config.Logger.Info("enabling auto deposit")
+	// 	resp, err := bidderCli.AutoDeposit(
+	// 		context.Background(),
+	// 		&bidderapiv1.DepositRequest{
+	// 			Amount: config.AutoDepositAmount.String(),
+	// 		},
+	// 	)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
+	// }
 
 	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
 	proposerChan := make(chan *notifier.UpcomingProposer, 1)
@@ -137,11 +137,11 @@ func New(config *Config) (*Service, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
-	err = s.checkBalances(ctx, config.Signer, l1RPCClient, settlementRPCClient)
-	if err != nil {
-		return nil, err
-	}
-	config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
+	// err = s.checkBalances(ctx, config.Signer, l1RPCClient, settlementRPCClient)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
 
 	healthChecker := health.New()
 
@@ -159,25 +159,25 @@ func New(config *Config) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) checkBalances(ctx context.Context, signer keysigner.KeySigner, l1RPCClient *ethwrapper.Client, settlementRPCClient *ethwrapper.Client) error {
-	l1Balance, err := l1RPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
-	if err != nil {
-		return err
-	}
-	zeroPointOneEth := big.NewInt(100000000000000000)
-	if l1Balance.Cmp(zeroPointOneEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.1 eth on L1")
-	}
+// func (s *Service) checkBalances(ctx context.Context, signer keysigner.KeySigner, l1RPCClient *ethwrapper.Client, settlementRPCClient *ethwrapper.Client) error {
+// 	l1Balance, err := l1RPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	zeroPointOneEth := big.NewInt(100000000000000000)
+// 	if l1Balance.Cmp(zeroPointOneEth) < 0 {
+// 		return fmt.Errorf("keystore account has less than 0.1 eth on L1")
+// 	}
 
-	settlementBalance, err := settlementRPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
-	if err != nil {
-		return err
-	}
-	if settlementBalance.Cmp(zeroPointOneEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.1 eth on mev-commit chain")
-	}
-	return nil
-}
+// 	settlementBalance, err := settlementRPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if settlementBalance.Cmp(zeroPointOneEth) < 0 {
+// 		return fmt.Errorf("keystore account has less than 0.1 eth on mev-commit chain")
+// 	}
+// 	return nil
+// }
 
 func (s *Service) Close() error {
 	s.cancel()
