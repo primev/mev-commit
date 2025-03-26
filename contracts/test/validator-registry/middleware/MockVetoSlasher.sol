@@ -12,6 +12,7 @@ contract MockVetoSlasher is MockEntity {
     uint256 private _slashIndex;
     MockDelegator public mockDelegator;
     address public networkMiddleware;
+    bool public _isBurnerHook;
 
     event ExecuteSlash(uint256 indexed slashIndex, uint256 slashedAmount);
 
@@ -20,11 +21,19 @@ contract MockVetoSlasher is MockEntity {
         _;
     }
 
-    constructor(uint64 type_, address resolver_, uint256 vetoDuration_, MockDelegator mockDelegator_, address networkMiddleware_) MockEntity(type_) {
+    constructor(
+        uint64 type_,
+        address resolver_, 
+        uint256 vetoDuration_,
+        MockDelegator mockDelegator_,
+        address networkMiddleware_,
+        bool isBurnerHook_
+    ) MockEntity(type_) {
         _resolver = resolver_;
         _vetoDuration = vetoDuration_;
         mockDelegator = MockDelegator(mockDelegator_);
         networkMiddleware = networkMiddleware_;
+        _isBurnerHook = isBurnerHook_;
     }
 
     error InvalidSubnetwork();
@@ -82,5 +91,13 @@ contract MockVetoSlasher is MockEntity {
 
     function vetoDuration() external view returns (uint256) {
         return _vetoDuration;
+    }
+
+    function isBurnerHook() external view returns (bool) {
+        return _isBurnerHook;
+    }
+
+    function setIsBurnerHook(bool isBurnerHook_) external {
+        _isBurnerHook = isBurnerHook_;
     }
 }

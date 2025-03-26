@@ -5,10 +5,12 @@ import {MockEntity} from "./MockEntity.sol";
 import {MockDelegator} from "./MockDelegator.sol";
 
 contract MockInstantSlasher is MockEntity {
-    constructor(uint64 type_, MockDelegator mockDelegator_) MockEntity(type_) {
+    constructor(uint64 type_, MockDelegator mockDelegator_, bool isBurnerHook_) MockEntity(type_) {
         mockDelegator = MockDelegator(mockDelegator_);
+        _isBurnerHook = isBurnerHook_;
     }
     MockDelegator public mockDelegator;
+    bool public _isBurnerHook;
 
     mapping(address operator => uint256 slashedAmount) public slashedAmounts;
 
@@ -36,5 +38,9 @@ contract MockInstantSlasher is MockEntity {
         require(stake >= amount, InsufficientStake());
         mockDelegator.setStake(operator, stake - amount);
         return amount;
+    }
+
+    function isBurnerHook() external view returns (bool) {
+        return _isBurnerHook;
     }
 }

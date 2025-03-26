@@ -110,6 +110,7 @@ type Options struct {
 	BidderBidTimeout         time.Duration
 	ProviderDecisionTimeout  time.Duration
 	NotificationsBufferCap   int
+	ProposerNotifyOffset     time.Duration
 }
 
 type Node struct {
@@ -450,6 +451,8 @@ func NewNode(opts *Options) (*Node, error) {
 			return nil, err
 		}
 
+		opts.Logger.Info("connected to L1 RPC", "url", opts.L1RPCURL)
+		opts.Logger.Info("validator router contract", "address", opts.ValidatorRouterContract)
 		validatorRouterCaller, err := validatorrouter.NewValidatoroptinrouterCaller(
 			common.HexToAddress(opts.ValidatorRouterContract),
 			l1ContractRPC,
@@ -478,6 +481,7 @@ func NewNode(opts *Options) (*Node, error) {
 			opts.Logger.With("component", "validatorapi"),
 			callOptsGetter,
 			notificationsSvc,
+			opts.ProposerNotifyOffset,
 		)
 		if err != nil {
 			opts.Logger.Error("failed to create validator api", "error", err)
@@ -602,6 +606,9 @@ func NewNode(opts *Options) (*Node, error) {
 				nd.closers,
 				ioCloserFunc(func() error {
 					_, err := autoDeposit.Stop()
+					if errors.Is(err, autodepositor.ErrNotRunning) {
+						return nil
+					}
 					return err
 				}),
 			)
@@ -843,8 +850,8 @@ func (n *Node) Close() error {
 	}
 
 	var err error
-	for _, c := range n.closers {
-		err = errors.Join(err, c.Close())
+	for i := len(n.closers) - 1; i >= 0; i-- {
+		err = errors.Join(err, n.closers[i].Close())
 	}
 
 	return err

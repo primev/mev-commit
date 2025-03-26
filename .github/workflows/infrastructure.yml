@@ -13,6 +13,7 @@ on:
           - stressnet
           - stressnet-wl1
           - manual-test
+          - instant-bridge-test
         default: 'devnet'
       all_targets:
         description: 'All Arch & Os Targets'
@@ -140,8 +141,9 @@ jobs:
       - name: Install Required Dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          wget https://launchpad.net/~ethereum/+archive/ubuntu/ethereum/+files/bootnode_1.14.7+build30063+mantic_amd64.deb
-          sudo dpkg -i bootnode_1.14.7+build30063+mantic_amd64.deb
+          wget https://gethstore.blob.core.windows.net/builds/geth-alltools-linux-amd64-1.14.13-eb00f169.tar.gz
+          tar -xvzf geth-alltools-linux-amd64-1.14.13-eb00f169.tar.gz
+          sudo mv geth-alltools-linux-amd64-1.14.13-eb00f169/bootnode /usr/local/bin/
           echo 'deb [trusted=yes] https://repo.goreleaser.com/apt/ /' | sudo tee /etc/apt/sources.list.d/goreleaser.list
           sudo apt-get update
           sudo apt-get install -f

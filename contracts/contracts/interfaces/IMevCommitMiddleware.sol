@@ -191,6 +191,8 @@ interface IMevCommitMiddleware {
 
     error VetoSlasherMustHaveZeroResolver(address vault);
 
+    error BurnerHookNotSetForVault(address vault);
+
     error VetoDurationTooShort(address vault, uint256 vetoDuration);
 
     error UnknownSlasherType(address vault, uint256 slasherType);

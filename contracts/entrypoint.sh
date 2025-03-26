@@ -71,4 +71,20 @@ elif [ "${DEPLOY_TYPE}" = "l1-gateway" ]; then
         --json \
         ${VERIFY_OPTION} \
         --via-ir
+
+elif [ "${DEPLOY_TYPE}" = "validator-registry" ]; then
+    "${FORGE_BIN_PATH}" script \
+        "${SCRIPT_PATH_PREFIX}/validator-registry/DeployForMockL1.s.sol:DeployForMockL1" \
+        --root "${CONTRACT_REPO_ROOT_PATH}" \
+        --priority-gas-price 2000000000 \
+        --with-gas-price 5000000000 \
+        --rpc-url "${RPC_URL}" \
+        --chain-id "${CHAIN_ID}" \
+        --keystores "${KEYSTORE_DIR}/${KEYSTORE_FILENAME}" \
+        --password "${KEYSTORE_PASSWORD}" \
+        --sender "${SENDER}" \
+        --use 0.8.26 \
+        --broadcast \
+        --json \
+        --via-ir
 fi

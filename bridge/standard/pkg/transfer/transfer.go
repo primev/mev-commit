@@ -80,7 +80,10 @@ func NewTransferToSettlement(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get initial block: %s", err)
 	}
-	settlementFilterer, err := settlementgateway.NewSettlementgatewayFilterer(settlementContractAddr, settlementClient)
+	settlementFilterer, err := settlementgateway.NewSettlementgatewayFilterer(
+		settlementContractAddr,
+		settlementClient,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create settlement filterer: %s", err)
 	}
@@ -191,7 +194,9 @@ func (t *Transfer) Do(ctx context.Context) <-chan TransferStatus {
 		}
 
 		statusChan <- TransferStatus{
-			Message: fmt.Sprintf("Transfer initiated with hash %s. Waiting for it to be mined...", tx.Hash().Hex()),
+			Message: fmt.Sprintf(
+				"Transfer initiated with hash %s. Waiting for it to be mined...", tx.Hash().Hex(),
+			),
 		}
 
 		receipt, err := bind.WaitMined(ctx, t.srcClient, tx)

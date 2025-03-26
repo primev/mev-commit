@@ -53,6 +53,7 @@ const (
 	categoryBidder    = "Bidder options"
 	categoryProvider  = "Provider options"
 	categoryEthRPC    = "Ethereum RPC options"
+	categoryValidator = "Validator options"
 )
 
 var (
@@ -391,7 +392,7 @@ var (
 	optionBeaconAPIURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "beacon-api-url",
 		Usage:    "URL of the beacon chain API",
-		Value:    "https://ethereum-holesky-beacon-api.publicnode.com",
+		Value:    "https://ethereum-beacon-api.publicnode.com",
 		EnvVars:  []string{"MEV_COMMIT_BEACON_API_URL"},
 		Category: categoryEthRPC,
 	})
@@ -446,6 +447,14 @@ var (
 		Value:    100,
 		Category: categoryGlobal,
 	})
+
+	optionProposerNotifyOffset = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:     "proposer-notify-offset",
+		Usage:    "Time offset that a notification is sent, prior to the start of a slot where the proposer is opted-in to mev-commit",
+		EnvVars:  []string{"MEV_COMMIT_PROPOSER_NOTIFY_OFFSET"},
+		Value:    1 * time.Second,
+		Category: categoryValidator,
+	})
 )
 
 func main() {
@@ -491,6 +500,7 @@ func main() {
 		optionProviderDecisionTimeout,
 		optionNotificationsBuffer,
 		optionLaggardMode,
+		optionProposerNotifyOffset,
 	}
 
 	app := &cli.App{
@@ -671,6 +681,7 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		BidderBidTimeout:         c.Duration(optionBidderBidTimeout.Name),
 		ProviderDecisionTimeout:  c.Duration(optionProviderDecisionTimeout.Name),
 		NotificationsBufferCap:   c.Int(optionNotificationsBuffer.Name),
+		ProposerNotifyOffset:     c.Duration(optionProposerNotifyOffset.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)

@@ -91,7 +91,8 @@ func TestGetValidators(t *testing.T) {
 	optsGetter := func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
+	notifyOffset := 1 * time.Second
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	resp, err := service.GetValidators(ctx, req)
@@ -124,7 +125,8 @@ func TestGetValidators_HTTPError(t *testing.T) {
 	mockValidatorRouter := &MockValidatorRouterContract{}
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
+	notifyOffset := 1 * time.Second
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
 
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
@@ -166,7 +168,8 @@ func TestGetValidators_EpochZero(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	ctx := context.Background()
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
+	notifyOffset := 1 * time.Second
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 0}
 	resp, err := service.GetValidators(ctx, req)
@@ -200,8 +203,8 @@ func TestNewService_FetchGenesisTime(t *testing.T) {
 	mockValidatorRouter := &MockValidatorRouterContract{ExpectedCalls: map[string]interface{}{}}
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-
-	svc := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier)
+	notifyOffset := 1 * time.Second
+	svc := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
 	svc.Start(context.Background())
 
 	val := svc.GenesisTime()
@@ -215,7 +218,8 @@ func TestScheduleNotificationForSlot(t *testing.T) {
 	mockNotifier := NewMockNotifier()
 	now := time.Now()
 	genesisTime := now.Add(100*time.Millisecond + validatorapi.NotifyOffset - validatorapi.SlotDuration)
-	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier)
+	notifyOffset := 1 * time.Second
+	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier, notifyOffset)
 	svc.SetGenesisTime(genesisTime)
 
 	slotInfo := &validatorapiv1.SlotInfo{
@@ -278,7 +282,8 @@ func TestProcessEpoch(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	ctx := context.Background()
 
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier)
+	notifyOffset := 1 * time.Second
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset)
 
 	now := time.Now()
 	svc.SetGenesisTime(now.Add(100*time.Millisecond + validatorapi.NotifyOffset - validatorapi.SlotDuration))
@@ -303,16 +308,19 @@ func TestProcessEpoch(t *testing.T) {
 			if !ok {
 				t.Fatal("expected slots in notification value")
 			}
-			slotsSlice, ok := slotsVal.([]map[string]interface{})
+			slotsSlice, ok := slotsVal.([]any)
 			if !ok {
 				t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
 			}
 			if len(slotsSlice) != 1 {
 				t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
 			}
-			slotData := slotsSlice[0]
-			if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(1) {
-				t.Fatalf("expected slot 1, got %v", slotVal)
+			if slotData, ok := slotsSlice[0].(map[string]interface{}); !ok {
+				t.Fatalf("expected slot data to be a map, got %T: %v", slotsSlice[0], slotsSlice[0])
+			} else {
+				if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(1) {
+					t.Fatalf("expected slot 1, got %v", slotVal)
+				}
 			}
 		} else {
 			t.Fatalf("unexpected notification topic: %s", n.Topic())
@@ -352,8 +360,8 @@ func TestStart(t *testing.T) {
 	optsGetter := func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier)
+	notifyOffset := 1 * time.Second
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -398,16 +406,19 @@ func TestStart(t *testing.T) {
 			if !ok {
 				t.Fatal("expected slots in notification value")
 			}
-			slotsSlice, ok := slotsVal.([]map[string]interface{})
+			slotsSlice, ok := slotsVal.([]any)
 			if !ok {
 				t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
 			}
 			if len(slotsSlice) != 1 {
 				t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
 			}
-			slotData := slotsSlice[0]
-			if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(50) {
-				t.Fatalf("expected slot 50, got %v", slotVal)
+			if slotData, ok := slotsSlice[0].(map[string]interface{}); !ok {
+				t.Fatalf("expected slot data to be a map, got %T: %v", slotsSlice[0], slotsSlice[0])
+			} else {
+				if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(50) {
+					t.Fatalf("expected slot 50, got %v", slotVal)
+				}
 			}
 		}
 	case <-time.After(7 * time.Second):

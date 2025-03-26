@@ -15,7 +15,7 @@ const (
 
 func IsTopicValid(topic Topic) bool {
 	switch topic {
-	case TopicPeerConnected, TopicPeerDisconnected:
+	case TopicPeerConnected, TopicPeerDisconnected, TopicValidatorOptedIn, TopicEpochValidatorsOptedIn:
 		return true
 	default:
 		return false
