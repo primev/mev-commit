@@ -130,7 +130,6 @@ func (b *Bidder) bid(
 		return nil, err
 	}
 
-	// TODO: sanity check tx serialization
 	txBytes, err := tx.MarshalBinary()
 	if err != nil {
 		b.logger.Error("failed to marshal transaction", "error", err)
@@ -197,7 +196,6 @@ func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
 	return signedTx, nil
 }
 
-// TODO: tracking / metrics on # commitments, and if tx lands on L1.
 func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_SendBidClient) error {
 	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
 	if err != nil {
@@ -228,7 +226,6 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 			return err
 		}
 
-		// TODO: confirm commitment + timeout waiting logic.
 		commitments = append(commitments, msg)
 		b.logger.Debug("received commitment", "commitment", msg)
 

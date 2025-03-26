@@ -38,7 +38,6 @@ func NewNotifier(
 	}
 }
 
-// TODO: unit tests validating buffering logic with the bidder worker
 func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
@@ -74,7 +73,6 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-// TODO: unit tests for draining logic
 func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 	upcomingProposer, err := parseUpcomingProposer(msg)
 	if err != nil {
