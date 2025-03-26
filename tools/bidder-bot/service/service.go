@@ -164,17 +164,17 @@ func (s *Service) checkBalances(ctx context.Context, signer keysigner.KeySigner,
 	if err != nil {
 		return err
 	}
-	zeroPointOneEth := big.NewInt(100000000000000000)
-	if l1Balance.Cmp(zeroPointOneEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.1 eth on L1")
+	pointZeroFiveEth := big.NewInt(50000000000000000)
+	if l1Balance.Cmp(pointZeroFiveEth) < 0 {
+		return fmt.Errorf("keystore account has less than 0.05 eth on L1")
 	}
 
 	settlementBalance, err := settlementRPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
 	if err != nil {
 		return err
 	}
-	if settlementBalance.Cmp(zeroPointOneEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.1 eth on mev-commit chain")
+	if settlementBalance.Cmp(pointZeroFiveEth) < 0 {
+		return fmt.Errorf("keystore account has less than 0.05 eth on mev-commit chain")
 	}
 	return nil
 }
