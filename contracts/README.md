@@ -60,7 +60,7 @@ Invoking the upgrade involves creating a script in which a new implementation co
 See example below
 
 ```solidity
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
