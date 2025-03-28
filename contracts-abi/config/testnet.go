@@ -1,5 +1,9 @@
 package config
 
+import "math/big"
+
+var TestnetChainID = big.NewInt(17864)
+
 var TestnetContracts = Contracts{
 	BidderRegistry:    "0x948eCD70FaeF6746A30a00F30f8b9fB2659e4062",
 	ProviderRegistry:  "0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67",
