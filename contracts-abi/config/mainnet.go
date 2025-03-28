@@ -1,5 +1,9 @@
 package config
 
+import "math/big"
+
+var MainnetChainID = big.NewInt(8855)
+
 var MevCommitChainContracts = Contracts{
 	BidderRegistry:    "0xC973D09e51A20C9Ab0214c439e4B34Dbac52AD67",
 	ProviderRegistry:  "0xb772Add4718E5BD6Fe57Fb486A6f7f008E52167E",

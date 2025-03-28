@@ -16,3 +16,27 @@ type L1Contracts struct {
 	MevCommitMiddleware  string
 	L1Gateway            string
 }
+
+var DefaultsContracts = map[string]Contracts{
+	MainnetChainID.String(): {
+		PreconfManager:   MevCommitChainContracts.PreconfManager,
+		BlockTracker:     MevCommitChainContracts.BlockTracker,
+		ProviderRegistry: MevCommitChainContracts.ProviderRegistry,
+		BidderRegistry:   MevCommitChainContracts.BidderRegistry,
+	},
+	TestnetChainID.String(): {
+		PreconfManager:   TestnetContracts.PreconfManager,
+		BlockTracker:     TestnetContracts.BlockTracker,
+		ProviderRegistry: TestnetContracts.ProviderRegistry,
+		BidderRegistry:   TestnetContracts.BidderRegistry,
+	},
+}
+
+var DefaultsL1Contracts = map[string]L1Contracts{
+	MainnetChainID.String(): {
+		ValidatorOptInRouter: EthereumContracts.ValidatorOptInRouter,
+	},
+	TestnetChainID.String(): {
+		ValidatorOptInRouter: HoleskyContracts.ValidatorOptInRouter,
+	},
+}

@@ -17,7 +17,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-logr/logr"
-	contracts "github.com/primev/mev-commit/contracts-abi/config"
 	mevcommit "github.com/primev/mev-commit/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/node"
 	ks "github.com/primev/mev-commit/x/keysigner"
@@ -225,9 +224,8 @@ var (
 		Name:    "bidder-registry-contract",
 		Usage:   "Address of the bidder registry contract",
 		EnvVars: []string{"MEV_COMMIT_BIDDER_REGISTRY_ADDR"},
-		Value:   contracts.MevCommitChainContracts.BidderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
-			if !common.IsHexAddress(s) {
+			if s != "" && !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid bidder registry address: %s", s)
 			}
 			return nil
@@ -239,9 +237,8 @@ var (
 		Name:    "provider-registry-contract",
 		Usage:   "Address of the provider registry contract",
 		EnvVars: []string{"MEV_COMMIT_PROVIDER_REGISTRY_ADDR"},
-		Value:   contracts.MevCommitChainContracts.ProviderRegistry,
 		Action: func(ctx *cli.Context, s string) error {
-			if !common.IsHexAddress(s) {
+			if s != "" && !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid provider registry address: %s", s)
 			}
 			return nil
@@ -253,9 +250,8 @@ var (
 		Name:    "preconf-contract",
 		Usage:   "Address of the preconfirmation commitment store contract",
 		EnvVars: []string{"MEV_COMMIT_PRECONF_ADDR"},
-		Value:   contracts.MevCommitChainContracts.PreconfManager,
 		Action: func(ctx *cli.Context, s string) error {
-			if !common.IsHexAddress(s) {
+			if s != "" && !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid preconfirmation commitment store address: %s", s)
 			}
 			return nil
@@ -267,9 +263,8 @@ var (
 		Name:    "block-tracker-contract",
 		Usage:   "Address of the block tracker contract",
 		EnvVars: []string{"MEV_COMMIT_BLOCK_TRACKER_ADDR"},
-		Value:   contracts.MevCommitChainContracts.BlockTracker,
 		Action: func(ctx *cli.Context, s string) error {
-			if !common.IsHexAddress(s) {
+			if s != "" && !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid block tracker address: %s", s)
 			}
 			return nil
@@ -281,9 +276,8 @@ var (
 		Name:    "validator-router-contract",
 		Usage:   "Address of the validator router contract",
 		EnvVars: []string{"MEV_COMMIT_VALIDATOR_ROUTER_ADDR"},
-		Value:   contracts.EthereumContracts.ValidatorOptInRouter,
 		Action: func(ctx *cli.Context, s string) error {
-			if !common.IsHexAddress(s) {
+			if s != "" && !common.IsHexAddress(s) {
 				return fmt.Errorf("invalid validator router address: %s", s)
 			}
 			return nil
@@ -392,7 +386,6 @@ var (
 	optionBeaconAPIURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "beacon-api-url",
 		Usage:    "URL of the beacon chain API",
-		Value:    "https://ethereum-beacon-api.publicnode.com",
 		EnvVars:  []string{"MEV_COMMIT_BEACON_API_URL"},
 		Category: categoryEthRPC,
 	})
@@ -400,7 +393,6 @@ var (
 	optionL1RPCURL = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:     "l1-rpc-url",
 		Usage:    "URL for L1 RPC",
-		Value:    "https://ethereum-holesky-rpc.publicnode.com",
 		EnvVars:  []string{"MEV_COMMIT_L1_RPC_URL"},
 		Category: categoryEthRPC,
 	})

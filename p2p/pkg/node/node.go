@@ -27,6 +27,7 @@ import (
 	preconf "github.com/primev/mev-commit/contracts-abi/clients/PreconfManager"
 	providerregistry "github.com/primev/mev-commit/contracts-abi/clients/ProviderRegistry"
 	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
+	contracts "github.com/primev/mev-commit/contracts-abi/config"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
@@ -75,6 +76,22 @@ import (
 const (
 	grpcServerDialTimeout = 5 * time.Second
 )
+
+type L1URLs struct {
+	L1RPCURL     string
+	BeaconAPIURL string
+}
+
+var defaultL1URLs = map[string]L1URLs{
+	contracts.MainnetChainID.String(): L1URLs{
+		L1RPCURL:     "https://ethereum-rpc.publicnode.com",
+		BeaconAPIURL: "https://ethereum-beacon-api.publicnode.com",
+	},
+	contracts.TestnetChainID.String(): L1URLs{
+		L1RPCURL:     "https://ethereum-holesky-beacon-api.publicnode.com",
+		BeaconAPIURL: "https://ethereum-holesky-rpc.publicnode.com",
+	},
+}
 
 type Options struct {
 	Version                  string
@@ -150,6 +167,21 @@ func NewNode(opts *Options) (*Node, error) {
 	if err != nil {
 		opts.Logger.Error("failed to get chain ID", "error", err)
 		return nil, err
+	}
+
+	if defaults, ok := contracts.DefaultsContracts[chainID.String()]; ok {
+		setDefault(&opts.PreconfContract, defaults.PreconfManager)
+		setDefault(&opts.BlockTrackerContract, defaults.BlockTracker)
+		setDefault(&opts.ProviderRegistryContract, defaults.ProviderRegistry)
+		setDefault(&opts.BidderRegistryContract, defaults.BidderRegistry)
+	}
+	if defaults, ok := contracts.DefaultsL1Contracts[chainID.String()]; ok {
+		setDefault(&opts.ValidatorRouterContract, defaults.ValidatorOptInRouter)
+	}
+
+	if defaults, ok := defaultL1URLs[chainID.String()]; ok {
+		setDefault(&opts.L1RPCURL, defaults.L1RPCURL)
+		setDefault(&opts.BeaconAPIURL, defaults.BeaconAPIURL)
 	}
 
 	var store storage.Storage
@@ -953,4 +985,10 @@ func (p *progressStore) LastBlock() (uint64, error) {
 func (p *progressStore) SetLastBlock(block uint64) error {
 	p.lastBlock.Store(block)
 	return nil
+}
+
+func setDefault(field *string, defaultValue string) {
+	if *field == "" {
+		*field = defaultValue
+	}
 }
