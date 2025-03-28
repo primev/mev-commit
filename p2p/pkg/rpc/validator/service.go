@@ -35,13 +35,16 @@ type Service struct {
 	notifier             notifications.Notifier
 	genesisTime          time.Time
 	proposerNotifyOffset time.Duration
+
+	slotDuration  time.Duration
+	epochSlots    int
+	epochDuration time.Duration
 }
 
-var (
+const (
 	SlotDuration  = 12 * time.Second
 	EpochSlots    = 32
 	EpochDuration = SlotDuration * time.Duration(EpochSlots)
-	FetchOffset   = 2 * time.Second
 )
 
 func NewService(
@@ -60,6 +63,9 @@ func NewService(
 		optsGetter:           optsGetter,
 		notifier:             notifier,
 		proposerNotifyOffset: proposerNotifyOffset,
+		slotDuration:         SlotDuration,
+		epochSlots:           EpochSlots,
+		epochDuration:        EpochDuration,
 	}
 }
 
@@ -240,7 +246,7 @@ func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uin
 }
 
 func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *validatorapiv1.SlotInfo) {
-	slotStartTime := s.genesisTime.Add(time.Duration(slot) * SlotDuration)
+	slotStartTime := s.genesisTime.Add(time.Duration(slot) * s.slotDuration)
 	notificationTime := slotStartTime.Add(-s.proposerNotifyOffset)
 
 	delay := time.Until(notificationTime)
@@ -328,29 +334,25 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		tick := time.NewTicker(EpochDuration / 2)
-		defer tick.Stop()
-
-		currentEpoch := uint64(time.Since(s.genesisTime) / EpochDuration)
+		currentEpoch := uint64(time.Since(s.genesisTime) / s.epochDuration)
+		s.processEpoch(egCtx, currentEpoch, s.genesisTime.Add(time.Duration(currentEpoch)*s.epochDuration).Unix())
 
 		for {
-			s.processEpoch(egCtx, currentEpoch, s.genesisTime.Add(time.Duration(currentEpoch)*EpochDuration).Unix())
+			nextEpochStart := s.genesisTime.Add(time.Duration(currentEpoch+1) * s.epochDuration)
+			delay := max(time.Until(nextEpochStart), 0)
+
+			timer := time.NewTimer(delay)
 			select {
 			case <-egCtx.Done():
+				if !timer.Stop() {
+					<-timer.C
+				}
 				s.logger.Info("epoch cron job stopped")
 				return nil
-			case <-tick.C:
-				s.logger.Info("fetching current epoch")
-				calcEpoch := uint64(time.Since(s.genesisTime) / EpochDuration)
-				if calcEpoch == currentEpoch {
-					s.logger.Info("skipping epoch fetch, already processed", "epoch", currentEpoch)
-					delay := time.Until(s.genesisTime.Add(time.Duration(currentEpoch+1) * EpochDuration))
-					if delay > 0 {
-						s.logger.Info("waiting for epoch to start", "epoch", currentEpoch+1, "delay", delay.String())
-						tick.Reset(delay)
-					}
-				}
-				currentEpoch = calcEpoch
+			case <-timer.C:
+				currentEpoch++
+				s.logger.Info("processing new epoch", "epoch", currentEpoch)
+				s.processEpoch(egCtx, currentEpoch, nextEpochStart.Unix())
 			}
 		}
 	})

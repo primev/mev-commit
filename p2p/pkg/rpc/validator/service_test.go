@@ -216,9 +216,9 @@ func TestNewService_FetchGenesisTime(t *testing.T) {
 
 func TestScheduleNotificationForSlot(t *testing.T) {
 	mockNotifier := NewMockNotifier()
-	now := time.Now()
-	genesisTime := now.Add(100*time.Millisecond + validatorapi.NotifyOffset - validatorapi.SlotDuration)
 	notifyOffset := 1 * time.Second
+	slotDuration := 12 * time.Second
+	genesisTime := time.Now().Add(100*time.Millisecond + notifyOffset - slotDuration)
 	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier, notifyOffset)
 	svc.SetGenesisTime(genesisTime)
 
@@ -283,10 +283,10 @@ func TestProcessEpoch(t *testing.T) {
 	ctx := context.Background()
 
 	notifyOffset := 1 * time.Second
+	slotDuration := 12 * time.Second
 	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset)
 
-	now := time.Now()
-	svc.SetGenesisTime(now.Add(100*time.Millisecond + validatorapi.NotifyOffset - validatorapi.SlotDuration))
+	svc.SetGenesisTime(time.Now().Add(100*time.Millisecond - slotDuration))
 
 	svc.SetProcessEpoch(ctx, 10, time.Now().Unix())
 
@@ -331,7 +331,6 @@ func TestProcessEpoch(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
-	validatorapi.SetTestTimings(100*time.Millisecond, 4, 10*time.Millisecond, 20*time.Millisecond)
 	mux := http.NewServeMux()
 	// Return the current Unix timestamp (truncated to seconds) as genesis time.
 	mux.HandleFunc("/eth/v1/beacon/genesis", func(w http.ResponseWriter, r *http.Request) {
@@ -362,6 +361,7 @@ func TestStart(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 1 * time.Second
 	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
+	svc.SetTestTimings(100*time.Millisecond, 4, 10*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -431,5 +431,83 @@ func TestStart(t *testing.T) {
 		// Service stopped gracefully.
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for service to stop")
+	}
+}
+
+func TestStart_NoDuplicateNotifications(t *testing.T) {
+	mux := http.NewServeMux()
+	// Genesis endpoint returns current time.
+	mux.HandleFunc("/eth/v1/beacon/genesis", func(w http.ResponseWriter, r *http.Request) {
+		now := time.Now().Unix()
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"data":{"genesis_time":"%d"}}`, now)
+	})
+	// Proposer duties always return a duty for slot "1" with a fixed pubkey.
+	mux.HandleFunc("/eth/v1/validator/duties/proposer/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":[{"pubkey":"0x1234567890abcdef","slot":"1"}]}`)
+	})
+	ts := httptest.NewServer(mux)
+	defer ts.Close()
+
+	mockValidatorRouter := &MockValidatorRouterContract{
+		ExpectedCalls: map[string]interface{}{
+			string(hexutil.MustDecode("0x1234567890abcdef")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn: true,
+			},
+		},
+	}
+	optsGetter := func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }
+	notifier := NewMockNotifier()
+	logger := util.NewTestLogger(os.Stdout)
+	notifyOffset := 50 * time.Millisecond
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
+	svc.SetTestTimings(100*time.Millisecond, 4, 10*time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	doneChan := svc.Start(ctx)
+
+	// Allow enough time so that at least two tick cycles occur.
+	time.Sleep(1 * time.Second)
+
+	// Stop the service.
+	cancel()
+	<-doneChan
+
+	// Now inspect the notifications to ensure no duplicates for a given epoch.
+	// Build maps that count how many notifications per epoch are sent for each topic.
+	epochSummaryCount := make(map[uint64]int)
+	epochSlotCount := make(map[uint64]int)
+	notifier.mu.Lock()
+	for _, n := range notifier.Notifications {
+		if n.Topic() == notifications.TopicEpochValidatorsOptedIn {
+			if epochVal, ok := n.Value()["epoch"]; ok {
+				if ep, ok2 := epochVal.(uint64); ok2 {
+					epochSummaryCount[ep]++
+				}
+			}
+		}
+		if n.Topic() == notifications.TopicValidatorOptedIn {
+			if epochVal, ok := n.Value()["epoch"]; ok {
+				if ep, ok2 := epochVal.(uint64); ok2 {
+					epochSlotCount[ep]++
+				}
+			}
+		}
+	}
+	notifier.mu.Unlock()
+
+	// Assert that for each epoch, we only see one summary notification.
+	for ep, count := range epochSummaryCount {
+		if count > 1 {
+			t.Errorf("duplicate epoch summary notifications for epoch %d: got %d", ep, count)
+		}
+	}
+	// And assert that for each epoch, we only see one slot notification (per slot).
+	for ep, count := range epochSlotCount {
+		if count > 1 {
+			t.Errorf("duplicate slot notifications for epoch %d: got %d", ep, count)
+		}
 	}
 }
