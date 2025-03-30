@@ -27,9 +27,9 @@ flowchart TB
         BalanceChecker -- "Check Settlement Balance" --> SettlementRPC["MEV-Commit Settlement"]
     end
 
-    classDef primary fill:#d0e8ff,stroke:#0066cc,stroke-width:2px
-    classDef secondary fill:#e6f2ff,stroke:#0066cc,stroke-width:1px
-    classDef external fill:#f5f5f5,stroke:#666666,stroke-width:1px
+    classDef primary fill:#c6e6ff,stroke:#1a75ff,stroke-width:2px
+    classDef secondary fill:#e1f0ff,stroke:#1a75ff,stroke-width:1px
+    classDef external fill:#f0f0f0,stroke:#555555,stroke-width:1px
     
     class BidderBot primary
     class Bidder,Notifier,BeaconClient,Service,Main secondary
@@ -89,6 +89,7 @@ sequenceDiagram
     else Timeout or error
         Bidder->>Bidder: Log warning/error
     end
+    
 ```
 
 ## Component Details
@@ -151,12 +152,12 @@ flowchart LR
     BidderAPI --> BidderRPC
     TopologyAPI --> BidderRPC
     
-    classDef config fill:#f9d79b,stroke:#d35400,stroke-width:1px
-    classDef service fill:#aed6f1,stroke:#2874a6,stroke-width:1px
-    classDef core fill:#d4efdf,stroke:#27ae60,stroke-width:1px
-    classDef api fill:#d2b4de,stroke:#8e44ad,stroke-width:1px
-    classDef external fill:#f5f5f5,stroke:#7f8c8d,stroke-width:1px
-    classDef channel fill:#f7dc6f,stroke:#f39c12,stroke-width:1px
+    classDef config fill:#ffe0b2,stroke:#e67e22,stroke-width:1px
+    classDef service fill:#bbdefb,stroke:#1976d2,stroke-width:1px
+    classDef core fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px
+    classDef api fill:#e1bee7,stroke:#7b1fa2,stroke-width:1px
+    classDef external fill:#f5f5f5,stroke:#616161,stroke-width:1px
+    classDef channel fill:#fff9c4,stroke:#f57f17,stroke-width:1px
     
     class Config config
     class Service,GRPCConn,HealthChecker,L1Client,SettlementClient service
@@ -214,10 +215,10 @@ flowchart TD
     Components -->|"Periodic checks"| BalanceCheck
     BalanceCheck -->|"If low balance"| AutoDeposit
     
-    classDef input fill:#f9d79b,stroke:#d35400,stroke-width:1px
-    classDef process fill:#aed6f1,stroke:#2874a6,stroke-width:1px
-    classDef component fill:#d4efdf,stroke:#27ae60,stroke-width:1px
-    classDef output fill:#d2b4de,stroke:#8e44ad,stroke-width:1px
+    classDef input fill:#ffecb3,stroke:#ff8f00,stroke-width:1px
+    classDef process fill:#b3e0ff,stroke:#0277bd,stroke-width:1px
+    classDef component fill:#c8e6c9,stroke:#2e7d32,stroke-width:1px
+    classDef output fill:#e1bee7,stroke:#6a1b9a,stroke-width:1px
     
     class Inputs,BeaconSlots,ProposerNotifications,ConfigParams input
     class Processing,SlotProcessing,BidCreation,TxCreation,CommitmentTracking process
@@ -319,12 +320,12 @@ graph TD
     classDef start fill:#d4efdf,stroke:#27ae60,stroke-width:2px
     classDef process fill:#aed6f1,stroke:#2874a6,stroke-width:1px
     classDef decision fill:#f9d79b,stroke:#d35400,stroke-width:1px
-    classDef end fill:#f5b7b1,stroke:#c0392b,stroke-width:1px
+    classDef terminal fill:#f5b7b1,stroke:#c0392b,stroke-width:1px
     
     class Start start
     class CheckBalances,EnableAutoDeposit,StartServices,SubscribeNotifications,ValidateSlot,GetPreviousSlotBlock,CalculateTargetBlock,PrepareTransaction,SignTransaction,CreateBid,SendBid,GetTopology,TrackCommitment process
     class WaitForNotification,CheckAllReceived,WaitForCommitments decision
-    class LogSuccess,LogError end
+    class LogSuccess,LogError terminal
 ```
 
 1. **Service Initialization**:
@@ -345,7 +346,3 @@ graph TD
    - The bid is submitted to the MEV-Commit Bidder Node with the transaction data
    - The Bidder tracks commitments from providers in response to the bid
    - Success or failures are logged appropriately
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
