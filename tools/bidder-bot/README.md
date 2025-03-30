@@ -6,15 +6,224 @@ A Go service that automatically places bids for block space on the MEV-Commit ne
 
 The bidder bot consists of several key components that work together to monitor the Ethereum network and place bids at the appropriate time.
 
+```mermaid
+flowchart TB
+    User[User/Operator] --> Main
+    subgraph BidderBot["Bidder Bot Service"]
+        Main[Main CLI] --> Service
+        Service --> Notifier
+        Service --> Bidder
+        Service --> BalanceChecker
+        Notifier -- "Proposer Info" --> Bidder
+        Bidder --> BeaconClient
+    end
+    
+    subgraph External["External Services"]
+        Bidder -- "Bids" --> BidderNode["MEV-Commit Bidder Node"]
+        Notifier -- "Subscribe" --> BidderNode
+        BeaconClient -- "Slot/Block Queries" --> BeaconAPI["Ethereum Beacon API"]
+        Bidder -- "Transaction Creation" --> L1Client["Ethereum L1 Client"]
+        BalanceChecker -- "Check L1 Balance" --> L1Client
+        BalanceChecker -- "Check Settlement Balance" --> SettlementRPC["MEV-Commit Settlement"]
+    end
+
+    classDef primary fill:#d0e8ff,stroke:#0066cc,stroke-width:2px
+    classDef secondary fill:#e6f2ff,stroke:#0066cc,stroke-width:1px
+    classDef external fill:#f5f5f5,stroke:#666666,stroke-width:1px
+    
+    class BidderBot primary
+    class Bidder,Notifier,BeaconClient,Service,Main secondary
+    class External,BidderNode,BeaconAPI,L1Client,SettlementRPC external
+```
+
 ## Bidding Process Flow
 
 The following diagram illustrates the complete flow of how the bidder bot monitors for upcoming block proposers and places bids.
 
-
+```mermaid
+sequenceDiagram
+    participant User as User/Operator
+    participant Service as Service
+    participant Notifier as Notifier
+    participant Bidder as Bidder
+    participant BeaconClient as BeaconClient
+    participant L1Client as L1 Client
+    participant BidderNode as MEV-Commit Bidder Node
+    participant Topology as Topology Client
+    
+    User->>Service: Start service
+    Service->>Service: Check L1 & Settlement balances
+    Service->>BidderNode: Check/Enable auto-deposit
+    Service->>Notifier: Start notifier service
+    Service->>Bidder: Start bidder service
+    
+    Notifier->>BidderNode: Subscribe to upcoming proposers
+    
+    Note over Notifier,BidderNode: Main notification loop
+    BidderNode->>Notifier: Upcoming proposer notification
+    Notifier->>Notifier: Validate if newer than last seen
+    Notifier->>Bidder: Pass upcoming proposer info
+    
+    Note over Bidder,BeaconClient: Bidding preparation
+    Bidder->>BeaconClient: Get block number for slot-2
+    BeaconClient->>Bidder: Return block number
+    Bidder->>Bidder: Calculate target block number
+    
+    Bidder->>L1Client: Get nonce & chainID
+    L1Client->>Bidder: Return nonce & chainID
+    Bidder->>Bidder: Create self-transfer transaction
+    Bidder->>Bidder: Sign transaction
+    
+    Note over Bidder,BidderNode: Bid submission & monitoring
+    Bidder->>BidderNode: Send bid with transaction
+    Bidder->>Topology: Get topology (connected providers)
+    Topology->>Bidder: Return provider list
+    
+    loop Wait for commitments
+        BidderNode->>Bidder: Stream commitment from provider
+        Bidder->>Bidder: Track received commitments
+    end
+    
+    alt All commitments received
+        Bidder->>Bidder: Log success
+    else Timeout or error
+        Bidder->>Bidder: Log warning/error
+    end
+```
 
 ## Component Details
 
 The bidder bot is composed of several key components, each with distinct responsibilities.
+
+```mermaid
+flowchart LR
+    subgraph Service["Service Orchestration"]
+        direction TB
+        Config[Service Config]
+        GRPCConn[gRPC Connection]
+        HealthChecker[Health Checker]
+        L1Client[L1 Client]
+        SettlementClient[Settlement Client]
+    end
+    
+    subgraph Core["Core Components"]
+        direction TB
+        Notifier[Notifier]
+        Bidder[Bidder]
+        BeaconClient[Beacon Client]
+        
+        ProposerChan[Proposer Channel]
+        Notifier --> ProposerChan
+        ProposerChan --> Bidder
+        Bidder --> BeaconClient
+    end
+    
+    subgraph API["API Clients"]
+        direction TB
+        BidderAPI[Bidder API]
+        TopologyAPI[Topology API]
+        NotificationsAPI[Notifications API]
+    end
+    
+    subgraph External["External Services"]
+        direction TB
+        BeaconRPC[Ethereum Beacon API]
+        EthRPC[Ethereum L1 RPC]
+        SettlementRPC[MEV-Commit Settlement RPC]
+        BidderRPC[MEV-Commit Bidder Node RPC]
+    end
+    
+    %% Connections
+    Config --> Service
+    Service --> Core
+    Service --> API
+    
+    BeaconClient --> BeaconRPC
+    L1Client --> EthRPC
+    SettlementClient --> SettlementRPC
+    
+    Notifier --> NotificationsAPI
+    Bidder --> BidderAPI
+    Bidder --> TopologyAPI
+    Bidder --> L1Client
+    
+    NotificationsAPI --> BidderRPC
+    BidderAPI --> BidderRPC
+    TopologyAPI --> BidderRPC
+    
+    classDef config fill:#f9d79b,stroke:#d35400,stroke-width:1px
+    classDef service fill:#aed6f1,stroke:#2874a6,stroke-width:1px
+    classDef core fill:#d4efdf,stroke:#27ae60,stroke-width:1px
+    classDef api fill:#d2b4de,stroke:#8e44ad,stroke-width:1px
+    classDef external fill:#f5f5f5,stroke:#7f8c8d,stroke-width:1px
+    classDef channel fill:#f7dc6f,stroke:#f39c12,stroke-width:1px
+    
+    class Config config
+    class Service,GRPCConn,HealthChecker,L1Client,SettlementClient service
+    class Notifier,Bidder,BeaconClient core
+    class BidderAPI,TopologyAPI,NotificationsAPI api
+    class BeaconRPC,EthRPC,SettlementRPC,BidderRPC external
+    class ProposerChan channel
+```
+
+```mermaid
+flowchart TD
+    subgraph Inputs["Input Data"]
+        BeaconSlots["Beacon Chain Slots"]
+        ProposerNotifications["Proposer Notifications"]
+        ConfigParams["Configuration Parameters"]
+    end
+    
+    subgraph Processing["Processing"]
+        SlotProcessing["Slot to Block Mapping"]
+        BidCreation["Bid Creation"]
+        TxCreation["Transaction Creation"]
+        CommitmentTracking["Commitment Tracking"]
+    end
+    
+    subgraph Components["System Components"]
+        BeaconClient["Beacon Client"]
+        Notifier["Notifier"]
+        Bidder["Bidder"]
+        KeySigner["Key Signer"]
+    end
+    
+    subgraph Outputs["Output Actions"]
+        BidSubmission["Bid Submission"]
+        BalanceCheck["Balance Checking"]
+        AutoDeposit["Auto Deposit"]
+        Logging["Logging"]
+    end
+    
+    %% Input flows
+    BeaconSlots -->|"Slot data"| BeaconClient
+    ProposerNotifications -->|"Upcoming proposer info"| Notifier
+    ConfigParams -->|"URLs, amounts, gas prices"| Components
+    
+    %% Component processing
+    BeaconClient -->|"Slot/block mapping"| SlotProcessing
+    Notifier -->|"Filtered proposer info"| Bidder
+    SlotProcessing -->|"Target block number"| BidCreation
+    KeySigner -->|"Sign transaction"| TxCreation
+    
+    %% Output actions
+    BidCreation -->|"Bid parameters"| BidSubmission
+    TxCreation -->|"Signed transaction"| BidSubmission
+    BidSubmission -->|"Stream"| CommitmentTracking
+    CommitmentTracking -->|"Status"| Logging
+    Components -->|"Periodic checks"| BalanceCheck
+    BalanceCheck -->|"If low balance"| AutoDeposit
+    
+    classDef input fill:#f9d79b,stroke:#d35400,stroke-width:1px
+    classDef process fill:#aed6f1,stroke:#2874a6,stroke-width:1px
+    classDef component fill:#d4efdf,stroke:#27ae60,stroke-width:1px
+    classDef output fill:#d2b4de,stroke:#8e44ad,stroke-width:1px
+    
+    class Inputs,BeaconSlots,ProposerNotifications,ConfigParams input
+    class Processing,SlotProcessing,BidCreation,TxCreation,CommitmentTracking process
+    class Components,BeaconClient,Notifier,Bidder,KeySigner component
+    class Outputs,BidSubmission,BalanceCheck,AutoDeposit,Logging output
+```
 
 ### Key Components
 
@@ -73,8 +282,50 @@ go build -o bidder-bot ./tools/bidder-bot
 
 ## How It Works
 
-
-
+```mermaid
+graph TD
+    Start([Start Bidder Bot]) --> CheckBalances[Check L1 & Settlement Balances]
+    CheckBalances --> EnableAutoDeposit[Enable Auto-Deposit if Needed]
+    EnableAutoDeposit --> StartServices[Start Notifier & Bidder Services]
+    
+    StartServices --> SubscribeNotifications[Subscribe to Upcoming Proposer Notifications]
+    
+    SubscribeNotifications --> WaitForNotification{Wait for Notification}
+    
+    WaitForNotification -->|Notification Received| ValidateSlot[Validate Slot is Newer]
+    ValidateSlot -->|Not Valid| WaitForNotification
+    ValidateSlot -->|Valid| GetPreviousSlotBlock[Get Block Number for Slot-2]
+    
+    GetPreviousSlotBlock --> CalculateTargetBlock[Calculate Target Block Number]
+    CalculateTargetBlock --> PrepareTransaction[Prepare Self-Transfer Transaction]
+    PrepareTransaction --> SignTransaction[Sign Transaction]
+    
+    SignTransaction --> CreateBid[Create Bid with Transaction]
+    CreateBid --> SendBid[Send Bid to Bidder Node]
+    
+    SendBid --> GetTopology[Get Network Topology]
+    GetTopology --> WaitForCommitments{Wait for Commitments}
+    
+    WaitForCommitments -->|Commitment Received| TrackCommitment[Track Commitment]
+    TrackCommitment --> CheckAllReceived{All Received?}
+    CheckAllReceived -->|No| WaitForCommitments
+    CheckAllReceived -->|Yes| LogSuccess[Log Success]
+    
+    WaitForCommitments -->|Timeout| LogError[Log Error/Warning]
+    
+    LogSuccess --> WaitForNotification
+    LogError --> WaitForNotification
+    
+    classDef start fill:#d4efdf,stroke:#27ae60,stroke-width:2px
+    classDef process fill:#aed6f1,stroke:#2874a6,stroke-width:1px
+    classDef decision fill:#f9d79b,stroke:#d35400,stroke-width:1px
+    classDef end fill:#f5b7b1,stroke:#c0392b,stroke-width:1px
+    
+    class Start start
+    class CheckBalances,EnableAutoDeposit,StartServices,SubscribeNotifications,ValidateSlot,GetPreviousSlotBlock,CalculateTargetBlock,PrepareTransaction,SignTransaction,CreateBid,SendBid,GetTopology,TrackCommitment process
+    class WaitForNotification,CheckAllReceived,WaitForCommitments decision
+    class LogSuccess,LogError end
+```
 
 1. **Service Initialization**:
    - Check balances on L1 and settlement layer
