@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,16 +27,19 @@ type L1Client interface {
 }
 
 type Bidder struct {
-	logger         *slog.Logger
-	bidderClient   bidderapiv1.BidderClient
-	topologyClient debugapiv1.DebugServiceClient
-	l1Client       L1Client
-	beaconClient   *beaconClient
-	signer         keysigner.KeySigner
-	gasTipCap      *big.Int
-	gasFeeCap      *big.Int
-	bidAmount      *big.Int
-	proposerChan   <-chan *notifier.UpcomingProposer
+	logger                *slog.Logger
+	bidderClient          bidderapiv1.BidderClient
+	topologyClient        debugapiv1.DebugServiceClient
+	l1Client              L1Client
+	beaconClient          *beaconClient
+	signer                keysigner.KeySigner
+	gasTipCap             *big.Int
+	gasFeeCap             *big.Int
+	bidAmount             *big.Int
+	proposerChan          <-chan *notifier.UpcomingProposer
+	bidAllBlocks          bool
+	regularBlockBidAmount *big.Int
+	optedInSlots          sync.Map // To track slots that already have opted-in proposers
 }
 
 func NewBidder(
@@ -49,28 +53,34 @@ func NewBidder(
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
 	proposerChan <-chan *notifier.UpcomingProposer,
+	bidAllBlocks bool,
+	regularBlockBidAmount *big.Int,
 ) *Bidder {
 	beaconClient := newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client"))
 
 	return &Bidder{
-		logger:         logger,
-		bidderClient:   bidderClient,
-		topologyClient: topologyClient,
-		l1Client:       l1Client,
-		beaconClient:   beaconClient,
-		signer:         signer,
-		gasTipCap:      gasTipCap,
-		gasFeeCap:      gasFeeCap,
-		bidAmount:      bidAmount,
-		proposerChan:   proposerChan,
+		logger:                logger,
+		bidderClient:          bidderClient,
+		topologyClient:        topologyClient,
+		l1Client:              l1Client,
+		beaconClient:          beaconClient,
+		signer:                signer,
+		gasTipCap:             gasTipCap,
+		gasFeeCap:             gasFeeCap,
+		bidAmount:             bidAmount,
+		proposerChan:          proposerChan,
+		bidAllBlocks:          bidAllBlocks,
+		regularBlockBidAmount: regularBlockBidAmount,
+		optedInSlots:          sync.Map{},
 	}
 }
 
 func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
+
+	// Start the main routine for handling opted-in proposers
 	go func() {
 		defer close(done)
-
 		for {
 			select {
 			case <-ctx.Done():
@@ -78,14 +88,27 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 				return
 			case upcomingProposer := <-b.proposerChan:
 				b.logger.Debug("received upcoming proposer", "proposer", upcomingProposer)
-				b.handle(ctx, upcomingProposer)
+
+				// Track this slot as having an opted-in proposer
+				b.optedInSlots.Store(upcomingProposer.Slot, true)
+
+				// Handle with the higher bid amount for opted-in proposers
+				b.handleOptedInProposer(ctx, upcomingProposer)
 			}
 		}
 	}()
+
+	// Start bidding for regular blocks if enabled
+	if b.bidAllBlocks {
+		go b.startRegularBlockBidding(ctx)
+		go b.startSlotCleanup(ctx)
+	}
+
 	return done
 }
 
-func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.UpcomingProposer) {
+// Renamed from handle to handleOptedInProposer for clarity
+func (b *Bidder) handleOptedInProposer(ctx context.Context, upcomingProposer *notifier.UpcomingProposer) {
 	bidCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
@@ -104,20 +127,113 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 		b.logDebugInfo(bidCtx)
 	}
 
-	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
+	b.logger.Info("preparing to bid for opted-in proposer", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
 
 	pc, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
-		b.logger.Error("bid failed", "error", err)
+		b.logger.Error("bid failed for opted-in proposer", "error", err)
 		return
 	}
 
 	err = b.watchPendingBid(bidCtx, pc)
 	if err != nil {
-		b.logger.Error("bid failed", "error", err)
+		b.logger.Error("bid failed for opted-in proposer", "error", err)
 	}
 }
 
+func (b *Bidder) startRegularBlockBidding(ctx context.Context) {
+	// Running at a bit less than slot frequency to ensure we don't miss any
+	ticker := time.NewTicker(10 * time.Second) // Slightly under the 12s slot time
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			b.bidForNextRegularBlock(ctx)
+		}
+	}
+}
+
+func (b *Bidder) bidForNextRegularBlock(ctx context.Context) {
+	bidCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	// Get current slot from beacon chain
+	currentSlot, err := b.beaconClient.getLatestSlot(bidCtx)
+	if err != nil {
+		b.logger.Error("failed to get latest slot", "error", err)
+		return
+	}
+
+	// Target the next slot
+	targetSlot := currentSlot + 1
+
+	// Skip if this slot already has an opted-in proposer to avoid double bidding
+	if b.isOptedInSlot(targetSlot) {
+		b.logger.Debug("skipping regular bid for slot with opted-in proposer", "slot", targetSlot)
+		return
+	}
+
+	// Get estimated block number for the next slot
+	currentBlockNum, err := b.l1Client.BlockNumber(bidCtx)
+	if err != nil {
+		b.logger.Error("failed to get current block number", "error", err)
+		return
+	}
+
+	// Simple prediction - assuming 1:1 mapping for next block
+	targetBlockNum := currentBlockNum + 1
+
+	b.logger.Info("preparing to bid for regular block", "targetSlot", targetSlot, "targetBlockNum", targetBlockNum)
+
+	// Create a bid with the regular block amount
+	pc, err := b.bid(bidCtx, b.regularBlockBidAmount, targetBlockNum)
+	if err != nil {
+		b.logger.Error("regular block bid failed", "error", err)
+		return
+	}
+
+	err = b.watchPendingBid(bidCtx, pc)
+	if err != nil {
+		b.logger.Error("regular block bid watch failed", "error", err)
+	}
+}
+
+// Helper to check if a slot already has an opted-in proposer
+func (b *Bidder) isOptedInSlot(slot uint64) bool {
+	_, exists := b.optedInSlots.Load(slot)
+	return exists
+}
+
+func (b *Bidder) startSlotCleanup(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			currentSlot, err := b.beaconClient.getLatestSlot(ctx)
+			if err != nil {
+				continue
+			}
+
+			// Clean up slots that are in the past
+			b.optedInSlots.Range(func(key, value interface{}) bool {
+				slot := key.(uint64)
+				if slot < currentSlot {
+					b.optedInSlots.Delete(slot)
+				}
+				return true
+			})
+		}
+	}
+}
+
+// The rest of the code remains unchanged
 func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
@@ -157,7 +273,7 @@ func (b *Bidder) bid(
 }
 
 func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
-
+	// Implementation unchanged
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -197,6 +313,7 @@ func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
 }
 
 func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_SendBidClient) error {
+	// Implementation unchanged
 	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
 	if err != nil {
 		b.logger.Error("failed to get topology", "error", err)
@@ -244,6 +361,7 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 }
 
 func (b *Bidder) logDebugInfo(ctx context.Context) {
+	// Implementation unchanged
 	go func() {
 		latestSlot, err := b.beaconClient.getLatestSlot(ctx)
 		if err != nil {

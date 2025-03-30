@@ -17,6 +17,7 @@ import (
 )
 
 var (
+	// Existing options...
 	optionKeystorePath = &cli.StringFlag{
 		Name:     "keystore-dir",
 		Usage:    "directory where keystore file is stored",
@@ -68,7 +69,7 @@ var (
 
 	optionBidAmount = &cli.StringFlag{
 		Name:    "bid-amount",
-		Usage:   "amount to use for each bid",
+		Usage:   "amount to use for each bid for opted-in blocks",
 		EnvVars: []string{"BID_AMOUNT"},
 		Value:   "5000000000000000", // 0.005 ETH
 	}
@@ -87,6 +88,21 @@ var (
 		Value:   "1000000000", // 1 gwei
 	}
 
+	optionBidAllBlocks = &cli.BoolFlag{
+		Name:    "bid-all-blocks",
+		Usage:   "enable bidding for all blocks (not just opted-in ones)",
+		EnvVars: []string{"BID_ALL_BLOCKS"},
+		Value:   false,
+	}
+
+	optionRegularBlockBidAmount = &cli.StringFlag{
+		Name:    "regular-block-bid-amount",
+		Usage:   "amount to use for regular block bids (in wei)",
+		EnvVars: []string{"REGULAR_BLOCK_BID_AMOUNT"},
+		Value:   "4000000000", // 4 gwei default
+	}
+
+	// Existing options...
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -146,6 +162,8 @@ func main() {
 			optionGasFeeCap,
 			optionAutoDepositAmount,
 			optionBidAmount,
+			optionBidAllBlocks,          // Add new flag
+			optionRegularBlockBidAmount, // Add new flag
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -178,6 +196,12 @@ func main() {
 				return fmt.Errorf("failed to parse bid-amount")
 			}
 
+			// Parse the new regular block bid amount
+			regularBlockBidAmount, ok := new(big.Int).SetString(c.String(optionRegularBlockBidAmount.Name), 10)
+			if !ok {
+				return fmt.Errorf("failed to parse regular-block-bid-amount")
+			}
+
 			signer, err := keysigner.NewKeystoreSigner(
 				c.String(optionKeystorePath.Name),
 				c.String(optionKeystorePassword.Name),
@@ -190,16 +214,18 @@ func main() {
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 
 			config := service.Config{
-				Logger:            logger,
-				GasTipCap:         gasTipCap,
-				GasFeeCap:         gasFeeCap,
-				AutoDepositAmount: autoDepositAmount,
-				BidAmount:         bidAmount,
-				SettlementRPCUrl:  c.String(optionSettlementRPCUrl.Name),
-				BidderNodeRPC:     c.String(optionBidderNodeRPCUrl.Name),
-				L1RPCUrls:         c.StringSlice(optionL1RPCUrls.Name),
-				BeaconApiUrls:     c.StringSlice(optionBeaconApiUrls.Name),
-				Signer:            signer,
+				Logger:                logger,
+				GasTipCap:             gasTipCap,
+				GasFeeCap:             gasFeeCap,
+				AutoDepositAmount:     autoDepositAmount,
+				BidAmount:             bidAmount,
+				BidAllBlocks:          c.Bool(optionBidAllBlocks.Name),
+				RegularBlockBidAmount: regularBlockBidAmount,
+				SettlementRPCUrl:      c.String(optionSettlementRPCUrl.Name),
+				BidderNodeRPC:         c.String(optionBidderNodeRPCUrl.Name),
+				L1RPCUrls:             c.StringSlice(optionL1RPCUrls.Name),
+				BeaconApiUrls:         c.StringSlice(optionBeaconApiUrls.Name),
+				Signer:                signer,
 			}
 
 			logger.Debug("service config", "config", config)
