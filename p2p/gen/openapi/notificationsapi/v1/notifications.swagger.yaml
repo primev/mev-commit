@@ -1,6 +1,58 @@
 swagger: "2.0"
 info:
   title: Notifications API
+  description: |-
+    # Notification Topics
+
+    ## peer_connected
+    Emitted when a peer connects to the network.
+
+    **Response structure:**
+    ```json
+    {
+      "ethAddress": "0x...", // Ethereum address of the peer in hex format
+      "type": "string"       // Type of the peer: "bootnode", "provider", or "bidder"
+    }
+    ```
+
+    ## peer_disconnected
+    Emitted when a peer disconnects from the network.
+
+    **Response structure:**
+    ```json
+    {
+      "ethAddress": "0x...", // Ethereum address of the peer in hex format
+      "type": "string"       // Type of the peer: "bootnode", "provider", or "bidder"
+    }
+    ```
+
+    ## validator_opted_in
+    Emitted when the next block proposer has opted in to the mev-commit protocol.
+
+    **Response structure:**
+    ```json
+    {
+      "epoch": uint64,       // Epoch number
+      "slot": uint64,        // Slot number
+      "bls_key": "string"    // BLS key of the validator
+    }
+    ```
+
+    ## epoch_validators_opted_in
+    Emitted at the beginning of an epoch with all opted-in validators.
+
+    **Response structure:**
+    ```json
+    {
+      "epoch": uint64,             // Epoch number
+      "epoch_start_time": uint64,  // Timestamp of epoch start
+      "slots": [                   // Array of opted-in slots
+        {
+          // slot details
+        }
+      ]
+    }
+    ```
   version: 1.0.0-alpha
   license:
     name: Business Source License 1.1
@@ -14,9 +66,15 @@ paths:
     post:
       summary: Subscribe
       description: |-
-        Subscribe to notifications for given topics. The client will receive
-        notifications for the topics it has subscribed to. The client can
-        subscribe to multiple topics.
+        Subscribe to notifications for given topics. The client will receive notifications for the topics it has subscribed to.
+
+        ### Available Topics
+        - peer_connected: Emitted when a peer connects to the network
+        - peer_disconnected: Emitted when a peer disconnects from the network
+        - validator_opted_in: Emitted when the next block proposer has opted in to the mev-commit protocol
+        - epoch_validators_opted_in: Emitted at the beginning of an epoch with all opted-in validators
+
+        See the API description for response structure details.
       operationId: Notifications_Subscribe
       responses:
         "200":
@@ -71,15 +129,45 @@ definitions:
     properties:
       topic:
         type: string
+        example: peer_connected
+        description: |-
+          Topic of the notification. Available topics:
+
+          - peer_connected: Response includes ethAddress and type
+          - peer_disconnected: Response includes ethAddress and type
+          - validator_opted_in: Response includes epoch, slot, and bls_key of the next opted-in proposer
+          - epoch_validators_opted_in: Response includes epoch, epoch_start_time, and slots array
         title: Topic of the notification
       value:
         type: object
-        title: Message of the notification
+        example:
+          ethAddress: 0x123...
+          type: provider
+        description: |-
+          Payload of the notification. Structure depends on the topic:
+
+          - peer_connected: {"ethAddress": "0x...", "type": "bootnode|provider|bidder"}
+          - peer_disconnected: {"ethAddress": "0x...", "type": "bootnode|provider|bidder"}
+          - validator_opted_in: {"epoch": uint64, "slot": uint64, "bls_key": "string"} - Sent when the next block proposer has opted in
+          - epoch_validators_opted_in: {"epoch": uint64, "epoch_start_time": uint64, "slots": []}
+        title: Payload of the notification
+    title: Notification represents a notification message sent to subscribers
   v1SubscribeRequest:
     type: object
     properties:
       topics:
         type: array
+        example:
+          - peer_connected
+          - validator_opted_in
         items:
           type: string
+        description: |-
+          List of topics to subscribe to. Available topics:
+
+          - peer_connected: Emitted when a peer connects to the network
+          - peer_disconnected: Emitted when a peer disconnects from the network
+          - validator_opted_in: Emitted when the next block proposer has opted in to the mev-commit protocol
+          - epoch_validators_opted_in: Emitted at the beginning of an epoch with all opted-in validators
         title: Topics to subscribe to
+    title: SubscribeRequest represents a request to subscribe to notification topics
