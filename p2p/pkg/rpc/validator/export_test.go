@@ -8,35 +8,11 @@ import (
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 )
 
-var (
-	NotifyOffset = 1 * time.Second
-)
-
-// SetTestTimings sets the global timing variables for testing and returns a cleanup function
-// that restores the previous values.
-func SetTestTimings(slotDuration time.Duration, epochSlots int, notifyOffset, fetchOffset time.Duration) func() {
-	// Save the original values.
-	origSlotDuration := SlotDuration
-	origEpochSlots := EpochSlots
-	origEpochDuration := EpochDuration
-	origNotifyOffset := NotifyOffset
-	origFetchOffset := FetchOffset
-
-	// Override the globals.
-	SlotDuration = slotDuration
-	EpochSlots = epochSlots
-	EpochDuration = SlotDuration * time.Duration(EpochSlots)
-	NotifyOffset = notifyOffset
-	FetchOffset = fetchOffset
-
-	// Return a function to restore the original values.
-	return func() {
-		SlotDuration = origSlotDuration
-		EpochSlots = origEpochSlots
-		EpochDuration = origEpochDuration
-		NotifyOffset = origNotifyOffset
-		FetchOffset = origFetchOffset
-	}
+// SetTestTimings sets the slot duration, epoch slots and proposer notify offset for testing.
+func (s *Service) SetTestTimings(slotDuration time.Duration, epochSlots int, notifyOffset time.Duration) {
+	s.slotDuration = slotDuration
+	s.epochSlots = epochSlots
+	s.proposerNotifyOffset = notifyOffset
 }
 
 func (s *Service) GenesisTime() time.Time {
