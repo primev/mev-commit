@@ -27,7 +27,7 @@ info:
     ```
 
     ## validator_opted_in
-    Emitted when the next block proposer has opted in to the mev-commit protocol.
+    Emitted before an upcoming L1 block proposer has opted in to the mev-commit protocol. The "proposer-notify-offset" param configures how far in advance the notification is emitted.
 
     **Response structure:**
     ```json
@@ -39,7 +39,7 @@ info:
     ```
 
     ## epoch_validators_opted_in
-    Emitted at the beginning of an epoch with all opted-in validators.
+    Emitted at the beginning of an epoch, specifying any slots where the L1 validator is opted-in to mev-commit.
 
     **Response structure:**
     ```json
@@ -48,7 +48,7 @@ info:
       "epoch_start_time": uint64,  // Timestamp of epoch start
       "slots": [                   // Array of opted-in slots
         {
-          // slot details
+          // opted-in slot details
         }
       ]
     }
@@ -71,8 +71,8 @@ paths:
         ### Available Topics
         - peer_connected: Emitted when a peer connects to the network
         - peer_disconnected: Emitted when a peer disconnects from the network
-        - validator_opted_in: Emitted when the next block proposer has opted in to the mev-commit protocol
-        - epoch_validators_opted_in: Emitted at the beginning of an epoch with all opted-in validators
+        - validator_opted_in: Emitted before an upcoming L1 block proposer has opted in to the mev-commit protocol. The "proposer-notify-offset" param configures how far in advance the notification is emitted
+        - epoch_validators_opted_in: Emitted at the beginning of an epoch, specifying any slots where the L1 validator is opted-in to mev-commit.
 
         See the API description for response structure details.
       operationId: Notifications_Subscribe
@@ -135,8 +135,8 @@ definitions:
 
           - peer_connected: Response includes ethAddress and type
           - peer_disconnected: Response includes ethAddress and type
-          - validator_opted_in: Response includes epoch, slot, and bls_key of the next opted-in proposer
-          - epoch_validators_opted_in: Response includes epoch, epoch_start_time, and slots array
+          - validator_opted_in: Response includes epoch, slot, and bls_key of the upcoming opted-in proposer
+          - epoch_validators_opted_in: Response includes epoch, epoch_start_time, and opted-in slots array
         title: Topic of the notification
       value:
         type: object
@@ -148,7 +148,7 @@ definitions:
 
           - peer_connected: {"ethAddress": "0x...", "type": "bootnode|provider|bidder"}
           - peer_disconnected: {"ethAddress": "0x...", "type": "bootnode|provider|bidder"}
-          - validator_opted_in: {"epoch": uint64, "slot": uint64, "bls_key": "string"} - Sent when the next block proposer has opted in
+          - validator_opted_in: {"epoch": uint64, "slot": uint64, "bls_key": "string"} - Sent when an upcoming block proposer is opted-in
           - epoch_validators_opted_in: {"epoch": uint64, "epoch_start_time": uint64, "slots": []}
         title: Payload of the notification
     title: Notification represents a notification message sent to subscribers
@@ -167,7 +167,7 @@ definitions:
 
           - peer_connected: Emitted when a peer connects to the network
           - peer_disconnected: Emitted when a peer disconnects from the network
-          - validator_opted_in: Emitted when the next block proposer has opted in to the mev-commit protocol
-          - epoch_validators_opted_in: Emitted at the beginning of an epoch with all opted-in validators
+          - validator_opted_in: Emitted before an upcoming L1 block proposer has opted in to the mev-commit protocol
+          - epoch_validators_opted_in: Emitted at the beginning of an epoch, specifying any slots where the L1 validator is opted-in to mev-commit
         title: Topics to subscribe to
     title: SubscribeRequest represents a request to subscribe to notification topics
