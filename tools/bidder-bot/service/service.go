@@ -15,6 +15,7 @@ import (
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
+	"github.com/primev/mev-commit/tools/bidder-bot/monitor"
 	notifier "github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
@@ -111,6 +112,8 @@ func New(config *Config) (*Service, error) {
 	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
 	proposerChan := make(chan *notifier.UpcomingProposer, 1)
 
+	sentBidChan := make(chan *monitor.SentBid, 5)
+
 	notifier := notifier.NewNotifier(
 		config.Logger.With("module", "notifier"),
 		notificationsCli,
@@ -132,12 +135,32 @@ func New(config *Config) (*Service, error) {
 		config.GasFeeCap,
 		config.BidAmount,
 		proposerChan, // receive-only
+		sentBidChan,  // send-only
+	)
+
+	monitorTxLandingTimeout := 15 * time.Minute
+	monitorTxLandingInterval := 30 * time.Second
+
+	monitor := monitor.NewMonitor(
+		config.Logger.With("module", "monitor"),
+		topologyCli,
+		l1RPCClient,
+		sentBidChan, // receive-only
+		monitorTxLandingTimeout,
+		monitorTxLandingInterval,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
-	err = s.checkBalances(ctx, config.Signer, l1RPCClient, settlementRPCClient)
+	balanceChecker := NewBalanceChecker(
+		config.Logger.With("module", "balance_checker"),
+		config.Signer,
+		l1RPCClient,
+		settlementRPCClient,
+	)
+
+	err = balanceChecker.CheckBalances(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,36 +170,22 @@ func New(config *Config) (*Service, error) {
 
 	notifierDone := notifier.Start(ctx)
 	bidderDone := bidder.Start(ctx)
+	monitorDone := monitor.Start(ctx)
+	balanceCheckerDone := balanceChecker.Start(ctx)
 
 	healthChecker.Register(health.CloseChannelHealthCheck("NotifierService", notifierDone))
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
+	healthChecker.Register(health.CloseChannelHealthCheck("MonitorService", monitorDone))
+	healthChecker.Register(health.CloseChannelHealthCheck("BalanceCheckerService", balanceCheckerDone))
 
 	s.closers = append(s.closers,
 		channelCloser(notifierDone),
 		channelCloser(bidderDone),
+		channelCloser(monitorDone),
+		channelCloser(balanceCheckerDone),
 	)
 
 	return s, nil
-}
-
-func (s *Service) checkBalances(ctx context.Context, signer keysigner.KeySigner, l1RPCClient *ethwrapper.Client, settlementRPCClient *ethwrapper.Client) error {
-	l1Balance, err := l1RPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
-	if err != nil {
-		return err
-	}
-	pointZeroFiveEth := big.NewInt(50000000000000000)
-	if l1Balance.Cmp(pointZeroFiveEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.05 eth on L1")
-	}
-
-	settlementBalance, err := settlementRPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
-	if err != nil {
-		return err
-	}
-	if settlementBalance.Cmp(pointZeroFiveEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.05 eth on mev-commit chain")
-	}
-	return nil
 }
 
 func (s *Service) Close() error {
