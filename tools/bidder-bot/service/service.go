@@ -25,16 +25,18 @@ import (
 )
 
 type Config struct {
-	Logger            *slog.Logger
-	Signer            keysigner.KeySigner
-	BidderNodeRPC     string
-	AutoDepositAmount *big.Int
-	L1RPCUrls         []string
-	BeaconApiUrls     []string
-	SettlementRPCUrl  string
-	GasTipCap         *big.Int
-	GasFeeCap         *big.Int
-	BidAmount         *big.Int
+	Logger                *slog.Logger
+	Signer                keysigner.KeySigner
+	BidderNodeRPC         string
+	AutoDepositAmount     *big.Int
+	L1RPCUrls             []string
+	BeaconApiUrls         []string
+	SettlementRPCUrl      string
+	GasTipCap             *big.Int
+	GasFeeCap             *big.Int
+	BidAmount             *big.Int
+	BidAllBlocks          bool
+	RegularBlockBidAmount *big.Int
 }
 
 type Service struct {
@@ -54,7 +56,7 @@ func New(config *Config) (*Service, error) {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	conn, err := grpc.NewClient(config.BidderNodeRPC, opts...)
+	conn, err := grpc.Dial(config.BidderNodeRPC, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC connection: %w", err)
 	}
@@ -132,6 +134,8 @@ func New(config *Config) (*Service, error) {
 		config.GasFeeCap,
 		config.BidAmount,
 		proposerChan, // receive-only
+		config.BidAllBlocks,
+		config.RegularBlockBidAmount,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
