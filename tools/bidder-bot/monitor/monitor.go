@@ -74,9 +74,17 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 
 func (m *Monitor) monitorSentBid(ctx context.Context, sentBid *SentBid) {
 	expectedCommitmentsReceived := m.monitorCommitments(ctx, sentBid)
-	landedInTargetBlock := m.monitorTxLanding(ctx, sentBid)
+	if !expectedCommitmentsReceived {
+		m.logger.Error("expected commitments not received", "tx_hash", sentBid.TxHash.Hex())
+		return
+	}
 
-	m.logger.Info("bid monitoring complete",
+	landedInTargetBlock := m.monitorTxLanding(ctx, sentBid)
+	if !landedInTargetBlock {
+		m.logger.Error("transaction did not land in target block", "tx_hash", sentBid.TxHash.Hex())
+		return
+	}
+	m.logger.Info("sent bid was successful",
 		"tx_hash", sentBid.TxHash.Hex(),
 		"expected_commitments_received", expectedCommitmentsReceived,
 		"landed_in_target_block", landedInTargetBlock)
@@ -158,7 +166,7 @@ func (m *Monitor) monitorTxLanding(ctx context.Context, sentBid *SentBid) bool {
 						"block", actualBlock)
 					return true
 				}
-				m.logger.Error("transaction landed in non-target block",
+				m.logger.Warn("transaction landed in non-target block",
 					"tx_hash", sentBid.TxHash.Hex(),
 					"actual_block", actualBlock,
 					"target_block", sentBid.TargetBlockNumber)
