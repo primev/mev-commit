@@ -97,6 +97,13 @@ func (adt *AutoDepositTracker) Start(
 	}
 	adt.currentOracleWindow.Store(currentOracleWindow)
 
+	// Withdraw from past windows first
+	err = adt.withdrawFromPastWindows(ctx, currentOracleWindow)
+	if err != nil {
+		adt.logger.Error("failed to withdraw from past windows", "err", err)
+		// Don't return error here, we can still continue with deposits
+	}
+
 	if startWindow == nil {
 		startWindow = currentOracleWindow
 		// adding + N as oracle runs N window behind
@@ -136,6 +143,38 @@ func (adt *AutoDepositTracker) Start(
 	case <-started:
 		adt.isWorking = true
 	}
+	return nil
+}
+
+func (adt *AutoDepositTracker) withdrawFromPastWindows(ctx context.Context, currentWindow *big.Int) error {
+	// Find windows to withdraw from (all windows before the current one)
+	withdrawWindows, err := adt.store.ListDeposits(ctx, new(big.Int).Sub(currentWindow, big.NewInt(1)))
+	switch {
+	case err != nil:
+		adt.logger.Error("failed to list deposits", "err", err)
+		return err
+	case len(withdrawWindows) == 0:
+		adt.logger.Info("no deposits to withdraw")
+		return nil
+	}
+
+	adt.logger.Info("deposits to withdraw", "windows", withdrawWindows)
+	opts, err := adt.optsGetter(ctx)
+	if err != nil {
+		return err
+	}
+
+	txn, err := adt.brContract.WithdrawFromWindows(opts, withdrawWindows)
+	if err != nil {
+		return err
+	}
+
+	adt.logger.Info("withdraw from windows", "hash", txn.Hash(), "windows", withdrawWindows)
+	err = adt.store.ClearDeposits(ctx, withdrawWindows)
+	if err != nil {
+		return fmt.Errorf("failed to clear deposits: %w", err)
+	}
+
 	return nil
 }
 
@@ -201,28 +240,9 @@ func (adt *AutoDepositTracker) startAutodeposit(egCtx context.Context, eg *errgr
 				return fmt.Errorf("error in autodeposit event subscription: %w", err)
 			case window := <-adt.windowChan:
 				adt.currentOracleWindow.Store(window.Window)
-				withdrawWindows, err := adt.store.ListDeposits(egCtx, new(big.Int).Sub(window.Window, big.NewInt(1)))
-				switch {
-				case err != nil:
-					adt.logger.Error("failed to list deposits", "err", err)
-					return err
-				case len(withdrawWindows) == 0:
-					adt.logger.Info("no deposits to withdraw")
-				case len(withdrawWindows) > 0:
-					adt.logger.Info("deposits to withdraw", "windows", withdrawWindows)
-					opts, err := adt.optsGetter(egCtx)
-					if err != nil {
-						return err
-					}
-					txn, err := adt.brContract.WithdrawFromWindows(opts, withdrawWindows)
-					if err != nil {
-						return err
-					}
-					adt.logger.Info("withdraw from windows", "hash", txn.Hash(), "windows", withdrawWindows)
-					err = adt.store.ClearDeposits(egCtx, withdrawWindows)
-					if err != nil {
-						return fmt.Errorf("failed to clear deposits: %w", err)
-					}
+				err := adt.withdrawFromPastWindows(egCtx, window.Window)
+				if err != nil {
+					return fmt.Errorf("failed to withdraw from past windows: %w", err)
 				}
 
 				// Make deposit for the next window. The window event is N windows
