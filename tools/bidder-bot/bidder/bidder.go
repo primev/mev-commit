@@ -3,8 +3,6 @@ package bidder
 import (
 	"context"
 	"encoding/hex"
-	"errors"
-	"io"
 	"log/slog"
 	"math/big"
 	"time"
@@ -13,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
+	"github.com/primev/mev-commit/tools/bidder-bot/monitor"
 	"github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/keysigner"
 )
@@ -36,6 +35,7 @@ type Bidder struct {
 	gasFeeCap      *big.Int
 	bidAmount      *big.Int
 	proposerChan   <-chan *notifier.UpcomingProposer
+	sentBidChan    chan<- *monitor.SentBid
 }
 
 func NewBidder(
@@ -49,6 +49,7 @@ func NewBidder(
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
 	proposerChan <-chan *notifier.UpcomingProposer,
+	sentBidChan chan<- *monitor.SentBid,
 ) *Bidder {
 	beaconClient := newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client"))
 
@@ -63,6 +64,7 @@ func NewBidder(
 		gasFeeCap:      gasFeeCap,
 		bidAmount:      bidAmount,
 		proposerChan:   proposerChan,
+		sentBidChan:    sentBidChan,
 	}
 }
 
@@ -106,15 +108,10 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 
 	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
 
-	pc, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
+	err = b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
-	}
-
-	err = b.watchPendingBid(bidCtx, pc)
-	if err != nil {
-		b.logger.Error("bid failed", "error", err)
 	}
 }
 
@@ -122,22 +119,22 @@ func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 	targetBlockNum uint64,
-) (bidderapiv1.Bidder_SendBidClient, error) {
+) error {
 
 	tx, err := b.selfETHTransfer()
 	if err != nil {
 		b.logger.Error("failed to create self ETH transfer transaction", "error", err)
-		return nil, err
+		return err
 	}
 
 	txBytes, err := tx.MarshalBinary()
 	if err != nil {
 		b.logger.Error("failed to marshal transaction", "error", err)
-		return nil, err
+		return err
 	}
 	txString := hex.EncodeToString(txBytes)
 
-	pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
+	bidStream, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 		TxHashes:            []string{},
 		Amount:              bidAmount.String(),
 		BlockNumber:         int64(targetBlockNum),
@@ -149,11 +146,20 @@ func (b *Bidder) bid(
 	})
 	if err != nil {
 		b.logger.Error("failed to send bid", "error", err)
-		return nil, err
+		return err
 	}
 	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
 
-	return pc, nil
+	select {
+	case b.sentBidChan <- &monitor.SentBid{
+		TxHash:            tx.Hash(),
+		TargetBlockNumber: targetBlockNum,
+		BidStream:         bidStream,
+	}:
+	default:
+		b.logger.Warn("failed to signal bid monitor: channel full")
+	}
+	return nil
 }
 
 func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
@@ -194,53 +200,6 @@ func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
 	b.logger.Info("Self ETH transfer transaction created and signed", "tx_hash", signedTx.Hash().Hex())
 
 	return signedTx, nil
-}
-
-func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_SendBidClient) error {
-	topo, err := b.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
-	if err != nil {
-		b.logger.Error("failed to get topology", "error", err)
-		return err
-	}
-
-	providers := topo.Topology.Fields["connected_providers"].GetListValue()
-	if providers == nil || len(providers.Values) == 0 {
-		return errors.New("no connected providers")
-	}
-
-	commitments := make([]*bidderapiv1.Commitment, 0)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		msg, err := pc.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			b.logger.Error("failed to receive commitment", "error", err)
-			return err
-		}
-
-		commitments = append(commitments, msg)
-		b.logger.Debug("received commitment", "commitment", msg)
-
-		if len(commitments) == len(providers.Values) {
-			b.logger.Info("all commitments received")
-			return nil
-		} else {
-			b.logger.Warn(
-				"not all commitments received",
-				"received", len(commitments),
-				"expected", len(providers.Values),
-			)
-		}
-	}
-	return errors.New("bid timeout, not all commitments received")
 }
 
 func (b *Bidder) logDebugInfo(ctx context.Context) {
