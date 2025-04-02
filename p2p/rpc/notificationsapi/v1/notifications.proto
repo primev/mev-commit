@@ -14,6 +14,7 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
       name: "Business Source License 1.1";
       url: "https://github.com/primev/mev-commit/blob/main/LICENSE";
     };
+    description: "# Notification Topics\n\n## peer_connected\nEmitted when a peer connects to the network.\n\n**Response structure:**\n```json\n{\n  \"ethAddress\": \"0x...\", // Ethereum address of the peer in hex format\n  \"type\": \"string\"       // Type of the peer: \"bootnode\", \"provider\", or \"bidder\"\n}\n```\n\n## peer_disconnected\nEmitted when a peer disconnects from the network.\n\n**Response structure:**\n```json\n{\n  \"ethAddress\": \"0x...\", // Ethereum address of the peer in hex format\n  \"type\": \"string\"       // Type of the peer: \"bootnode\", \"provider\", or \"bidder\"\n}\n```\n\n## validator_opted_in\nEmitted before an upcoming L1 block proposer has opted in to the mev-commit protocol. The \"proposer-notify-offset\" param configures how far in advance the notification is emitted.\n\n**Response structure:**\n```json\n{\n  \"epoch\": uint64,       // Epoch number\n  \"slot\": uint64,        // Slot number\n  \"bls_key\": \"string\"    // BLS key of the validator\n}\n```\n\n## epoch_validators_opted_in\nEmitted at the beginning of an epoch, specifying any slots where the L1 validator is opted-in to mev-commit.\n\n**Response structure:**\n```json\n{\n  \"epoch\": uint64,             // Epoch number\n  \"epoch_start_time\": uint64,  // Timestamp of epoch start\n  \"slots\": [                   // Array of opted-in slots\n    {\n      // opted-in slot details\n    }\n  ]\n}\n```";
   };
 };
 
@@ -28,17 +29,32 @@ service Notifications {
             post: "/v1/subscribe";
             body: "*";
         };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+          description: "Subscribe to notifications for given topics. The client will receive notifications for the topics it has subscribed to.\n\n### Available Topics\n- peer_connected: Emitted when a peer connects to the network\n- peer_disconnected: Emitted when a peer disconnects from the network\n- validator_opted_in: Emitted before an upcoming L1 block proposer has opted in to the mev-commit protocol. The \"proposer-notify-offset\" param configures how far in advance the notification is emitted\n- epoch_validators_opted_in: Emitted at the beginning of an epoch, specifying any slots where the L1 validator is opted-in to mev-commit.\n\nSee the API description for response structure details.";
+        };
     }
 };
 
+// SubscribeRequest represents a request to subscribe to notification topics
 message SubscribeRequest {
     // Topics to subscribe to
-    repeated string topics = 1;
+    repeated string topics = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "List of topics to subscribe to. Available topics:\n\n- peer_connected: Emitted when a peer connects to the network\n- peer_disconnected: Emitted when a peer disconnects from the network\n- validator_opted_in: Emitted before an upcoming L1 block proposer has opted in to the mev-commit protocol\n- epoch_validators_opted_in: Emitted at the beginning of an epoch, specifying any slots where the L1 validator is opted-in to mev-commit";
+      example: "[\"peer_connected\", \"validator_opted_in\"]";
+    }];
 };
 
+// Notification represents a notification message sent to subscribers
 message Notification {
     // Topic of the notification
-    string topic = 1;
-    // Message of the notification
-    google.protobuf.Struct value = 2;
+    string topic = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Topic of the notification. Available topics:\n\n- peer_connected: Response includes ethAddress and type\n- peer_disconnected: Response includes ethAddress and type\n- validator_opted_in: Response includes epoch, slot, and bls_key of the upcoming opted-in proposer\n- epoch_validators_opted_in: Response includes epoch, epoch_start_time, and opted-in slots array";
+      example: "\"peer_connected\"";
+    }];
+    
+    // Payload of the notification
+    google.protobuf.Struct value = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {
+      description: "Payload of the notification. Structure depends on the topic:\n\n- peer_connected: {\"ethAddress\": \"0x...\", \"type\": \"bootnode|provider|bidder\"}\n- peer_disconnected: {\"ethAddress\": \"0x...\", \"type\": \"bootnode|provider|bidder\"}\n- validator_opted_in: {\"epoch\": uint64, \"slot\": uint64, \"bls_key\": \"string\"} - Sent when an upcoming block proposer is opted-in\n- epoch_validators_opted_in: {\"epoch\": uint64, \"epoch_start_time\": uint64, \"slots\": []}";
+      example: "{\"ethAddress\": \"0x123...\", \"type\": \"provider\"}";
+    }];
 };
