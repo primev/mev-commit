@@ -90,6 +90,14 @@ job "{{ job.name }}" {
             {% raw %}
           {{ end }}
 
+          # Verify the keystore information is available
+          echo "Checking if keystore data is available"
+          echo "Keystore filename: ${KEYSTORE_FILENAME}"
+          grep -q . "${KEYSTORE_FILE}" || {
+            echo "Keystore file is empty or missing"
+            exit 1
+          }
+
           {{- range nomadService "{% endraw %}{{ job.target.name }}{% raw %}" }}
             {{- if contains "http" .Tags }}
           ADDRESS=$(curl -sk https://{{ .Address }}:{{ .Port }}/v1/debug/topology | jq -r '.topology.self["Ethereum Address"]')
@@ -113,7 +121,16 @@ job "{{ job.name }}" {
               {% endif %}
               {%- raw %}
             --rpc-url http://{{ .Address }}:{{ .Port }} \
-            "${ADDRESS}"
+            "${ADDRESS}" 2>&1) || {
+              RET=$?
+              echo "Cast command failed with exit code ${RET}"
+              echo "Error output: ${CAST_OUTPUT}"
+              # Diagnostic checks
+              ls -l "${KEYSTORE_PATH}" || echo "Keystore directory not found"
+              ls -l "${KEYSTORE_FILE}" || echo "Keystore file not found"
+              curl -s http://{{ .Address }}:{{ .Port }}/health || echo "RPC not responding"
+              exit ${RET}
+            }
 
             if [ $? -eq 0 ]; then
               echo "Funds successfully sent to: ${ADDRESS}"
