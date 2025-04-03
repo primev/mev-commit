@@ -61,11 +61,11 @@ func (s *pebbleStorage) WalkPrefix(prefix string, fn func(key string, val []byte
 }
 
 func (s *pebbleStorage) Put(key string, value []byte) error {
-	return s.db.Set([]byte(key), value, pebble.NoSync)
+	return s.db.Set([]byte(key), value, pebble.Sync)
 }
 
 func (s *pebbleStorage) Delete(key string) error {
-	return s.db.Delete([]byte(key), pebble.NoSync)
+	return s.db.Delete([]byte(key), pebble.Sync)
 }
 
 func (s *pebbleStorage) DeletePrefix(prefix string) error {
@@ -77,7 +77,7 @@ func (s *pebbleStorage) DeletePrefix(prefix string) error {
 		return err
 	}
 
-	return batch.Commit(pebble.NoSync)
+	return batch.Commit(pebble.Sync)
 }
 
 func (s *pebbleStorage) Batch() storage.Batch {
@@ -99,11 +99,11 @@ func (b *pebbleBatch) Delete(key string) error {
 }
 
 func (b *pebbleBatch) DeletePrefix(prefix string) error {
-	return b.batch.DeleteRange([]byte(prefix), upperBound([]byte(prefix)), pebble.NoSync)
+	return b.batch.DeleteRange([]byte(prefix), upperBound([]byte(prefix)), pebble.Sync)
 }
 
 func (b *pebbleBatch) Write() error {
-	return b.batch.Commit(pebble.NoSync)
+	return b.batch.Commit(pebble.Sync)
 }
 
 func (b *pebbleBatch) Reset() {
