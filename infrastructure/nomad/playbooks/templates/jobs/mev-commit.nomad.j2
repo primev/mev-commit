@@ -86,7 +86,7 @@ job "{{ job.name }}" {
           MEV_COMMIT_LAGGARD_MODE="{{ job.env.get('laggard-mode', '10') }}"
           MEV_COMMIT_OTEL_COLLECTOR_ENDPOINT_URL="{{ job.env.get('otel_collector_endpoint_url', '') }}"
           CONTRACTS_JSON_URL="{{ job.env.get('contracts_json_url', '') }}"
-          MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT="{{ job.env.get('settlement_rpc_url', '') }}"
+          MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT="{{ job.env.get('settlement-rpc-url', '') }}"
           {%- raw %}
           MEV_COMMIT_KEYSTORE_PATH="/local/data-{{ env "NOMAD_ALLOC_INDEX" }}/keystore"
           MEV_COMMIT_KEYSTORE_FILENAME="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.{% endraw %}{{ job.artifacts | selectattr('keystores', 'defined') | map(attribute='keystores') | first | list | first }}{% raw %}_filename }}{{ end }}"
