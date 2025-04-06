@@ -139,11 +139,11 @@ func New(config *Config) (*Service, error) {
 		settlementRPCClient,
 	)
 
-	err = balanceChecker.CheckBalances(ctx)
-	if err != nil {
-		return nil, err
-	}
-	config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
+	// err = balanceChecker.CheckBalances(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
 
 	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
 	if err != nil {
