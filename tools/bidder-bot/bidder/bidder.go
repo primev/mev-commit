@@ -119,7 +119,6 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 	err = b.watchPendingBid(bidCtx, bidStream)
 	if err != nil {
 		b.logger.Error("failed to watch pending bid", "error", err)
-		return
 	}
 }
 
