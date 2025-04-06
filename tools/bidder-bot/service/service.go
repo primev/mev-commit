@@ -89,26 +89,6 @@ func New(config *Config) (*Service, error) {
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
 	config.Logger.Debug("created notifications client")
 
-	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
-	if err != nil {
-		return nil, err
-	}
-	config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
-
-	if !status.IsAutodepositEnabled {
-		config.Logger.Info("enabling auto deposit")
-		resp, err := bidderCli.AutoDeposit(
-			context.Background(),
-			&bidderapiv1.DepositRequest{
-				Amount: config.AutoDepositAmount.String(),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
-	}
-
 	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
 	proposerChan := make(chan *notifier.UpcomingProposer, 1)
 
@@ -165,6 +145,26 @@ func New(config *Config) (*Service, error) {
 		return nil, err
 	}
 	config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
+
+	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
+	if err != nil {
+		return nil, err
+	}
+	config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
+
+	if !status.IsAutodepositEnabled {
+		config.Logger.Info("enabling auto deposit")
+		resp, err := bidderCli.AutoDeposit(
+			context.Background(),
+			&bidderapiv1.DepositRequest{
+				Amount: config.AutoDepositAmount.String(),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
+	}
 
 	healthChecker := health.New()
 
