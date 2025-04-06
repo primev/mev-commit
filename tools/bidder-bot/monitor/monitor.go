@@ -2,21 +2,17 @@ package monitor
 
 import (
 	"context"
-	"errors"
-	"io"
 	"log/slog"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
-	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 )
 
 type SentBid struct {
 	TxHash            common.Hash
 	TargetBlockNumber uint64
-	BidStream         BidStream
 }
 
 type BidStream interface {
@@ -25,7 +21,6 @@ type BidStream interface {
 
 type Monitor struct {
 	logger                   *slog.Logger
-	topologyClient           debugapiv1.DebugServiceClient
 	l1Client                 L1Client
 	monitorTxLandingTimeout  time.Duration
 	monitorTxLandingInterval time.Duration
@@ -38,7 +33,6 @@ type L1Client interface {
 
 func NewMonitor(
 	logger *slog.Logger,
-	topologyClient debugapiv1.DebugServiceClient,
 	l1Client L1Client,
 	sentBidChan <-chan *SentBid,
 	monitorTxLandingTimeout time.Duration,
@@ -46,7 +40,6 @@ func NewMonitor(
 ) *Monitor {
 	return &Monitor{
 		logger:                   logger.With("component", "bid_monitor"),
-		topologyClient:           topologyClient,
 		l1Client:                 l1Client,
 		sentBidChan:              sentBidChan,
 		monitorTxLandingTimeout:  monitorTxLandingTimeout,
@@ -73,12 +66,6 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (m *Monitor) monitorSentBid(ctx context.Context, sentBid *SentBid) {
-	expectedCommitmentsReceived := m.monitorCommitments(ctx, sentBid)
-	if !expectedCommitmentsReceived {
-		m.logger.Error("expected commitments not received", "tx_hash", sentBid.TxHash.Hex())
-		return
-	}
-
 	landedInTargetBlock := m.monitorTxLanding(ctx, sentBid)
 	if !landedInTargetBlock {
 		m.logger.Error("transaction did not land in target block", "tx_hash", sentBid.TxHash.Hex())
@@ -86,63 +73,7 @@ func (m *Monitor) monitorSentBid(ctx context.Context, sentBid *SentBid) {
 	}
 	m.logger.Info("sent bid was successful",
 		"tx_hash", sentBid.TxHash.Hex(),
-		"expected_commitments_received", expectedCommitmentsReceived,
 		"landed_in_target_block", landedInTargetBlock)
-}
-
-func (m *Monitor) monitorCommitments(ctx context.Context, sentBid *SentBid) bool {
-	topo, err := m.topologyClient.GetTopology(ctx, &debugapiv1.EmptyMessage{})
-	if err != nil {
-		m.logger.Error("failed to get topology", "tx_hash", sentBid.TxHash.Hex(), "error", err)
-		return false
-	}
-
-	providers := topo.Topology.Fields["connected_providers"].GetListValue()
-	if providers == nil || len(providers.Values) == 0 {
-		m.logger.Error("no connected providers", "tx_hash", sentBid.TxHash.Hex())
-		return false
-	}
-
-	expectedCommitments := len(providers.Values)
-	commitments := make([]*bidderapiv1.Commitment, 0)
-	for {
-		select {
-		case <-ctx.Done():
-			if len(commitments) == expectedCommitments {
-				m.logger.Info("all commitments received", "tx_hash", sentBid.TxHash.Hex())
-				return true
-			}
-			m.logger.Warn("commitment timeout",
-				"tx_hash", sentBid.TxHash.Hex(),
-				"received", commitments,
-				"expected", expectedCommitments)
-			return false
-		default:
-		}
-
-		// 12 second timeout is already set for bid stream in bidder.go
-		msg, err := sentBid.BidStream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			m.logger.Error("failed to receive commitment", "tx_hash", sentBid.TxHash.Hex(), "error", err)
-			return false
-		}
-
-		commitments = append(commitments, msg)
-		m.logger.Debug("received commitment",
-			"tx_hash", sentBid.TxHash.Hex(),
-			"count", len(commitments),
-			"expected", expectedCommitments)
-
-		if len(commitments) == expectedCommitments {
-			m.logger.Info("all commitments received", "tx_hash", sentBid.TxHash.Hex())
-			return true
-		}
-	}
-
-	return len(commitments) == expectedCommitments
 }
 
 func (m *Monitor) monitorTxLanding(ctx context.Context, sentBid *SentBid) bool {
