@@ -27,17 +27,17 @@ type L1Client interface {
 }
 
 type Bidder struct {
-	logger         *slog.Logger
-	bidderClient   bidderapiv1.BidderClient
-	topologyClient debugapiv1.DebugServiceClient
-	l1Client       L1Client
-	beaconClient   *beaconClient
-	signer         keysigner.KeySigner
-	gasTipCap      *big.Int
-	gasFeeCap      *big.Int
-	bidAmount      *big.Int
-	proposerChan   <-chan *notifier.UpcomingProposer
-	sentBidChan    chan<- *monitor.SentBid
+	logger          *slog.Logger
+	bidderClient    bidderapiv1.BidderClient
+	topologyClient  debugapiv1.DebugServiceClient
+	l1Client        L1Client
+	beaconClient    *beaconClient
+	signer          keysigner.KeySigner
+	gasTipCap       *big.Int
+	gasFeeCap       *big.Int
+	bidAmount       *big.Int
+	proposerChan    <-chan *notifier.UpcomingProposer
+	acceptedBidChan chan<- *monitor.AcceptedBid
 }
 
 func NewBidder(
@@ -51,22 +51,22 @@ func NewBidder(
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
 	proposerChan <-chan *notifier.UpcomingProposer,
-	sentBidChan chan<- *monitor.SentBid,
+	acceptedBidChan chan<- *monitor.AcceptedBid,
 ) *Bidder {
 	beaconClient := newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client"))
 
 	return &Bidder{
-		logger:         logger,
-		bidderClient:   bidderClient,
-		topologyClient: topologyClient,
-		l1Client:       l1Client,
-		beaconClient:   beaconClient,
-		signer:         signer,
-		gasTipCap:      gasTipCap,
-		gasFeeCap:      gasFeeCap,
-		bidAmount:      bidAmount,
-		proposerChan:   proposerChan,
-		sentBidChan:    sentBidChan,
+		logger:          logger,
+		bidderClient:    bidderClient,
+		topologyClient:  topologyClient,
+		l1Client:        l1Client,
+		beaconClient:    beaconClient,
+		signer:          signer,
+		gasTipCap:       gasTipCap,
+		gasFeeCap:       gasFeeCap,
+		bidAmount:       bidAmount,
+		proposerChan:    proposerChan,
+		acceptedBidChan: acceptedBidChan,
 	}
 }
 
@@ -110,7 +110,7 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 
 	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
 
-	bidStream, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
+	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
@@ -119,6 +119,16 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 	err = b.watchPendingBid(bidCtx, bidStream)
 	if err != nil {
 		b.logger.Error("failed to watch pending bid", "error", err)
+		return
+	}
+
+	select {
+	case b.acceptedBidChan <- &monitor.AcceptedBid{
+		TxHash:            tx.Hash(),
+		TargetBlockNumber: targetBlockNum,
+	}:
+	default:
+		b.logger.Warn("failed to signal bid monitor: channel full")
 	}
 }
 
@@ -126,18 +136,18 @@ func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 	targetBlockNum uint64,
-) (bidStream bidderapiv1.Bidder_SendBidClient, err error) {
+) (bidStream bidderapiv1.Bidder_SendBidClient, tx *types.Transaction, err error) {
 
-	tx, err := b.selfETHTransfer()
+	tx, err = b.selfETHTransfer()
 	if err != nil {
 		b.logger.Error("failed to create self ETH transfer transaction", "error", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	txBytes, err := tx.MarshalBinary()
 	if err != nil {
 		b.logger.Error("failed to marshal transaction", "error", err)
-		return nil, err
+		return nil, nil, err
 	}
 	txString := hex.EncodeToString(txBytes)
 
@@ -153,19 +163,11 @@ func (b *Bidder) bid(
 	})
 	if err != nil {
 		b.logger.Error("failed to send bid", "error", err)
-		return nil, err
+		return nil, nil, err
 	}
 	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
 
-	select {
-	case b.sentBidChan <- &monitor.SentBid{
-		TxHash:            tx.Hash(),
-		TargetBlockNumber: targetBlockNum,
-	}:
-	default:
-		b.logger.Warn("failed to signal bid monitor: channel full")
-	}
-	return bidStream, nil
+	return bidStream, tx, nil
 }
 
 func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
