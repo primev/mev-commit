@@ -138,7 +138,7 @@ func TestMonitorTxLanding(t *testing.T) {
 				monitorTxLandingInterval: tc.checkInterval,
 			}
 
-			sentBid := &SentBid{
+			acceptedBid := &AcceptedBid{
 				TxHash:            txHash,
 				TargetBlockNumber: targetBlockNumber,
 			}
@@ -147,7 +147,7 @@ func TestMonitorTxLanding(t *testing.T) {
 			t.Logf("Context timeout: %v, Receipt delay: %v, Retries: %d",
 				tc.contextTimeout, tc.receiptDelay, tc.receiptRetries)
 
-			result := m.monitorTxLanding(context.Background(), sentBid)
+			result := m.monitorTxLanding(context.Background(), acceptedBid)
 
 			if result != tc.expectLandedInTargetBlock {
 				t.Errorf("monitorTxLanding() for %s = %v, want %v", tc.name, result, tc.expectLandedInTargetBlock)
@@ -166,7 +166,7 @@ func TestStartMonitor(t *testing.T) {
 		receipts: make(map[common.Hash]*types.Receipt),
 	}
 
-	bidChan := make(chan *SentBid, 5)
+	bidChan := make(chan *AcceptedBid, 5)
 
 	monitorTxLandingTimeout := 15 * time.Minute
 	monitorTxLandingInterval := 30 * time.Second
@@ -191,12 +191,12 @@ func TestStartMonitor(t *testing.T) {
 		BlockNumber: new(big.Int).SetUint64(targetBlockNumber),
 	}
 
-	sentBid := &SentBid{
+	acceptedBid := &AcceptedBid{
 		TxHash:            txHash,
 		TargetBlockNumber: targetBlockNumber,
 	}
 
-	bidChan <- sentBid
+	bidChan <- acceptedBid
 
 	time.Sleep(50 * time.Millisecond)
 
