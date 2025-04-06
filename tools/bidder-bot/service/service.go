@@ -123,7 +123,6 @@ func New(config *Config) (*Service, error) {
 
 	monitor := monitor.NewMonitor(
 		config.Logger.With("module", "monitor"),
-		topologyCli,
 		l1RPCClient,
 		sentBidChan, // receive-only
 		monitorTxLandingTimeout,
