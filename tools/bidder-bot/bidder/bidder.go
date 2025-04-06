@@ -112,6 +112,7 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 
 	bidStream, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
+		b.logger.Error("bid failed", "error", err)
 		return
 	}
 
