@@ -7,16 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 )
 
 type AcceptedBid struct {
 	TxHash            common.Hash
 	TargetBlockNumber uint64
-}
-
-type BidStream interface {
-	Recv() (*bidderapiv1.Commitment, error)
 }
 
 type Monitor struct {
