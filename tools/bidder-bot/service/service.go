@@ -92,7 +92,7 @@ func New(config *Config) (*Service, error) {
 	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
 	proposerChan := make(chan *notifier.UpcomingProposer, 1)
 
-	sentBidChan := make(chan *monitor.SentBid, 5)
+	acceptedBidChan := make(chan *monitor.AcceptedBid, 5)
 
 	notifier := notifier.NewNotifier(
 		config.Logger.With("module", "notifier"),
@@ -114,8 +114,8 @@ func New(config *Config) (*Service, error) {
 		config.GasTipCap,
 		config.GasFeeCap,
 		config.BidAmount,
-		proposerChan, // receive-only
-		sentBidChan,  // send-only
+		proposerChan,    // receive-only
+		acceptedBidChan, // send-only
 	)
 
 	monitorTxLandingTimeout := 15 * time.Minute
@@ -124,7 +124,7 @@ func New(config *Config) (*Service, error) {
 	monitor := monitor.NewMonitor(
 		config.Logger.With("module", "monitor"),
 		l1RPCClient,
-		sentBidChan, // receive-only
+		acceptedBidChan, // receive-only
 		monitorTxLandingTimeout,
 		monitorTxLandingInterval,
 	)

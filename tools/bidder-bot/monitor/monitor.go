@@ -10,7 +10,7 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 )
 
-type SentBid struct {
+type AcceptedBid struct {
 	TxHash            common.Hash
 	TargetBlockNumber uint64
 }
@@ -24,7 +24,7 @@ type Monitor struct {
 	l1Client                 L1Client
 	monitorTxLandingTimeout  time.Duration
 	monitorTxLandingInterval time.Duration
-	sentBidChan              <-chan *SentBid
+	acceptedBidChan          <-chan *AcceptedBid
 }
 
 type L1Client interface {
@@ -34,14 +34,14 @@ type L1Client interface {
 func NewMonitor(
 	logger *slog.Logger,
 	l1Client L1Client,
-	sentBidChan <-chan *SentBid,
+	acceptedBidChan <-chan *AcceptedBid,
 	monitorTxLandingTimeout time.Duration,
 	monitorTxLandingInterval time.Duration,
 ) *Monitor {
 	return &Monitor{
 		logger:                   logger.With("component", "bid_monitor"),
 		l1Client:                 l1Client,
-		sentBidChan:              sentBidChan,
+		acceptedBidChan:          acceptedBidChan,
 		monitorTxLandingTimeout:  monitorTxLandingTimeout,
 		monitorTxLandingInterval: monitorTxLandingInterval,
 	}
@@ -56,27 +56,27 @@ func (m *Monitor) Start(ctx context.Context) <-chan struct{} {
 			case <-ctx.Done():
 				m.logger.Info("monitor context done")
 				return
-			case sentBid := <-m.sentBidChan:
-				m.logger.Info("monitoring sent bid", "tx_hash", sentBid.TxHash.Hex())
-				go m.monitorSentBid(ctx, sentBid)
+			case acceptedBid := <-m.acceptedBidChan:
+				m.logger.Info("monitoring accepted bid", "tx_hash", acceptedBid.TxHash.Hex())
+				go m.monitorAcceptedBid(ctx, acceptedBid)
 			}
 		}
 	}()
 	return done
 }
 
-func (m *Monitor) monitorSentBid(ctx context.Context, sentBid *SentBid) {
-	landedInTargetBlock := m.monitorTxLanding(ctx, sentBid)
+func (m *Monitor) monitorAcceptedBid(ctx context.Context, acceptedBid *AcceptedBid) {
+	landedInTargetBlock := m.monitorTxLanding(ctx, acceptedBid)
 	if !landedInTargetBlock {
-		m.logger.Error("transaction did not land in target block", "tx_hash", sentBid.TxHash.Hex())
+		m.logger.Error("transaction did not land in target block", "tx_hash", acceptedBid.TxHash.Hex())
 		return
 	}
-	m.logger.Info("sent bid was successful",
-		"tx_hash", sentBid.TxHash.Hex(),
-		"landed_in_target_block", landedInTargetBlock)
+	m.logger.Info("accepted bid landed in target block",
+		"tx_hash", acceptedBid.TxHash.Hex(),
+		"target_block_number", acceptedBid.TargetBlockNumber)
 }
 
-func (m *Monitor) monitorTxLanding(ctx context.Context, sentBid *SentBid) bool {
+func (m *Monitor) monitorTxLanding(ctx context.Context, acceptedBid *AcceptedBid) bool {
 	txLandingCtx, cancel := context.WithTimeout(ctx, m.monitorTxLandingTimeout)
 	defer cancel()
 	ticker := time.NewTicker(m.monitorTxLandingInterval)
@@ -85,22 +85,22 @@ func (m *Monitor) monitorTxLanding(ctx context.Context, sentBid *SentBid) bool {
 	for {
 		select {
 		case <-txLandingCtx.Done():
-			m.logger.Warn("tx landing monitoring timeout", "tx_hash", sentBid.TxHash.Hex())
+			m.logger.Warn("tx landing monitoring timeout", "tx_hash", acceptedBid.TxHash.Hex())
 			return false
 		case <-ticker.C:
-			receipt, err := m.l1Client.TransactionReceipt(txLandingCtx, sentBid.TxHash)
+			receipt, err := m.l1Client.TransactionReceipt(txLandingCtx, acceptedBid.TxHash)
 			if err == nil && receipt != nil {
 				actualBlock := receipt.BlockNumber.Uint64()
-				if actualBlock == sentBid.TargetBlockNumber {
+				if actualBlock == acceptedBid.TargetBlockNumber {
 					m.logger.Info("transaction landed in the target block",
-						"tx_hash", sentBid.TxHash.Hex(),
+						"tx_hash", acceptedBid.TxHash.Hex(),
 						"block", actualBlock)
 					return true
 				}
 				m.logger.Warn("transaction landed in non-target block",
-					"tx_hash", sentBid.TxHash.Hex(),
+					"tx_hash", acceptedBid.TxHash.Hex(),
 					"actual_block", actualBlock,
-					"target_block", sentBid.TargetBlockNumber)
+					"target_block", acceptedBid.TargetBlockNumber)
 				return false
 			}
 		}
