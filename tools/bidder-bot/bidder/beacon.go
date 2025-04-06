@@ -87,7 +87,7 @@ func (bc *beaconClient) getLatestSlot(ctx context.Context) (uint64, error) {
 }
 
 func (bc *beaconClient) getBlockNumForSlot(ctx context.Context, slot uint64) (uint64, error) {
-	url := fmt.Sprintf("%s/eth/v1/beacon/blocks/%d", bc.apiURL, slot)
+	url := fmt.Sprintf("%s/eth/v2/beacon/blocks/%d", bc.apiURL, slot)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
