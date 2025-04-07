@@ -21,7 +21,7 @@ contract UpgradeOracleImplementation is Script {
         // Upgrade the Oracle implementation
         Upgrades.upgradeProxy(
             oracleProxyAddress,
-            "Oracle.sol",
+            "OracleV2.sol",
             "" // No initialization needed for upgrade
         );
 
