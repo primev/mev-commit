@@ -14,12 +14,21 @@ import {Errors} from "../utils/Errors.sol";
  * @title Oracle
  * @notice A contract for Fetching L1 Block Builder Info and Block Data.
  * @dev This contract serves as an oracle to fetch and process Ethereum Layer 1 block data.
+ * @custom:oz-upgrades-from Oracle
  */
-contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable {
-
+contract Oracle is
+    OracleStorage,
+    IOracle,
+    Ownable2StepUpgradeable,
+    UUPSUpgradeable,
+    PausableUpgradeable
+{
     /// @dev Modifier to ensure that the sender is the oracle account.
     modifier onlyOracle() {
-        require(msg.sender == oracleAccount, NotOracleAccount(msg.sender, oracleAccount));
+        require(
+            msg.sender == oracleAccount,
+            NotOracleAccount(msg.sender, oracleAccount)
+        );
         _;
     }
 
@@ -77,11 +86,17 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         uint256 residualBidPercentAfterDecay
     ) external onlyOracle whenNotPaused {
         address blockWinner = _blockTrackerContract.getBlockWinner(blockNumber);
-        require(blockWinner == builder, BuilderNotBlockWinner(blockWinner, builder));
-        require(residualBidPercentAfterDecay <= 1e18, ResidualBidPercentAfterDecayExceedsMax(residualBidPercentAfterDecay));
+        require(
+            blockWinner == builder,
+            BuilderNotBlockWinner(blockWinner, builder)
+        );
+        require(
+            residualBidPercentAfterDecay <= 1e18,
+            ResidualBidPercentAfterDecayExceedsMax(residualBidPercentAfterDecay)
+        );
 
-        IPreconfManager.OpenedCommitment
-            memory commitment = _preconfManager.getCommitment(commitmentIndex);
+        IPreconfManager.OpenedCommitment memory commitment = _preconfManager
+            .getCommitment(commitmentIndex);
         if (
             commitment.committer == builder &&
             commitment.blockNumber == blockNumber
