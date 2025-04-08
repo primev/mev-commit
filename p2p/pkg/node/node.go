@@ -88,8 +88,8 @@ var defaultL1URLs = map[string]L1URLs{
 		BeaconAPIURL: "https://ethereum-beacon-api.publicnode.com",
 	},
 	contracts.TestnetChainID.String(): L1URLs{
-		L1RPCURL:     "https://ethereum-holesky-beacon-api.publicnode.com",
-		BeaconAPIURL: "https://ethereum-holesky-rpc.publicnode.com",
+		L1RPCURL:     "https://ethereum-holesky-rpc.publicnode.com",
+		BeaconAPIURL: "https://ethereum-holesky-beacon-api.publicnode.com",
 	},
 }
 
