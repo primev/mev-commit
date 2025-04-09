@@ -78,7 +78,24 @@ jobs:
           CLUSTER_L1_RPC_URL_FLAG=$([ "${{ github.event.inputs.profile }}" == "stressnet-wl1" ] && echo "--l1-rpc-urls ${{ secrets.L1_RPC_URL }}" || echo "")
           CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=$([ "${{ github.event.inputs.tracing }}" == "true" ] && echo "--otel-collector-endpoint-url grpc://${TARGET_MACHINE_IP}:4317" || echo "")
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
-          NOMAD_TOKEN=$([ "${{ github.event.inputs.target_machine }}" == "lax1" ] && echo "${{ secrets.NOMAD_TOKEN_LAX1 }}" || [ "${{ github.event.inputs.target_machine }} == chi1" ] && echo "${{ secrets.NOMAD_TOKEN_CHI1 }}" || [ "${{ github.event.inputs.target_machine }}" == "mia2" ] && echo "${{ secrets.NOMAD_TOKEN_MIA2 }}" || [ "${{ github.event.inputs.target_machine }}" == "mia3" ] && echo "${{ secrets.NOMAD_TOKEN_MIA3 }}")
+
+          case "${{ github.event.inputs.target_machine }}" in
+            lax1)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_LAX1 }}"
+              ;;
+            chi1)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_CHI1 }}"
+              ;;
+            mia2)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_MIA2 }}"
+              ;;
+            mia3)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_MIA3 }}"
+              ;;
+            *)
+            echo "Unknown target machine: ${{ github.event.inputs.target_machine }}"
+            ;;
+          esac
 
           echo "RUNNER_START_TIME=${RUNNER_START_TIME}" >> ${GITHUB_ENV}
           echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> ${GITHUB_ENV}
