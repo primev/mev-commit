@@ -689,6 +689,7 @@
 
     - name: Purge Cluster
       ansible.builtin.shell: |
+        export NOMAD_TOKEN={{ lookup('env', 'NOMAD_TOKEN') }}
         nomad var purge "nomad/jobs"
         nomad system gc
       args:
