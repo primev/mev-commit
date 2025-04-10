@@ -6,8 +6,6 @@ import (
 	"math/big"
 	"os"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -164,220 +162,6 @@ func TestAutoDepositTracker_Start(t *testing.T) {
 	assertStatus(t, false, []uint64{3, 4, 5})
 }
 
-func TestAutoDepositTracker_Start_WithWithdrawals(t *testing.T) {
-	t.Parallel()
-
-	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	amount := big.NewInt(100)
-	oracleWindowOffset := big.NewInt(1)
-	logger := util.NewTestLogger(os.Stdout)
-	evtMgr := events.NewListener(logger, &btABI, &brABI)
-
-	var withdrawalsCalled atomic.Int32
-
-	brContract := &MockBidderRegistryContract{
-		DepositForWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-		WithdrawFromWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-			withdrawalsCalled.Store(1)
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-		DepositForWindowFunc: func(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error) {
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-	}
-
-	currentWindow := big.NewInt(3)
-	btContract := &MockBlockTrackerContract{
-		GetCurrentWindowFunc: func() (*big.Int, error) {
-			return currentWindow, nil
-		},
-	}
-	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
-		return &bind.TransactOpts{}, nil
-	}
-
-	st := store.New(inmemstorage.New())
-
-	// Pre-populate deposit store with old windows that should be withdrawn
-	ctx := context.Background()
-	err = st.StoreDeposits(ctx, []*big.Int{big.NewInt(1), big.NewInt(2)})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, oracleWindowOffset, logger)
-
-	startWindow := big.NewInt(4) // This is current window (3) + oracleWindowOffset (1)
-	err = adt.Start(ctx, startWindow, amount)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if withdrawalsCalled.Load() != 1 {
-		t.Fatal("withdrawals should have been called during startup")
-	}
-
-	deposits, isWorking, _ := adt.GetStatus()
-	if !isWorking {
-		t.Fatal("expected tracker to be working")
-	}
-
-	// Should have deposits for window 4 and 5 (startWindow and startWindow+1)
-	if !deposits[4] || !deposits[5] || len(deposits) != 2 {
-		t.Fatalf("expected deposits for windows 4 and 5 only, got %v", deposits)
-	}
-
-	_, err = adt.Stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestAutoDepositTracker_WithdrawOnNewWindow(t *testing.T) {
-	t.Parallel()
-
-	brABI, err := abi.JSON(strings.NewReader(bidderregistry.BidderregistryABI))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	btABI, err := abi.JSON(strings.NewReader(blocktracker.BlocktrackerABI))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	amount := big.NewInt(100)
-	oracleWindowOffset := big.NewInt(1)
-	logger := util.NewTestLogger(os.Stdout)
-	evtMgr := events.NewListener(logger, &btABI, &brABI)
-
-	var withdrawMu sync.Mutex
-	var withdrawnWindows []*big.Int
-
-	brContract := &MockBidderRegistryContract{
-		DepositForWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-		WithdrawFromWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-			withdrawMu.Lock()
-			// Make a deep copy of the windows to avoid race conditions
-			copiedWindows := make([]*big.Int, len(windows))
-			for i, w := range windows {
-				copiedWindows[i] = new(big.Int).Set(w)
-			}
-			withdrawnWindows = copiedWindows
-			withdrawMu.Unlock()
-
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-		DepositForWindowFunc: func(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error) {
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-	}
-
-	currentWindow := big.NewInt(5)
-	btContract := &MockBlockTrackerContract{
-		GetCurrentWindowFunc: func() (*big.Int, error) {
-			return currentWindow, nil
-		},
-	}
-	optsGetter := func(ctx context.Context) (*bind.TransactOpts, error) {
-		return &bind.TransactOpts{}, nil
-	}
-
-	st := store.New(inmemstorage.New())
-
-	adt := autodepositor.New(evtMgr, brContract, btContract, optsGetter, st, oracleWindowOffset, logger)
-
-	ctx := context.Background()
-	startWindow := big.NewInt(6) // current (5) + offset (1)
-	err = adt.Start(ctx, startWindow, amount)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assertStatus := func(t *testing.T, working bool, deposits []uint64) {
-		t.Helper()
-		for {
-			depositsMap, status, _ := adt.GetStatus()
-			if status != working {
-				t.Fatalf("expected status to be %v, got %v", working, status)
-			}
-			foundAll := true
-			for _, deposit := range deposits {
-				if !depositsMap[deposit] {
-					foundAll = false
-					break
-				}
-			}
-			if foundAll && len(depositsMap) == len(deposits) {
-				break
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-
-	// Should have deposits for windows 6 and 7
-	assertStatus(t, true, []uint64{6, 7})
-
-	// Store some additional deposits to be withdrawn
-	err = st.StoreDeposits(ctx, []*big.Int{big.NewInt(3), big.NewInt(4)})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	publishNewWindow(evtMgr, &btABI, big.NewInt(6))
-
-	// Wait a bit for the event to be processed
-	time.Sleep(50 * time.Millisecond)
-
-	withdrawMu.Lock()
-	localWithdrawnWindows := make([]*big.Int, len(withdrawnWindows))
-	for i, w := range withdrawnWindows {
-		localWithdrawnWindows[i] = new(big.Int).Set(w)
-	}
-	withdrawMu.Unlock()
-
-	// Windows before the current one (window 6 - 1 = window 5) should be withdrawn
-	// That means windows 3 and 4
-	expectedWithdrawnWindows := []*big.Int{big.NewInt(3), big.NewInt(4)}
-	if len(localWithdrawnWindows) != len(expectedWithdrawnWindows) {
-		t.Fatalf("expected %d withdrawn windows, got %d", len(expectedWithdrawnWindows), len(localWithdrawnWindows))
-	}
-
-	for i, wn := range localWithdrawnWindows {
-		found := false
-		for _, expected := range expectedWithdrawnWindows {
-			if wn.Cmp(expected) == 0 {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("unexpected withdrawn window %s at index %d", wn.String(), i)
-		}
-	}
-
-	// Should have deposits for windows 6, 7, and 8 (new window added)
-	assertStatus(t, true, []uint64{6, 7, 8})
-
-	_, err = adt.Stop()
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 	t.Parallel()
 
@@ -399,9 +183,6 @@ func TestAutoDepositTracker_Start_CancelContext(t *testing.T) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 		DepositForWindowFunc: func(opts *bind.TransactOpts, window *big.Int) (*types.Transaction, error) {
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-		WithdrawFromWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 	}
@@ -484,9 +265,6 @@ func TestAutoDepositTracker_IsWorking(t *testing.T) {
 	evtMgr := events.NewListener(logger, &btABI, &brABI)
 	brContract := &MockBidderRegistryContract{
 		DepositForWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
-			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
-		},
-		WithdrawFromWindowsFunc: func(opts *bind.TransactOpts, windows []*big.Int) (*types.Transaction, error) {
 			return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 		},
 	}
