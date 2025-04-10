@@ -371,14 +371,16 @@ func (s *Store) Update(ctx context.Context, txHash common.Hash, status string) e
 		return err
 	}
 
-	_, err = tx.ExecContext(
-		ctx,
-		"UPDATE settlements SET settled = true WHERE chainhash = $1",
-		txHashBase64,
-	)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
+	if status == "success" {
+		_, err = tx.ExecContext(
+			ctx,
+			"UPDATE settlements SET settled = true WHERE chainhash = $1",
+			txHashBase64,
+		)
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
 	}
 
 	err = tx.Commit()
