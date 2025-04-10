@@ -276,6 +276,30 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 
+	failedSettlements, err := st.GetFailedSettlements(ctx)
+	if err != nil {
+		nd.logger.Error("failed to get failed settlements", "error", err)
+		cancel()
+		return nil, err
+	}
+
+	if len(failedSettlements) > 0 {
+		nd.logger.Info("found failed settlements, retrying...")
+		for _, settlement := range failedSettlements {
+			nd.logger.Info("retrying settlement", "settlementID", common.Bytes2Hex(settlement.CommitmentIdx))
+			err := updtr.SettleFailedCommitment(
+				ctx,
+				settlement,
+			)
+			if err != nil {
+				nd.logger.Error("failed to retry settlement", "error", err)
+				cancel()
+				return nil, err
+			}
+			nd.logger.Info("settlement retried", "settlementID", common.Bytes2Hex(settlement.CommitmentIdx))
+		}
+	}
+
 	updtrClosed := updtr.Start(ctx)
 	healthChecker.Register(health.CloseChannelHealthCheck("updater", updtrClosed))
 
