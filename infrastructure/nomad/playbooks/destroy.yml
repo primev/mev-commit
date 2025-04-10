@@ -24,6 +24,7 @@
   tasks:
     - name: Stop and Purge Jobs
       ansible.builtin.shell: |
+        export NOMAD_TOKEN={{ lookup('env', 'NOMAD_TOKEN') }}
         for job in $(nomad job status -json | jq -r 'sort_by(.Allocations[0].CreateTime) | reverse | .[].Summary.JobID'); do
           if [ "${job}" != "null" ]; then
             nomad stop -purge "${job}"

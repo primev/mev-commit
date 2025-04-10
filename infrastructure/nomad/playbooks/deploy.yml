@@ -190,6 +190,7 @@
   tasks:
     - name: Determine Cluster Status
       ansible.builtin.shell: |
+        export NOMAD_TOKEN={{ lookup('env', 'NOMAD_TOKEN') }}
         STATUS=$(nomad job status -json)
         if [ "${STATUS}" != "No running jobs" ]; then
           echo "Cluster has running jobs."
@@ -688,6 +689,7 @@
 
     - name: Purge Cluster
       ansible.builtin.shell: |
+        export NOMAD_TOKEN={{ lookup('env', 'NOMAD_TOKEN') }}
         nomad var purge "nomad/jobs"
         nomad system gc
       args:
@@ -695,6 +697,7 @@
 
     - name: Deploy Jobs
       ansible.builtin.shell: |
+        export NOMAD_TOKEN={{ lookup('env', 'NOMAD_TOKEN') }}
         START_TIME="$(date +%s)"
         nomad run {{ ansible_env.HOME }}/{{ env }}/{{ job.name }}.nomad
         END_TIME="$(date +%s)"
