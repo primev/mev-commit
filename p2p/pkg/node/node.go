@@ -184,6 +184,15 @@ func NewNode(opts *Options) (*Node, error) {
 		setDefault(&opts.BeaconAPIURL, defaults.BeaconAPIURL)
 	}
 
+	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
+	nd.closers = append(
+		nd.closers,
+		ioCloserFunc(func() error {
+			notificationsSvc.Shutdown()
+			return nil
+		}),
+	)
+
 	var store storage.Storage
 	if opts.DataDir != "" {
 		store, err = pebblestorage.New(opts.DataDir)
@@ -325,15 +334,6 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 	nd.closers = append(nd.closers, p2pSvc)
-
-	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
-	nd.closers = append(
-		nd.closers,
-		ioCloserFunc(func() error {
-			notificationsSvc.Shutdown()
-			return nil
-		}),
-	)
 
 	topo := topology.New(p2pSvc, notificationsSvc, opts.Logger.With("component", "topology"))
 	disc := discovery.New(topo, p2pSvc, opts.Logger.With("component", "discovery_protocol"))
