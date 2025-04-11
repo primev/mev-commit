@@ -256,3 +256,11 @@ func (c *Client) ChainID(ctx context.Context) (*big.Int, error) {
 	}
 	return rawClient.ChainID(ctx)
 }
+
+func (c *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	rawClient := c.RawClient()
+	if rawClient == nil {
+		return nil, fmt.Errorf("no raw client")
+	}
+	return rawClient.TransactionReceipt(ctx, txHash)
+}
