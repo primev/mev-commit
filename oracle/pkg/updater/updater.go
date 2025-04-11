@@ -84,6 +84,12 @@ type WinnerRegister interface {
 		postingTxnHash []byte,
 		nonce uint64,
 	) error
+	UpdateFailedSettlement(
+		ctx context.Context,
+		commitmentIdx []byte,
+		postingTxnHash []byte,
+		nonce uint64,
+	) error
 }
 
 type Oracle interface {
@@ -394,6 +400,52 @@ func (u *Updater) handleOpenedCommitment(
 		SettlementTypeReward,
 		residualPercentage,
 		winner.Window,
+	)
+}
+
+func (u *Updater) SettleFailedCommitment(
+	ctx context.Context,
+	settlement Settlement,
+) error {
+	u.logger.Info(
+		"settling failed commitment",
+		"commitmentIdx", common.Bytes2Hex(settlement.CommitmentIdx[:]),
+		"blockNumber", settlement.BlockNum,
+	)
+
+	var commitmentIdx [32]byte
+	copy(commitmentIdx[:], settlement.CommitmentIdx[:])
+
+	commitmentPostingTxn, err := u.oracle.ProcessBuilderCommitmentForBlockNumber(
+		commitmentIdx,
+		big.NewInt(0).SetUint64(uint64(settlement.BlockNum)),
+		common.BytesToAddress(settlement.Builder),
+		settlement.Type == SettlementTypeSlash,
+		big.NewInt(0).SetInt64(settlement.DecayPercentage),
+	)
+	if err != nil {
+		u.logger.Error(
+			"failed to process commitment",
+			"commitmentIdx", common.Bytes2Hex(commitmentIdx[:]),
+			"error", err,
+		)
+		return err
+	}
+	u.logger.Info(
+		"settled commitment",
+		"commitmentIdx", common.Bytes2Hex(commitmentIdx[:]),
+		"blockNumber", settlement.BlockNum,
+		"settlementType", settlement.Type,
+		"txnHash", commitmentPostingTxn.Hash().Hex(),
+		"nonce", commitmentPostingTxn.Nonce(),
+		"residualPercentage", settlement.DecayPercentage,
+	)
+
+	return u.winnerRegister.UpdateFailedSettlement(
+		ctx,
+		settlement.CommitmentIdx,
+		commitmentPostingTxn.Hash().Bytes(),
+		commitmentPostingTxn.Nonce(),
 	)
 }
 

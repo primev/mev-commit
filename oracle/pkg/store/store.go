@@ -197,6 +197,87 @@ func (s *Store) AddEncryptedCommitment(
 	return nil
 }
 
+func (s *Store) GetFailedSettlements(
+	ctx context.Context,
+) ([]updater.Settlement, error) {
+	rows, err := s.db.QueryContext(
+		ctx,
+		`
+		SELECT s.commitment_index, s.builder_address, s.block_number, s.type, s.decay_percentage,
+		FROM settlements AS s
+		JOIN sent_transactions AS st ON s.chainhash = st.hash
+		WHERE st.status != 'success';
+		`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var settlements []updater.Settlement
+	for rows.Next() {
+		var (
+			st            updater.Settlement
+			builderBase64 string
+		)
+		if err := rows.Scan(
+			&st.CommitmentIdx,
+			&builderBase64,
+			&st.BlockNum,
+			&st.Type,
+			&st.DecayPercentage,
+		); err != nil {
+			return nil, err
+		}
+
+		// Convert base64 strings to raw bytes
+		builder, err := base64.StdEncoding.DecodeString(builderBase64)
+		if err != nil {
+			return nil, err
+		}
+		st.Builder = builder
+
+		settlements = append(settlements, st)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return settlements, nil
+}
+
+func (s *Store) UpdateFailedSettlement(
+	ctx context.Context,
+	commitmentIdx []byte,
+	commitmentPostingTxn []byte,
+	commitmentPostingNonce uint64,
+) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	commitmentIdxBase64 := base64.StdEncoding.EncodeToString(commitmentIdx)
+	postingTxnHashBase64 := base64.StdEncoding.EncodeToString(commitmentPostingTxn)
+
+	_, err = tx.ExecContext(
+		ctx,
+		"UPDATE settlements SET settled = false, chainhash = $1, nonce = $2 WHERE commitment_index = $3",
+		postingTxnHashBase64,
+		commitmentPostingNonce,
+		commitmentIdxBase64,
+	)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Store) AddSettlement(
 	ctx context.Context,
 	commitmentIdx []byte,
