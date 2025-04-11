@@ -15,6 +15,7 @@ import (
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
 	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
+	"github.com/primev/mev-commit/tools/bidder-bot/monitor"
 	notifier "github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/contracts/ethwrapper"
 	"github.com/primev/mev-commit/x/health"
@@ -88,28 +89,10 @@ func New(config *Config) (*Service, error) {
 	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
 	config.Logger.Debug("created notifications client")
 
-	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
-	if err != nil {
-		return nil, err
-	}
-	config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
-
-	if !status.IsAutodepositEnabled {
-		config.Logger.Info("enabling auto deposit")
-		resp, err := bidderCli.AutoDeposit(
-			context.Background(),
-			&bidderapiv1.DepositRequest{
-				Amount: config.AutoDepositAmount.String(),
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
-		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
-	}
-
 	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
 	proposerChan := make(chan *notifier.UpcomingProposer, 1)
+
+	acceptedBidChan := make(chan *monitor.AcceptedBid, 5)
 
 	notifier := notifier.NewNotifier(
 		config.Logger.With("module", "notifier"),
@@ -131,52 +114,77 @@ func New(config *Config) (*Service, error) {
 		config.GasTipCap,
 		config.GasFeeCap,
 		config.BidAmount,
-		proposerChan, // receive-only
+		proposerChan,    // receive-only
+		acceptedBidChan, // send-only
+	)
+
+	monitorTxLandingTimeout := 15 * time.Minute
+	monitorTxLandingInterval := 30 * time.Second
+
+	monitor := monitor.NewMonitor(
+		config.Logger.With("module", "monitor"),
+		l1RPCClient,
+		acceptedBidChan, // receive-only
+		monitorTxLandingTimeout,
+		monitorTxLandingInterval,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
-	err = s.checkBalances(ctx, config.Signer, l1RPCClient, settlementRPCClient)
+	balanceChecker := NewBalanceChecker(
+		config.Logger.With("module", "balance_checker"),
+		config.Signer,
+		l1RPCClient,
+		settlementRPCClient,
+	)
+
+	err = balanceChecker.CheckBalances(ctx)
 	if err != nil {
 		return nil, err
 	}
 	config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
 
+	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
+	if err != nil {
+		return nil, err
+	}
+	config.Logger.Info("got auto deposit status", "enabled", status.IsAutodepositEnabled)
+
+	if !status.IsAutodepositEnabled {
+		config.Logger.Info("enabling auto deposit")
+		resp, err := bidderCli.AutoDeposit(
+			context.Background(),
+			&bidderapiv1.DepositRequest{
+				Amount: config.AutoDepositAmount.String(),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+		config.Logger.Debug("auto deposit enabled", "amount", resp.AmountPerWindow, "window", resp.StartWindowNumber)
+	}
+
 	healthChecker := health.New()
 
 	notifierDone := notifier.Start(ctx)
 	bidderDone := bidder.Start(ctx)
+	monitorDone := monitor.Start(ctx)
+	balanceCheckerDone := balanceChecker.Start(ctx)
 
 	healthChecker.Register(health.CloseChannelHealthCheck("NotifierService", notifierDone))
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
+	healthChecker.Register(health.CloseChannelHealthCheck("MonitorService", monitorDone))
+	healthChecker.Register(health.CloseChannelHealthCheck("BalanceCheckerService", balanceCheckerDone))
 
 	s.closers = append(s.closers,
 		channelCloser(notifierDone),
 		channelCloser(bidderDone),
+		channelCloser(monitorDone),
+		channelCloser(balanceCheckerDone),
 	)
 
 	return s, nil
-}
-
-func (s *Service) checkBalances(ctx context.Context, signer keysigner.KeySigner, l1RPCClient *ethwrapper.Client, settlementRPCClient *ethwrapper.Client) error {
-	l1Balance, err := l1RPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
-	if err != nil {
-		return err
-	}
-	pointZeroFiveEth := big.NewInt(50000000000000000)
-	if l1Balance.Cmp(pointZeroFiveEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.05 eth on L1")
-	}
-
-	settlementBalance, err := settlementRPCClient.RawClient().BalanceAt(ctx, signer.GetAddress(), nil)
-	if err != nil {
-		return err
-	}
-	if settlementBalance.Cmp(pointZeroFiveEth) < 0 {
-		return fmt.Errorf("keystore account has less than 0.05 eth on mev-commit chain")
-	}
-	return nil
 }
 
 func (s *Service) Close() error {

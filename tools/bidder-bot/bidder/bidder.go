@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
+	"github.com/primev/mev-commit/tools/bidder-bot/monitor"
 	"github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/keysigner"
 )
@@ -26,16 +27,17 @@ type L1Client interface {
 }
 
 type Bidder struct {
-	logger         *slog.Logger
-	bidderClient   bidderapiv1.BidderClient
-	topologyClient debugapiv1.DebugServiceClient
-	l1Client       L1Client
-	beaconClient   *beaconClient
-	signer         keysigner.KeySigner
-	gasTipCap      *big.Int
-	gasFeeCap      *big.Int
-	bidAmount      *big.Int
-	proposerChan   <-chan *notifier.UpcomingProposer
+	logger          *slog.Logger
+	bidderClient    bidderapiv1.BidderClient
+	topologyClient  debugapiv1.DebugServiceClient
+	l1Client        L1Client
+	beaconClient    *beaconClient
+	signer          keysigner.KeySigner
+	gasTipCap       *big.Int
+	gasFeeCap       *big.Int
+	bidAmount       *big.Int
+	proposerChan    <-chan *notifier.UpcomingProposer
+	acceptedBidChan chan<- *monitor.AcceptedBid
 }
 
 func NewBidder(
@@ -49,20 +51,22 @@ func NewBidder(
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
 	proposerChan <-chan *notifier.UpcomingProposer,
+	acceptedBidChan chan<- *monitor.AcceptedBid,
 ) *Bidder {
 	beaconClient := newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client"))
 
 	return &Bidder{
-		logger:         logger,
-		bidderClient:   bidderClient,
-		topologyClient: topologyClient,
-		l1Client:       l1Client,
-		beaconClient:   beaconClient,
-		signer:         signer,
-		gasTipCap:      gasTipCap,
-		gasFeeCap:      gasFeeCap,
-		bidAmount:      bidAmount,
-		proposerChan:   proposerChan,
+		logger:          logger,
+		bidderClient:    bidderClient,
+		topologyClient:  topologyClient,
+		l1Client:        l1Client,
+		beaconClient:    beaconClient,
+		signer:          signer,
+		gasTipCap:       gasTipCap,
+		gasFeeCap:       gasFeeCap,
+		bidAmount:       bidAmount,
+		proposerChan:    proposerChan,
+		acceptedBidChan: acceptedBidChan,
 	}
 }
 
@@ -106,15 +110,25 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 
 	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
 
-	pc, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
+	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
 	}
 
-	err = b.watchPendingBid(bidCtx, pc)
+	err = b.watchPendingBid(bidCtx, bidStream)
 	if err != nil {
-		b.logger.Error("bid failed", "error", err)
+		b.logger.Error("failed to watch pending bid", "error", err)
+		return
+	}
+
+	select {
+	case b.acceptedBidChan <- &monitor.AcceptedBid{
+		TxHash:            tx.Hash(),
+		TargetBlockNumber: targetBlockNum,
+	}:
+	default:
+		b.logger.Warn("failed to signal bid monitor: channel full")
 	}
 }
 
@@ -122,22 +136,22 @@ func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
 	targetBlockNum uint64,
-) (bidderapiv1.Bidder_SendBidClient, error) {
+) (bidStream bidderapiv1.Bidder_SendBidClient, tx *types.Transaction, err error) {
 
-	tx, err := b.selfETHTransfer()
+	tx, err = b.selfETHTransfer()
 	if err != nil {
 		b.logger.Error("failed to create self ETH transfer transaction", "error", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	txBytes, err := tx.MarshalBinary()
 	if err != nil {
 		b.logger.Error("failed to marshal transaction", "error", err)
-		return nil, err
+		return nil, nil, err
 	}
 	txString := hex.EncodeToString(txBytes)
 
-	pc, err := b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
+	bidStream, err = b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 		TxHashes:            []string{},
 		Amount:              bidAmount.String(),
 		BlockNumber:         int64(targetBlockNum),
@@ -149,11 +163,11 @@ func (b *Bidder) bid(
 	})
 	if err != nil {
 		b.logger.Error("failed to send bid", "error", err)
-		return nil, err
+		return nil, nil, err
 	}
 	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
 
-	return pc, nil
+	return bidStream, tx, nil
 }
 
 func (b *Bidder) selfETHTransfer() (*types.Transaction, error) {
