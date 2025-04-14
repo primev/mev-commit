@@ -79,6 +79,24 @@ jobs:
           CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=$([ "${{ github.event.inputs.tracing }}" == "true" ] && echo "--otel-collector-endpoint-url grpc://${TARGET_MACHINE_IP}:4317" || echo "")
           CLUSTER_DEBUG_FLAG=$([ "${{ github.event.inputs.debug }}" == "true" ] && echo "--debug" || echo "")
 
+          case "${{ github.event.inputs.target_machine }}" in
+            lax1)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_LAX1 }}"
+              ;;
+            chi1)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_CHI1 }}"
+              ;;
+            mia2)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_MIA2 }}"
+              ;;
+            mia3)
+              NOMAD_TOKEN="${{ secrets.NOMAD_TOKEN_MIA3 }}"
+              ;;
+            *)
+            echo "Unknown target machine: ${{ github.event.inputs.target_machine }}"
+            ;;
+          esac
+
           echo "RUNNER_START_TIME=${RUNNER_START_TIME}" >> ${GITHUB_ENV}
           echo "IS_MANUAL_DEPLOYMENT=${IS_MANUAL_DEPLOYMENT}" >> ${GITHUB_ENV}
           echo "TARGET_MACHINE_IP=${TARGET_MACHINE_IP}" >> ${GITHUB_ENV}
@@ -89,6 +107,7 @@ jobs:
           echo "CLUSTER_L1_RPC_URL_FLAG=${CLUSTER_L1_RPC_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG=${CLUSTER_OTEL_COLLECTOR_ENDPOINT_URL_FLAG}" >> ${GITHUB_ENV}
           echo "CLUSTER_DEBUG_FLAG=${CLUSTER_DEBUG_FLAG}" >> ${GITHUB_ENV}
+          echo "NOMAD_TOKEN=${NOMAD_TOKEN}" >> ${GITHUB_ENV}
 
       - name: Notify - Deployment Initialized
         if: ${{ env.IS_MANUAL_DEPLOYMENT == 'true' }}
