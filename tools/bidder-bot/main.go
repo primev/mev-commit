@@ -38,6 +38,13 @@ var (
 		Required: true,
 	}
 
+	optionL1WsUrls = &cli.StringSliceFlag{
+		Name:     "l1-ws-urls",
+		Usage:    "URLs for L1 WebSocket",
+		EnvVars:  []string{"L1_WS_URLS"},
+		Required: true,
+	}
+
 	optionBeaconApiUrls = &cli.StringSliceFlag{
 		Name:     "beacon-api-urls",
 		Usage:    "URLs for Beacon API endpoints",
@@ -71,6 +78,13 @@ var (
 		Usage:   "amount to use for each bid",
 		EnvVars: []string{"BID_AMOUNT"},
 		Value:   "5000000000000000", // 0.005 ETH
+	}
+
+	optionUseFullNotifier = &cli.BoolFlag{
+		Name:    "use-full-notifier",
+		Usage:   "whether to use full notifier (false = selective opted-in notifier)",
+		EnvVars: []string{"USE_FULL_NOTIFIER"},
+		Value:   false,
 	}
 
 	optionGasTipCap = &cli.StringFlag{
@@ -139,6 +153,7 @@ func main() {
 			optionKeystorePath,
 			optionKeystorePassword,
 			optionL1RPCUrls,
+			optionL1WsUrls,
 			optionBeaconApiUrls,
 			optionSettlementRPCUrl,
 			optionBidderNodeRPCUrl,
@@ -146,6 +161,7 @@ func main() {
 			optionGasFeeCap,
 			optionAutoDepositAmount,
 			optionBidAmount,
+			optionUseFullNotifier,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -198,7 +214,9 @@ func main() {
 				SettlementRPCUrl:  c.String(optionSettlementRPCUrl.Name),
 				BidderNodeRPC:     c.String(optionBidderNodeRPCUrl.Name),
 				L1RPCUrls:         c.StringSlice(optionL1RPCUrls.Name),
+				L1WsUrls:          c.StringSlice(optionL1WsUrls.Name),
 				BeaconApiUrls:     c.StringSlice(optionBeaconApiUrls.Name),
+				IsFullNotifier:    c.Bool(optionUseFullNotifier.Name),
 				Signer:            signer,
 			}
 
