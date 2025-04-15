@@ -102,7 +102,10 @@ func TestHandleHeader(t *testing.T) {
 				Number: big.NewInt(int64(71)),
 				Time:   uint64(time.Now().Add(test.currentBlockTimeNowOffset).Unix()),
 			}
-			notifier.HandleHeader(context.Background(), header)
+			err := notifier.HandleHeader(context.Background(), header)
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
 
 			select {
 			case <-time.After(test.receiveSignalWithin):

@@ -2,6 +2,7 @@ package notifier
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -86,7 +87,9 @@ func (b *FullNotifier) HandleHeader(ctx context.Context, header *types.Header) e
 	notificationTime := nextBlockTime.Add(-b.notifySecondsAhead)
 
 	if notificationTime.Before(time.Now()) {
-		b.sendTargetBlockNotification(targetBlockNum)
+		if err := b.sendTargetBlockNotification(targetBlockNum); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -110,18 +113,19 @@ func (b *FullNotifier) scheduleNotification(ctx context.Context, targetBlockNum 
 			}
 			return
 		case <-timer.C:
-			b.sendTargetBlockNotification(targetBlockNum)
+			if err := b.sendTargetBlockNotification(targetBlockNum); err != nil {
+				b.logger.Error("error sending target block notification", "error", err)
+			}
 		}
 	}()
 }
 
-func (b *FullNotifier) sendTargetBlockNotification(targetBlockNum uint64) {
+func (b *FullNotifier) sendTargetBlockNotification(targetBlockNum uint64) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if targetBlockNum <= b.lastNotifiedBlockNum {
-		b.logger.Error("skipping notification for duplicate target block number", "target_block_number", targetBlockNum)
-		return
+		return fmt.Errorf("skipping notification for duplicate target block number %d", targetBlockNum)
 	}
 
 	select {
@@ -138,4 +142,5 @@ func (b *FullNotifier) sendTargetBlockNotification(targetBlockNum uint64) {
 	}
 
 	b.lastNotifiedBlockNum = targetBlockNum
+	return nil
 }
