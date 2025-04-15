@@ -135,12 +135,18 @@ func TestDrain(t *testing.T) {
 		10*time.Second,
 		targetBlockNumChan,
 	)
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(5)})
+	err := notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(5)})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	targetBlockNum := <-targetBlockNumChan
 	if targetBlockNum != 6 {
 		t.Fatalf("expected target block number %d, got %d", 6, targetBlockNum)
 	}
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(15)})
+	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(15)})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	targetBlockNum = <-targetBlockNumChan
 	if targetBlockNum != 16 {
 		t.Fatalf("expected target block number %d, got %d", 16, targetBlockNum)
@@ -148,10 +154,19 @@ func TestDrain(t *testing.T) {
 
 	pastTime := time.Now().Add(-100 * time.Second) // To ensure sendTargetBlockNotification is called immediately
 
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(25), Time: uint64(pastTime.Unix())})
+	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(25), Time: uint64(pastTime.Unix())})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	// draining starts here
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(35), Time: uint64(pastTime.Unix())})
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(45), Time: uint64(pastTime.Unix())})
+	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(35), Time: uint64(pastTime.Unix())})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(45), Time: uint64(pastTime.Unix())})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
 	targetBlockNum = <-targetBlockNumChan
 	if targetBlockNum != 46 {
 		t.Fatalf("expected target block number %d, got %d", 46, targetBlockNum)
