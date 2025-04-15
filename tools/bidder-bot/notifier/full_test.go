@@ -135,7 +135,7 @@ func TestDrain(t *testing.T) {
 	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(5)})
 	targetBlockNum := <-targetBlockNumChan
 	if targetBlockNum != 6 {
-		t.Fatalf("expected target block number %d, got %d", 5, targetBlockNum)
+		t.Fatalf("expected target block number %d, got %d", 6, targetBlockNum)
 	}
 	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(15)})
 	targetBlockNum = <-targetBlockNumChan
@@ -143,9 +143,12 @@ func TestDrain(t *testing.T) {
 		t.Fatalf("expected target block number %d, got %d", 16, targetBlockNum)
 	}
 
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(25)})
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(35)}) // draining starts here
-	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(45)})
+	pastTime := time.Now().Add(-100 * time.Second) // To ensure sendTargetBlockNotification is called immediately
+
+	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(25), Time: uint64(pastTime.Unix())})
+	// draining starts here
+	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(35), Time: uint64(pastTime.Unix())})
+	notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(45), Time: uint64(pastTime.Unix())})
 	targetBlockNum = <-targetBlockNumChan
 	if targetBlockNum != 46 {
 		t.Fatalf("expected target block number %d, got %d", 46, targetBlockNum)
