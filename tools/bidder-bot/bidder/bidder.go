@@ -14,7 +14,6 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	"github.com/primev/mev-commit/tools/bidder-bot/monitor"
-	"github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
@@ -27,17 +26,16 @@ type L1Client interface {
 }
 
 type Bidder struct {
-	logger          *slog.Logger
-	bidderClient    bidderapiv1.BidderClient
-	topologyClient  debugapiv1.DebugServiceClient
-	l1Client        L1Client
-	beaconClient    *beaconClient
-	signer          keysigner.KeySigner
-	gasTipCap       *big.Int
-	gasFeeCap       *big.Int
-	bidAmount       *big.Int
-	proposerChan    <-chan *notifier.UpcomingProposer
-	acceptedBidChan chan<- *monitor.AcceptedBid
+	logger             *slog.Logger
+	bidderClient       bidderapiv1.BidderClient
+	topologyClient     debugapiv1.DebugServiceClient
+	l1Client           L1Client
+	signer             keysigner.KeySigner
+	gasTipCap          *big.Int
+	gasFeeCap          *big.Int
+	bidAmount          *big.Int
+	targetBlockNumChan <-chan uint64
+	acceptedBidChan    chan<- *monitor.AcceptedBid
 }
 
 func NewBidder(
@@ -45,28 +43,24 @@ func NewBidder(
 	bidderClient bidderapiv1.BidderClient,
 	topologyClient debugapiv1.DebugServiceClient,
 	l1Client L1Client,
-	beaconRPCUrl string,
 	signer keysigner.KeySigner,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
-	proposerChan <-chan *notifier.UpcomingProposer,
+	targetBlockNumChan <-chan uint64,
 	acceptedBidChan chan<- *monitor.AcceptedBid,
 ) *Bidder {
-	beaconClient := newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client"))
-
 	return &Bidder{
-		logger:          logger,
-		bidderClient:    bidderClient,
-		topologyClient:  topologyClient,
-		l1Client:        l1Client,
-		beaconClient:    beaconClient,
-		signer:          signer,
-		gasTipCap:       gasTipCap,
-		gasFeeCap:       gasFeeCap,
-		bidAmount:       bidAmount,
-		proposerChan:    proposerChan,
-		acceptedBidChan: acceptedBidChan,
+		logger:             logger,
+		bidderClient:       bidderClient,
+		topologyClient:     topologyClient,
+		l1Client:           l1Client,
+		signer:             signer,
+		gasTipCap:          gasTipCap,
+		gasFeeCap:          gasFeeCap,
+		bidAmount:          bidAmount,
+		targetBlockNumChan: targetBlockNumChan,
+		acceptedBidChan:    acceptedBidChan,
 	}
 }
 
@@ -80,35 +74,20 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 			case <-ctx.Done():
 				b.logger.Info("bidder context done")
 				return
-			case upcomingProposer := <-b.proposerChan:
-				b.logger.Debug("received upcoming proposer", "proposer", upcomingProposer)
-				b.handle(ctx, upcomingProposer)
+			case targetBlockNum := <-b.targetBlockNumChan:
+				b.logger.Debug("received target block number", "target_block_number", targetBlockNum)
+				b.handle(ctx, targetBlockNum)
 			}
 		}
 	}()
 	return done
 }
 
-func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.UpcomingProposer) {
+func (b *Bidder) handle(ctx context.Context, targetBlockNum uint64) {
 	bidCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()
 
-	// Upcoming proposer slot hasn't started yet, so query block number for upcoming proposer slot - 2
-	upcomingSlotMinusTwo := upcomingProposer.Slot - 2
-	upcomingSlotMinusTwoBlockNum, err := b.beaconClient.getBlockNumForSlot(bidCtx, upcomingSlotMinusTwo)
-	if err != nil {
-		b.logger.Error("failed to get block number for upcoming proposer slot - 2", "error", err)
-		return
-	}
-
-	// Assume the two slots before upcoming proposer slot are NOT missed
-	targetBlockNum := upcomingSlotMinusTwoBlockNum + 2
-
-	if b.logger.Enabled(bidCtx, slog.LevelDebug) {
-		b.logDebugInfo(bidCtx)
-	}
-
-	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
+	b.logger.Info("preparing to bid", "targetBlockNumber", targetBlockNum)
 
 	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
 	if err != nil {
@@ -255,24 +234,4 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 		}
 	}
 	return errors.New("bid timeout, not all commitments received")
-}
-
-func (b *Bidder) logDebugInfo(ctx context.Context) {
-	go func() {
-		latestSlot, err := b.beaconClient.getLatestSlot(ctx)
-		if err != nil {
-			b.logger.Error("failed to get current beacon slot", "error", err)
-		} else {
-			b.logger.Debug("current beacon slot", "slot", latestSlot)
-		}
-	}()
-
-	go func() {
-		elLatestBlockNum, err := b.l1Client.BlockNumber(ctx)
-		if err != nil {
-			b.logger.Error("failed to get current block number", "error", err)
-		} else {
-			b.logger.Debug("current execution layer block number", "block_number", elLatestBlockNum)
-		}
-	}()
 }

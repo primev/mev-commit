@@ -22,19 +22,22 @@ var (
 type Notifier struct {
 	logger               *slog.Logger
 	notificationsClient  notificationsapiv1.NotificationsClient
-	proposerChan         chan *UpcomingProposer
+	beaconClient         *beaconClient
+	targetBlockNumChan   chan uint64
 	lastUpcomingProposer atomic.Pointer[UpcomingProposer]
 }
 
 func NewNotifier(
 	logger *slog.Logger,
 	notificationsClient notificationsapiv1.NotificationsClient,
-	proposerChan chan *UpcomingProposer,
+	beaconRPCUrl string,
+	targetBlockNumChan chan uint64,
 ) *Notifier {
 	return &Notifier{
 		logger:              logger,
 		notificationsClient: notificationsClient,
-		proposerChan:        proposerChan,
+		beaconClient:        newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client")),
+		targetBlockNumChan:  targetBlockNumChan,
 	}
 }
 
@@ -64,7 +67,7 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 				goto RESTART
 			}
 			b.logger.Info("received message", "topic", msg.Topic)
-			if err := b.handleMsg(msg); err != nil {
+			if err := b.handleMsg(ctx, msg); err != nil {
 				b.logger.Error("failed to handle message", "error", err)
 				goto RESTART
 			}
@@ -73,7 +76,7 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
+func (b *Notifier) handleMsg(ctx context.Context, msg *notificationsapiv1.Notification) error {
 	upcomingProposer, err := parseUpcomingProposer(msg)
 	if err != nil {
 		b.logger.Error("failed to parse upcoming proposer", "error", err)
@@ -84,17 +87,31 @@ func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 		b.logger.Warn("received duplicate or outdated proposer notification. Msg will be dropped", "slot", upcomingProposer.Slot)
 		return nil
 	}
+
+	// Upcoming proposer slot hasn't started yet, so query block number for upcoming proposer slot - 2
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	upcomingSlotMinusTwo := upcomingProposer.Slot - 2
+	upcomingSlotMinusTwoBlockNum, err := b.beaconClient.getBlockNumForSlot(timeoutCtx, upcomingSlotMinusTwo)
+	if err != nil {
+		b.logger.Error("failed to get block number for upcoming proposer slot - 2", "error", err)
+		return err
+	}
+
+	// Assume the two slots before upcoming proposer slot are NOT missed
+	targetBlockNum := upcomingSlotMinusTwoBlockNum + 2
+
 	select {
-	case b.proposerChan <- upcomingProposer:
-		b.logger.Debug("sent upcoming proposer", "proposer", upcomingProposer)
+	case b.targetBlockNumChan <- targetBlockNum:
+		b.logger.Debug("sent target block number", "target_block_number", targetBlockNum)
 	default:
 		select {
-		case drainedProposer := <-b.proposerChan:
-			b.logger.Warn("drained buffered upcoming proposer", "drained_proposer", drainedProposer)
+		case drainedTargetBlockNum := <-b.targetBlockNumChan:
+			b.logger.Warn("drained buffered target block number", "drained_target_block_number", drainedTargetBlockNum)
 		default:
 		}
-		b.proposerChan <- upcomingProposer
-		b.logger.Warn("sent upcoming proposer after draining buffer", "proposer", upcomingProposer)
+		b.targetBlockNumChan <- targetBlockNum
+		b.logger.Warn("sent target block number after draining buffer", "target_block_number", targetBlockNum)
 	}
 	b.logger.Debug("updated lastUpcomingProposer", "proposer", upcomingProposer)
 	b.lastUpcomingProposer.Store(upcomingProposer)

@@ -1,4 +1,4 @@
-package bidder
+package notifier
 
 import (
 	"context"
@@ -26,16 +26,6 @@ func newBeaconClient(apiURL string, logger *slog.Logger) *beaconClient {
 	}
 }
 
-type beaconHeaderResponse struct {
-	Data struct {
-		Header struct {
-			Message struct {
-				Slot string `json:"slot"`
-			} `json:"message"`
-		} `json:"header"`
-	} `json:"data"`
-}
-
 type beaconBlockResponse struct {
 	Data struct {
 		Message struct {
@@ -46,44 +36,6 @@ type beaconBlockResponse struct {
 			} `json:"body"`
 		} `json:"message"`
 	} `json:"data"`
-}
-
-func (bc *beaconClient) getLatestSlot(ctx context.Context) (uint64, error) {
-	url := fmt.Sprintf("%s/eth/v1/beacon/headers/head", bc.apiURL)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		bc.logger.Error("creating request for current slot", "error", err)
-		return 0, fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Add("Accept", "application/json")
-
-	resp, err := bc.client.Do(req)
-	if err != nil {
-		bc.logger.Error("failed to execute request for current slot", "error", err)
-		return 0, fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bc.logger.Error("unexpected status code for current slot", "status", resp.StatusCode)
-		return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	var headerResp beaconHeaderResponse
-	if err := json.NewDecoder(resp.Body).Decode(&headerResp); err != nil {
-		bc.logger.Error("failed to decode response for current slot", "error", err)
-		return 0, fmt.Errorf("decoding response: %w", err)
-	}
-
-	slot, err := strconv.ParseUint(headerResp.Data.Header.Message.Slot, 10, 64)
-	if err != nil {
-		bc.logger.Error("failed to parse slot", "error", err)
-		return 0, fmt.Errorf("parsing slot: %w", err)
-	}
-
-	bc.logger.Debug("retrieved current beacon slot", "slot", slot)
-	return slot, nil
 }
 
 func (bc *beaconClient) getBlockNumForSlot(ctx context.Context, slot uint64) (uint64, error) {

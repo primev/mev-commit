@@ -90,32 +90,32 @@ func New(config *Config) (*Service, error) {
 	config.Logger.Debug("created notifications client")
 
 	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
-	proposerChan := make(chan *notifier.UpcomingProposer, 1)
+	targetBlockNumChan := make(chan uint64, 1)
 
 	acceptedBidChan := make(chan *monitor.AcceptedBid, 5)
-
-	notifier := notifier.NewNotifier(
-		config.Logger.With("module", "notifier"),
-		notificationsCli,
-		proposerChan, // send-and-receive for draining capability
-	)
 
 	if len(config.BeaconApiUrls) == 0 {
 		return nil, fmt.Errorf("no beacon API URLs provided")
 	}
+
+	notifier := notifier.NewNotifier(
+		config.Logger.With("module", "notifier"),
+		notificationsCli,
+		config.BeaconApiUrls[0],
+		targetBlockNumChan, // send-and-receive for draining capability
+	)
 
 	bidder := bidder.NewBidder(
 		config.Logger.With("module", "bidder"),
 		bidderCli,
 		topologyCli,
 		l1RPCClient,
-		config.BeaconApiUrls[0],
 		config.Signer,
 		config.GasTipCap,
 		config.GasFeeCap,
 		config.BidAmount,
-		proposerChan,    // receive-only
-		acceptedBidChan, // send-only
+		targetBlockNumChan, // receive-only
+		acceptedBidChan,    // send-only
 	)
 
 	monitorTxLandingTimeout := 15 * time.Minute
