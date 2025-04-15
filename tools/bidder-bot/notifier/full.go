@@ -120,6 +120,7 @@ func (b *FullNotifier) sendTargetBlockNotification(targetBlockNum uint64) {
 	defer b.mu.Unlock()
 
 	if targetBlockNum <= b.lastNotifiedBlockNum {
+		b.logger.Error("skipping notification for duplicate target block number", "target_block_number", targetBlockNum)
 		return
 	}
 
