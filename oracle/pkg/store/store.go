@@ -203,7 +203,7 @@ func (s *Store) GetFailedSettlements(
 	rows, err := s.db.QueryContext(
 		ctx,
 		`
-		SELECT s.commitment_index, s.builder_address, s.block_number, s.type, s.decay_percentage,
+		SELECT s.commitment_index, s.builder_address, s.block_number, s.type, s.decay_percentage
 		FROM settlements AS s
 		JOIN sent_transactions AS st ON s.chainhash = st.hash
 		WHERE st.status != 'success';
