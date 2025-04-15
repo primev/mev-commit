@@ -98,8 +98,8 @@ func New(config *Config) (*Service, error) {
 		return nil, fmt.Errorf("no beacon API URLs provided")
 	}
 
-	notifier := notifier.NewNotifier(
-		config.Logger.With("module", "notifier"),
+	notifier := notifier.NewSelectiveNotifier(
+		config.Logger.With("module", "selective_notifier"),
 		notificationsCli,
 		config.BeaconApiUrls[0],
 		targetBlockNumChan, // send-and-receive for draining capability

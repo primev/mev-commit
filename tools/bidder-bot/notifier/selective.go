@@ -19,7 +19,7 @@ var (
 	ErrUnexpectedTopic = errors.New("unexpected msg topic")
 )
 
-type Notifier struct {
+type SelectiveNotifier struct {
 	logger               *slog.Logger
 	notificationsClient  notificationsapiv1.NotificationsClient
 	beaconClient         *beaconClient
@@ -27,13 +27,13 @@ type Notifier struct {
 	lastUpcomingProposer atomic.Pointer[UpcomingProposer]
 }
 
-func NewNotifier(
+func NewSelectiveNotifier(
 	logger *slog.Logger,
 	notificationsClient notificationsapiv1.NotificationsClient,
 	beaconRPCUrl string,
 	targetBlockNumChan chan uint64,
-) *Notifier {
-	return &Notifier{
+) *SelectiveNotifier {
+	return &SelectiveNotifier{
 		logger:              logger,
 		notificationsClient: notificationsClient,
 		beaconClient:        newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client")),
@@ -41,7 +41,7 @@ func NewNotifier(
 	}
 }
 
-func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
+func (b *SelectiveNotifier) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -76,7 +76,7 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (b *Notifier) handleMsg(ctx context.Context, msg *notificationsapiv1.Notification) error {
+func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapiv1.Notification) error {
 	upcomingProposer, err := parseUpcomingProposer(msg)
 	if err != nil {
 		b.logger.Error("failed to parse upcoming proposer", "error", err)
