@@ -87,6 +87,13 @@ var (
 		Value:   false,
 	}
 
+	optionCheckBalances = &cli.BoolFlag{
+		Name:    "check-balances",
+		Usage:   "whether to periodically check account balances",
+		EnvVars: []string{"CHECK_BALANCES"},
+		Value:   true,
+	}
+
 	optionGasTipCap = &cli.StringFlag{
 		Name:    "gas-tip-cap",
 		Usage:   "gas tip cap",
@@ -162,6 +169,7 @@ func main() {
 			optionAutoDepositAmount,
 			optionBidAmount,
 			optionUseFullNotifier,
+			optionCheckBalances,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -218,6 +226,7 @@ func main() {
 				BeaconApiUrls:     c.StringSlice(optionBeaconApiUrls.Name),
 				IsFullNotifier:    c.Bool(optionUseFullNotifier.Name),
 				Signer:            signer,
+				CheckBalances:     c.Bool(optionCheckBalances.Name),
 			}
 
 			logger.Debug("service config", "config", config)

@@ -39,6 +39,7 @@ type Config struct {
 	GasFeeCap         *big.Int
 	BidAmount         *big.Int
 	IsFullNotifier    bool
+	CheckBalances     bool
 }
 
 type Service struct {
@@ -167,11 +168,15 @@ func New(config *Config) (*Service, error) {
 		settlementRPCClient,
 	)
 
-	err = balanceChecker.CheckBalances(ctx)
-	if err != nil {
-		return nil, err
+	if config.CheckBalances {
+		err = balanceChecker.CheckBalances(ctx)
+		if err != nil {
+			return nil, err
+		}
+		config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
+	} else {
+		config.Logger.Info("balance checking disabled")
 	}
-	config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
 
 	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
 	if err != nil {
@@ -198,19 +203,22 @@ func New(config *Config) (*Service, error) {
 	notifierDone := notif.Start(ctx)
 	bidderDone := bidder.Start(ctx)
 	monitorDone := monitor.Start(ctx)
-	balanceCheckerDone := balanceChecker.Start(ctx)
 
 	healthChecker.Register(health.CloseChannelHealthCheck("NotifierService", notifierDone))
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
 	healthChecker.Register(health.CloseChannelHealthCheck("MonitorService", monitorDone))
-	healthChecker.Register(health.CloseChannelHealthCheck("BalanceCheckerService", balanceCheckerDone))
 
 	s.closers = append(s.closers,
 		channelCloser(notifierDone),
 		channelCloser(bidderDone),
 		channelCloser(monitorDone),
-		channelCloser(balanceCheckerDone),
 	)
+
+	if config.CheckBalances {
+		balanceCheckerDone := balanceChecker.Start(ctx)
+		healthChecker.Register(health.CloseChannelHealthCheck("BalanceCheckerService", balanceCheckerDone))
+		s.closers = append(s.closers, channelCloser(balanceCheckerDone))
+	}
 
 	return s, nil
 }
