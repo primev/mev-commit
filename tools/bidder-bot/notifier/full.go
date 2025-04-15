@@ -25,15 +25,15 @@ type FullNotifier struct {
 
 func NewFullNotifier(
 	logger *slog.Logger,
-	targetBlockNumChan chan uint64,
 	l1Client L1Client,
 	notifySecondsAhead time.Duration,
+	targetBlockNumChan chan uint64,
 ) *FullNotifier {
 	return &FullNotifier{
 		logger:             logger,
-		targetBlockNumChan: targetBlockNumChan,
 		l1Client:           l1Client,
 		notifySecondsAhead: notifySecondsAhead,
+		targetBlockNumChan: targetBlockNumChan,
 	}
 }
 
@@ -70,7 +70,7 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 				}
 
 			case header := <-headers:
-				if err := b.handleHeader(ctx, header); err != nil {
+				if err := b.HandleHeader(ctx, header); err != nil {
 					b.logger.Error("error handling header", "error", err)
 				}
 			}
@@ -79,31 +79,28 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (b *FullNotifier) handleHeader(ctx context.Context, header *types.Header) error {
-	currentBlockNum := header.Number.Uint64()
-	nextBlockNum := currentBlockNum + 1
-
-	now := time.Now()
-	nextBlockTime := now.Add(BlockDuration)
+func (b *FullNotifier) HandleHeader(ctx context.Context, header *types.Header) error {
+	targetBlockNum := header.Number.Uint64() + 1
+	currentBlockTime := time.Unix(int64(header.Time), 0)
+	nextBlockTime := currentBlockTime.Add(BlockDuration)
 	notificationTime := nextBlockTime.Add(-b.notifySecondsAhead)
 
-	if notificationTime.Before(now) {
-		b.sendTargetBlockNotification(nextBlockNum)
+	if notificationTime.Before(time.Now()) {
+		b.sendTargetBlockNotification(targetBlockNum)
 		return nil
 	}
 
-	delay := notificationTime.Sub(now)
-
 	b.logger.Debug("scheduling notification",
-		"target_block_number", nextBlockNum,
-		"delay_seconds", delay.Seconds(),
+		"target_block_number", targetBlockNum,
+		"notification_time", notificationTime,
 		"expected_block_time", nextBlockTime)
 
-	b.scheduleNotification(ctx, nextBlockNum, delay)
+	b.scheduleNotification(ctx, targetBlockNum, notificationTime)
 	return nil
 }
 
-func (b *FullNotifier) scheduleNotification(ctx context.Context, blockNum uint64, delay time.Duration) {
+func (b *FullNotifier) scheduleNotification(ctx context.Context, targetBlockNum uint64, notificationTime time.Time) {
+	delay := time.Until(notificationTime)
 	go func() {
 		timer := time.NewTimer(delay)
 		select {
@@ -113,7 +110,7 @@ func (b *FullNotifier) scheduleNotification(ctx context.Context, blockNum uint64
 			}
 			return
 		case <-timer.C:
-			b.sendTargetBlockNotification(blockNum)
+			b.sendTargetBlockNotification(targetBlockNum)
 		}
 	}()
 }
