@@ -251,8 +251,14 @@ func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *v
 
 	delay := time.Until(notificationTime)
 	if delay <= 0 {
-		s.logger.Warn("notification time already passed for slot", "epoch", epoch, "slot", slot)
-		return
+		// even if the notification time is in the past, we still want to send the notification
+		// but we log a warning
+		s.logger.Warn("notification time already passed for slot",
+			"epoch", epoch, "slot", slot,
+			"notification_time", notificationTime,
+			"current_time", time.Now(),
+			"delay", delay,
+		)
 	}
 
 	time.AfterFunc(delay, func() {
