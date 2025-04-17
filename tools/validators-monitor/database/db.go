@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
+	"github.com/lib/pq"
 )
 
 // RelayRecord represents a record in the relay_data table
@@ -125,10 +125,13 @@ func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error
 	// Convert big.Int to string for database storage
 	mevRewardStr := data.MEVReward.String()
 
+	// Convert the string array to a pq.StringArray for proper PostgreSQL compatibility
+	relaysArray := pq.StringArray(data.RelaysWithData)
+
 	row := p.db.QueryRowContext(
 		ctx, query,
 		data.Slot, data.BlockNumber, data.ValidatorIndex, data.ValidatorPubkey, mevRewardStr,
-		data.RelaysWithData, data.Winner, data.TotalCommitments, data.TotalRewards,
+		relaysArray, data.Winner, data.TotalCommitments, data.TotalRewards,
 		data.TotalSlashes, data.TotalAmount,
 	)
 
