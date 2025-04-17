@@ -233,5 +233,9 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 			)
 		}
 	}
-	return errors.New("bid timeout, not all commitments received")
+	if len(commitments) > 0 {
+		return nil
+	} else {
+		return errors.New("bid timeout, no commitments received")
+	}
 }
