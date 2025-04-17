@@ -88,8 +88,8 @@ var defaultL1URLs = map[string]L1URLs{
 		BeaconAPIURL: "https://ethereum-beacon-api.publicnode.com",
 	},
 	contracts.TestnetChainID.String(): L1URLs{
-		L1RPCURL:     "https://ethereum-holesky-beacon-api.publicnode.com",
-		BeaconAPIURL: "https://ethereum-holesky-rpc.publicnode.com",
+		L1RPCURL:     "https://ethereum-holesky-rpc.publicnode.com",
+		BeaconAPIURL: "https://ethereum-holesky-beacon-api.publicnode.com",
 	},
 }
 
@@ -183,6 +183,15 @@ func NewNode(opts *Options) (*Node, error) {
 		setDefault(&opts.L1RPCURL, defaults.L1RPCURL)
 		setDefault(&opts.BeaconAPIURL, defaults.BeaconAPIURL)
 	}
+
+	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
+	nd.closers = append(
+		nd.closers,
+		ioCloserFunc(func() error {
+			notificationsSvc.Shutdown()
+			return nil
+		}),
+	)
 
 	var store storage.Storage
 	if opts.DataDir != "" {
@@ -325,15 +334,6 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, err
 	}
 	nd.closers = append(nd.closers, p2pSvc)
-
-	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
-	nd.closers = append(
-		nd.closers,
-		ioCloserFunc(func() error {
-			notificationsSvc.Shutdown()
-			return nil
-		}),
-	)
 
 	topo := topology.New(p2pSvc, notificationsSvc, opts.Logger.With("component", "topology"))
 	disc := discovery.New(topo, p2pSvc, opts.Logger.With("component", "discovery_protocol"))
