@@ -7,7 +7,7 @@ RUN apk add --no-cache git gcc musl-dev
 WORKDIR /app
 
 # Copy go module files from the tools directory first for better layer caching
-COPY tools/go.mod tools/go.sum ./tools/
+COPY go.mod go.sum ./tools/
 WORKDIR /app/tools
 RUN go mod download
 
