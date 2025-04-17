@@ -10,6 +10,9 @@ type Config struct {
 	SlackWebhookURL        string   `json:"slack_webhook_url"`
 	DashboardApiUrl        string   `json:"dashboard_api_url"`
 	DB                     DBConfig `json:"db"`
+
+	LookbackMonths    int `json:"lookback_months"`
+	MaxEpochsPerBatch int `json:"max_epochs_per_batch"`
 }
 
 type DBConfig struct {

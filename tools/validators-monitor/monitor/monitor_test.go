@@ -120,6 +120,17 @@ func (f *fakeCalc) EpochStartTime(epoch uint64) time.Time { return time.Now() }
 func (f *fakeCalc) TargetEpoch() uint64                   { return f.curEpoch }
 func (f *fakeCalc) EpochsToFetch() []uint64               { return f.toFetch }
 func (f *fakeCalc) SlotToEpoch(slot uint64) uint64        { return 0 }
+func (f *fakeCalc) GetEpochForMonthsAgo(months int) uint64 {
+	return 0
+}
+func (f *fakeCalc) TimeToEpoch(t time.Time) uint64 { return 0 }
+
+func (f *fakeCalc) SetLookbackMonths(months int) {
+	// No-op for the fake calculator
+}
+func (f *fakeCalc) SetMaxEpochsToFetch(max int) {
+	// No-op for the fake calculator
+}
 
 func makeTestMonitor() *DutyMonitor {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))

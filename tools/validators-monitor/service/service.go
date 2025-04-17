@@ -36,6 +36,8 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 		RelayURLs:              cfg.RelayURLs,
 		DashboardApiUrl:        cfg.DashboardApiUrl,
 		DB:                     cfg.DB,
+		LookbackMonths:         cfg.LookbackMonths,
+		MaxEpochsPerBatch:      cfg.MaxEpochsPerBatch,
 	}
 
 	s.logger.Debug("creating duty monitor", "config", monitorConfig)

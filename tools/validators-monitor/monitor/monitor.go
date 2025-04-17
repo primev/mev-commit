@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -21,6 +22,7 @@ const (
 	dutiesCacheTTL        = 6 * time.Hour // proposer‑duties stay hot this long
 	processedBlockTTL     = 2 * time.Hour // keep “already‑seen” blocks this long
 	processedBlocksTarget = 500           // hard cap after TTL pruning
+	maxConcurrentFetches  = 5             // max concurrent fetches for relay data
 )
 
 type cachedDuties struct {
@@ -74,6 +76,16 @@ type EpochCalculator interface {
 	TargetEpoch() uint64
 	EpochsToFetch() []uint64
 	SlotToEpoch(slot uint64) uint64
+	SetLookbackMonths(months int)
+	SetMaxEpochsToFetch(max int)
+}
+
+type HistoricalState struct {
+	processedEpochs  map[uint64]bool // Tracks which epochs we've fully processed
+	nextEpochToFetch uint64          // Next epoch to fetch in historical range
+	earliestEpoch    uint64          // Earliest epoch to consider (X months ago)
+	latestEpoch      uint64          // Latest epoch to consider (usually current - offset)
+	mutex            sync.Mutex      // Protects the state
 }
 
 // DutyMonitor coordinates validator monitoring operations.
@@ -92,6 +104,11 @@ type DutyMonitor struct {
 	runningEpoch    uint64
 	dutiesCache     map[uint64]cachedDuties // epoch → duties (+TS)
 	processedBlocks map[uint64]time.Time    // blockNumber → first‑seen
+
+	// New fields for historical data processing
+	historicalState HistoricalState
+	historicalMode  bool           // Whether we're in historical data collection mode
+	processingWg    sync.WaitGroup // For tracking ongoing processing
 }
 
 func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
@@ -118,6 +135,13 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 		32, // slots/epoch
 		3,  // epochs to look back
 	)
+
+	if cfg.LookbackMonths > 0 {
+		calculator.SetLookbackMonths(cfg.LookbackMonths)
+	}
+
+	// Set the maximum epochs to fetch in one batch
+	calculator.SetMaxEpochsToFetch(cfg.MaxEpochsPerBatch)
 
 	var db Database
 	if cfg.DB.Enabled {
@@ -151,14 +175,28 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 		dutiesCache:     make(map[uint64]cachedDuties),
 		processedBlocks: make(map[uint64]time.Time),
 		db:              db,
+		historicalMode:  cfg.LookbackMonths > 0,
+		historicalState: HistoricalState{
+			processedEpochs: make(map[uint64]bool),
+			mutex:           sync.Mutex{},
+		},
 	}, nil
 }
 
 func (m *DutyMonitor) Start(ctx context.Context) {
 	m.runningEpoch = m.calculator.CurrentEpoch()
+	if m.historicalMode {
+		m.initializeHistoricalState()
+		m.logger.Info("historical mode enabled",
+			"lookback_months", m.config.LookbackMonths,
+			"earliest_epoch", m.historicalState.earliestEpoch,
+			"latest_epoch", m.historicalState.latestEpoch)
+	}
+
 	m.logger.Info("duty-monitor started",
 		"epoch", m.runningEpoch,
-		"interval_sec", m.config.FetchIntervalSec)
+		"interval_sec", m.config.FetchIntervalSec,
+		"historical_mode", m.historicalMode)
 
 	m.fetchAndProcessDuties(ctx) // initial fetch
 
@@ -169,6 +207,7 @@ func (m *DutyMonitor) Start(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			m.logger.Info("duty-monitor stopping", "reason", ctx.Err())
+			m.processingWg.Wait()
 			return
 		case <-ticker.C:
 			m.checkEpochTransition()
@@ -177,15 +216,50 @@ func (m *DutyMonitor) Start(ctx context.Context) {
 	}
 }
 
+func (m *DutyMonitor) initializeHistoricalState() {
+	calculator, ok := m.calculator.(interface {
+		GetEpochForMonthsAgo(months int) uint64
+	})
+
+	if !ok {
+		m.logger.Error("calculator doesn't support historical lookback")
+		return
+	}
+
+	m.historicalState.mutex.Lock()
+	defer m.historicalState.mutex.Unlock()
+
+	// Calculate earliest epoch (X months ago)
+	m.historicalState.earliestEpoch = calculator.GetEpochForMonthsAgo(m.config.LookbackMonths)
+
+	// Set latest epoch to current minus offset
+	m.historicalState.latestEpoch = m.calculator.TargetEpoch()
+
+	// Start from the earliest epoch
+	m.historicalState.nextEpochToFetch = m.historicalState.earliestEpoch
+}
+
 func (m *DutyMonitor) checkEpochTransition() {
 	if newEpoch := m.calculator.CurrentEpoch(); newEpoch > m.runningEpoch {
 		m.logger.Info("epoch transition detected", "old", m.runningEpoch, "new", newEpoch)
 		m.runningEpoch = newEpoch
+
+		if m.historicalMode {
+			m.historicalState.mutex.Lock()
+			m.historicalState.latestEpoch = m.calculator.TargetEpoch()
+			m.historicalState.mutex.Unlock()
+		}
+
 		m.cleanupCaches()
 	}
 }
 
 func (m *DutyMonitor) fetchAndProcessDuties(ctx context.Context) {
+	if m.historicalMode {
+		m.fetchHistoricalEpochs(ctx)
+		return
+	}
+
 	for _, e := range m.calculator.EpochsToFetch() {
 		if entry, ok := m.dutiesCache[e]; ok && time.Since(entry.cachedAt) < dutiesCacheTTL {
 			m.logger.Debug("duties cache-hit", "epoch", e)
@@ -201,6 +275,82 @@ func (m *DutyMonitor) fetchAndProcessDuties(ctx context.Context) {
 		m.dutiesCache[e] = cachedDuties{duties: duties, cachedAt: time.Now()}
 		m.processDuties(ctx, e, duties)
 	}
+}
+
+// fetchHistoricalEpochs fetches and processes epochs from the historical range
+func (m *DutyMonitor) fetchHistoricalEpochs(ctx context.Context) {
+	m.historicalState.mutex.Lock()
+
+	// If we've processed all epochs in our range, we're done
+	if m.historicalState.nextEpochToFetch > m.historicalState.latestEpoch {
+		m.logger.Info("historical data collection complete",
+			"earliest_epoch", m.historicalState.earliestEpoch,
+			"latest_epoch", m.historicalState.latestEpoch)
+		m.historicalState.mutex.Unlock()
+		return
+	}
+
+	// Get the next batch of epochs to fetch
+	epochs := make([]uint64, 0, maxConcurrentFetches)
+	for i := 0; i < maxConcurrentFetches &&
+		m.historicalState.nextEpochToFetch+uint64(i) <= m.historicalState.latestEpoch; i++ {
+
+		epoch := m.historicalState.nextEpochToFetch + uint64(i)
+		// Skip already processed epochs
+		if !m.historicalState.processedEpochs[epoch] {
+			epochs = append(epochs, epoch)
+		}
+	}
+
+	// Update next epoch to fetch
+	if len(epochs) > 0 {
+		m.historicalState.nextEpochToFetch += uint64(len(epochs))
+	} else {
+		// If no epochs were selected, move to the next batch
+		m.historicalState.nextEpochToFetch += uint64(maxConcurrentFetches)
+	}
+
+	m.historicalState.mutex.Unlock()
+
+	// Process each epoch concurrently
+	for _, epoch := range epochs {
+		m.processingWg.Add(1)
+		go func(e uint64) {
+			defer m.processingWg.Done()
+
+			m.logger.Info("processing historical epoch", "epoch", e)
+
+			// Check if we have this epoch in cache
+			m.processingEpoch(ctx, e)
+
+			// Mark as processed
+			m.historicalState.mutex.Lock()
+			m.historicalState.processedEpochs[e] = true
+			m.historicalState.mutex.Unlock()
+		}(epoch)
+	}
+}
+
+func (m *DutyMonitor) processingEpoch(ctx context.Context, epochNum uint64) {
+	// Check cache first
+	if entry, ok := m.dutiesCache[epochNum]; ok && time.Since(entry.cachedAt) < dutiesCacheTTL {
+		m.logger.Debug("historical duties cache-hit", "epoch", epochNum)
+		m.processDuties(ctx, epochNum, entry.duties)
+		return
+	}
+
+	// Fetch duties for this epoch
+	duties, err := m.fetchDutiesForEpoch(ctx, epochNum)
+	if err != nil {
+		m.logger.Error("fetch historical duties failed", "epoch", epochNum, "err", err)
+		return
+	}
+
+	// Cache the result
+	m.dutiesCache[epochNum] = cachedDuties{duties: duties, cachedAt: time.Now()}
+
+	// Process the duties
+	m.processDuties(ctx, epochNum, duties)
 }
 
 func (m *DutyMonitor) fetchDutiesForEpoch(ctx context.Context, epoch uint64) ([]api.ProposerDutyInfo, error) {
@@ -282,8 +432,18 @@ func (m *DutyMonitor) processDuty(
 		return // already handled
 	}
 
+	if !m.historicalMode {
+		if _, done := m.processedBlocks[bn]; done {
+			return // already handled in normal mode
+		}
+	}
+
 	m.processBlockData(ctx, bn, duty)
-	m.processedBlocks[bn] = time.Now()
+
+	// Only track processed blocks in normal mode
+	if !m.historicalMode {
+		m.processedBlocks[bn] = time.Now()
+	}
 }
 
 func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, duty api.ProposerDutyInfo) {
@@ -342,7 +502,9 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 	blockInfo := m.fetchBlockInfoFromDashboard(ctx, blockNumber)
 
 	/* notifications & DB */
-	m.sendNotification(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
+	if !m.historicalMode {
+		m.sendNotification(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
+	}
 
 	if m.db != nil {
 		m.saveRelayData(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)

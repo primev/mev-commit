@@ -43,6 +43,8 @@ services:
       RELAY_URLS:             ${RELAY_URLS:-https://mainnet.aestus.live,https://mainnet.titanrelay.xyz,https://bloxroute.max-profit.blxrbdn.com}
       SLACK_WEBHOOK_URL:      ${SLACK_WEBHOOK_URL:-}
       DASHBOARD_API_URL:      ${DASHBOARD_API_URL:-http://dashboard:8081/}
+      LOOKBACK_MONTHS:        ${LOOKBACK_MONTHS:-3}
+      MAX_EPOCHS_PER_BATCH:   ${MAX_EPOCHS_PER_BATCH:-10}
       LOG_LEVEL:              ${LOG_LEVEL:-info}
       LOG_FMT:                ${LOG_FMT:-json}
 

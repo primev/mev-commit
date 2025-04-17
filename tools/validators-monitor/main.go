@@ -129,6 +129,20 @@ var (
 		},
 	}
 
+	optionLookbackMonths = &cli.IntFlag{
+		Name:    "lookback-months",
+		Usage:   "Number of months to look back for historical data (0 = disabled)",
+		EnvVars: []string{"LOOKBACK_MONTHS"},
+		Value:   0,
+	}
+
+	optionMaxEpochsPerBatch = &cli.IntFlag{
+		Name:    "max-epochs-per-batch",
+		Usage:   "Maximum number of epochs to fetch in one batch during historical data collection",
+		EnvVars: []string{"MAX_EPOCHS_PER_BATCH"},
+		Value:   10,
+	}
+
 	optionLogLevel = &cli.StringFlag{
 		Name:    "log-level",
 		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
@@ -174,6 +188,8 @@ func main() {
 			optionTrackMissed,
 			optionSlackWebhook,
 			optionDashboardApiUrl,
+			optionLookbackMonths,
+			optionMaxEpochsPerBatch,
 			optionRelayUrls,
 			optionDBEnabled,
 			optionDBHost,
@@ -202,6 +218,8 @@ func main() {
 			relayUrls := c.StringSlice(optionRelayUrls.Name)
 			slackWebhook := c.String(optionSlackWebhook.Name)
 			dashboardApiUrl := c.String(optionDashboardApiUrl.Name)
+			lookbackMonths := c.Int(optionLookbackMonths.Name)
+			maxEpochsPerBatch := c.Int(optionMaxEpochsPerBatch.Name)
 
 			sigc := make(chan os.Signal, 1)
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
@@ -215,6 +233,8 @@ func main() {
 				SlackWebhookURL:        slackWebhook,
 				DashboardApiUrl:        dashboardApiUrl,
 				RelayURLs:              relayUrls,
+				LookbackMonths:         lookbackMonths,
+				MaxEpochsPerBatch:      maxEpochsPerBatch,
 				DB: config.DBConfig{
 					Enabled:  c.Bool(optionDBEnabled.Name),
 					Host:     c.String(optionDBHost.Name),
@@ -224,6 +244,13 @@ func main() {
 					DBName:   c.String(optionDBName.Name),
 					SSLMode:  c.String(optionDBSSLMode.Name),
 				},
+			}
+
+			// Log information about the historical mode if enabled
+			if lookbackMonths > 0 {
+				logger.Info("historical data collection enabled",
+					"lookback_months", lookbackMonths,
+					"max_epochs_per_batch", maxEpochsPerBatch)
 			}
 
 			logger.Debug("service config", "config", cfg)
