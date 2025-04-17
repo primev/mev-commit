@@ -35,6 +35,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 		SlackWebhookURL:        cfg.SlackWebhookURL,
 		RelayURLs:              cfg.RelayURLs,
 		DashboardApiUrl:        cfg.DashboardApiUrl,
+		DB:                     cfg.DB,
 	}
 
 	s.logger.Debug("creating duty monitor", "config", monitorConfig)
@@ -56,7 +57,7 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 	if monitor.GetDB() != nil {
 		s.closers = append(s.closers, monitor.GetDB())
 	}
-	
+
 	s.logger.Info("duty monitor service started",
 		"beacon_node", cfg.BeaconNodeURL,
 		"relay_count", len(cfg.RelayURLs))
