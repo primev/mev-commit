@@ -256,11 +256,6 @@ func TestProcessEpoch(t *testing.T) {
     ]}`
 
 	mux := http.NewServeMux()
-	// Handle genesis requests.
-	mux.HandleFunc("/eth/v1/beacon/genesis", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
-	})
 	// Handle proposer duties.
 	mux.HandleFunc("/eth/v1/validator/duties/proposer/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
