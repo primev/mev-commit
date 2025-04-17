@@ -255,6 +255,14 @@ func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *v
 	slotStartTime := s.genesisTime.Add(time.Duration(slot) * s.slotDuration)
 	notificationTime := slotStartTime.Add(-s.proposerNotifyOffset)
 
+	s.logger.Debug("scheduling opted-in validator notification for slot",
+		"epoch", epoch,
+		"slot", slot,
+		"slot_start_time", slotStartTime,
+		"notification_time", notificationTime,
+		"delay", time.Until(notificationTime),
+	)
+
 	delay := time.Until(notificationTime)
 	if delay <= 0 {
 		s.logger.Error("notification time already passed for slot", "epoch", epoch, "slot", slot)
@@ -315,9 +323,9 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime time
 				"bls_key":  info.BLSKey,
 				"opted_in": info.IsOptedIn,
 			})
-		}
-		if slot != firstSlot {
-			s.scheduleNotificationForSlot(epoch, slot, info)
+			if slot != firstSlot {
+				s.scheduleNotificationForSlot(epoch, slot, info)
+			}
 		}
 	}
 
