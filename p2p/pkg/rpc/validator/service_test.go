@@ -286,17 +286,17 @@ func TestProcessEpoch(t *testing.T) {
 	slotDuration := 12 * time.Second
 	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset)
 
-	svc.SetGenesisTime(time.Now().Add(100*time.Millisecond - slotDuration))
+	svc.SetGenesisTime(time.Now().Add(2*time.Second - slotDuration))
 
 	svc.SetProcessEpoch(ctx, 10, time.Now().Unix())
 
 	numValidatorOptedInNotifs := 0
 	numEpochValidatorsOptedInNotifs := 0
 
-	timeout := time.After(12 * time.Second)
+	timeout := time.After(1 * time.Second)
 
-	// expect 2 validator opted in and 1 epoch notif
-	for numValidatorOptedInNotifs < 2 || numEpochValidatorsOptedInNotifs < 1 {
+	// expect 1 validator opted in and 1 epoch notif
+	for numValidatorOptedInNotifs < 1 || numEpochValidatorsOptedInNotifs < 1 {
 		select {
 		case n := <-mockNotifier.NotifyCh:
 			if n == nil {
