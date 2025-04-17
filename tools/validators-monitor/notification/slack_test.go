@@ -121,7 +121,7 @@ func TestNotifyRelayData_NoDashboard(t *testing.T) {
 	n := NewSlackNotifier(server.URL, logger)
 	relays := []string{"r1", "r2"}
 	allRelays := []string{"r1", "r2", "r3"}
-	if err := n.NotifyRelayData(context.Background(), "0xabc", 1, 100, 10, big.NewInt(2e18), relays, allRelays, nil); err != nil {
+	if err := n.NotifyRelayData(context.Background(), "0xabc", 1, 100, 10, big.NewInt(2e18), "0xabc", relays, allRelays, nil); err != nil {
 		t.Fatalf("NotifyRelayData = %v; want nil", err)
 	}
 	if len(payload.Attachments) != 1 {
@@ -175,7 +175,7 @@ func TestNotifyRelayData_WithDashboard(t *testing.T) {
 		TotalSlashes:           1,
 		TotalAmount:            "5000000000000000000",
 	}
-	if err := n.NotifyRelayData(context.Background(), "0xdef", 2, 200, 20, big.NewInt(3e18), relays, all, info); err != nil {
+	if err := n.NotifyRelayData(context.Background(), "0xdef", 2, 200, 20, big.NewInt(3e18), "0xabc", relays, all, info); err != nil {
 		t.Fatalf("NotifyRelayData = %v; want nil", err)
 	}
 	if len(payload.Attachments) != 1 {
@@ -193,16 +193,17 @@ func TestNotifyRelayData_WithDashboard(t *testing.T) {
 		fields[f.Title] = f.Value
 	}
 	wantFields := map[string]string{
-		"Validator Index":   "2",
-		"Slot":              "20",
-		"Block Number":      "200",
-		"Validator Pubkey":  "0xdef",
-		"Relays With Data":  "```None```",
-		"Data Availability": "0 of 3 relays have data",
-		"Block Winner":      "relayX",
-		"Commitments":       "5 (Rewards: 8, Slashes: 1)",
-		"Total Bid Amount":  "5.000000 ETH",
-		"MEV Reward":        "3.000000 ETH",
+		"Validator Index":      "2",
+		"Slot":                 "20",
+		"Block Number":         "200",
+		"Validator Pubkey":     "0xdef",
+		"Relays With Data":     "```None```",
+		"Data Availability":    "0 of 3 relays have data",
+		"Block Winner":         "relayX",
+		"Commitments":          "5 (Rewards: 8, Slashes: 1)",
+		"Total Bid Amount":     "5.000000 ETH",
+		"MEV Reward":           "3.000000 ETH",
+		"MEV Reward Recipient": "0xabc",
 	}
 	for k, v := range wantFields {
 		if got, ok := fields[k]; !ok {

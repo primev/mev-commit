@@ -149,13 +149,15 @@ func TestQueryRelayData(t *testing.T) {
 	// Setup test servers
 	server1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[{"slot":"123","block_number":"12345"}]`))
+		_, err := w.Write([]byte(`[{"slot":"123","block_number":"12345"}]`))
+		require.NoError(t, err)
 	}))
 	defer server1.Close()
 
 	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"error":"Server error"}`))
+		_, err := w.Write([]byte(`{"error":"Server error"}`))
+		require.NoError(t, err)
 	}))
 	defer server2.Close()
 
@@ -163,7 +165,8 @@ func TestQueryRelayData(t *testing.T) {
 		// Add a delay to test concurrent behavior
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[{"slot":"123","block_number":"12345"},{"slot":"124","block_number":"12346"}]`))
+		_, err := w.Write([]byte(`[{"slot":"123","block_number":"12345"},{"slot":"124","block_number":"12346"}]`))
+		require.NoError(t, err)
 	}))
 	defer server3.Close()
 
@@ -213,7 +216,8 @@ func TestQueryRelayDataWithCancelledContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(500 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`[{"slot":"123","block_number":"12345"}]`))
+		_, err := w.Write([]byte(`[{"slot":"123","block_number":"12345"}]`))
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -243,7 +247,8 @@ func TestQueryRelayDataWithMultipleRelays(t *testing.T) {
 	for range 5 {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[{"slot":"123","block_number":"12345"}]`))
+			_, err := w.Write([]byte(`[{"slot":"123","block_number":"12345"}]`))
+			require.NoError(t, err)
 		}))
 		defer server.Close()
 		relayURLs = append(relayURLs, server.URL)

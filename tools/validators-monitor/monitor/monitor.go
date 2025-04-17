@@ -54,6 +54,7 @@ type SlackNotifier interface {
 		blockNumber uint64,
 		slot uint64,
 		mevReward *big.Int,
+		feeReceipient string,
 		relaysWithData []string,
 		totalRelays []string,
 		blockInfo *api.DashboardResponse) error
@@ -297,7 +298,7 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 
 	relaysWithData := []string{}
 	mevReward := new(big.Int)
-
+	var feeReceipient string
 	for relayURL, result := range relayResults {
 		if result.Error != "" {
 			m.logger.Warn("relay query error",
@@ -330,6 +331,8 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 						"block", blockNumber,
 						"bid_value", trace.Value)
 				}
+
+				feeReceipient = trace.ProposerFeeRecipient
 				break
 			}
 		}
@@ -339,7 +342,7 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 	blockInfo := m.fetchBlockInfoFromDashboard(ctx, blockNumber)
 
 	/* notifications & DB */
-	m.sendNotification(ctx, duty, blockNumber, mevReward, relaysWithData, blockInfo)
+	m.sendNotification(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
 
 	if m.db != nil {
 		m.saveRelayData(ctx, duty, blockNumber, mevReward, relaysWithData, blockInfo)
@@ -381,6 +384,7 @@ func (m *DutyMonitor) sendNotification(
 	duty api.ProposerDutyInfo,
 	blockNumber uint64,
 	mevReward *big.Int,
+	feeReceipient string,
 	relaysWithData []string,
 	blockInfo *api.DashboardResponse,
 ) {
@@ -391,6 +395,7 @@ func (m *DutyMonitor) sendNotification(
 		blockNumber,
 		duty.Slot,
 		mevReward,
+		feeReceipient,
 		relaysWithData,
 		m.config.RelayURLs,
 		blockInfo,

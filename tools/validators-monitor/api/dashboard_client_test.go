@@ -160,7 +160,8 @@ func TestContextCancellation(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Just return success - the context cancellation is handled by the HTTP client
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"number": 12345}`))
+		_, err := w.Write([]byte(`{"number": 12345}`))
+		require.NoError(t, err)
 	})
 
 	client := setupTestDashboardClient(t, handler)

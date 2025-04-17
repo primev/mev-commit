@@ -102,7 +102,8 @@ func (n *SlackNotifier) SendMessage(ctx context.Context, message SlackMessage) e
 // NotifyRelayData sends a notification about relay data for a validator
 func (n *SlackNotifier) NotifyRelayData(
 	ctx context.Context, pubkey string,
-	validatorIndex, blockNumber, slot uint64, mevReward *big.Int,
+	validatorIndex, blockNumber, slot uint64,
+	mevReward *big.Int, feeReceipient string,
 	relaysWithData []string, allRelays []string,
 	dashboardInfo *api.DashboardResponse,
 ) error {
@@ -210,6 +211,11 @@ func (n *SlackNotifier) NotifyRelayData(
 		attachment.Fields = append(attachment.Fields, Field{
 			Title: "MEV Reward",
 			Value: formatWeiToEth(mevReward),
+			Short: true,
+		})
+		attachment.Fields = append(attachment.Fields, Field{
+			Title: "MEV Reward Recipient",
+			Value: feeReceipient,
 			Short: true,
 		})
 	}

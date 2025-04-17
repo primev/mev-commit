@@ -84,6 +84,7 @@ func (f *fakeNotifier) NotifyRelayData(
 	blockNumber uint64,
 	slot uint64,
 	mevReward *big.Int,
+	feeRecipient string,
 	relaysWithData []string,
 	totalRelays []string,
 	blockInfo *api.DashboardResponse,
