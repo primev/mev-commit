@@ -100,7 +100,8 @@ func TestQueryOneRelay(t *testing.T) {
 					assert.Equal(t, r.URL.Query().Get("block_number"), "12345")
 
 					w.WriteHeader(tt.responseStatus)
-					w.Write([]byte(tt.responseBody))
+					_, err := w.Write([]byte(tt.responseBody))
+					require.NoError(t, err)
 				}))
 				defer server.Close()
 

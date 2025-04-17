@@ -101,7 +101,8 @@ func TestGetProposerDuties(t *testing.T) {
 				assert.Equal(t, "application/json", r.Header.Get("Accept"))
 
 				w.WriteHeader(tt.responseStatus)
-				w.Write([]byte(tt.responseBody))
+				_, err := w.Write([]byte(tt.responseBody))
+				require.NoError(t, err)
 			})
 
 			client := setupTestClient(t, handler)
@@ -260,7 +261,8 @@ func TestGetBlockBySlot(t *testing.T) {
 				assert.Equal(t, "application/json", r.Header.Get("Accept"))
 
 				w.WriteHeader(tt.responseStatus)
-				w.Write([]byte(tt.responseBody))
+				_, err := w.Write([]byte(tt.responseBody))
+				require.NoError(t, err)
 			})
 
 			client := setupTestClient(t, handler)

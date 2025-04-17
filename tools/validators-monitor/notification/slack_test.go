@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/params"
 	api "github.com/primev/mev-commit/tools/validators-monitor/api"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFormatRelayList(t *testing.T) {
@@ -110,7 +111,8 @@ func TestSendMessage_NonOK(t *testing.T) {
 func TestNotifyRelayData_NoDashboard(t *testing.T) {
 	var payload SlackMessage
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&payload)
+		err := json.NewDecoder(r.Body).Decode(&payload)
+		require.NoError(t, err)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -156,7 +158,8 @@ func TestNotifyRelayData_NoDashboard(t *testing.T) {
 func TestNotifyRelayData_WithDashboard(t *testing.T) {
 	var payload SlackMessage
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&payload)
+		err := json.NewDecoder(r.Body).Decode(&payload)
+		require.NoError(t, err)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()

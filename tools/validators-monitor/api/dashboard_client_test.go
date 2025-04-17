@@ -130,7 +130,8 @@ func TestGetBlockInfo(t *testing.T) {
 
 				// Send response
 				w.WriteHeader(tt.responseStatus)
-				w.Write([]byte(tt.responseBody))
+				_, err := w.Write([]byte(tt.responseBody))
+				require.NoError(t, err)
 			})
 
 			client := setupTestDashboardClient(t, handler)
