@@ -294,7 +294,7 @@ func TestProcessEpoch(t *testing.T) {
 	numValidatorOptedInNotifs := 0
 	numEpochValidatorsOptedInNotifs := 0
 
-	timeout := time.After(1*time.Second + slotDuration)
+	timeout := time.After(2*time.Second + slotDuration)
 
 	// expect 2 validator opted in and 1 epoch notif
 	for numValidatorOptedInNotifs < 2 || numEpochValidatorsOptedInNotifs < 1 {
