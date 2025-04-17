@@ -1,0 +1,55 @@
+# tools/docker-compose.yml
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: mev-commit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-mev_monitor}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mev_monitor_password}
+      POSTGRES_DB: ${DB_NAME:-mev_commit_monitor}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD‑SHELL", "pg_isready -U ${DB_USER:-mev_monitor} -d ${DB_NAME:-mev_commit_monitor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  validator-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mev-commit-validator-monitor
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DB_ENABLED:      "true"
+      DB_HOST:         postgres
+      DB_PORT:         5432
+      DB_USER:         ${DB_USER:-mev_monitor}
+      DB_PASSWORD:     ${DB_PASSWORD:-mev_monitor_password}
+      DB_NAME:         ${DB_NAME:-mev_commit_monitor}
+      DB_SSLMODE:      disable
+      API_ENABLED:     "true"
+      API_BIND_ADDR:   ":8080"
+      BEACON_API_URL:         ${BEACON_API_URL:-https://ethereum-beacon-api.publicnode.com}
+      ETHEREUM_RPC_URL:       ${ETHEREUM_RPC_URL:-https://ethereum-rpc.publicnode.com}
+      VALIDATOR_OPT_IN_CONTRACT: ${VALIDATOR_OPT_IN_CONTRACT:-0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64}
+      RELAY_URLS:             ${RELAY_URLS:-https://mainnet.aestus.live,https://mainnet.titanrelay.xyz,https://bloxroute.max-profit.blxrbdn.com}
+      SLACK_WEBHOOK_URL:      ${SLACK_WEBHOOK_URL:-}
+      DASHBOARD_API_URL:      ${DASHBOARD_API_URL:-http://dashboard:8081/}
+      LOG_LEVEL:              ${LOG_LEVEL:-info}
+      LOG_FMT:                ${LOG_FMT:-json}
+
+volumes:
+  postgres-data:
