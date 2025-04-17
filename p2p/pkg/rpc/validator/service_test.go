@@ -286,7 +286,7 @@ func TestProcessEpoch(t *testing.T) {
 	slotDuration := 12 * time.Second
 	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset)
 
-	svc.SetGenesisTime(time.Now().Add(2*time.Second - slotDuration))
+	svc.SetGenesisTime(time.Now().Add(1*time.Second + 500*time.Millisecond - slotDuration))
 
 	svc.SetProcessEpoch(ctx, 10, time.Now().Unix())
 
