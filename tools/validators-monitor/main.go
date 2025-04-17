@@ -51,7 +51,6 @@ var (
 		Name:    "slack-webhook",
 		Usage:   "Slack webhook URL for notifications",
 		EnvVars: []string{"SLACK_WEBHOOK_URL"},
-		Value:   "https://hooks.slack.com/services/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",
 	}
 
 	optionDashboardApiUrl = &cli.StringFlag{
@@ -66,6 +65,55 @@ var (
 		Usage:   "Whether to track missed duties",
 		EnvVars: []string{"TRACK_MISSED"},
 		Value:   true,
+	}
+
+	optionDBEnabled = &cli.BoolFlag{
+		Name:    "db-enabled",
+		Usage:   "Enable database storage",
+		EnvVars: []string{"DB_ENABLED"},
+		Value:   false,
+	}
+
+	optionDBHost = &cli.StringFlag{
+		Name:    "db-host",
+		Usage:   "Database host",
+		EnvVars: []string{"DB_HOST"},
+		Value:   "localhost",
+	}
+
+	optionDBPort = &cli.IntFlag{
+		Name:    "db-port",
+		Usage:   "Database port",
+		EnvVars: []string{"DB_PORT"},
+		Value:   5432,
+	}
+
+	optionDBUser = &cli.StringFlag{
+		Name:    "db-user",
+		Usage:   "Database user",
+		EnvVars: []string{"DB_USER"},
+		Value:   "postgres",
+	}
+
+	optionDBPassword = &cli.StringFlag{
+		Name:    "db-password",
+		Usage:   "Database password",
+		EnvVars: []string{"DB_PASSWORD"},
+		Value:   "postgres",
+	}
+
+	optionDBName = &cli.StringFlag{
+		Name:    "db-name",
+		Usage:   "Database name",
+		EnvVars: []string{"DB_NAME"},
+		Value:   "mev_commit_validators_monitor",
+	}
+
+	optionDBSSLMode = &cli.StringFlag{
+		Name:    "db-sslmode",
+		Usage:   "Database SSL mode",
+		EnvVars: []string{"DB_SSLMODE"},
+		Value:   "disable",
 	}
 
 	optionLogFmt = &cli.StringFlag{
@@ -127,6 +175,13 @@ func main() {
 			optionSlackWebhook,
 			optionDashboardApiUrl,
 			optionRelayUrls,
+			optionDBEnabled,
+			optionDBHost,
+			optionDBPort,
+			optionDBUser,
+			optionDBPassword,
+			optionDBName,
+			optionDBSSLMode,
 		},
 		Action: func(c *cli.Context) error {
 			// Setup logger
@@ -152,7 +207,6 @@ func main() {
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 			// Create configuration
 			cfg := &config.Config{
-				Logger:                 logger,
 				BeaconNodeURL:          beaconApiUrl,
 				TrackMissed:            c.Bool(optionTrackMissed.Name),
 				EthereumRPCURL:         ethereumRpcUrl,
@@ -161,11 +215,20 @@ func main() {
 				SlackWebhookURL:        slackWebhook,
 				DashboardApiUrl:        dashboardApiUrl,
 				RelayURLs:              relayUrls,
+				DB: config.DBConfig{
+					Enabled:  c.Bool(optionDBEnabled.Name),
+					Host:     c.String(optionDBHost.Name),
+					Port:     c.Int(optionDBPort.Name),
+					User:     c.String(optionDBUser.Name),
+					Password: c.String(optionDBPassword.Name),
+					DBName:   c.String(optionDBName.Name),
+					SSLMode:  c.String(optionDBSSLMode.Name),
+				},
 			}
 
 			logger.Debug("service config", "config", cfg)
 
-			s, err := service.New(cfg)
+			s, err := service.New(cfg, logger)
 			if err != nil {
 				return fmt.Errorf("failed to create service: %w", err)
 			}

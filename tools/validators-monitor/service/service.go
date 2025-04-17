@@ -19,9 +19,9 @@ type Service struct {
 }
 
 // New creates a new duty monitor service
-func New(cfg *config.Config) (*Service, error) {
+func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 	s := &Service{
-		logger:  cfg.Logger,
+		logger:  log,
 		closers: []io.Closer{},
 	}
 
@@ -35,11 +35,10 @@ func New(cfg *config.Config) (*Service, error) {
 		SlackWebhookURL:        cfg.SlackWebhookURL,
 		RelayURLs:              cfg.RelayURLs,
 		DashboardApiUrl:        cfg.DashboardApiUrl,
-		Logger:                 cfg.Logger,
 	}
 
 	s.logger.Debug("creating duty monitor", "config", monitorConfig)
-	monitor, err := monitor.New(monitorConfig)
+	monitor, err := monitor.New(monitorConfig, log)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +53,10 @@ func New(cfg *config.Config) (*Service, error) {
 
 	s.closers = append(s.closers, channelCloser(monitorDone))
 
+	if monitor.GetDB() != nil {
+		s.closers = append(s.closers, monitor.GetDB())
+	}
+	
 	s.logger.Info("duty monitor service started",
 		"beacon_node", cfg.BeaconNodeURL,
 		"relay_count", len(cfg.RelayURLs))

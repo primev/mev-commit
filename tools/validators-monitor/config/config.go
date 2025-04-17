@@ -1,9 +1,6 @@
 package config
 
-import "log/slog"
-
 type Config struct {
-	Logger                 *slog.Logger
 	FetchIntervalSec       int      `json:"fetch_interval_sec"`
 	TrackMissed            bool     `json:"track_missed"`
 	BeaconNodeURL          string   `json:"beacon_node_url"`
@@ -12,4 +9,15 @@ type Config struct {
 	RelayURLs              []string `json:"relay_urls"`
 	SlackWebhookURL        string   `json:"slack_webhook_url"`
 	DashboardApiUrl        string   `json:"dashboard_api_url"`
+	DB                     DBConfig `json:"db"`
+}
+
+type DBConfig struct {
+	Enabled  bool   `json:"enabled"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	DBName   string `json:"dbname"`
+	SSLMode  string `json:"sslmode"`
 }

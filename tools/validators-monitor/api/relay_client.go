@@ -42,10 +42,7 @@ func (c *RelayClient) QueryRelayData(ctx context.Context, blockNumber uint64) ma
 	for _, relay := range c.relayURLs {
 		r := relay
 		go func() {
-			rCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-			defer cancel()
-
-			res := c.queryOneRelay(rCtx, r, blockNumber)
+			res := c.queryOneRelay(ctx, r, blockNumber)
 			select {
 			case resultCh <- res:
 			case <-ctx.Done():

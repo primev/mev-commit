@@ -29,19 +29,16 @@ type ValidatorOptInChecker struct {
 
 // NewValidatorOptInChecker creates a new ValidatorOptInChecker
 func NewValidatorOptInChecker(rpcURL, contractAddress string) (*ValidatorOptInChecker, error) {
-	// Connect to Ethereum RPC
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum client: %s, %v", rpcURL, err)
 	}
 
-	// Parse contract ABI
 	contractAbi, err := abi.JSON(strings.NewReader(validatorrouter.ValidatoroptinrouterABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse contract ABI: %v", err)
 	}
 
-	// Convert address string to eth common.Address
 	address := common.HexToAddress(contractAddress)
 
 	return &ValidatorOptInChecker{
@@ -86,7 +83,6 @@ func (c *ValidatorOptInChecker) CheckValidatorsOptedIn(ctx context.Context, pubk
 	return optInStatuses, nil
 }
 
-// Close releases the ethclient connection
 func (c *ValidatorOptInChecker) Close() {
 	c.client.Close()
 }
