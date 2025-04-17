@@ -79,7 +79,7 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 
 func (b *FullNotifier) handleHeader(header *types.Header) error {
 	targetBlockNum := header.Number.Uint64() + 1
-	b.logger.Debug("scheduling notification from header", "target_block_number", targetBlockNum)
+	b.logger.Debug("handling header", "target_block_number", targetBlockNum)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
