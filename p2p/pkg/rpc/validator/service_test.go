@@ -289,7 +289,7 @@ func TestProcessEpoch(t *testing.T) {
 
 	svc.SetGenesisTime(time.Now().Add(1*time.Second + 500*time.Millisecond - slotDuration))
 
-	svc.SetProcessEpoch(ctx, 10, time.Now().Unix())
+	svc.SetProcessEpoch(ctx, 10, time.Now())
 
 	numValidatorOptedInNotifs := 0
 	numEpochValidatorsOptedInNotifs := 0
