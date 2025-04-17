@@ -9,10 +9,11 @@ import (
 	"os"
 	"testing"
 
+	"fmt"
+
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"fmt"
 )
 
 func setupTestClient(t *testing.T, handler http.Handler) *BeaconClient {
