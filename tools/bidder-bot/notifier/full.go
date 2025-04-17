@@ -71,7 +71,7 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 				}
 
 			case header := <-headers:
-				if err := b.HandleHeader(ctx, header); err != nil {
+				if err := b.handleHeader(ctx, header); err != nil {
 					b.logger.Error("error handling header", "error", err)
 				}
 			}
@@ -80,7 +80,7 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (b *FullNotifier) HandleHeader(ctx context.Context, header *types.Header) error {
+func (b *FullNotifier) handleHeader(ctx context.Context, header *types.Header) error {
 	targetBlockNum := header.Number.Uint64() + 1
 	currentBlockTime := time.Unix(int64(header.Time), 0)
 	nextBlockTime := currentBlockTime.Add(BlockDuration)
