@@ -120,7 +120,7 @@ func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error
 		slot, block_number, validator_index, validator_pubkey, mev_reward,
 		mev_reward_recipient, relays_with_data, winner, total_commitments, total_rewards, 
 		total_slashes, total_amount
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	RETURNING id, created_at
 	`
 
