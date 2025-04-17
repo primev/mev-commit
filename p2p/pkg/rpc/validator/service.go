@@ -316,7 +316,7 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime time
 				"opted_in": info.IsOptedIn,
 			})
 		}
-		if slot != firstSlot { // first slot already scheduled last iteration
+		if slot != firstSlot {
 			s.scheduleNotificationForSlot(epoch, slot, info)
 		}
 	}
