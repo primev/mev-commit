@@ -111,12 +111,9 @@ func New(config *Config) (*Service, error) {
 		}
 		config.Logger.Debug("created L1 WebSocket client", "url", config.L1WsUrls[0])
 
-		notifySecondsAhead := 7 * time.Second
-
 		notif = notifier.NewFullNotifier(
 			config.Logger.With("module", "full_notifier"),
 			l1WsClient,
-			notifySecondsAhead,
 			targetBlockNumChan, // send-and-receive for draining capability
 		)
 	} else {

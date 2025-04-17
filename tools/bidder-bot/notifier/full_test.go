@@ -1,7 +1,6 @@
 package notifier_test
 
 import (
-	"context"
 	"math/big"
 	"os"
 	"testing"
@@ -21,71 +20,25 @@ func TestHandleHeader(t *testing.T) {
 	tests := []struct {
 		name                      string
 		currentBlockTimeNowOffset time.Duration
-		notifySecondsAhead        time.Duration
 		receiveSignalWithin       time.Duration
 		expectToReceive           bool
 	}{
 		{
 			name:                      "block time in past, should receive immediately",
 			currentBlockTimeNowOffset: -15 * time.Second,
-			notifySecondsAhead:        10 * time.Second,
 			receiveSignalWithin:       recvdBufferTime,
 			expectToReceive:           true,
 		},
 		{
-			name:                      "block time in past, don't wait long enough",
-			currentBlockTimeNowOffset: -5 * time.Second,
-			notifySecondsAhead:        2 * time.Second,
-			receiveSignalWithin:       recvdBufferTime + 4*time.Second, // -5 + 12 - 2 = 5
-			expectToReceive:           false,
-		},
-		{
-			name:                      "block time in past, wait long enough",
-			currentBlockTimeNowOffset: -5 * time.Second,
-			notifySecondsAhead:        2 * time.Second,
-			receiveSignalWithin:       recvdBufferTime + 5*time.Second,
-			expectToReceive:           true,
-		},
-		{
-			name:                      "block time now, 12 sec notif ahead",
+			name:                      "block time now, should receive immediately",
 			currentBlockTimeNowOffset: 0 * time.Second,
-			notifySecondsAhead:        12 * time.Second,
 			receiveSignalWithin:       recvdBufferTime,
 			expectToReceive:           true,
 		},
 		{
-			name:                      "block time now, 10 sec notif ahead",
-			currentBlockTimeNowOffset: 0 * time.Second,
-			notifySecondsAhead:        10 * time.Second,
-			receiveSignalWithin:       recvdBufferTime + 2*time.Second, // 12 second block time - 10 second = 2
-			expectToReceive:           true,
-		},
-		{
-			name:                      "block time now, 8 sec notif ahead, don't wait long enough",
-			currentBlockTimeNowOffset: 0 * time.Second,
-			notifySecondsAhead:        8 * time.Second,
-			receiveSignalWithin:       recvdBufferTime + 3*time.Second, // 12 - 8 = 4
-			expectToReceive:           false,
-		},
-		{
-			name:                      "block time now, 8 sec notif ahead, wait long enough",
-			currentBlockTimeNowOffset: 0 * time.Second,
-			notifySecondsAhead:        8 * time.Second,
-			receiveSignalWithin:       recvdBufferTime + 4*time.Second, // 12 - 8 = 4
-			expectToReceive:           true,
-		},
-		{
-			name:                      "block time in future, 11 sec notif ahead, don't wait long enough",
-			currentBlockTimeNowOffset: 2 * time.Second,
-			notifySecondsAhead:        11 * time.Second,
-			receiveSignalWithin:       recvdBufferTime + 2*time.Second, // 12 + 2 - 11 = 3
-			expectToReceive:           false,
-		},
-		{
-			name:                      "block time in future, 11 sec notif ahead, wait long enough",
-			currentBlockTimeNowOffset: 2 * time.Second,
-			notifySecondsAhead:        11 * time.Second,
-			receiveSignalWithin:       recvdBufferTime + 3*time.Second,
+			name:                      "block time in future, should receive immediately",
+			currentBlockTimeNowOffset: 7 * time.Second,
+			receiveSignalWithin:       recvdBufferTime,
 			expectToReceive:           true,
 		},
 	}
@@ -95,14 +48,13 @@ func TestHandleHeader(t *testing.T) {
 			notifier := notifier.NewFullNotifier(
 				logger,
 				nil,
-				test.notifySecondsAhead,
 				targetBlockNumChan,
 			)
 			header := &types.Header{
 				Number: big.NewInt(int64(71)),
 				Time:   uint64(time.Now().Add(test.currentBlockTimeNowOffset).Unix()),
 			}
-			err := notifier.HandleHeader(context.Background(), header)
+			err := notifier.HandleHeader(header)
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -132,10 +84,9 @@ func TestDrain(t *testing.T) {
 	notifier := notifier.NewFullNotifier(
 		logger,
 		nil,
-		10*time.Second,
 		targetBlockNumChan,
 	)
-	err := notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(5)})
+	err := notifier.HandleHeader(&types.Header{Number: big.NewInt(5)})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -143,7 +94,7 @@ func TestDrain(t *testing.T) {
 	if targetBlockNum != 6 {
 		t.Fatalf("expected target block number %d, got %d", 6, targetBlockNum)
 	}
-	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(15)})
+	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(15)})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -154,16 +105,16 @@ func TestDrain(t *testing.T) {
 
 	pastTime := time.Now().Add(-100 * time.Second) // To ensure sendTargetBlockNotification is called immediately
 
-	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(25), Time: uint64(pastTime.Unix())})
+	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(25), Time: uint64(pastTime.Unix())})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	// draining starts here
-	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(35), Time: uint64(pastTime.Unix())})
+	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(35), Time: uint64(pastTime.Unix())})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	err = notifier.HandleHeader(context.Background(), &types.Header{Number: big.NewInt(45), Time: uint64(pastTime.Unix())})
+	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(45), Time: uint64(pastTime.Unix())})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
