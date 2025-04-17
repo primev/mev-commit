@@ -1,4 +1,3 @@
-# tools/docker-compose.yml
 services:
   postgres:
     image: postgres:17-alpine
