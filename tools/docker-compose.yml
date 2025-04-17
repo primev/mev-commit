@@ -20,7 +20,7 @@ services:
       timeout: 5s
       retries: 5
 
-  validator‑monitor:
+  validator-monitor:
     build:
       context: ..                 
       dockerfile: tools/Dockerfile 
