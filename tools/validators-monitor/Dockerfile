@@ -3,18 +3,23 @@ FROM golang:1.24-alpine AS builder
 # Install build dependencies
 RUN apk add --no-cache git gcc musl-dev
 
-# Set working directory
+# Set working directory for the entire project
 WORKDIR /app
 
-# Copy go module files first for better layer caching
-COPY go.mod go.sum ./
+# Copy go module files from the tools directory first for better layer caching
+COPY tools/go.mod tools/go.sum ./tools/
+WORKDIR /app/tools
 RUN go mod download
 
-# Copy source code
+# Go back to the root directory
+WORKDIR /app
+
+# Copy the whole project
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o validator-monitor ./cmd/validator-monitor
+WORKDIR /app/tools/validators-monitor
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o validator-monitor .
 
 # Use a smaller image for the final build
 FROM alpine:3.21
