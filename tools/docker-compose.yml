@@ -39,8 +39,6 @@ services:
       DB_PASSWORD:            ${DB_PASSWORD:-mev_monitor_password}
       DB_NAME:                ${DB_NAME:-mev_commit_monitor}
       DB_SSLMODE:             disable
-      API_ENABLED:            "true"
-      API_BIND_ADDR:          ":8080"
       BEACON_API_URL:         ${BEACON_API_URL:-https://ethereum-beacon-api.publicnode.com}
       ETHEREUM_RPC_URL:       ${ETHEREUM_RPC_URL:-https://ethereum-rpc.publicnode.com}
       VALIDATOR_OPT_IN_CONTRACT: ${VALIDATOR_OPT_IN_CONTRACT:-0x821798d7b9d57dF7Ed7616ef9111A616aB19ed64}
