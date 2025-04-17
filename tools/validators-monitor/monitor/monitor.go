@@ -345,7 +345,7 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 	m.sendNotification(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
 
 	if m.db != nil {
-		m.saveRelayData(ctx, duty, blockNumber, mevReward, relaysWithData, blockInfo)
+		m.saveRelayData(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
 	}
 
 	m.logger.Info("relay data processed",
@@ -412,6 +412,7 @@ func (m *DutyMonitor) saveRelayData(
 	duty api.ProposerDutyInfo,
 	blockNumber uint64,
 	mevReward *big.Int,
+	feeReceipient string,
 	relaysWithData []string,
 	blockInfo *api.DashboardResponse,
 ) {
@@ -420,12 +421,13 @@ func (m *DutyMonitor) saveRelayData(
 	}
 
 	record := &database.RelayRecord{
-		Slot:            duty.Slot,
-		BlockNumber:     blockNumber,
-		ValidatorIndex:  duty.ValidatorIndex,
-		ValidatorPubkey: duty.PubKey,
-		MEVReward:       mevReward,
-		RelaysWithData:  relaysWithData,
+		Slot:               duty.Slot,
+		BlockNumber:        blockNumber,
+		ValidatorIndex:     duty.ValidatorIndex,
+		ValidatorPubkey:    duty.PubKey,
+		MEVReward:          mevReward,
+		MEVRewardRecipient: feeReceipient,
+		RelaysWithData:     relaysWithData,
 	}
 
 	if blockInfo != nil {

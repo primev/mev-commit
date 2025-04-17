@@ -58,17 +58,18 @@ func TestSaveRelayData(t *testing.T) {
 	ctx := context.Background()
 
 	testRecord := &RelayRecord{
-		Slot:             1234,
-		BlockNumber:      5678,
-		ValidatorIndex:   42,
-		ValidatorPubkey:  "0xabcdef",
-		MEVReward:        big.NewInt(1000000000000000000),
-		RelaysWithData:   []string{"relay1", "relay2"},
-		Winner:           "0x123456",
-		TotalCommitments: 10,
-		TotalRewards:     5,
-		TotalSlashes:     2,
-		TotalAmount:      "123.45",
+		Slot:               1234,
+		BlockNumber:        5678,
+		ValidatorIndex:     42,
+		ValidatorPubkey:    "0xabcdef",
+		MEVReward:          big.NewInt(1000000000000000000),
+		MEVRewardRecipient: "0xabcdef",
+		RelaysWithData:     []string{"relay1", "relay2"},
+		Winner:             "0x123456",
+		TotalCommitments:   10,
+		TotalRewards:       5,
+		TotalSlashes:       2,
+		TotalAmount:        "123.45",
 	}
 
 	rows := sqlmock.NewRows([]string{"id", "created_at"}).AddRow(1, time.Now())
@@ -78,6 +79,7 @@ func TestSaveRelayData(t *testing.T) {
 		testRecord.ValidatorIndex,
 		testRecord.ValidatorPubkey,
 		testRecord.MEVReward.String(),
+		testRecord.MEVRewardRecipient,
 		pq.StringArray(testRecord.RelaysWithData),
 		testRecord.Winner,
 		testRecord.TotalCommitments,
@@ -108,40 +110,42 @@ func TestGetRelayDataByBlock(t *testing.T) {
 
 	expectedRecords := []*RelayRecord{
 		{
-			ID:               1,
-			Slot:             1234,
-			BlockNumber:      5678,
-			ValidatorIndex:   42,
-			ValidatorPubkey:  "0xabcdef",
-			MEVReward:        big.NewInt(1000000000000000000),
-			RelaysWithData:   []string{"relay1", "relay2"},
-			Winner:           "0x123456",
-			TotalCommitments: 10,
-			TotalRewards:     5,
-			TotalSlashes:     2,
-			TotalAmount:      "123.45",
-			CreatedAt:        now,
+			ID:                 1,
+			Slot:               1234,
+			BlockNumber:        5678,
+			ValidatorIndex:     42,
+			ValidatorPubkey:    "0xabcdef",
+			MEVReward:          big.NewInt(1000000000000000000),
+			MEVRewardRecipient: "0xabcdef",
+			RelaysWithData:     []string{"relay1", "relay2"},
+			Winner:             "0x123456",
+			TotalCommitments:   10,
+			TotalRewards:       5,
+			TotalSlashes:       2,
+			TotalAmount:        "123.45",
+			CreatedAt:          now,
 		},
 		{
-			ID:               2,
-			Slot:             1235,
-			BlockNumber:      5678,
-			ValidatorIndex:   43,
-			ValidatorPubkey:  "0xfedcba",
-			MEVReward:        big.NewInt(2000000000000000000),
-			RelaysWithData:   []string{"relay1"},
-			Winner:           "0x654321",
-			TotalCommitments: 8,
-			TotalRewards:     4,
-			TotalSlashes:     1,
-			TotalAmount:      "234.56",
-			CreatedAt:        now,
+			ID:                 2,
+			Slot:               1235,
+			BlockNumber:        5678,
+			ValidatorIndex:     43,
+			ValidatorPubkey:    "0xfedcba",
+			MEVReward:          big.NewInt(2000000000000000000),
+			MEVRewardRecipient: "0xfedcba",
+			RelaysWithData:     []string{"relay1"},
+			Winner:             "0x654321",
+			TotalCommitments:   8,
+			TotalRewards:       4,
+			TotalSlashes:       1,
+			TotalAmount:        "234.56",
+			CreatedAt:          now,
 		},
 	}
 
 	rows := sqlmock.NewRows([]string{
 		"id", "slot", "block_number", "validator_index", "validator_pubkey",
-		"mev_reward", "relays_with_data", "winner", "total_commitments",
+		"mev_reward", "mev_reward_recipient", "relays_with_data", "winner", "total_commitments",
 		"total_rewards", "total_slashes", "total_amount", "created_at",
 	})
 
@@ -152,6 +156,7 @@ func TestGetRelayDataByBlock(t *testing.T) {
 		expectedRecords[0].ValidatorIndex,
 		expectedRecords[0].ValidatorPubkey,
 		expectedRecords[0].MEVReward.String(),
+		expectedRecords[0].MEVRewardRecipient,
 		"{relay1,relay2}",
 		expectedRecords[0].Winner,
 		expectedRecords[0].TotalCommitments,
@@ -168,6 +173,7 @@ func TestGetRelayDataByBlock(t *testing.T) {
 		expectedRecords[1].ValidatorIndex,
 		expectedRecords[1].ValidatorPubkey,
 		expectedRecords[1].MEVReward.String(),
+		expectedRecords[1].MEVRewardRecipient,
 		"{relay1}",
 		expectedRecords[1].Winner,
 		expectedRecords[1].TotalCommitments,
@@ -199,6 +205,7 @@ func TestGetRelayDataByBlock(t *testing.T) {
 	assert.Equal(t, expectedRecords[0].ValidatorIndex, records[0].ValidatorIndex)
 	assert.Equal(t, expectedRecords[0].ValidatorPubkey, records[0].ValidatorPubkey)
 	assert.Equal(t, 0, expectedRecords[0].MEVReward.Cmp(records[0].MEVReward))
+	assert.Equal(t, expectedRecords[0].MEVRewardRecipient, records[0].MEVRewardRecipient)
 	assert.Equal(t, expectedRecords[0].RelaysWithData, records[0].RelaysWithData)
 	assert.Equal(t, expectedRecords[0].Winner, records[0].Winner)
 	assert.Equal(t, expectedRecords[0].TotalCommitments, records[0].TotalCommitments)

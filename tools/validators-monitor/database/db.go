@@ -13,19 +13,20 @@ import (
 
 // RelayRecord represents a record in the relay_data table
 type RelayRecord struct {
-	ID               int64
-	Slot             uint64
-	BlockNumber      uint64
-	ValidatorIndex   uint64
-	ValidatorPubkey  string
-	MEVReward        *big.Int
-	RelaysWithData   []string
-	Winner           string
-	TotalCommitments int
-	TotalRewards     int
-	TotalSlashes     int
-	TotalAmount      string
-	CreatedAt        time.Time
+	ID                 int64
+	Slot               uint64
+	BlockNumber        uint64
+	ValidatorIndex     uint64
+	ValidatorPubkey    string
+	MEVReward          *big.Int
+	MEVRewardRecipient string
+	RelaysWithData     []string
+	Winner             string
+	TotalCommitments   int
+	TotalRewards       int
+	TotalSlashes       int
+	TotalAmount        string
+	CreatedAt          time.Time
 }
 
 // PostgresDB handles database connections and operations
@@ -88,6 +89,7 @@ func (p *PostgresDB) InitSchema(ctx context.Context) error {
 		validator_index BIGINT NOT NULL,
 		validator_pubkey TEXT NOT NULL,
 		mev_reward NUMERIC NOT NULL,
+		mev_reward_recipient TEXT,
 		relays_with_data TEXT[] NOT NULL,
 		winner TEXT,
 		total_commitments INTEGER,
@@ -115,8 +117,8 @@ func (p *PostgresDB) InitSchema(ctx context.Context) error {
 func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error {
 	query := `
 	INSERT INTO relay_data (
-		slot, block_number, validator_index, validator_pubkey, mev_reward, 
-		relays_with_data, winner, total_commitments, total_rewards, 
+		slot, block_number, validator_index, validator_pubkey, mev_reward,
+		mev_reward_recipient, relays_with_data, winner, total_commitments, total_rewards, 
 		total_slashes, total_amount
 	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	RETURNING id, created_at
@@ -130,7 +132,8 @@ func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error
 
 	row := p.db.QueryRowContext(
 		ctx, query,
-		data.Slot, data.BlockNumber, data.ValidatorIndex, data.ValidatorPubkey, mevRewardStr,
+		data.Slot, data.BlockNumber, data.ValidatorIndex, data.ValidatorPubkey,
+		mevRewardStr, data.MEVRewardRecipient,
 		relaysArray, data.Winner, data.TotalCommitments, data.TotalRewards,
 		data.TotalSlashes, data.TotalAmount,
 	)
@@ -155,7 +158,7 @@ func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error
 func (p *PostgresDB) GetRelayDataByBlock(ctx context.Context, blockNumber uint64) ([]*RelayRecord, error) {
 	query := `
 	SELECT id, slot, block_number, validator_index, validator_pubkey, 
-		   mev_reward, relays_with_data, winner, total_commitments, 
+		   mev_reward, mev_reward_recipient, relays_with_data, winner, total_commitments, 
 		   total_rewards, total_slashes, total_amount, created_at
 	FROM relay_data
 	WHERE block_number = $1
@@ -176,7 +179,8 @@ func (p *PostgresDB) GetRelayDataByBlock(ctx context.Context, blockNumber uint64
 
 		err := rows.Scan(
 			&r.ID, &r.Slot, &r.BlockNumber, &r.ValidatorIndex, &r.ValidatorPubkey,
-			&mevRewardStr, &r.RelaysWithData, &r.Winner, &r.TotalCommitments,
+			&mevRewardStr, &r.MEVRewardRecipient,
+			&r.RelaysWithData, &r.Winner, &r.TotalCommitments,
 			&r.TotalRewards, &r.TotalSlashes, &r.TotalAmount, &r.CreatedAt,
 		)
 		if err != nil {
