@@ -92,6 +92,8 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 			db.Close()
 			return nil, err
 		}
+	} else {
+		log.Info("Database is disabled, relay data will not be saved")
 	}
 
 	return &DutyMonitor{
