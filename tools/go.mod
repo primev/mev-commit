@@ -23,6 +23,8 @@ require (
 	google.golang.org/protobuf v1.34.2
 )
 
+require github.com/DATA-DOG/go-sqlmock v1.5.2
+
 replace github.com/primev/mev-commit/p2p => ../p2p
 
 replace github.com/primev/mev-commit/x => ../x

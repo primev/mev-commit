@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -20,9 +21,15 @@ type OptInStatus struct {
 	IsMiddlewareOptedIn bool
 }
 
+// EthClient defines the methods needed from ethclient.Client
+type EthClient interface {
+	CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	Close()
+}
+
 // ValidatorOptInChecker is responsible for checking validator opt-in status
 type ValidatorOptInChecker struct {
-	client      *ethclient.Client
+	client      EthClient
 	contractAbi abi.ABI
 	address     common.Address
 }

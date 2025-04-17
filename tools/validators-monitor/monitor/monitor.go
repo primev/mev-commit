@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"math/big"
+	"sort"
 	"strconv"
 	"time"
 
@@ -16,34 +17,85 @@ import (
 	"github.com/primev/mev-commit/tools/validators-monitor/notification"
 )
 
-// DutyMonitor coordinates validator monitoring operations
-type DutyMonitor struct {
-	logger       *slog.Logger
-	config       *config.Config
-	calculator   *epoch.Calculator
-	runningEpoch uint64
+const (
+	dutiesCacheTTL        = 6 * time.Hour // proposer‑duties stay hot this long
+	processedBlockTTL     = 2 * time.Hour // keep “already‑seen” blocks this long
+	processedBlocksTarget = 500           // hard cap after TTL pruning
+)
 
-	// Service clients
-	beacon     *api.BeaconClient
-	relay      *api.RelayClient
-	dashboard  *api.DashboardClient
-	notifier   *notification.SlackNotifier
-	optChecker *contract.ValidatorOptInChecker
-
-	// Caches
-	dutiesCache     map[uint64][]api.ProposerDutyInfo
-	processedBlocks map[uint64]struct{}
-
-	// DB
-	db *database.PostgresDB
+type cachedDuties struct {
+	duties   []api.ProposerDutyInfo
+	cachedAt time.Time
 }
 
-// New creates a new duty monitor with all required dependencies
+/* external service client interfaces */
+
+type BeaconClient interface {
+	GetProposerDuties(ctx context.Context, epoch uint64) (*api.ProposerDutiesResponse, error)
+	GetBlockBySlot(ctx context.Context, slot uint64) (string, error)
+}
+
+type RelayClient interface {
+	QueryRelayData(ctx context.Context, blockNumber uint64) map[string]api.RelayResult
+}
+
+type DashboardClient interface {
+	GetBlockInfo(ctx context.Context, blockNumber uint64) (*api.DashboardResponse, error)
+}
+
+type ValidatorOptInChecker interface {
+	CheckValidatorsOptedIn(ctx context.Context, pubkeys []string) ([]contract.OptInStatus, error)
+}
+
+type SlackNotifier interface {
+	NotifyRelayData(ctx context.Context,
+		validatorPubkey string,
+		validatorIndex uint64,
+		blockNumber uint64,
+		slot uint64,
+		mevReward *big.Int,
+		relaysWithData []string,
+		totalRelays []string,
+		blockInfo *api.DashboardResponse) error
+}
+
+type Database interface {
+	SaveRelayData(ctx context.Context, record *database.RelayRecord) error
+	InitSchema(ctx context.Context) error
+	Close() error
+}
+
+type EpochCalculator interface {
+	CurrentSlot() uint64
+	CurrentEpoch() uint64
+	TimeUntilNextEpoch() time.Duration
+	EpochStartTime(epoch uint64) time.Time
+	TargetEpoch() uint64
+	EpochsToFetch() []uint64
+	SlotToEpoch(slot uint64) uint64
+}
+
+// DutyMonitor coordinates validator monitoring operations.
+type DutyMonitor struct {
+	logger     *slog.Logger
+	config     *config.Config
+	calculator EpochCalculator
+
+	beacon     BeaconClient
+	relay      RelayClient
+	dashboard  DashboardClient
+	notifier   SlackNotifier
+	optChecker ValidatorOptInChecker
+	db         Database
+
+	runningEpoch    uint64
+	dutiesCache     map[uint64]cachedDuties // epoch → duties (+TS)
+	processedBlocks map[uint64]time.Time    // blockNumber → first‑seen
+}
+
 func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
-	// Initialize HTTP client for all services
 	httpClient := createRetryableHTTPClient(log)
 
-	// Initialize services
 	beaconClient, err := api.NewBeaconClient(cfg.BeaconNodeURL, log, httpClient)
 	if err != nil {
 		return nil, err
@@ -51,27 +103,24 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 
 	optInChecker, err := contract.NewValidatorOptInChecker(cfg.EthereumRPCURL, cfg.ValidatorOptInContract)
 	if err != nil {
-		log.Error("Failed to initialize validator opt-in checker", "error", err)
 		return nil, err
 	}
 
 	dashboardClient, err := api.NewDashboardClient(cfg.DashboardApiUrl, log, httpClient)
 	if err != nil {
-		log.Error("Failed to initialize dashboard client", "error", err)
 		return nil, err
 	}
 
-	// Create calculator with mainnet default values
 	calculator := epoch.NewCalculator(
 		epoch.MainnetGenesisTime,
-		12, // seconds per slot
-		32, // slots per epoch
-		3,  // epochs to look behind
+		12, // seconds/slot
+		32, // slots/epoch
+		3,  // epochs to look back
 	)
 
-	var db *database.PostgresDB
+	var db Database
 	if cfg.DB.Enabled {
-		dbConfig := database.Config{
+		dbCfg := database.Config{
 			Host:     cfg.DB.Host,
 			Port:     cfg.DB.Port,
 			User:     cfg.DB.User,
@@ -79,21 +128,14 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 			DBName:   cfg.DB.DBName,
 			SSLMode:  cfg.DB.SSLMode,
 		}
-
-		db, err = database.NewPostgresDB(dbConfig, log.With("component", "database"))
+		db, err = database.NewPostgresDB(dbCfg, log.With("component", "database"))
 		if err != nil {
-			log.Error("Failed to connect to database", "error", err)
 			return nil, err
 		}
-
-		// Initialize database schema
 		if err := db.InitSchema(context.Background()); err != nil {
-			log.Error("Failed to initialize database schema", "error", err)
 			db.Close()
 			return nil, err
 		}
-	} else {
-		log.Info("Database is disabled, relay data will not be saved")
 	}
 
 	return &DutyMonitor{
@@ -105,45 +147,28 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 		dashboard:       dashboardClient,
 		notifier:        notification.NewSlackNotifier(cfg.SlackWebhookURL, log),
 		optChecker:      optInChecker,
-		dutiesCache:     make(map[uint64][]api.ProposerDutyInfo),
-		processedBlocks: make(map[uint64]struct{}),
+		dutiesCache:     make(map[uint64]cachedDuties),
+		processedBlocks: make(map[uint64]time.Time),
 		db:              db,
 	}, nil
 }
 
-// createRetryableHTTPClient creates a configured HTTP client with retry logic
-func createRetryableHTTPClient(log *slog.Logger) *retryablehttp.Client {
-	client := retryablehttp.NewClient()
-	client.RetryMax = 5
-	client.RetryWaitMin = 200 * time.Millisecond
-	client.RetryWaitMax = 3 * time.Second
-	client.Backoff = retryablehttp.DefaultBackoff
-	client.HTTPClient.Timeout = 20 * time.Second
-	client.Logger = log
-	return client
-}
-
-// Start begins the monitoring process
 func (m *DutyMonitor) Start(ctx context.Context) {
-	// Initialize state
 	m.runningEpoch = m.calculator.CurrentEpoch()
-	m.logger.Info("Duty monitor starting",
-		"current_epoch", m.runningEpoch,
-		"fetch_interval", m.config.FetchIntervalSec)
+	m.logger.Info("duty-monitor started",
+		"epoch", m.runningEpoch,
+		"interval_sec", m.config.FetchIntervalSec)
 
-	// Initial fetch
-	m.fetchAndProcessDuties(ctx)
+	m.fetchAndProcessDuties(ctx) // initial fetch
 
-	// Set up ticker for periodic tasks
 	ticker := time.NewTicker(time.Duration(m.config.FetchIntervalSec) * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			m.logger.Info("Duty monitor stopping", "reason", ctx.Err())
+			m.logger.Info("duty-monitor stopping", "reason", ctx.Err())
 			return
-
 		case <-ticker.C:
 			m.checkEpochTransition()
 			m.fetchAndProcessDuties(ctx)
@@ -151,201 +176,138 @@ func (m *DutyMonitor) Start(ctx context.Context) {
 	}
 }
 
-// checkEpochTransition detects and handles epoch transitions
 func (m *DutyMonitor) checkEpochTransition() {
-	newEpoch := m.calculator.CurrentEpoch()
-	if newEpoch > m.runningEpoch {
-		m.logger.Info("Epoch transition occurred",
-			"previous_epoch", m.runningEpoch,
-			"new_epoch", newEpoch)
-
+	if newEpoch := m.calculator.CurrentEpoch(); newEpoch > m.runningEpoch {
+		m.logger.Info("epoch transition detected", "old", m.runningEpoch, "new", newEpoch)
 		m.runningEpoch = newEpoch
-		m.cleanupCache(newEpoch)
+		m.cleanupCaches()
 	}
 }
 
-// fetchAndProcessDuties gets and processes proposer duties
 func (m *DutyMonitor) fetchAndProcessDuties(ctx context.Context) {
-	currentEpoch := m.calculator.CurrentEpoch()
-	m.runningEpoch = currentEpoch
-	epochsToFetch := m.calculator.EpochsToFetch()
-
-	m.logger.Debug("Starting duties fetch operation",
-		"current_epoch", currentEpoch,
-		"target_epochs", epochsToFetch)
-
-	for _, targetEpoch := range epochsToFetch {
-		// Skip if already cached
-		if _, exists := m.dutiesCache[targetEpoch]; exists {
-			m.logger.Debug("Using cached duties", "epoch", targetEpoch)
+	for _, e := range m.calculator.EpochsToFetch() {
+		if entry, ok := m.dutiesCache[e]; ok && time.Since(entry.cachedAt) < dutiesCacheTTL {
+			m.logger.Debug("duties cache-hit", "epoch", e)
 			continue
 		}
 
-		// Fetch and process new duties
-		duties, err := m.fetchDutiesForEpoch(ctx, targetEpoch)
+		duties, err := m.fetchDutiesForEpoch(ctx, e)
 		if err != nil {
-			m.logger.Error("Failed to fetch/parse duties", "epoch", targetEpoch, "error", err)
+			m.logger.Error("fetch duties failed", "epoch", e, "err", err)
 			continue
 		}
 
-		// Cache and process
-		m.dutiesCache[targetEpoch] = duties
-		m.processDuties(ctx, targetEpoch, duties)
+		m.dutiesCache[e] = cachedDuties{duties: duties, cachedAt: time.Now()}
+		m.processDuties(ctx, e, duties)
 	}
 }
 
-// fetchDutiesForEpoch retrieves and parses proposer duties for a specific epoch
-func (m *DutyMonitor) fetchDutiesForEpoch(ctx context.Context, targetEpoch uint64) ([]api.ProposerDutyInfo, error) {
-	resp, err := m.beacon.GetProposerDuties(ctx, targetEpoch)
+func (m *DutyMonitor) fetchDutiesForEpoch(ctx context.Context, epoch uint64) ([]api.ProposerDutyInfo, error) {
+	resp, err := m.beacon.GetProposerDuties(ctx, epoch)
 	if err != nil {
 		return nil, err
 	}
-
-	return api.ParseProposerDuties(targetEpoch, resp)
+	return api.ParseProposerDuties(epoch, resp)
 }
 
-// processDuties handles newly fetched proposer duties
 func (m *DutyMonitor) processDuties(ctx context.Context, epochNum uint64, duties []api.ProposerDutyInfo) {
-	epochStr := epoch.FormatEpoch(epochNum)
-
-	m.logger.Info("Proposer duties summary",
+	m.logger.Info("duties fetched",
 		"epoch", epochNum,
-		"epoch_id", epochStr,
-		"duties_count", len(duties),
+		"count", len(duties),
 		"start_time", m.calculator.EpochStartTime(epochNum).Format(time.RFC3339))
 
-	// Get opt-in status for validators
-	optedInStatuses := m.getValidatorOptInStatuses(ctx, duties)
+	opted := m.getValidatorOptInStatuses(ctx, duties)
+	blocks := m.getBlocksInfoForDuties(ctx, duties)
 
-	// Get block info for slots
-	blocksInfo := m.getBlocksInfoForDuties(ctx, duties)
-
-	// Process individual duties
-	for _, duty := range duties {
-		m.processDuty(ctx, epochNum, epochStr, duty, optedInStatuses, blocksInfo)
+	for _, d := range duties {
+		m.processDuty(ctx, d, opted, blocks)
 	}
 }
 
-// getValidatorOptInStatuses gets opt-in status for all validators
 func (m *DutyMonitor) getValidatorOptInStatuses(ctx context.Context, duties []api.ProposerDutyInfo) map[string]contract.OptInStatus {
-	// Extract pubkeys
 	pubkeys := make([]string, len(duties))
-	for i, duty := range duties {
-		pubkeys[i] = duty.PubKey
+	for i, d := range duties {
+		pubkeys[i] = d.PubKey
 	}
-
-	// Check all pubkeys in one batch operation
 	statuses, err := m.optChecker.CheckValidatorsOptedIn(ctx, pubkeys)
 	if err != nil {
-		m.logger.Error("Failed to check validators opt-in status", "error", err)
-		return make(map[string]contract.OptInStatus)
+		m.logger.Error("opt-in checker error", "err", err)
+		return nil
 	}
-
-	// Map results to pubkeys
-	result := make(map[string]contract.OptInStatus)
-	for i, status := range statuses {
-		if i < len(pubkeys) {
-			result[pubkeys[i]] = status
-		}
+	out := make(map[string]contract.OptInStatus, len(pubkeys))
+	for i, s := range statuses {
+		out[pubkeys[i]] = s
 	}
-
-	return result
+	return out
 }
 
-// getBlocksInfoForDuties gets block numbers for all slots
 func (m *DutyMonitor) getBlocksInfoForDuties(ctx context.Context, duties []api.ProposerDutyInfo) map[uint64]string {
-	blockInfo := make(map[uint64]string) // slot -> block number
-
-	for _, duty := range duties {
-		blockNumber, err := m.beacon.GetBlockBySlot(ctx, duty.Slot)
-
+	out := make(map[uint64]string, len(duties))
+	for _, d := range duties {
+		bn, err := m.beacon.GetBlockBySlot(ctx, d.Slot)
 		if err != nil {
-			m.logger.Error("Failed to fetch block information",
-				"slot", duty.Slot, "error", err)
-		} else {
-			blockInfo[duty.Slot] = blockNumber
+			m.logger.Warn("blockBySlot error", "slot", d.Slot, "err", err)
+			continue
+		}
+		if bn != "" {
+			out[d.Slot] = bn
 		}
 	}
-
-	return blockInfo
+	return out
 }
 
-// processDuty handles a single proposer duty
 func (m *DutyMonitor) processDuty(
 	ctx context.Context,
-	epochNum uint64,
-	epochStr string,
 	duty api.ProposerDutyInfo,
-	optedInStatuses map[string]contract.OptInStatus,
+	optedIn map[string]contract.OptInStatus,
 	blockInfo map[uint64]string,
 ) {
-	// Check if we need to process this validator
-	status, hasStatus := optedInStatuses[duty.PubKey]
-	if !hasStatus || (!status.IsAvsOptedIn && !status.IsMiddlewareOptedIn && !status.IsVanillaOptedIn) {
-		return // Skip validators that haven't opted in
+	status, ok := optedIn[duty.PubKey]
+	if !ok || (!status.IsAvsOptedIn && !status.IsMiddlewareOptedIn && !status.IsVanillaOptedIn) {
+		return
 	}
 
-	// Prepare log data
-	logData := []interface{}{
-		"epoch", epochNum,
-		"epoch_id", epochStr,
-		"slot", duty.Slot,
-		"validator_index", duty.ValidatorIndex,
-		"pubkey", duty.PubKey,
-		"vanilla_opted_in", hasStatus && status.IsVanillaOptedIn,
-		"avs_opted_in", hasStatus && status.IsAvsOptedIn,
-		"middleware_opted_in", hasStatus && status.IsMiddlewareOptedIn,
+	blockStr, ok := blockInfo[duty.Slot]
+	if !ok || blockStr == "" {
+		return
 	}
 
-	// Add block information if available
-	if blockNumberStr, ok := blockInfo[duty.Slot]; ok {
-		if blockNumberStr == "" {
-			logData = append(logData, "block_missed", true)
-		} else {
-			logData = append(logData, "block_number", blockNumberStr, "block_missed", false)
-
-			// Process block if it exists and we haven't seen it before
-			bn, _ := strconv.ParseUint(blockNumberStr, 10, 64)
-			if bn > 0 {
-				if _, alreadyProcessed := m.processedBlocks[bn]; !alreadyProcessed {
-					m.processBlockData(ctx, bn, duty)
-					m.processedBlocks[bn] = struct{}{}
-				} else {
-					m.logger.Debug("Skipping already processed block",
-						"block_number", bn, "slot", duty.Slot)
-				}
-			}
-		}
+	bn, _ := strconv.ParseUint(blockStr, 10, 64)
+	if bn == 0 {
+		return
 	}
 
-	m.logger.Info("Proposer duty", logData...)
+	if _, done := m.processedBlocks[bn]; done {
+		return // already handled
+	}
+
+	m.processBlockData(ctx, bn, duty)
+	m.processedBlocks[bn] = time.Now()
 }
 
-// processBlockData gets and processes relay data for a block
 func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, duty api.ProposerDutyInfo) {
-	m.logger.Info("Querying relays for block data",
+	m.logger.Info("querying relays for block",
 		"block_number", blockNumber,
 		"slot", duty.Slot,
 		"validator_index", duty.ValidatorIndex,
 		"pubkey", duty.PubKey)
 
-	// Query all relays in parallel
+	/* query all relays */
 	relayResults := m.relay.QueryRelayData(ctx, blockNumber)
 
-	// Extract relevant relay data
 	relaysWithData := []string{}
 	mevReward := new(big.Int)
 
 	for relayURL, result := range relayResults {
 		if result.Error != "" {
-			m.logger.Warn("Relay query error",
+			m.logger.Warn("relay query error",
 				"relay", relayURL, "error", result.Error, "block", blockNumber)
 			continue
 		}
 
 		bidTraces, ok := result.Response.([]api.BidTrace)
 		if !ok {
-			m.logger.Error("Unexpected response type from relay",
+			m.logger.Error("unexpected relay response type",
 				"relay", relayURL, "block", blockNumber)
 			continue
 		}
@@ -354,7 +316,7 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 			if trace.ProposerPubkey == duty.PubKey {
 				relaysWithData = append(relaysWithData, relayURL)
 
-				m.logger.Info("Found relay data for validator",
+				m.logger.Info("relay bid for validator",
 					"relay", relayURL,
 					"block", blockNumber,
 					"slot", duty.Slot,
@@ -363,10 +325,9 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 					"num_tx", trace.NumTx)
 
 				if _, ok := mevReward.SetString(trace.Value, 10); !ok {
-					m.logger.Error("Failed to parse MEV reward value",
+					m.logger.Error("parse MEV reward",
 						"relay", relayURL,
 						"block", blockNumber,
-						"validator_pubkey", duty.PubKey,
 						"bid_value", trace.Value)
 				}
 				break
@@ -374,17 +335,17 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 		}
 	}
 
-	// Get additional block info from dashboard
+	/* dashboard info (optional) */
 	blockInfo := m.fetchBlockInfoFromDashboard(ctx, blockNumber)
 
-	// Send notification
+	/* notifications & DB */
 	m.sendNotification(ctx, duty, blockNumber, mevReward, relaysWithData, blockInfo)
 
 	if m.db != nil {
 		m.saveRelayData(ctx, duty, blockNumber, mevReward, relaysWithData, blockInfo)
 	}
 
-	m.logger.Info("Relay data query complete",
+	m.logger.Info("relay data processed",
 		"block_number", blockNumber,
 		"slot", duty.Slot,
 		"validator_index", duty.ValidatorIndex,
@@ -392,31 +353,29 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 		"total_relays_queried", len(relayResults))
 }
 
-// fetchBlockInfoFromDashboard gets block information from dashboard service
 func (m *DutyMonitor) fetchBlockInfoFromDashboard(ctx context.Context, blockNumber uint64) *api.DashboardResponse {
 	if m.dashboard == nil {
 		return nil
 	}
 
-	blockInfo, err := m.dashboard.GetBlockInfo(ctx, blockNumber)
+	info, err := m.dashboard.GetBlockInfo(ctx, blockNumber)
 	if err != nil {
-		m.logger.Error("Failed to fetch block info from dashboard service",
-			"error", err, "block_number", blockNumber)
+		m.logger.Error("dashboard query error",
+			"block_number", blockNumber, "err", err)
 		return nil
 	}
 
-	m.logger.Info("Block info fetched from dashboard service",
+	m.logger.Info("dashboard block info",
 		"block_number", blockNumber,
-		"winner", blockInfo.Winner,
-		"total_commitments", blockInfo.TotalOpenedCommitments,
-		"total_rewards", blockInfo.TotalRewards,
-		"total_slashes", blockInfo.TotalSlashes,
-		"total_amount", blockInfo.TotalAmount)
+		"winner", info.Winner,
+		"total_commitments", info.TotalOpenedCommitments,
+		"total_rewards", info.TotalRewards,
+		"total_slashes", info.TotalSlashes,
+		"total_amount", info.TotalAmount)
 
-	return blockInfo
+	return info
 }
 
-// sendNotification sends information about relay data
 func (m *DutyMonitor) sendNotification(
 	ctx context.Context,
 	duty api.ProposerDutyInfo,
@@ -425,7 +384,7 @@ func (m *DutyMonitor) sendNotification(
 	relaysWithData []string,
 	blockInfo *api.DashboardResponse,
 ) {
-	err := m.notifier.NotifyRelayData(
+	if err := m.notifier.NotifyRelayData(
 		ctx,
 		duty.PubKey,
 		duty.ValidatorIndex,
@@ -435,59 +394,12 @@ func (m *DutyMonitor) sendNotification(
 		relaysWithData,
 		m.config.RelayURLs,
 		blockInfo,
-	)
-
-	if err != nil {
-		m.logger.Error("Failed to send relay data notification",
-			"error", err,
+	); err != nil {
+		m.logger.Error("slack notification error",
 			"validator", duty.PubKey,
-			"block", blockNumber)
+			"block", blockNumber,
+			"err", err)
 	}
-}
-
-// cleanupCache removes old epochs and blocks from the cache
-func (m *DutyMonitor) cleanupCache(currentEpoch uint64) {
-	// Remove old epochs
-	for cachedEpoch := range m.dutiesCache {
-		if cachedEpoch < currentEpoch {
-			delete(m.dutiesCache, cachedEpoch)
-			m.logger.Debug("Removed old epoch from cache", "epoch", cachedEpoch)
-		}
-	}
-
-	// Clean up processed blocks if we have too many
-	if len(m.processedBlocks) <= 500 {
-		return
-	}
-
-	m.logger.Debug("Cleaning up processed blocks cache",
-		"before_cleanup", len(m.processedBlocks))
-
-	// Find minimum epoch in cache
-	minEpoch := currentEpoch
-	for epoch := range m.dutiesCache {
-		if epoch < minEpoch {
-			minEpoch = epoch
-		}
-	}
-
-	// Delete blocks older than 3 epochs before our earliest cached epoch
-	// (Ethereum has ~225 blocks per epoch - 12s slots, 32 slots per epoch)
-	minBlockThreshold := uint64(0)
-	if minEpoch > 3 {
-		minBlockThreshold = (minEpoch - 3) * 225
-	}
-
-	// Remove old blocks
-	for blockNum := range m.processedBlocks {
-		if blockNum < minBlockThreshold {
-			delete(m.processedBlocks, blockNum)
-		}
-	}
-
-	m.logger.Debug("Processed blocks cache cleaned",
-		"after_cleanup", len(m.processedBlocks),
-		"blocks_below", minBlockThreshold)
 }
 
 func (m *DutyMonitor) saveRelayData(
@@ -511,7 +423,6 @@ func (m *DutyMonitor) saveRelayData(
 		RelaysWithData:  relaysWithData,
 	}
 
-	// Add dashboard info if available
 	if blockInfo != nil {
 		record.Winner = blockInfo.Winner
 		record.TotalCommitments = blockInfo.TotalOpenedCommitments
@@ -520,20 +431,64 @@ func (m *DutyMonitor) saveRelayData(
 		record.TotalAmount = blockInfo.TotalAmount
 	}
 
-	err := m.db.SaveRelayData(ctx, record)
-	if err != nil {
-		m.logger.Error("Failed to save relay data to database",
-			"error", err,
+	if err := m.db.SaveRelayData(ctx, record); err != nil {
+		m.logger.Error("DB save error",
 			"validator", duty.PubKey,
-			"block", blockNumber)
+			"block", blockNumber,
+			"err", err)
 	} else {
-		m.logger.Debug("Saved relay data to database",
-			"id", record.ID,
-			"validator", duty.PubKey,
-			"block", blockNumber)
+		m.logger.Debug("relay data saved", "id", record.ID)
 	}
 }
 
-func (m *DutyMonitor) GetDB() *database.PostgresDB {
-	return m.db
+func (m *DutyMonitor) cleanupCaches() {
+	now := time.Now()
+
+	/* duties TTL */
+	for ep, entry := range m.dutiesCache {
+		if now.Sub(entry.cachedAt) > dutiesCacheTTL {
+			delete(m.dutiesCache, ep)
+		}
+	}
+
+	/* processed blocks TTL */
+	for bn, ts := range m.processedBlocks {
+		if now.Sub(ts) > processedBlockTTL {
+			delete(m.processedBlocks, bn)
+		}
+	}
+
+	/* hard cap */
+	if len(m.processedBlocks) > processedBlocksTarget {
+		type kv struct {
+			bn uint64
+			ts time.Time
+		}
+		lst := make([]kv, 0, len(m.processedBlocks))
+		for bn, ts := range m.processedBlocks {
+			lst = append(lst, kv{bn, ts})
+		}
+		sort.Slice(lst, func(i, j int) bool { return lst[i].ts.Before(lst[j].ts) })
+		for i := 0; len(m.processedBlocks) > processedBlocksTarget && i < len(lst); i++ {
+			delete(m.processedBlocks, lst[i].bn)
+		}
+	}
+
+	m.logger.Debug("cache sizes",
+		"duties", len(m.dutiesCache),
+		"blocks", len(m.processedBlocks))
+}
+
+/* helper to expose DB in tests */
+func (m *DutyMonitor) GetDB() Database { return m.db }
+
+// createRetryableHTTPClient creates a retryable HTTP client with custom settings
+func createRetryableHTTPClient(log *slog.Logger) *retryablehttp.Client {
+	c := retryablehttp.NewClient()
+	c.RetryMax = 5
+	c.RetryWaitMin = 200 * time.Millisecond
+	c.RetryWaitMax = 3 * time.Second
+	c.HTTPClient.Timeout = 20 * time.Second
+	c.Logger = log
+	return c
 }

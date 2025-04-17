@@ -14,7 +14,6 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      # <-- use ASCII hyphen here
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mev_monitor} -d ${DB_NAME:-mev_commit_monitor}"]
       interval: 10s
       timeout: 5s
