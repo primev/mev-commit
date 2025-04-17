@@ -247,9 +247,12 @@ func TestScheduleNotificationForSlot(t *testing.T) {
 }
 
 func TestProcessEpoch(t *testing.T) {
+	t.Parallel()
+
 	dutiesJSON := `{"data":[
         {"pubkey":"0x1234567890abcdef","slot":"1"},
-        {"pubkey":"0xfedcba0987654321","slot":"2"}
+		{"pubkey":"0x7777777777777777","slot":"2"},
+        {"pubkey":"0xfedcba0987654321","slot":"3"}
     ]}`
 
 	mux := http.NewServeMux()
@@ -269,6 +272,9 @@ func TestProcessEpoch(t *testing.T) {
 	mockValidatorRouter := &MockValidatorRouterContract{
 		ExpectedCalls: map[string]interface{}{
 			string(hexutil.MustDecode("0x1234567890abcdef")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn: true,
+			},
+			string(hexutil.MustDecode("0x7777777777777777")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
 				IsVanillaOptedIn: true,
 			},
 			string(hexutil.MustDecode("0xfedcba0987654321")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
@@ -293,10 +299,10 @@ func TestProcessEpoch(t *testing.T) {
 	numValidatorOptedInNotifs := 0
 	numEpochValidatorsOptedInNotifs := 0
 
-	timeout := time.After(1 * time.Second)
+	timeout := time.After(1*time.Second + slotDuration)
 
-	// expect 1 validator opted in and 1 epoch notif
-	for numValidatorOptedInNotifs < 1 || numEpochValidatorsOptedInNotifs < 1 {
+	// expect 2 validator opted in and 1 epoch notif
+	for numValidatorOptedInNotifs < 2 || numEpochValidatorsOptedInNotifs < 1 {
 		select {
 		case n := <-mockNotifier.NotifyCh:
 			if n == nil {
@@ -321,8 +327,8 @@ func TestProcessEpoch(t *testing.T) {
 				if !ok {
 					t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
 				}
-				if len(slotsSlice) != 1 {
-					t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
+				if len(slotsSlice) != 2 {
+					t.Fatalf("expected 2 slots, got %d", len(slotsSlice))
 				}
 				if slotData, ok := slotsSlice[0].(map[string]interface{}); !ok {
 					t.Fatalf("expected slot data to be a map, got %T: %v", slotsSlice[0], slotsSlice[0])
