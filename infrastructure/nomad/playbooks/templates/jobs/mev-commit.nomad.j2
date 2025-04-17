@@ -131,6 +131,11 @@ job "{{ job.name }}" {
         data = <<-EOH
           #!/usr/bin/env bash
 
+          if [ -z "${MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT}" ]; then
+            echo "MEV_COMMIT_SETTLEMENT_RPC_ENDPOINT is not set"
+            exit 1
+          fi
+
           {% raw %}
           {{- range nomadService "datadog-agent-logs-collector" }}
             {{ if contains "tcp" .Tags }}
