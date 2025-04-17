@@ -104,7 +104,6 @@ func TestQueryOneRelay(t *testing.T) {
 				}))
 				defer server.Close()
 
-				// Replace the placeholder with actual server URL
 				tt.relayURL = server.URL
 			}
 
@@ -193,9 +192,6 @@ func TestQueryRelayData(t *testing.T) {
 	result2 := results[server2.URL]
 	assert.Equal(t, server2.URL, result2.Relay)
 
-	// The test is failing because it seems the actual implementation
-	// doesn't set StatusCode when there's an error in the response.
-	// Let's adjust our expectations to match the actual behavior
 	if result2.StatusCode != 0 {
 		assert.Equal(t, http.StatusInternalServerError, result2.StatusCode)
 	}
@@ -241,16 +237,14 @@ func TestQueryRelayDataWithCancelledContext(t *testing.T) {
 
 func TestQueryRelayDataWithMultipleRelays(t *testing.T) {
 	// Create 5 test servers all returning valid responses
-	var servers []*httptest.Server
 	var relayURLs []string
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`[{"slot":"123","block_number":"12345"}]`))
 		}))
 		defer server.Close()
-		servers = append(servers, server)
 		relayURLs = append(relayURLs, server.URL)
 	}
 

@@ -45,9 +45,6 @@ func TestNewDashboardClient(t *testing.T) {
 	dashboardClient, err = NewDashboardClient("://invalid-url", logger, client)
 	assert.Error(t, err)
 	assert.Nil(t, dashboardClient)
-
-	// The DashboardClient doesn't handle nil client, looking at the implementation
-	// Removing this test case as it's not supported by the implementation
 }
 
 func TestGetBlockInfo(t *testing.T) {

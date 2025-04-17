@@ -19,8 +19,6 @@ import (
 	"github.com/primev/mev-commit/tools/validators-monitor/database"
 )
 
-/* ─────  F A K E   D E P E N D E N C I E S  ─── */
-
 type fakeBeacon struct {
 	resp *api.ProposerDutiesResponse
 	err  error
@@ -122,8 +120,6 @@ func (f *fakeCalc) TargetEpoch() uint64                   { return f.curEpoch }
 func (f *fakeCalc) EpochsToFetch() []uint64               { return f.toFetch }
 func (f *fakeCalc) SlotToEpoch(slot uint64) uint64        { return 0 }
 
-/* ─────  H E L P E R  ─── */
-
 func makeTestMonitor() *DutyMonitor {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := &config.Config{
@@ -145,8 +141,6 @@ func makeTestMonitor() *DutyMonitor {
 		db:              nil,
 	}
 }
-
-/* ─────  T E S T S  ─── */
 
 func TestCheckEpochTransition(t *testing.T) {
 	m := makeTestMonitor()
@@ -319,7 +313,7 @@ func TestFetchBlockInfoFromDashboard_Error(t *testing.T) {
 func TestCleanupCaches_Threshold(t *testing.T) {
 	m := makeTestMonitor()
 	// fill processedBlocks > 501 entries
-	for i := 0; i < 600; i++ {
+	for i := range 600 {
 		m.processedBlocks[uint64(i)] = time.Now()
 	}
 	// add one fresh epoch so dutiesCache isn't empty

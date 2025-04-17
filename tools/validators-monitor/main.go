@@ -133,7 +133,7 @@ var (
 		Name:    "log-level",
 		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
 		EnvVars: []string{"LOG_LEVEL"},
-		Value:   "debug",
+		Value:   "info",
 		Action: func(ctx *cli.Context, s string) error {
 			if !slices.Contains([]string{"debug", "info", "warn", "error"}, s) {
 				return fmt.Errorf("invalid log-level, expecting 'debug', 'info', 'warn', 'error'")
