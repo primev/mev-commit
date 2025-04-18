@@ -105,6 +105,8 @@ type DutyMonitor struct {
 	dutiesCache     map[uint64]cachedDuties // epoch → duties (+TS)
 	processedBlocks map[uint64]time.Time    // blockNumber → first‑seen
 
+	cacheMutex sync.RWMutex
+
 	// New fields for historical data processing
 	historicalState HistoricalState
 	historicalMode  bool           // Whether we're in historical data collection mode
@@ -180,6 +182,7 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 			processedEpochs: make(map[uint64]bool),
 			mutex:           sync.Mutex{},
 		},
+		cacheMutex: sync.RWMutex{},
 	}, nil
 }
 
@@ -261,7 +264,12 @@ func (m *DutyMonitor) fetchAndProcessDuties(ctx context.Context) {
 	}
 
 	for _, e := range m.calculator.EpochsToFetch() {
-		if entry, ok := m.dutiesCache[e]; ok && time.Since(entry.cachedAt) < dutiesCacheTTL {
+		m.cacheMutex.RLock()
+		entry, ok := m.dutiesCache[e]
+		cacheHit := ok && time.Since(entry.cachedAt) < dutiesCacheTTL
+		m.cacheMutex.RUnlock()
+
+		if cacheHit {
 			m.logger.Debug("duties cache-hit", "epoch", e)
 			continue
 		}
@@ -272,7 +280,10 @@ func (m *DutyMonitor) fetchAndProcessDuties(ctx context.Context) {
 			continue
 		}
 
+		m.cacheMutex.Lock()
 		m.dutiesCache[e] = cachedDuties{duties: duties, cachedAt: time.Now()}
+		m.cacheMutex.Unlock()
+
 		m.processDuties(ctx, e, duties)
 	}
 }
@@ -333,7 +344,12 @@ func (m *DutyMonitor) fetchHistoricalEpochs(ctx context.Context) {
 
 func (m *DutyMonitor) processingEpoch(ctx context.Context, epochNum uint64) {
 	// Check cache first
-	if entry, ok := m.dutiesCache[epochNum]; ok && time.Since(entry.cachedAt) < dutiesCacheTTL {
+	m.cacheMutex.RLock()
+	entry, ok := m.dutiesCache[epochNum]
+	cacheHit := ok && time.Since(entry.cachedAt) < dutiesCacheTTL
+	m.cacheMutex.RUnlock()
+
+	if cacheHit {
 		m.logger.Debug("historical duties cache-hit", "epoch", epochNum)
 		m.processDuties(ctx, epochNum, entry.duties)
 		return
@@ -347,7 +363,9 @@ func (m *DutyMonitor) processingEpoch(ctx context.Context, epochNum uint64) {
 	}
 
 	// Cache the result
+	m.cacheMutex.Lock()
 	m.dutiesCache[epochNum] = cachedDuties{duties: duties, cachedAt: time.Now()}
+	m.cacheMutex.Unlock()
 
 	// Process the duties
 	m.processDuties(ctx, epochNum, duties)
@@ -428,12 +446,12 @@ func (m *DutyMonitor) processDuty(
 		return
 	}
 
-	if _, done := m.processedBlocks[bn]; done {
-		return // already handled
-	}
-
 	if !m.historicalMode {
-		if _, done := m.processedBlocks[bn]; done {
+		m.cacheMutex.RLock()
+		_, done := m.processedBlocks[bn]
+		m.cacheMutex.RUnlock()
+
+		if done {
 			return // already handled in normal mode
 		}
 	}
@@ -442,7 +460,9 @@ func (m *DutyMonitor) processDuty(
 
 	// Only track processed blocks in normal mode
 	if !m.historicalMode {
+		m.cacheMutex.Lock()
 		m.processedBlocks[bn] = time.Now()
+		m.cacheMutex.Unlock()
 	}
 }
 
@@ -613,6 +633,9 @@ func (m *DutyMonitor) saveRelayData(
 func (m *DutyMonitor) cleanupCaches() {
 	now := time.Now()
 
+	m.cacheMutex.Lock()
+	defer m.cacheMutex.Unlock()
+
 	/* duties TTL */
 	for ep, entry := range m.dutiesCache {
 		if now.Sub(entry.cachedAt) > dutiesCacheTTL {
@@ -643,6 +666,19 @@ func (m *DutyMonitor) cleanupCaches() {
 		}
 	}
 
+	if m.historicalMode {
+		m.historicalState.mutex.Lock()
+		totalEpochs := m.historicalState.latestEpoch - m.historicalState.earliestEpoch + 1
+		processedCount := len(m.historicalState.processedEpochs)
+		percentComplete := float64(processedCount) / float64(totalEpochs) * 100.0
+		m.logger.Info("historical processing status",
+			"processed_epochs", processedCount,
+			"total_epochs", totalEpochs,
+			"percent_complete", percentComplete,
+			"next_epoch_to_fetch", m.historicalState.nextEpochToFetch)
+		m.historicalState.mutex.Unlock()
+	}
+
 	m.logger.Debug("cache sizes",
 		"duties", len(m.dutiesCache),
 		"blocks", len(m.processedBlocks))
@@ -656,7 +692,7 @@ func createRetryableHTTPClient(log *slog.Logger) *retryablehttp.Client {
 	c := retryablehttp.NewClient()
 	c.RetryMax = 5
 	c.RetryWaitMin = 200 * time.Millisecond
-	c.RetryWaitMax = 3 * time.Second
+	c.RetryWaitMax = 5 * time.Second
 	c.HTTPClient.Timeout = 20 * time.Second
 	c.Logger = log
 	return c
