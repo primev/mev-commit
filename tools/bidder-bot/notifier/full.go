@@ -68,7 +68,7 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 				}
 
 			case header := <-headers:
-				if err := b.handleHeader(header); err != nil {
+				if err := b.handleHeader(ctx, header); err != nil {
 					b.logger.Error("error handling header", "error", err)
 				}
 			}
@@ -77,7 +77,7 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (b *FullNotifier) handleHeader(header *types.Header) error {
+func (b *FullNotifier) handleHeader(ctx context.Context, header *types.Header) error {
 	targetBlockNum := header.Number.Uint64() + 1
 	b.logger.Debug("handling header", "target_block_number", targetBlockNum)
 
@@ -88,17 +88,13 @@ func (b *FullNotifier) handleHeader(header *types.Header) error {
 		return fmt.Errorf("skipping notification for duplicate target block number %d", targetBlockNum)
 	}
 
+	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	select {
 	case b.targetBlockNumChan <- targetBlockNum:
 		b.logger.Debug("sent target block number", "target_block_number", targetBlockNum)
-	default:
-		select {
-		case drainedTargetBlockNum := <-b.targetBlockNumChan:
-			b.logger.Warn("drained buffered target block number", "drained_target_block_number", drainedTargetBlockNum)
-		default:
-		}
-		b.targetBlockNumChan <- targetBlockNum
-		b.logger.Warn("sent target block number after draining buffer", "target_block_number", targetBlockNum)
+	case <-sendCtx.Done():
+		return fmt.Errorf("failed to send target block number %d", targetBlockNum)
 	}
 
 	b.lastNotifiedBlockNum = targetBlockNum

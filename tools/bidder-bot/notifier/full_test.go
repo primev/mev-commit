@@ -1,8 +1,10 @@
 package notifier_test
 
 import (
+	"context"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,7 +56,7 @@ func TestHandleHeader(t *testing.T) {
 				Number: big.NewInt(int64(71)),
 				Time:   uint64(time.Now().Add(test.currentBlockTimeNowOffset).Unix()),
 			}
-			err := notifier.HandleHeader(header)
+			err := notifier.HandleHeader(context.Background(), header)
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -76,9 +78,10 @@ func TestHandleHeader(t *testing.T) {
 	}
 }
 
-func TestDrain(t *testing.T) {
+func TestChannelTimeout(t *testing.T) {
 	t.Parallel()
 	logger := util.NewTestLogger(os.Stdout)
+	ctx := context.Background()
 
 	targetBlockNumChan := make(chan uint64, 1)
 	notifier := notifier.NewFullNotifier(
@@ -86,46 +89,60 @@ func TestDrain(t *testing.T) {
 		nil,
 		targetBlockNumChan,
 	)
-	err := notifier.HandleHeader(&types.Header{Number: big.NewInt(5)})
+
+	err := notifier.HandleHeader(ctx, &types.Header{Number: big.NewInt(5)})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
-	}
-	targetBlockNum := <-targetBlockNumChan
-	if targetBlockNum != 6 {
-		t.Fatalf("expected target block number %d, got %d", 6, targetBlockNum)
-	}
-	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(15)})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	targetBlockNum = <-targetBlockNumChan
-	if targetBlockNum != 16 {
-		t.Fatalf("expected target block number %d, got %d", 16, targetBlockNum)
 	}
 
-	pastTime := time.Now().Add(-100 * time.Second) // To ensure sendTargetBlockNotification is called immediately
+	select {
+	case blockNum := <-targetBlockNumChan:
+		if blockNum != 6 {
+			t.Fatalf("expected target block number %d, got %d", 6, blockNum)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("expected to receive block number")
+	}
 
-	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(25), Time: uint64(pastTime.Unix())})
+	err = notifier.HandleHeader(ctx, &types.Header{Number: big.NewInt(10)})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	// draining starts here
-	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(35), Time: uint64(pastTime.Unix())})
+
+	err = notifier.HandleHeader(ctx, &types.Header{Number: big.NewInt(15)})
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to send target block number 16") {
+		t.Fatalf("unexpected error, got %v", err)
+	}
+
+	select {
+	case blockNum := <-targetBlockNumChan:
+		if blockNum != 11 {
+			t.Fatalf("expected target block number %d, got %d", 11, blockNum)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("expected to receive block number")
+	}
+
+	err = notifier.HandleHeader(ctx, &types.Header{Number: big.NewInt(15)})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	err = notifier.HandleHeader(&types.Header{Number: big.NewInt(45), Time: uint64(pastTime.Unix())})
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	targetBlockNum = <-targetBlockNumChan
-	if targetBlockNum != 46 {
-		t.Fatalf("expected target block number %d, got %d", 46, targetBlockNum)
+
+	select {
+	case blockNum := <-targetBlockNumChan:
+		if blockNum != 16 {
+			t.Fatalf("expected target block number %d, got %d", 16, blockNum)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("expected to receive block number")
 	}
 
 	select {
 	case <-targetBlockNumChan:
-		t.Fatal("expected no more in channel")
+		t.Fatal("expected no more blocks in channel")
 	default:
 	}
 }

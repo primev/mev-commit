@@ -101,20 +101,17 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 	// Assume the two slots before upcoming proposer slot are NOT missed
 	targetBlockNum := upcomingSlotMinusTwoBlockNum + 2
 
+	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	select {
 	case b.targetBlockNumChan <- targetBlockNum:
 		b.logger.Debug("sent target block number", "target_block_number", targetBlockNum)
-	default:
-		select {
-		case drainedTargetBlockNum := <-b.targetBlockNumChan:
-			b.logger.Warn("drained buffered target block number", "drained_target_block_number", drainedTargetBlockNum)
-		default:
-		}
-		b.targetBlockNumChan <- targetBlockNum
-		b.logger.Warn("sent target block number after draining buffer", "target_block_number", targetBlockNum)
+	case <-sendCtx.Done():
+		b.logger.Warn("failed to send target block number", "target_block_number", targetBlockNum)
 	}
-	b.logger.Debug("updated lastUpcomingProposer", "proposer", upcomingProposer)
 	b.lastUpcomingProposer.Store(upcomingProposer)
+	b.logger.Debug("updated lastUpcomingProposer", "proposer", upcomingProposer)
 	return nil
 }
 
