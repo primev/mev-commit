@@ -8,6 +8,7 @@ import (
 	"time"
 
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
 )
 
 const (
@@ -23,7 +24,7 @@ type SelectiveNotifier struct {
 	logger               *slog.Logger
 	notificationsClient  notificationsapiv1.NotificationsClient
 	beaconClient         *beaconClient
-	targetBlockNumChan   chan uint64
+	targetBlockChan      chan bidder.TargetBlock
 	lastUpcomingProposer atomic.Pointer[UpcomingProposer]
 }
 
@@ -31,13 +32,13 @@ func NewSelectiveNotifier(
 	logger *slog.Logger,
 	notificationsClient notificationsapiv1.NotificationsClient,
 	beaconRPCUrl string,
-	targetBlockNumChan chan uint64,
+	targetBlockChan chan bidder.TargetBlock,
 ) *SelectiveNotifier {
 	return &SelectiveNotifier{
 		logger:              logger,
 		notificationsClient: notificationsClient,
 		beaconClient:        newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client")),
-		targetBlockNumChan:  targetBlockNumChan,
+		targetBlockChan:     targetBlockChan,
 	}
 }
 
@@ -92,23 +93,26 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	upcomingSlotMinusTwo := upcomingProposer.Slot - 2
-	upcomingSlotMinusTwoBlockNum, err := b.beaconClient.getBlockNumForSlot(timeoutCtx, upcomingSlotMinusTwo)
+	mTwoBlocknum, mTwoTimestamp, err := b.beaconClient.getPayloadDataForSlot(timeoutCtx, upcomingSlotMinusTwo)
 	if err != nil {
 		b.logger.Error("failed to get block number for upcoming proposer slot - 2", "error", err)
 		return err
 	}
 
 	// Assume the two slots before upcoming proposer slot are NOT missed
-	targetBlockNum := upcomingSlotMinusTwoBlockNum + 2
+	targetBlock := bidder.TargetBlock{
+		Num:  mTwoBlocknum + 2,
+		Time: time.Unix(int64(mTwoTimestamp), 0).Add(2 * slotDuration),
+	}
 
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	select {
-	case b.targetBlockNumChan <- targetBlockNum:
-		b.logger.Debug("sent target block number", "target_block_number", targetBlockNum)
+	case b.targetBlockChan <- targetBlock:
+		b.logger.Debug("sent target block", "target_block_number", targetBlock.Num, "target_block_time", targetBlock.Time)
 	case <-sendCtx.Done():
-		b.logger.Warn("failed to send target block number", "target_block_number", targetBlockNum)
+		b.logger.Warn("failed to send target block", "target_block_number", targetBlock.Num, "target_block_time", targetBlock.Time)
 	}
 	b.lastUpcomingProposer.Store(upcomingProposer)
 	b.logger.Debug("updated lastUpcomingProposer", "proposer", upcomingProposer)

@@ -91,9 +91,7 @@ func New(config *Config) (*Service, error) {
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
 	config.Logger.Debug("created topology client")
 
-	// Only a single target block number can be buffered, the notifier overwrites if the buffer is full
-	targetBlockNumChan := make(chan uint64, 1)
-
+	targetBlockChan := make(chan bidder.TargetBlock, 1)
 	acceptedBidChan := make(chan *monitor.AcceptedBid, 5)
 
 	type Notifier interface {
@@ -114,7 +112,7 @@ func New(config *Config) (*Service, error) {
 		notif = notifier.NewFullNotifier(
 			config.Logger.With("module", "full_notifier"),
 			l1WsClient,
-			targetBlockNumChan, // send-and-receive for draining capability
+			targetBlockChan, // send-and-receive for draining capability
 		)
 	} else {
 		if len(config.BeaconApiUrls) == 0 {
@@ -127,7 +125,7 @@ func New(config *Config) (*Service, error) {
 			config.Logger.With("module", "selective_notifier"),
 			notificationsCli,
 			config.BeaconApiUrls[0],
-			targetBlockNumChan, // send-and-receive for draining capability
+			targetBlockChan, // send-and-receive for draining capability
 		)
 	}
 
@@ -140,8 +138,8 @@ func New(config *Config) (*Service, error) {
 		config.GasTipCap,
 		config.GasFeeCap,
 		config.BidAmount,
-		targetBlockNumChan, // receive-only
-		acceptedBidChan,    // send-only
+		targetBlockChan, // receive-only
+		acceptedBidChan, // send-only
 	)
 
 	monitorTxLandingTimeout := 15 * time.Minute

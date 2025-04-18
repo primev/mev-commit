@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
 	"github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/util"
 )
@@ -46,11 +47,11 @@ func TestHandleHeader(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			targetBlockNumChan := make(chan uint64, 1)
+			targetBlockChan := make(chan bidder.TargetBlock, 1)
 			notifier := notifier.NewFullNotifier(
 				logger,
 				nil,
-				targetBlockNumChan,
+				targetBlockChan,
 			)
 			header := &types.Header{
 				Number: big.NewInt(int64(71)),
@@ -66,12 +67,12 @@ func TestHandleHeader(t *testing.T) {
 				if test.expectToReceive {
 					t.Fatal("notification not sent in time")
 				}
-			case targetBlockNum := <-targetBlockNumChan:
+			case targetBlock := <-targetBlockChan:
 				if !test.expectToReceive {
 					t.Fatal("notification sent when not expected")
 				}
-				if targetBlockNum != 72 {
-					t.Fatalf("expected target block number %d, got %d", 72, targetBlockNum)
+				if targetBlock.Num != 72 {
+					t.Fatalf("expected target block number %d, got %d", 72, targetBlock.Num)
 				}
 			}
 		})
@@ -83,11 +84,11 @@ func TestChannelTimeout(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	ctx := context.Background()
 
-	targetBlockNumChan := make(chan uint64, 1)
+	targetBlockChan := make(chan bidder.TargetBlock, 1)
 	notifier := notifier.NewFullNotifier(
 		logger,
 		nil,
-		targetBlockNumChan,
+		targetBlockChan,
 	)
 
 	err := notifier.HandleHeader(ctx, &types.Header{Number: big.NewInt(5)})
@@ -96,9 +97,9 @@ func TestChannelTimeout(t *testing.T) {
 	}
 
 	select {
-	case blockNum := <-targetBlockNumChan:
-		if blockNum != 6 {
-			t.Fatalf("expected target block number %d, got %d", 6, blockNum)
+	case targetBlock := <-targetBlockChan:
+		if targetBlock.Num != 6 {
+			t.Fatalf("expected target block number %d, got %d", 6, targetBlock.Num)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("expected to receive block number")
@@ -118,9 +119,9 @@ func TestChannelTimeout(t *testing.T) {
 	}
 
 	select {
-	case blockNum := <-targetBlockNumChan:
-		if blockNum != 11 {
-			t.Fatalf("expected target block number %d, got %d", 11, blockNum)
+	case targetBlock := <-targetBlockChan:
+		if targetBlock.Num != 11 {
+			t.Fatalf("expected target block number %d, got %d", 11, targetBlock.Num)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("expected to receive block number")
@@ -132,16 +133,16 @@ func TestChannelTimeout(t *testing.T) {
 	}
 
 	select {
-	case blockNum := <-targetBlockNumChan:
-		if blockNum != 16 {
-			t.Fatalf("expected target block number %d, got %d", 16, blockNum)
+	case targetBlock := <-targetBlockChan:
+		if targetBlock.Num != 16 {
+			t.Fatalf("expected target block number %d, got %d", 16, targetBlock.Num)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("expected to receive block number")
 	}
 
 	select {
-	case <-targetBlockNumChan:
+	case <-targetBlockChan:
 		t.Fatal("expected no more blocks in channel")
 	default:
 	}

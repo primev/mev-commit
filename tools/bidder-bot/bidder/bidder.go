@@ -26,16 +26,21 @@ type L1Client interface {
 }
 
 type Bidder struct {
-	logger             *slog.Logger
-	bidderClient       bidderapiv1.BidderClient
-	topologyClient     debugapiv1.DebugServiceClient
-	l1Client           L1Client
-	signer             keysigner.KeySigner
-	gasTipCap          *big.Int
-	gasFeeCap          *big.Int
-	bidAmount          *big.Int
-	targetBlockNumChan <-chan uint64
-	acceptedBidChan    chan<- *monitor.AcceptedBid
+	logger          *slog.Logger
+	bidderClient    bidderapiv1.BidderClient
+	topologyClient  debugapiv1.DebugServiceClient
+	l1Client        L1Client
+	signer          keysigner.KeySigner
+	gasTipCap       *big.Int
+	gasFeeCap       *big.Int
+	bidAmount       *big.Int
+	targetBlockChan <-chan TargetBlock
+	acceptedBidChan chan<- *monitor.AcceptedBid
+}
+
+type TargetBlock struct {
+	Num  uint64
+	Time time.Time
 }
 
 func NewBidder(
@@ -47,20 +52,20 @@ func NewBidder(
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
-	targetBlockNumChan <-chan uint64,
+	targetBlockChan <-chan TargetBlock,
 	acceptedBidChan chan<- *monitor.AcceptedBid,
 ) *Bidder {
 	return &Bidder{
-		logger:             logger,
-		bidderClient:       bidderClient,
-		topologyClient:     topologyClient,
-		l1Client:           l1Client,
-		signer:             signer,
-		gasTipCap:          gasTipCap,
-		gasFeeCap:          gasFeeCap,
-		bidAmount:          bidAmount,
-		targetBlockNumChan: targetBlockNumChan,
-		acceptedBidChan:    acceptedBidChan,
+		logger:          logger,
+		bidderClient:    bidderClient,
+		topologyClient:  topologyClient,
+		l1Client:        l1Client,
+		signer:          signer,
+		gasTipCap:       gasTipCap,
+		gasFeeCap:       gasFeeCap,
+		bidAmount:       bidAmount,
+		targetBlockChan: targetBlockChan,
+		acceptedBidChan: acceptedBidChan,
 	}
 }
 
@@ -74,22 +79,26 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 			case <-ctx.Done():
 				b.logger.Info("bidder context done")
 				return
-			case targetBlockNum := <-b.targetBlockNumChan:
-				b.logger.Debug("received target block number", "target_block_number", targetBlockNum)
-				b.handle(ctx, targetBlockNum)
+			case targetBlock := <-b.targetBlockChan:
+				b.logger.Debug("received target block", "target_block_number", targetBlock.Num, "target_block_time", targetBlock.Time)
+				b.handle(ctx, targetBlock)
 			}
 		}
 	}()
 	return done
 }
 
-func (b *Bidder) handle(ctx context.Context, targetBlockNum uint64) {
-	bidCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+func (b *Bidder) handle(ctx context.Context, targetBlock TargetBlock) {
+	delay := time.Until(targetBlock.Time)
+	bidCtx, cancel := context.WithTimeout(ctx, delay)
 	defer cancel()
 
-	b.logger.Info("preparing to bid", "targetBlockNumber", targetBlockNum)
+	b.logger.Info("preparing to bid",
+		"targetBlockNumber", targetBlock.Num,
+		"targetBlockTime", targetBlock.Time,
+	)
 
-	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
+	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlock)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
@@ -104,7 +113,7 @@ func (b *Bidder) handle(ctx context.Context, targetBlockNum uint64) {
 	select {
 	case b.acceptedBidChan <- &monitor.AcceptedBid{
 		TxHash:            tx.Hash(),
-		TargetBlockNumber: targetBlockNum,
+		TargetBlockNumber: targetBlock.Num,
 	}:
 	default:
 		b.logger.Warn("failed to signal bid monitor: channel full")
@@ -114,7 +123,7 @@ func (b *Bidder) handle(ctx context.Context, targetBlockNum uint64) {
 func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
-	targetBlockNum uint64,
+	targetBlock TargetBlock,
 ) (bidStream bidderapiv1.Bidder_SendBidClient, tx *types.Transaction, err error) {
 
 	tx, err = b.selfETHTransfer()
@@ -133,7 +142,7 @@ func (b *Bidder) bid(
 	bidStream, err = b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 		TxHashes:            []string{},
 		Amount:              bidAmount.String(),
-		BlockNumber:         int64(targetBlockNum),
+		BlockNumber:         int64(targetBlock.Num),
 		DecayStartTimestamp: time.Now().UnixMilli(),
 		DecayEndTimestamp:   time.Now().Add(12 * time.Second).UnixMilli(),
 		RevertingTxHashes:   []string{},
@@ -144,7 +153,12 @@ func (b *Bidder) bid(
 		b.logger.Error("failed to send bid", "error", err)
 		return nil, nil, err
 	}
-	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
+	b.logger.Info("bid sent",
+		"tx_hash", tx.Hash().Hex(),
+		"amount", bidAmount.String(),
+		"target_block_number", targetBlock.Num,
+		"target_block_time", targetBlock.Time,
+	)
 
 	return bidStream, tx, nil
 }

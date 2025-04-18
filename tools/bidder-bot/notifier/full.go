@@ -9,15 +9,12 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
-)
-
-const (
-	BlockDuration = 12 * time.Second
+	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
 )
 
 type FullNotifier struct {
 	logger               *slog.Logger
-	targetBlockNumChan   chan uint64
+	targetBlockChan      chan bidder.TargetBlock
 	l1Client             L1Client
 	lastNotifiedBlockNum uint64
 	mu                   sync.Mutex
@@ -26,12 +23,12 @@ type FullNotifier struct {
 func NewFullNotifier(
 	logger *slog.Logger,
 	l1Client L1Client,
-	targetBlockNumChan chan uint64,
+	targetBlockChan chan bidder.TargetBlock,
 ) *FullNotifier {
 	return &FullNotifier{
-		logger:             logger,
-		l1Client:           l1Client,
-		targetBlockNumChan: targetBlockNumChan,
+		logger:          logger,
+		l1Client:        l1Client,
+		targetBlockChan: targetBlockChan,
 	}
 }
 
@@ -78,25 +75,34 @@ func (b *FullNotifier) Start(ctx context.Context) <-chan struct{} {
 }
 
 func (b *FullNotifier) handleHeader(ctx context.Context, header *types.Header) error {
-	targetBlockNum := header.Number.Uint64() + 1
-	b.logger.Debug("handling header", "target_block_number", targetBlockNum)
+	targetBlock := bidder.TargetBlock{
+		Num:  header.Number.Uint64() + 1,
+		Time: time.Unix(int64(header.Time), 0).Add(slotDuration),
+	}
+	b.logger.Debug("handling header",
+		"target_block_number", targetBlock.Num,
+		"target_block_time", targetBlock.Time,
+	)
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if targetBlockNum <= b.lastNotifiedBlockNum {
-		return fmt.Errorf("skipping notification for duplicate target block number %d", targetBlockNum)
+	if targetBlock.Num <= b.lastNotifiedBlockNum {
+		return fmt.Errorf("skipping notification for duplicate target block number %d", targetBlock.Num)
 	}
 
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	select {
-	case b.targetBlockNumChan <- targetBlockNum:
-		b.logger.Debug("sent target block number", "target_block_number", targetBlockNum)
+	case b.targetBlockChan <- targetBlock:
+		b.logger.Debug("sent target block",
+			"target_block_number", targetBlock.Num,
+			"target_block_time", targetBlock.Time,
+		)
 	case <-sendCtx.Done():
-		return fmt.Errorf("failed to send target block number %d", targetBlockNum)
+		return fmt.Errorf("failed to send target block %d", targetBlock.Num)
 	}
 
-	b.lastNotifiedBlockNum = targetBlockNum
+	b.lastNotifiedBlockNum = targetBlock.Num
 	return nil
 }
