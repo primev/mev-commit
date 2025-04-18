@@ -114,7 +114,7 @@ func TestChannelTimeout(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "failed to send target block number 16") {
+	if !strings.Contains(err.Error(), "failed to send target block 16") {
 		t.Fatalf("unexpected error, got %v", err)
 	}
 
