@@ -14,7 +14,6 @@ import (
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	"github.com/primev/mev-commit/tools/bidder-bot/monitor"
-	"github.com/primev/mev-commit/tools/bidder-bot/notifier"
 	"github.com/primev/mev-commit/x/keysigner"
 )
 
@@ -31,13 +30,17 @@ type Bidder struct {
 	bidderClient    bidderapiv1.BidderClient
 	topologyClient  debugapiv1.DebugServiceClient
 	l1Client        L1Client
-	beaconClient    *beaconClient
 	signer          keysigner.KeySigner
 	gasTipCap       *big.Int
 	gasFeeCap       *big.Int
 	bidAmount       *big.Int
-	proposerChan    <-chan *notifier.UpcomingProposer
+	targetBlockChan <-chan TargetBlock
 	acceptedBidChan chan<- *monitor.AcceptedBid
+}
+
+type TargetBlock struct {
+	Num  uint64
+	Time time.Time
 }
 
 func NewBidder(
@@ -45,27 +48,23 @@ func NewBidder(
 	bidderClient bidderapiv1.BidderClient,
 	topologyClient debugapiv1.DebugServiceClient,
 	l1Client L1Client,
-	beaconRPCUrl string,
 	signer keysigner.KeySigner,
 	gasTipCap *big.Int,
 	gasFeeCap *big.Int,
 	bidAmount *big.Int,
-	proposerChan <-chan *notifier.UpcomingProposer,
+	targetBlockChan <-chan TargetBlock,
 	acceptedBidChan chan<- *monitor.AcceptedBid,
 ) *Bidder {
-	beaconClient := newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client"))
-
 	return &Bidder{
 		logger:          logger,
 		bidderClient:    bidderClient,
 		topologyClient:  topologyClient,
 		l1Client:        l1Client,
-		beaconClient:    beaconClient,
 		signer:          signer,
 		gasTipCap:       gasTipCap,
 		gasFeeCap:       gasFeeCap,
 		bidAmount:       bidAmount,
-		proposerChan:    proposerChan,
+		targetBlockChan: targetBlockChan,
 		acceptedBidChan: acceptedBidChan,
 	}
 }
@@ -80,37 +79,26 @@ func (b *Bidder) Start(ctx context.Context) <-chan struct{} {
 			case <-ctx.Done():
 				b.logger.Info("bidder context done")
 				return
-			case upcomingProposer := <-b.proposerChan:
-				b.logger.Debug("received upcoming proposer", "proposer", upcomingProposer)
-				b.handle(ctx, upcomingProposer)
+			case targetBlock := <-b.targetBlockChan:
+				b.logger.Debug("received target block", "target_block_number", targetBlock.Num, "target_block_time", targetBlock.Time)
+				b.handle(ctx, targetBlock)
 			}
 		}
 	}()
 	return done
 }
 
-func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.UpcomingProposer) {
-	bidCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+func (b *Bidder) handle(ctx context.Context, targetBlock TargetBlock) {
+	delay := time.Until(targetBlock.Time)
+	bidCtx, cancel := context.WithTimeout(ctx, delay)
 	defer cancel()
 
-	// Upcoming proposer slot hasn't started yet, so query block number for upcoming proposer slot - 2
-	upcomingSlotMinusTwo := upcomingProposer.Slot - 2
-	upcomingSlotMinusTwoBlockNum, err := b.beaconClient.getBlockNumForSlot(bidCtx, upcomingSlotMinusTwo)
-	if err != nil {
-		b.logger.Error("failed to get block number for upcoming proposer slot - 2", "error", err)
-		return
-	}
+	b.logger.Info("preparing to bid",
+		"targetBlockNumber", targetBlock.Num,
+		"targetBlockTime", targetBlock.Time,
+	)
 
-	// Assume the two slots before upcoming proposer slot are NOT missed
-	targetBlockNum := upcomingSlotMinusTwoBlockNum + 2
-
-	if b.logger.Enabled(bidCtx, slog.LevelDebug) {
-		b.logDebugInfo(bidCtx)
-	}
-
-	b.logger.Info("preparing to bid", "upcomingProposer slot", upcomingProposer.Slot, "targetBlockNumber", targetBlockNum)
-
-	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlockNum)
+	bidStream, tx, err := b.bid(bidCtx, b.bidAmount, targetBlock)
 	if err != nil {
 		b.logger.Error("bid failed", "error", err)
 		return
@@ -125,7 +113,7 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 	select {
 	case b.acceptedBidChan <- &monitor.AcceptedBid{
 		TxHash:            tx.Hash(),
-		TargetBlockNumber: targetBlockNum,
+		TargetBlockNumber: targetBlock.Num,
 	}:
 	default:
 		b.logger.Warn("failed to signal bid monitor: channel full")
@@ -135,7 +123,7 @@ func (b *Bidder) handle(ctx context.Context, upcomingProposer *notifier.Upcoming
 func (b *Bidder) bid(
 	ctx context.Context,
 	bidAmount *big.Int,
-	targetBlockNum uint64,
+	targetBlock TargetBlock,
 ) (bidStream bidderapiv1.Bidder_SendBidClient, tx *types.Transaction, err error) {
 
 	tx, err = b.selfETHTransfer()
@@ -154,7 +142,7 @@ func (b *Bidder) bid(
 	bidStream, err = b.bidderClient.SendBid(ctx, &bidderapiv1.Bid{
 		TxHashes:            []string{},
 		Amount:              bidAmount.String(),
-		BlockNumber:         int64(targetBlockNum),
+		BlockNumber:         int64(targetBlock.Num),
 		DecayStartTimestamp: time.Now().UnixMilli(),
 		DecayEndTimestamp:   time.Now().Add(12 * time.Second).UnixMilli(),
 		RevertingTxHashes:   []string{},
@@ -165,7 +153,12 @@ func (b *Bidder) bid(
 		b.logger.Error("failed to send bid", "error", err)
 		return nil, nil, err
 	}
-	b.logger.Info("bid sent", "tx_hash", tx.Hash().Hex(), "amount", bidAmount.String(), "target_block_number", targetBlockNum)
+	b.logger.Info("bid sent",
+		"tx_hash", tx.Hash().Hex(),
+		"amount", bidAmount.String(),
+		"target_block_number", targetBlock.Num,
+		"target_block_time", targetBlock.Time,
+	)
 
 	return bidStream, tx, nil
 }
@@ -254,25 +247,9 @@ func (b *Bidder) watchPendingBid(ctx context.Context, pc bidderapiv1.Bidder_Send
 			)
 		}
 	}
-	return errors.New("bid timeout, not all commitments received")
-}
-
-func (b *Bidder) logDebugInfo(ctx context.Context) {
-	go func() {
-		latestSlot, err := b.beaconClient.getLatestSlot(ctx)
-		if err != nil {
-			b.logger.Error("failed to get current beacon slot", "error", err)
-		} else {
-			b.logger.Debug("current beacon slot", "slot", latestSlot)
-		}
-	}()
-
-	go func() {
-		elLatestBlockNum, err := b.l1Client.BlockNumber(ctx)
-		if err != nil {
-			b.logger.Error("failed to get current block number", "error", err)
-		} else {
-			b.logger.Debug("current execution layer block number", "block_number", elLatestBlockNum)
-		}
-	}()
+	if len(commitments) > 0 {
+		return nil
+	} else {
+		return errors.New("bid timeout, no commitments received")
+	}
 }
