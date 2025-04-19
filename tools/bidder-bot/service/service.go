@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	bidderapiv1 "github.com/primev/mev-commit/p2p/gen/go/bidderapi/v1"
 	debugapiv1 "github.com/primev/mev-commit/p2p/gen/go/debugapi/v1"
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
@@ -31,11 +32,14 @@ type Config struct {
 	BidderNodeRPC     string
 	AutoDepositAmount *big.Int
 	L1RPCUrls         []string
+	L1WsUrls          []string
 	BeaconApiUrls     []string
 	SettlementRPCUrl  string
 	GasTipCap         *big.Int
 	GasFeeCap         *big.Int
 	BidAmount         *big.Int
+	IsFullNotifier    bool
+	CheckBalances     bool
 }
 
 type Service struct {
@@ -86,22 +90,43 @@ func New(config *Config) (*Service, error) {
 	config.Logger.Debug("created bidder client")
 	topologyCli := debugapiv1.NewDebugServiceClient(conn)
 	config.Logger.Debug("created topology client")
-	notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
-	config.Logger.Debug("created notifications client")
 
-	// Only a single upcomingProposer can be buffered, the notifier overwrites if the buffer is full
-	proposerChan := make(chan *notifier.UpcomingProposer, 1)
-
+	targetBlockChan := make(chan bidder.TargetBlock, 1)
 	acceptedBidChan := make(chan *monitor.AcceptedBid, 5)
 
-	notifier := notifier.NewNotifier(
-		config.Logger.With("module", "notifier"),
-		notificationsCli,
-		proposerChan, // send-and-receive for draining capability
-	)
+	type Notifier interface {
+		Start(ctx context.Context) <-chan struct{}
+	}
+	var notif Notifier
 
-	if len(config.BeaconApiUrls) == 0 {
-		return nil, fmt.Errorf("no beacon API URLs provided")
+	if config.IsFullNotifier {
+		if len(config.L1WsUrls) == 0 {
+			return nil, fmt.Errorf("no L1 WebSocket URLs provided")
+		}
+		l1WsClient, err := ethclient.Dial(config.L1WsUrls[0])
+		if err != nil {
+			return nil, fmt.Errorf("failed to create L1 WebSocket client: %w", err)
+		}
+		config.Logger.Debug("created L1 WebSocket client", "url", config.L1WsUrls[0])
+
+		notif = notifier.NewFullNotifier(
+			config.Logger.With("module", "full_notifier"),
+			l1WsClient,
+			targetBlockChan, // send-and-receive for draining capability
+		)
+	} else {
+		if len(config.BeaconApiUrls) == 0 {
+			return nil, fmt.Errorf("no beacon API URLs provided")
+		}
+		notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
+		config.Logger.Debug("created notifications client")
+
+		notif = notifier.NewSelectiveNotifier(
+			config.Logger.With("module", "selective_notifier"),
+			notificationsCli,
+			config.BeaconApiUrls[0],
+			targetBlockChan, // send-and-receive for draining capability
+		)
 	}
 
 	bidder := bidder.NewBidder(
@@ -109,12 +134,11 @@ func New(config *Config) (*Service, error) {
 		bidderCli,
 		topologyCli,
 		l1RPCClient,
-		config.BeaconApiUrls[0],
 		config.Signer,
 		config.GasTipCap,
 		config.GasFeeCap,
 		config.BidAmount,
-		proposerChan,    // receive-only
+		targetBlockChan, // receive-only
 		acceptedBidChan, // send-only
 	)
 
@@ -139,11 +163,15 @@ func New(config *Config) (*Service, error) {
 		settlementRPCClient,
 	)
 
-	err = balanceChecker.CheckBalances(ctx)
-	if err != nil {
-		return nil, err
+	if config.CheckBalances {
+		err = balanceChecker.CheckBalances(ctx)
+		if err != nil {
+			return nil, err
+		}
+		config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
+	} else {
+		config.Logger.Info("balance checking disabled")
 	}
-	config.Logger.Info("keystore account has enough balance on L1 and mev-commit chain")
 
 	status, err := bidderCli.AutoDepositStatus(context.Background(), &bidderapiv1.EmptyMessage{})
 	if err != nil {
@@ -167,22 +195,25 @@ func New(config *Config) (*Service, error) {
 
 	healthChecker := health.New()
 
-	notifierDone := notifier.Start(ctx)
+	notifierDone := notif.Start(ctx)
 	bidderDone := bidder.Start(ctx)
 	monitorDone := monitor.Start(ctx)
-	balanceCheckerDone := balanceChecker.Start(ctx)
 
 	healthChecker.Register(health.CloseChannelHealthCheck("NotifierService", notifierDone))
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
 	healthChecker.Register(health.CloseChannelHealthCheck("MonitorService", monitorDone))
-	healthChecker.Register(health.CloseChannelHealthCheck("BalanceCheckerService", balanceCheckerDone))
 
 	s.closers = append(s.closers,
 		channelCloser(notifierDone),
 		channelCloser(bidderDone),
 		channelCloser(monitorDone),
-		channelCloser(balanceCheckerDone),
 	)
+
+	if config.CheckBalances {
+		balanceCheckerDone := balanceChecker.Start(ctx)
+		healthChecker.Register(health.CloseChannelHealthCheck("BalanceCheckerService", balanceCheckerDone))
+		s.closers = append(s.closers, channelCloser(balanceCheckerDone))
+	}
 
 	return s, nil
 }

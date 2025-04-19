@@ -8,6 +8,7 @@ import (
 	"time"
 
 	notificationsapiv1 "github.com/primev/mev-commit/p2p/gen/go/notificationsapi/v1"
+	"github.com/primev/mev-commit/tools/bidder-bot/bidder"
 )
 
 const (
@@ -19,26 +20,29 @@ var (
 	ErrUnexpectedTopic = errors.New("unexpected msg topic")
 )
 
-type Notifier struct {
+type SelectiveNotifier struct {
 	logger               *slog.Logger
 	notificationsClient  notificationsapiv1.NotificationsClient
-	proposerChan         chan *UpcomingProposer
+	beaconClient         *beaconClient
+	targetBlockChan      chan bidder.TargetBlock
 	lastUpcomingProposer atomic.Pointer[UpcomingProposer]
 }
 
-func NewNotifier(
+func NewSelectiveNotifier(
 	logger *slog.Logger,
 	notificationsClient notificationsapiv1.NotificationsClient,
-	proposerChan chan *UpcomingProposer,
-) *Notifier {
-	return &Notifier{
+	beaconRPCUrl string,
+	targetBlockChan chan bidder.TargetBlock,
+) *SelectiveNotifier {
+	return &SelectiveNotifier{
 		logger:              logger,
 		notificationsClient: notificationsClient,
-		proposerChan:        proposerChan,
+		beaconClient:        newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client")),
+		targetBlockChan:     targetBlockChan,
 	}
 }
 
-func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
+func (b *SelectiveNotifier) Start(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -64,7 +68,7 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 				goto RESTART
 			}
 			b.logger.Info("received message", "topic", msg.Topic)
-			if err := b.handleMsg(msg); err != nil {
+			if err := b.handleMsg(ctx, msg); err != nil {
 				b.logger.Error("failed to handle message", "error", err)
 				goto RESTART
 			}
@@ -73,7 +77,7 @@ func (b *Notifier) Start(ctx context.Context) <-chan struct{} {
 	return done
 }
 
-func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
+func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapiv1.Notification) error {
 	upcomingProposer, err := parseUpcomingProposer(msg)
 	if err != nil {
 		b.logger.Error("failed to parse upcoming proposer", "error", err)
@@ -84,20 +88,34 @@ func (b *Notifier) handleMsg(msg *notificationsapiv1.Notification) error {
 		b.logger.Warn("received duplicate or outdated proposer notification. Msg will be dropped", "slot", upcomingProposer.Slot)
 		return nil
 	}
-	select {
-	case b.proposerChan <- upcomingProposer:
-		b.logger.Debug("sent upcoming proposer", "proposer", upcomingProposer)
-	default:
-		select {
-		case drainedProposer := <-b.proposerChan:
-			b.logger.Warn("drained buffered upcoming proposer", "drained_proposer", drainedProposer)
-		default:
-		}
-		b.proposerChan <- upcomingProposer
-		b.logger.Warn("sent upcoming proposer after draining buffer", "proposer", upcomingProposer)
+
+	// Upcoming proposer slot hasn't started yet, so query block number for upcoming proposer slot - 2
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	upcomingSlotMinusTwo := upcomingProposer.Slot - 2
+	mTwoBlocknum, mTwoTimestamp, err := b.beaconClient.getPayloadDataForSlot(timeoutCtx, upcomingSlotMinusTwo)
+	if err != nil {
+		b.logger.Error("failed to get block number for upcoming proposer slot - 2", "error", err)
+		return err
 	}
-	b.logger.Debug("updated lastUpcomingProposer", "proposer", upcomingProposer)
+
+	// Assume the two slots before upcoming proposer slot are NOT missed
+	targetBlock := bidder.TargetBlock{
+		Num:  mTwoBlocknum + 2,
+		Time: time.Unix(int64(mTwoTimestamp), 0).Add(2 * slotDuration),
+	}
+
+	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	select {
+	case b.targetBlockChan <- targetBlock:
+		b.logger.Debug("sent target block", "target_block_number", targetBlock.Num, "target_block_time", targetBlock.Time)
+	case <-sendCtx.Done():
+		b.logger.Warn("failed to send target block", "target_block_number", targetBlock.Num, "target_block_time", targetBlock.Time)
+	}
 	b.lastUpcomingProposer.Store(upcomingProposer)
+	b.logger.Debug("updated lastUpcomingProposer", "proposer", upcomingProposer)
 	return nil
 }
 
