@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	noOfWindows = 5
+	noOfWindows = 2
 	withdraw    = true
 )
 
