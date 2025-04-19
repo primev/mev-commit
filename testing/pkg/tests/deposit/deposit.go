@@ -210,7 +210,7 @@ func RunCancelAutoDeposit(ctx context.Context, cluster orchestrator.Orchestrator
 						)
 					}
 					stop.Store(new(big.Int).Add(r.WindowNumber, big.NewInt(1)))
-					end.Store(new(big.Int).Add(r.WindowNumber, big.NewInt(4)))
+					end.Store(new(big.Int).Add(r.WindowNumber, big.NewInt(2)))
 				}
 			case r := <-withdrawals:
 				logger.Info("Received withdrawal", "bidder", r.Bidder)
