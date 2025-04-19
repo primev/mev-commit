@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	noOfBids = 100
+	noOfBids = 20
 )
 
 var (
@@ -280,7 +280,7 @@ DONE:
 			return nil
 		case <-tick.C:
 			if count == noOfBids {
-				_, ok := store.Get(blkWinnerKey(uint64(lastWinnerBlock + 5)))
+				_, ok := store.Get(blkWinnerKey(uint64(lastWinnerBlock + 3)))
 				if ok {
 					// allow enough time for everything to settle
 					egCancel()
