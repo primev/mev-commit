@@ -247,17 +247,15 @@ func TestScheduleNotificationForSlot(t *testing.T) {
 }
 
 func TestProcessEpoch(t *testing.T) {
+	t.Parallel()
+
 	dutiesJSON := `{"data":[
         {"pubkey":"0x1234567890abcdef","slot":"1"},
-        {"pubkey":"0xfedcba0987654321","slot":"2"}
+		{"pubkey":"0x7777777777777777","slot":"2"},
+        {"pubkey":"0xfedcba0987654321","slot":"3"}
     ]}`
 
 	mux := http.NewServeMux()
-	// Handle genesis requests.
-	mux.HandleFunc("/eth/v1/beacon/genesis", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":{"genesis_time":"1672531200"}}`)
-	})
 	// Handle proposer duties.
 	mux.HandleFunc("/eth/v1/validator/duties/proposer/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -269,6 +267,9 @@ func TestProcessEpoch(t *testing.T) {
 	mockValidatorRouter := &MockValidatorRouterContract{
 		ExpectedCalls: map[string]interface{}{
 			string(hexutil.MustDecode("0x1234567890abcdef")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
+				IsVanillaOptedIn: true,
+			},
+			string(hexutil.MustDecode("0x7777777777777777")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
 				IsVanillaOptedIn: true,
 			},
 			string(hexutil.MustDecode("0xfedcba0987654321")): validatoroptinrouter.IValidatorOptInRouterOptInStatus{
@@ -286,47 +287,58 @@ func TestProcessEpoch(t *testing.T) {
 	slotDuration := 12 * time.Second
 	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset)
 
-	svc.SetGenesisTime(time.Now().Add(100*time.Millisecond - slotDuration))
+	svc.SetGenesisTime(time.Now().Add(1*time.Second + 500*time.Millisecond - slotDuration))
 
 	svc.SetProcessEpoch(ctx, 10, time.Now().Unix())
 
-	select {
-	case n := <-mockNotifier.NotifyCh:
-		if n == nil {
-			t.Fatal("expected notification, got nil")
-		}
-		if n.Topic() == notifications.TopicValidatorOptedIn {
-			slotVal, ok := n.Value()["slot"]
-			if !ok {
-				t.Fatal("expected slot in notification value")
+	numValidatorOptedInNotifs := 0
+	numEpochValidatorsOptedInNotifs := 0
+
+	timeout := time.After(2*time.Second + slotDuration)
+
+	// expect 2 validator opted in and 1 epoch notif
+	for numValidatorOptedInNotifs < 2 || numEpochValidatorsOptedInNotifs < 1 {
+		select {
+		case n := <-mockNotifier.NotifyCh:
+			if n == nil {
+				t.Fatal("expected notification, got nil")
 			}
-			if slotVal != uint64(1) {
-				t.Errorf("expected slot 1, got %v", slotVal)
-			}
-		} else if n.Topic() == notifications.TopicEpochValidatorsOptedIn {
-			slotsVal, ok := n.Value()["slots"]
-			if !ok {
-				t.Fatal("expected slots in notification value")
-			}
-			slotsSlice, ok := slotsVal.([]any)
-			if !ok {
-				t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
-			}
-			if len(slotsSlice) != 1 {
-				t.Fatalf("expected 1 slot, got %d", len(slotsSlice))
-			}
-			if slotData, ok := slotsSlice[0].(map[string]interface{}); !ok {
-				t.Fatalf("expected slot data to be a map, got %T: %v", slotsSlice[0], slotsSlice[0])
-			} else {
-				if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(1) {
-					t.Fatalf("expected slot 1, got %v", slotVal)
+			if n.Topic() == notifications.TopicValidatorOptedIn {
+				numValidatorOptedInNotifs++
+				slotVal, ok := n.Value()["slot"]
+				if !ok {
+					t.Fatal("expected slot in notification value")
 				}
+				if slotVal != uint64(1) && slotVal != uint64(2) {
+					t.Errorf("expected slot 1 or 2, got %v", slotVal)
+				}
+			} else if n.Topic() == notifications.TopicEpochValidatorsOptedIn {
+				numEpochValidatorsOptedInNotifs++
+				slotsVal, ok := n.Value()["slots"]
+				if !ok {
+					t.Fatal("expected slots in notification value")
+				}
+				slotsSlice, ok := slotsVal.([]any)
+				if !ok {
+					t.Fatalf("expected slots to be a slice of maps, got %T: %v", slotsVal, slotsVal)
+				}
+				if len(slotsSlice) != 2 {
+					t.Fatalf("expected 2 slots, got %d", len(slotsSlice))
+				}
+				if slotData, ok := slotsSlice[0].(map[string]interface{}); !ok {
+					t.Fatalf("expected slot data to be a map, got %T: %v", slotsSlice[0], slotsSlice[0])
+				} else {
+					if slotVal, ok := slotData["slot"]; !ok || slotVal != uint64(1) {
+						t.Fatalf("expected slot 1, got %v", slotVal)
+					}
+				}
+			} else {
+				t.Fatalf("unexpected notification topic: %s", n.Topic())
 			}
-		} else {
-			t.Fatalf("unexpected notification topic: %s", n.Topic())
+		case <-timeout:
+			t.Fatalf("timeout waiting for notifications: got %d validator opted in (expected 2) and %d epoch validators opted in (expected 1)",
+				numValidatorOptedInNotifs, numEpochValidatorsOptedInNotifs)
 		}
-	case <-time.After(1 * time.Second):
-		t.Fatal("timeout waiting for notification from processEpoch")
 	}
 }
 
