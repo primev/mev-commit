@@ -9,6 +9,7 @@ require (
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/urfave/cli/v2 v2.27.4
 	golang.org/x/tools v0.23.0
+	google.golang.org/grpc v1.67.1
 )
 
 require (
@@ -54,7 +55,9 @@ require (
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	golang.org/x/mod v0.19.0 // indirect
+	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
@@ -88,6 +91,6 @@ require (
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

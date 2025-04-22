@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "./pb";
+
+service PayloadStreamer {
+    rpc Subscribe(stream ClientMessage) returns (stream PayloadMessage);
+}
+
+message ClientMessage {
+    oneof message {
+        SubscribeRequest subscribe_request = 1;
+        AckPayloadRequest ack_payload = 2;
+    }
+}
+
+message SubscribeRequest {
+    string client_id = 1;
+}
+
+message PayloadMessage {
+    string payload_id = 1;
+    string execution_payload = 2;
+    string sender_instance_id = 3;
+    string message_id = 4;
+}
+
+message AckPayloadRequest {
+    string client_id = 1;
+    string payload_id = 2;
+    string message_id = 3;
+}

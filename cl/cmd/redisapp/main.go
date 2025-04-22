@@ -83,22 +83,6 @@ var (
 		},
 	})
 
-	genesisBlockHashFlag = altsrc.NewStringFlag(&cli.StringFlag{
-		Name:    "genesis-block-hash",
-		Usage:   "Genesis block hash",
-		EnvVars: []string{"RAPP_GENESIS_BLOCK_HASH"},
-		Value:   "dfc7fa546e1268f5bb65b9ec67759307d2435ad1bf609307c7c306e9bb0edcde",
-		Action: func(_ *cli.Context, s string) error {
-			if len(s) != 64 {
-				return fmt.Errorf("invalid genesis-block-hash: must be 64 hex characters")
-			}
-			if _, err := hex.DecodeString(s); err != nil {
-				return fmt.Errorf("invalid genesis-block-hash: %v", err)
-			}
-			return nil
-		},
-	})
-
 	redisAddrFlag = altsrc.NewStringFlag(&cli.StringFlag{
 		Name:    "redis-addr",
 		Usage:   "Redis address",
@@ -177,7 +161,6 @@ type Config struct {
 	InstanceID               string
 	EthClientURL             string
 	JWTSecret                string
-	GenesisBlockHash         string
 	RedisAddr                string
 	EVMBuildDelay            time.Duration
 	EVMBuildDelayEmptyBlocks time.Duration
@@ -190,7 +173,6 @@ func main() {
 		instanceIDFlag,
 		ethClientURLFlag,
 		jwtSecretFlag,
-		genesisBlockHashFlag,
 		redisAddrFlag,
 		logFmtFlag,
 		logLevelFlag,
@@ -245,7 +227,6 @@ func startApplication(c *cli.Context) error {
 		InstanceID:               c.String(instanceIDFlag.Name),
 		EthClientURL:             c.String(ethClientURLFlag.Name),
 		JWTSecret:                c.String(jwtSecretFlag.Name),
-		GenesisBlockHash:         c.String(genesisBlockHashFlag.Name),
 		RedisAddr:                c.String(redisAddrFlag.Name),
 		EVMBuildDelay:            c.Duration(evmBuildDelayFlag.Name),
 		EVMBuildDelayEmptyBlocks: c.Duration(evmBuildDelayEmptyBlockFlag.Name),
@@ -259,7 +240,6 @@ func startApplication(c *cli.Context) error {
 		cfg.InstanceID,
 		cfg.EthClientURL,
 		cfg.JWTSecret,
-		cfg.GenesisBlockHash,
 		cfg.RedisAddr,
 		cfg.PriorityFeeReceipt,
 		log,
