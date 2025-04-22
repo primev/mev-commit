@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -291,25 +290,15 @@ func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *v
 func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime time.Time) {
 	s.logger.Info("processing epoch", "epoch", epoch)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		s.processFirstSlotOfNextEpoch(ctx, epoch+1, epochTime.Add(s.epochDuration))
-		s.logger.Debug("processed first slot of next epoch", "epoch", epoch+1)
-	}()
-
 	dutiesResp, err := s.fetchProposerDuties(ctx, epoch)
 	if err != nil {
 		s.logger.Error("failed to fetch proposer duties", "epoch", epoch, "error", err)
-		wg.Wait()
 		return
 	}
 
 	validators, err := s.processValidators(dutiesResp)
 	if err != nil {
 		s.logger.Error("failed to process validators", "epoch", epoch, "error", err)
-		wg.Wait()
 		return
 	}
 
@@ -345,7 +334,8 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime time
 		"first_slot_in_epoch", firstSlot,
 	)
 
-	wg.Wait()
+	s.processFirstSlotOfNextEpoch(ctx, epoch+1, epochTime.Add(s.epochDuration))
+	s.logger.Debug("processed first slot of next epoch", "epoch", epoch+1)
 }
 
 func (s *Service) processFirstSlotOfNextEpoch(ctx context.Context, nextEpoch uint64, nextEpochTime time.Time) {
