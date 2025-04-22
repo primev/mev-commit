@@ -28,7 +28,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      - "9090:9090"
     environment:
       DB_ENABLED:             "true"
       DB_HOST:                postgres
@@ -45,6 +45,13 @@ services:
       DASHBOARD_API_URL:      ${DASHBOARD_API_URL:-http://dashboard:8081/}
       LOG_LEVEL:              ${LOG_LEVEL:-info}
       LOG_FMT:                ${LOG_FMT:-json}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 
 volumes:
   postgres-data:

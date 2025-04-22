@@ -9,6 +9,7 @@ type Config struct {
 	RelayURLs              []string `json:"relay_urls"`
 	SlackWebhookURL        string   `json:"slack_webhook_url"`
 	DashboardApiUrl        string   `json:"dashboard_api_url"`
+	HealthPort             int      `json:"health_port"`
 	DB                     DBConfig `json:"db"`
 }
 

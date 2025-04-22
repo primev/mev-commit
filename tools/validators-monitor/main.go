@@ -116,6 +116,13 @@ var (
 		Value:   "disable",
 	}
 
+	optionHealthPort = &cli.IntFlag{
+		Name:    "health-port",
+		Usage:   "Port for health check endpoint",
+		EnvVars: []string{"HEALTH_PORT"},
+		Value:   9090,
+	}
+
 	optionLogFmt = &cli.StringFlag{
 		Name:    "log-fmt",
 		Usage:   "log format to use, options are 'text' or 'json'",
@@ -175,6 +182,7 @@ func main() {
 			optionSlackWebhook,
 			optionDashboardApiUrl,
 			optionRelayUrls,
+			optionHealthPort,
 			optionDBEnabled,
 			optionDBHost,
 			optionDBPort,
@@ -195,26 +203,19 @@ func main() {
 				return fmt.Errorf("failed to create logger: %w", err)
 			}
 
-			// Extract beacon API URLs
-			beaconApiUrl := c.String(optionBeaconApiUrls.Name)
-			ethereumRpcUrl := c.String(optionEthereumRpcUrl.Name)
-			validatorOptInContract := c.String(optionValidatorOptInContract.Name)
-			relayUrls := c.StringSlice(optionRelayUrls.Name)
-			slackWebhook := c.String(optionSlackWebhook.Name)
-			dashboardApiUrl := c.String(optionDashboardApiUrl.Name)
-
 			sigc := make(chan os.Signal, 1)
 			signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 			// Create configuration
 			cfg := &config.Config{
-				BeaconNodeURL:          beaconApiUrl,
+				BeaconNodeURL:          c.String(optionBeaconApiUrls.Name),
 				TrackMissed:            c.Bool(optionTrackMissed.Name),
-				EthereumRPCURL:         ethereumRpcUrl,
-				ValidatorOptInContract: validatorOptInContract,
+				EthereumRPCURL:         c.String(optionEthereumRpcUrl.Name),
+				ValidatorOptInContract: c.String(optionValidatorOptInContract.Name),
 				FetchIntervalSec:       12, // Use epoch duration
-				SlackWebhookURL:        slackWebhook,
-				DashboardApiUrl:        dashboardApiUrl,
-				RelayURLs:              relayUrls,
+				SlackWebhookURL:        c.String(optionSlackWebhook.Name),
+				DashboardApiUrl:        c.String(optionDashboardApiUrl.Name),
+				RelayURLs:              c.StringSlice(optionRelayUrls.Name),
+				HealthPort:             c.Int(optionHealthPort.Name),
 				DB: config.DBConfig{
 					Enabled:  c.Bool(optionDBEnabled.Name),
 					Host:     c.String(optionDBHost.Name),

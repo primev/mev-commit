@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/primev/mev-commit/tools/validators-monitor/config"
@@ -58,6 +60,12 @@ func New(
 
 	healthChecker.Register(health.CloseChannelHealthCheck("MonitorService", monitorDone))
 
+	go func() {
+		if err := s.StartHealthHTTPServer(healthChecker, fmt.Sprintf(":%d", cfg.HealthPort)); err != nil {
+			s.logger.Error("failed to start health check server", "error", err)
+		}
+	}()
+
 	s.closers = append(s.closers, channelCloser(monitorDone))
 
 	if monitor.GetDB() != nil {
@@ -105,6 +113,28 @@ func (s *Service) Close() error {
 
 	s.logger.Info("duty monitor service shut down successfully")
 	return nil
+}
+
+func (s *Service) StartHealthHTTPServer(
+	healthChecker health.Health,
+	addr string,
+) error {
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if err := healthChecker.Health(); err != nil {
+			s.logger.Error("health check failed", "error", err)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write(fmt.Appendf(nil, "unhealthy: %v", err))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("healthy"))
+	})
+
+	s.logger.Info(
+		"starting health check server",
+		"addr", addr,
+	)
+	return http.ListenAndServe(addr, nil)
 }
 
 // channelCloser is a helper type that implements io.Closer for a channel
