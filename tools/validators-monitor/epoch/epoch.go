@@ -1,4 +1,3 @@
-// internal/epoch/epoch.go
 package epoch
 
 import (
