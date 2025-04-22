@@ -95,7 +95,7 @@ generate_go_code "$ABI_DIR/SettlementGateway.abi" "SettlementGateway" "settlemen
 # Generate Go code for L1Gateway.abi
 generate_go_code "$ABI_DIR/L1Gateway.abi" "L1Gateway" "l1gateway"
 
-generate_go_code "$ABI_DIR/VanillaRegistry.abi" "VanillaRegistry" "validatorregistryv1"
+generate_go_code "$ABI_DIR/VanillaRegistry.abi" "VanillaRegistry" "vanillaregistry"
 
 generate_go_code "$ABI_DIR/BlockTracker.abi" "BlockTracker" "blocktracker"
 
