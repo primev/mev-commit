@@ -48,7 +48,8 @@ type ValidatorOptInChecker interface {
 }
 
 type SlackNotifier interface {
-	NotifyRelayData(ctx context.Context,
+	NotifyRelayData(
+		ctx context.Context,
 		validatorPubkey string,
 		validatorIndex uint64,
 		blockNumber uint64,
@@ -57,7 +58,8 @@ type SlackNotifier interface {
 		feeReceipient string,
 		relaysWithData []string,
 		totalRelays []string,
-		blockInfo *api.DashboardResponse) error
+		blockInfo *api.DashboardResponse,
+	) error
 }
 
 type Database interface {
@@ -94,7 +96,10 @@ type DutyMonitor struct {
 	processedBlocks map[uint64]time.Time    // blockNumber → first‑seen
 }
 
-func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
+func New(
+	cfg *config.Config,
+	log *slog.Logger,
+) (*DutyMonitor, error) {
 	httpClient := createRetryableHTTPClient(log).StandardClient()
 
 	beaconClient, err := api.NewBeaconClient(cfg.BeaconNodeURL, log, httpClient)
@@ -218,7 +223,10 @@ func (m *DutyMonitor) fetchAndProcessDuties(ctx context.Context) {
 	}
 }
 
-func (m *DutyMonitor) fetchDutiesForEpoch(ctx context.Context, epoch uint64) ([]api.ProposerDutyInfo, error) {
+func (m *DutyMonitor) fetchDutiesForEpoch(
+	ctx context.Context,
+	epoch uint64,
+) ([]api.ProposerDutyInfo, error) {
 	resp, err := m.beacon.GetProposerDuties(ctx, epoch)
 	if err != nil {
 		return nil, err
@@ -226,7 +234,11 @@ func (m *DutyMonitor) fetchDutiesForEpoch(ctx context.Context, epoch uint64) ([]
 	return api.ParseProposerDuties(epoch, resp)
 }
 
-func (m *DutyMonitor) processDuties(ctx context.Context, epochNum uint64, duties []api.ProposerDutyInfo) {
+func (m *DutyMonitor) processDuties(
+	ctx context.Context,
+	epochNum uint64,
+	duties []api.ProposerDutyInfo,
+) {
 	m.logger.Info(
 		"duties fetched",
 		"epoch", epochNum,
@@ -241,7 +253,10 @@ func (m *DutyMonitor) processDuties(ctx context.Context, epochNum uint64, duties
 	}
 }
 
-func (m *DutyMonitor) getValidatorOptInStatuses(ctx context.Context, duties []api.ProposerDutyInfo) map[string]contract.OptInStatus {
+func (m *DutyMonitor) getValidatorOptInStatuses(
+	ctx context.Context,
+	duties []api.ProposerDutyInfo,
+) map[string]contract.OptInStatus {
 	pubkeys := make([]string, len(duties))
 	for i, d := range duties {
 		pubkeys[i] = d.PubKey
@@ -261,7 +276,10 @@ func (m *DutyMonitor) getValidatorOptInStatuses(ctx context.Context, duties []ap
 	return out
 }
 
-func (m *DutyMonitor) getBlocksInfoForDuties(ctx context.Context, duties []api.ProposerDutyInfo) map[uint64]string {
+func (m *DutyMonitor) getBlocksInfoForDuties(
+	ctx context.Context,
+	duties []api.ProposerDutyInfo,
+) map[uint64]string {
 	out := make(map[uint64]string, len(duties))
 	for _, d := range duties {
 		bn, err := m.beacon.GetBlockBySlot(ctx, d.Slot)
@@ -309,7 +327,11 @@ func (m *DutyMonitor) processDuty(
 	m.processedBlocks[bn] = time.Now()
 }
 
-func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, duty api.ProposerDutyInfo) {
+func (m *DutyMonitor) processBlockData(
+	ctx context.Context,
+	blockNumber uint64,
+	duty api.ProposerDutyInfo,
+) {
 	m.logger.Info(
 		"querying relays for block",
 		"block_number", blockNumber,

@@ -32,7 +32,11 @@ type DashboardClient struct {
 }
 
 // NewDashboardClient creates a new dashboard client.
-func NewDashboardClient(baseURL string, logger *slog.Logger, httpClient *http.Client) (*DashboardClient, error) {
+func NewDashboardClient(
+	baseURL string,
+	logger *slog.Logger,
+	httpClient *http.Client,
+) (*DashboardClient, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL %q: %w", baseURL, err)
@@ -46,7 +50,10 @@ func NewDashboardClient(baseURL string, logger *slog.Logger, httpClient *http.Cl
 }
 
 // GetBlockInfo queries the dashboard service for block information
-func (c *DashboardClient) GetBlockInfo(ctx context.Context, blockNumber uint64) (*DashboardResponse, error) {
+func (c *DashboardClient) GetBlockInfo(
+	ctx context.Context,
+	blockNumber uint64,
+) (*DashboardResponse, error) {
 	// build request URL
 	u := *c.baseURL
 	u.Path = path.Join(u.Path, "block", strconv.FormatUint(blockNumber, 10))

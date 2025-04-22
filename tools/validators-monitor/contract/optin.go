@@ -35,7 +35,10 @@ type ValidatorOptInChecker struct {
 }
 
 // NewValidatorOptInChecker creates a new ValidatorOptInChecker
-func NewValidatorOptInChecker(rpcURL, contractAddress string) (*ValidatorOptInChecker, error) {
+func NewValidatorOptInChecker(
+	rpcURL,
+	contractAddress string,
+) (*ValidatorOptInChecker, error) {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum client: %s, %v", rpcURL, err)
@@ -56,7 +59,10 @@ func NewValidatorOptInChecker(rpcURL, contractAddress string) (*ValidatorOptInCh
 }
 
 // CheckValidatorsOptedIn checks which validators in a batch are opted in
-func (c *ValidatorOptInChecker) CheckValidatorsOptedIn(ctx context.Context, pubkeys []string) ([]OptInStatus, error) {
+func (c *ValidatorOptInChecker) CheckValidatorsOptedIn(
+	ctx context.Context,
+	pubkeys []string,
+) ([]OptInStatus, error) {
 	blsPubKeys := make([][]byte, len(pubkeys))
 	for j, pubkey := range pubkeys {
 		pubkeyStr := strings.TrimPrefix(pubkey, "0x")

@@ -226,7 +226,10 @@ func main() {
 				},
 			}
 
-			logger.Debug("service config", "config", cfg)
+			logger.Debug(
+				"service config",
+				"config", cfg,
+			)
 
 			s, err := service.New(cfg, logger)
 			if err != nil {

@@ -23,12 +23,19 @@ type RelayClient struct {
 
 // NewRelayClient constructs a RelayClient. If httpClient is nil, a default retryablehttp.Client is used.
 // HTTP timeouts and retry policies are configurable on the client.
-func NewRelayClient(relayURLs []string, logger *slog.Logger, httpClient *http.Client) *RelayClient {
+func NewRelayClient(
+	relayURLs []string,
+	logger *slog.Logger,
+	httpClient *http.Client,
+) *RelayClient {
 	return &RelayClient{client: httpClient, relayURLs: relayURLs, logger: logger}
 }
 
 // QueryRelayData concurrently queries all relays for bid traces at a block
-func (c *RelayClient) QueryRelayData(ctx context.Context, blockNumber uint64) map[string]RelayResult {
+func (c *RelayClient) QueryRelayData(
+	ctx context.Context,
+	blockNumber uint64,
+) map[string]RelayResult {
 	c.logger.Debug(
 		"querying relays for block",
 		slog.Uint64("block_number", blockNumber),
@@ -63,7 +70,11 @@ func (c *RelayClient) QueryRelayData(ctx context.Context, blockNumber uint64) ma
 }
 
 // queryOneRelay performs a single relay request with retries and backoff
-func (c *RelayClient) queryOneRelay(ctx context.Context, relayURL string, blockNumber uint64) RelayResult {
+func (c *RelayClient) queryOneRelay(
+	ctx context.Context,
+	relayURL string,
+	blockNumber uint64,
+) RelayResult {
 	result := RelayResult{Relay: relayURL}
 
 	// build URL

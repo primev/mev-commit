@@ -19,7 +19,10 @@ type Service struct {
 }
 
 // New creates a new duty monitor service
-func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
+func New(
+	cfg *config.Config,
+	log *slog.Logger,
+) (*Service, error) {
 	s := &Service{
 		logger:  log,
 		closers: []io.Closer{},
@@ -71,7 +74,10 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 }
 
 // startMonitor starts the monitor in a goroutine and returns a done channel
-func (s *Service) startMonitor(ctx context.Context, monitor *monitor.DutyMonitor) <-chan struct{} {
+func (s *Service) startMonitor(
+	ctx context.Context,
+	monitor *monitor.DutyMonitor,
+) <-chan struct{} {
 	done := make(chan struct{})
 
 	go func() {

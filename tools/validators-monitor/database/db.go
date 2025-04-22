@@ -46,7 +46,10 @@ type Config struct {
 }
 
 // NewPostgresDB creates a new database connection
-func NewPostgresDB(cfg Config, logger *slog.Logger) (*PostgresDB, error) {
+func NewPostgresDB(
+	cfg Config,
+	logger *slog.Logger,
+) (*PostgresDB, error) {
 	connStr := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode,
@@ -118,7 +121,10 @@ func (p *PostgresDB) InitSchema(ctx context.Context) error {
 }
 
 // SaveRelayData saves relay data to the database
-func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error {
+func (p *PostgresDB) SaveRelayData(
+	ctx context.Context,
+	data *RelayRecord,
+) error {
 	query := `
 	INSERT INTO relay_data (
 		slot, block_number, validator_index, validator_pubkey, mev_reward,
@@ -160,7 +166,10 @@ func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error
 }
 
 // GetRelayDataByBlock retrieves relay data for a specific block
-func (p *PostgresDB) GetRelayDataByBlock(ctx context.Context, blockNumber uint64) ([]*RelayRecord, error) {
+func (p *PostgresDB) GetRelayDataByBlock(
+	ctx context.Context,
+	blockNumber uint64,
+) ([]*RelayRecord, error) {
 	query := `
 	SELECT id, slot, block_number, validator_index, validator_pubkey, 
 		   mev_reward, mev_reward_recipient, relays_with_data, winner, total_commitments, 

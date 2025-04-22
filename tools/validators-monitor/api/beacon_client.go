@@ -13,11 +13,6 @@ import (
 	"time"
 )
 
-// // HTTPDoer defines the interface for HTTP clients
-// type HTTPDoer interface {
-// 	Do(req *http.Request) (*http.Response, error)
-// }
-
 // ProposerDuty represents a validator's proposer duty
 type ProposerDuty struct {
 	PubKey         string `json:"pubkey"`
@@ -47,7 +42,11 @@ type BeaconClient struct {
 }
 
 // NewBeaconClient creates a new beacon node API client.
-func NewBeaconClient(baseURL string, logger *slog.Logger, httpClient *http.Client) (*BeaconClient, error) {
+func NewBeaconClient(
+	baseURL string,
+	logger *slog.Logger,
+	httpClient *http.Client,
+) (*BeaconClient, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL %q: %w", baseURL, err)
@@ -61,7 +60,10 @@ func NewBeaconClient(baseURL string, logger *slog.Logger, httpClient *http.Clien
 }
 
 // GetProposerDuties fetches the proposer duties for a given epoch
-func (c *BeaconClient) GetProposerDuties(ctx context.Context, epoch uint64) (*ProposerDutiesResponse, error) {
+func (c *BeaconClient) GetProposerDuties(
+	ctx context.Context,
+	epoch uint64,
+) (*ProposerDutiesResponse, error) {
 	// build URL
 	u := *c.baseURL
 	u.Path = path.Join(u.Path, "eth", "v1", "validator", "duties", "proposer", strconv.FormatUint(epoch, 10))
@@ -117,7 +119,10 @@ func (c *BeaconClient) GetProposerDuties(ctx context.Context, epoch uint64) (*Pr
 }
 
 // ParseProposerDuties converts the API response to ProposerDutyInfo slice
-func ParseProposerDuties(epoch uint64, resp *ProposerDutiesResponse) ([]ProposerDutyInfo, error) {
+func ParseProposerDuties(
+	epoch uint64,
+	resp *ProposerDutiesResponse,
+) ([]ProposerDutyInfo, error) {
 	duties := make([]ProposerDutyInfo, 0, len(resp.Data))
 	for _, d := range resp.Data {
 		slot, err := strconv.ParseUint(d.Slot, 10, 64)
@@ -141,7 +146,10 @@ func ParseProposerDuties(epoch uint64, resp *ProposerDutiesResponse) ([]Proposer
 }
 
 // GetBlockBySlot fetches the block root for a given slot
-func (c *BeaconClient) GetBlockBySlot(ctx context.Context, slot uint64) (string, error) {
+func (c *BeaconClient) GetBlockBySlot(
+	ctx context.Context,
+	slot uint64,
+) (string, error) {
 	// build URL
 	u := *c.baseURL
 	u.Path = path.Join(u.Path, "eth", "v2", "beacon", "blocks", strconv.FormatUint(slot, 10))

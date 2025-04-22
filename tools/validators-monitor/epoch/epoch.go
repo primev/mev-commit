@@ -21,7 +21,12 @@ type Calculator struct {
 }
 
 // NewCalculator creates a new epoch calculator
-func NewCalculator(genesisTimestamp int64, slotDurationSec, slotsPerEpoch, epochsToOffset int) *Calculator {
+func NewCalculator(
+	genesisTimestamp int64,
+	slotDurationSec,
+	slotsPerEpoch,
+	epochsToOffset int,
+) *Calculator {
 	return &Calculator{
 		genesisTime:    time.Unix(genesisTimestamp, 0),
 		slotDuration:   time.Duration(slotDurationSec) * time.Second,

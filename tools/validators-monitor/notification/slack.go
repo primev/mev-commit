@@ -101,10 +101,15 @@ func (n *SlackNotifier) SendMessage(ctx context.Context, message SlackMessage) e
 
 // NotifyRelayData sends a notification about relay data for a validator
 func (n *SlackNotifier) NotifyRelayData(
-	ctx context.Context, pubkey string,
-	validatorIndex, blockNumber, slot uint64,
-	mevReward *big.Int, feeReceipient string,
-	relaysWithData []string, allRelays []string,
+	ctx context.Context,
+	pubkey string,
+	validatorIndex,
+	blockNumber,
+	slot uint64,
+	mevReward *big.Int,
+	feeReceipient string,
+	relaysWithData,
+	allRelays []string,
 	dashboardInfo *api.DashboardResponse,
 ) error {
 	if !n.enabled {
