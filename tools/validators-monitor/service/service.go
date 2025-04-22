@@ -38,7 +38,10 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 		DB:                     cfg.DB,
 	}
 
-	s.logger.Debug("creating duty monitor", "config", monitorConfig)
+	s.logger.Debug(
+		"creating duty monitor",
+		"config", monitorConfig,
+	)
 	monitor, err := monitor.New(monitorConfig, log)
 	if err != nil {
 		return nil, err
@@ -58,9 +61,11 @@ func New(cfg *config.Config, log *slog.Logger) (*Service, error) {
 		s.closers = append(s.closers, monitor.GetDB())
 	}
 
-	s.logger.Info("duty monitor service started",
+	s.logger.Info(
+		"duty monitor service started",
 		"beacon_node", cfg.BeaconNodeURL,
-		"relay_count", len(cfg.RelayURLs))
+		"relay_count", len(cfg.RelayURLs),
+	)
 
 	return s, nil
 }

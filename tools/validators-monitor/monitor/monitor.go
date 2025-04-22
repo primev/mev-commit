@@ -156,7 +156,8 @@ func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
 
 func (m *DutyMonitor) Start(ctx context.Context) {
 	m.runningEpoch = m.calculator.CurrentEpoch()
-	m.logger.Info("duty-monitor started",
+	m.logger.Info(
+		"duty-monitor started",
 		"epoch", m.runningEpoch,
 		"interval_sec", m.config.FetchIntervalSec)
 
@@ -168,7 +169,10 @@ func (m *DutyMonitor) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			m.logger.Info("duty-monitor stopping", "reason", ctx.Err())
+			m.logger.Info(
+				"duty-monitor stopping",
+				"reason", ctx.Err(),
+			)
 			return
 		case <-ticker.C:
 			m.checkEpochTransition()
@@ -179,7 +183,11 @@ func (m *DutyMonitor) Start(ctx context.Context) {
 
 func (m *DutyMonitor) checkEpochTransition() {
 	if newEpoch := m.calculator.CurrentEpoch(); newEpoch > m.runningEpoch {
-		m.logger.Info("epoch transition detected", "old", m.runningEpoch, "new", newEpoch)
+		m.logger.Info(
+			"epoch transition detected",
+			"old", m.runningEpoch,
+			"new", newEpoch,
+		)
 		m.runningEpoch = newEpoch
 		m.cleanupCaches()
 	}
@@ -188,13 +196,20 @@ func (m *DutyMonitor) checkEpochTransition() {
 func (m *DutyMonitor) fetchAndProcessDuties(ctx context.Context) {
 	for _, e := range m.calculator.EpochsToFetch() {
 		if entry, ok := m.dutiesCache[e]; ok && time.Since(entry.cachedAt) < dutiesCacheTTL {
-			m.logger.Debug("duties cache-hit", "epoch", e)
+			m.logger.Debug(
+				"duties cache-hit",
+				"epoch", e,
+			)
 			continue
 		}
 
 		duties, err := m.fetchDutiesForEpoch(ctx, e)
 		if err != nil {
-			m.logger.Error("fetch duties failed", "epoch", e, "err", err)
+			m.logger.Error(
+				"fetch duties failed",
+				"epoch", e,
+				"err", err,
+			)
 			continue
 		}
 
@@ -212,7 +227,8 @@ func (m *DutyMonitor) fetchDutiesForEpoch(ctx context.Context, epoch uint64) ([]
 }
 
 func (m *DutyMonitor) processDuties(ctx context.Context, epochNum uint64, duties []api.ProposerDutyInfo) {
-	m.logger.Info("duties fetched",
+	m.logger.Info(
+		"duties fetched",
 		"epoch", epochNum,
 		"count", len(duties),
 		"start_time", m.calculator.EpochStartTime(epochNum).Format(time.RFC3339))
@@ -232,7 +248,10 @@ func (m *DutyMonitor) getValidatorOptInStatuses(ctx context.Context, duties []ap
 	}
 	statuses, err := m.optChecker.CheckValidatorsOptedIn(ctx, pubkeys)
 	if err != nil {
-		m.logger.Error("opt-in checker error", "err", err)
+		m.logger.Error(
+			"opt-in checker error",
+			"err", err,
+		)
 		return nil
 	}
 	out := make(map[string]contract.OptInStatus, len(pubkeys))
@@ -247,7 +266,11 @@ func (m *DutyMonitor) getBlocksInfoForDuties(ctx context.Context, duties []api.P
 	for _, d := range duties {
 		bn, err := m.beacon.GetBlockBySlot(ctx, d.Slot)
 		if err != nil {
-			m.logger.Warn("blockBySlot error", "slot", d.Slot, "err", err)
+			m.logger.Warn(
+				"blockBySlot error",
+				"slot", d.Slot,
+				"err", err,
+			)
 			continue
 		}
 		if bn != "" {
@@ -287,11 +310,13 @@ func (m *DutyMonitor) processDuty(
 }
 
 func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, duty api.ProposerDutyInfo) {
-	m.logger.Info("querying relays for block",
+	m.logger.Info(
+		"querying relays for block",
 		"block_number", blockNumber,
 		"slot", duty.Slot,
 		"validator_index", duty.ValidatorIndex,
-		"pubkey", duty.PubKey)
+		"pubkey", duty.PubKey,
+	)
 
 	/* query all relays */
 	relayResults := m.relay.QueryRelayData(ctx, blockNumber)
@@ -301,15 +326,22 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 	var feeReceipient string
 	for relayURL, result := range relayResults {
 		if result.Error != "" {
-			m.logger.Warn("relay query error",
-				"relay", relayURL, "error", result.Error, "block", blockNumber)
+			m.logger.Warn(
+				"relay query error",
+				"relay", relayURL,
+				"error", result.Error,
+				"block", blockNumber,
+			)
 			continue
 		}
 
 		bidTraces, ok := result.Response.([]api.BidTrace)
 		if !ok {
-			m.logger.Error("unexpected relay response type",
-				"relay", relayURL, "block", blockNumber)
+			m.logger.Error(
+				"unexpected relay response type",
+				"relay", relayURL,
+				"block", blockNumber,
+			)
 			continue
 		}
 
@@ -317,7 +349,8 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 			if trace.ProposerPubkey == duty.PubKey {
 				relaysWithData = append(relaysWithData, relayURL)
 
-				m.logger.Info("relay bid for validator",
+				m.logger.Info(
+					"relay bid for validator",
 					"relay", relayURL,
 					"block", blockNumber,
 					"slot", duty.Slot,
@@ -326,10 +359,12 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 					"num_tx", trace.NumTx)
 
 				if _, ok := mevReward.SetString(trace.Value, 10); !ok {
-					m.logger.Error("parse MEV reward",
+					m.logger.Error(
+						"parse MEV reward",
 						"relay", relayURL,
 						"block", blockNumber,
-						"bid_value", trace.Value)
+						"bid_value", trace.Value,
+					)
 				}
 
 				feeReceipient = trace.ProposerFeeRecipient
@@ -348,12 +383,14 @@ func (m *DutyMonitor) processBlockData(ctx context.Context, blockNumber uint64, 
 		m.saveRelayData(ctx, duty, blockNumber, mevReward, feeReceipient, relaysWithData, blockInfo)
 	}
 
-	m.logger.Info("relay data processed",
+	m.logger.Info(
+		"relay data processed",
 		"block_number", blockNumber,
 		"slot", duty.Slot,
 		"validator_index", duty.ValidatorIndex,
 		"relays_with_data", len(relaysWithData),
-		"total_relays_queried", len(relayResults))
+		"total_relays_queried", len(relayResults),
+	)
 }
 
 func (m *DutyMonitor) fetchBlockInfoFromDashboard(ctx context.Context, blockNumber uint64) *api.DashboardResponse {
@@ -363,18 +400,23 @@ func (m *DutyMonitor) fetchBlockInfoFromDashboard(ctx context.Context, blockNumb
 
 	info, err := m.dashboard.GetBlockInfo(ctx, blockNumber)
 	if err != nil {
-		m.logger.Error("dashboard query error",
-			"block_number", blockNumber, "err", err)
+		m.logger.Error(
+			"dashboard query error",
+			"block_number", blockNumber,
+			"err", err,
+		)
 		return nil
 	}
 
-	m.logger.Info("dashboard block info",
+	m.logger.Info(
+		"dashboard block info",
 		"block_number", blockNumber,
 		"winner", info.Winner,
 		"total_commitments", info.TotalOpenedCommitments,
 		"total_rewards", info.TotalRewards,
 		"total_slashes", info.TotalSlashes,
-		"total_amount", info.TotalAmount)
+		"total_amount", info.TotalAmount,
+	)
 
 	return info
 }
@@ -400,10 +442,12 @@ func (m *DutyMonitor) sendNotification(
 		m.config.RelayURLs,
 		blockInfo,
 	); err != nil {
-		m.logger.Error("slack notification error",
+		m.logger.Error(
+			"slack notification error",
 			"validator", duty.PubKey,
 			"block", blockNumber,
-			"err", err)
+			"err", err,
+		)
 	}
 }
 
@@ -439,12 +483,18 @@ func (m *DutyMonitor) saveRelayData(
 	}
 
 	if err := m.db.SaveRelayData(ctx, record); err != nil {
-		m.logger.Error("DB save error",
+		m.logger.Error(
+			"DB save error",
 			"validator", duty.PubKey,
 			"block", blockNumber,
-			"err", err)
+			"err", err,
+		)
 	} else {
-		m.logger.Debug("relay data saved", "id", record.ID)
+		m.logger.Debug(
+			"relay data saved",
+			"id",
+			record.ID,
+		)
 	}
 }
 
@@ -481,9 +531,11 @@ func (m *DutyMonitor) cleanupCaches() {
 		}
 	}
 
-	m.logger.Debug("cache sizes",
+	m.logger.Debug(
+		"cache sizes",
 		"duties", len(m.dutiesCache),
-		"blocks", len(m.processedBlocks))
+		"blocks", len(m.processedBlocks),
+	)
 }
 
 /* helper to expose DB in tests */

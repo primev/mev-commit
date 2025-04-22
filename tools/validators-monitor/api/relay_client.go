@@ -29,7 +29,8 @@ func NewRelayClient(relayURLs []string, logger *slog.Logger, httpClient *http.Cl
 
 // QueryRelayData concurrently queries all relays for bid traces at a block
 func (c *RelayClient) QueryRelayData(ctx context.Context, blockNumber uint64) map[string]RelayResult {
-	c.logger.Debug("querying relays for block",
+	c.logger.Debug(
+		"querying relays for block",
 		slog.Uint64("block_number", blockNumber),
 	)
 
@@ -77,7 +78,8 @@ func (c *RelayClient) queryOneRelay(ctx context.Context, relayURL string, blockN
 	u.RawQuery = q.Encode()
 	reqURL := u.String()
 
-	c.logger.Debug("querying relay",
+	c.logger.Debug(
+		"querying relay",
 		slog.String("relay", relayURL),
 		slog.String("url", reqURL),
 	)
@@ -102,7 +104,8 @@ func (c *RelayClient) queryOneRelay(ctx context.Context, relayURL string, blockN
 
 	// attach status and timing
 	result.StatusCode = resp.StatusCode
-	c.logger.Debug("relay response",
+	c.logger.Debug(
+		"relay response",
 		slog.String("relay", relayURL),
 		slog.Int("status_code", resp.StatusCode),
 		slog.Int64("latency_ms", time.Since(start).Milliseconds()),
@@ -124,7 +127,8 @@ func (c *RelayClient) queryOneRelay(ctx context.Context, relayURL string, blockN
 	}
 
 	result.Response = traces
-	c.logger.Debug("parsed bid traces",
+	c.logger.Debug(
+		"parsed bid traces",
 		slog.String("relay", relayURL),
 		slog.Int("count", len(traces)),
 	)

@@ -66,7 +66,8 @@ func (c *BeaconClient) GetProposerDuties(ctx context.Context, epoch uint64) (*Pr
 	u := *c.baseURL
 	u.Path = path.Join(u.Path, "eth", "v1", "validator", "duties", "proposer", strconv.FormatUint(epoch, 10))
 	reqURL := u.String()
-	c.logger.Debug("Querying beacon node for proposer duties",
+	c.logger.Debug(
+		"Querying beacon node for proposer duties",
 		slog.String("url", reqURL),
 		slog.Uint64("epoch", epoch),
 	)
@@ -95,7 +96,8 @@ func (c *BeaconClient) GetProposerDuties(ctx context.Context, epoch uint64) (*Pr
 	if resp.StatusCode != http.StatusOK {
 		limit := io.LimitReader(resp.Body, 512)
 		msg, _ := io.ReadAll(limit)
-		logger.Error("Non-OK status fetching proposer duties",
+		logger.Error(
+			"Non-OK status fetching proposer duties",
 			slog.String("body_snippet", string(msg)),
 		)
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -107,7 +109,8 @@ func (c *BeaconClient) GetProposerDuties(ctx context.Context, epoch uint64) (*Pr
 		return nil, fmt.Errorf("decoding JSON response: %w", err)
 	}
 
-	logger.Debug("Fetched proposer duties",
+	logger.Debug(
+		"Fetched proposer duties",
 		slog.Int("count", len(dutiesResp.Data)),
 	)
 	return &dutiesResp, nil
@@ -144,7 +147,8 @@ func (c *BeaconClient) GetBlockBySlot(ctx context.Context, slot uint64) (string,
 	u.Path = path.Join(u.Path, "eth", "v2", "beacon", "blocks", strconv.FormatUint(slot, 10))
 	reqURL := u.String()
 
-	c.logger.Debug("Querying beacon node for block by slot",
+	c.logger.Debug(
+		"Querying beacon node for block by slot",
 		slog.String("url", reqURL),
 		slog.Uint64("slot", slot),
 	)
@@ -176,7 +180,8 @@ func (c *BeaconClient) GetBlockBySlot(ctx context.Context, slot uint64) (string,
 	if resp.StatusCode != http.StatusOK {
 		limit := io.LimitReader(resp.Body, 512)
 		msg, _ := io.ReadAll(limit)
-		logger.Error("Non-OK status fetching block",
+		logger.Error(
+			"Non-OK status fetching block",
 			slog.String("body_snippet", string(msg)),
 		)
 		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -199,7 +204,8 @@ func (c *BeaconClient) GetBlockBySlot(ctx context.Context, slot uint64) (string,
 	}
 
 	blockNumber := wrapper.Data.Message.Body.ExecutionPayload.BlockNumber
-	logger.Debug("Fetched block info",
+	logger.Debug(
+		"Fetched block info",
 		slog.String("block_number", blockNumber),
 	)
 	return blockNumber, nil

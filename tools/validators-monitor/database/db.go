@@ -71,7 +71,11 @@ func NewPostgresDB(cfg Config, logger *slog.Logger) (*PostgresDB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	logger.Info("Connected to PostgreSQL database", "host", cfg.Host, "database", cfg.DBName)
+	logger.Info(
+		"Connected to PostgreSQL database",
+		"host", cfg.Host,
+		"database", cfg.DBName,
+	)
 
 	return &PostgresDB{
 		db:     db,
@@ -143,7 +147,8 @@ func (p *PostgresDB) SaveRelayData(ctx context.Context, data *RelayRecord) error
 		return fmt.Errorf("failed to save relay data: %w", err)
 	}
 
-	p.logger.Debug("Saved relay data to database",
+	p.logger.Debug(
+		"Saved relay data to database",
 		slog.Int64("id", data.ID),
 		slog.Uint64("block_number", data.BlockNumber),
 		slog.Uint64("slot", data.Slot),

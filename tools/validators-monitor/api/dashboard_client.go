@@ -52,7 +52,8 @@ func (c *DashboardClient) GetBlockInfo(ctx context.Context, blockNumber uint64) 
 	u.Path = path.Join(u.Path, "block", strconv.FormatUint(blockNumber, 10))
 	reqURL := u.String()
 
-	c.logger.Debug("Querying dashboard service for block",
+	c.logger.Debug(
+		"Querying dashboard service for block",
 		slog.Uint64("block_number", blockNumber),
 		slog.String("url", reqURL),
 	)
@@ -85,7 +86,8 @@ func (c *DashboardClient) GetBlockInfo(ctx context.Context, blockNumber uint64) 
 		return nil, fmt.Errorf("decoding JSON response: %w", err)
 	}
 
-	c.logger.Debug("Dashboard service response received",
+	c.logger.Debug(
+		"Dashboard service response received",
 		slog.Uint64("block_number", dr.Number),
 		slog.String("winner", dr.Winner),
 		slog.Int("total_opened_commitments", dr.TotalOpenedCommitments),
