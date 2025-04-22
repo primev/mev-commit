@@ -124,11 +124,10 @@ func (s *Service) StartHealthHTTPServer(
 		if err := healthChecker.Health(); err != nil {
 			s.logger.Error("health check failed", "error", err)
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write(fmt.Appendf(nil, "unhealthy: %v", err))
+			_, _ = w.Write([]byte(err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("healthy"))
 	})
 
 	s.logger.Info(
