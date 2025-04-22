@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"path"
 	"strconv"
-
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
 
 // DashboardResponse represents the response from the dashboard service
@@ -28,14 +26,13 @@ type DashboardResponse struct {
 // DashboardClient is a client for interacting with the dashboard service API
 // It uses a retryable HTTP client under the hood.
 type DashboardClient struct {
-	client  *retryablehttp.Client
+	client  *http.Client
 	baseURL *url.URL
 	logger  *slog.Logger
 }
 
 // NewDashboardClient creates a new dashboard client.
-// If httpClient is nil, default retryablehttp.NewClient() is used.
-func NewDashboardClient(baseURL string, logger *slog.Logger, httpClient *retryablehttp.Client) (*DashboardClient, error) {
+func NewDashboardClient(baseURL string, logger *slog.Logger, httpClient *http.Client) (*DashboardClient, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL %q: %w", baseURL, err)
@@ -60,12 +57,10 @@ func (c *DashboardClient) GetBlockInfo(ctx context.Context, blockNumber uint64) 
 		slog.String("url", reqURL),
 	)
 
-	// create retryable request
-	req, err := retryablehttp.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
-	req = req.WithContext(ctx)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "MEV-Commit-Monitor/1.0")
 

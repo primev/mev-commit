@@ -8,10 +8,10 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"fmt"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,10 +24,9 @@ func setupTestClient(t *testing.T, handler http.Handler) *BeaconClient {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	client := retryablehttp.NewClient()
-	client.RetryMax = 1
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
-	beaconClient, err := NewBeaconClient(server.URL, logger, client)
+	beaconClient, err := NewBeaconClient(server.URL, logger, httpClient)
 	require.NoError(t, err)
 
 	return beaconClient
@@ -36,15 +35,15 @@ func setupTestClient(t *testing.T, handler http.Handler) *BeaconClient {
 func TestNewBeaconClient(t *testing.T) {
 	// Test with valid URL
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	client := retryablehttp.NewClient()
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
-	beaconClient, err := NewBeaconClient("http://localhost:5052", logger, client)
+	beaconClient, err := NewBeaconClient("http://localhost:5052", logger, httpClient)
 	assert.NoError(t, err)
 	assert.NotNil(t, beaconClient)
 	assert.Equal(t, "http://localhost:5052", beaconClient.baseURL.String())
 
 	// Test with invalid URL
-	beaconClient, err = NewBeaconClient("://invalid-url", logger, client)
+	beaconClient, err = NewBeaconClient("://invalid-url", logger, httpClient)
 	assert.Error(t, err)
 	assert.Nil(t, beaconClient)
 }

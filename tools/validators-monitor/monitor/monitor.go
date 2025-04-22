@@ -95,7 +95,7 @@ type DutyMonitor struct {
 }
 
 func New(cfg *config.Config, log *slog.Logger) (*DutyMonitor, error) {
-	httpClient := createRetryableHTTPClient(log)
+	httpClient := createRetryableHTTPClient(log).StandardClient()
 
 	beaconClient, err := api.NewBeaconClient(cfg.BeaconNodeURL, log, httpClient)
 	if err != nil {

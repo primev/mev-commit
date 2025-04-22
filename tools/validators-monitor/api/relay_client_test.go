@@ -10,14 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewRelayClient(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	httpClient := retryablehttp.NewClient()
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 	relayURLs := []string{"http://relay1.example.com", "http://relay2.example.com"}
 
 	// Test with provided HTTP client
@@ -109,8 +108,7 @@ func TestQueryOneRelay(t *testing.T) {
 			}
 
 			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			httpClient := retryablehttp.NewClient()
-			httpClient.RetryMax = 0 // Disable retries for testing
+			httpClient := &http.Client{Timeout: 10 * time.Second}
 
 			client := NewRelayClient([]string{tt.relayURL}, logger, httpClient)
 			result := client.queryOneRelay(context.Background(), tt.relayURL, tt.blockNumber)
@@ -173,8 +171,7 @@ func TestQueryRelayData(t *testing.T) {
 	relayURLs := []string{server1.URL, server2.URL, server3.URL}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	httpClient := retryablehttp.NewClient()
-	httpClient.RetryMax = 0 // Disable retries for testing
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	client := NewRelayClient(relayURLs, logger, httpClient)
 
@@ -224,7 +221,7 @@ func TestQueryRelayDataWithCancelledContext(t *testing.T) {
 	relayURLs := []string{server.URL, server.URL} // Use same server twice for simplicity
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	httpClient := retryablehttp.NewClient()
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	client := NewRelayClient(relayURLs, logger, httpClient)
 
@@ -255,7 +252,7 @@ func TestQueryRelayDataWithMultipleRelays(t *testing.T) {
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	httpClient := retryablehttp.NewClient()
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	client := NewRelayClient(relayURLs, logger, httpClient)
 

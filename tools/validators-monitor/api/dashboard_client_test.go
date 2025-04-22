@@ -8,8 +8,8 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,10 +22,9 @@ func setupTestDashboardClient(t *testing.T, handler http.Handler) *DashboardClie
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
-	client := retryablehttp.NewClient()
-	client.RetryMax = 1 // Limit retries for testing
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
-	dashboardClient, err := NewDashboardClient(server.URL, logger, client)
+	dashboardClient, err := NewDashboardClient(server.URL, logger, httpClient)
 	require.NoError(t, err)
 
 	return dashboardClient
@@ -34,15 +33,15 @@ func setupTestDashboardClient(t *testing.T, handler http.Handler) *DashboardClie
 func TestNewDashboardClient(t *testing.T) {
 	// Test with valid URL
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	client := retryablehttp.NewClient()
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
-	dashboardClient, err := NewDashboardClient("http://dashboard.example.com", logger, client)
+	dashboardClient, err := NewDashboardClient("http://dashboard.example.com", logger, httpClient)
 	assert.NoError(t, err)
 	assert.NotNil(t, dashboardClient)
 	assert.Equal(t, "http://dashboard.example.com", dashboardClient.baseURL.String())
 
 	// Test with invalid URL
-	dashboardClient, err = NewDashboardClient("://invalid-url", logger, client)
+	dashboardClient, err = NewDashboardClient("://invalid-url", logger, httpClient)
 	assert.Error(t, err)
 	assert.Nil(t, dashboardClient)
 }
@@ -181,10 +180,9 @@ func TestContextCancellation(t *testing.T) {
 func TestNetworkErrors(t *testing.T) {
 	// Create a client with an unreachable URL
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	client := retryablehttp.NewClient()
-	client.RetryMax = 0 // Don't retry to make test faster
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
-	dashboardClient, err := NewDashboardClient("http://localhost:12345", logger, client)
+	dashboardClient, err := NewDashboardClient("http://localhost:12345", logger, httpClient)
 	require.NoError(t, err)
 
 	// The request should fail due to connection refused

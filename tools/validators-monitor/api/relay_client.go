@@ -11,21 +11,19 @@ import (
 	"path"
 	"strconv"
 	"time"
-
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
 
 // RelayClient queries multiple builder relays with retry/backoff
 // It uses a retryable HTTP client under the hood.
 type RelayClient struct {
-	client    *retryablehttp.Client
+	client    *http.Client
 	relayURLs []string
 	logger    *slog.Logger
 }
 
 // NewRelayClient constructs a RelayClient. If httpClient is nil, a default retryablehttp.Client is used.
 // HTTP timeouts and retry policies are configurable on the client.
-func NewRelayClient(relayURLs []string, logger *slog.Logger, httpClient *retryablehttp.Client) *RelayClient {
+func NewRelayClient(relayURLs []string, logger *slog.Logger, httpClient *http.Client) *RelayClient {
 	return &RelayClient{client: httpClient, relayURLs: relayURLs, logger: logger}
 }
 
@@ -85,12 +83,11 @@ func (c *RelayClient) queryOneRelay(ctx context.Context, relayURL string, blockN
 	)
 
 	// prepare request
-	req, err := retryablehttp.NewRequest("GET", reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
 	if err != nil {
 		result.Error = fmt.Sprintf("building request: %v", err)
 		return result
 	}
-	req = req.WithContext(ctx)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "MEV-Commit-Monitor/1.0")
 

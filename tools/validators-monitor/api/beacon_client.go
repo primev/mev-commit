@@ -11,9 +11,12 @@ import (
 	"path"
 	"strconv"
 	"time"
-
-	retryablehttp "github.com/hashicorp/go-retryablehttp"
 )
+
+// // HTTPDoer defines the interface for HTTP clients
+// type HTTPDoer interface {
+// 	Do(req *http.Request) (*http.Response, error)
+// }
 
 // ProposerDuty represents a validator's proposer duty
 type ProposerDuty struct {
@@ -38,13 +41,13 @@ type ProposerDutyInfo struct {
 // BeaconClient is a client for the Ethereum 2.0 beacon node API
 // It uses a retryable HTTP client with exponential backoff.
 type BeaconClient struct {
-	client  *retryablehttp.Client
+	client  *http.Client
 	baseURL *url.URL
 	logger  *slog.Logger
 }
 
 // NewBeaconClient creates a new beacon node API client.
-func NewBeaconClient(baseURL string, logger *slog.Logger, httpClient *retryablehttp.Client) (*BeaconClient, error) {
+func NewBeaconClient(baseURL string, logger *slog.Logger, httpClient *http.Client) (*BeaconClient, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base URL %q: %w", baseURL, err)
@@ -69,7 +72,7 @@ func (c *BeaconClient) GetProposerDuties(ctx context.Context, epoch uint64) (*Pr
 	)
 
 	// prepare request
-	req, err := retryablehttp.NewRequest(http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -147,11 +150,10 @@ func (c *BeaconClient) GetBlockBySlot(ctx context.Context, slot uint64) (string,
 	)
 
 	// prepare request
-	req, err := retryablehttp.NewRequest(http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("creating request: %w", err)
 	}
-	req = req.WithContext(ctx)
 	req.Header.Set("Accept", "application/json")
 
 	start := time.Now()
