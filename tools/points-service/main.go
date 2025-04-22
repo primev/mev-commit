@@ -598,7 +598,7 @@ func main() {
 			handlers := []events.EventHandler{
 				events.NewEventHandler(
 					"Staked",
-					func(ev *vanillaregistry.Validatorregistryv1Staked) {
+					func(ev *vanillaregistry.VanillaregistryStaked) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
 						insertOptIn(db, logger, pubkey, adder, "vanilla", "Staked", ev.Raw.BlockNumber)
@@ -606,7 +606,7 @@ func main() {
 				),
 				events.NewEventHandler(
 					"Unstaked",
-					func(ev *vanillaregistry.Validatorregistryv1Unstaked) {
+					func(ev *vanillaregistry.VanillaregistryUnstaked) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
 						insertOptOut(db, logger, pubkey, adder, "Unstaked", ev.Raw.BlockNumber)
@@ -614,7 +614,7 @@ func main() {
 				),
 				events.NewEventHandler(
 					"StakeWithdrawn",
-					func(ev *vanillaregistry.Validatorregistryv1StakeWithdrawn) {
+					func(ev *vanillaregistry.VanillaregistryStakeWithdrawn) {
 						pubkey := common.Bytes2Hex(ev.ValBLSPubKey)
 						adder := ev.MsgSender.Hex()
 						insertOptOut(db, logger, pubkey, adder, "StakeWithdrawn", ev.Raw.BlockNumber)
@@ -875,7 +875,7 @@ func getContractABIs() ([]*abi.ABI, error) {
 	if err != nil {
 		return nil, err
 	}
-	vanillaRegistryABI, err := abi.JSON(strings.NewReader(vanillaregistry.Validatorregistryv1ABI))
+	vanillaRegistryABI, err := abi.JSON(strings.NewReader(vanillaregistry.VanillaregistryABI))
 	if err != nil {
 		return nil, err
 	}
