@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 	"os"
 	"os/signal"
 	"slices"
@@ -65,6 +66,13 @@ var (
 		Usage:   "Whether to track missed duties",
 		EnvVars: []string{"TRACK_MISSED"},
 		Value:   true,
+	}
+
+	optionLaggardMode = &cli.Int64Flag{
+		Name:    "laggard-mode",
+		Usage:   "No of blocks to lag behind for L1 chain when fetching validator duties",
+		EnvVars: []string{"LAGGARD_MODE"},
+		Value:   10,
 	}
 
 	optionDBEnabled = &cli.BoolFlag{
@@ -216,6 +224,7 @@ func main() {
 				DashboardApiUrl:        c.String(optionDashboardApiUrl.Name),
 				RelayURLs:              c.StringSlice(optionRelayUrls.Name),
 				HealthPort:             c.Int(optionHealthPort.Name),
+				LaggardMode:            big.NewInt(c.Int64(optionLaggardMode.Name)),
 				DB: config.DBConfig{
 					Enabled:  c.Bool(optionDBEnabled.Name),
 					Host:     c.String(optionDBHost.Name),

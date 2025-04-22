@@ -13,9 +13,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	"github.com/primev/mev-commit/tools/validators-monitor/api"
 	"github.com/primev/mev-commit/tools/validators-monitor/config"
-	"github.com/primev/mev-commit/tools/validators-monitor/contract"
 	"github.com/primev/mev-commit/tools/validators-monitor/database"
 )
 
@@ -47,11 +47,11 @@ func (f *fakeBeaconSlots) GetBlockBySlot(ctx context.Context, slot uint64) (stri
 }
 
 type fakeOptIn struct {
-	statuses []contract.OptInStatus
+	statuses []validatorrouter.IValidatorOptInRouterOptInStatus
 	err      error
 }
 
-func (f *fakeOptIn) CheckValidatorsOptedIn(ctx context.Context, pubkeys []string) ([]contract.OptInStatus, error) {
+func (f *fakeOptIn) CheckValidatorsOptedIn(ctx context.Context, pubkeys []string) ([]validatorrouter.IValidatorOptInRouterOptInStatus, error) {
 	return f.statuses, f.err
 }
 
@@ -189,7 +189,7 @@ func TestGetValidatorOptInStatuses(t *testing.T) {
 	assert.Empty(t, res)
 
 	// success path
-	statuses := []contract.OptInStatus{{IsVanillaOptedIn: true}, {IsAvsOptedIn: true}}
+	statuses := []validatorrouter.IValidatorOptInRouterOptInStatus{{IsVanillaOptedIn: true}, {IsAvsOptedIn: true}}
 	m.optChecker = &fakeOptIn{statuses: statuses, err: nil}
 	res = m.getValidatorOptInStatuses(context.Background(), duties)
 	assert.Len(t, res, 2)
@@ -214,7 +214,7 @@ func TestProcessDutySkipsUnopted(t *testing.T) {
 	notifier := &fakeNotifier{}
 	m.notifier = notifier
 
-	m.processDuty(context.Background(), duty, map[string]contract.OptInStatus{}, map[uint64]string{1: "10"})
+	m.processDuty(context.Background(), duty, map[string]validatorrouter.IValidatorOptInRouterOptInStatus{}, map[uint64]string{1: "10"})
 	assert.False(t, notifier.called)
 }
 
@@ -229,7 +229,7 @@ func TestProcessDuty_NotifiesOnOptedIn(t *testing.T) {
 	m.processDuty(
 		context.Background(),
 		duty,
-		map[string]contract.OptInStatus{"pk": {IsVanillaOptedIn: true}},
+		map[string]validatorrouter.IValidatorOptInRouterOptInStatus{"pk": {IsVanillaOptedIn: true}},
 		map[uint64]string{1: "100"},
 	)
 	assert.True(t, notifier.called)

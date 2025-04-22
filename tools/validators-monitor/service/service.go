@@ -40,6 +40,7 @@ func New(
 		SlackWebhookURL:        cfg.SlackWebhookURL,
 		RelayURLs:              cfg.RelayURLs,
 		DashboardApiUrl:        cfg.DashboardApiUrl,
+		LaggardMode:            cfg.LaggardMode,
 		DB:                     cfg.DB,
 	}
 

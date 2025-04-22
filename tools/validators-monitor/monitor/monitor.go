@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
+	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	"github.com/primev/mev-commit/tools/validators-monitor/api"
 	"github.com/primev/mev-commit/tools/validators-monitor/config"
 	"github.com/primev/mev-commit/tools/validators-monitor/contract"
@@ -44,7 +45,7 @@ type DashboardClient interface {
 }
 
 type ValidatorOptInChecker interface {
-	CheckValidatorsOptedIn(ctx context.Context, pubkeys []string) ([]contract.OptInStatus, error)
+	CheckValidatorsOptedIn(ctx context.Context, pubkeys []string) ([]validatorrouter.IValidatorOptInRouterOptInStatus, error)
 }
 
 type SlackNotifier interface {
@@ -107,7 +108,7 @@ func New(
 		return nil, err
 	}
 
-	optInChecker, err := contract.NewValidatorOptInChecker(cfg.EthereumRPCURL, cfg.ValidatorOptInContract)
+	optInChecker, err := contract.NewValidatorOptInChecker(cfg.EthereumRPCURL, cfg.ValidatorOptInContract, cfg.LaggardMode)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +244,8 @@ func (m *DutyMonitor) processDuties(
 		"duties fetched",
 		"epoch", epochNum,
 		"count", len(duties),
-		"start_time", m.calculator.EpochStartTime(epochNum).Format(time.RFC3339))
+		"start_time", m.calculator.EpochStartTime(epochNum).Format(time.RFC3339),
+	)
 
 	opted := m.getValidatorOptInStatuses(ctx, duties)
 	blocks := m.getBlocksInfoForDuties(ctx, duties)
@@ -256,7 +258,7 @@ func (m *DutyMonitor) processDuties(
 func (m *DutyMonitor) getValidatorOptInStatuses(
 	ctx context.Context,
 	duties []api.ProposerDutyInfo,
-) map[string]contract.OptInStatus {
+) map[string]validatorrouter.IValidatorOptInRouterOptInStatus {
 	pubkeys := make([]string, len(duties))
 	for i, d := range duties {
 		pubkeys[i] = d.PubKey
@@ -269,7 +271,7 @@ func (m *DutyMonitor) getValidatorOptInStatuses(
 		)
 		return nil
 	}
-	out := make(map[string]contract.OptInStatus, len(pubkeys))
+	out := make(map[string]validatorrouter.IValidatorOptInRouterOptInStatus, len(pubkeys))
 	for i, s := range statuses {
 		out[pubkeys[i]] = s
 	}
@@ -301,7 +303,7 @@ func (m *DutyMonitor) getBlocksInfoForDuties(
 func (m *DutyMonitor) processDuty(
 	ctx context.Context,
 	duty api.ProposerDutyInfo,
-	optedIn map[string]contract.OptInStatus,
+	optedIn map[string]validatorrouter.IValidatorOptInRouterOptInStatus,
 	blockInfo map[uint64]string,
 ) {
 	status, ok := optedIn[duty.PubKey]

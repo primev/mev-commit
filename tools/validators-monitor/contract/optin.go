@@ -7,54 +7,61 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	validatorrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 )
 
-// OptInStatus matches the struct in the contract
-type OptInStatus struct {
-	IsVanillaOptedIn    bool
-	IsAvsOptedIn        bool
-	IsMiddlewareOptedIn bool
-}
-
-// EthClient defines the methods needed from ethclient.Client
 type EthClient interface {
-	CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	BlockNumber(ctx context.Context) (uint64, error)
 	Close()
 }
 
-// ValidatorOptInChecker is responsible for checking validator opt-in status
+type RouterContract interface {
+	AreValidatorsOptedIn(opts *bind.CallOpts, valBLSPubKeys [][]byte) ([]validatorrouter.IValidatorOptInRouterOptInStatus, error)
+}
+
 type ValidatorOptInChecker struct {
-	client      EthClient
-	contractAbi abi.ABI
-	address     common.Address
+	client         EthClient
+	routerContract RouterContract
+	optsGetter     func() (*bind.CallOpts, error)
 }
 
 // NewValidatorOptInChecker creates a new ValidatorOptInChecker
 func NewValidatorOptInChecker(
 	rpcURL,
 	contractAddress string,
+	laggardMode *big.Int,
 ) (*ValidatorOptInChecker, error) {
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Ethereum client: %s, %v", rpcURL, err)
 	}
 
-	contractAbi, err := abi.JSON(strings.NewReader(validatorrouter.ValidatoroptinrouterABI))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse contract ABI: %v", err)
+	callOptsGetter := func() (*bind.CallOpts, error) {
+		blkNum, err := client.BlockNumber(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		currentBlkNum := big.NewInt(0).SetUint64(blkNum)
+		queryBlkNum := big.NewInt(0).Sub(currentBlkNum, laggardMode)
+		return &bind.CallOpts{
+			BlockNumber: queryBlkNum,
+		}, nil
 	}
 
 	address := common.HexToAddress(contractAddress)
+	routerContract, err := validatorrouter.NewValidatoroptinrouter(address, client)
+	if err != nil {
+		client.Close()
+		return nil, fmt.Errorf("failed to create contract binding: %v", err)
+	}
 
 	return &ValidatorOptInChecker{
-		client:      client,
-		contractAbi: contractAbi,
-		address:     address,
+		client:         client,
+		routerContract: routerContract,
+		optsGetter:     callOptsGetter,
 	}, nil
 }
 
@@ -62,7 +69,7 @@ func NewValidatorOptInChecker(
 func (c *ValidatorOptInChecker) CheckValidatorsOptedIn(
 	ctx context.Context,
 	pubkeys []string,
-) ([]OptInStatus, error) {
+) ([]validatorrouter.IValidatorOptInRouterOptInStatus, error) {
 	blsPubKeys := make([][]byte, len(pubkeys))
 	for j, pubkey := range pubkeys {
 		pubkeyStr := strings.TrimPrefix(pubkey, "0x")
@@ -73,29 +80,20 @@ func (c *ValidatorOptInChecker) CheckValidatorsOptedIn(
 		blsPubKeys[j] = pubkeyBytes
 	}
 
-	callData, err := c.contractAbi.Pack("areValidatorsOptedIn", blsPubKeys)
+	opts, err := c.optsGetter()
 	if err != nil {
-		return nil, fmt.Errorf("failed to pack contract call data: %w", err)
+		return nil, fmt.Errorf("getting call opts: %w", err)
 	}
 
-	result, err := c.client.CallContract(ctx, ethereum.CallMsg{
-		To:   &c.address,
-		Data: callData,
-	}, nil) // nil means latest block
-
+	optInStatuses, err := c.routerContract.AreValidatorsOptedIn(opts, blsPubKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call contract: %w", err)
-	}
-
-	var optInStatuses []OptInStatus
-	err = c.contractAbi.UnpackIntoInterface(&optInStatuses, "areValidatorsOptedIn", result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unpack contract result: %w", err)
 	}
 
 	return optInStatuses, nil
 }
 
+// Close closes the underlying ethclient connection
 func (c *ValidatorOptInChecker) Close() {
 	c.client.Close()
 }

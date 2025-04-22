@@ -1,5 +1,7 @@
 package config
 
+import "math/big"
+
 type Config struct {
 	FetchIntervalSec       int      `json:"fetch_interval_sec"`
 	TrackMissed            bool     `json:"track_missed"`
@@ -10,6 +12,7 @@ type Config struct {
 	SlackWebhookURL        string   `json:"slack_webhook_url"`
 	DashboardApiUrl        string   `json:"dashboard_api_url"`
 	HealthPort             int      `json:"health_port"`
+	LaggardMode            *big.Int `json:"laggard_mode"`
 	DB                     DBConfig `json:"db"`
 }
 
