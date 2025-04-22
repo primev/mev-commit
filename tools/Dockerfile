@@ -4,8 +4,6 @@
 FROM golang:1.24-alpine AS builder
 RUN apk add --no-cache git gcc musl-dev
 
-# Put *everything* into /src so that your ../bridge/standard code
-# is present when go mod download runs.
 WORKDIR /src
 COPY . .
 
