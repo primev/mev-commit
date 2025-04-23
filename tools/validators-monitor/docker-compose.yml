@@ -20,8 +20,8 @@ services:
 
   validator-monitor:
     build:
-      context: ..                 
-      dockerfile: tools/Dockerfile 
+      context: ../../
+      dockerfile: tools/validators-monitor/Dockerfile
     container_name: mev-commit-validator-monitor
     restart: unless-stopped
     depends_on:
