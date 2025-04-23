@@ -94,6 +94,13 @@ var (
 		Value:   true,
 	}
 
+	optionMonitorTxes = &cli.BoolFlag{
+		Name:    "monitor-txes",
+		Usage:   "whether to monitor if bidded txes land on L1",
+		EnvVars: []string{"MONITOR_TXES"},
+		Value:   true,
+	}
+
 	optionGasTipCap = &cli.StringFlag{
 		Name:    "gas-tip-cap",
 		Usage:   "gas tip cap",
@@ -170,6 +177,7 @@ func main() {
 			optionBidAmount,
 			optionUseFullNotifier,
 			optionCheckBalances,
+			optionMonitorTxes,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -227,6 +235,7 @@ func main() {
 				IsFullNotifier:    c.Bool(optionUseFullNotifier.Name),
 				Signer:            signer,
 				CheckBalances:     c.Bool(optionCheckBalances.Name),
+				MonitorTxLanding:  c.Bool(optionMonitorTxes.Name),
 			}
 
 			logger.Debug("service config", "config", config)

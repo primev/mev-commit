@@ -40,6 +40,7 @@ type Config struct {
 	BidAmount         *big.Int
 	IsFullNotifier    bool
 	CheckBalances     bool
+	MonitorTxLanding  bool
 }
 
 type Service struct {
@@ -197,22 +198,25 @@ func New(config *Config) (*Service, error) {
 
 	notifierDone := notif.Start(ctx)
 	bidderDone := bidder.Start(ctx)
-	monitorDone := monitor.Start(ctx)
 
 	healthChecker.Register(health.CloseChannelHealthCheck("NotifierService", notifierDone))
 	healthChecker.Register(health.CloseChannelHealthCheck("BidderService", bidderDone))
-	healthChecker.Register(health.CloseChannelHealthCheck("MonitorService", monitorDone))
 
 	s.closers = append(s.closers,
 		channelCloser(notifierDone),
 		channelCloser(bidderDone),
-		channelCloser(monitorDone),
 	)
 
 	if config.CheckBalances {
 		balanceCheckerDone := balanceChecker.Start(ctx)
 		healthChecker.Register(health.CloseChannelHealthCheck("BalanceCheckerService", balanceCheckerDone))
 		s.closers = append(s.closers, channelCloser(balanceCheckerDone))
+	}
+
+	if config.MonitorTxLanding {
+		monitorDone := monitor.Start(ctx)
+		healthChecker.Register(health.CloseChannelHealthCheck("MonitorService", monitorDone))
+		s.closers = append(s.closers, channelCloser(monitorDone))
 	}
 
 	return s, nil
