@@ -27,6 +27,6 @@ func (s *Service) SetGenesisTime(genesisTime time.Time) {
 	s.genesisTime = genesisTime
 }
 
-func (s *Service) SetProcessEpoch(ctx context.Context, epoch uint64, epochTime int64) {
+func (s *Service) SetProcessEpoch(ctx context.Context, epoch uint64, epochTime time.Time) {
 	s.processEpoch(ctx, epoch, epochTime)
 }
