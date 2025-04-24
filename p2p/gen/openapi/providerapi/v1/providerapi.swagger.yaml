@@ -24,6 +24,22 @@ paths:
           description: An unexpected error response.
           schema:
             $ref: '#/definitions/googlerpcStatus'
+  /v1/provider/get_provider_reward:
+    get:
+      summary: GetProviderReward
+      description: |-
+        GetProviderReward is called by the provider to retrieve their current reward balance
+        without withdrawing it from the bidder registry.
+      operationId: Provider_GetProviderReward
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1RewardResponse'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
   /v1/provider/get_stake:
     get:
       summary: GetStake
@@ -133,6 +149,22 @@ paths:
           description: A successful response.
           schema:
             $ref: '#/definitions/providerapiv1EmptyMessage'
+        default:
+          description: An unexpected error response.
+          schema:
+            $ref: '#/definitions/googlerpcStatus'
+  /v1/provider/withdraw_provider_reward:
+    post:
+      summary: WithdrawProviderReward
+      description: |-
+        WithdrawProviderReward is called by the provider to withdraw their accumulated rewards
+        from the bidder registry contract.
+      operationId: Provider_WithdrawProviderReward
+      responses:
+        "200":
+          description: A successful response.
+          schema:
+            $ref: '#/definitions/v1WithdrawalResponse'
         default:
           description: An unexpected error response.
           schema:
@@ -263,6 +295,15 @@ definitions:
     enum:
       - STATUS_ACCEPTED
       - STATUS_REJECTED
+  v1RewardResponse:
+    type: object
+    example:
+      amount: "500000000000000000"
+    properties:
+      amount:
+        type: string
+    description: Current reward amount for provider in the bidder registry.
+    title: Reward response
   v1StakeResponse:
     type: object
     example:

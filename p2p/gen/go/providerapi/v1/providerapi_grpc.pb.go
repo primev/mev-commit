@@ -19,13 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Provider_ReceiveBids_FullMethodName       = "/providerapi.v1.Provider/ReceiveBids"
-	Provider_SendProcessedBids_FullMethodName = "/providerapi.v1.Provider/SendProcessedBids"
-	Provider_Stake_FullMethodName             = "/providerapi.v1.Provider/Stake"
-	Provider_GetStake_FullMethodName          = "/providerapi.v1.Provider/GetStake"
-	Provider_GetMinStake_FullMethodName       = "/providerapi.v1.Provider/GetMinStake"
-	Provider_WithdrawStake_FullMethodName     = "/providerapi.v1.Provider/WithdrawStake"
-	Provider_Unstake_FullMethodName           = "/providerapi.v1.Provider/Unstake"
+	Provider_ReceiveBids_FullMethodName            = "/providerapi.v1.Provider/ReceiveBids"
+	Provider_SendProcessedBids_FullMethodName      = "/providerapi.v1.Provider/SendProcessedBids"
+	Provider_Stake_FullMethodName                  = "/providerapi.v1.Provider/Stake"
+	Provider_GetStake_FullMethodName               = "/providerapi.v1.Provider/GetStake"
+	Provider_GetMinStake_FullMethodName            = "/providerapi.v1.Provider/GetMinStake"
+	Provider_WithdrawStake_FullMethodName          = "/providerapi.v1.Provider/WithdrawStake"
+	Provider_Unstake_FullMethodName                = "/providerapi.v1.Provider/Unstake"
+	Provider_GetProviderReward_FullMethodName      = "/providerapi.v1.Provider/GetProviderReward"
+	Provider_WithdrawProviderReward_FullMethodName = "/providerapi.v1.Provider/WithdrawProviderReward"
 )
 
 // ProviderClient is the client API for Provider service.
@@ -64,6 +66,16 @@ type ProviderClient interface {
 	//
 	// Unstake is called by the provider to request a unstake from the provider registry.
 	Unstake(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*EmptyMessage, error)
+	// GetProviderReward
+	//
+	// GetProviderReward is called by the provider to retrieve their current reward balance
+	// without withdrawing it from the bidder registry.
+	GetProviderReward(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*RewardResponse, error)
+	// WithdrawProviderReward
+	//
+	// WithdrawProviderReward is called by the provider to withdraw their accumulated rewards
+	// from the bidder registry contract.
+	WithdrawProviderReward(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*WithdrawalResponse, error)
 }
 
 type providerClient struct {
@@ -156,6 +168,26 @@ func (c *providerClient) Unstake(ctx context.Context, in *EmptyMessage, opts ...
 	return out, nil
 }
 
+func (c *providerClient) GetProviderReward(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*RewardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RewardResponse)
+	err := c.cc.Invoke(ctx, Provider_GetProviderReward_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *providerClient) WithdrawProviderReward(ctx context.Context, in *EmptyMessage, opts ...grpc.CallOption) (*WithdrawalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WithdrawalResponse)
+	err := c.cc.Invoke(ctx, Provider_WithdrawProviderReward_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ProviderServer is the server API for Provider service.
 // All implementations must embed UnimplementedProviderServer
 // for forward compatibility.
@@ -192,6 +224,16 @@ type ProviderServer interface {
 	//
 	// Unstake is called by the provider to request a unstake from the provider registry.
 	Unstake(context.Context, *EmptyMessage) (*EmptyMessage, error)
+	// GetProviderReward
+	//
+	// GetProviderReward is called by the provider to retrieve their current reward balance
+	// without withdrawing it from the bidder registry.
+	GetProviderReward(context.Context, *EmptyMessage) (*RewardResponse, error)
+	// WithdrawProviderReward
+	//
+	// WithdrawProviderReward is called by the provider to withdraw their accumulated rewards
+	// from the bidder registry contract.
+	WithdrawProviderReward(context.Context, *EmptyMessage) (*WithdrawalResponse, error)
 	mustEmbedUnimplementedProviderServer()
 }
 
@@ -222,6 +264,12 @@ func (UnimplementedProviderServer) WithdrawStake(context.Context, *EmptyMessage)
 }
 func (UnimplementedProviderServer) Unstake(context.Context, *EmptyMessage) (*EmptyMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Unstake not implemented")
+}
+func (UnimplementedProviderServer) GetProviderReward(context.Context, *EmptyMessage) (*RewardResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProviderReward not implemented")
+}
+func (UnimplementedProviderServer) WithdrawProviderReward(context.Context, *EmptyMessage) (*WithdrawalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WithdrawProviderReward not implemented")
 }
 func (UnimplementedProviderServer) mustEmbedUnimplementedProviderServer() {}
 func (UnimplementedProviderServer) testEmbeddedByValue()                  {}
@@ -352,6 +400,42 @@ func _Provider_Unstake_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Provider_GetProviderReward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProviderServer).GetProviderReward(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Provider_GetProviderReward_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProviderServer).GetProviderReward(ctx, req.(*EmptyMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Provider_WithdrawProviderReward_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmptyMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ProviderServer).WithdrawProviderReward(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Provider_WithdrawProviderReward_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ProviderServer).WithdrawProviderReward(ctx, req.(*EmptyMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Provider_ServiceDesc is the grpc.ServiceDesc for Provider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -378,6 +462,14 @@ var Provider_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Unstake",
 			Handler:    _Provider_Unstake_Handler,
+		},
+		{
+			MethodName: "GetProviderReward",
+			Handler:    _Provider_GetProviderReward_Handler,
+		},
+		{
+			MethodName: "WithdrawProviderReward",
+			Handler:    _Provider_WithdrawProviderReward_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
