@@ -141,7 +141,7 @@ func (t *testWatcher) WaitForReceipt(ctx context.Context, tx *types.Transaction)
 			{
 				Address: common.Address{},
 				Topics:  []common.Hash{},
-				Data:    tx.Data(), // Use the tx data to pass back test info
+				Data:    tx.Data(),
 			},
 		},
 	}, nil
