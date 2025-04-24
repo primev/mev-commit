@@ -50,7 +50,7 @@ contract UpdatePreconfManagerDispatchWindow is Script {
         // Verify update was successful
         require(
             updatedDispatchWindow == newDispatchWindow,
-            "Commitment dispatch window update failed"
+            "Dispatch window update failed"
         );
 
         console.log(
