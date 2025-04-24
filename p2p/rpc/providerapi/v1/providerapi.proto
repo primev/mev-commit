@@ -67,6 +67,20 @@ service Provider {
   rpc Unstake(EmptyMessage) returns (EmptyMessage) {
     option (google.api.http) = {post: "/v1/provider/unstake"};
   }
+  // GetProviderReward
+  //
+  // GetProviderReward is called by the provider to retrieve their current reward balance
+  // without withdrawing it from the bidder registry.
+  rpc GetProviderReward(EmptyMessage) returns (RewardResponse) {
+    option (google.api.http) = {get: "/v1/provider/get_provider_reward"};
+  }
+  // WithdrawProviderReward
+  //
+  // WithdrawProviderReward is called by the provider to withdraw their accumulated rewards
+  // from the bidder registry contract.
+  rpc WithdrawProviderReward(EmptyMessage) returns (WithdrawalResponse) {
+    option (google.api.http) = {post: "/v1/provider/withdraw_provider_reward"};
+  }
 }
 
 message StakeRequest {
@@ -123,6 +137,17 @@ message WithdrawalResponse {
       description: "Withdrawal amount for provider in the provider registry."
     }
     example: "{\"amount\": \"1000000000000000000\"}"
+  };
+  string amount = 1;
+};
+
+message RewardResponse {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_schema) = {
+    json_schema: {
+      title: "Reward response"
+      description: "Current reward amount for provider in the bidder registry."
+    }
+    example: "{\"amount\": \"500000000000000000\"}"
   };
   string amount = 1;
 };

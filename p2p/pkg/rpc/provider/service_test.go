@@ -115,6 +115,23 @@ func (t *testRegistryContract) Withdraw(opts *bind.TransactOpts) (*types.Transac
 	return types.NewTransaction(1, common.Address{}, nil, 0, nil, nil), nil
 }
 
+type testBidderRegistryContract struct {
+	providerReward *big.Int
+}
+
+func (t *testBidderRegistryContract) GetProviderAmount(_ *bind.CallOpts, address common.Address) (*big.Int, error) {
+	return t.providerReward, nil
+}
+
+func (t *testBidderRegistryContract) WithdrawProviderAmount(opts *bind.TransactOpts, provider common.Address) (*types.Transaction, error) {
+	// Save the current reward amount before setting it to 0
+	amount := new(big.Int).Set(t.providerReward)
+	// Set to zero as the contract would do
+	t.providerReward = big.NewInt(0)
+	// Return a transaction with the data field containing the amount (for testing purposes)
+	return types.NewTransaction(1, common.Address{}, nil, 0, nil, amount.Bytes()), nil
+}
+
 type testWatcher struct{}
 
 func (t *testWatcher) WaitForReceipt(ctx context.Context, tx *types.Transaction) (*types.Receipt, error) {
@@ -124,7 +141,7 @@ func (t *testWatcher) WaitForReceipt(ctx context.Context, tx *types.Transaction)
 			{
 				Address: common.Address{},
 				Topics:  []common.Hash{},
-				Data:    []byte{},
+				Data:    tx.Data(), // Use the tx data to pass back test info
 			},
 		},
 	}, nil
@@ -147,9 +164,14 @@ func startServer(t *testing.T) (providerapiv1.ProviderClient, *providerapi.Servi
 		minStake: big.NewInt(100000000000000000),
 	}
 
+	bidderRegistryContract := &testBidderRegistryContract{
+		providerReward: big.NewInt(500000000000000000), // 0.5 ETH initial reward
+	}
+
 	srvImpl := providerapi.NewService(
 		logger,
 		registryContract,
+		bidderRegistryContract,
 		owner,
 		&testWatcher{},
 		func(context.Context) (*bind.TransactOpts, error) {
@@ -286,6 +308,50 @@ func TestStakeHandling(t *testing.T) {
 		}
 		if stake.Amount != "100000000000000000" {
 			t.Fatalf("expected amount to be 100000000000000000, got %v", stake.Amount)
+		}
+	})
+}
+
+func TestProviderReward(t *testing.T) {
+	t.Parallel()
+
+	client, _ := startServer(t)
+
+	t.Run("get provider reward", func(t *testing.T) {
+		reward, err := client.GetProviderReward(context.Background(), &providerapiv1.EmptyMessage{})
+		if err != nil {
+			t.Fatalf("error getting provider reward: %v", err)
+		}
+		if reward.Amount != "500000000000000000" {
+			t.Fatalf("expected reward amount to be 500000000000000000, got %v", reward.Amount)
+		}
+	})
+
+	t.Run("withdraw provider reward", func(t *testing.T) {
+		withdrawal, err := client.WithdrawProviderReward(context.Background(), &providerapiv1.EmptyMessage{})
+		if err != nil {
+			t.Fatalf("error withdrawing provider reward: %v", err)
+		}
+		if withdrawal.Amount != "500000000000000000" {
+			t.Fatalf("expected withdrawal amount to be 500000000000000000, got %v", withdrawal.Amount)
+		}
+
+		// Check that getting the reward now returns 0
+		reward, err := client.GetProviderReward(context.Background(), &providerapiv1.EmptyMessage{})
+		if err != nil {
+			t.Fatalf("error getting provider reward after withdrawal: %v", err)
+		}
+		if reward.Amount != "0" {
+			t.Fatalf("expected reward amount to be 0 after withdrawal, got %v", reward.Amount)
+		}
+
+		// Try to withdraw again, should still succeed but with 0 amount
+		withdrawal, err = client.WithdrawProviderReward(context.Background(), &providerapiv1.EmptyMessage{})
+		if err != nil {
+			t.Fatalf("error on second provider reward withdrawal: %v", err)
+		}
+		if withdrawal.Amount != "0" {
+			t.Fatalf("expected second withdrawal amount to be 0, got %v", withdrawal.Amount)
 		}
 	})
 }
