@@ -755,7 +755,6 @@ profiles:
       - *mev_commit_oracle_job
       - *mev_commit_bidder_node1_job
       - *mev_commit_bidder_node1_funder_job
-      - *mev_commit_faucet_job
 
   devnet:
     jobs:
