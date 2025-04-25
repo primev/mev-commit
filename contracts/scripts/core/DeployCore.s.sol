@@ -31,7 +31,7 @@ contract DeployCore is Script {
         );
         uint256 feePercent = 2 * PERCENT_MULTIPLIER; // 2%
         uint256 providerPenaltyPercent = 5 * PERCENT_MULTIPLIER; // 5%
-        uint64 commitmentDispatchWindow = 2000;
+        uint64 commitmentDispatchWindow = 500;
         uint256 withdrawalDelay = 24 hours  * 1000; // 24 hours in milliseconds
         uint256 protocolFeePayoutPeriodBlocks = 5 hours ; // 1 hour with 200ms blocks
         address oracleKeystoreAddress = vm.envAddress("ORACLE_KEYSTORE_ADDRESS");
