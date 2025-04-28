@@ -14,8 +14,8 @@ import (
 	"github.com/primev/mev-commit/tools/validators-monitor/config"
 	"github.com/primev/mev-commit/tools/validators-monitor/contract"
 	"github.com/primev/mev-commit/tools/validators-monitor/database"
-	"github.com/primev/mev-commit/tools/validators-monitor/epoch"
 	"github.com/primev/mev-commit/tools/validators-monitor/notification"
+	"github.com/primev/mev-commit/x/epoch"
 )
 
 const (
@@ -118,11 +118,8 @@ func New(
 		return nil, err
 	}
 
-	calculator := epoch.NewCalculator(
-		epoch.MainnetGenesisTime,
-		12, // seconds/slot
-		32, // slots/epoch
-		3,  // epochs to look back
+	calculator := epoch.NewMainnetCalculator(
+		3,
 	)
 
 	var db Database
@@ -165,7 +162,8 @@ func (m *DutyMonitor) Start(ctx context.Context) {
 	m.logger.Info(
 		"duty-monitor started",
 		"epoch", m.runningEpoch,
-		"interval_sec", m.config.FetchIntervalSec)
+		"interval_sec", m.config.FetchIntervalSec,
+	)
 
 	m.fetchAndProcessDuties(ctx) // initial fetch
 
@@ -380,7 +378,8 @@ func (m *DutyMonitor) processBlockData(
 					"slot", duty.Slot,
 					"validator_pubkey", duty.PubKey,
 					"bid_value", trace.Value,
-					"num_tx", trace.NumTx)
+					"num_tx", trace.NumTx,
+				)
 
 				if _, ok := mevReward.SetString(trace.Value, 10); !ok {
 					m.logger.Error(

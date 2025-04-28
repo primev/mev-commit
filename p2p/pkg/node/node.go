@@ -128,6 +128,8 @@ type Options struct {
 	ProviderDecisionTimeout  time.Duration
 	NotificationsBufferCap   int
 	ProposerNotifyOffset     time.Duration
+	SlotDuration             time.Duration
+	SlotsPerEpoch            uint64
 }
 
 type Node struct {
@@ -514,11 +516,9 @@ func NewNode(opts *Options) (*Node, error) {
 			callOptsGetter,
 			notificationsSvc,
 			opts.ProposerNotifyOffset,
+			opts.SlotDuration,
+			opts.SlotsPerEpoch,
 		)
-		if err != nil {
-			opts.Logger.Error("failed to create validator api", "error", err)
-			return nil, err
-		}
 		validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
 		startables = append(
 			startables,

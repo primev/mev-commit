@@ -19,6 +19,7 @@ import (
 	"github.com/go-logr/logr"
 	mevcommit "github.com/primev/mev-commit/p2p"
 	"github.com/primev/mev-commit/p2p/pkg/node"
+	"github.com/primev/mev-commit/x/epoch"
 	ks "github.com/primev/mev-commit/x/keysigner"
 	"github.com/primev/mev-commit/x/util"
 	"github.com/primev/mev-commit/x/util/otelutil"
@@ -447,6 +448,22 @@ var (
 		Value:    1 * time.Second,
 		Category: categoryValidator,
 	})
+
+	optionSlotDuration = altsrc.NewDurationFlag(&cli.DurationFlag{
+		Name:     "slot-duration",
+		Usage:    "Duration of a slot for validator service",
+		EnvVars:  []string{"MEV_COMMIT_SLOT_DURATION"},
+		Value:    epoch.SlotDuration,
+		Category: categoryValidator,
+	})
+
+	optionSlotsPerEpoch = altsrc.NewUint64Flag(&cli.Uint64Flag{
+		Name:     "slots-per-epoch",
+		Usage:    "Number of slots per epoch for validator service",
+		EnvVars:  []string{"MEV_COMMIT_SLOTS_PER_EPOCH"},
+		Value:    epoch.SlotsPerEpoch,
+		Category: categoryValidator,
+	})
 )
 
 func main() {
@@ -493,6 +510,8 @@ func main() {
 		optionNotificationsBuffer,
 		optionLaggardMode,
 		optionProposerNotifyOffset,
+		optionSlotDuration,
+		optionSlotsPerEpoch,
 	}
 
 	app := &cli.App{
@@ -674,6 +693,8 @@ func launchNodeWithConfig(c *cli.Context) (err error) {
 		ProviderDecisionTimeout:  c.Duration(optionProviderDecisionTimeout.Name),
 		NotificationsBufferCap:   c.Int(optionNotificationsBuffer.Name),
 		ProposerNotifyOffset:     c.Duration(optionProposerNotifyOffset.Name),
+		SlotDuration:             c.Duration(optionSlotDuration.Name),
+		SlotsPerEpoch:            c.Uint64(optionSlotsPerEpoch.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("failed starting node: %w", err)
