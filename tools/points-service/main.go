@@ -481,6 +481,37 @@ func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vaultA
 	}
 }
 
+func insertManualValRecord(db *sql.DB,
+	logger *slog.Logger,
+	pubkey,
+	adder string,
+	optedInBlock uint64,
+) error {
+	rwLock.RLock()
+	defer rwLock.RUnlock()
+
+	var existingPubkey string
+	err := db.QueryRow(`
+		SELECT pubkey FROM validator_records
+		WHERE pubkey = ?
+	`, pubkey).Scan(&existingPubkey)
+
+	if err == nil {
+		return fmt.Errorf("pubkey already exists in db")
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO validator_records (
+			pubkey, adder, opted_in_block, registry_type, event_type
+		) VALUES (?, ?, ?, ?, ?)
+	`, pubkey, adder, optedInBlock, nil, nil)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert manual val record: %w", err)
+	}
+	return nil
+}
+
 func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType string, outBlock uint64) {
 	rwLock.RLock()
 	defer rwLock.RUnlock()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -35,8 +36,8 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 	// Personal API
 	r.HandleFunc("/{address}", p.GetAnyPointsForAddress).Methods("GET")
 
-	// Authenticated POST endpoint for manually adding points entry
-	r.HandleFunc("/admin", p.AddPointsEntry).Methods("POST")
+	r.HandleFunc("/admin/add_manual_entry", p.AddManualPointsEntry).Methods("POST")
+	r.HandleFunc("/admin/add_manual_opt_out", p.AddManualOptOut).Methods("POST")
 
 	srv := &http.Server{
 		Addr:    addr,
@@ -57,32 +58,32 @@ func (p *PointsAPI) StartAPIServer(ctx context.Context, addr string) error {
 	return nil
 }
 
-func (p *PointsAPI) AddPointsEntry(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
+func (p *PointsAPI) checkAuth(authHeader string) error {
 	if authHeader == "" {
-		http.Error(w, "Authorization header missing", http.StatusUnauthorized)
-		return
+		return fmt.Errorf("authorization header missing")
 	}
-
 	// Expected format "Bearer <token>"
 	headerToken, found := strings.CutPrefix(authHeader, "Bearer ")
 	if !found {
-		http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
-		return
+		return fmt.Errorf("invalid authorization header format")
 	}
 
 	if headerToken != p.token {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return fmt.Errorf("unauthorized")
+	}
+	return nil
+}
+
+func (p *PointsAPI) AddManualPointsEntry(w http.ResponseWriter, r *http.Request) {
+	if err := p.checkAuth(r.Header.Get("Authorization")); err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	// Parse JSON request body
 	var req struct {
-		Pubkey   string  `json:"pubkey"`
-		Adder    string  `json:"adder"`
-		Points   int64   `json:"points"`
-		InBlock  uint64  `json:"in_block"`
-		OutBlock *uint64 `json:"out_block,omitempty"`
+		Pubkey  string `json:"pubkey"`
+		Adder   string `json:"adder"`
+		InBlock uint64 `json:"in_block"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -90,30 +91,48 @@ func (p *PointsAPI) AddPointsEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic validation
-	if req.Pubkey == "" || req.Adder == "" || req.Points < 0 || req.InBlock == 0 {
+	if req.Pubkey == "" || req.Adder == "" || req.InBlock == 0 {
+		http.Error(w, "missing or invalid required fields", http.StatusBadRequest)
+		return
+	}
+
+	err := insertManualValRecord(p.db, p.logger, req.Pubkey, req.Adder, req.InBlock)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	p.logger.Info("inserted manual val record",
+		"pubkey", req.Pubkey,
+		"adder", req.Adder,
+		"in_block", req.InBlock)
+
+	resp := map[string]string{"status": "success"}
+	writeJSON(w, resp, http.StatusOK)
+}
+
+func (p *PointsAPI) AddManualOptOut(w http.ResponseWriter, r *http.Request) {
+	if err := p.checkAuth(r.Header.Get("Authorization")); err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Pubkey   string `json:"pubkey"`
+		Adder    string `json:"adder"`
+		OutBlock uint64 `json:"out_block"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Pubkey == "" || req.Adder == "" || req.OutBlock == 0 {
 		http.Error(w, "Missing or invalid required fields", http.StatusBadRequest)
 		return
 	}
 
-	// Insert record
-	_, err := p.db.Exec(`
-		INSERT INTO validator_records (
-			pubkey, adder, points_accumulated, opted_in_block, opted_out_block
-		) VALUES (?, ?, ?, ?, ?)
-	`, req.Pubkey, req.Adder, req.Points, req.InBlock, req.OutBlock)
-
-	if err != nil {
-		p.logger.Error("failed to insert points entry", "error", err)
-		http.Error(w, "Failed to insert points entry", http.StatusInternalServerError)
-		return
-	}
-
-	p.logger.Info("manually added points entry",
-		"pubkey", req.Pubkey,
-		"adder", req.Adder,
-		"points", req.Points,
-		"in_block", req.InBlock)
+	insertOptOut(p.db, p.logger, req.Pubkey, req.Adder, "manual_opt_out", req.OutBlock)
 
 	resp := map[string]string{"status": "success"}
 	writeJSON(w, resp, http.StatusOK)

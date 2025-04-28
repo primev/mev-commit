@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"database/sql"
+	"io"
+	"log/slog"
+	"testing"
+)
 
 // TestComputePointsForMonths verifies totalPoints & preSixMonthPoints for various month scenarios.
 func TestComputePointsForMonths(t *testing.T) {
@@ -98,5 +103,40 @@ func TestComputePointsForMonths(t *testing.T) {
 			t.Errorf("%s: months=%d => got (tot=%d, pre=%d), want (tot=%d, pre=%d)",
 				tc.name, tc.months, gotTot, gotPre, tc.wantTot, tc.wantPre)
 		}
+	}
+}
+
+func TestManualPointsEntry(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(createTableValidatorRecordsQuery); err != nil {
+		t.Fatalf("failed to create validator_records table: %v", err)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	insertOptIn(db, logger, "0x123", "0x456", "vanilla", "staked", 100)
+
+	insertManualValRecord(db, logger, "0x12345", "0x45678", 90)
+
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query count: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("expected 2 records, got %d", count)
+	}
+
+	var registryType, eventType sql.NullString
+	err = db.QueryRow("SELECT registry_type, event_type FROM validator_records WHERE pubkey = '0x12345'").Scan(&registryType, &eventType)
+	if err != nil {
+		t.Fatalf("failed to query registry_type and event_type: %v", err)
+	}
+	if registryType.Valid || eventType.Valid {
+		t.Errorf("expected registry_type and event_type to be NULL, got %v and %v", registryType, eventType)
 	}
 }
