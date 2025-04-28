@@ -416,7 +416,6 @@ func TestStart(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 10 * time.Millisecond
 	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, 100*time.Millisecond, 4)
-	// svc.SetTestTimings(100*time.Millisecond, 4, )
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -517,7 +516,6 @@ func TestStart_NoDuplicateNotifications(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 10 * time.Millisecond
 	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, 100*time.Millisecond, 4)
-	// svc.SetTestTimings(100*time.Millisecond, 4, 10*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
