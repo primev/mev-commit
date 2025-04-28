@@ -850,8 +850,8 @@ func main() {
 				}
 			}()
 
-			// Start the points accrual routine (once every 30 minutes)
-			StartPointsRoutine(ctx, db, logger, 30*time.Minute, ethClient, ps)
+			// Start the points accrual routine
+			StartPointsRoutine(ctx, db, logger, 10*time.Minute, ethClient, ps)
 
 			pointsAPI := NewPointsAPI(logger, db, ps, c.String(optionPointsAPIAuthToken.Name))
 			go func() {
