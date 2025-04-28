@@ -128,7 +128,7 @@ var (
 
 	optionLogLevel = &cli.StringFlag{
 		Name:    "log-level",
-		Usage:   "comma-separated list of <name:value> pairs inserted into each log line",
+		Usage:   "log level to use, options are 'debug', 'info', 'warn', 'error'",
 		EnvVars: []string{"POINTS_LOG_LEVEL"},
 		Value:   "info",
 		Action: func(ctx *cli.Context, s string) error {
@@ -141,7 +141,7 @@ var (
 
 	optionLogTags = &cli.StringFlag{
 		Name:    "log-tags",
-		Usage:   "log tags is a comma-separated list of <name:value> pairs that will be inserted into each log line",
+		Usage:   "comma-separated list of <name:value> pairs inserted into each log line",
 		EnvVars: []string{"POINTS_LOG_TAGS"},
 		Action: func(ctx *cli.Context, s string) error {
 			for i, p := range strings.Split(s, ",") {
