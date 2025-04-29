@@ -119,7 +119,7 @@ func New(
 	}
 
 	calculator := epoch.NewMainnetCalculator(
-		3,
+		3, // epochs to look back
 	)
 
 	var db Database

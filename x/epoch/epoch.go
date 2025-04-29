@@ -115,6 +115,7 @@ func (c *Calculator) GenesisTime() time.Time {
 	return c.genesisTime
 }
 
+// SetGenesisTime sets the genesis time of the calculator
 func (c *Calculator) SetGenesisTime(genesisTime time.Time) {
 	c.genesisTime = genesisTime
 }

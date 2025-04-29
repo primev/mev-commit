@@ -65,6 +65,7 @@ import (
 	"github.com/primev/mev-commit/x/contracts/events/publisher"
 	"github.com/primev/mev-commit/x/contracts/transactor"
 	"github.com/primev/mev-commit/x/contracts/txmonitor"
+	"github.com/primev/mev-commit/x/epoch"
 	"github.com/primev/mev-commit/x/health"
 	"github.com/primev/mev-commit/x/keysigner"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -509,6 +510,13 @@ func NewNode(opts *Options) (*Node, error) {
 			}, nil
 		}
 
+		epochCalculator := epoch.NewCalculator(
+			0, // set as 0 for now, will be set in Start
+			opts.SlotDuration,
+			opts.SlotsPerEpoch,
+			0, // epochs to look back
+		)
+
 		validatorAPI := validatorapi.NewService(
 			opts.BeaconAPIURL,
 			validatorRouterCaller,
@@ -516,8 +524,7 @@ func NewNode(opts *Options) (*Node, error) {
 			callOptsGetter,
 			notificationsSvc,
 			opts.ProposerNotifyOffset,
-			opts.SlotDuration,
-			opts.SlotsPerEpoch,
+			epochCalculator,
 		)
 		validatorapiv1.RegisterValidatorServer(grpcServer, validatorAPI)
 		startables = append(

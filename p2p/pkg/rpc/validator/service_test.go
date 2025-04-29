@@ -95,7 +95,13 @@ func TestGetValidators(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 1 * time.Second
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, epoch.SlotDuration, epoch.SlotsPerEpoch)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	resp, err := service.GetValidators(ctx, req)
@@ -129,7 +135,14 @@ func TestGetValidators_HTTPError(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 1 * time.Second
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, epoch.SlotDuration, epoch.SlotsPerEpoch)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
@@ -172,7 +185,14 @@ func TestGetValidators_EpochZero(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	ctx := context.Background()
 	notifyOffset := 1 * time.Second
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, epoch.SlotDuration, epoch.SlotsPerEpoch)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 0}
 	resp, err := service.GetValidators(ctx, req)
@@ -207,7 +227,14 @@ func TestNewService_FetchGenesisTime(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 1 * time.Second
-	svc := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, epoch.SlotDuration, epoch.SlotsPerEpoch)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+
+	svc := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 	svc.Start(context.Background())
 
 	val := svc.GenesisTime()
@@ -222,7 +249,14 @@ func TestScheduleNotificationForSlot(t *testing.T) {
 	notifyOffset := 1 * time.Second
 	slotDuration := 12 * time.Second
 	genesisTime := time.Now().Add(100*time.Millisecond + notifyOffset - slotDuration)
-	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier, notifyOffset, slotDuration, 3)
+	ec := epoch.NewCalculator(
+		0,
+		slotDuration,
+		3, // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier, notifyOffset, ec)
 	svc.SetGenesisTime(genesisTime)
 
 	slotInfo := &validatorapiv1.SlotInfo{
@@ -315,7 +349,14 @@ func TestProcessEpoch(t *testing.T) {
 
 	notifyOffset := 1 * time.Second
 	slotDuration := 2 * time.Second
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset, slotDuration, 3)
+	ec := epoch.NewCalculator(
+		0,
+		slotDuration,
+		3, // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset, ec)
 
 	svc.SetGenesisTime(time.Now().Add(1*time.Second + 500*time.Millisecond - slotDuration))
 	svc.SetProcessEpoch(ctx, currentEpoch)
@@ -415,7 +456,14 @@ func TestStart(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 10 * time.Millisecond
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, 100*time.Millisecond, 4)
+	ec := epoch.NewCalculator(
+		0,
+		100*time.Millisecond, // slot duration
+		4,                    // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -515,7 +563,14 @@ func TestStart_NoDuplicateNotifications(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 10 * time.Millisecond
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, 100*time.Millisecond, 4)
+	ec := epoch.NewCalculator(
+		0,
+		100*time.Millisecond, // slot duration
+		3,                    // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

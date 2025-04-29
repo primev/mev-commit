@@ -44,17 +44,9 @@ func NewService(
 	logger *slog.Logger,
 	optsGetter func() (*bind.CallOpts, error),
 	notifier notifications.Notifier,
-	proposerNotifyOffset,
-	slotDuration time.Duration,
-	slotsPerEpoch uint64,
+	proposerNotifyOffset time.Duration,
+	epochCalculator *epoch.Calculator,
 ) *Service {
-	epochCalculator := epoch.NewCalculator(
-		0, // set as 0 for now, will be set in Start
-		slotDuration,
-		slotsPerEpoch,
-		0,
-	)
-
 	return &Service{
 		apiURL:               apiURL,
 		validatorRouter:      validatorRouter,
