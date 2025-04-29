@@ -1292,6 +1292,167 @@ func TestUpdaterIgnoreCommitments(t *testing.T) {
 	}
 }
 
+func TestComputeResidualAfterDecay(t *testing.T) {
+	t.Parallel()
+
+	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	u, err := updater.NewUpdater(
+		discardLogger,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	if err != nil {
+		// The current NewUpdater only returns error on cache creation failure, unlikely here.
+		t.Fatalf("Failed to create minimal updater instance for test: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		start  uint64
+		end    uint64
+		commit uint64
+		want   *big.Int
+	}{
+		{
+			name:   "Commit Before Start",
+			start:  1000,
+			end:    2000,
+			commit: 500,
+			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+		},
+		{
+			name:   "Commit At Start",
+			start:  1000,
+			end:    2000,
+			commit: 1000,
+			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+		},
+		{
+			name:   "Commit After End",
+			start:  1000,
+			end:    2000,
+			commit: 2500,
+			want:   big.NewInt(0),
+		},
+		{
+			name:   "Commit At End",
+			start:  1000,
+			end:    2000,
+			commit: 2000,
+			want:   big.NewInt(0),
+		},
+		{
+			name:   "Invalid Range: Start Equals End",
+			start:  1000,
+			end:    1000,
+			commit: 1000,
+			want:   big.NewInt(0),
+		},
+		{
+			name:   "Invalid Range: Start Greater Than End",
+			start:  2000,
+			end:    1000,
+			commit: 1500,
+			want:   big.NewInt(0),
+		},
+		{
+			name:   "Commit Exactly Midpoint",
+			start:  1000,
+			end:    2000,                               // duration 1000
+			commit: 1500,                               // 500 passed
+			want:   big.NewInt(50 * updater.PRECISION), // 1 - 500/1000 = 0.5 -> 50%
+		},
+		{
+			name:   "Commit At 25% Time Passed",
+			start:  1000,
+			end:    2000,                               // duration 1000
+			commit: 1250,                               // 250 passed
+			want:   big.NewInt(75 * updater.PRECISION), // 1 - 250/1000 = 0.75 -> 75%
+		},
+		{
+			name:   "Commit At 75% Time Passed",
+			start:  1000,
+			end:    2000,                               // duration 1000
+			commit: 1750,                               // 750 passed
+			want:   big.NewInt(25 * updater.PRECISION), // 1 - 750/1000 = 0.25 -> 25%
+		},
+		{
+			name:   "Commit Very Close To Start",
+			start:  100000,
+			end:    200000, // duration 100000
+			commit: 100001, // 1 passed
+			// residual = 1 - 1/100000 = 0.99999
+			// percentage = 0.99999 * 100 = 99.999
+			// scaled = 99.999 * PRECISION
+			// Expected float: (1.0 - (1.0 / 100000.0)) * ONE_HUNDRED_PERCENT
+			// Expected float: 0.99999 * 100 * 1e16 = 99.999 * 1e16 = 999990000000000000
+			want: big.NewInt(999990000000000000),
+		},
+		{
+			name:   "Commit Very Close To End",
+			start:  100000,
+			end:    200000, // duration 100000
+			commit: 199000, // 99000 passed
+			// residual = 1 - 99000/100000 = 1 - 0.99 = 0.01
+			// scaled = 0.01 * 100 * PRECISION = 1 * PRECISION
+			want: big.NewInt(1 * int64(updater.PRECISION)),
+		},
+		{
+			name:   "Zero Start Time",
+			start:  0,
+			end:    1000,                               // duration 1000
+			commit: 500,                                // 500 passed
+			want:   big.NewInt(50 * updater.PRECISION), // 1 - 500/1000 = 0.5 -> 50%
+		},
+		{
+			name:   "Zero Start and Commit Time",
+			start:  0,
+			end:    1000,
+			commit: 0,
+			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+		},
+		{
+			name:   "Large Timestamps",
+			start:  1700000000000, // example ms timestamps
+			end:    1700000012000, // 12 second duration
+			commit: 1700000003000, // 3 seconds passed
+			// residual = 1 - 3000/12000 = 1 - 0.25 = 0.75
+			// scaled = 0.75 * 100 * PRECISION = 75 * PRECISION
+			want: big.NewInt(75 * updater.PRECISION),
+		},
+		{
+			name:   "Minimal Valid Duration",
+			start:  1000,
+			end:    1001, // duration 1
+			commit: 1000,
+			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+		},
+		{
+			name:   "Minimal Valid Duration, Commit slightly after start",
+			start:  1000,
+			end:    1002, // duration 2
+			commit: 1001, // passed 1
+			// residual = 1 - 1/2 = 0.5
+			want: big.NewInt(50 * updater.PRECISION),
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := u.ComputeResidualAfterDecay(tc.start, tc.end, tc.commit)
+			if got.Cmp(tc.want) != 0 {
+				t.Errorf("ComputeResidualAfterDecay(%d, %d, %d) = %v, want %v", tc.start, tc.end, tc.commit, got, tc.want)
+			}
+		})
+	}
+}
+
 type testSettlement struct {
 	commitmentIdx   []byte
 	txHash          string
