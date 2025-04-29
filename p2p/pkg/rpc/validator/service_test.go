@@ -19,6 +19,7 @@ import (
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/notifications"
 	validatorapi "github.com/primev/mev-commit/p2p/pkg/rpc/validator"
+	"github.com/primev/mev-commit/x/epoch"
 	"github.com/primev/mev-commit/x/util"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -94,7 +95,13 @@ func TestGetValidators(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 1 * time.Second
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
 	resp, err := service.GetValidators(ctx, req)
@@ -128,7 +135,14 @@ func TestGetValidators_HTTPError(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 1 * time.Second
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	ctx := context.Background()
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 123}
@@ -171,7 +185,14 @@ func TestGetValidators_EpochZero(t *testing.T) {
 	logger := util.NewTestLogger(os.Stdout)
 	ctx := context.Background()
 	notifyOffset := 1 * time.Second
-	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+
+	service := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	req := &validatorapiv1.GetValidatorsRequest{Epoch: 0}
 	resp, err := service.GetValidators(ctx, req)
@@ -206,7 +227,14 @@ func TestNewService_FetchGenesisTime(t *testing.T) {
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
 	notifyOffset := 1 * time.Second
-	svc := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
+	ec := epoch.NewCalculator(
+		0,
+		epoch.SlotDuration,
+		epoch.SlotsPerEpoch,
+		0,
+	)
+
+	svc := validatorapi.NewService(mockServer.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 	svc.Start(context.Background())
 
 	val := svc.GenesisTime()
@@ -221,7 +249,14 @@ func TestScheduleNotificationForSlot(t *testing.T) {
 	notifyOffset := 1 * time.Second
 	slotDuration := 12 * time.Second
 	genesisTime := time.Now().Add(100*time.Millisecond + notifyOffset - slotDuration)
-	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier, notifyOffset)
+	ec := epoch.NewCalculator(
+		0,
+		slotDuration,
+		3, // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService("http://dummy", nil, util.NewTestLogger(os.Stdout), func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }, mockNotifier, notifyOffset, ec)
 	svc.SetGenesisTime(genesisTime)
 
 	slotInfo := &validatorapiv1.SlotInfo{
@@ -252,16 +287,16 @@ func TestProcessEpoch(t *testing.T) {
 	t.Parallel()
 
 	dutiesJSONEpoch10 := `{"data":[
-        {"pubkey":"0x1234567890abcdef","slot":"1"},
-		{"pubkey":"0x7777777777777777","slot":"2"},
-        {"pubkey":"0xfedcba0987654321","slot":"3"}
+        {"pubkey":"0x1234567890abcdef","slot":"0"},
+		{"pubkey":"0x7777777777777777","slot":"1"},
+        {"pubkey":"0xfedcba0987654321","slot":"2"}
     ]}`
 	dutiesJSONEpoch11 := `{"data":[
-		{"pubkey":"0x8888888888888888","slot":"4"},
-		{"pubkey":"0x9999999999999999","slot":"5"}
+		{"pubkey":"0x8888888888888888","slot":"3"},
+		{"pubkey":"0x9999999999999999","slot":"4"}
     ]}`
 
-	currentEpoch := uint64(10)
+	currentEpoch := uint64(0)
 
 	mux := http.NewServeMux()
 	// Handle proposer duties.
@@ -314,18 +349,24 @@ func TestProcessEpoch(t *testing.T) {
 
 	notifyOffset := 1 * time.Second
 	slotDuration := 2 * time.Second
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset)
+	ec := epoch.NewCalculator(
+		0,
+		slotDuration,
+		3, // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, mockNotifier, notifyOffset, ec)
 
 	svc.SetGenesisTime(time.Now().Add(1*time.Second + 500*time.Millisecond - slotDuration))
-	svc.SetTestTimings(slotDuration, 32, notifyOffset)
-	svc.SetProcessEpoch(ctx, currentEpoch, time.Now())
+	svc.SetProcessEpoch(ctx, currentEpoch)
 
 	numValidatorOptedInNotifs := 0
 	numEpochNotifs := 0
 
 	timeout := time.After(2*time.Second + 4*slotDuration)
 
-	// expect 2 validator opted in notifs (second slot in epoch 10 and first slot in epoch 11)
+	// expect 2 validator opted in notifs (second slot in epoch 0 and first slot in epoch 1)
 	// also expect 1 epoch notif
 	for numValidatorOptedInNotifs < 2 || numEpochNotifs < 1 {
 		select {
@@ -339,8 +380,8 @@ func TestProcessEpoch(t *testing.T) {
 				if !ok {
 					t.Fatal("expected slot in notification value")
 				}
-				if slotVal != uint64(2) && slotVal != uint64(4) {
-					t.Errorf("expected slot 2 or 4, got %v", slotVal)
+				if slotVal != uint64(1) && slotVal != uint64(3) {
+					t.Errorf("expected slot 1 or 3, got %v", slotVal)
 				}
 			} else if n.Topic() == notifications.TopicEpochValidatorsOptedIn {
 				numEpochNotifs++
@@ -365,10 +406,10 @@ func TestProcessEpoch(t *testing.T) {
 					if !ok {
 						t.Fatal("expected slot in notification value")
 					}
-					if slotVal == uint64(1) {
+					if slotVal == uint64(0) {
 						slot1Found = true
 					}
-					if slotVal == uint64(2) {
+					if slotVal == uint64(1) {
 						slot2Found = true
 					}
 				}
@@ -414,9 +455,15 @@ func TestStart(t *testing.T) {
 	optsGetter := func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-	notifyOffset := 1 * time.Second
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
-	svc.SetTestTimings(100*time.Millisecond, 4, 10*time.Millisecond)
+	notifyOffset := 10 * time.Millisecond
+	ec := epoch.NewCalculator(
+		0,
+		100*time.Millisecond, // slot duration
+		4,                    // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -515,9 +562,15 @@ func TestStart_NoDuplicateNotifications(t *testing.T) {
 	optsGetter := func() (*bind.CallOpts, error) { return &bind.CallOpts{}, nil }
 	notifier := NewMockNotifier()
 	logger := util.NewTestLogger(os.Stdout)
-	notifyOffset := 50 * time.Millisecond
-	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset)
-	svc.SetTestTimings(100*time.Millisecond, 4, 10*time.Millisecond)
+	notifyOffset := 10 * time.Millisecond
+	ec := epoch.NewCalculator(
+		0,
+		100*time.Millisecond, // slot duration
+		3,                    // slots per epoch
+		0,
+	)
+
+	svc := validatorapi.NewService(ts.URL, mockValidatorRouter, logger, optsGetter, notifier, notifyOffset, ec)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
