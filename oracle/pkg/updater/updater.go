@@ -583,9 +583,16 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 // The computation does not care what format the timestamps are in, as long as they are consistent
 // (e.g they could be unix or unixMili timestamps)
 func (u *Updater) computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uint64) *big.Int {
-	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
+	if startTimestamp >= endTimestamp || endTimestamp <= commitTimestamp {
 		u.logger.Debug("timestamp out of range", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
 		return big.NewInt(0)
+	}
+
+	// providers may commit before the start of the decay period
+	// in this case, there is no decay
+	if startTimestamp > commitTimestamp {
+		u.logger.Debug("commitTimestamp is before startTimestamp", "startTimestamp", startTimestamp, "commitTimestamp", commitTimestamp)
+		return big.NewInt(int64(ONE_HUNDRED_PERCENT))
 	}
 
 	// Calculate the total time in seconds
