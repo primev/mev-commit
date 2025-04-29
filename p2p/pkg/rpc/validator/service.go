@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	validatoroptinrouter "github.com/primev/mev-commit/contracts-abi/clients/ValidatorOptInRouter"
 	validatorapiv1 "github.com/primev/mev-commit/p2p/gen/go/validatorapi/v1"
 	"github.com/primev/mev-commit/p2p/pkg/notifications"
+	"github.com/primev/mev-commit/x/epoch"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,19 +34,9 @@ type Service struct {
 	metrics              *metrics
 	optsGetter           func() (*bind.CallOpts, error)
 	notifier             notifications.Notifier
-	genesisTime          time.Time
 	proposerNotifyOffset time.Duration
-
-	slotDuration  time.Duration
-	epochSlots    int
-	epochDuration time.Duration
+	ec                   *epoch.Calculator
 }
-
-const (
-	SlotDuration  = 12 * time.Second
-	EpochSlots    = 32
-	EpochDuration = SlotDuration * time.Duration(EpochSlots)
-)
 
 func NewService(
 	apiURL string,
@@ -55,6 +45,7 @@ func NewService(
 	optsGetter func() (*bind.CallOpts, error),
 	notifier notifications.Notifier,
 	proposerNotifyOffset time.Duration,
+	epochCalculator *epoch.Calculator,
 ) *Service {
 	return &Service{
 		apiURL:               apiURL,
@@ -64,9 +55,7 @@ func NewService(
 		optsGetter:           optsGetter,
 		notifier:             notifier,
 		proposerNotifyOffset: proposerNotifyOffset,
-		slotDuration:         SlotDuration,
-		epochSlots:           EpochSlots,
-		epochDuration:        EpochDuration,
+		ec:                   epochCalculator,
 	}
 }
 
@@ -122,6 +111,12 @@ func (s *Service) fetchCurrentEpoch(ctx context.Context, epoch uint64) (uint64, 
 	if epoch != 0 {
 		return epoch, nil
 	}
+
+	if s.ec.GenesisTime().Unix() != 0 {
+		return s.ec.CurrentEpoch(), nil
+	}
+
+	// Fallback to API request if genesis time not set yet
 	url := fmt.Sprintf("%s/eth/v1/beacon/states/head/finality_checkpoints", s.apiURL)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -251,10 +246,11 @@ func (s *Service) processValidators(dutiesResp *ProposerDutiesResponse) (map[uin
 }
 
 func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *validatorapiv1.SlotInfo) {
-	slotStartTime := s.genesisTime.Add(time.Duration(slot) * s.slotDuration)
+	slotStartTime := s.ec.SlotStartTime(slot)
 	notificationTime := slotStartTime.Add(-s.proposerNotifyOffset)
 
-	s.logger.Debug("scheduling opted-in validator notification for slot",
+	s.logger.Debug(
+		"scheduling opted-in validator notification for slot",
 		"epoch", epoch,
 		"slot", slot,
 		"slot_start_time", slotStartTime,
@@ -287,7 +283,7 @@ func (s *Service) scheduleNotificationForSlot(epoch uint64, slot uint64, info *v
 	})
 }
 
-func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime time.Time) {
+func (s *Service) processEpoch(ctx context.Context, epoch uint64) {
 	s.logger.Info("processing epoch", "epoch", epoch)
 
 	dutiesResp, err := s.fetchProposerDuties(ctx, epoch)
@@ -302,7 +298,7 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime time
 		return
 	}
 
-	firstSlot := s.getFirstSlot(validators)
+	firstSlot := s.ec.FirstSlotOfEpoch(epoch)
 
 	optedInSlots := make([]any, 0)
 	for slot, info := range validators {
@@ -323,22 +319,23 @@ func (s *Service) processEpoch(ctx context.Context, epoch uint64, epochTime time
 		notifications.TopicEpochValidatorsOptedIn,
 		map[string]any{
 			"epoch":            epoch,
-			"epoch_start_time": epochTime.Unix(),
+			"epoch_start_time": s.ec.EpochStartTime(epoch).Unix(),
 			"slots":            optedInSlots,
 		},
 	)
 	s.notifier.Notify(notif)
-	s.logger.Info("sent notification for epoch with opted in validators",
+	s.logger.Info(
+		"sent notification for epoch with opted in validators",
 		"epoch", epoch,
 		"opted_in_slot_count", len(optedInSlots),
 		"first_slot_in_epoch", firstSlot,
 	)
 
-	s.processFirstSlotOfNextEpoch(ctx, epoch+1, epochTime.Add(s.epochDuration))
+	s.processFirstSlotOfNextEpoch(ctx, epoch+1)
 	s.logger.Debug("processed first slot of next epoch", "epoch", epoch+1)
 }
 
-func (s *Service) processFirstSlotOfNextEpoch(ctx context.Context, nextEpoch uint64, nextEpochTime time.Time) {
+func (s *Service) processFirstSlotOfNextEpoch(ctx context.Context, nextEpoch uint64) {
 	nextDutiesResp, err := s.fetchProposerDuties(ctx, nextEpoch)
 	if err != nil {
 		s.logger.Error("failed to fetch proposer duties", "epoch", nextEpoch, "error", err)
@@ -350,9 +347,10 @@ func (s *Service) processFirstSlotOfNextEpoch(ctx context.Context, nextEpoch uin
 		return
 	}
 
-	firstSlot := s.getFirstSlot(nextValidators)
-	info := nextValidators[firstSlot]
-	if info.IsOptedIn {
+	firstSlot := s.ec.FirstSlotOfEpoch(nextEpoch)
+
+	info, exists := nextValidators[firstSlot]
+	if exists && info.IsOptedIn {
 		s.scheduleNotificationForSlot(nextEpoch, firstSlot, info)
 	}
 }
@@ -368,20 +366,21 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 		close(doneChan)
 		return doneChan
 	}
-	s.genesisTime = genesisTime
-	s.logger.Info("initialized genesis time", "genesis_time", s.genesisTime)
+
+	s.ec.SetGenesisTime(genesisTime)
+	s.logger.Info("initialized genesis time", "genesis_time", genesisTime)
 
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	eg.Go(func() error {
-		currentEpoch := uint64(time.Since(s.genesisTime) / s.epochDuration)
+		currentEpoch := s.ec.CurrentEpoch()
+		s.processEpoch(egCtx, currentEpoch)
 
-		s.processEpoch(egCtx, currentEpoch, s.genesisTime.Add(time.Duration(currentEpoch)*s.epochDuration))
 		for {
-			nextEpochStart := s.genesisTime.Add(time.Duration(currentEpoch+1) * s.epochDuration)
-			delay := max(time.Until(nextEpochStart), 0)
+			timeUntilNextEpoch := s.ec.TimeUntilNextEpoch()
+			s.logger.Debug("waiting for next epoch", "delay", timeUntilNextEpoch)
 
-			timer := time.NewTimer(delay)
+			timer := time.NewTimer(timeUntilNextEpoch)
 			select {
 			case <-egCtx.Done():
 				if !timer.Stop() {
@@ -392,7 +391,7 @@ func (s *Service) Start(ctx context.Context) <-chan struct{} {
 			case <-timer.C:
 				currentEpoch++
 				s.logger.Info("processing new epoch", "epoch", currentEpoch)
-				s.processEpoch(egCtx, currentEpoch, nextEpochStart)
+				s.processEpoch(egCtx, currentEpoch)
 			}
 		}
 	})
@@ -442,14 +441,4 @@ func (s *Service) fetchGenesisTime(ctx context.Context) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return time.Unix(genesisTimeInt, 0), nil
-}
-
-func (s *Service) getFirstSlot(validators map[uint64]*validatorapiv1.SlotInfo) uint64 {
-	firstSlot := uint64(math.MaxUint64)
-	for slot := range validators {
-		if slot < firstSlot {
-			firstSlot = slot
-		}
-	}
-	return firstSlot
 }

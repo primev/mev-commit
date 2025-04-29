@@ -9,19 +9,19 @@ import (
 
 func TestNewCalculator(t *testing.T) {
 	// Test with Ethereum mainnet values
-	calc := NewCalculator(MainnetGenesisTime, 12, 32, 2)
+	calc := NewCalculator(MainnetGenesisTime, 12*time.Second, 32, 2)
 
-	assert.Equal(t, time.Unix(MainnetGenesisTime, 0), calc.genesisTime)
+	assert.Equal(t, time.Unix(MainnetGenesisTime, 0), calc.GenesisTime())
 	assert.Equal(t, 12*time.Second, calc.slotDuration)
-	assert.Equal(t, 32, calc.slotsPerEpoch)
-	assert.Equal(t, 2, calc.epochsToOffset)
+	assert.Equal(t, uint64(32), calc.slotsPerEpoch)
+	assert.Equal(t, uint64(2), calc.epochsToOffset)
 }
 
 func TestCurrentSlot(t *testing.T) {
 	// Create a calculator with a fixed genesis time for testing
 	now := time.Now()
 	genesisTime := now.Add(-100 * time.Second)
-	calc := NewCalculator(genesisTime.Unix(), 10, 32, 0)
+	calc := NewCalculator(genesisTime.Unix(), 10*time.Second, 32, 0)
 
 	// With 10 second slots, and 100 seconds since genesis, we should be on slot 10
 	expectedSlot := uint64(10)
@@ -35,7 +35,7 @@ func TestCurrentEpoch(t *testing.T) {
 	// Create a calculator with a fixed genesis time for testing
 	now := time.Now()
 	genesisTime := now.Add(-1000 * time.Second)
-	calc := NewCalculator(genesisTime.Unix(), 10, 32, 0)
+	calc := NewCalculator(genesisTime.Unix(), 10*time.Second, 32, 0)
 
 	// With 10 second slots, 32 slots per epoch, and 1000 seconds since genesis
 	// We should be on epoch 3 (slot 100, which is epoch 3)
@@ -50,20 +50,15 @@ func TestTimeUntilNextEpoch(t *testing.T) {
 	// Create a calculator with a fixed genesis time for testing
 	now := time.Now()
 
-	// Set up a scenario where we're exactly 5 seconds into a new epoch
-	slotDuration := 12
-	slotsPerEpoch := 32
-	secondsPerEpoch := slotDuration * slotsPerEpoch
-
 	// Calculate genesis time such that we're 5 seconds into the current epoch
 	offsetInEpoch := 5 * time.Second
 	currentEpochStart := now.Add(-offsetInEpoch)
-	genesisTime := currentEpochStart.Add(-time.Duration(10) * time.Duration(secondsPerEpoch) * time.Second)
+	genesisTime := currentEpochStart.Add(-time.Duration(10) * EpochDuration)
 
-	calc := NewCalculator(genesisTime.Unix(), slotDuration, slotsPerEpoch, 0)
+	calc := NewCalculator(genesisTime.Unix(), SlotDuration, SlotsPerEpoch, 0)
 
 	// The time until the next epoch should be the epoch duration minus the offset
-	expectedTimeUntil := time.Duration(secondsPerEpoch)*time.Second - offsetInEpoch
+	expectedTimeUntil := EpochDuration - offsetInEpoch
 
 	// Allow a 1 second delta for test execution time
 	timeUntil := calc.TimeUntilNextEpoch()
@@ -73,7 +68,7 @@ func TestTimeUntilNextEpoch(t *testing.T) {
 func TestEpochStartTime(t *testing.T) {
 	// Use a fixed genesis time for testing
 	genesisTime := time.Date(2020, 12, 1, 12, 0, 23, 0, time.UTC)
-	calc := NewCalculator(genesisTime.Unix(), 12, 32, 0)
+	calc := NewCalculator(genesisTime.Unix(), 12*time.Second, 32, 0)
 
 	// Calculate start time for epoch 10
 	epoch := uint64(10)
@@ -170,12 +165,10 @@ func TestWithFixedTime(t *testing.T) {
 	startTime := time.Now()
 
 	// Create a genesis time that's exactly 100 slots ago
-	slotDuration := 12
-	slotsPerEpoch := 32
-	secondsAgo := 100 * slotDuration
+	secondsAgo := 100 * SlotDuration
 
-	genesisTime := startTime.Add(-time.Duration(secondsAgo) * time.Second)
-	calc := NewCalculator(genesisTime.Unix(), slotDuration, slotsPerEpoch, 2)
+	genesisTime := startTime.Add(-secondsAgo)
+	calc := NewCalculator(genesisTime.Unix(), SlotDuration, SlotsPerEpoch, 2)
 
 	// We should be at exactly slot 100
 	// Allow a small delta for test execution time
