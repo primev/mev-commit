@@ -120,7 +120,9 @@ func TestManualPointsEntry(t *testing.T) {
 
 	insertOptIn(db, logger, "0x123", "0x456", "vanilla", "staked", 100)
 
-	insertManualValRecord(db, logger, "0x12345", "0x45678", 90)
+	if err := insertManualValRecord(db, "0x12345", "0x45678", 90); err != nil {
+		t.Fatalf("failed to insert manual val record: %v", err)
+	}
 
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&count)

@@ -96,8 +96,9 @@ func (p *PointsAPI) AddManualPointsEntry(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err := insertManualValRecord(p.db, p.logger, req.Pubkey, req.Adder, req.InBlock)
+	err := insertManualValRecord(p.db, req.Pubkey, req.Adder, req.InBlock)
 	if err != nil {
+		p.logger.Error("failed to insert manual val record", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

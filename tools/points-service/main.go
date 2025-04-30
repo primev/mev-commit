@@ -475,7 +475,6 @@ func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vaultA
 }
 
 func insertManualValRecord(db *sql.DB,
-	logger *slog.Logger,
 	pubkey,
 	adder string,
 	optedInBlock uint64,
