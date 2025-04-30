@@ -38,7 +38,6 @@ import (
 var blocksInOneMonth = int64(216000)
 
 var (
-	rwLock                           sync.RWMutex
 	createTableValidatorRecordsQuery = `
 	CREATE TABLE IF NOT EXISTS validator_records (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -260,8 +259,6 @@ func fallbackPointsPartial(m float64) int64 {
 
 // updatePoints calculates new points (including fallback/preSixMonthPoints) for all active records.
 func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr error) {
-	rwLock.Lock()
-	defer rwLock.Unlock()
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -422,8 +419,6 @@ func (ps *PointsService) IsSubscriptionActive() bool {
 }
 
 func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, eventType string, inBlock uint64) {
-	rwLock.RLock()
-	defer rwLock.RUnlock()
 
 	var existingAdder string
 	err := db.QueryRow(`
@@ -452,8 +447,6 @@ func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, e
 }
 
 func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vaultAddr, registryType, eventType string, inBlock uint64) {
-	rwLock.RLock()
-	defer rwLock.RUnlock()
 
 	var existingAdder string
 	err := db.QueryRow(`
@@ -487,8 +480,6 @@ func insertManualValRecord(db *sql.DB,
 	adder string,
 	optedInBlock uint64,
 ) error {
-	rwLock.RLock()
-	defer rwLock.RUnlock()
 
 	var existingPubkey string
 	err := db.QueryRow(`
@@ -513,8 +504,6 @@ func insertManualValRecord(db *sql.DB,
 }
 
 func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType string, outBlock uint64) {
-	rwLock.RLock()
-	defer rwLock.RUnlock()
 
 	_, err := db.Exec(`
         UPDATE validator_records
