@@ -38,7 +38,6 @@ import (
 var blocksInOneMonth = int64(216000)
 
 var (
-	rwLock                           sync.RWMutex
 	createTableValidatorRecordsQuery = `
 	CREATE TABLE IF NOT EXISTS validator_records (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,6 +116,14 @@ var (
 			}
 			return nil
 		},
+	}
+
+	optionPointsAPIAuthToken = &cli.StringFlag{
+		Name:     "points-api-auth-token",
+		Usage:    "Authorization token for the points service",
+		EnvVars:  []string{"POINTS_API_AUTH_TOKEN"},
+		Value:    "points-service-api-key",
+		Required: true,
 	}
 
 	optionLogLevel = &cli.StringFlag{
@@ -253,8 +260,6 @@ func fallbackPointsPartial(m float64) int64 {
 
 // updatePoints calculates new points (including fallback/preSixMonthPoints) for all active records.
 func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr error) {
-	rwLock.Lock()
-	defer rwLock.Unlock()
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -415,8 +420,6 @@ func (ps *PointsService) IsSubscriptionActive() bool {
 }
 
 func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, eventType string, inBlock uint64) {
-	rwLock.RLock()
-	defer rwLock.RUnlock()
 
 	var existingAdder string
 	err := db.QueryRow(`
@@ -445,8 +448,6 @@ func insertOptIn(db *sql.DB, logger *slog.Logger, pubkey, adder, registryType, e
 }
 
 func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vaultAddr, registryType, eventType string, inBlock uint64) {
-	rwLock.RLock()
-	defer rwLock.RUnlock()
 
 	var existingAdder string
 	err := db.QueryRow(`
@@ -474,9 +475,35 @@ func insertOptInWithVault(db *sql.DB, logger *slog.Logger, pubkey, adder, vaultA
 	}
 }
 
+func insertManualValRecord(db *sql.DB,
+	pubkey,
+	adder string,
+	optedInBlock uint64,
+) error {
+
+	var existingPubkey string
+	err := db.QueryRow(`
+		SELECT pubkey FROM validator_records
+		WHERE pubkey = ?
+	`, pubkey).Scan(&existingPubkey)
+
+	if err == nil {
+		return fmt.Errorf("pubkey already exists in db")
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO validator_records (
+			pubkey, adder, opted_in_block, registry_type, event_type
+		) VALUES (?, ?, ?, ?, ?)
+	`, pubkey, adder, optedInBlock, nil, nil)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert manual val record: %w", err)
+	}
+	return nil
+}
+
 func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType string, outBlock uint64) {
-	rwLock.RLock()
-	defer rwLock.RUnlock()
 
 	_, err := db.Exec(`
         UPDATE validator_records
@@ -489,6 +516,30 @@ func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType stri
 		logger.Info("opt-out interval updated",
 			"pubkey", pubkey, "block", outBlock, "event_type", eventType, "adder", adder)
 	}
+}
+
+func insertManualOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder string, outBlock uint64) error {
+	var registryType, eventType sql.NullString
+	err := db.QueryRow(`
+		SELECT registry_type, event_type
+		FROM validator_records
+		WHERE pubkey = ? AND adder = ?
+	`, pubkey, adder).Scan(&registryType, &eventType)
+	if err != nil {
+		return fmt.Errorf("failed to query validator_records: %w", err)
+	}
+	if registryType.Valid || eventType.Valid {
+		return fmt.Errorf("manual opt out only allowed for manually inserted records")
+	}
+	_, err = db.Exec(`
+		UPDATE validator_records
+		SET opted_out_block = ?
+		WHERE pubkey = ? AND adder = ?
+	`, outBlock, pubkey, adder)
+	if err != nil {
+		return fmt.Errorf("failed to update val record for manual opt out: %w", err)
+	}
+	return nil
 }
 
 func getMsgSenderFromTxnHash(ethClient *ethclient.Client, txHash common.Hash) (common.Address, error) {
@@ -517,6 +568,7 @@ func main() {
 			optionLogFmt,
 			optionLogLevel,
 			optionLogTags,
+			optionPointsAPIAuthToken,
 		},
 		Action: func(c *cli.Context) error {
 			logger, err := util.NewLogger(
@@ -845,7 +897,7 @@ func main() {
 			// Start the points accrual routine
 			StartPointsRoutine(ctx, db, logger, 10*time.Minute, ethClient, ps)
 
-			pointsAPI := NewPointsAPI(logger, db, ps)
+			pointsAPI := NewPointsAPI(logger, db, ps, c.String(optionPointsAPIAuthToken.Name))
 			go func() {
 				if err := pointsAPI.StartAPIServer(ctx, ":8080"); err != nil {
 					logger.Error("API server error", "error", err)

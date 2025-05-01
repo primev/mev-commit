@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"database/sql"
+	"io"
+	"log/slog"
+	"testing"
+)
 
 // TestComputePointsForMonths verifies totalPoints & preSixMonthPoints for various month scenarios.
 func TestComputePointsForMonths(t *testing.T) {
@@ -98,5 +103,81 @@ func TestComputePointsForMonths(t *testing.T) {
 			t.Errorf("%s: months=%d => got (tot=%d, pre=%d), want (tot=%d, pre=%d)",
 				tc.name, tc.months, gotTot, gotPre, tc.wantTot, tc.wantPre)
 		}
+	}
+}
+
+func TestManualPointsEntry(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open in-memory database: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.Exec(createTableValidatorRecordsQuery); err != nil {
+		t.Fatalf("failed to create validator_records table: %v", err)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	insertOptIn(db, logger, "0x123", "0x456", "vanilla", "staked", 100)
+
+	if err := insertManualValRecord(db, "0x12345", "0x45678", 90); err != nil {
+		t.Fatalf("failed to insert manual val record: %v", err)
+	}
+
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM validator_records").Scan(&count)
+	if err != nil {
+		t.Fatalf("failed to query count: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("expected 2 records, got %d", count)
+	}
+
+	var registryType, eventType, optedOutBlock sql.NullString
+	err = db.QueryRow("SELECT registry_type, event_type, opted_out_block FROM validator_records WHERE pubkey = '0x12345'").Scan(&registryType, &eventType, &optedOutBlock)
+	if err != nil {
+		t.Fatalf("failed to query registry_type and event_type: %v", err)
+	}
+	if registryType.Valid || eventType.Valid || optedOutBlock.Valid {
+		t.Errorf("expected registry_type, event_type and opted_out_block to be NULL, got %v, %v and %v",
+			registryType, eventType, optedOutBlock)
+	}
+
+	// manual opt out should only be allowed for manually inserted records
+	err = insertManualValRecord(db, "0x123", "0x456", 200)
+	if err == nil {
+		t.Fatalf("expected error for manual opt out on non-manually inserted record")
+	}
+
+	err = insertManualOptOut(db, logger, "0x12345", "0x45678", 2227)
+	if err != nil {
+		t.Fatalf("failed to insert manual opt out: %v", err)
+	}
+
+	// opt out should now exist
+	var optedOutBlockAfter sql.NullString
+	err = db.QueryRow("SELECT opted_out_block FROM validator_records WHERE pubkey = '0x12345'").Scan(&optedOutBlockAfter)
+	if err != nil {
+		t.Fatalf("failed to query opted_out_block: %v", err)
+	}
+	if !optedOutBlockAfter.Valid {
+		t.Errorf("expected opted_out_block to be non-NULL, got NULL")
+	}
+	if optedOutBlockAfter.String != "2227" {
+		t.Errorf("expected opted_out_block to be 2227, got %s", optedOutBlockAfter.String)
+	}
+
+	// opt out replacement should be allowed
+	err = insertManualOptOut(db, logger, "0x12345", "0x45678", 4001)
+	if err != nil {
+		t.Fatalf("expected no error for manual opt out, got %v", err)
+	}
+	var optedOutBlockAfter2 sql.NullString
+	err = db.QueryRow("SELECT opted_out_block FROM validator_records WHERE pubkey = '0x12345'").Scan(&optedOutBlockAfter2)
+	if err != nil {
+		t.Fatalf("failed to query opted_out_block: %v", err)
+	}
+	if optedOutBlockAfter2.String != "4001" {
+		t.Errorf("expected opted_out_block to be 4001, got %s", optedOutBlockAfter2.String)
 	}
 }
