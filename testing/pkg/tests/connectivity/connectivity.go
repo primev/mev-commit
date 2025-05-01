@@ -29,35 +29,10 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 	defer cancel()
 
 	eg, egCtx := errgroup.WithContext(cctx)
-	for _, b := range cluster.Bootnodes() {
-		// we wait for provider connected events only as bidders would already be connected
-		// to bootnode by the time test starts.
-		eg.Go(func() error {
-			notificationChan, err := b.NotificationsAPI().Subscribe(egCtx, &notificationsapiv1.SubscribeRequest{
-				Topics: []string{string(notifications.TopicPeerConnected)},
-			})
-			if err != nil {
-				return fmt.Errorf("failed to subscribe to notifications: %w", err)
-			}
-			count := 0
-			for {
-				msg, err := notificationChan.Recv()
-				if err != nil {
-					return fmt.Errorf("failed to receive notification: %w", err)
-				}
-				logger.Info("received notification", "notification", msg)
-				if msg.Topic != string(notifications.TopicPeerConnected) {
-					logger.Info("skipping notification", "topic", msg.Topic)
-					continue
-				}
-				count++
-				if count == len(providers) {
-					logger.Info("all provider nodes connected to bootnode", "bootnode", b.EthAddress())
-					return nil
-				}
-				logger.Info("waiting for all provider nodes to connect to bootnode", "connected", count, "total", len(providers))
-			}
-		})
+
+	providerAddrs := make([]string, len(providers))
+	for i, p := range providers {
+		providerAddrs[i] = p.EthAddress()
 	}
 
 	for _, b := range bidders {
@@ -77,6 +52,13 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 				logger.Info("received notification", "notification", msg)
 				if msg.Topic != string(notifications.TopicPeerConnected) {
 					logger.Info("skipping notification", "topic", msg.Topic)
+					continue
+				}
+				// providers are blacklisted initially for 5 mins as they dont have stake. So we
+				// should wait for them to connect to the bidder.
+				if msg.Value.GetFields()["ethAddress"] == nil ||
+					!slices.Contains(providerAddrs, msg.Value.GetFields()["ethAddress"].GetStringValue()) {
+					logger.Info("skipping notification", "peer_id", msg.Value.GetFields()["ethAddress"])
 					continue
 				}
 				count++
