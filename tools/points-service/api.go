@@ -133,7 +133,12 @@ func (p *PointsAPI) AddManualOptOut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	insertOptOut(p.db, p.logger, req.Pubkey, req.Adder, "manual_opt_out", req.OutBlock)
+	err := insertManualOptOut(p.db, p.logger, req.Pubkey, req.Adder, req.OutBlock)
+	if err != nil {
+		p.logger.Error("failed to insert manual opt out", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	resp := map[string]string{"status": "success"}
 	writeJSON(w, resp, http.StatusOK)

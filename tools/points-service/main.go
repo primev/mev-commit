@@ -518,6 +518,30 @@ func insertOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder, eventType stri
 	}
 }
 
+func insertManualOptOut(db *sql.DB, logger *slog.Logger, pubkey, adder string, outBlock uint64) error {
+	var registryType, eventType sql.NullString
+	err := db.QueryRow(`
+		SELECT registry_type, event_type
+		FROM validator_records
+		WHERE pubkey = ? AND adder = ?
+	`, pubkey, adder).Scan(&registryType, &eventType)
+	if err != nil {
+		return fmt.Errorf("failed to query validator_records: %w", err)
+	}
+	if registryType.Valid || eventType.Valid {
+		return fmt.Errorf("manual opt out only allowed for manually inserted records")
+	}
+	_, err = db.Exec(`
+		UPDATE validator_records
+		SET opted_out_block = ?
+		WHERE pubkey = ? AND adder = ?
+	`, outBlock, pubkey, adder)
+	if err != nil {
+		return fmt.Errorf("failed to update val record for manual opt out: %w", err)
+	}
+	return nil
+}
+
 func getMsgSenderFromTxnHash(ethClient *ethclient.Client, txHash common.Hash) (common.Address, error) {
 	tx, _, err := ethClient.TransactionByHash(context.Background(), txHash)
 	if err != nil {

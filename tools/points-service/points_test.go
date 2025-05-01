@@ -133,12 +133,51 @@ func TestManualPointsEntry(t *testing.T) {
 		t.Errorf("expected 2 records, got %d", count)
 	}
 
-	var registryType, eventType sql.NullString
-	err = db.QueryRow("SELECT registry_type, event_type FROM validator_records WHERE pubkey = '0x12345'").Scan(&registryType, &eventType)
+	var registryType, eventType, optedOutBlock sql.NullString
+	err = db.QueryRow("SELECT registry_type, event_type, opted_out_block FROM validator_records WHERE pubkey = '0x12345'").Scan(&registryType, &eventType, &optedOutBlock)
 	if err != nil {
 		t.Fatalf("failed to query registry_type and event_type: %v", err)
 	}
-	if registryType.Valid || eventType.Valid {
-		t.Errorf("expected registry_type and event_type to be NULL, got %v and %v", registryType, eventType)
+	if registryType.Valid || eventType.Valid || optedOutBlock.Valid {
+		t.Errorf("expected registry_type, event_type and opted_out_block to be NULL, got %v, %v and %v",
+			registryType, eventType, optedOutBlock)
+	}
+
+	// manual opt out should only be allowed for manually inserted records
+	err = insertManualValRecord(db, "0x123", "0x456", 200)
+	if err == nil {
+		t.Fatalf("expected error for manual opt out on non-manually inserted record")
+	}
+
+	err = insertManualOptOut(db, logger, "0x12345", "0x45678", 2227)
+	if err != nil {
+		t.Fatalf("failed to insert manual opt out: %v", err)
+	}
+
+	// opt out should now exist
+	var optedOutBlockAfter sql.NullString
+	err = db.QueryRow("SELECT opted_out_block FROM validator_records WHERE pubkey = '0x12345'").Scan(&optedOutBlockAfter)
+	if err != nil {
+		t.Fatalf("failed to query opted_out_block: %v", err)
+	}
+	if !optedOutBlockAfter.Valid {
+		t.Errorf("expected opted_out_block to be non-NULL, got NULL")
+	}
+	if optedOutBlockAfter.String != "2227" {
+		t.Errorf("expected opted_out_block to be 2227, got %s", optedOutBlockAfter.String)
+	}
+
+	// opt out replacement should be allowed
+	err = insertManualOptOut(db, logger, "0x12345", "0x45678", 4001)
+	if err != nil {
+		t.Fatalf("expected no error for manual opt out, got %v", err)
+	}
+	var optedOutBlockAfter2 sql.NullString
+	err = db.QueryRow("SELECT opted_out_block FROM validator_records WHERE pubkey = '0x12345'").Scan(&optedOutBlockAfter2)
+	if err != nil {
+		t.Fatalf("failed to query opted_out_block: %v", err)
+	}
+	if optedOutBlockAfter2.String != "4001" {
+		t.Errorf("expected opted_out_block to be 4001, got %s", optedOutBlockAfter2.String)
 	}
 }
