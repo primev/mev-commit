@@ -317,15 +317,6 @@ func NewNode(opts *Options) (*Node, error) {
 
 	keysStore := keysstore.New(store)
 
-	notificationsSvc := notifications.New(opts.NotificationsBufferCap)
-	nd.closers = append(
-		nd.closers,
-		ioCloserFunc(func() error {
-			notificationsSvc.Shutdown()
-			return nil
-		}),
-	)
-
 	stakeMgr, err := stakemanager.NewStakeManager(
 		opts.Logger.With("component", "stakemanager"),
 		opts.KeySigner.GetAddress(),
