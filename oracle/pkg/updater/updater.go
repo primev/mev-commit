@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"math/big"
 	"strings"
 	"sync"
@@ -39,8 +38,11 @@ const (
 )
 
 const (
-	PRECISION           = 1e16
-	ONE_HUNDRED_PERCENT = 100 * PRECISION
+	PRECISION = 1e16
+)
+
+var (
+	BigOneHundredPercent = big.NewInt(100 * PRECISION)
 )
 
 type Winner struct {
@@ -635,32 +637,60 @@ func (u *Updater) getL1Txns(ctx context.Context, blockNum uint64) (map[string]Tx
 // The computation does not care what format the timestamps are in, as long as they are consistent
 // (e.g they could be unix or unixMili timestamps)
 func (u *Updater) computeResidualAfterDecay(startTimestamp, endTimestamp, commitTimestamp uint64) *big.Int {
-	if startTimestamp >= endTimestamp || startTimestamp > commitTimestamp || endTimestamp <= commitTimestamp {
-		u.logger.Debug("timestamp out of range", "startTimestamp", startTimestamp, "endTimestamp", endTimestamp, "commitTimestamp", commitTimestamp)
+	if startTimestamp >= endTimestamp || endTimestamp <= commitTimestamp {
+		u.logger.Debug(
+			"timestamp out of range",
+			"startTimestamp", startTimestamp,
+			"endTimestamp", endTimestamp,
+			"commitTimestamp", commitTimestamp,
+		)
 		return big.NewInt(0)
 	}
 
-	// Calculate the total time in seconds
-	totalTime := endTimestamp - startTimestamp
-	// Calculate the time passed in seconds
-	timePassed := commitTimestamp - startTimestamp
-	// Calculate the decay percentage
-	decayPercentage := float64(timePassed) / float64(totalTime)
-	// Residual value
-	residual := 1 - decayPercentage
-
-	residualPercentageRound := math.Round(residual * ONE_HUNDRED_PERCENT)
-	if residualPercentageRound > ONE_HUNDRED_PERCENT {
-		residualPercentageRound = ONE_HUNDRED_PERCENT
+	// providers may commit before the start of the decay period
+	// in this case, there is no decay
+	if startTimestamp > commitTimestamp {
+		u.logger.Debug(
+			"commitTimestamp is before startTimestamp",
+			"startTimestamp", startTimestamp,
+			"commitTimestamp", commitTimestamp,
+		)
+		return BigOneHundredPercent
 	}
-	u.logger.Debug("decay information",
+
+	// Calculate the total time in seconds
+	totalTime := new(big.Int).SetUint64(endTimestamp - startTimestamp)
+	// Calculate the time passed in seconds
+	timePassed := new(big.Int).SetUint64(commitTimestamp - startTimestamp)
+
+	// Calculate the residual percentage using integer arithmetic
+	// residual = (totalTime - timePassed) * ONE_HUNDRED_PERCENT / totalTime
+
+	// Step 1: (totalTime - timePassed)
+	timeRemaining := new(big.Int).Sub(totalTime, timePassed)
+
+	// Step 2: (totalTime - timePassed) * ONE_HUNDRED_PERCENT
+	scaledRemaining := new(big.Int).Mul(timeRemaining, BigOneHundredPercent)
+
+	// Step 3: ((totalTime - timePassed) * ONE_HUNDRED_PERCENT) / totalTime
+	// This gives us the residual percentage directly as an integer
+	residualPercentage := new(big.Int).Div(scaledRemaining, totalTime)
+
+	// Ensure residual doesn't exceed ONE_HUNDRED_PERCENT (shouldn't happen with correct inputs, but for safety)
+	if residualPercentage.Cmp(BigOneHundredPercent) > 0 {
+		residualPercentage = BigOneHundredPercent
+	}
+
+	u.logger.Debug(
+		"decay information",
 		"startTimestamp", startTimestamp,
 		"endTimestamp", endTimestamp,
 		"commitTimestamp", commitTimestamp,
 		"totalTime", totalTime,
 		"timePassed", timePassed,
-		"decayPercentage", decayPercentage,
-		"residual", residual,
+		"timeRemaining", timeRemaining,
+		"residualPercentage", residualPercentage,
 	)
-	return big.NewInt(int64(residualPercentageRound))
+
+	return residualPercentage
 }
