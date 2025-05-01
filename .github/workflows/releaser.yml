@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       matrix:
-        module: [ bridge/standard, external/geth, oracle, p2p, tools/bidder-cli, tools/bls-signer ]
+        module: [ bridge/standard, external/geth, oracle, p2p, tools/bidder-cli, tools/bls-signer, tools/points-service ]
 
     steps:
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
