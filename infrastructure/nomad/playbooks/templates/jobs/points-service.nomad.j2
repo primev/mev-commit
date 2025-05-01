@@ -70,7 +70,7 @@ job "{{ job.name }}" {
           POINTS_LOG_TAGS="{{ 'service.name:' + job.name + '-{{ env "NOMAD_ALLOC_INDEX" }}' + ',service.version:' + version }}"
           POINTS_LOG_LEVEL="{{ job.env.get('log-level', 'info') }}"
           POINTS_L1_RPC_URL="{{ job.env['l1_rpc_url'] }}"
-          POINTS_API_AUTH_TOKEN="0123456789"
+          POINTS_API_AUTH_TOKEN="{{ with secret "secret/data/mev-commit" }}{{ .Data.data.oracle_register_provider_api_auth_token }}{{ end }}"
         EOH
         destination = "secrets/.env"
         env = true
