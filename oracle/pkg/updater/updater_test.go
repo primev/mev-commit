@@ -1322,14 +1322,14 @@ func TestComputeResidualAfterDecay(t *testing.T) {
 			start:  1000,
 			end:    2000,
 			commit: 500,
-			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+			want:   updater.BigOneHundredPercent,
 		},
 		{
 			name:   "Commit At Start",
 			start:  1000,
 			end:    2000,
 			commit: 1000,
-			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+			want:   updater.BigOneHundredPercent,
 		},
 		{
 			name:   "Commit After End",
@@ -1413,7 +1413,7 @@ func TestComputeResidualAfterDecay(t *testing.T) {
 			start:  0,
 			end:    1000,
 			commit: 0,
-			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+			want:   updater.BigOneHundredPercent,
 		},
 		{
 			name:   "Large Timestamps",
@@ -1429,7 +1429,7 @@ func TestComputeResidualAfterDecay(t *testing.T) {
 			start:  1000,
 			end:    1001, // duration 1
 			commit: 1000,
-			want:   big.NewInt(updater.ONE_HUNDRED_PERCENT),
+			want:   updater.BigOneHundredPercent,
 		},
 		{
 			name:   "Minimal Valid Duration, Commit slightly after start",
@@ -1446,16 +1446,9 @@ func TestComputeResidualAfterDecay(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got := u.ComputeResidualAfterDecay(tc.start, tc.end, tc.commit)
-			if tc.name == "Commit Very Close To End" {
-				want1 := big.NewInt(10000000000000000)
-				want2 := big.NewInt(10000000000000008)
-				if got.Cmp(want1) != 0 && got.Cmp(want2) != 0 {
-					t.Errorf("ComputeResidualAfterDecay(%d, %d, %d) = %v, want either %v or %v", tc.start, tc.end, tc.commit, got, want1, want2)
-				}
-			} else {
-				if got.Cmp(tc.want) != 0 {
-					t.Errorf("ComputeResidualAfterDecay(%d, %d, %d) = %v, want %v", tc.start, tc.end, tc.commit, got, tc.want)
-				}
+
+			if got.Cmp(tc.want) != 0 {
+				t.Errorf("ComputeResidualAfterDecay(%d, %d, %d) = %v, want %v", tc.start, tc.end, tc.commit, got, tc.want)
 			}
 		})
 	}
