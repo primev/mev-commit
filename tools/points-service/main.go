@@ -119,10 +119,11 @@ var (
 	}
 
 	optionPointsAPIAuthToken = &cli.StringFlag{
-		Name:    "points-api-auth-token",
-		Usage:   "Authorization token for the points service",
-		EnvVars: []string{"POINTS_API_AUTH_TOKEN"},
-		Value:   "points-service-api-key",
+		Name:     "points-api-auth-token",
+		Usage:    "Authorization token for the points service",
+		EnvVars:  []string{"POINTS_API_AUTH_TOKEN"},
+		Value:    "points-service-api-key",
+		Required: true,
 	}
 
 	optionLogLevel = &cli.StringFlag{
