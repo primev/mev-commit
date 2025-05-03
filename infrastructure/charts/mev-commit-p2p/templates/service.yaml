@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mev-commit-p2p.fullname" . }}-{{ .Values.node.type }}
+  labels:
+    app.kubernetes.io/name: {{ include "mev-commit-p2p.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: {{ .Values.node.type }}
+    {{- include "mev-commit-p2p.labels" . | nindent 4 }}
+  {{- with .Values.node.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.node.service.type }}
+  ports:
+    - port: {{ .Values.node.ports.http }}
+      targetPort: {{ .Values.node.ports.http }}
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.node.service.type "NodePort") .Values.node.service.nodePorts.http }}
+      nodePort: {{ .Values.node.service.nodePorts.http }}
+      {{- end }}
+    - port: {{ .Values.node.ports.p2p }}
+      targetPort: {{ .Values.node.ports.p2p }}
+      protocol: TCP
+      name: p2p
+      {{- if and (eq .Values.node.service.type "NodePort") .Values.node.service.nodePorts.p2p }}
+      nodePort: {{ .Values.node.service.nodePorts.p2p }}
+      {{- end }}
+    - port: {{ .Values.node.ports.rpc }}
+      targetPort: {{ .Values.node.ports.rpc }}
+      protocol: TCP
+      name: rpc
+      {{- if and (eq .Values.node.service.type "NodePort") .Values.node.service.nodePorts.rpc }}
+      nodePort: {{ .Values.node.service.nodePorts.rpc }}
+      {{- end }}
+  selector:
+    app.kubernetes.io/name: {{ include "mev-commit-p2p.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: {{ .Values.node.type }}

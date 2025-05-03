@@ -1,0 +1,46 @@
+chainId: 
+genesisUrl: "https://raw.githubusercontent.com/harshsingh-cs/ethereum-poa/refs/heads/main/devnet/gensis.json"
+
+replicas: 1
+
+image:
+  repository: harshsingh07/flood
+  tag: mev-commit-1.1.1
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+  limits:
+    cpu: "2000m"
+    memory: "8Gi"
+
+persistence:
+  enabled: true
+  size: 25Gi
+  storageClassName: premium-rwo
+
+ports:
+  p2p: 30303
+  http: 8545
+  ws: 8546
+
+init:
+  image:
+    repository:  ethereum/client-go
+    tag: alltools-v1.14.13
+
+probes:
+  enabled: false
+  headlagProbeThreshold: 3600
+  readiness:
+    checks:
+      - syncProbe.sh
+    initialDelay: 30
+    periodSeconds: 120
+    successThreshold: 3
+    failureThreshold: 5
+
+nodeConfig:
+  httpApi: "eth,net,web3,clique"
+  wsApi: "eth,net,web3,clique"

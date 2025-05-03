@@ -1,0 +1,17 @@
+global:
+  # TLS certificate configuration
+  tls:
+    selfSigned: false  # Using ESO for TLS
+  
+  # External Secret Operator configuration
+  externalSecrets:
+    enabled: true
+    # Name of the SecretStore resource in your cluster
+    secretStore: "aws-secretsmanager" 
+    # Key in your secret store containing node secrets
+    nodeSecretKey: "mev-commit-node-secrets"
+    # Key in your secret store containing TLS certificate
+    tlsSecretKey: "mev-commit-tls"
+
+# Node-specific configuration inherits from other value files
+# Merge this with values-bootnode.yaml, values-provider.yaml, or values-bidder.yaml

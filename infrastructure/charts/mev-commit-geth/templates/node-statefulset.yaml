@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "ethereum-poa.fullnameWithRole" . }}
+  labels:
+    {{- include "ethereum-poa.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.additionalAnnotations | nindent 4 }}
+spec:
+  serviceName: {{ include "ethereum-poa.fullnameWithRole" . }}
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "ethereum-poa.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      role: {{ .Values.role }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "ethereum-poa.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        role: {{ .Values.role }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: {{ include "ethereum-poa.name" . }}
+                  app.kubernetes.io/instance: {{ .Release.Name }}
+                  role: {{ .Values.role }}
+              topologyKey: "kubernetes.io/hostname"
+
+      initContainers:
+        - name: init-geth
+          image: {{ .Values.init.image.repository }}:{{ .Values.init.image.tag }}
+          command: ["/bin/sh", "/geth/genesis/init-genesis.sh"]
+          env:
+            - name: GETH_NODE_TYPE
+              value: {{ .Values.role }}
+            - name: P2P_PORT
+              value: "{{ .Values.ports.p2p }}"
+          volumeMounts:
+            - name: data
+              mountPath: /geth/data
+            - name: genesis-scripts
+              mountPath: /geth/genesis
+        - name: init-nodekey
+          image: {{ .Values.init.image.repository }}:{{ .Values.init.image.tag }}
+          command: ["/bin/sh", "/geth/genesis/init-nodekey.sh"]
+          env:
+            - name: DATADIR
+              value: "/geth/data"
+            - name: GETH_NODE_TYPE
+              value: {{ .Values.role }}
+          volumeMounts:
+            - name: data
+              mountPath: /geth/data
+            - name: genesis-scripts
+              mountPath: /geth/genesis
+        {{- if eq .Values.role "signer" }}
+        - name: import-key
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          command:
+            [
+              "/bin/sh",
+              "-c",
+              "if [ -z \"$(ls /geth/data/keystore 2>/dev/null)\" ]; then echo '🔑 Importing key...' && geth --datadir /geth/data account import --password /geth/password/password.txt /geth/keys/signer-key; else echo '✅ Key already exists, skipping import.'; fi"
+            ]
+          volumeMounts:
+            - name: data
+              mountPath: /geth/data
+            - name: password
+              mountPath: /geth/password
+            - name: signer-key
+              mountPath: /geth/keys
+        {{- end }}
+
+      containers:
+        - name: geth
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          args:
+            - --datadir
+            - /geth/data
+            - --networkid
+            - "{{ .Values.chainId }}"
+            - --config
+            - /geth/config/config.toml
+            - --http
+            - --http.addr
+            - 0.0.0.0
+            - --http.port
+            - "{{ .Values.ports.http }}" 
+            - --http.api
+            - "{{ .Values.nodeConfig.httpApi }}"
+            - --ws
+            - --ws.addr
+            - 0.0.0.0
+            - --ws.port
+            - "{{ .Values.ports.ws }}"
+            - --ws.api
+            - "{{ .Values.nodeConfig.wsApi }}"
+            {{- range .Values.extraArgs }}
+            - {{ . | quote }}
+            {{- end }}
+          ports:
+            - name: p2p
+              containerPort: {{ .Values.ports.p2p }}
+            - name: http
+              containerPort: {{ .Values.ports.http }}
+            - name: ws
+              containerPort: {{ .Values.ports.ws }}
+          volumeMounts:
+            - name: data
+              mountPath: /geth/data
+            - name: genesis-scripts
+              mountPath: /geth/genesis
+            - name: config
+              mountPath: /geth/config
+            - name: genesis-scripts
+              mountPath: /geth/probes
+            {{- if eq .Values.role "signer" }}
+            - name: password
+              mountPath: /geth/password
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.probes.enabled }}
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "/geth/probes/syncProbe.sh && echo '✔️ All checks passed.'"
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelay }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            successThreshold: {{ .Values.probes.readiness.successThreshold }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+
+      volumes:
+        - name: genesis-scripts
+          configMap:
+            name: {{ include "ethereum-poa.fullnameWithRole" . }}-scripts
+        - name: config
+          configMap:
+            name: {{ include "ethereum-poa.fullnameWithRole" . }}-scripts  
+        {{- if eq .Values.role "signer" }}
+        - name: password
+          secret:
+            secretName: {{ .Values.signer.passwordSecretName }}
+        - name: signer-key
+          secret:
+            secretName: {{ .Values.signer.privateKeySecretName }}
+        {{- end }}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: {{ include "ethereum-poa.name" . }}
+          app.kubernetes.io/instance: {{ .Release.Name }}
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size }}
+        {{- if .Values.persistence.storageClassName }}
+        storageClassName: {{ .Values.persistence.storageClassName }}
+        {{- end }}
+ 

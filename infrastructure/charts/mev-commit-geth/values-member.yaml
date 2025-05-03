@@ -1,0 +1,13 @@
+role: member
+
+chainId: 1121
+
+probes:
+  enabled: false
+
+
+replicas: 1
+
+nodeConfig:
+  staticPeers:
+    - "enode://acaa1111842b0a3ca9e27984eea0f5e7feb4defb09825e0f27af00dd763b32106c48a873c83d29b4586065a7cbacd88ed855a87648b2b9b3314cf870229e3c5f@poa-bootnode-ethereum-poa-bootnode:30303"

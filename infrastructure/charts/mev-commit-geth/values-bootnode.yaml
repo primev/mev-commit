@@ -1,0 +1,14 @@
+role: bootnode
+
+chainId: 1121
+
+# The genesis URL is already in the main values.yaml
+
+init:
+  image:
+    repository:  ethereum/client-go
+    tag: alltools-v1.14.13
+
+extraArgs:
+  - --port=30303
+  - --nat=any

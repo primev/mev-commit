@@ -1,0 +1,162 @@
+# Default values for mev-commit-p2p.
+# This is a YAML-formatted file.
+
+global:
+  # Docker image configuration
+  image:
+    repository: harshsingh07/flood
+    tag: mev-commit-p2p-1.1.1
+    pullPolicy: IfNotPresent
+  
+  # TLS certificate configuration
+  tls:
+    # If true, generate self-signed certificates; if false, use existing or ESO-managed certificates
+    selfSigned: true
+    # Name of an existing TLS secret to use (only if selfSigned is false and not using ESO)
+    existingSecret: ""
+  
+  # External Secret Operator configuration
+  externalSecrets:
+    # Set to true to use ESO for managing sensitive secrets
+    enabled: false
+    # Secret store reference configured in your cluster
+    secretStore: "aws-secretsmanager"
+    # Key in secret store for node secrets
+    nodeSecretKey: "mev-commit-node-secrets"
+    # Key in secret store for TLS certificates (only if selfSigned is false)
+    tlsSecretKey: "mev-commit-tls"
+  
+  # Keystore initialization
+  initKeystore:
+    enabled: true
+    image:
+      repository: ethereum/client-go
+      tag: stable
+      pullPolicy: IfNotPresent
+  
+  # Persistence configuration
+  persistence:
+    enabled: true
+    storageClass: "premium-rwo"
+    dataSize: "10Gi"
+    keystoreSize: "1Gi"
+  
+  # Logging configuration
+  logging:
+    format: "json"
+    level: "info"
+    additionalTags: ""
+  
+  # Contract addresses
+  contracts:
+    bidderRegistry: "0x948eCD70FaeF6746A30a00F30f8b9fB2659e4062"
+    providerRegistry: "0x1C2a592950E5dAd49c0E2F3A402DCF496bdf7b67"
+    preconfStore: "0x8420F290a412D87Ae4Aa12be63e1836b91717910"
+    blockTracker: "0x0b3b6Cf113959214E313d6Ad37Ad56831acb1776"
+    validatorRouter: "0xFaF6F0d4bbc7bC33a4b403b274aBb82d0E794202"
+  
+  # Gas settings for transactions
+  gas:
+    limit: "2000000"
+    tipCap: "50000000"
+    feeCap: "60000000"
+  
+  # RPC endpoints
+  rpc:
+    settlementEndpoint: "https://chainrpc.testnet.mev-commit.xyz/"
+    settlementWsEndpoint: ""
+    l1Endpoint: "https://ethereum.publicnode.com"
+  
+  # Notifications
+  notifications:
+    bufferCapacity: "100"
+  
+  # Ethereum chain configuration
+  laggardMode: "10"
+
+# Node configuration template (bootnode, provider, or bidder)
+node:
+  # Node type (bootnode, provider, or bidder)
+  type: "bootnode"
+  # Number of replicas
+  replicas: 1
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    annotations: {}
+    # NodePort configuration (only used when service.type is NodePort)
+    nodePorts:
+      http: null
+      p2p: null
+      rpc: null
+  
+  # Port configuration
+  ports:
+    http: 13523
+    p2p: 13522
+    rpc: 13524
+  
+  # Node security context
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1000
+  
+  # Resource requests and limits
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+  
+  # Bootnode connection string (for provider and bidder nodes)
+  bootnodeConnectionString: ""
+  
+  # Default credentials (only used if ESO and existingSecret are not set)
+  defaultKeystorePassword: "changeme"
+  defaultP2PSecret: ""
+  
+  # Reference to an existing secret with credentials
+  existingSecret: ""
+  
+  # Health probes
+  livenessProbe:
+    httpGet:
+      path: /v1/debug/health
+      port: http
+      scheme: HTTPS
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /v1/debug/health
+      port: http
+      scheme: HTTPS
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  # Node scheduling
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  # Pod annotations
+  podAnnotations: {}
+  
+  # Image pull secrets
+  imagePullSecrets: []

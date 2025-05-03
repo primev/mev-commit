@@ -1,0 +1,32 @@
+# Override values specific to bootnode deployment
+node:
+  type: "bootnode"
+  replicas: 1
+  
+  ports:
+    http: 13523
+    p2p: 13522
+    rpc: 13524
+  
+  service:
+    type: ClusterIP
+    # For NodePort exposure
+    # type: NodePort
+    # nodePorts:
+    #   p2p: 30522
+    #   http: 30523
+    #   rpc: 30524
+    annotations: {}
+  
+  # Default credentials 
+  defaultKeystorePassword: "change_me_bootnode"
+  defaultP2PSecret: "mev-commit-bootnode-secret"
+  
+  # Resource allocation
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2048Mi
+    requests:
+      cpu: 500m
+      memory: 1024Mi
