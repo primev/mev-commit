@@ -97,7 +97,6 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	slotBeforeTarget := upcomingProposer.Slot - 2
-	var targetBlock bidder.TargetBlock
 	blockNumBeforeTarget, timestampBeforeTarget, err := b.beaconClient.GetPayloadDataForSlot(timeoutCtx, slotBeforeTarget)
 	if err != nil {
 		b.logger.Warn("failed to get block number for upcoming proposer slot - 2. This likely indicates a missed slot", "error", err)
@@ -109,7 +108,7 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 			return err
 		}
 	}
-	targetBlock = bidder.TargetBlock{
+	targetBlock := bidder.TargetBlock{
 		Num:  blockNumBeforeTarget + 2, // Same handling for either value of slotBeforeTarget
 		Time: time.Unix(int64(timestampBeforeTarget), 0).Add(2 * slotDuration),
 	}
