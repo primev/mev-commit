@@ -121,10 +121,12 @@ func New(config *Config) (*Service, error) {
 		notificationsCli := notificationsapiv1.NewNotificationsClient(conn)
 		config.Logger.Debug("created notifications client")
 
+		beaconClient := notifier.NewBeaconClient(config.BeaconApiUrls[0], config.Logger.With("component", "beacon_client"))
+
 		notif = notifier.NewSelectiveNotifier(
 			config.Logger.With("module", "selective_notifier"),
 			notificationsCli,
-			config.BeaconApiUrls[0],
+			beaconClient,
 			targetBlockChan, // send-and-receive for draining capability
 		)
 	}

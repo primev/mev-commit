@@ -23,21 +23,25 @@ var (
 type SelectiveNotifier struct {
 	logger               *slog.Logger
 	notificationsClient  notificationsapiv1.NotificationsClient
-	beaconClient         *beaconClient
+	beaconClient         BeaconClient
 	targetBlockChan      chan bidder.TargetBlock
 	lastUpcomingProposer atomic.Pointer[UpcomingProposer]
+}
+
+type BeaconClient interface {
+	GetPayloadDataForSlot(ctx context.Context, slot uint64) (blockNum uint64, timestamp uint64, err error)
 }
 
 func NewSelectiveNotifier(
 	logger *slog.Logger,
 	notificationsClient notificationsapiv1.NotificationsClient,
-	beaconRPCUrl string,
+	beaconClient BeaconClient,
 	targetBlockChan chan bidder.TargetBlock,
 ) *SelectiveNotifier {
 	return &SelectiveNotifier{
 		logger:              logger,
 		notificationsClient: notificationsClient,
-		beaconClient:        newBeaconClient(beaconRPCUrl, logger.With("component", "beacon_client")),
+		beaconClient:        beaconClient,
 		targetBlockChan:     targetBlockChan,
 	}
 }
@@ -94,12 +98,12 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 	defer cancel()
 	slotBeforeTarget := upcomingProposer.Slot - 2
 	var targetBlock bidder.TargetBlock
-	blockNumBeforeTarget, timestampBeforeTarget, err := b.beaconClient.getPayloadDataForSlot(timeoutCtx, slotBeforeTarget)
+	blockNumBeforeTarget, timestampBeforeTarget, err := b.beaconClient.GetPayloadDataForSlot(timeoutCtx, slotBeforeTarget)
 	if err != nil {
 		b.logger.Warn("failed to get block number for upcoming proposer slot - 2. This likely indicates a missed slot", "error", err)
 		b.logger.Info("retrying with upcoming proposer slot - 3")
 		slotBeforeTarget = upcomingProposer.Slot - 3
-		blockNumBeforeTarget, timestampBeforeTarget, err = b.beaconClient.getPayloadDataForSlot(timeoutCtx, slotBeforeTarget)
+		blockNumBeforeTarget, timestampBeforeTarget, err = b.beaconClient.GetPayloadDataForSlot(timeoutCtx, slotBeforeTarget)
 		if err != nil {
 			b.logger.Error("failed to get block number for upcoming proposer slot - 3. No more retries", "error", err)
 			return err
