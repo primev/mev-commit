@@ -96,21 +96,21 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 	// Upcoming proposer slot hasn't started yet, so query block number for upcoming proposer slot - 2
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	slotBeforeTarget := upcomingProposer.Slot - 2
-	blockNumBeforeTarget, timestampBeforeTarget, err := b.beaconClient.GetPayloadDataForSlot(timeoutCtx, slotBeforeTarget)
+	slotTargetOffset := uint64(2)
+	blockNumBeforeTarget, timestampBeforeTarget, err := b.beaconClient.GetPayloadDataForSlot(timeoutCtx, upcomingProposer.Slot-slotTargetOffset)
 	if err != nil {
 		b.logger.Warn("failed to get block number for upcoming proposer slot - 2. This likely indicates a missed slot", "error", err)
 		b.logger.Info("retrying with upcoming proposer slot - 3")
-		slotBeforeTarget = upcomingProposer.Slot - 3
-		blockNumBeforeTarget, timestampBeforeTarget, err = b.beaconClient.GetPayloadDataForSlot(timeoutCtx, slotBeforeTarget)
+		slotTargetOffset = uint64(3)
+		blockNumBeforeTarget, timestampBeforeTarget, err = b.beaconClient.GetPayloadDataForSlot(timeoutCtx, upcomingProposer.Slot-slotTargetOffset)
 		if err != nil {
 			b.logger.Error("failed to get block number for upcoming proposer slot - 3. No more retries", "error", err)
 			return err
 		}
 	}
 	targetBlock := bidder.TargetBlock{
-		Num:  blockNumBeforeTarget + 2, // Same handling for either value of slotBeforeTarget
-		Time: time.Unix(int64(timestampBeforeTarget), 0).Add(2 * slotDuration),
+		Num:  blockNumBeforeTarget + 2, // Same handling for either value of slotTargetOffset
+		Time: time.Unix(int64(timestampBeforeTarget), 0).Add(time.Duration(slotTargetOffset) * slotDuration),
 	}
 
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)

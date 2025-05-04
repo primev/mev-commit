@@ -68,8 +68,8 @@ func TestHandleMsg(t *testing.T) {
 			},
 			expectedError: false,
 			expectedTargetBlock: &bidder.TargetBlock{
-				Num:  32, // block num is 9 higher than slot number (not 10) to account for missed slot
-				Time: time.Unix(int64(32*12), 0),
+				Num:  32,                         // block num is 23+9 (not 23+10) to account for missed slot not incrementing block num
+				Time: time.Unix(int64(33*12), 0), // However the block time should correspond to 23+10
 			},
 		},
 		{
