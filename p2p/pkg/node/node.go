@@ -329,6 +329,14 @@ func NewNode(opts *Options) (*Node, error) {
 		return nil, errors.Join(err, nd.Close())
 	}
 
+	startables = append(
+		startables,
+		StartableObjWithDesc{
+			Desc:      "stakemanager",
+			Startable: stakeMgr,
+		},
+	)
+
 	p2pSvc, err := libp2p.New(&libp2p.Options{
 		KeySigner:      opts.KeySigner,
 		Secret:         opts.Secret,
