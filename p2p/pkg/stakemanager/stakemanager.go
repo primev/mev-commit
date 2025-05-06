@@ -281,15 +281,18 @@ func (sm *StakeManager) GetStake(ctx context.Context, provider common.Address) (
 			return nil, fmt.Errorf("failed to get provider stake: %w", err)
 		}
 
-		sm.stakeMu.Lock()
-		_ = sm.stakes.Add(provider, stake)
-		sm.stakeMu.Unlock()
-		sm.logger.Debug("fetched provider stake from on-chain", "stake", stake.String())
+		// if stake is zero, it means the provider is not registered
+		if stake.Cmp(big.NewInt(0)) > 0 {
+			sm.stakeMu.Lock()
+			_ = sm.stakes.Add(provider, stake)
+			sm.stakeMu.Unlock()
+			sm.logger.Debug("fetched provider stake from on-chain", "stake", stake.String(), "minStake", sm.minStake.Load().String())
+		}
 
 		return stake, nil
 	}
 
-	sm.logger.Debug("provider found in local cache", "stake", stake.String())
+	sm.logger.Debug("provider found in local cache", "stake", stake.String(), "minStake", sm.minStake.Load().String())
 	return stake, nil
 }
 
