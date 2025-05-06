@@ -94,7 +94,7 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 	}
 
 	// Upcoming proposer slot hasn't started yet, so query block number for upcoming proposer slot - 2
-	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	slotTargetOffset := uint64(2)
 	blockNumBeforeTarget, timestampBeforeTarget, err := b.beaconClient.GetPayloadDataForSlot(timeoutCtx, upcomingProposer.Slot-slotTargetOffset)
@@ -102,7 +102,9 @@ func (b *SelectiveNotifier) handleMsg(ctx context.Context, msg *notificationsapi
 		b.logger.Warn("failed to get block number for upcoming proposer slot - 2. This likely indicates a missed slot", "error", err)
 		b.logger.Info("retrying with upcoming proposer slot - 3")
 		slotTargetOffset = uint64(3)
-		blockNumBeforeTarget, timestampBeforeTarget, err = b.beaconClient.GetPayloadDataForSlot(timeoutCtx, upcomingProposer.Slot-slotTargetOffset)
+		retryTimeoutCtx, retryCancel := context.WithTimeout(ctx, 3*time.Second)
+		defer retryCancel()
+		blockNumBeforeTarget, timestampBeforeTarget, err = b.beaconClient.GetPayloadDataForSlot(retryTimeoutCtx, upcomingProposer.Slot-slotTargetOffset)
 		if err != nil {
 			b.logger.Error("failed to get block number for upcoming proposer slot - 3. No more retries", "error", err)
 			return err
