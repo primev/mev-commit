@@ -37,6 +37,16 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         _disableInitializers();
     }
 
+    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
+
     /// @dev Initializes the contract with the provided parameters.
     function initialize(
         uint256 _minStake, 
@@ -52,16 +62,6 @@ contract VanillaRegistry is IVanillaRegistry, VanillaRegistryStorage,
         _setUnstakePeriodBlocks(_unstakePeriodBlocks);
         FeePayout.init(slashingFundsTracker, _slashReceiver, _slashingPayoutPeriodBlocks);
         __Ownable_init(_owner);
-    }
-
-    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
-    }
-
-    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
-    fallback() external payable {
-        revert Errors.InvalidFallback();
     }
 
     /* 

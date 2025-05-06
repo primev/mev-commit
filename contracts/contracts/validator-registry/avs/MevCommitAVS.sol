@@ -83,6 +83,16 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         _disableInitializers();
     }
 
+    /// @dev Receive function to prevent unintended contract interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to prevent unintended contract interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
+
     /// @dev Initializes the contract with provided parameters.
     function initialize(
         address owner_,
@@ -118,16 +128,6 @@ contract MevCommitAVS is IMevCommitAVS, MevCommitAVSStorage,
         __Ownable_init(owner_);
         __UUPSUpgradeable_init();
         __Pausable_init();
-    }
-
-    /// @dev Receive function to prevent unintended contract interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
-    }
-
-    /// @dev Fallback function to prevent unintended contract interactions.
-    fallback() external payable {
-        revert Errors.InvalidFallback();
     }
 
     /// @dev Registers an operator with the MevCommitAVS.

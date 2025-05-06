@@ -40,18 +40,20 @@ contract PreconfManager is
             "PreConfBid(string txnHash,string revertingTxHashes,uint256 bidAmt,uint64 blockNumber,uint64 decayStartTimeStamp,uint64 decayEndTimeStamp,uint256 slashAmt,uint256 bidderPKx,uint256 bidderPKy)"
         );
 
+    // Hex characters
+    bytes public constant HEXCHARS = "0123456789abcdef";
+
+    // Constants for elliptic curve operations
+    uint256 private constant _GX = 1;
+    uint256 private constant _GY = 2;
+    uint256 private constant _BN254_MASK_253 = (1 << 253) - 1;
+
     // EIP-712 domain separator
     bytes32 public domainSeparatorPreconf;
     bytes32 public domainSeparatorBid;
 
-    // Hex characters
-    bytes public constant HEXCHARS = "0123456789abcdef";
-
-    // zk proof related variables
+    // zk proof related variable
     bytes32 public zkContextHash;
-    uint256 private constant _GX = 1;
-    uint256 private constant _GY = 2;
-    uint256 private constant _BN254_MASK_253 = (1 << 253) - 1;
 
     /**
      * @dev Makes sure transaction sender is oracle contract
@@ -62,6 +64,26 @@ contract PreconfManager is
             SenderIsNotOracleContract(msg.sender, oracleContract)
         );
         _;
+    }
+
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Revert if eth sent to this contract
+     */
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /**
+     * @dev fallback to revert all the calls.
+     */
+    fallback() external payable {
+        revert Errors.InvalidFallback();
     }
 
     /**
@@ -117,26 +139,6 @@ contract PreconfManager is
         zkContextHash = keccak256(
             abi.encodePacked("mev-commit opening ", Strings.toString(chainId))
         );
-    }
-
-    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @dev Revert if eth sent to this contract
-     */
-    receive() external payable {
-        revert Errors.InvalidReceive();
-    }
-
-    /**
-     * @dev fallback to revert all the calls.
-     */
-    fallback() external payable {
-        revert Errors.InvalidFallback();
     }
 
     /**

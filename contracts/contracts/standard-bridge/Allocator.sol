@@ -17,12 +17,6 @@ import {Errors} from "../utils/Errors.sol";
 contract Allocator is AllocatorStorage, IAllocator,
     Ownable2StepUpgradeable, UUPSUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
 
-    function initialize(address _owner) external initializer {
-        __Ownable_init(_owner);
-        __Pausable_init();
-        __ReentrancyGuard_init();
-    }
-
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -35,6 +29,12 @@ contract Allocator is AllocatorStorage, IAllocator,
     /// @dev Fallback function is disabled for this contract to prevent unintended interactions.
     fallback() external payable {
         revert Errors.InvalidFallback();
+    }
+
+    function initialize(address _owner) external initializer {
+        __Ownable_init(_owner);
+        __Pausable_init();
+        __ReentrancyGuard_init();
     }
 
     function addToWhitelist(address _address) external onlyOwner {

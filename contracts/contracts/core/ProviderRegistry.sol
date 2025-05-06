@@ -32,6 +32,27 @@ contract ProviderRegistry is
         _;
     }
 
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Receive function is disabled for this contract to prevent unintended interactions.
+     * Should be removed from here in case the registerAndStake function becomes more complex
+     */
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
+
     /**
      * @dev Initializes the contract with a minimum stake requirement.
      * @param _minStake The minimum stake required for provider registration.
@@ -60,27 +81,6 @@ contract ProviderRegistry is
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
-    }
-
-    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @dev Receive function is disabled for this contract to prevent unintended interactions.
-     * Should be removed from here in case the registerAndStake function becomes more complex
-     */
-    receive() external payable {
-        revert Errors.InvalidReceive();
-    }
-
-    /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
-     */
-    fallback() external payable {
-        revert Errors.InvalidFallback();
     }
 
     /**

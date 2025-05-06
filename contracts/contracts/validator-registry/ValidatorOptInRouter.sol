@@ -22,6 +22,16 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
         _disableInitializers();
     }
 
+    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
+
     /// @notice Initializes the contract with the validator registry and mev-commit AVS contracts.
     function initialize(
         address _vanillaRegistry,
@@ -34,16 +44,6 @@ contract ValidatorOptInRouter is IValidatorOptInRouter, ValidatorOptInRouterStor
         mevCommitMiddleware = IMevCommitMiddleware(_mevCommitMiddleware);
         __Ownable_init(_owner);
         __UUPSUpgradeable_init();
-    }
-
-    /// @dev Receive function is disabled for this contract to prevent unintended interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
-    }
-
-    /// @dev Fallback function to revert all calls, ensuring no unintended interactions.
-    fallback() external payable {
-        revert Errors.InvalidFallback();
     }
 
     /// @notice Allows the owner to set the vanilla registry contract.
