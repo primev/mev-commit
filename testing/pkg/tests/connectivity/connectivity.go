@@ -54,13 +54,6 @@ func Run(ctx context.Context, cluster orchestrator.Orchestrator, _ any) error {
 					logger.Info("skipping notification", "topic", msg.Topic)
 					continue
 				}
-				// providers are blacklisted initially for 5 mins as they dont have stake. So we
-				// should wait for them to connect to the bidder.
-				if msg.Value.GetFields()["ethAddress"] == nil ||
-					!slices.Contains(providerAddrs, msg.Value.GetFields()["ethAddress"].GetStringValue()) {
-					logger.Info("skipping notification", "peer_id", msg.Value.GetFields()["ethAddress"])
-					continue
-				}
 				count++
 				if count == len(providers) {
 					logger.Info("all providers connected to bidder", "bidder", b.EthAddress())
