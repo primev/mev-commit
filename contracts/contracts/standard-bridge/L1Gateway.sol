@@ -21,20 +21,6 @@ contract L1Gateway is L1GatewayStorage, Gateway {
     error NoFundsNeedingWithdrawal(address recipient);
     error TransferFailed(address recipient);
 
-    function initialize(
-        address _owner, 
-        address _relayer, 
-        uint256 _counterpartyFinalizationFee
-    ) external initializer {
-        relayer = _relayer;
-        counterpartyFinalizationFee = _counterpartyFinalizationFee;
-        transferInitiatedIdx = 0;
-        transferFinalizedIdx = 1; // First expected transfer index is 1
-        __Ownable_init(_owner);
-        __Pausable_init();
-        __ReentrancyGuard_init();
-    }
-
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -47,6 +33,20 @@ contract L1Gateway is L1GatewayStorage, Gateway {
     /// @dev Fallback function is disabled for this contract to prevent unintended interactions.
     fallback() external payable {
         revert Errors.InvalidFallback();
+    }
+
+    function initialize(
+        address _owner, 
+        address _relayer, 
+        uint256 _counterpartyFinalizationFee
+    ) external initializer {
+        relayer = _relayer;
+        counterpartyFinalizationFee = _counterpartyFinalizationFee;
+        transferInitiatedIdx = 0;
+        transferFinalizedIdx = 1; // First expected transfer index is 1
+        __Ownable_init(_owner);
+        __Pausable_init();
+        __ReentrancyGuard_init();
     }
 
     /// @dev Allows any account to manually withdraw funds that failed to be transferred by the relayer.

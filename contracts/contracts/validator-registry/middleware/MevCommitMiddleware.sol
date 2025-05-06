@@ -58,47 +58,6 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
         _disableInitializers();
     }
 
-    /// @notice Initializes the middleware contract.
-    /// @param _networkRegistry Symbiotic core network registry contract.
-    /// @param _operatorRegistry Symbiotic core operator registry contract.
-    /// @param _vaultFactory Symbiotic core vault factory contract.
-    /// @param _burnerRouterFactory Symbiotic core burner router factory contract.
-    /// @param _network Address of the mev-commit network EOA.
-    /// @param _slashPeriodSeconds Oracle slashing must be invoked within `slashPeriodSeconds` of any event causing a validator to transition from *opted-in* to **not** *opted-in*.
-    /// @param _slashOracle Address of the mev-commit oracle.
-    /// @param _slashReceiver Address of the mev-commit slash receiver.
-    /// @param _minBurnerRouterDelay Minimum burner router delay.
-    /// @param _owner Contract owner address.
-    function initialize(
-        IRegistry _networkRegistry,
-        IRegistry _operatorRegistry,
-        IRegistry _vaultFactory,
-        IRegistry _delegatorFactory,
-        IRegistry _slasherFactory,
-        IRegistry _burnerRouterFactory,
-        address _network,
-        uint256 _slashPeriodSeconds,
-        address _slashOracle,
-        address _slashReceiver,
-        uint256 _minBurnerRouterDelay,
-        address _owner
-    ) public initializer {
-        _setNetworkRegistry(_networkRegistry);
-        _setOperatorRegistry(_operatorRegistry);
-        _setVaultFactory(_vaultFactory);
-        _setDelegatorFactory(_delegatorFactory);
-        _setSlasherFactory(_slasherFactory);
-        _setBurnerRouterFactory(_burnerRouterFactory);
-        _setNetwork(_network);
-        _setSlashPeriodSeconds(_slashPeriodSeconds);
-        _setSlashOracle(_slashOracle);
-        _setSlashReceiver(_slashReceiver);
-        _setMinBurnerRouterDelay(_minBurnerRouterDelay);
-        __Pausable_init();
-        __UUPSUpgradeable_init();
-        __Ownable_init(_owner);
-    }
-
     /// @dev Receive function to prevent unintended contract interactions.
     receive() external payable {
         revert Errors.InvalidReceive();
@@ -428,6 +387,47 @@ contract MevCommitMiddleware is IMevCommitMiddleware, MevCommitMiddlewareStorage
 
     function isVaultBurnerValidAgainstOperator(address vault, address operator) external view returns (bool) {
         return _validateVaultBurnerAgainstOperator(vault, operator);
+    }
+
+    /// @notice Initializes the middleware contract.
+    /// @param _networkRegistry Symbiotic core network registry contract.
+    /// @param _operatorRegistry Symbiotic core operator registry contract.
+    /// @param _vaultFactory Symbiotic core vault factory contract.
+    /// @param _burnerRouterFactory Symbiotic core burner router factory contract.
+    /// @param _network Address of the mev-commit network EOA.
+    /// @param _slashPeriodSeconds Oracle slashing must be invoked within `slashPeriodSeconds` of any event causing a validator to transition from *opted-in* to **not** *opted-in*.
+    /// @param _slashOracle Address of the mev-commit oracle.
+    /// @param _slashReceiver Address of the mev-commit slash receiver.
+    /// @param _minBurnerRouterDelay Minimum burner router delay.
+    /// @param _owner Contract owner address.
+    function initialize(
+        IRegistry _networkRegistry,
+        IRegistry _operatorRegistry,
+        IRegistry _vaultFactory,
+        IRegistry _delegatorFactory,
+        IRegistry _slasherFactory,
+        IRegistry _burnerRouterFactory,
+        address _network,
+        uint256 _slashPeriodSeconds,
+        address _slashOracle,
+        address _slashReceiver,
+        uint256 _minBurnerRouterDelay,
+        address _owner
+    ) public initializer {
+        _setNetworkRegistry(_networkRegistry);
+        _setOperatorRegistry(_operatorRegistry);
+        _setVaultFactory(_vaultFactory);
+        _setDelegatorFactory(_delegatorFactory);
+        _setSlasherFactory(_slasherFactory);
+        _setBurnerRouterFactory(_burnerRouterFactory);
+        _setNetwork(_network);
+        _setSlashPeriodSeconds(_slashPeriodSeconds);
+        _setSlashOracle(_slashOracle);
+        _setSlashReceiver(_slashReceiver);
+        _setMinBurnerRouterDelay(_minBurnerRouterDelay);
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+        __Ownable_init(_owner);
     }
 
     function _setOperatorRecord(address operator) internal {

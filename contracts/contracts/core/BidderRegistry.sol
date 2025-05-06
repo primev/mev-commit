@@ -29,6 +29,27 @@ contract BidderRegistry is
         _;
     }
 
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Receive function registers bidders and takes their deposit
+     * Should be removed from here in case the deposit function becomes more complex
+     */
+    receive() external payable {
+        revert("Invalid call");
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert("Invalid call");
+    }
+
     /**
      * @dev Initializes the contract with a minimum deposit requirement.
      * @param _protocolFeeRecipient The address that accumulates protocol fees
@@ -50,27 +71,6 @@ contract BidderRegistry is
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
         __Pausable_init();
-    }
-
-    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @dev Receive function registers bidders and takes their deposit
-     * Should be removed from here in case the deposit function becomes more complex
-     */
-    receive() external payable {
-        revert("Invalid call");
-    }
-
-    /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
-     */
-    fallback() external payable {
-        revert("Invalid call");
     }
 
     /**

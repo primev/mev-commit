@@ -24,18 +24,6 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
         _;
     }
 
-    /**
-     * @dev Initializes the BlockTracker contract with the specified owner.
-     * @param oracleAccount_ Address of the permissoined oracle account.
-     * @param owner_ Address of the contract owner.
-     */
-    function initialize(address oracleAccount_, address owner_) external initializer {
-        currentWindow = 1;
-        _setOracleAccount(oracleAccount_);
-        __Ownable_init(owner_);
-        __Pausable_init();
-    }
-
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -55,6 +43,18 @@ contract BlockTracker is IBlockTracker, BlockTrackerStorage,
      */
     fallback() external payable {
         revert Errors.InvalidFallback();
+    }
+
+    /**
+     * @dev Initializes the BlockTracker contract with the specified owner.
+     * @param oracleAccount_ Address of the permissoined oracle account.
+     * @param owner_ Address of the contract owner.
+     */
+    function initialize(address oracleAccount_, address owner_) external initializer {
+        currentWindow = 1;
+        _setOracleAccount(oracleAccount_);
+        __Ownable_init(owner_);
+        __Pausable_init();
     }
 
     /**

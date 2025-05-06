@@ -2,6 +2,12 @@
 pragma solidity 0.8.26;
 
 interface IBidderRegistry {
+    enum State {
+        Undefined,
+        PreConfirmed,
+        Withdrawn
+    }
+
     struct OpenedCommitment {
         string txnHash;
         uint256 bidAmt;
@@ -16,12 +22,6 @@ interface IBidderRegistry {
         address bidder;
         uint256 bidAmt;
         State state;
-    }
-
-    enum State {
-        Undefined,
-        PreConfirmed,
-        Withdrawn
     }
 
     /// @dev Event emitted when a bidder is registered with their deposited amount

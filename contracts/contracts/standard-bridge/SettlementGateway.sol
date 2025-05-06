@@ -14,22 +14,6 @@ contract SettlementGateway is Gateway {
     error IncorrectEtherValueSent(uint256 msgValue, uint256 amountExpected);
     error TransferFailed(address recipient, uint256 amount);
     
-    function initialize(
-        address _allocatorAddr,
-        address _owner,
-        address _relayer,
-        uint256 _counterpartyFinalizationFee
-    ) external initializer {
-        allocatorAddr = _allocatorAddr;
-        relayer = _relayer;
-        counterpartyFinalizationFee = _counterpartyFinalizationFee;
-        transferInitiatedIdx = 0;
-        transferFinalizedIdx = 1; // First expected transfer index is 1
-        __Ownable_init(_owner);
-        __Pausable_init();
-        __ReentrancyGuard_init();
-    }
-
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -44,6 +28,22 @@ contract SettlementGateway is Gateway {
     /// @dev Fallback function is disabled for this contract to prevent unintended interactions.
     fallback() external payable {
         revert Errors.InvalidFallback();
+    }
+
+    function initialize(
+        address _allocatorAddr,
+        address _owner,
+        address _relayer,
+        uint256 _counterpartyFinalizationFee
+    ) external initializer {
+        allocatorAddr = _allocatorAddr;
+        relayer = _relayer;
+        counterpartyFinalizationFee = _counterpartyFinalizationFee;
+        transferInitiatedIdx = 0;
+        transferFinalizedIdx = 1; // First expected transfer index is 1
+        __Ownable_init(_owner);
+        __Pausable_init();
+        __ReentrancyGuard_init();
     }
 
     // Burns native ether on settlement chain by sending it to the allocator contract,

@@ -23,6 +23,24 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         _;
     }
 
+    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @dev Empty receive function to prevent unintended interactions.
+    receive() external payable {
+        revert Errors.InvalidReceive();
+    }
+
+    /**
+     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
+     */
+    fallback() external payable {
+        revert Errors.InvalidFallback();
+    }
+
     /**
      * @dev Initializes the contract with a PreConfirmations contract.
      * @param preconfManager_ The address of the preconf manager contract.
@@ -41,24 +59,6 @@ contract Oracle is OracleStorage, IOracle, Ownable2StepUpgradeable, UUPSUpgradea
         _setOracleAccount(oracleAccount_);
         __Ownable_init(owner_);
         __Pausable_init();
-    }
-
-    /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    /// @dev Empty receive function to prevent unintended interactions.
-    receive() external payable {
-        revert Errors.InvalidReceive();
-    }
-
-    /**
-     * @dev Fallback function to revert all calls, ensuring no unintended interactions.
-     */
-    fallback() external payable {
-        revert Errors.InvalidFallback();
     }
 
     /**

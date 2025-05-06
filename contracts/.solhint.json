@@ -15,8 +15,6 @@
     "private-vars-leading-underscore": "error",
     "gas-length-in-loops": "error",
     "const-name-snakecase": "error",
-    "contract-name-camelcase": "error",
-    "event-name-camelcase": "error",
     "func-name-mixedcase": "error",
     "immutable-vars-naming": "error",
     "use-forbidden-name": "error",
@@ -25,6 +23,7 @@
     "visibility-modifier-order": "error",
     "reason-string": "error",
     "gas-custom-errors": "off",
-    "max-states-count": ["error", 20]
+    "max-states-count": ["error", 20],
+    "import-path-check": "off"
   }
 }
