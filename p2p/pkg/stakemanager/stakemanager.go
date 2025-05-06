@@ -264,6 +264,7 @@ func (sm *StakeManager) GetStake(ctx context.Context, provider common.Address) (
 	_, found := sm.unstakeReqs.Get(provider)
 	sm.stakeMu.RUnlock()
 	if found {
+		sm.logger.Debug("provider is in unstake requests, returning zero stake")
 		return big.NewInt(0), nil
 	}
 
