@@ -272,7 +272,6 @@ func (sm *StakeManager) GetStake(ctx context.Context, provider common.Address) (
 	stake, found := sm.stakes.Get(provider)
 	sm.stakeMu.RUnlock()
 	if !found {
-		sm.logger.Debug("provider not found in local cache, fetching from on-chain")
 		stake, err := sm.providerRegistry.GetProviderStake(&bind.CallOpts{
 			From:    sm.owner,
 			Context: ctx,
@@ -286,13 +285,16 @@ func (sm *StakeManager) GetStake(ctx context.Context, provider common.Address) (
 			sm.stakeMu.Lock()
 			_ = sm.stakes.Add(provider, stake)
 			sm.stakeMu.Unlock()
-			sm.logger.Debug("fetched provider stake from on-chain", "stake", stake.String(), "minStake", sm.minStake.Load().String())
+			sm.logger.Debug(
+				"fetched provider stake from on-chain",
+				"stake", stake.String(),
+				"minStake", sm.minStake.Load().String(),
+			)
 		}
 
 		return stake, nil
 	}
 
-	sm.logger.Debug("provider found in local cache", "stake", stake.String(), "minStake", sm.minStake.Load().String())
 	return stake, nil
 }
 
