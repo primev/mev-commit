@@ -29,7 +29,7 @@ contract RewardManagerStorage {
     mapping(bytes pubkey => uint256 amount) public orphanedRewards;
 
     /// @dev Overridden claim addresses.
-    mapping(address delegator => address overrideAddress) public overrideClaimAddresses;
+    mapping(address delegator => address overrideAddress) public overriddenClaimAddresses;
 
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#storage-gaps
     uint256[48] private __gap;
