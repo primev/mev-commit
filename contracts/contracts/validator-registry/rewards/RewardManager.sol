@@ -65,8 +65,8 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
             emit OrphanedRewardsAccumulated(msg.sender, pubkey, msg.value);
             return;
         }
-        if (overrideClaimAddresses[toPay] != address(0)) {
-            toPay = overrideClaimAddresses[toPay];
+        if (overriddenClaimAddresses[toPay] != address(0)) {
+            toPay = overriddenClaimAddresses[toPay];
         }
         if (autoClaim[toPay]) {
             (bool success, ) = payable(toPay).call{value: msg.value, gas: autoClaimGasLimit}("");
@@ -98,13 +98,13 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
     /// @dev Allows the any reward recipient to delegate their rewards to another address.
     function overrideClaimAddress(address newClaimAddress) external whenNotPaused {
         require(newClaimAddress != address(0) && newClaimAddress != msg.sender, InvalidAddress());
-        overrideClaimAddresses[msg.sender] = newClaimAddress;
+        overriddenClaimAddresses[msg.sender] = newClaimAddress;
         emit OverrideClaimAddressSet(msg.sender, newClaimAddress);
     }
 
     /// @dev Removes the override claim address for a reward recipient.
     function removeOverriddenClaimAddress() external whenNotPaused {
-        overrideClaimAddresses[msg.sender] = address(0);
+        overriddenClaimAddresses[msg.sender] = address(0);
         emit OverrideClaimAddressRemoved(msg.sender);
     }
 
