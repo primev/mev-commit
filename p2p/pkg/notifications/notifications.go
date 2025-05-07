@@ -11,6 +11,10 @@ const (
 	TopicPeerDisconnected       Topic = "peer_disconnected"
 	TopicValidatorOptedIn       Topic = "validator_opted_in"
 	TopicEpochValidatorsOptedIn Topic = "epoch_validators_opted_in"
+	TopicProviderRegistered     Topic = "provider_registered"
+	TopicProviderDeposit        Topic = "provider_deposit"
+	TopicProviderSlashed        Topic = "provider_slashed"
+	TopicProviderDeregistered   Topic = "provider_deregistered"
 )
 
 func IsTopicValid(topic Topic) bool {
