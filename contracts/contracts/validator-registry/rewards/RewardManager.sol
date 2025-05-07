@@ -1,39 +1,23 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.26;
 
-import {Errors} from "../utils/Errors.sol";
-import {IRewardManager} from "../interfaces/IRewardManager.sol";
+import {Errors} from "../../utils/Errors.sol";
+import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 import {RewardManagerStorage} from "./RewardManagerStorage.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {VanillaRegistryStorage} from "./VanillaRegistryStorage.sol";
-import {MevCommitAVSStorage} from "./avs/MevCommitAVSStorage.sol";
-import {MevCommitMiddlewareStorage} from "./middleware/MevCommitMiddlewareStorage.sol";
+import {VanillaRegistryStorage} from "../VanillaRegistryStorage.sol";
+import {MevCommitAVSStorage} from "../avs/MevCommitAVSStorage.sol";
+import {MevCommitMiddlewareStorage} from "../middleware/MevCommitMiddlewareStorage.sol";
 
 contract RewardManager is IRewardManager, RewardManagerStorage,
     Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+
     /// @dev See https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable#initializing_the_implementation_contract
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-    }
-
-    function initialize(
-        address vanillaRegistry,
-        address mevCommitAVS,
-        address mevCommitMiddleware,
-        uint256 autoClaimGasLimit,
-        address owner
-    ) external initializer {
-        _setVanillaRegistry(vanillaRegistry);
-        _setMevCommitAVS(mevCommitAVS);
-        _setMevCommitMiddleware(mevCommitMiddleware);
-        _setAutoClaimGasLimit(autoClaimGasLimit);
-
-        __Pausable_init();
-        __UUPSUpgradeable_init();
-        __Ownable_init(owner);
     }
 
     /// @dev Receive function is disabled for this contract to prevent unintended interactions.
@@ -46,6 +30,23 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         revert Errors.InvalidFallback();
     }
 
+    /// @dev Initializes the RewardManager contract.
+    function initialize(
+        address vanillaRegistry,
+        address mevCommitAVS,
+        address mevCommitMiddleware,
+        uint256 autoClaimGasLimit,
+        address owner
+    ) external initializer {
+        _setVanillaRegistry(vanillaRegistry);
+        _setMevCommitAVS(mevCommitAVS);
+        _setMevCommitMiddleware(mevCommitMiddleware);
+        _setAutoClaimGasLimit(autoClaimGasLimit);
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+        __Ownable_init(owner);
+    }
+
     /// @dev Enables the owner to pause the contract.
     function pause() external onlyOwner {
         _pause();
@@ -56,6 +57,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         _unpause();
     }
 
+    /// @dev Allows providers to pay opted-in proposers. 
     function payProposer(bytes calldata pubkey) external payable { // Intentionally don't allow pausing.
         address toPay = _findAddrToPay(pubkey);
         if (toPay == address(0)) {
@@ -70,42 +72,47 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
             (bool success, ) = payable(toPay).call{value: msg.value, gas: autoClaimGasLimit}("");
             if (!success) {
                 autoClaim[toPay] = false; // AutoClaim disabled after first failed transfer
-                rewards[toPay] += msg.value;
+                unclaimedRewards[toPay] += msg.value;
                 emit AutoClaimTransferFailed(toPay);
                 return;
             }
             emit AutoClaimed(msg.sender, toPay, msg.value);
         } else {
-            rewards[toPay] += msg.value;
+            unclaimedRewards[toPay] += msg.value;
             emit PaymentStored(msg.sender, toPay, msg.value);
         }
     }
 
+    /// @dev Enables auto-claim for a reward recipient.
     function enableAutoClaim() external whenNotPaused {
         autoClaim[msg.sender] = true;
         emit AutoClaimEnabled(msg.sender);
     }
 
+    /// @dev Disables auto-claim for a reward recipient.
     function disableAutoClaim() external whenNotPaused {
         autoClaim[msg.sender] = false;
         emit AutoClaimDisabled(msg.sender);
     }
 
+    /// @dev Allows the any reward recipient to delegate their rewards to another address.
     function overrideClaimAddress(address newClaimAddress) external whenNotPaused {
         require(newClaimAddress != address(0) && newClaimAddress != msg.sender, InvalidAddress());
         overrideClaimAddresses[msg.sender] = newClaimAddress;
         emit OverrideClaimAddressSet(msg.sender, newClaimAddress);
     }
 
+    /// @dev Removes the override claim address for a reward recipient.
     function removeOverriddenClaimAddress() external whenNotPaused {
         overrideClaimAddresses[msg.sender] = address(0);
         emit OverrideClaimAddressRemoved(msg.sender);
     }
 
+    /// @dev Allows a reward recipient to claim their rewards.
     function claimRewards() external whenNotPaused {
-        uint256 amount = rewards[msg.sender];
+        uint256 amount = unclaimedRewards[msg.sender];
         require(amount > 0, NoRewardsToClaim());
-        rewards[msg.sender] = 0;
+        unclaimedRewards[msg.sender] = 0;
         (bool success, ) = payable(msg.sender).call{value: amount}("");
         if (!success) {
             revert RewardsClaimFailed();
@@ -113,6 +120,7 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         emit RewardsClaimed(msg.sender, amount);
     }
 
+    /// @dev Allows the owner to claim orphaned rewards to appropriate addresses.
     function claimOrphanedRewards(bytes[] calldata pubkeys, address toPay) external onlyOwner {
         uint256 totalAmount = 0;
         uint256 len = pubkeys.length;
@@ -129,18 +137,22 @@ contract RewardManager is IRewardManager, RewardManagerStorage,
         }
     }
 
+    /// @dev Allows the owner to set the vanilla registry address.
     function setVanillaRegistry(address vanillaRegistry) external onlyOwner {
         _setVanillaRegistry(vanillaRegistry);
     }
 
+    /// @dev Allows the owner to set the mev commit avs address.
     function setMevCommitAVS(address mevCommitAVS) external onlyOwner {
         _setMevCommitAVS(mevCommitAVS);
     }
 
+    /// @dev Allows the owner to set the mev commit middleware address.
     function setMevCommitMiddleware(address mevCommitMiddleware) external onlyOwner {
         _setMevCommitMiddleware(mevCommitMiddleware);
     }
 
+    /// @dev Allows the owner to set the auto claim gas limit.
     function setAutoClaimGasLimit(uint256 autoClaimGasLimit) external onlyOwner {
         _setAutoClaimGasLimit(autoClaimGasLimit);
     }
