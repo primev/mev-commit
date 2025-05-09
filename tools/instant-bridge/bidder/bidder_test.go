@@ -213,20 +213,20 @@ WaitLoop:
 	for {
 		select {
 		case status := <-statusC:
-			switch {
-			case status.Type == bidder.BidStatusNoOfProviders:
+			switch status.Type {
+			case bidder.BidStatusNoOfProviders:
 				if status.Arg1 != 2 {
 					t.Fatalf("expected 2 providers, got %d", status.Arg1)
 				}
-			case status.Type == bidder.BidStatusWaitSecs:
+			case bidder.BidStatusWaitSecs:
 				if status.Arg1 != 2 {
 					t.Fatalf("expected 2 seconds, got %d", status.Arg1)
 				}
-			case status.Type == bidder.BidStatusAttempted:
+			case bidder.BidStatusAttempted:
 				if status.Arg1 != 11 {
 					t.Fatalf("expected 11, got %d", status.Arg1)
 				}
-			case status.Type == bidder.BidStatusSucceeded:
+			case bidder.BidStatusSucceeded:
 				break WaitLoop
 			}
 		case bid := <-rpcServices.bidChan:

@@ -88,7 +88,13 @@ func NewAPI(
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "ok\n")
+		_, err = fmt.Fprintf(w, "ok\n")
+		if err != nil {
+			a.logger.Error(
+				"failed to write response",
+				"error", err,
+			)
+		}
 	})
 
 	a.mux.HandleFunc("GET /estimate", func(w http.ResponseWriter, req *http.Request) {
@@ -218,22 +224,22 @@ func NewAPI(
 		}
 
 		for status := range statusC {
-			switch {
-			case status.Type == bidder.BidStatusNoOfProviders:
+			switch status.Type {
+			case bidder.BidStatusNoOfProviders:
 				a.logger.Info("no of providers", "count", status.Arg1)
-			case status.Type == bidder.BidStatusWaitSecs:
+			case bidder.BidStatusWaitSecs:
 				a.logger.Info("waiting for next slot", "seconds", status.Arg1)
-			case status.Type == bidder.BidStatusAttempted:
+			case bidder.BidStatusAttempted:
 				a.logger.Info("bid attempted", "block", status.Arg1)
-			case status.Type == bidder.BidStatusFailed:
+			case bidder.BidStatusFailed:
 				apiserver.WriteError(
 					w,
 					http.StatusInternalServerError,
 					fmt.Errorf("bid failed: %s", status.Arg2),
 				)
 				return
-			case status.Type == bidder.BidStatusSucceeded:
-				break
+			case bidder.BidStatusSucceeded:
+				a.logger.Info("bid succeeded", "block", status.Arg1)
 			}
 		}
 

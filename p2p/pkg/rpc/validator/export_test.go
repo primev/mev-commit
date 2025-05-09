@@ -1,4 +1,3 @@
-// timings_test.go
 package validatorapi
 
 import (

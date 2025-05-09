@@ -134,6 +134,7 @@ func (s *Service) fetchCurrentEpoch(ctx context.Context, epoch uint64) (uint64, 
 		s.logger.Error("making request", "error", err)
 		return 0, status.Errorf(codes.Internal, "making request: %v", err)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -169,6 +170,7 @@ func (s *Service) fetchProposerDuties(ctx context.Context, epoch uint64) (*Propo
 		s.logger.Error("making request", "error", err)
 		return nil, status.Errorf(codes.Internal, "making request: %v", err)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -380,6 +382,7 @@ func (s *Service) fetchGenesisTime(ctx context.Context) (time.Time, error) {
 		s.logger.Error("making genesis request", "error", err)
 		return time.Time{}, err
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
