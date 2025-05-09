@@ -21,6 +21,8 @@ global:
     enabled: false
     # Secret store reference configured in your cluster
     secretStore: "aws-secretsmanager"
+    # Kind of secret store to use (SecretStore or ClusterSecretStore)
+    secretStoreKind: "ClusterSecretStore"
     # Key in secret store for node secrets
     nodeSecretKey: "mev-commit-node-secrets"
     # Key in secret store for TLS certificates (only if selfSigned is false)
@@ -129,26 +131,6 @@ node:
   # Reference to an existing secret with credentials
   existingSecret: ""
   
-  # Health probes
-  livenessProbe:
-    httpGet:
-      path: /v1/debug/health
-      port: http
-      scheme: HTTPS
-    initialDelaySeconds: 60
-    periodSeconds: 30
-    timeoutSeconds: 10
-    failureThreshold: 3
-  
-  readinessProbe:
-    httpGet:
-      path: /v1/debug/health
-      port: http
-      scheme: HTTPS
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 3
   
   # Node scheduling
   nodeSelector: {}
