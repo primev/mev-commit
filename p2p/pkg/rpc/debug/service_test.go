@@ -81,7 +81,7 @@ func (m *mockTopology) GetPeers(q topology.Query) []p2p.Peer {
 			},
 		}
 	}
-	
+
 	return nil
 }
 

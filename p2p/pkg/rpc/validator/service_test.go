@@ -343,7 +343,7 @@ func TestProcessEpoch(t *testing.T) {
 		} else if epoch == int(currentEpoch+1) {
 			_, err := fmt.Fprint(w, dutiesJSONEpoch11)
 			if err != nil {
-				t.Fatal("failed to write response:", err)	
+				t.Fatal("failed to write response:", err)
 			}
 		} else {
 			t.Fatalf("unexpected epoch request: %d", epoch)

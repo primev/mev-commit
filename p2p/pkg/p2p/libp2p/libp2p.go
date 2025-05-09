@@ -432,7 +432,7 @@ func (s *Service) Connect(ctx context.Context, info []byte) (p2p.Peer, error) {
 		return p2p.Peer{}, err
 	}
 	stream := newStream(streamlibp2p, nil, nil)
-	
+
 	//nolint:errcheck
 	defer stream.Close()
 

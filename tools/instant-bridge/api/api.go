@@ -91,7 +91,7 @@ func NewAPI(
 		_, err = fmt.Fprintf(w, "ok\n")
 		if err != nil {
 			a.logger.Error(
-				"failed to write response", 
+				"failed to write response",
 				"error", err,
 			)
 		}

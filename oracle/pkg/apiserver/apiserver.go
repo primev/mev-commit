@@ -257,7 +257,7 @@ func (s *Service) RegisterHealthCheck(hc health.Health) {
 			_, err := fmt.Fprintln(w, "ok")
 			if err != nil {
 				s.logger.Error(
-					"failed to write health check response", 
+					"failed to write health check response",
 					"error", err,
 				)
 			}
