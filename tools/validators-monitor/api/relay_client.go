@@ -111,6 +111,7 @@ func (c *RelayClient) queryOneRelay(
 		result.Error = fmt.Sprintf("request failed: %v", err)
 		return result
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	// attach status and timing

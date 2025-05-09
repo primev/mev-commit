@@ -421,12 +421,12 @@ func (t *Tracker) openCommitments(
 			preconfcommstore.IPreconfManagerOpenCommitmentParams{
 				UnopenedCommitmentIndex: commitmentIdx,
 				BidAmt:                  bidAmt,
-				BlockNumber:             uint64(commitment.PreConfirmation.Bid.BlockNumber),
-				TxnHash:                 commitment.PreConfirmation.Bid.TxHash,
-				RevertingTxHashes:       commitment.PreConfirmation.Bid.RevertingTxHashes,
-				DecayStartTimeStamp:     uint64(commitment.PreConfirmation.Bid.DecayStartTimestamp),
-				DecayEndTimeStamp:       uint64(commitment.PreConfirmation.Bid.DecayEndTimestamp),
-				BidSignature:            commitment.PreConfirmation.Bid.Signature,
+				BlockNumber:             uint64(commitment.Bid.BlockNumber),
+				TxnHash:                 commitment.Bid.TxHash,
+				RevertingTxHashes:       commitment.Bid.RevertingTxHashes,
+				DecayStartTimeStamp:     uint64(commitment.Bid.DecayStartTimestamp),
+				DecayEndTimeStamp:       uint64(commitment.Bid.DecayEndTimestamp),
+				BidSignature:            commitment.Bid.Signature,
 				SlashAmt:                slashAmt,
 				ZkProof:                 zkProof,
 			},
@@ -540,7 +540,7 @@ func (t *Tracker) generateZKProof(
 		return nil, fmt.Errorf("failed to parse bidder pubkey B: %w", err)
 	}
 
-	sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.PreConfirmation.SharedSecret)
+	sharedC, err := crypto.BN254PublicKeyFromBytes(commitment.SharedSecret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse shared secret C: %w", err)
 	}

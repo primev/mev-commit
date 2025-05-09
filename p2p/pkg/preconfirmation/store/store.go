@@ -94,7 +94,7 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 		writer = s.st
 	}
 
-	key := commitmentKey(commitment.Bid.BlockNumber, commitment.Bid.BidAmount, commitment.EncryptedPreConfirmation.Commitment)
+	key := commitmentKey(commitment.Bid.BlockNumber, commitment.Bid.BidAmount, commitment.Commitment)
 
 	buf, err := msgpack.Marshal(commitment)
 	if err != nil {
@@ -105,7 +105,7 @@ func (s *Store) AddCommitment(commitment *EncryptedPreConfirmationWithDecrypted)
 		return err
 	}
 
-	cIndexKey := cmtIndexKey(commitment.EncryptedPreConfirmation.Commitment)
+	cIndexKey := cmtIndexKey(commitment.Commitment)
 	cIndexValue := CommitmentIndexValue{
 		BlockNumber: commitment.Bid.BlockNumber,
 		BidAmount:   commitment.Bid.BidAmount,
@@ -194,7 +194,7 @@ func (s *Store) SetCommitmentIndexByDigest(cDigest, cIndex [32]byte) error {
 		return err
 	}
 
-	cmt.EncryptedPreConfirmation.CommitmentIndex = cIndex[:]
+	cmt.CommitmentIndex = cIndex[:]
 	buf, err := msgpack.Marshal(cmt)
 	if err != nil {
 		return err

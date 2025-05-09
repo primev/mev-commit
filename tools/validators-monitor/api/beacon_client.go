@@ -87,6 +87,7 @@ func (c *BeaconClient) GetProposerDuties(
 	if err != nil {
 		return nil, fmt.Errorf("calling beacon node: %w", err)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	logger := c.logger.With(
@@ -173,6 +174,7 @@ func (c *BeaconClient) GetBlockBySlot(
 	if err != nil {
 		return "", fmt.Errorf("calling beacon node: %w", err)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	logger := c.logger.With(

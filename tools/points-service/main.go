@@ -288,6 +288,7 @@ func updatePoints(db *sql.DB, logger *slog.Logger, currentBlock uint64) (retErr 
 	if queryErr != nil {
 		return fmt.Errorf("failed to query validator_records for points: %w", queryErr)
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	var count int
@@ -596,6 +597,7 @@ func main() {
 			if err != nil {
 				return fmt.Errorf("failed to connect to database: %w", err)
 			}
+			//nolint:errcheck
 			defer db.Close()
 
 			_, err = db.Exec(`INSERT OR IGNORE INTO last_processed_block (id, last_block) VALUES (1, ?)`, c.Int64(optionStartBlock.Name))
@@ -755,6 +757,7 @@ func main() {
 							logger.Error("failed to query for vault", "error", err)
 							return
 						}
+						//nolint:errcheck
 						defer rows.Close()
 						for rows.Next() {
 							var pubkey, adder string
@@ -779,6 +782,7 @@ func main() {
 							logger.Error("failed to query for operator", "error", err)
 							return
 						}
+						//nolint:errcheck
 						defer rows.Close()
 						for rows.Next() {
 							var pubkey string
@@ -821,6 +825,7 @@ func main() {
 							logger.Error("failed to query pubkeys for vault", "vault", vaultAddr, "error", err)
 							return
 						}
+						//nolint:errcheck
 						defer rows.Close()
 
 						var pubkeys [][]byte

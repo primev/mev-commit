@@ -309,14 +309,17 @@ func main() {
 	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigc
+		//nolint:errcheck
 		fmt.Fprintln(app.Writer, "received interrupt signal, exiting... Force exit with Ctrl+C")
 		cancel()
 		<-sigc
+		//nolint:errcheck
 		fmt.Fprintln(app.Writer, "force exiting...")
 		os.Exit(1)
 	}()
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
+		//nolint:errcheck
 		fmt.Fprintf(app.Writer, "exited with error: %v\n", err)
 	}
 }
@@ -413,6 +416,7 @@ func launchOracleWithConfig(c *cli.Context) error {
 	}
 
 	<-c.Done()
+	//nolint:errcheck
 	fmt.Fprintf(c.App.Writer, "shutting down...\n")
 	closed := make(chan struct{})
 

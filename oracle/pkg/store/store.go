@@ -407,6 +407,7 @@ func (s *Store) PendingTxns() ([]*txmonitor.TxnDetails, error) {
 	if err != nil {
 		return nil, err
 	}
+	//nolint:errcheck
 	defer rows.Close()
 
 	var txns []*txmonitor.TxnDetails

@@ -839,6 +839,7 @@ func NewNode(opts *Options) (*Node, error) {
 					return
 				}
 				w.WriteHeader(http.StatusOK)
+				//nolint:errcheck
 				fmt.Fprintln(w, "ok")
 			},
 		),

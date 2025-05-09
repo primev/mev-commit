@@ -61,7 +61,8 @@ func (m *mockP2PService) BlockedPeers() []p2p.BlockedPeerInfo {
 type mockTopology struct{}
 
 func (m *mockTopology) GetPeers(q topology.Query) []p2p.Peer {
-	if q.Type == p2p.PeerTypeProvider {
+	switch q.Type {
+	case p2p.PeerTypeProvider:
 		return []p2p.Peer{
 			{
 				EthAddress: common.HexToAddress("0x11111"),
@@ -70,7 +71,7 @@ func (m *mockTopology) GetPeers(q topology.Query) []p2p.Peer {
 				EthAddress: common.HexToAddress("0x22222"),
 			},
 		}
-	} else if q.Type == p2p.PeerTypeBidder {
+	case p2p.PeerTypeBidder:
 		return []p2p.Peer{
 			{
 				EthAddress: common.HexToAddress("0x33333"),
@@ -80,6 +81,7 @@ func (m *mockTopology) GetPeers(q topology.Query) []p2p.Peer {
 			},
 		}
 	}
+	
 	return nil
 }
 

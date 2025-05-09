@@ -50,6 +50,7 @@ func (s *pebbleStorage) WalkPrefix(prefix string, fn func(key string, val []byte
 	if err != nil {
 		return err
 	}
+	//nolint:errcheck
 	defer iter.Close()
 
 	for iter.First(); iter.Valid(); iter.Next() {
@@ -70,6 +71,7 @@ func (s *pebbleStorage) Delete(key string) error {
 
 func (s *pebbleStorage) DeletePrefix(prefix string) error {
 	batch := s.db.NewBatch()
+	//nolint:errcheck
 	defer batch.Close()
 
 	err := batch.DeleteRange([]byte(prefix), upperBound([]byte(prefix)), nil)

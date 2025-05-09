@@ -58,6 +58,7 @@ func (bc *beaconClient) getPayloadDataForSlot(ctx context.Context, slot uint64) 
 		bc.logger.Error("failed to execute request for block number", "error", err)
 		return 0, 0, fmt.Errorf("executing request: %w", err)
 	}
+	//nolint:errcheck
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
